@@ -1,0 +1,27 @@
+services:
+  app:
+    build: .
+    ports:
+      - '127.0.0.1:3001:3001'
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3001
+      DATA_DIR: /app/data
+      OLLAMA_BASE_URL: ${DOCKER_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    volumes:
+      - swarm-data:/app/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    cpus: 1.0
+
+volumes:
+  swarm-data:

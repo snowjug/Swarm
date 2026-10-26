@@ -1,0 +1,35 @@
+name: Quality and local container
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AI_PROVIDER: none
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-fund
+      - run: npm run check
+      - run: npm run format:check
+      - run: npm audit --audit-level=high
+      - run: docker compose config --quiet
+      - run: docker build --tag swarm-lab:ci .
+      - name: Verify container health and UI
+        shell: bash
+        run: |
+          container=$(docker run --detach --publish 127.0.0.1:3001:3001 swarm-lab:ci)
+          trap 'docker rm --force "$container"' EXIT
+          curl --fail --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:3001/api/health
+          curl --fail http://127.0.0.1:3001/ | grep 'Swarm Lab'

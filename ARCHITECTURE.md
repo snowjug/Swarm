@@ -25,22 +25,22 @@ reference's claims of predictive fidelity are not a guarantee.
 
 ### Reference components and evidence
 
-| Concern | Reference implementation | Inspected paths |
-| --- | --- | --- |
-| UI | Vue 3, JavaScript, Vite, Vue Router, Axios, D3, vue-i18n | `frontend/package.json`, router, Home, interaction component |
-| HTTP API | Flask + flask-cors; graph, simulation, report blueprints | `backend/app/__init__.py`, `backend/app/api/` |
-| Python environment | Python >=3.11,<3.13; uv/hatch; Pydantic | `backend/pyproject.toml` |
-| Document intake | PDF via PyMuPDF; text/Markdown; encoding detection | `backend/app/utils/file_parser.py`, graph API |
-| Knowledge | LLM ontology, Zep Cloud graph ingestion and search | ontology generator, graph builder, Zep tools |
-| Model access | OpenAI Python SDK / Chat Completions compatibility layer | `backend/app/utils/llm_client.py` |
-| Agent generation | Graph-grounded synthetic profiles and activity/platform/time configuration | profile and simulation configuration generators |
-| Simulation | `camel-oasis==0.2.5`, `camel-ai==0.2.78`; subprocesses, action logging, filesystem IPC interviews | parallel simulation script, runner, IPC service |
-| Memory | Batched simulation activity written to hosted Zep graph | Zep graph memory updater |
-| Reports | Bounded tool calls, section planning, reflection, graph search, interviews | `report_agent.py`, `zep_tools.py` |
-| Storage | Project/config/report JSON, uploaded/extracted text, action JSONL, OASIS SQLite, hosted graphs | project model, runner, report service |
-| Progress | Background threads/processes, polling endpoints, report log streams | task model and API routes |
-| Authentication | No user-authentication layer in inspected application initialization/routes | app factory and APIs |
-| Deployment | One development-mode image containing Python + Node; volume for uploads; GHCR build workflow | Dockerfile, Compose, image workflow |
+| Concern            | Reference implementation                                                                          | Inspected paths                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| UI                 | Vue 3, JavaScript, Vite, Vue Router, Axios, D3, vue-i18n                                          | `frontend/package.json`, router, Home, interaction component |
+| HTTP API           | Flask + flask-cors; graph, simulation, report blueprints                                          | `backend/app/__init__.py`, `backend/app/api/`                |
+| Python environment | Python >=3.11,<3.13; uv/hatch; Pydantic                                                           | `backend/pyproject.toml`                                     |
+| Document intake    | PDF via PyMuPDF; text/Markdown; encoding detection                                                | `backend/app/utils/file_parser.py`, graph API                |
+| Knowledge          | LLM ontology, Zep Cloud graph ingestion and search                                                | ontology generator, graph builder, Zep tools                 |
+| Model access       | OpenAI Python SDK / Chat Completions compatibility layer                                          | `backend/app/utils/llm_client.py`                            |
+| Agent generation   | Graph-grounded synthetic profiles and activity/platform/time configuration                        | profile and simulation configuration generators              |
+| Simulation         | `camel-oasis==0.2.5`, `camel-ai==0.2.78`; subprocesses, action logging, filesystem IPC interviews | parallel simulation script, runner, IPC service              |
+| Memory             | Batched simulation activity written to hosted Zep graph                                           | Zep graph memory updater                                     |
+| Reports            | Bounded tool calls, section planning, reflection, graph search, interviews                        | `report_agent.py`, `zep_tools.py`                            |
+| Storage            | Project/config/report JSON, uploaded/extracted text, action JSONL, OASIS SQLite, hosted graphs    | project model, runner, report service                        |
+| Progress           | Background threads/processes, polling endpoints, report log streams                               | task model and API routes                                    |
+| Authentication     | No user-authentication layer in inspected application initialization/routes                       | app factory and APIs                                         |
+| Deployment         | One development-mode image containing Python + Node; volume for uploads; GHCR build workflow      | Dockerfile, Compose, image workflow                          |
 
 The API is grouped under `/api/graph`, `/api/simulation`, and `/api/report`.
 It includes project management, ontology/build tasks, graph reads, simulation
@@ -130,10 +130,66 @@ One process owns one bounded queue and one SQLite database. Queued/running work
 interrupted by restart is explicitly failed, not silently resumed or reported as
 complete. This is a local, single-user architecture, not a distributed job system.
 
+### Implemented module boundaries
+
+| Module                          | Responsibility                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------ |
+| `shared/types.ts`               | Shared input validation, limits and request/result types                             |
+| `backend/src/app.ts`, `routes/` | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits               |
+| `backend/src/storage/`          | SQLite persistence, storage decoding, events, conversations and restart recovery     |
+| `backend/src/knowledge/`        | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation |
+| `backend/src/agents/`           | Persona setup, simultaneous state updates, model tasks, review and reporting         |
+| `backend/src/models/`           | Bounded provider transport, schemas, timeouts/retries and usage reporting            |
+| `backend/src/orchestration/`    | Queue ownership, execution/cancellation, follow-up locking and context assembly      |
+| `frontend/src/hooks/`           | Race/abort-safe project lifecycle, history and active-run polling                    |
+| `frontend/src/components/`      | Input, graph, persona, round, report, evidence and interaction views                 |
+
+The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
+topic interests, influence, openness and four recent memory entries. All round
+actions remain persisted in the project snapshot. Local updates read the prior
+round population before applying any changes; per-agent iteration order does
+not create sequential-update bias.
+
+Community exposure uses up to five compatible peers, topic affinity and an
+inclination confidence bound of `0.95`. Broadcast exposure uses up to four
+highest-influence peers. Openness weights convergence, seeded noise is bounded,
+and a scheduled intervention applies only in its nominated round. These rules
+are explicit assumptions, not fitted human-behavior parameters.
+
+Model-assisted tasks use distinct constrained prompts and schemas for graph,
+personas, each round and report. Review/limitations are also computed server-side.
+No open-ended ReAct loop or model-selected tools are needed for this bounded MVP.
+User follow-ups receive retrieved passages, recorded report/persona state and a
+bounded conversation excerpt. There is no external web-research agent.
+
+Support/opposition thresholds are `>= +0.2` / `<= -0.2`; all remaining proxies are
+undecided. Polarization is population standard deviation, not a calibrated
+political/social measure. Local interactions count actual selected peer exposures;
+model interactions count validated peer IDs reported in decisions.
+
+### Persistence and failure semantics
+
+SQLite schema version 1 has `projects`, `chunks`, `events` and `messages`.
+JSON payloads are decoded with runtime schemas. SQL values are parameterized and
+source filenames never become paths. Foreign-key deletion removes associated
+chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.
+
+Project state is `draft -> queued -> running -> completed`, or explicit
+`failed`/`cancelled`. An active cancellation remains running until in-flight work
+has stopped; restart is rejected while the previous worker still owns the job.
+Successful completion follows report persistence. Completed projects require
+duplication rather than destructive reruns. No provider failure becomes a
+success-shaped local fallback.
+
+See [README.md](./README.md) for tested operations, resource limits, API shapes,
+security assumptions and the currently unresolved transitive dependency advisory
+status. Deployment must not infer production readiness from local test success.
+
 ## Azure migration direction
 
 The local MVP is the prerequisite. Do not deploy paid resources merely to run it.
-See the final deployment section in [README.md](./README.md) for operations.
+See [docs/AZURE.md](./docs/AZURE.md) for the phased migration plan and acceptance
+criteria, and [README.md](./README.md) for local operations.
 
 1. Keep the same React/API container. Prefer **Azure Container Apps** for an existing
    container workflow, or **App Service** when built-in Entra authentication and
