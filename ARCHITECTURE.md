@@ -76,10 +76,27 @@ Essential: bounded document intake, a source-linked knowledge representation,
 synthetic personas, a stateful agent simulation, progress/cancellation, reporting,
 evidence inspection, optional real model interactions, and persistent history.
 
-Not implemented in this milestone: PDF/OCR, arbitrary webpage fetching, live social
-network access, OASIS compatibility, thousands of agents, simultaneous dual-platform
-simulation, semantic neural embeddings, multi-user authentication, or calibrated
+Not implemented: OCR, arbitrary webpage fetching, live social
+network access, OASIS compatibility, thousands of agents,
+semantic neural embeddings, multi-user authentication, or calibrated
 real-world probabilities. The UI must not imply otherwise.
+
+Version 0.2 adds text-PDF extraction, real guided-stage boundaries, independent
+dual-platform contexts, synthetic memory, report-tool traces/chapters and
+asynchronous surveys. It does not turn the local lexical engine into generative AI.
+
+### Live-console interaction reference
+
+The live `/mirofish-demo/console` was followed through all five screens:
+source/question entry; ontology/graph build; persona/configuration preparation;
+two-platform execution with memory feedback; report/operation inspection; and
+report/persona interaction with multi-target survey selection. Its own entry
+page says it is a static demo without connected agent-chat inference.
+
+Our UI adopts the guided interaction model, light technical layout and
+Graph/Split/Workbench views with an original Swarm Lab design. Its counters,
+graphs, statuses, event streams, reports and traces come from actual persisted
+execution. No demonstration case, asset, graph dataset or prerecorded output was copied.
 
 The default local engine uses real, reproducible opinion-dynamics calculations.
 Topic extraction is term-frequency/co-occurrence based, not semantic AI extraction.
@@ -99,11 +116,12 @@ React + TypeScript
             ├─ validation, origin/host checks, rate and size limits
             ├─ SQLite repository: projects, chunks, events, conversation
             ├─ bounded single-worker orchestration queue
-            │    ├─ knowledge extraction
-            │    ├─ fictional persona setup
-            │    ├─ seeded simulation / model decisions
-            │    ├─ limitations/review
-            │    └─ source-linked report
+            │    ├─ ontology + source graph (then pause)
+            │    ├─ fictional persona + editable environment (then pause)
+            │    ├─ independent platform rounds + synthetic memory (then pause)
+            │    └─ bounded report tools + progressive chapters (then interaction)
+            ├─ isolated PDF text-extraction worker
+            ├─ bounded chat / asynchronous survey ownership
             └─ model adapter (optional)
                  ├─ Ollama local HTTP API
                  ├─ OpenAI-compatible Chat Completions
@@ -132,17 +150,20 @@ complete. This is a local, single-user architecture, not a distributed job syste
 
 ### Implemented module boundaries
 
-| Module                          | Responsibility                                                                       |
-| ------------------------------- | ------------------------------------------------------------------------------------ |
-| `shared/types.ts`               | Shared input validation, limits and request/result types                             |
-| `backend/src/app.ts`, `routes/` | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits               |
-| `backend/src/storage/`          | SQLite persistence, storage decoding, events, conversations and restart recovery     |
-| `backend/src/knowledge/`        | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation |
-| `backend/src/agents/`           | Persona setup, simultaneous state updates, model tasks, review and reporting         |
-| `backend/src/models/`           | Bounded provider transport, schemas, timeouts/retries and usage reporting            |
-| `backend/src/orchestration/`    | Queue ownership, execution/cancellation, follow-up locking and context assembly      |
-| `frontend/src/hooks/`           | Race/abort-safe project lifecycle, history and active-run polling                    |
-| `frontend/src/components/`      | Input, graph, persona, round, report, evidence and interaction views                 |
+| Module                             | Responsibility                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `shared/types.ts`                  | Shared input validation, limits and request/result types                                                       |
+| `backend/src/app.ts`, `routes/`    | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                         |
+| `backend/src/storage/`             | SQLite persistence, storage decoding, events, conversations and restart recovery                               |
+| `backend/src/knowledge/`           | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                           |
+| `backend/src/agents/`              | Persona setup, simultaneous state updates, model tasks, review and reporting                                   |
+| `backend/src/models/`              | Bounded provider transport, schemas, timeouts/retries and usage reporting                                      |
+| `backend/src/orchestration/`       | Shared quick/guided queue ownership, cancellation, follow-up locking and survey lifecycle                      |
+| `backend/src/guided/`              | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation               |
+| `backend/src/ingest/`              | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                  |
+| `shared/guided.ts`                 | Persisted stage, environment, memory, trace, survey and editing contracts                                      |
+| `frontend/src/hooks/`              | Race/abort-safe project lifecycle, history and active-run polling                                              |
+| `frontend/src/components/console/` | Light guided entry, graph/split/workbench, inspectors, preparation, streams, report/tool trace and interaction |
 
 The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
 topic interests, influence, openness and four recent memory entries. All round
@@ -157,10 +178,28 @@ and a scheduled intervention applies only in its nominated round. These rules
 are explicit assumptions, not fitted human-behavior parameters.
 
 Model-assisted tasks use distinct constrained prompts and schemas for graph,
-personas, each round and report. Review/limitations are also computed server-side.
-No open-ended ReAct loop or model-selected tools are needed for this bounded MVP.
+personas, configuration, each platform round and report. Review/limitations are also
+computed server-side. A bounded report plan can request local source/memory searches
+and up to two fictional interviews; only fixed, validated tools can run.
+There is no open-ended ReAct loop or arbitrary model-selected execution.
 User follow-ups receive retrieved passages, recorded report/persona state and a
 bounded conversation excerpt. There is no external web-research agent.
+
+Info Plaza and Topic Community start from separate copies of the prepared
+population, use broadcast/community exposure respectively, and keep independent
+state and memory. Matching simulated round clocks do not merge their histories.
+The aggregate snapshot averages the same proxy across selected platforms; shares
+are based on this original population, not a doubled independent sample.
+
+Initial posts are explicit scenario inputs. In local mode their strength/stance
+applies an assumed directional adjustment at round one. Model-assisted rounds
+receive the inputs as untrusted assumptions. Scenario minutes advance when actual
+round results persist, not through a presentation timer.
+
+Report model calls produce a real outline, optional interviews, summary and each
+chapter sequentially. Draft chapters remain visibly incomplete until the stage
+succeeds. Source IDs, synthetic-memory IDs and interview IDs are checked separately.
+No hidden reasoning or provider headers are placed in operation traces.
 
 Support/opposition thresholds are `>= +0.2` / `<= -0.2`; all remaining proxies are
 undecided. Polarization is population standard deviation, not a calibrated
@@ -174,12 +213,28 @@ JSON payloads are decoded with runtime schemas. SQL values are parameterized and
 source filenames never become paths. Foreign-key deletion removes associated
 chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.
 
-Project state is `draft -> queued -> running -> completed`, or explicit
+Guided project state is `draft -> queued -> running -> ready` for each of
+knowledge, environment and simulation. Report completion changes it to `completed`.
+Every stage has its own pending/queued/running/ready/failed/cancelled state.
+Quick-run compatibility retains `draft -> queued -> running -> completed`, or explicit
 `failed`/`cancelled`. An active cancellation remains running until in-flight work
 has stopped; restart is rejected while the previous worker still owns the job.
 Successful completion follows report persistence. Completed projects require
 duplication rather than destructive reruns. No provider failure becomes a
 success-shaped local fallback.
+
+Payload decoding defaults older rows to `workflow: quick` and `console: null`;
+no existing project is rewritten as if a second world, ontology or operation trace
+had been recorded. The existing SQLite table schema stays at version 1; guided
+payloads and exports carry their explicit new shape (guided export version 2).
+Restart recovery fails active stages, platform states, traces and surveys while
+retaining completed upstream output and partial survey responses.
+
+Survey batches share the global follow-up lock with chat, not the simulation
+queue. They expose persisted per-target progress, cancellation, a five-minute
+deadline and partial failure. Local state mode returns numeric recorded positions
+with null generated answers. Model-interview mode requires the scenario's real
+configured provider; it cannot silently fall back to those state snapshots.
 
 See [README.md](./README.md) for tested operations, resource limits, API shapes,
 security assumptions and the currently unresolved transitive dependency advisory

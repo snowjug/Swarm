@@ -3,8 +3,9 @@
 ## Starting point
 
 The native local application is implemented: React/TypeScript, Fastify, SQLite,
-bounded document retrieval, two honest engine modes, progress/cancellation,
-source-linked reporting, evidence inspection and persistent history. The local
+bounded TXT/Markdown/PDF intake, two honest engine modes, separately gated stages,
+independent platform state, synthetic memory, progress/cancellation,
+tool-backed reporting, evidence inspection, asynchronous surveys and persistent history. The local
 workflow has automated and browser validation. Real provider authentication/model
 quality and Docker execution require their respective services; they are not
 implied by mocked-provider tests or Compose syntax validation.
@@ -145,8 +146,9 @@ keep embedding versions/dimensions and citation metadata consistent. Use managed
 identity where supported. No embedding model is required by the current MVP.
 
 If original documents become large, add Blob Storage with scoped authorization,
-size limits, explicit content types and retention/deletion policies. PDF/OCR would
-need a separate bounded parser pipeline; do not label it implemented today.
+size limits, explicit content types and retention/deletion policies. Text-based PDF
+extraction already has an isolated bounded parser; OCR and large original-file
+retention need additional implementation.
 
 ### 6. Operate with explicit privacy and cost controls
 

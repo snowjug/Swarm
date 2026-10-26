@@ -1,7 +1,8 @@
 # Swarm Lab
 
-A local-first scenario workbench inspired by MiroFish's document → knowledge graph
-→ agent simulation → report → interaction workflow. Independently implemented in
+A local-first, graph-first guided console inspired by MiroFish's document →
+knowledge graph → environment → simulation → report → interaction workflow.
+Independently implemented in
 React and TypeScript. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the reference
 analysis, design boundaries, and Azure migration direction.
 
@@ -18,8 +19,10 @@ assumptions, not calibrated probabilities or decision-making guarantees.
   knowledge/personas, round decisions, reporting and interviews. Provider errors
   are surfaced; there is no fabricated response or silent fallback.
 
-The first milestone accepts UTF-8 TXT and Markdown, not PDF or scanned documents.
-No webpage crawling, live Twitter/Reddit connection, or shell access is provided.
+The console accepts UTF-8 TXT/Markdown and bounded, text-based PDFs. PDF parsing
+runs locally in an isolated, resource-limited worker; scanned PDFs need OCR,
+which is not implemented. No webpage crawling, live Twitter/Reddit connection,
+OASIS compatibility or agent shell access is provided.
 
 ## Prerequisites and setup
 
@@ -58,52 +61,77 @@ Open <http://127.0.0.1:3001>. One backend process serves both the built React
 application and the API. Run commands from the project root. Stop a foreground
 server with Ctrl+C before starting another on the same port.
 
-## Use the workbench
+## Use the guided console
 
-1. Open **New experiment**, or **Load starter scenario** to populate clearly
-   fictional, editable input. No example results are preloaded.
-2. Name the experiment, frame a question, and paste or upload source material.
-3. Choose the local engine or explicitly opt into a configured model provider.
-4. Choose population, rounds, seed and community/broadcast interaction structure.
-   Optionally schedule an intervention with an assumed stance and strength.
-5. **Save draft** or **Create & run**. Active runs expose persisted stages/events
-   and can be cancelled. Refreshing the browser preserves the selected project.
-6. Explore **Knowledge**, **Agents**, **Rounds**, **Report**, and **Evidence**.
-   Citation chips open original source passages with their offsets.
-7. In local mode, **Evidence inspector** retrieves source text and recorded state;
-   it is not conversational AI. Model-assisted projects support genuine generated
-   report follow-ups and fictional-persona interviews.
-8. Export Markdown or JSON, duplicate inputs to compare scenarios, or delete a
-   completed/draft/failed experiment. JSON export includes evidence and conversation.
+The default UI is a light, technical five-stage console, not a one-click replay.
+**Graph / Split / Workbench** switches the working layout; the graph, inspectors
+and docked operation log show actual persisted data. No example results, actors
+or counters are preloaded. A fictional starter fills editable input only.
 
-Completed results are not silently overwritten: duplicate the experiment to rerun
-with different settings. Retrying a failed/cancelled run starts a new attempt and
-replaces its partial artifacts; export JSON first if those partial results matter.
-Restart-interrupted work is marked failed with a retry explanation, not resumed
-or represented as completed.
+1. **Graph Build:** attach or paste source material, name the scenario and frame
+   a question. Choose local rules or explicitly opt into a configured provider,
+   then build. Inspect the ontology, graph, counts and source citations.
+   Local ontology is explicitly a topic/co-occurrence schema, not AI extraction.
+2. **Environment Setup:** prepare fictional proxies and configuration, then
+   inspect/edit persona assumptions, inclinations, influence, openness, rounds,
+   minutes per round, platform selection and initial scenario inputs. Save before
+   starting. IDs, source links and population size remain fixed after preparation.
+3. **Simulation:** run **Info Plaza** (broadcast exposure) and/or **Topic Community**
+   (community exposure). Each has a separate population state, recorded rounds,
+   clock and action stream. Synthetic memory is persisted and shown separately
+   from original source facts. Local update events are not fabricated social posts.
+4. **Report:** explicitly generate the report after simulation. Local reports
+   calculate recorded results. Model-assisted reports plan bounded tool use,
+   search sources/memory, inspect timelines, optionally interview fictional
+   proxies, and write real chapters progressively. Inspect tool input/output
+   beside the report; hidden model reasoning is not exposed.
+5. **Interaction:** keep the report beside evidence lookup or model-assisted
+   report/persona chat. Survey up to five selected proxies: **state snapshots**
+   return recorded numbers with no generated answer; **model interviews** make
+   actual provider requests and expose asynchronous progress, cancellation and
+   partial failures. Neither is a survey of real people.
+
+Each execution stage stops at **ready** and waits for the next explicit action.
+Later stages cannot bypass prerequisites. Cancellation stops owned work before
+retry is allowed. A failed stage preserves upstream outputs; retry re-executes that
+stage, replacing its unfinished output. Export JSON before retry if partial data
+matters. Interrupted stages and surveys are marked failed after restart, never
+silently completed or resumed.
+
+**History** preserves existing quick-run projects. Their recorded results remain
+readable in the new console, without invented ontology, operation traces or
+unrecorded second-platform results. Duplicate a historical project to use the
+guided workflow. Completed scenarios are read-only apart from follow-up history;
+duplicate inputs to run another scenario.
 
 ### Deliberate resource limits
 
-| Item                      | Limit                                                                             |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| Source documents          | 1–5 UTF-8 TXT/MD/Markdown files, or pasted notes                                  |
-| Document size             | 80–40,000 characters each; 100,000 total                                          |
-| HTTP request body         | 600 KB                                                                            |
-| Local population / rounds | 4–24 agents / 3–24 rounds                                                         |
-| Model population / rounds | 4–10 agents / 3–10 rounds                                                         |
-| Work queue                | One active simulation, three waiting                                              |
-| Execution deadline        | 15 minutes per run                                                                |
-| Model context / response  | 48,000 serialized input characters / 256 KB response                              |
-| Provider retries          | At most three HTTP attempts; bounded Retry-After on transient errors              |
-| Model stages              | Graph + personas + one call per round + report; at most 13 successful stage calls |
-| Follow-ups                | One active follow-up globally; 30 exchanges per experiment                        |
-| History                   | 100 experiments; export/delete old ones explicitly                                |
-| API rate limits           | 120 requests/minute/IP; create 20, run 6, follow-up 10/minute/IP                  |
+| Item                      | Limit                                                                                                                              |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Source documents          | 1–5 UTF-8 TXT/MD/Markdown files, text PDFs, or pasted notes                                                                        |
+| Document size             | 80–40,000 characters each; 100,000 total                                                                                           |
+| PDF extraction            | 2 MB / 40 pages / 40,000 characters; one isolated worker, 10 seconds, 192 MB old-generation heap                                   |
+| HTTP request body         | 600 KB normally; 2.7 MB encoded extraction request                                                                                 |
+| Local population / rounds | 4–24 agents / 3–24 rounds                                                                                                          |
+| Model population / rounds | 4–10 agents / 3–10 rounds                                                                                                          |
+| Work queue                | One active execution stage, three waiting                                                                                          |
+| Execution deadline        | 15 minutes per stage; five minutes per asynchronous survey                                                                         |
+| Model context / response  | 48,000 serialized input characters / 256 KB response                                                                               |
+| Provider retries          | At most three HTTP attempts; bounded Retry-After on transient errors                                                               |
+| Model stages              | Guided initial pass: up to `platforms × rounds + 13` successful model responses (33 at the maximum); historical quick run up to 13 |
+| Follow-ups                | One active chat/survey globally; 30 chat exchanges and five surveys per scenario; at most five survey targets                      |
+| History                   | 100 experiments; export/delete old ones explicitly                                                                                 |
+| API rate limits           | 120 requests/minute/IP; create 20, quick run 6, guided step 8, PDF/chat 10, survey 5/minute/IP                                     |
 
 Recorded model calls count successful provider envelopes, not failed HTTP attempts.
 Token counts are stored only when reported by the provider; zero does **not**
 establish zero usage or cost. Source excerpts and conversation context are bounded
 and may omit material from long inputs.
+Retries, repeated stage attempts and follow-ups are additional consumption.
+The same prepared fictional proxies are copied into each platform; combined
+inclination averages each proxy across platforms, not an enlarged independent
+population. The initial-post stance/strength controls are explicit assumptions;
+nonzero strength influences the first local round, not an inferred sentiment score.
 
 ## Configuration
 
@@ -167,7 +195,10 @@ cannot request arbitrary URLs or tools.
 
 SQLite is stored in `data\swarm-lab.sqlite` by default, with local WAL/SHM files.
 Sources, graph, personas, recorded rounds, reports, events and conversations persist
-there. No API keys are stored in the database. Data is plain text at rest, not
+there, including guided stages, separate platform states, synthetic memory, tool
+traces and survey progress. Original PDF bytes are not retained: the stored source
+is extracted text plus page-count metadata. No API keys are stored in the database.
+Data is plain text at rest, not
 application-encrypted, and is excluded from Git.
 
 Use one application process per database. Prefer a normal local disk rather than
@@ -190,25 +221,44 @@ All browser requests are same-origin. During development Vite provides the proxy
 Errors are non-2xx JSON: `{ "error": { "code": "...", "message": "...", "requestId": "..." } }`.
 Some not-found/rate-limit responses omit `requestId`; no provider error body is returned.
 
-| Method       | Path                                       | Behavior                                                                  |
-| ------------ | ------------------------------------------ | ------------------------------------------------------------------------- |
-| GET          | `/api/health`                              | Actual process/storage/queue readiness, not model connectivity            |
-| GET          | `/api/config`                              | Safe capabilities, limits and provider status; no key or private endpoint |
-| GET / POST   | `/api/projects`                            | Paginated history / validated draft creation                              |
-| GET / DELETE | `/api/projects/:id`                        | Full persisted detail / delete non-active experiment                      |
-| POST         | `/api/projects/:id/run`                    | Queue a draft/failed/cancelled experiment; returns 202                    |
-| POST         | `/api/projects/:id/cancel`                 | Cancel waiting work or request active cancellation                        |
-| GET          | `/api/projects/:id/evidence?query=...`     | Sparse-vector search; exact `S1`-style citation lookup                    |
-| GET          | `/api/projects/:id/evidence`               | Explicit unranked browsing of this project's bounded passages             |
-| GET / POST   | `/api/projects/:id/chat`                   | Read target conversation / perform a bounded follow-up                    |
-| GET          | `/api/projects/:id/export?format=markdown` | Escaped, source-linked report                                             |
-| GET          | `/api/projects/:id/export?format=json`     | Snapshot, chunks and conversation export                                  |
+| Method       | Path                                             | Behavior                                                                                         |
+| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
+| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                   |
+| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                        |
+| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                     |
+| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                             |
+| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                           |
+| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202 |
+| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                             |
+| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                               |
+| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                  |
+| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                           |
+| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                    |
+| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                           |
+| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported          |
+| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                            |
+| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                         |
+| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                    |
+| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks and conversation export                                                         |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
 Creation and result shapes are defined in [shared/types.ts](./shared/types.ts).
 Chat POST takes `{ "target": "report" | "agent-1", "message": "..." }`; GET accepts
 `?target=...`. Agent IDs must belong to the selected experiment.
+New UI creation sends `workflow: "guided"`; omitted workflow remains `"quick"` for
+API compatibility. Stage state and environment/survey input contracts are in
+[shared/guided.ts](./shared/guided.ts). Guided exports use `schemaVersion: 2`;
+historical quick exports remain version 1. Markdown requires a completed report;
+JSON can preserve a labeled partial snapshot.
+
+PDF extraction takes `{ "name": "source.pdf", "data": "BASE64_BYTES" }`, not a data
+URL or remote URL. The response contains extracted `content`, `pageCount` and
+`bytes`. Create the scenario with this text, not raw binary.
+
+Surveys take `{ "kind": "state" | "interview", "question": "...", "agentIds": [...] }`.
+Poll the project's `console.surveys` until completion. Local state snapshots have
+`answer: null`; generated answers are only produced by real model calls.
 
 ## Testing, linting and formatting
 
@@ -220,8 +270,10 @@ npm.cmd run format:check
 `check` runs strict backend/test/frontend TypeScript checks, ESLint, Vitest, and
 production backend/frontend builds. Tests cover input thresholds, exact source
 offsets, real retrieval, deterministic state transitions, measurable intervention
-effects, persistence/restart recovery, cancellation/queue bounds, HTTP boundaries,
-exports, and provider protocol/error handling.
+effects, stage prerequisites, editable preparation, separate platform state,
+memory, tool/citation validation, PDF extraction/bounds, asynchronous surveys,
+persistence/restart recovery, cancellation/queue bounds, HTTP boundaries, exports,
+frontend graph/console helpers and provider protocol/error handling.
 
 Provider tests use explicitly labeled fixture HTTP responses; they do **not**
 establish live model connectivity or reasoning quality. Live AI requires a
@@ -239,8 +291,20 @@ npm.cmd run format
 ```
 
 CI performs these checks, dependency auditing at high severity, Compose validation,
-and an actual Docker build/health/UI smoke test. Local Docker image execution
+and an actual Docker build/health/UI smoke test, including PDF parsing and the full
+staged local workflow inside the container. Local Docker image execution
 requires a running engine and is separate from native validation.
+
+Run the same real HTTP smoke flow against a local **0.2.0** backend:
+
+```powershell
+npm.cmd run smoke:console -- http://127.0.0.1:3001
+```
+
+It creates its own fictional PDF/scenario, verifies every gated stage and both
+platforms, checks a real report/state survey, and deletes that scenario on success.
+It never selects a model or spends provider quota. On failure, a scenario may remain
+for diagnosis; the container CI removes its own container in all cases.
 
 ## Docker (optional)
 
@@ -267,14 +331,23 @@ automatically. Do not expose Ollama publicly merely to connect a container.
 - **Local, single-user application; no user authentication or tenant isolation.**
   Loopback binding, explicit host/origin allowlists, CSP, request limits and rate
   limits do not replace authentication. Do not expose this server directly online.
-- Source names never become filesystem paths. Inputs are text only, type/size
-  checked on both sides, and stored with parameterized SQLite statements.
+- Source names never become filesystem paths. Text input is type/size checked on
+  both sides and stored with parameterized SQLite statements. PDFs use bounded
+  in-memory bytes and a disposable worker; no original upload is written to disk.
+- PDF workers do not inherit model credentials, execute embedded PDF scripts,
+  render forms/images, or fetch user-supplied URLs. Byte/page/text/time/heap limits
+  and one-worker concurrency protect the main API. This is not OCR or a guarantee
+  against every parser vulnerability; keep the parser dependency current.
 - Source text, webpage-looking text, memories and outputs are untrusted data.
   No arbitrary URL fetch, shell, code execution, plugins or filesystem tools are
   available to agents. Prompt boundaries reduce risk but do not prove immunity
   to prompt injection or hallucination.
 - Model output is schema-validated; agent/node/peer/citation IDs are checked.
   Valid citation IDs do not establish factual truth or semantic entailment.
+- Source citations (`S...`), synthetic memories (`M...`) and generated fictional
+  interviews (`I...`) have distinct provenance and are validated against the
+  actual context supplied to the model. Operation traces record bounded task/tool
+  input/output, never provider authorization headers or private chain-of-thought.
 - React renders source/model text as text, not raw HTML. Markdown exports escape
   untrusted HTML/Markdown. Downloaded JSON remains sensitive data if sources are.
 - Model endpoints are administrator-configured, not selected by input documents.
