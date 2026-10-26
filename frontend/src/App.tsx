@@ -1,281 +1,249 @@
 import { useEffect, useRef, useState } from 'react';
-import {
-  ArrowLeft,
-  ArrowUpRight,
-  FlaskConical,
-  Menu,
-  RefreshCw,
-  ShieldCheck,
-  X,
-} from 'lucide-react';
+import { ArrowLeft, ExternalLink, FlaskConical, History, Plus, RefreshCw, X } from 'lucide-react';
 import type { ProjectDetail } from '../../shared/types';
-import { CreateExperiment } from './components/CreateExperiment';
-import { Overview } from './components/Overview';
-import { ProjectWorkspace } from './components/ProjectWorkspace';
-import { Sidebar } from './components/Sidebar';
+import { ConsoleWorkspace } from './components/console/ConsoleWorkspace';
+import { EntryConsole } from './components/console/EntryConsole';
+import { HistoryDrawer } from './components/console/HistoryDrawer';
 import { EmptyPanel, Notice, Spinner } from './components/ui';
-import { useMediaQuery } from './hooks/useMediaQuery';
-import { useWorkbench } from './hooks/useWorkbench';
+import { useConsole } from './hooks/useConsole';
 import { sourceLink } from './lib/format';
 
-interface Creation {
-  id: number;
-  starter: boolean;
-  project?: ProjectDetail;
-}
-
 export default function App() {
-  const workbench = useWorkbench();
-  const [creation, setCreation] = useState<Creation | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const narrow = useMediaQuery('(max-width: 900px)');
-  const creationCounter = useRef(0);
-  const menuRef = useRef<HTMLButtonElement>(null);
-  const mainRef = useRef<HTMLElement>(null);
-  const navigated = useRef(false);
-  const closeSidebar = () => {
-    setSidebarOpen(false);
-    menuRef.current?.focus();
-  };
-  const showHome = () => {
-    setCreation(null);
-    workbench.selectProject(null);
-  };
-  const showNew = (starter = false, project?: ProjectDetail) => {
-    if (workbench.mutation) return;
-    workbench.selectProject(null);
-    setCreation({ id: ++creationCounter.current, starter, project });
-    window.scrollTo({ top: 0 });
-  };
-  const chooseProject = (id: string) => {
-    setCreation(null);
-    workbench.selectProject(id);
-    window.scrollTo({ top: 0 });
+  const console = useConsole();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
+  const main = useRef<HTMLElement>(null);
+  const didNavigate = useRef(false);
+  const project =
+    console.detail.id === console.selectedId && console.detail.data?.id === console.selectedId
+      ? console.detail.data
+      : null;
+  const source = sourceLink(console.config.data?.sourceUrl);
+  const busy = Boolean(console.operation);
+  const newProject = (initialProject?: ProjectDetail) => {
+    if (busy) return;
+    console.selectProject(null);
+    setCreation((old) => ({ key: old.key + 1, project: initialProject }));
   };
 
   useEffect(() => {
-    const handlePop = () => setCreation(null);
-    window.addEventListener('popstate', handlePop);
-    return () => window.removeEventListener('popstate', handlePop);
+    const pop = () => setCreation((old) => ({ key: old.key + 1 }));
+    window.addEventListener('popstate', pop);
+    return () => window.removeEventListener('popstate', pop);
   }, []);
-
   useEffect(() => {
-    if (!navigated.current) {
-      navigated.current = true;
+    if (!didNavigate.current) {
+      didNavigate.current = true;
       return;
     }
-    mainRef.current?.focus({ preventScroll: true });
+    main.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }, [creation?.id, workbench.selectedId]);
+  }, [console.selectedId, creation.key]);
 
-  useEffect(() => {
-    if (!sidebarOpen || !narrow) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const first = document.querySelector<HTMLElement>('#experiment-sidebar .brand-button');
-    first?.focus();
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [sidebarOpen, narrow]);
-
-  const configSource = sourceLink(workbench.config.data?.sourceUrl);
-  const projects = workbench.history.data?.projects ?? [];
-  const visibleActionError =
-    workbench.actionError?.id === workbench.selectedId ? workbench.actionError : null;
+  const actionError = console.actionError?.id === console.selectedId ? console.actionError : null;
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
-        Skip to content
+        Skip to console
       </a>
-      <Sidebar
-        projects={projects}
-        total={workbench.history.data?.total ?? 0}
-        selectedId={workbench.selectedId}
-        loading={workbench.history.loading}
-        error={workbench.history.error}
-        config={workbench.config.data}
-        open={sidebarOpen}
-        mobile={narrow}
-        onClose={closeSidebar}
-        onHome={showHome}
-        onNew={() => showNew()}
-        onSelect={chooseProject}
-        onRefresh={() => void workbench.loadHistory()}
-      />
-      <div className="main-shell" inert={sidebarOpen && narrow ? true : undefined}>
-        <header className="topbar">
-          <div className="topbar-location">
+      <header className="app-header">
+        <div className="header-brand">
+          {console.selectedId && (
             <button
-              ref={menuRef}
-              className="icon-button mobile-only"
+              className="icon-button"
               type="button"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open experiment navigation"
-              aria-controls="experiment-sidebar"
-              aria-expanded={sidebarOpen}
+              aria-label="Back to entry console"
+              onClick={() => newProject()}
+              disabled={busy}
             >
-              <Menu size={21} aria-hidden="true" />
+              <ArrowLeft size={18} />
             </button>
-            <FlaskConical size={17} aria-hidden="true" />
-            <span>Workspace</span>
-            <span className="topbar-slash">/</span>
-            <strong>
-              {creation
-                ? 'New experiment'
-                : workbench.selectedId
-                  ? 'Experiment notebook'
-                  : 'Overview'}
-            </strong>
-          </div>
-          <div className="topbar-right">
-            <span className="private-label">
-              <ShieldCheck size={14} aria-hidden="true" /> SINGLE-USER · LOCAL-FIRST
+          )}
+          <button
+            className="brand-button"
+            type="button"
+            onClick={() => newProject()}
+            disabled={busy}
+          >
+            <span className="brand-mark">
+              <FlaskConical size={18} aria-hidden="true" />
             </span>
-            <span className="version-label">
-              {workbench.config.data ? `v${workbench.config.data.version}` : 'SWARM LAB'}
-            </span>
-          </div>
-        </header>
-        <main id="main-content" ref={mainRef} tabIndex={-1} className="main-content">
-          {workbench.config.error && (
-            <Notice
-              tone="error"
-              title="Backend configuration unavailable"
-              action={
-                <button
-                  className="button button-secondary button-small"
-                  type="button"
-                  onClick={() => void workbench.loadConfig()}
-                  disabled={workbench.config.loading}
-                >
-                  <RefreshCw size={13} aria-hidden="true" /> Retry
-                </button>
-              }
-            >
-              {workbench.config.error} Model mode stays disabled until configuration is available.
-            </Notice>
-          )}
-          {visibleActionError && (
-            <Notice
-              tone="error"
-              title="Project operation failed"
-              action={
-                <button
-                  className="icon-button"
-                  type="button"
-                  onClick={workbench.dismissActionError}
-                  aria-label="Dismiss operation error"
-                >
-                  <X size={16} aria-hidden="true" />
-                </button>
-              }
-            >
-              {visibleActionError.message} Refresh the selected experiment to confirm its latest
-              state before retrying.
-            </Notice>
-          )}
-          {creation ? (
-            <CreateExperiment
-              key={creation.id}
-              config={workbench.config.error ? null : workbench.config.data}
-              initialProject={creation.project}
-              useStarter={creation.starter}
-              busy={Boolean(workbench.mutation)}
-              onBack={showHome}
-              onSubmit={async (input, start) => {
-                await workbench.createProject(input, start);
-                setCreation(null);
-                window.scrollTo({ top: 0 });
-              }}
-            />
-          ) : workbench.selectedId ? (
-            <>
-              {workbench.detail.error && (
-                <Notice
-                  tone="error"
-                  title="Could not refresh this experiment"
-                  action={
-                    <button
-                      className="button button-secondary button-small"
-                      type="button"
-                      onClick={workbench.refreshProject}
-                    >
-                      <RefreshCw size={13} aria-hidden="true" /> Retry refresh
-                    </button>
-                  }
-                >
-                  {workbench.detail.error}{' '}
-                  {workbench.detail.data
-                    ? 'The last loaded state is shown. Automatic updates have stopped; retry to reconnect.'
-                    : 'Choose another experiment or retry this request.'}
-                </Notice>
-              )}
-              {workbench.detail.data ? (
-                <ProjectWorkspace
-                  key={workbench.detail.data.id}
-                  project={workbench.detail.data}
-                  loading={workbench.detail.loading}
-                  mutation={workbench.mutation}
-                  onBack={showHome}
-                  onRefresh={() => {
-                    workbench.refreshProject();
-                    void workbench.loadHistory();
-                  }}
-                  onDuplicate={(project) => showNew(false, project)}
-                  onAction={workbench.actOnProject}
-                />
-              ) : workbench.detail.loading ? (
-                <div className="loading-panel project-loading">
-                  <Spinner label="Loading selected experiment" />
-                  <h2>Opening the notebook…</h2>
-                  <p>Retrieving the latest saved state from your local server.</p>
-                </div>
-              ) : (
-                <EmptyPanel
-                  title="This notebook is unavailable"
-                  action={
-                    <button className="button button-secondary" type="button" onClick={showHome}>
-                      <ArrowLeft size={15} aria-hidden="true" /> Back to lab
-                    </button>
-                  }
-                >
-                  The experiment could not be loaded. It may have been deleted or the backend may be
-                  offline. Your other experiments remain in the history.
-                </EmptyPanel>
-              )}
-            </>
-          ) : (
-            <Overview
-              projects={projects}
-              loading={workbench.history.loading}
-              historyError={workbench.history.error}
-              onRefresh={() => void workbench.loadHistory()}
-              onNew={() => showNew()}
-              onStarter={() => showNew(true)}
-              onSelect={chooseProject}
-            />
-          )}
-        </main>
-        <footer className="app-footer">
-          <div>
-            <strong>
-              swarm<span>lab</span>
-            </strong>
-            <span>An independent implementation · Concept reference: MiroFish</span>
-          </div>
-          <div>
-            <span>AGPL-3.0-only</span>
-            {configSource ? (
-              <a href={configSource} target="_blank" rel="noopener noreferrer">
-                Project source <ArrowUpRight size={12} aria-hidden="true" />
-              </a>
-            ) : (
-              <span className="footer-source-unset">Source URL not configured</span>
+            <strong>Swarm Lab</strong>
+            <span className="mono">/ CONSOLE</span>
+          </button>
+        </div>
+        <div className="header-actions">
+          <span className="single-user-label mono">LOCAL · SINGLE USER</span>
+          <button
+            className="button button-secondary button-small"
+            type="button"
+            onClick={() => setHistoryOpen(true)}
+          >
+            <History size={14} aria-hidden="true" /> History
+            {console.history.data && (
+              <span className="header-counter">{console.history.data.total}</span>
             )}
+          </button>
+          {console.selectedId && (
+            <button
+              className="button button-black button-small"
+              type="button"
+              disabled={busy}
+              onClick={() => newProject()}
+            >
+              <Plus size={14} /> New
+            </button>
+          )}
+        </div>
+      </header>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        ref={main}
+        className={`main-content ${console.selectedId ? 'project-content' : 'entry-content'}`}
+      >
+        {console.config.loading && !console.config.data && (
+          <div className="inline-pending">
+            <Spinner /> Reading server readiness…
           </div>
-        </footer>
-      </div>
+        )}
+        {console.config.error && (
+          <Notice
+            tone="error"
+            title="Server configuration unavailable"
+            action={
+              <button
+                className="button button-secondary button-small"
+                type="button"
+                disabled={console.config.loading}
+                onClick={() => void console.loadConfig()}
+              >
+                <RefreshCw size={13} /> Retry config
+              </button>
+            }
+          >
+            {console.config.error} Creation and model assistance remain unavailable until current
+            capabilities can be read.
+          </Notice>
+        )}
+        {actionError && (
+          <Notice
+            tone="error"
+            title="Operation not confirmed"
+            action={
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Dismiss operation error"
+                onClick={console.dismissError}
+              >
+                <X size={15} />
+              </button>
+            }
+          >
+            {actionError.message} The latest persisted project state is refreshed before a retry.
+          </Notice>
+        )}
+        {console.selectedId ? (
+          <>
+            {console.detail.error && (
+              <Notice
+                tone="error"
+                title="Project refresh failed"
+                action={
+                  <button
+                    className="button button-secondary button-small"
+                    type="button"
+                    onClick={console.refresh}
+                    disabled={console.detail.loading}
+                  >
+                    <RefreshCw size={13} /> Retry refresh
+                  </button>
+                }
+              >
+                {console.detail.error}{' '}
+                {project
+                  ? 'Showing the last loaded record. Automatic polling stopped; retry to reconnect.'
+                  : 'Retry this project or choose another from History.'}
+              </Notice>
+            )}
+            {project ? (
+              <ConsoleWorkspace
+                key={project.id}
+                project={project}
+                config={console.config.error ? null : console.config.data}
+                busy={busy}
+                refreshing={console.detail.loading}
+                onRefresh={() => {
+                  console.refresh();
+                  void console.loadHistory();
+                }}
+                onRun={(step) => console.execute(project.id, step)}
+                onCancel={() => console.cancel(project.id)}
+                onSave={async (input) => {
+                  await console.saveEnvironment(project.id, input);
+                }}
+                onDuplicate={() => newProject(project)}
+                onSurvey={(record) => console.recordSurvey(project.id, record)}
+              />
+            ) : console.detail.loading ? (
+              <div className="project-loading">
+                <Spinner label="Loading project" />
+                <span>Opening persisted project…</span>
+              </div>
+            ) : !console.detail.error ? (
+              <EmptyPanel title="No project record loaded">
+                Refresh or open History to choose a saved project.
+              </EmptyPanel>
+            ) : null}
+          </>
+        ) : (
+          <EntryConsole
+            key={creation.key}
+            config={console.config.error ? null : console.config.data}
+            initialProject={creation.project}
+            busy={busy}
+            onSubmit={console.create}
+            onHistory={() => setHistoryOpen(true)}
+          />
+        )}
+      </main>
+      <footer className="app-footer">
+        <span>
+          Swarm Lab · {console.config.data ? `v${console.config.data.version}` : 'version unknown'}{' '}
+          · Fictional scenarios, not forecasts.
+        </span>
+        <span>
+          Local single-user tool. Do not expose this server publicly. No provider secrets are stored
+          in this UI.
+        </span>
+        <span>
+          AGPL-3.0
+          {source && (
+            <>
+              {' '}
+              ·{' '}
+              <a href={source} target="_blank" rel="noreferrer">
+                Source <ExternalLink size={11} />
+              </a>
+            </>
+          )}
+        </span>
+      </footer>
+      {historyOpen && (
+        <HistoryDrawer
+          projects={console.history.data?.projects ?? []}
+          total={console.history.data?.total ?? 0}
+          loading={console.history.loading}
+          error={console.history.error}
+          selectedId={console.selectedId}
+          busy={busy}
+          onClose={() => setHistoryOpen(false)}
+          onSelect={console.selectProject}
+          onRefresh={() => void console.loadHistory()}
+          onDelete={console.remove}
+        />
+      )}
     </div>
   );
 }

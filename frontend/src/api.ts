@@ -7,6 +7,15 @@ import type {
   ProjectDetail,
   ProjectSummary,
 } from '../../shared/types';
+import type {
+  EnvironmentUpdate,
+  ExecutionStep,
+  ExtractedPdf,
+  Platform,
+  SimulationMemory,
+  SurveyInput,
+  SurveyRecord,
+} from '../../shared/guided';
 
 export class ApiError extends Error {
   readonly code: string;
@@ -84,6 +93,16 @@ export const api = {
     request<ProjectDetail>(`${projectPath(id)}/run`, { method: 'POST', signal }),
   cancel: (id: string, signal?: AbortSignal) =>
     request<ProjectDetail>(`${projectPath(id)}/cancel`, { method: 'POST', signal }),
+  step: (id: string, step: ExecutionStep, signal?: AbortSignal) =>
+    request<ProjectDetail>(`${projectPath(id)}/steps/${step}`, { method: 'POST', signal }),
+  environment: (id: string, input: EnvironmentUpdate, signal?: AbortSignal) =>
+    request<ProjectDetail>(`${projectPath(id)}/environment`, {
+      ...json(input),
+      method: 'PATCH',
+      signal,
+    }),
+  extractPdf: (name: string, data: string, signal?: AbortSignal) =>
+    request<ExtractedPdf>('/api/documents/extract', { ...json({ name, data }), signal }),
   remove: async (id: string, signal?: AbortSignal) => {
     await checkedFetch(projectPath(id), { method: 'DELETE', signal });
   },
@@ -92,6 +111,18 @@ export const api = {
       `${projectPath(id)}/evidence?query=${encodeURIComponent(query)}`,
       { signal },
     ),
+  memories: (id: string, query: string, platform: Platform | 'all', signal?: AbortSignal) =>
+    request<{ query: string; memories: SimulationMemory[]; total: number }>(
+      `${projectPath(id)}/memories?query=${encodeURIComponent(query)}&platform=${platform}`,
+      { signal },
+    ),
+  survey: (id: string, input: SurveyInput, signal?: AbortSignal) =>
+    request<SurveyRecord>(`${projectPath(id)}/surveys`, { ...json(input), signal }),
+  cancelSurvey: (id: string, surveyId: string, signal?: AbortSignal) =>
+    request<SurveyRecord>(`${projectPath(id)}/surveys/${encodeURIComponent(surveyId)}/cancel`, {
+      method: 'POST',
+      signal,
+    }),
   chat: (id: string, target: string, signal?: AbortSignal) =>
     request<{ messages: ChatMessage[] }>(
       `${projectPath(id)}/chat?target=${encodeURIComponent(target)}`,
@@ -107,7 +138,14 @@ export const api = {
       `${projectPath(id)}/export?format=${encodeURIComponent(format)}`,
       { signal },
     );
-    return response.blob();
+    const blob = await response.blob();
+    const markdownType =
+      /^text\/(?:markdown|plain)(?:;|$)/u.test(blob.type) ||
+      blob.type.startsWith('application/octet-stream');
+    if (!blob.size || (format === 'markdown' && !markdownType)) {
+      throw new ApiError('The server did not return a Markdown report. Refresh and retry.');
+    }
+    return blob;
   },
 };
 
