@@ -3,6 +3,8 @@ import { buildApp } from '../src/app.js';
 import { MAX_PDF_BYTES } from '../../shared/guided.js';
 import { makePdf } from './pdf-fixture.js';
 import { testConfig } from './fixtures.js';
+import { isAbsolute } from 'node:path';
+import { pdfWorkerEnvironment } from '../src/ingest/pdf.js';
 
 const applications: Awaited<ReturnType<typeof buildApp>>[] = [];
 async function setup() {
@@ -15,6 +17,22 @@ afterEach(async () => {
 });
 
 describe('isolated local PDF extraction', () => {
+  it('provides absolute OS temp paths without inheriting provider or GitHub credentials', () => {
+    const safe = pdfWorkerEnvironment({
+      SystemRoot: 'C:\\Windows',
+      OPENAI_API_KEY: 'test-provider-secret',
+      AZURE_OPENAI_API_KEY: 'test-azure-secret',
+      GH_TOKEN: 'test-github-secret',
+    });
+    expect(isAbsolute(safe.TEMP!)).toBe(true);
+    expect(safe.TEMP).toBe(safe.TMP);
+    expect(safe.TMPDIR).toBe(safe.TEMP);
+    expect(Object.keys(safe).sort()).toEqual(
+      ['NODE_ENV', 'SystemRoot', 'TEMP', 'TMP', 'TMPDIR'].sort(),
+    );
+    expect(JSON.stringify(safe)).not.toContain('secret');
+  });
+
   it('extracts actual text from a real PDF without a model or native canvas dependency', async () => {
     const { app } = await setup();
     const text =

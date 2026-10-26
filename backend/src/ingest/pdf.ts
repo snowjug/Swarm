@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { Worker } from 'node:worker_threads';
 import { z } from 'zod';
 import { MAX_PDF_BYTES, MAX_PDF_PAGES, type ExtractedPdf } from '../../../shared/guided.js';
@@ -36,6 +37,20 @@ const publicErrors = {
     'The PDF is malformed, encrypted, or not supported. Export an unencrypted text PDF or upload TXT/Markdown.',
 };
 
+export function pdfWorkerEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): Record<string, string> {
+  const temporary = tmpdir();
+  const systemRoot = environment.SystemRoot || environment.windir;
+  return {
+    NODE_ENV: 'production',
+    TEMP: temporary,
+    TMP: temporary,
+    TMPDIR: temporary,
+    ...(systemRoot ? { SystemRoot: systemRoot } : {}),
+  };
+}
+
 export class PdfService {
   private readonly active = new Map<Worker, () => void>();
   private stopping = false;
@@ -65,7 +80,7 @@ export class PdfService {
       {
         workerData: { data: new Uint8Array(data) },
         execArgv: existsSync(compiled) ? [] : ['--import', import.meta.resolve('tsx')],
-        env: { NODE_ENV: 'production' },
+        env: pdfWorkerEnvironment(),
         resourceLimits: {
           maxOldGenerationSizeMb: 192,
           maxYoungGenerationSizeMb: 32,
