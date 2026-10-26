@@ -13,6 +13,7 @@ import {
   type SimulationReport,
 } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
+import { consoleSchema } from './console-codec.js';
 
 export type StoredProject = Omit<ProjectDetail, 'events'>;
 const ids = z.array(z.string());
@@ -37,6 +38,7 @@ export const graphSchema: z.ZodType<KnowledgeGraph> = z.object({
       summary: z.string(),
       weight: fraction,
       sourceIds: ids,
+      entityType: z.string().optional(),
     }),
   ),
   edges: z.array(
@@ -94,7 +96,15 @@ export const reportSchema: z.ZodType<SimulationReport> = z.object({
   generatedBy: z.enum(['local', 'llm']),
   title: z.string(),
   executiveSummary: z.string(),
-  sections: z.array(z.object({ title: z.string(), body: z.string(), sourceIds: ids })),
+  sections: z.array(
+    z.object({
+      title: z.string(),
+      body: z.string(),
+      sourceIds: ids,
+      memoryIds: ids.optional(),
+      interviewIds: ids.optional(),
+    }),
+  ),
   limitations: z.array(z.string()),
   metrics: z.object({
     initialMean: opinion,
@@ -109,8 +119,9 @@ export const reportSchema: z.ZodType<SimulationReport> = z.object({
 export const storedProjectSchema: z.ZodType<StoredProject> = z.object({
   id: z.uuid(),
   name: z.string(),
+  workflow: z.enum(['quick', 'guided']).default('quick'),
   question: z.string(),
-  status: z.enum(['draft', 'queued', 'running', 'completed', 'failed', 'cancelled']),
+  status: z.enum(['draft', 'ready', 'queued', 'running', 'completed', 'failed', 'cancelled']),
   stage: stageSchema,
   progress: z.number().min(0).max(100),
   mode: z.enum(['local', 'llm']),
@@ -135,6 +146,7 @@ export const storedProjectSchema: z.ZodType<StoredProject> = z.object({
       outputTokens: z.int().nonnegative(),
     })
     .nullable(),
+  console: consoleSchema(agentSchema, roundSchema).nullable().default(null),
 });
 
 export const chunkSchema: z.ZodType<EvidenceChunk> = z.object({
@@ -160,6 +172,7 @@ export const chatMessageSchema: z.ZodType<ChatMessage> = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string(),
   sourceIds: ids,
+  memoryIds: ids.optional(),
   mode: z.enum(['local', 'llm']),
   createdAt: z.string(),
 });

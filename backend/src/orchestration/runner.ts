@@ -8,11 +8,28 @@ import { AppError, publicFailure, throwIfAborted } from '../errors.js';
 import { buildLocalGraph } from '../knowledge/graph.js';
 import { ModelClient, type ModelGateway, type ModelUsage } from '../models/client.js';
 import type { Repository } from '../storage/repository.js';
+import type { ExecutionStep } from '../../../shared/guided.js';
+import { GuidedWorkflow } from '../guided/workflow.js';
+import {
+  failStage,
+  requireConsole,
+  stepStage,
+  updateConsole,
+  validateStep,
+} from '../guided/state.js';
 
-export type ModelFactory = (onUsage: (usage: ModelUsage) => void) => ModelGateway;
+export type ModelFactory = (
+  onUsage: (usage: ModelUsage) => void,
+  options?: { maxCalls: number },
+) => ModelGateway;
+interface QueuedTask {
+  id: string;
+  step: ExecutionStep | 'quick';
+}
 
 export class Orchestrator {
-  private readonly pending: string[] = [];
+  private readonly pending: QueuedTask[] = [];
+  private readonly guided: GuidedWorkflow;
   private activeId: string | null = null;
   private activeTask: Promise<void> | null = null;
   private controller: AbortController | null = null;
@@ -22,21 +39,30 @@ export class Orchestrator {
     private readonly repository: Repository,
     private readonly config: ServerConfig,
     private readonly onFailure: (projectId: string, code: string) => void,
-    private readonly createModel: ModelFactory = (onUsage) =>
-      new ModelClient(config.provider, onUsage),
-  ) {}
+    private readonly createModel: ModelFactory = (onUsage, options) =>
+      new ModelClient(config.provider, onUsage, undefined, options?.maxCalls ?? 16),
+  ) {
+    this.guided = new GuidedWorkflow(repository, this.createModel);
+  }
 
   state(): { active: string | null; pending: number } {
     return { active: this.activeId, pending: this.pending.length };
   }
 
   isBusy(id: string): boolean {
-    return this.activeId === id || this.pending.includes(id);
+    return this.activeId === id || this.pending.some((task) => task.id === id);
   }
 
   enqueue(id: string): ReturnType<Repository['get']> {
     if (this.stopping) throw new AppError(503, 'SERVER_STOPPING', 'The backend is stopping.');
     const project = this.repository.get(id);
+    if (project.workflow === 'guided') {
+      throw new AppError(
+        409,
+        'GUIDED_STEP_REQUIRED',
+        'Use the guided stage controls to inspect and prepare each phase before continuing.',
+      );
+    }
     if (this.isBusy(id))
       throw new AppError(409, 'RUN_ACTIVE', 'This experiment already has active or stopping work.');
     if (!['draft', 'failed', 'cancelled'].includes(project.status)) {
@@ -78,16 +104,70 @@ export class Orchestrator {
       'knowledge',
       'Run queued. One local worker processes at most three waiting runs.',
     );
-    this.pending.push(id);
+    this.pending.push({ id, step: 'quick' });
+    setImmediate(() => this.pump());
+    return this.repository.get(id);
+  }
+
+  enqueueStep(id: string, step: ExecutionStep): ReturnType<Repository['get']> {
+    if (this.stopping) throw new AppError(503, 'SERVER_STOPPING', 'The backend is stopping.');
+    const project = this.repository.get(id);
+    if (this.isBusy(id))
+      throw new AppError(409, 'RUN_ACTIVE', 'This scenario already has active or stopping work.');
+    validateStep(project, step);
+    if (project.mode === 'llm') {
+      if (!this.config.provider.configured)
+        throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.provider.reason);
+      if (
+        project.execution &&
+        (project.execution.provider !== this.config.provider.name ||
+          project.execution.model !== this.config.provider.model)
+      ) {
+        throw new AppError(
+          409,
+          'MODEL_CHANGED',
+          'Restore the provider/model used for this scenario, or duplicate its inputs before sending them to another provider.',
+        );
+      }
+    }
+    if (this.pending.length >= 3)
+      throw new AppError(429, 'QUEUE_FULL', 'The local queue is full (three waiting runs).');
+    requireConsole(project);
+    updateConsole(this.repository, id, (state) => ({
+      ...state,
+      activeStep: step,
+      steps: { ...state.steps, [step]: 'queued' },
+    }));
+    this.repository.update(id, {
+      status: 'queued',
+      stage: stepStage[step],
+      error: null,
+      execution: project.execution || {
+        provider: project.mode === 'local' ? 'none' : this.config.provider.name,
+        model: project.mode === 'local' ? null : this.config.provider.model,
+        modelCalls: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+      },
+    });
+    this.repository.addEvent(id, stepStage[step], `${step} queued for the bounded local worker.`);
+    this.pending.push({ id, step });
     setImmediate(() => this.pump());
     return this.repository.get(id);
   }
 
   cancel(id: string): ReturnType<Repository['get']> {
     const project = this.repository.get(id);
-    const pendingIndex = this.pending.indexOf(id);
+    const pendingIndex = this.pending.findIndex((task) => task.id === id);
     if (pendingIndex >= 0) {
-      this.pending.splice(pendingIndex, 1);
+      const [task] = this.pending.splice(pendingIndex, 1);
+      if (task && task.step !== 'quick')
+        failStage(
+          this.repository,
+          id,
+          task.step,
+          new AppError(409, 'RUN_CANCELLED', 'Cancelled before processing started.'),
+        );
       this.repository.update(id, {
         status: 'cancelled',
         error: 'Cancelled before processing started.',
@@ -114,12 +194,13 @@ export class Orchestrator {
 
   private pump(): void {
     if (this.stopping || this.activeTask) return;
-    const id = this.pending.shift();
-    if (!id) return;
+    const task = this.pending.shift();
+    if (!task) return;
+    const { id } = task;
     this.activeId = id;
     this.controller = new AbortController();
     const controller = this.controller;
-    this.activeTask = this.execute(id, controller)
+    this.activeTask = this.execute(task, controller)
       .catch((error: unknown) => this.onFailure(id, publicFailure(error).code))
       .finally(() => {
         this.activeTask = null;
@@ -134,7 +215,8 @@ export class Orchestrator {
     this.repository.addEvent(id, stage, message);
   }
 
-  private async execute(id: string, controller: AbortController): Promise<void> {
+  private async execute(task: QueuedTask, controller: AbortController): Promise<void> {
+    const { id } = task;
     const { signal } = controller;
     const deadline = setTimeout(() => {
       controller.abort(
@@ -147,6 +229,10 @@ export class Orchestrator {
     }, 15 * 60_000);
     deadline.unref();
     try {
+      if (task.step !== 'quick') {
+        await this.guided.execute(id, task.step, signal);
+        return;
+      }
       this.repository.update(id, { status: 'running' });
       this.progress(
         id,
@@ -224,6 +310,7 @@ export class Orchestrator {
     } catch (error) {
       const failure = signal.aborted && signal.reason instanceof AppError ? signal.reason : error;
       const safe = publicFailure(failure);
+      if (task.step !== 'quick') failStage(this.repository, id, task.step, failure);
       const current = this.repository.get(id);
       this.repository.update(id, {
         status: safe.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed',
@@ -245,10 +332,13 @@ export class Orchestrator {
 
   async stop(): Promise<void> {
     this.stopping = true;
-    for (const id of this.pending.splice(0)) {
+    for (const task of this.pending.splice(0)) {
+      const { id } = task;
       const project = this.repository.get(id);
       const error =
         'The backend stopped before this queued run started. Retry to start a new attempt.';
+      if (task.step !== 'quick')
+        failStage(this.repository, id, task.step, new AppError(503, 'RUN_INTERRUPTED', error));
       this.repository.update(id, { status: 'failed', error });
       this.repository.addEvent(id, project.stage, error);
     }

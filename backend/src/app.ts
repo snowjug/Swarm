@@ -12,6 +12,9 @@ import { InteractionService } from './orchestration/interaction.js';
 import { Orchestrator, type ModelFactory } from './orchestration/runner.js';
 import { projectRoutes } from './routes/projects.js';
 import { Repository } from './storage/repository.js';
+import { guidedRoutes } from './routes/guided.js';
+import { PdfService } from './ingest/pdf.js';
+import { APP_VERSION } from '../../shared/types.js';
 
 export interface AppOptions {
   config: ServerConfig;
@@ -59,7 +62,17 @@ export async function buildApp(options: AppOptions) {
     },
     options.modelFactory,
   );
-  const interaction = new InteractionService(repository, config, options.modelFactory);
+  const interaction = new InteractionService(
+    repository,
+    config,
+    options.modelFactory,
+    (projectId, code) =>
+      app.log.error(
+        { projectId, code },
+        'Follow-up or survey failed. Inspect its persisted state.',
+      ),
+  );
+  const pdf = new PdfService();
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -132,7 +145,7 @@ export async function buildApp(options: AppOptions) {
         400: 'Malformed request. Supply valid JSON and URL encoding.',
         403: 'Access to this resource is forbidden.',
         404: 'This resource does not exist.',
-        413: 'The request exceeds the 600 KB body limit.',
+        413: 'The request exceeds the configured endpoint body-size limit.',
         415: 'Unsupported content type. Use application/json.',
         429: 'Too many requests. Wait before retrying.',
       };
@@ -158,13 +171,14 @@ export async function buildApp(options: AppOptions) {
   app.get('/api/health', async () => ({
     status: 'ok',
     service: 'swarm-lab',
-    version: '0.1.0',
+    version: APP_VERSION,
     storage: 'sqlite',
     experiments: repository.count(),
     queue: jobs.state(),
   }));
   app.get('/api/config', async () => publicConfig(config));
   projectRoutes(app, repository, jobs, interaction);
+  guidedRoutes(app, repository, jobs, interaction, pdf);
 
   const frontend = resolve(process.cwd(), 'frontend', 'dist');
   if (existsSync(resolve(frontend, 'index.html'))) {
@@ -201,10 +215,9 @@ export async function buildApp(options: AppOptions) {
     );
   }
   app.addHook('preClose', async () => {
-    interaction.stop();
-    await jobs.stop();
+    await Promise.all([interaction.stop(), jobs.stop(), pdf.stop()]);
   });
   app.addHook('onClose', async () => repository.close());
   await app.ready();
-  return { app, repository, jobs, interaction };
+  return { app, repository, jobs, interaction, pdf };
 }

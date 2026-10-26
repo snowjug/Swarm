@@ -33,11 +33,22 @@ describe('input contracts', () => {
     expect(createProjectSchema.safeParse({ ...input, documents }).success).toBe(false);
   });
 
-  it.each(['../../secret.md', '..\\secret.txt', 'scan.pdf', '.env', 'a\u0000.md', 'a\u007f.md'])(
+  it.each(['../../secret.md', '..\\secret.txt', 'program.exe', '.env', 'a\u0000.md', 'a\u007f.md'])(
     'rejects unsafe/unsupported document names: %s',
     (name) =>
       expect(documentInputSchema.safeParse({ name, content: sourceText }).success).toBe(false),
   );
+
+  it('accepts locally extracted PDF text and bounded page metadata', () => {
+    expect(
+      documentInputSchema.safeParse({ name: 'scan.pdf', content: sourceText, pageCount: 1 })
+        .success,
+    ).toBe(true);
+    expect(
+      documentInputSchema.safeParse({ name: 'scan.pdf', content: sourceText, pageCount: 41 })
+        .success,
+    ).toBe(false);
+  });
 
   it('rejects binary control characters without treating document text as executable HTML', () => {
     expect(

@@ -116,6 +116,7 @@ export class ModelClient implements ModelGateway {
     private readonly config: ProviderConfig,
     private readonly onUsage: (usage: ModelUsage) => void,
     private readonly fetcher: typeof fetch = fetch,
+    private readonly maxCalls = 16,
   ) {}
 
   private async request(body: unknown, signal: AbortSignal): Promise<unknown> {
@@ -192,7 +193,7 @@ export class ModelClient implements ModelGateway {
   ): Promise<T> {
     throwIfAborted(signal);
     this.calls += 1;
-    if (this.calls > 16)
+    if (this.calls > this.maxCalls)
       throw new AppError(
         429,
         'MODEL_CALL_BUDGET',

@@ -14,6 +14,8 @@ export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]):
   if (!report)
     throw new AppError(409, 'REPORT_NOT_READY', 'This experiment has no completed report yet.');
   const usedSources = new Set(report.sections.flatMap((section) => section.sourceIds));
+  const usedMemories = new Set(report.sections.flatMap((section) => section.memoryIds || []));
+  const usedInterviews = new Set(report.sections.flatMap((section) => section.interviewIds || []));
   return [
     `# ${text(report.title)}`,
     '',
@@ -32,8 +34,42 @@ export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]):
       text(section.body),
       '',
       section.sourceIds.length ? `Sources: ${section.sourceIds.join(', ')}` : '',
+      section.memoryIds?.length ? `Synthetic memories: ${section.memoryIds.join(', ')}` : '',
+      section.interviewIds?.length
+        ? `Fictional interviews: ${section.interviewIds.join(', ')}`
+        : '',
       '',
     ]),
+    ...(usedMemories.size
+      ? [
+          '## Synthetic simulation memories (not real-world sources)',
+          '',
+          ...(project.console?.memories || [])
+            .filter((memory) => usedMemories.has(memory.id))
+            .flatMap((memory) => [
+              `### ${memory.id}: ${memory.platform}, round ${memory.round}`,
+              '',
+              text(memory.text),
+              '',
+            ]),
+        ]
+      : []),
+    ...(usedInterviews.size
+      ? [
+          '## Generated fictional interviews (not real-person statements)',
+          '',
+          ...(project.console?.interviews || [])
+            .filter((interview) => usedInterviews.has(interview.id))
+            .flatMap((interview) => [
+              `### ${interview.id}: ${interview.agentId}`,
+              '',
+              text(interview.question),
+              '',
+              text(interview.answer),
+              '',
+            ]),
+        ]
+      : []),
     '## Limitations',
     '',
     ...report.limitations.map((limitation) => `- ${text(limitation)}`),

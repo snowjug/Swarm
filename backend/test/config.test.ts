@@ -9,7 +9,9 @@ describe('provider configuration and public boundaries', () => {
     expect(publicConfig(config).capabilities).toMatchObject({
       local: true,
       modelAssisted: false,
-      pdf: false,
+      pdf: true,
+      guidedConsole: true,
+      surveys: true,
       webRetrieval: false,
       authentication: 'local-single-user',
     });

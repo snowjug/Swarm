@@ -3,6 +3,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
+import { emptyConsole } from '../../../shared/guided.js';
 import {
   MAX_PROJECTS,
   type ChatMessage,
@@ -116,6 +117,7 @@ export class Repository {
         const {
           id,
           name,
+          workflow,
           question,
           status,
           stage,
@@ -131,6 +133,7 @@ export class Repository {
         return {
           id,
           name,
+          workflow,
           question,
           status,
           stage,
@@ -159,6 +162,7 @@ export class Repository {
     const project: StoredProject = {
       id: randomUUID(),
       name: input.name,
+      workflow: input.workflow,
       question: input.question,
       status: 'draft',
       stage: 'intake',
@@ -177,6 +181,7 @@ export class Repository {
       rounds: [],
       report: null,
       execution: null,
+      console: input.workflow === 'guided' ? emptyConsole() : null,
     };
     this.transaction(() => {
       this.database
@@ -286,10 +291,54 @@ export class Repository {
   }
 
   recoverInterrupted(): void {
-    for (const project of this.list().projects) {
-      if (project.status !== 'queued' && project.status !== 'running') continue;
+    for (const summary of this.list().projects) {
+      const project = this.get(summary.id);
+      const interrupted = project.status === 'queued' || project.status === 'running';
+      const surveyInterrupted = project.console?.surveys.some(
+        (survey) => survey.status === 'queued' || survey.status === 'running',
+      );
+      if (!interrupted && !surveyInterrupted) continue;
       const error = 'The backend restarted before this run finished. Retry to start a new attempt.';
-      this.update(project.id, { status: 'failed', error });
+      const consoleState = project.console;
+      if (consoleState) {
+        const steps = { ...consoleState.steps };
+        for (const step of [
+          'knowledge',
+          'environment',
+          'simulation',
+          'report',
+          'interaction',
+        ] as const) {
+          if (steps[step] === 'queued' || steps[step] === 'running') steps[step] = 'failed';
+        }
+        this.update(project.id, {
+          console: {
+            ...consoleState,
+            steps,
+            platforms: consoleState.platforms.map((run) => ({
+              ...run,
+              status: run.status === 'running' ? 'failed' : run.status,
+            })),
+            traces: consoleState.traces.map((trace) =>
+              trace.status === 'running'
+                ? { ...trace, status: 'failed', completedAt: new Date().toISOString(), error }
+                : trace,
+            ),
+            surveys: consoleState.surveys.map((survey) =>
+              survey.status === 'queued' || survey.status === 'running'
+                ? {
+                    ...survey,
+                    status: 'failed',
+                    completedAt: new Date().toISOString(),
+                    error:
+                      'The backend restarted before this survey finished. Partial results are retained.',
+                  }
+                : survey,
+            ),
+          },
+        });
+      }
+      if (interrupted) this.update(project.id, { status: 'failed', error });
       this.addEvent(project.id, project.stage, error);
     }
   }

@@ -1,7 +1,9 @@
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { MAX_PDF_BYTES, MAX_PDF_PAGES, MAX_SURVEY_TARGETS } from '../../shared/guided.js';
 import {
   MAX_DOCUMENTS,
+  APP_VERSION,
   MAX_DOCUMENT_CHARS,
   MAX_PROJECTS,
   MAX_TOTAL_CHARS,
@@ -170,7 +172,7 @@ export function loadConfig(
 export function publicConfig(config: ServerConfig): AppConfig {
   const { name, model, configured, reason } = config.provider;
   return {
-    version: '0.1.0',
+    version: APP_VERSION,
     provider: { name, model, configured, reason },
     limits: {
       maxDocuments: MAX_DOCUMENTS,
@@ -182,14 +184,19 @@ export function publicConfig(config: ServerConfig): AppConfig {
       localMaxRounds: 24,
       modelMaxAgents: 10,
       modelMaxRounds: 10,
+      maxPdfBytes: MAX_PDF_BYTES,
+      maxPdfPages: MAX_PDF_PAGES,
+      maxSurveyTargets: MAX_SURVEY_TARGETS,
     },
     sourceUrl: config.sourceUrl,
     capabilities: {
       local: true,
       modelAssisted: configured,
-      fileTypes: ['txt', 'md', 'markdown'],
-      pdf: false,
+      fileTypes: ['txt', 'md', 'markdown', 'pdf'],
+      pdf: true,
       webRetrieval: false,
+      guidedConsole: true,
+      surveys: true,
       authentication: 'local-single-user',
     },
   };

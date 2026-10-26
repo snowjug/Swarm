@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import type { GuidedConsoleState } from './guided.js';
 
+export const APP_VERSION = '0.2.0';
 export const MAX_DOCUMENT_CHARS = 40_000;
 export const MAX_TOTAL_CHARS = 100_000;
 export const MAX_DOCUMENTS = 5;
@@ -49,7 +51,7 @@ export const documentInputSchema = z.object({
     .string()
     .trim()
     .max(120)
-    .regex(/^[^\\/]+\.(txt|md|markdown)$/iu, 'Use a TXT or Markdown filename.')
+    .regex(/^[^\\/]+\.(txt|md|markdown|pdf)$/iu, 'Use a TXT, Markdown or extracted PDF filename.')
     .refine((name) => !hasControlCharacters(name), 'Filenames cannot contain control characters.'),
   content: z
     .string()
@@ -60,12 +62,14 @@ export const documentInputSchema = z.object({
       (content) => !hasControlCharacters(content, true),
       'Binary files and control characters are not supported.',
     ),
+  pageCount: z.int().min(1).max(40).optional(),
 });
 
 export const createProjectSchema = z
   .object({
     name: z.string().trim().min(3).max(100),
     question: z.string().trim().min(10).max(2_000),
+    workflow: z.enum(['quick', 'guided']).default('quick'),
     documents: z.array(documentInputSchema).min(1).max(MAX_DOCUMENTS),
     settings: settingsSchema.default(() => settingsSchema.parse({})),
   })
@@ -92,7 +96,8 @@ export type Intervention = z.infer<typeof interventionSchema>;
 export type CreateProjectInput = z.input<typeof createProjectSchema>;
 export type ValidatedProjectInput = z.output<typeof createProjectSchema>;
 export type EngineMode = SimulationSettings['mode'];
-export type ProjectStatus = 'draft' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type ProjectStatus =
+  'draft' | 'ready' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type Stage = 'intake' | 'knowledge' | 'personas' | 'simulation' | 'report' | 'complete';
 export type ProviderName = 'none' | 'ollama' | 'openai' | 'azure';
 
@@ -100,6 +105,7 @@ export interface SourceDocument {
   id: string;
   name: string;
   content: string;
+  pageCount?: number;
 }
 
 export interface EvidenceChunk {
@@ -122,6 +128,7 @@ export interface KnowledgeNode {
   summary: string;
   weight: number;
   sourceIds: string[];
+  entityType?: string;
 }
 
 export interface KnowledgeEdge {
@@ -182,6 +189,8 @@ export interface ReportSection {
   title: string;
   body: string;
   sourceIds: string[];
+  memoryIds?: string[];
+  interviewIds?: string[];
 }
 
 export interface SimulationReport {
@@ -219,6 +228,7 @@ export interface ExecutionInfo {
 export interface ProjectSummary {
   id: string;
   name: string;
+  workflow: 'quick' | 'guided';
   question: string;
   status: ProjectStatus;
   stage: Stage;
@@ -241,6 +251,7 @@ export interface ProjectDetail extends ProjectSummary {
   report: SimulationReport | null;
   events: JobEvent[];
   execution: ExecutionInfo | null;
+  console: GuidedConsoleState | null;
 }
 
 export interface ChatMessage {
@@ -249,6 +260,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   sourceIds: string[];
+  memoryIds?: string[];
   mode: EngineMode;
   createdAt: string;
 }
@@ -271,6 +283,9 @@ export interface AppConfig {
     localMaxRounds: number;
     modelMaxAgents: number;
     modelMaxRounds: number;
+    maxPdfBytes: number;
+    maxPdfPages: number;
+    maxSurveyTargets: number;
   };
   sourceUrl: string | null;
   capabilities: {
@@ -279,6 +294,8 @@ export interface AppConfig {
     fileTypes: string[];
     pdf: boolean;
     webRetrieval: boolean;
+    guidedConsole: boolean;
+    surveys: boolean;
     authentication: 'local-single-user';
   };
 }

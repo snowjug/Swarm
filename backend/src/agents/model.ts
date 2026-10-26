@@ -18,6 +18,7 @@ import {
 } from '../models/schemas.js';
 import { reportMetrics, reviewLimitations } from './report.js';
 import { makeSnapshot } from './state.js';
+import type { Platform, SeedPost, SimulationMemory } from '../../../shared/guided.js';
 
 function invalid(message: string): never {
   throw new AppError(502, 'MODEL_OUTPUT_INVALID', message);
@@ -109,6 +110,12 @@ export async function modelRound(
   chunks: EvidenceChunk[],
   round: number,
   signal: AbortSignal,
+  context?: {
+    platform: Platform;
+    simulatedMinute: number;
+    initialPosts: SeedPost[];
+    memories: SimulationMemory[];
+  },
 ): Promise<{ agents: Agent[]; snapshot: ReturnType<typeof makeSnapshot> }> {
   const intervention =
     project.settings.intervention?.round === round ? project.settings.intervention : null;
@@ -129,6 +136,7 @@ export async function modelRound(
       agents: project.agents.map((agent) => ({ ...agent, memory: agent.memory.slice(-2) })),
       priorActions,
       evidence,
+      scenarioContext: context,
     },
     signal,
     6_000,

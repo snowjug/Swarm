@@ -125,13 +125,19 @@ export function projectRoutes(
         .header('content-disposition', `attachment; filename="swarm-lab-${id}.json"`)
         .type('application/json; charset=utf-8')
         .send({
-          schemaVersion: 1,
+          schemaVersion: project.workflow === 'guided' ? 2 : 1,
           exportedAt: new Date().toISOString(),
           project,
           evidence: chunks,
           messages: repository.allMessages(id),
         });
     }
+    if (project.status !== 'completed')
+      throw new AppError(
+        409,
+        'REPORT_NOT_READY',
+        'Complete the report before exporting Markdown. JSON remains available for partial snapshots.',
+      );
     return reply
       .header('content-disposition', `attachment; filename="swarm-lab-${id}.md"`)
       .type('text/markdown; charset=utf-8')
