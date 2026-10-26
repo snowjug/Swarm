@@ -5,6 +5,13 @@ export const MAX_TOTAL_CHARS = 100_000;
 export const MAX_DOCUMENTS = 5;
 export const MAX_PROJECTS = 100;
 
+function hasControlCharacters(value: string, allowWhitespace = false): boolean {
+  return [...value].some((character) => {
+    const code = character.charCodeAt(0);
+    return code === 127 || (code < 32 && !(allowWhitespace && [9, 10, 13].includes(code)));
+  });
+}
+
 export const interventionSchema = z.object({
   round: z.int().min(1).max(24),
   label: z.string().trim().min(5).max(300),
@@ -42,14 +49,15 @@ export const documentInputSchema = z.object({
     .string()
     .trim()
     .max(120)
-    .regex(/^[^\\/\u0000-\u001f]+\.(txt|md|markdown)$/iu, 'Use a TXT or Markdown filename.'),
+    .regex(/^[^\\/]+\.(txt|md|markdown)$/iu, 'Use a TXT or Markdown filename.')
+    .refine((name) => !hasControlCharacters(name), 'Filenames cannot contain control characters.'),
   content: z
     .string()
     .trim()
     .min(80, 'Each document needs at least 80 characters of source material.')
     .max(MAX_DOCUMENT_CHARS)
     .refine(
-      (content) => !/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(content),
+      (content) => !hasControlCharacters(content, true),
       'Binary files and control characters are not supported.',
     ),
 });
@@ -62,7 +70,10 @@ export const createProjectSchema = z
     settings: settingsSchema.default(() => settingsSchema.parse({})),
   })
   .superRefine((project, context) => {
-    if (project.documents.reduce((sum, document) => sum + document.content.length, 0) > MAX_TOTAL_CHARS) {
+    if (
+      project.documents.reduce((sum, document) => sum + document.content.length, 0) >
+      MAX_TOTAL_CHARS
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['documents'],
@@ -149,6 +160,7 @@ export interface AgentAction {
   type: 'update' | 'post' | 'reply' | 'observe';
   content: string;
   opinion: number;
+  peerIds: string[];
   sourceIds: string[];
 }
 

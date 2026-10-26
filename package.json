@@ -16,7 +16,7 @@
     "build:backend": "tsc -p backend/tsconfig.json",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "start": "node --env-file-if-exists=.env dist/backend/src/index.js",
-    "typecheck": "tsc -p backend/tsconfig.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
+    "typecheck": "tsc -p backend/tsconfig.test.json --noEmit && tsc -p frontend/tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -26,12 +26,15 @@
   "dependencies": {
     "@fastify/helmet": "^13.2.0",
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/static": "^8.3.0",
+    "@fastify/static": "^10.1.6",
     "fastify": "^5.12.7",
     "lucide-react": "^0.468.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7"
+  },
+  "overrides": {
+    "ajv@^8.0.0": "^8.20.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.0",
