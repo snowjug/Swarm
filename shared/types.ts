@@ -288,6 +288,7 @@ export interface AppConfig {
     maxSurveyTargets: number;
   };
   sourceUrl: string | null;
+  storage?: { warning: string | null };
   capabilities: {
     local: boolean;
     modelAssisted: boolean;

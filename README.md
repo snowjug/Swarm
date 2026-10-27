@@ -202,12 +202,23 @@ Data is plain text at rest, not
 application-encrypted, and is excluded from Git.
 
 Use one application process per database. Prefer a normal local disk rather than
-a network drive or a OneDrive-synchronized directory. For example, before starting:
+a network drive or a cloud-synchronized directory (OneDrive, Dropbox, Google Drive,
+iCloud Drive). Synchronization clients can lock or conflict with SQLite's write-ahead
+files, and would upload your source documents and results to that service, which
+contradicts the local-only behavior described in this README. The server detects
+these folders in the resolved database path, logs a warning at startup and shows a
+warning in the console's readiness card. Windows' Desktop and Documents are often
+redirected into OneDrive, so a default `.\data` inside such a project folder is
+affected. Keep the data elsewhere, for example:
 
 ```powershell
 $env:DATA_DIR = Join-Path $env:LOCALAPPDATA 'SwarmLab'
 npm.cmd start
 ```
+
+or set `DATA_DIR` once in your local `.env`. Note that a synchronized project folder
+also synchronizes its `.env`: if it will hold API keys, keep the project outside the
+synchronized folder or set those variables in your user environment instead.
 
 An environment variable takes precedence over `.env`. Stop the server before
 copying the complete data directory to a private backup location. Do not copy an
@@ -376,21 +387,21 @@ high/critical findings; a passing check does not mean zero advisories.
 
 ## Troubleshooting
 
-| Symptom                                     | Action                                                                                                                              |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `npm.ps1 cannot be loaded`                  | Use `npm.cmd`; do not weaken PowerShell execution policy                                                                            |
-| UI cannot reach backend                     | Start both dev processes, check `/api/health`, and verify root `PORT`                                                               |
-| `EADDRINUSE`                                | Stop the specific prior app process or choose another port; do not kill unrelated Node processes                                    |
-| 403 host/origin                             | Add the exact trusted hostname/origin to its allowlist and restart; do not use a wildcard                                           |
-| AI option disabled                          | Inspect provider status; configure model name, endpoint and required server-side key                                                |
-| Model 401/404                               | Verify key, Azure deployment name, endpoint path and model/API compatibility                                                        |
-| Model 429/timeout                           | Reduce agents/rounds, check provider quota or local inference capacity; errors remain visible                                       |
-| Invalid model JSON/citation                 | Use a model reliable at the documented structured schema; no fabricated fallback is returned                                        |
-| SQLite busy/sync problems                   | Use one process and a non-synchronized local `DATA_DIR`; restore a known-good backup if needed                                      |
-| Work marked failed after restart            | Retry explicitly; interrupted in-memory work is not durable/resumable                                                               |
-| Docker named-pipe error                     | Start Docker Desktop/engine first; Compose parsing alone does not validate an image                                                 |
-| Export not appearing in an embedded browser | Open the app in a normal browser; embedded hosts may intercept downloads. Export HTTP payloads/attachments are independently tested |
-| Zod `@__PURE__` build warnings              | Current upstream comments produce two non-fatal Rollup annotation warnings; builds still validate                                   |
+| Symptom                                     | Action                                                                                                                                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm.ps1 cannot be loaded`                  | Use `npm.cmd`; do not weaken PowerShell execution policy                                                                                                                           |
+| UI cannot reach backend                     | Start both dev processes, check `/api/health`, and verify root `PORT`                                                                                                              |
+| `EADDRINUSE`                                | Stop the specific prior app process or choose another port; do not kill unrelated Node processes                                                                                   |
+| 403 host/origin                             | Add the exact trusted hostname/origin to its allowlist and restart; do not use a wildcard                                                                                          |
+| AI option disabled                          | Inspect provider status; configure model name, endpoint and required server-side key                                                                                               |
+| Model 401/404                               | Verify key, Azure deployment name, endpoint path and model/API compatibility                                                                                                       |
+| Model 429/timeout                           | Reduce agents/rounds, check provider quota or local inference capacity; errors remain visible                                                                                      |
+| Invalid model JSON/citation                 | Use a model reliable at the documented structured schema; no fabricated fallback is returned                                                                                       |
+| SQLite busy/sync problems                   | Use one process and a non-synchronized local `DATA_DIR` (the readiness card and startup log warn about OneDrive/Dropbox/Drive/iCloud paths); restore a known-good backup if needed |
+| Work marked failed after restart            | Retry explicitly; interrupted in-memory work is not durable/resumable                                                                                                              |
+| Docker named-pipe error                     | Start Docker Desktop/engine first; Compose parsing alone does not validate an image                                                                                                |
+| Export not appearing in an embedded browser | Open the app in a normal browser; embedded hosts may intercept downloads. Export HTTP payloads/attachments are independently tested                                                |
+| Zod `@__PURE__` build warnings              | Current upstream comments produce two non-fatal Rollup annotation warnings; builds still validate                                                                                  |
 
 ### This environment's npm registry mismatch
 

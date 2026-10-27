@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig, publicConfig } from '../src/config.js';
+import { detectSyncedFolder, loadConfig, publicConfig } from '../src/config.js';
 
 describe('provider configuration and public boundaries', () => {
   it('defaults to local-only even when unrelated credentials exist', () => {
@@ -77,5 +77,37 @@ describe('provider configuration and public boundaries', () => {
       ),
     ).toBe(false);
     expect(() => loadConfig({ ALLOWED_ORIGINS: '' })).toThrow('ALLOWED_ORIGINS');
+  });
+
+  it.each([
+    ['C:\\Users\\a\\OneDrive\\Swarm\\data', 'OneDrive'],
+    ['C:\\Users\\a\\OneDrive - Contoso\\Desktop\\Swarm\\data', 'OneDrive'],
+    ['/home/a/Dropbox/swarm', 'Dropbox'],
+    ['C:\\Users\\a\\Dropbox (Personal)\\swarm', 'Dropbox'],
+    ['G:\\Google Drive\\swarm', 'Google Drive'],
+    ['/Users/a/iCloud Drive/swarm', 'iCloud Drive'],
+  ])('recognizes the cloud-synchronized folder in %s', (path, provider) => {
+    expect(detectSyncedFolder(path)).toBe(provider);
+  });
+
+  it.each([
+    'C:\\Users\\a\\AppData\\Local\\SwarmLab',
+    '/var/lib/swarm-lab',
+    '/app/data',
+    'C:\\work\\onedrive-backup\\data',
+    'C:\\work\\MyOneDriveNotes\\data',
+  ])('does not flag ordinary local or look-alike directories: %s', (path) => {
+    expect(detectSyncedFolder(path)).toBeNull();
+  });
+
+  it('warns about synchronized data directories without leaking the local path', () => {
+    const synced = loadConfig({ DATA_DIR: 'C:\\Users\\jdoe\\OneDrive - Contoso\\Swarm\\data' });
+    expect(synced.storageWarning).toContain('OneDrive synchronized folder');
+    expect(synced.storageWarning).not.toContain('Contoso');
+    expect(synced.storageWarning).not.toContain('jdoe');
+    expect(publicConfig(synced).storage).toEqual({ warning: synced.storageWarning });
+    const local = loadConfig({ DATA_DIR: 'C:\\Users\\jdoe\\AppData\\Local\\SwarmLab' });
+    expect(local.storageWarning).toBeNull();
+    expect(publicConfig(local).storage).toEqual({ warning: null });
   });
 });

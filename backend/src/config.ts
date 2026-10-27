@@ -30,6 +30,33 @@ export interface ServerConfig {
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'silent';
   provider: ProviderConfig;
   sourceUrl: string | null;
+  storageWarning: string | null;
+}
+
+const syncedFolders: readonly [string, RegExp][] = [
+  ['OneDrive', /^onedrive(?: - .+)?$/iu],
+  ['Dropbox', /^dropbox(?: .+)?$/iu],
+  ['Google Drive', /^google ?drive$/iu],
+  ['iCloud Drive', /^icloud ?drive$/iu],
+];
+
+/** Returns the cloud-sync product whose folder contains the path, if any. */
+export function detectSyncedFolder(path: string): string | null {
+  const segments = path.split(/[\\/]+/u);
+  for (const [label, pattern] of syncedFolders) {
+    if (segments.some((segment) => pattern.test(segment))) return label;
+  }
+  return null;
+}
+
+function storageWarning(databasePath: string): string | null {
+  const provider = detectSyncedFolder(databasePath);
+  if (!provider) return null;
+  return (
+    `DATA_DIR is inside a ${provider} synchronized folder. SQLite write-ahead files can conflict or ` +
+    `corrupt there, and your source documents and results would be uploaded to that service. ` +
+    `Set DATA_DIR to a local, non-synchronized directory.`
+  );
 }
 
 const environmentSchema = z.object({
@@ -157,15 +184,17 @@ export function loadConfig(
     }
     sourceUrl = url.toString();
   }
+  const databasePath = resolve(input.DATA_DIR, 'swarm-lab.sqlite');
   return {
     host: input.HOST,
     port: input.PORT,
-    databasePath: resolve(input.DATA_DIR, 'swarm-lab.sqlite'),
+    databasePath,
     allowedOrigins: new Set(origins),
     allowedHosts: new Set(hosts),
     logLevel: input.LOG_LEVEL,
     provider: buildProvider(input.AI_PROVIDER, input.AI_MODEL, input.AI_TIMEOUT_MS, environment),
     sourceUrl,
+    storageWarning: storageWarning(databasePath),
   };
 }
 
@@ -189,6 +218,7 @@ export function publicConfig(config: ServerConfig): AppConfig {
       maxSurveyTargets: MAX_SURVEY_TARGETS,
     },
     sourceUrl: config.sourceUrl,
+    storage: { warning: config.storageWarning },
     capabilities: {
       local: true,
       modelAssisted: configured,

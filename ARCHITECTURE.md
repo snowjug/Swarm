@@ -212,6 +212,10 @@ SQLite schema version 1 has `projects`, `chunks`, `events` and `messages`.
 JSON payloads are decoded with runtime schemas. SQL values are parameterized and
 source filenames never become paths. Foreign-key deletion removes associated
 chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.
+Startup detects OneDrive, Dropbox, Google Drive and iCloud Drive folders in the
+resolved database path and warns through the server log and the console's readiness
+card (without exposing the local path), because synchronization can conflict with
+WAL files and would upload source material to a cloud provider.
 
 Guided project state is `draft -> queued -> running -> ready` for each of
 knowledge, environment and simulation. Report completion changes it to `completed`.

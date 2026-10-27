@@ -24,6 +24,7 @@ process.once('SIGTERM', () => {
 });
 try {
   await app.listen({ host: config.host, port: config.port });
+  if (config.storageWarning) app.log.warn(config.storageWarning);
   if (config.host === '0.0.0.0' || config.host === '::') {
     app.log.warn(
       'This application has no user authentication. Use a loopback-only port mapping or an authenticated reverse proxy. Do not expose it directly to the internet.',

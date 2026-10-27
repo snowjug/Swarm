@@ -182,6 +182,11 @@ export function EntryConsole({
             <Info size={13} aria-hidden="true" /> Configured is not a connectivity check. Real
             provider errors are shown when a model operation runs.
           </small>
+          {config?.storage?.warning && (
+            <Notice tone="warning" title="Data directory is cloud-synchronized">
+              {config.storage.warning}
+            </Notice>
+          )}
         </div>
         <ol className="entry-steps">
           {explanations.map(([title, text], index) => (
