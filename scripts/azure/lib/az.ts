@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { delimiter, dirname, join } from 'node:path';
+import { win32 } from 'node:path';
 
 export type AzErrorCode = 'AZ_NOT_FOUND' | 'AZ_NOT_LOGGED_IN' | 'AZ_FAILED' | 'AZ_BAD_JSON';
 
@@ -29,10 +29,11 @@ export function resolveAzLauncher(
   exists: (path: string) => boolean = existsSync,
 ): AzLauncher {
   if (platform !== 'win32') return { command: 'az', prefix: [] };
+  // Windows path rules apply whatever host runs this, so the lookup is the same everywhere.
   const searchPath = env.Path ?? env.PATH ?? '';
-  for (const dir of searchPath.split(delimiter)) {
-    if (!dir || !exists(join(dir, 'az.cmd'))) continue;
-    const python = join(dirname(dir), 'python.exe');
+  for (const dir of searchPath.split(win32.delimiter)) {
+    if (!dir || !exists(win32.join(dir, 'az.cmd'))) continue;
+    const python = win32.join(win32.dirname(dir), 'python.exe');
     if (exists(python)) return { command: python, prefix: ['-IBm', 'azure.cli'] };
   }
   throw new AzError(
