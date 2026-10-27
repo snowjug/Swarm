@@ -6,10 +6,10 @@ import { defineConfig } from '@playwright/test';
 const localPort = Number(process.env.E2E_LOCAL_PORT || 3111);
 const modelPort = Number(process.env.E2E_MODEL_PORT || 3112);
 const providerPort = Number(process.env.E2E_PROVIDER_PORT || 11999);
-// Workers re-load this file; only the runner process owns the servers' data directories.
-const owner = process.env.TEST_WORKER_INDEX === undefined;
-const dataDir = (name: string): string =>
-  owner ? mkdtempSync(join(tmpdir(), `swarm-e2e-${name}-`)) : '';
+// One throwaway root per run: the runner creates it and workers inherit it through the environment,
+// so re-loading this file in a worker never creates another directory.
+const dataRoot = (process.env.E2E_DATA_ROOT ??= mkdtempSync(join(tmpdir(), 'swarm-e2e-')));
+const dataDir = (name: string): string => join(dataRoot, name);
 
 const server = (port: number, name: string, extra: Record<string, string> = {}) => ({
   command: 'node dist/backend/src/index.js',
