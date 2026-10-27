@@ -1,3 +1,4 @@
+import type { BranchChange } from '../../shared/guided.js';
 import type { EvidenceChunk, ProjectDetail } from '../../shared/types.js';
 import { AppError } from './errors.js';
 
@@ -7,6 +8,30 @@ function text(value: string): string {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replace(/[\\`*_[\]{}()#+.!|]/gu, '\\$&');
+}
+
+function describeChange(change: BranchChange): string {
+  if (change.kind === 'intervention') {
+    return change.to
+      ? `- Intervention at round ${change.to.round}: ${text(change.to.label)} (assumed stance ${change.to.stance}, strength ${change.to.strength})`
+      : '- The scheduled intervention was removed';
+  }
+  return `- ${change.agentId}: ${change.field} ${text(change.from.toFixed(2))} to ${text(change.to.toFixed(2))}`;
+}
+
+function lineage(project: ProjectDetail): string[] {
+  const branch = project.console?.branch;
+  if (!branch) return [];
+  return [
+    '## Scenario lineage',
+    '',
+    `Branched from ${text(branch.parentName)} (${branch.parentId}) after round ${branch.fromRound}. Rounds 1-${branch.fromRound} are inherited unchanged from that run; later rounds were simulated under these declared changes:`,
+    '',
+    ...(branch.changes.length
+      ? branch.changes.map(describeChange)
+      : ['- No assumption changes were declared.']),
+    '',
+  ];
 }
 
 export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]): string {
@@ -26,6 +51,7 @@ export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]):
     '',
     '> Synthetic scenario, not a calibrated forecast.',
     '',
+    ...lineage(project),
     text(report.executiveSummary),
     '',
     ...report.sections.flatMap((section) => [

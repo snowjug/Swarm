@@ -16,38 +16,32 @@ export function projectRoutes(
   repository: Repository,
   jobs: Orchestrator,
   interaction: InteractionService,
+  rateScale = 1,
 ): void {
+  const limit = (max: number) => ({ rateLimit: { max: max * rateScale, timeWindow: '1 minute' } });
   app.get('/api/projects', async (request) => {
-    const { limit, offset } = z
+    const { limit: pageSize, offset } = z
       .object({
         limit: z.coerce.number().int().min(1).max(100).default(100),
         offset: z.coerce.number().int().min(0).max(100).default(0),
       })
       .parse(request.query);
-    return repository.list(limit, offset);
+    return repository.list(pageSize, offset);
   });
 
-  app.post(
-    '/api/projects',
-    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      const project = repository.create(createProjectSchema.parse(request.body));
-      return reply.code(201).send(project);
-    },
-  );
+  app.post('/api/projects', { config: limit(20) }, async (request, reply) => {
+    const project = repository.create(createProjectSchema.parse(request.body));
+    return reply.code(201).send(project);
+  });
 
   app.get('/api/projects/:id', async (request) => {
     return repository.get(projectParams.parse(request.params).id);
   });
 
-  app.post(
-    '/api/projects/:id/run',
-    { config: { rateLimit: { max: 6, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      const { id } = projectParams.parse(request.params);
-      return reply.code(202).send(jobs.enqueue(id));
-    },
-  );
+  app.post('/api/projects/:id/run', { config: limit(6) }, async (request, reply) => {
+    const { id } = projectParams.parse(request.params);
+    return reply.code(202).send(jobs.enqueue(id));
+  });
 
   app.post('/api/projects/:id/cancel', async (request, reply) => {
     return reply.code(202).send(jobs.cancel(projectParams.parse(request.params).id));
@@ -90,28 +84,24 @@ export function projectRoutes(
     return { messages: interaction.conversation(id, target) };
   });
 
-  app.post(
-    '/api/projects/:id/chat',
-    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      const { id } = projectParams.parse(request.params);
-      const { target, message } = chatInputSchema.parse(request.body);
-      const controller = new AbortController();
-      const onClose = (): void => {
-        if (!reply.raw.writableEnded) {
-          controller.abort(
-            new AppError(409, 'CLIENT_DISCONNECTED', 'The follow-up request disconnected.'),
-          );
-        }
-      };
-      reply.raw.once('close', onClose);
-      try {
-        return { messages: await interaction.reply(id, target, message, controller.signal) };
-      } finally {
-        reply.raw.removeListener('close', onClose);
+  app.post('/api/projects/:id/chat', { config: limit(10) }, async (request, reply) => {
+    const { id } = projectParams.parse(request.params);
+    const { target, message } = chatInputSchema.parse(request.body);
+    const controller = new AbortController();
+    const onClose = (): void => {
+      if (!reply.raw.writableEnded) {
+        controller.abort(
+          new AppError(409, 'CLIENT_DISCONNECTED', 'The follow-up request disconnected.'),
+        );
       }
-    },
-  );
+    };
+    reply.raw.once('close', onClose);
+    try {
+      return { messages: await interaction.reply(id, target, message, controller.signal) };
+    } finally {
+      reply.raw.removeListener('close', onClose);
+    }
+  });
 
   app.get('/api/projects/:id/export', async (request, reply) => {
     const { id } = projectParams.parse(request.params);

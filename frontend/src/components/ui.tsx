@@ -39,7 +39,7 @@ export function Notice({
   );
 }
 
-export function StatusBadge({ status }: { status: ProjectStatus }) {
+export function StatusBadge({ status }: { status: ProjectStatus | 'paused' }) {
   return (
     <span className={`status-badge status-${status}`}>
       <span className="status-dot" aria-hidden="true" />
@@ -72,7 +72,7 @@ export function EmptyPanel({
 export function SourceLinks({ ids, onOpen }: { ids: string[]; onOpen: (id: string) => void }) {
   if (!ids.length) return null;
   return (
-    <div className="source-links" aria-label="Supporting source excerpts">
+    <div className="source-links" role="group" aria-label="Supporting source excerpts">
       <span className="source-label">Sources</span>
       {[...new Set(ids)].map((id) => (
         <button

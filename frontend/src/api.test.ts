@@ -19,6 +19,76 @@ describe('guided API client', () => {
     );
   });
 
+  describe('checkpoint, branch and comparison API requests', () => {
+    function mockRequest() {
+      const fetch = vi.fn().mockImplementation(
+        async () =>
+          new Response('{"status":"ready"}', {
+            status: 202,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+      );
+      vi.stubGlobal('fetch', fetch);
+      return fetch;
+    }
+
+    it('pauses using the bodyless pause endpoint', async () => {
+      const fetch = mockRequest();
+      await api.pause('project id');
+      expect(fetch).toHaveBeenCalledWith(
+        '/api/projects/project%20id/pause',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(fetch.mock.calls[0]![1].body).toBeUndefined();
+    });
+
+    it('distinguishes resume from a bodyless simulation restart', async () => {
+      const fetch = mockRequest();
+      await api.resume('project');
+      await api.step('project', 'simulation');
+      expect(fetch.mock.calls[0]![0]).toBe('/api/projects/project/steps/simulation');
+      expect(JSON.parse(fetch.mock.calls[0]![1].body as string)).toEqual({ resume: true });
+      expect(fetch.mock.calls[1]![0]).toBe('/api/projects/project/steps/simulation');
+      expect(fetch.mock.calls[1]![1].body).toBeUndefined();
+    });
+
+    it('sends an intervention object or literal JSON null using PUT', async () => {
+      const fetch = mockRequest();
+      const intervention = {
+        round: 2,
+        label: 'Synthetic future input',
+        stance: -0.5,
+        strength: 0.4,
+      };
+      await api.intervention('project', intervention);
+      await api.intervention('project', null);
+      expect(fetch.mock.calls[0]![0]).toBe('/api/projects/project/intervention');
+      expect(fetch.mock.calls[0]![1].method).toBe('PUT');
+      expect(JSON.parse(fetch.mock.calls[0]![1].body as string)).toEqual(intervention);
+      expect(fetch.mock.calls[1]![1].body).toBe('null');
+    });
+
+    it('preserves inherit versus remove in branch JSON', async () => {
+      const fetch = mockRequest();
+      await api.branch('parent', { fromRound: 1, agentEdits: [] });
+      await api.branch('parent', { fromRound: 0, intervention: null, agentEdits: [] });
+      expect(fetch.mock.calls[0]![0]).toBe('/api/projects/parent/branches');
+      expect(JSON.parse(fetch.mock.calls[0]![1].body as string)).not.toHaveProperty('intervention');
+      expect(JSON.parse(fetch.mock.calls[1]![1].body as string)).toHaveProperty(
+        'intervention',
+        null,
+      );
+    });
+
+    it('requests a comparison with an encoded other ID', async () => {
+      const fetch = mockRequest();
+      await api.compare('base id', 'other id&query=unsafe');
+      expect(fetch.mock.calls[0]![0]).toBe(
+        '/api/projects/base%20id/compare?with=other%20id%26query%3Dunsafe',
+      );
+    });
+  });
+
   it('preserves structured API errors and request IDs', async () => {
     vi.stubGlobal(
       'fetch',

@@ -3,6 +3,7 @@ import { ArrowUpRight, RefreshCw, Search, Trash2 } from 'lucide-react';
 import type { ProjectSummary } from '../../../../shared/types';
 import { dateTime } from '../../lib/format';
 import { errorMessage } from '../../api';
+import { historyStatus } from '../../lib/whatIf';
 import { EmptyPanel, Modal, Notice, Spinner, StatusBadge } from '../ui';
 
 export function HistoryDrawer({
@@ -16,6 +17,8 @@ export function HistoryDrawer({
   onSelect,
   onRefresh,
   onDelete,
+  whatIf = false,
+  onCompare,
 }: {
   projects: ProjectSummary[];
   total: number;
@@ -27,6 +30,8 @@ export function HistoryDrawer({
   onSelect: (id: string) => void;
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
+  whatIf?: boolean;
+  onCompare?: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -79,15 +84,22 @@ export function HistoryDrawer({
       <div className="history-list">
         {filtered.map((project) => (
           <article
-            className={`history-item ${selectedId === project.id ? 'selected' : ''}`}
+            className={`history-item ${selectedId === project.id ? 'selected' : ''} ${project.parentId ? 'history-branch' : ''}`}
             key={project.id}
           >
             <div className="section-heading">
               <span className="eyebrow">
                 {project.workflow === 'guided' ? 'GUIDED' : 'LEGACY QUICK RUN'}
               </span>
-              <StatusBadge status={project.status} />
+              <StatusBadge status={historyStatus(project)} />
             </div>
+            {project.parentId && (
+              <p className="branch-history-badge">
+                Branch of{' '}
+                {projects.find((item) => item.id === project.parentId)?.name ??
+                  `unavailable parent (${project.parentId})`}
+              </p>
+            )}
             <button
               className="history-open"
               type="button"
@@ -104,6 +116,21 @@ export function HistoryDrawer({
               <span className="mono muted">
                 {dateTime(project.updatedAt)} · {project.mode === 'llm' ? 'MODEL' : 'LOCAL'}
               </span>
+              {whatIf &&
+                project.workflow === 'guided' &&
+                project.currentRound >= 1 &&
+                onCompare && (
+                  <button
+                    className="button button-secondary"
+                    type="button"
+                    onClick={() => {
+                      onCompare(project.id);
+                      onClose();
+                    }}
+                  >
+                    Compare
+                  </button>
+                )}
               <button
                 className="icon-button danger-text"
                 type="button"

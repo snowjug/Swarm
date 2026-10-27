@@ -13,6 +13,7 @@ export default tseslint.config(
       'coverage/**',
       'data/**',
       'test-results/**',
+      'playwright-report/**',
     ],
   },
   js.configs.recommended,
@@ -22,6 +23,10 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  {
+    files: ['scripts/**/*.mjs', 'e2e/**/*.ts', 'playwright.config.ts'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
     files: ['frontend/src/**/*.{ts,tsx}'],

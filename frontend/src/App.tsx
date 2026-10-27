@@ -11,6 +11,7 @@ import { sourceLink } from './lib/format';
 export default function App() {
   const console = useConsole();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [comparisonProject, setComparisonProject] = useState<string | null>(null);
   const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
   const main = useRef<HTMLElement>(null);
   const didNavigate = useRef(false);
@@ -23,11 +24,15 @@ export default function App() {
   const newProject = (initialProject?: ProjectDetail) => {
     if (busy) return;
     console.selectProject(null);
+    setComparisonProject(null);
     setCreation((old) => ({ key: old.key + 1, project: initialProject }));
   };
 
   useEffect(() => {
-    const pop = () => setCreation((old) => ({ key: old.key + 1 }));
+    const pop = () => {
+      setComparisonProject(null);
+      setCreation((old) => ({ key: old.key + 1 }));
+    };
     window.addEventListener('popstate', pop);
     return () => window.removeEventListener('popstate', pop);
   }, []);
@@ -180,6 +185,22 @@ export default function App() {
                 }}
                 onRun={(step) => console.execute(project.id, step)}
                 onCancel={() => console.cancel(project.id)}
+                onPause={async () => {
+                  await console.pause(project.id);
+                }}
+                onResume={async () => {
+                  await console.resume(project.id);
+                }}
+                onIntervention={async (value) => {
+                  await console.updateIntervention(project.id, value);
+                }}
+                onBranch={async (input) => {
+                  await console.branch(project.id, input);
+                }}
+                onSelectProject={console.selectProject}
+                projects={console.history.data?.projects ?? []}
+                comparisonRequested={comparisonProject === project.id}
+                onCloseComparison={() => setComparisonProject(null)}
                 onSave={async (input) => {
                   await console.saveEnvironment(project.id, input);
                 }}
@@ -239,7 +260,15 @@ export default function App() {
           selectedId={console.selectedId}
           busy={busy}
           onClose={() => setHistoryOpen(false)}
-          onSelect={console.selectProject}
+          onSelect={(id) => {
+            setComparisonProject(null);
+            console.selectProject(id);
+          }}
+          whatIf={Boolean(console.config.data?.capabilities.whatIf && !console.config.error)}
+          onCompare={(id) => {
+            setComparisonProject(id);
+            console.selectProject(id);
+          }}
           onRefresh={() => void console.loadHistory()}
           onDelete={console.remove}
         />

@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { EnvironmentUpdate, ExecutionStep, SurveyRecord } from '../../../shared/guided';
+import type {
+  BranchInput,
+  EnvironmentUpdate,
+  ExecutionStep,
+  SurveyRecord,
+} from '../../../shared/guided';
 import type {
   AppConfig,
   CreateProjectInput,
+  Intervention,
   ProjectDetail,
   ProjectSummary,
 } from '../../../shared/types';
@@ -15,7 +21,16 @@ interface Resource<T> {
   error: string | null;
 }
 
-type Operation = 'create' | 'cancel' | 'delete' | 'environment-save' | ExecutionStep;
+type Operation =
+  | 'create'
+  | 'cancel'
+  | 'pause'
+  | 'resume'
+  | 'branch'
+  | 'intervention'
+  | 'delete'
+  | 'environment-save'
+  | ExecutionStep;
 const selection = () => new URL(window.location.href).searchParams.get('project');
 
 export function useConsole() {
@@ -237,6 +252,18 @@ export function useConsole() {
   const execute = (id: string, step: ExecutionStep) =>
     perform(step, id, (signal) => api.step(id, step, signal));
   const cancel = (id: string) => perform('cancel', id, (signal) => api.cancel(id, signal));
+  const pause = (id: string) => perform('pause', id, (signal) => api.pause(id, signal));
+  const resume = (id: string) => perform('resume', id, (signal) => api.resume(id, signal));
+  const updateIntervention = (id: string, input: Intervention | null) =>
+    perform('intervention', id, (signal) => api.intervention(id, input, signal));
+  const branch = (id: string, input: BranchInput) => {
+    const version = navigation.current;
+    return perform('branch', id, async (signal) => {
+      const result = await api.branch(id, input, signal);
+      if (!signal.aborted && version === navigation.current) selectProject(result.id);
+      return result;
+    });
+  };
   const saveEnvironment = (id: string, input: EnvironmentUpdate) =>
     perform('environment-save', id, (signal) => api.environment(id, input, signal));
   const remove = async (id: string) => {
@@ -276,6 +303,10 @@ export function useConsole() {
     create,
     execute,
     cancel,
+    pause,
+    resume,
+    updateIntervention,
+    branch,
     saveEnvironment,
     remove,
     recordSurvey,

@@ -13,12 +13,14 @@ export function ReportStage({
   onRun,
   onNavigate,
   onInspect,
+  onCompare,
 }: {
   project: ProjectDetail;
   busy: boolean;
   onRun: (step: ExecutionStep) => void;
   onNavigate: (step: ConsoleStep) => void;
   onInspect: (selection: Inspection) => void;
+  onCompare?: () => void;
 }) {
   const plan = project.console?.reportPlan;
   const traces = project.console?.traces.filter((trace) => trace.step === 'report') ?? [];
@@ -28,6 +30,21 @@ export function ReportStage({
         <span className="eyebrow">04 / REPORT</span>
         <h2>Review the evidence trail</h2>
       </div>
+      {onCompare && (
+        <div className="stage-actions primary-stage-actions">
+          <button
+            className="button button-secondary"
+            type="button"
+            disabled={!project.rounds.length}
+            onClick={onCompare}
+          >
+            Compare recorded runs
+          </button>
+          {!project.rounds.length && (
+            <span className="field-help">Save at least one simulation round before comparing.</span>
+          )}
+        </div>
+      )}
       <StageStatus project={project} step="report" />
       <RunStepButton
         project={project}

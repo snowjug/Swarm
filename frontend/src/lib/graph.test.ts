@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { projectFixture } from '../test/project';
-import { layoutGraph } from './graph';
+import { cycleGraphNode, layoutGraph } from './graph';
 import type { GraphPoint } from './graph';
 
 describe('source graph and recorded simulation overlays', () => {
+  it('cycles the roving node in both directions, wrapping without creating edge stops', () => {
+    const ids = ['source:topic-1', 'actor:agent-1', 'memory:M-1'];
+    expect(cycleGraphNode(ids, 'source:topic-1', 1)).toBe('actor:agent-1');
+    expect(cycleGraphNode(ids, 'source:topic-1', -1)).toBe('memory:M-1');
+    expect(cycleGraphNode(ids, 'memory:M-1', 1)).toBe('source:topic-1');
+    expect(cycleGraphNode(ids, 'removed', 1)).toBe('source:topic-1');
+    expect(cycleGraphNode([], '', 1)).toBeNull();
+  });
   it('retains source IDs, lays out real graph data, and does not mutate API records', () => {
     const project = projectFixture();
     const before = JSON.stringify(project);

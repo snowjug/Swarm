@@ -9,6 +9,7 @@ import type {
 import type { ProjectDetail, Stage } from '../../../shared/types.js';
 import { AppError, publicFailure } from '../errors.js';
 import type { Repository } from '../storage/repository.js';
+import { readCheckpoint } from './checkpoint.js';
 
 export const stepStage: Record<ExecutionStep, Stage> = {
   knowledge: 'knowledge',
@@ -34,7 +35,7 @@ export function requireConsole(project: ProjectDetail): GuidedConsoleState {
   return project.console;
 }
 
-export function validateStep(project: ProjectDetail, step: ExecutionStep): void {
+export function validateStep(project: ProjectDetail, step: ExecutionStep, resume = false): void {
   const state = requireConsole(project);
   if (project.status === 'completed') {
     throw new AppError(
@@ -43,7 +44,11 @@ export function validateStep(project: ProjectDetail, step: ExecutionStep): void 
       'Completed scenarios are read-only. Duplicate the inputs to run another scenario.',
     );
   }
-  if (!['pending', 'failed', 'cancelled'].includes(state.steps[step])) {
+  const startable =
+    step === 'simulation'
+      ? ['pending', 'failed', 'cancelled', 'paused']
+      : ['pending', 'failed', 'cancelled'];
+  if (!startable.includes(state.steps[step])) {
     throw new AppError(
       409,
       'STEP_ALREADY_STARTED',
@@ -53,6 +58,13 @@ export function validateStep(project: ProjectDetail, step: ExecutionStep): void 
   const previous = prerequisite[step];
   if (previous && state.steps[previous] !== 'ready') {
     throw new AppError(409, 'STEP_PREREQUISITE', `Complete ${previous} before starting ${step}.`);
+  }
+  if (resume && (step !== 'simulation' || readCheckpoint(project) === null)) {
+    throw new AppError(
+      409,
+      'NO_CHECKPOINT',
+      'There is no saved, consistent simulation round to resume from. Restart the simulation instead.',
+    );
   }
 }
 
@@ -113,13 +125,28 @@ export function failStage(
 ): void {
   const safe = publicFailure(error);
   const cancelled = safe.code === 'RUN_CANCELLED';
+  // A pause is only resumable when at least one complete, consistent round was saved.
+  const paused =
+    safe.code === 'RUN_PAUSED' &&
+    step === 'simulation' &&
+    readCheckpoint(repository.get(id)) !== null;
+  const interrupted = cancelled || safe.code === 'RUN_PAUSED';
   updateConsole(repository, id, (state) => ({
     ...state,
-    steps: { ...state.steps, [step]: cancelled ? 'cancelled' : 'failed' },
+    steps: {
+      ...state.steps,
+      [step]: paused ? 'paused' : interrupted ? 'cancelled' : 'failed',
+    },
     platforms: state.platforms.map((platform) => ({
       ...platform,
       status:
-        platform.status === 'running' ? (cancelled ? 'cancelled' : 'failed') : platform.status,
+        platform.status === 'running'
+          ? paused
+            ? 'paused'
+            : interrupted
+              ? 'cancelled'
+              : 'failed'
+          : platform.status,
     })),
     traces: state.traces.map((trace) =>
       trace.status === 'running'

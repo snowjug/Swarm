@@ -20,6 +20,8 @@ export interface AppOptions {
   config: ServerConfig;
   repository?: Repository;
   modelFactory?: ModelFactory;
+  /** Test hook: capture structured logs to assert that no secret or content is written. */
+  logStream?: { write(message: string): void };
 }
 
 export async function buildApp(options: AppOptions) {
@@ -35,6 +37,7 @@ export async function buildApp(options: AppOptions) {
     genReqId: () => randomUUID(),
     logger: {
       level: config.logLevel,
+      ...(options.logStream ? { stream: options.logStream } : {}),
       redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'],
       serializers: {
         req(request) {
@@ -93,11 +96,12 @@ export async function buildApp(options: AppOptions) {
     crossOriginEmbedderPolicy: false,
   });
   await app.register(rateLimit, {
-    max: 120,
+    max: 120 * config.rateLimitScale,
     timeWindow: '1 minute',
-    errorResponseBuilder: () => ({
-      error: { code: 'RATE_LIMITED', message: 'Too many requests. Wait a minute before retrying.' },
-    }),
+    // The plugin throws whatever this returns, so it must be an error the handler understands;
+    // a plain object here previously surfaced as a 500 INTERNAL_ERROR instead of a 429.
+    errorResponseBuilder: () =>
+      new AppError(429, 'RATE_LIMITED', 'Too many requests. Wait a minute before retrying.'),
   });
 
   app.addHook('onRequest', async (request) => {
@@ -177,8 +181,8 @@ export async function buildApp(options: AppOptions) {
     queue: jobs.state(),
   }));
   app.get('/api/config', async () => publicConfig(config));
-  projectRoutes(app, repository, jobs, interaction);
-  guidedRoutes(app, repository, jobs, interaction, pdf);
+  projectRoutes(app, repository, jobs, interaction, config.rateLimitScale);
+  guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
 
   const frontend = resolve(process.cwd(), 'frontend', 'dist');
   if (existsSync(resolve(frontend, 'index.html'))) {

@@ -33,6 +33,33 @@ export function KnowledgeStage({
           Inspect what was extracted before introducing fictional actors or simulation assumptions.
         </p>
       </div>
+      <div className="stage-actions primary-stage-actions">
+        <RunStepButton
+          project={project}
+          step="knowledge"
+          busy={busy}
+          onRun={onRun}
+          label="Build source graph"
+        />
+        {ready && project.console?.steps.environment === 'pending' && (
+          <RunStepButton
+            project={project}
+            step="environment"
+            busy={busy}
+            onRun={onRun}
+            label="Prepare environment"
+          />
+        )}
+        {ready && project.console?.steps.environment !== 'pending' && (
+          <button
+            className="button button-primary"
+            type="button"
+            onClick={() => onNavigate('environment')}
+          >
+            Inspect environment <ArrowRight size={15} />
+          </button>
+        )}
+      </div>
       <StageStatus project={project} step="knowledge" />
       {graph?.method === 'lexical' || project.mode === 'local' ? (
         <Notice title="Local lexical extraction">
@@ -147,33 +174,6 @@ export function KnowledgeStage({
           </EmptyPanel>
         )}
       </section>
-      <div className="stage-actions">
-        <RunStepButton
-          project={project}
-          step="knowledge"
-          busy={busy}
-          onRun={onRun}
-          label="Build source graph"
-        />
-        {ready && project.console?.steps.environment === 'pending' && (
-          <RunStepButton
-            project={project}
-            step="environment"
-            busy={busy}
-            onRun={onRun}
-            label="Prepare environment"
-          />
-        )}
-        {ready && project.console?.steps.environment !== 'pending' && (
-          <button
-            className="button button-primary"
-            type="button"
-            onClick={() => onNavigate('environment')}
-          >
-            Inspect environment <ArrowRight size={15} />
-          </button>
-        )}
-      </div>
       {guided && !ready && (
         <p className="field-help">
           Environment preparation is locked until Graph Build is ready. No later stage runs

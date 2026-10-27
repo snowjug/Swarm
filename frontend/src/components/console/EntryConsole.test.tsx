@@ -5,7 +5,7 @@ import { EntryConsole } from './EntryConsole';
 
 function configFixture(storage?: AppConfig['storage']): AppConfig {
   return {
-    version: '0.2.0',
+    version: '0.3.0',
     provider: {
       name: 'none',
       model: null,
@@ -36,6 +36,7 @@ function configFixture(storage?: AppConfig['storage']): AppConfig {
       webRetrieval: false,
       guidedConsole: true,
       surveys: true,
+      whatIf: true,
       authentication: 'local-single-user',
     },
   };

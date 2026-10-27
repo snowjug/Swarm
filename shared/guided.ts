@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Agent, RoundSnapshot } from './types.js';
+import { interventionSchema, type Agent, type Intervention, type RoundSnapshot } from './types.js';
 
 export const CONSOLE_STEPS = [
   'knowledge',
@@ -18,7 +18,8 @@ export const MAX_SURVEYS = 5;
 export type ConsoleStep = (typeof CONSOLE_STEPS)[number];
 export type ExecutionStep = (typeof EXECUTION_STEPS)[number];
 export type Platform = (typeof PLATFORMS)[number];
-export type StepStatus = 'pending' | 'queued' | 'running' | 'ready' | 'failed' | 'cancelled';
+export type StepStatus =
+  'pending' | 'queued' | 'running' | 'paused' | 'ready' | 'failed' | 'cancelled';
 export type JsonValue =
   string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -93,11 +94,100 @@ export interface PlatformRun {
   platform: Platform;
   label: string;
   network: 'broadcast' | 'community';
-  status: 'ready' | 'running' | 'completed' | 'failed' | 'cancelled';
+  status: 'ready' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled';
   currentRound: number;
   elapsedMinutes: number;
   agents: Agent[];
   rounds: RoundSnapshot[];
+}
+
+export const agentEditSchema = z
+  .object({
+    id: z.string().regex(/^agent-[1-9]\d?$/u),
+    influence: z.number().min(0.1).max(2).optional(),
+    openness: z.number().min(0).max(1).optional(),
+    opinion: z.number().min(-1).max(1).optional(),
+  })
+  .refine(
+    (edit) =>
+      edit.influence !== undefined || edit.openness !== undefined || edit.opinion !== undefined,
+    'Each proxy edit must change influence, openness, or opinion.',
+  );
+
+/**
+ * `intervention`: omitted = inherit the source run's, null = remove it, object = replace it.
+ * `fromRound` is the last round copied unchanged from the source run (0 = start from scratch).
+ */
+export const branchInputSchema = z.object({
+  name: z.string().trim().min(3).max(100).optional(),
+  fromRound: z.int().min(0).max(23),
+  intervention: interventionSchema.nullable().optional(),
+  agentEdits: z
+    .array(agentEditSchema)
+    .max(24)
+    .default([])
+    .refine((edits) => new Set(edits.map((edit) => edit.id)).size === edits.length, {
+      message: 'Edit each proxy only once.',
+    }),
+});
+export type BranchInput = z.input<typeof branchInputSchema>;
+export type BranchRequest = z.output<typeof branchInputSchema>;
+
+export type BranchChange =
+  | { kind: 'intervention'; from: Intervention | null; to: Intervention | null }
+  | {
+      kind: 'agent';
+      agentId: string;
+      field: 'influence' | 'openness' | 'opinion';
+      from: number;
+      to: number;
+    };
+
+export interface BranchInfo {
+  parentId: string;
+  parentName: string;
+  rootId: string;
+  fromRound: number;
+  createdAt: string;
+  changes: BranchChange[];
+}
+
+export const interventionUpdateSchema = interventionSchema.nullable();
+
+export interface RoundMetrics {
+  meanOpinion: number;
+  supportShare: number;
+  oppositionShare: number;
+  undecidedShare: number;
+  polarization: number;
+  activityCount: number;
+}
+
+export interface ComparedRun {
+  id: string;
+  name: string;
+  status: string;
+  seed: number;
+  completedRounds: number;
+  totalRounds: number;
+  branchFromRound: number | null;
+  intervention: Intervention | null;
+}
+
+export interface RunComparison {
+  base: ComparedRun;
+  other: ComparedRun;
+  lineage: 'base-is-parent' | 'other-is-parent' | 'siblings' | 'unrelated';
+  /** Highest round through which both runs' recorded combined states are identical. */
+  identicalThroughRound: number;
+  rounds: {
+    round: number;
+    base: RoundMetrics | null;
+    other: RoundMetrics | null;
+    delta: RoundMetrics | null;
+  }[];
+  declaredChanges: BranchChange[];
+  notes: string[];
 }
 
 export interface SimulationMemory {
@@ -180,6 +270,7 @@ export interface SurveyRecord {
 export interface GuidedConsoleState {
   steps: Record<ConsoleStep, StepStatus>;
   activeStep: ConsoleStep;
+  branch: BranchInfo | null;
   ontology: Ontology | null;
   environment: EnvironmentConfig | null;
   platforms: PlatformRun[];
@@ -207,6 +298,7 @@ export function emptyConsole(): GuidedConsoleState {
       interaction: 'pending',
     },
     activeStep: 'knowledge',
+    branch: null,
     ontology: null,
     environment: null,
     platforms: [],

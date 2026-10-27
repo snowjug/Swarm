@@ -15,7 +15,7 @@ import {
 import { AppError } from '../errors.js';
 import { consoleSchema } from './console-codec.js';
 
-export type StoredProject = Omit<ProjectDetail, 'events'>;
+export type StoredProject = Omit<ProjectDetail, 'events' | 'parentId'>;
 const ids = z.array(z.string());
 const opinion = z.number().min(-1).max(1);
 const fraction = z.number().min(0).max(1);

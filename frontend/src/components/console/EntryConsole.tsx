@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Circle, FlaskConical, History, Info } from 'lucide-react';
-import { createProjectSchema } from '../../../../shared/types';
 import type {
   AppConfig,
   CreateProjectInput,
@@ -9,6 +8,7 @@ import type {
   SimulationSettings,
 } from '../../../../shared/types';
 import { errorMessage } from '../../api';
+import { validateEntry } from '../../lib/entryValidation';
 import { SourceInput } from './SourceInput';
 import { Notice, Spinner } from '../ui';
 
@@ -82,6 +82,8 @@ export function EntryConsole({
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usedStarter, setUsedStarter] = useState(false);
+  const validationId = useId();
+  const clearFileError = useRef<(() => void) | null>(null);
   const modelAvailable = Boolean(config?.capabilities.modelAssisted && config.provider.configured);
   const maxAgents =
     settings.mode === 'llm'
@@ -96,6 +98,7 @@ export function EntryConsole({
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (disabled) return;
+    clearFileError.current?.();
     if (!config?.capabilities.guidedConsole) {
       setError(
         'The guided API is not ready. Reload server configuration before creating a project.',
@@ -108,22 +111,20 @@ export function EntryConsole({
       );
       return;
     }
-    const parsed = createProjectSchema.safeParse({
+    const parsed = validateEntry({
       name,
       question,
       documents,
       settings,
       workflow: 'guided',
     });
-    if (!parsed.success) {
-      setError(
-        parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('\n'),
-      );
+    if (parsed.error) {
+      setError(parsed.error);
       return;
     }
     setError(null);
     try {
-      await onSubmit(parsed.data);
+      await onSubmit(parsed.data!);
     } catch (failure) {
       setError(errorMessage(failure));
     }
@@ -208,7 +209,17 @@ export function EntryConsole({
           <History size={15} aria-hidden="true" /> Open saved projects
         </button>
       </section>
-      <form className="entry-form card" onSubmit={(event) => void submit(event)} aria-busy={busy}>
+      <form
+        className="entry-form card"
+        noValidate
+        onSubmit={(event) => void submit(event)}
+        aria-busy={busy}
+        aria-describedby={validationId}
+        onChangeCapture={() => {
+          setError(null);
+          clearFileError.current?.();
+        }}
+      >
         <div className="section-heading">
           <div>
             <span className="eyebrow">NEW GUIDED PROJECT</span>
@@ -233,6 +244,7 @@ export function EntryConsole({
           onChange={setDocuments}
           disabled={busy}
           onPending={setReading}
+          errorResetRef={clearFileError}
         />
         <section className="form-section">
           <h3>02 / Question &amp; identity</h3>
@@ -240,6 +252,8 @@ export function EntryConsole({
             <label htmlFor="project-name">Project name</label>
             <input
               id="project-name"
+              aria-describedby={validationId}
+              aria-invalid={Boolean(error) && name.trim().length < 3}
               required
               minLength={3}
               maxLength={100}
@@ -253,6 +267,8 @@ export function EntryConsole({
             <label htmlFor="project-question">Research question</label>
             <textarea
               id="project-question"
+              aria-describedby={validationId}
+              aria-invalid={Boolean(error) && question.trim().length < 10}
               required
               minLength={10}
               maxLength={2_000}
@@ -307,6 +323,7 @@ export function EntryConsole({
               <label htmlFor="agent-count">Fictional proxies</label>
               <input
                 id="agent-count"
+                aria-describedby={validationId}
                 type="number"
                 min={4}
                 max={maxAgents}
@@ -323,6 +340,7 @@ export function EntryConsole({
               <label htmlFor="round-count">Rounds / platform</label>
               <input
                 id="round-count"
+                aria-describedby={validationId}
                 type="number"
                 min={3}
                 max={maxRounds}
@@ -339,6 +357,7 @@ export function EntryConsole({
               <label htmlFor="seed">Random seed</label>
               <input
                 id="seed"
+                aria-describedby={validationId}
                 type="number"
                 min={1}
                 max={2_147_483_647}
@@ -368,11 +387,13 @@ export function EntryConsole({
             community links. Model outputs may vary even with the same seed.
           </p>
         </section>
-        {error && (
-          <Notice tone="error" title="Cannot build this project">
-            {error}
-          </Notice>
-        )}
+        <div id={validationId} aria-live="polite" aria-atomic="true">
+          {error && (
+            <Notice tone="error" title="Cannot build this project">
+              {error}
+            </Notice>
+          )}
+        </div>
         <div className="entry-submit">
           <button
             className="text-button"

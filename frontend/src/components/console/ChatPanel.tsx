@@ -136,6 +136,7 @@ export function ChatPanel({
       </div>
       <div
         className="conversation"
+        role="region"
         ref={list}
         aria-label="Saved conversation messages"
         aria-busy={loading}

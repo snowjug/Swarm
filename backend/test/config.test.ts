@@ -12,6 +12,7 @@ describe('provider configuration and public boundaries', () => {
       pdf: true,
       guidedConsole: true,
       surveys: true,
+      whatIf: true,
       webRetrieval: false,
       authentication: 'local-single-user',
     });
@@ -67,6 +68,13 @@ describe('provider configuration and public boundaries', () => {
     expect(() => loadConfig({ AI_PROVIDER: 'unsupported' })).toThrow('AI_PROVIDER');
     expect(() => loadConfig({ ALLOWED_ORIGINS: 'https://example.com/path' })).toThrow('exact HTTP');
     expect(() => loadConfig({ SOURCE_URL: 'javascript:alert(1)' })).toThrow('HTTPS');
+  });
+
+  it('keeps the production request limits unless a bounded integer scale is configured', () => {
+    expect(loadConfig({}).rateLimitScale).toBe(1);
+    expect(loadConfig({ RATE_LIMIT_SCALE: '50' }).rateLimitScale).toBe(50);
+    for (const invalid of ['0', '-1', '1.5', '1001', 'many'])
+      expect(() => loadConfig({ RATE_LIMIT_SCALE: invalid })).toThrow('RATE_LIMIT_SCALE');
   });
 
   it('derives loopback default origins from the API port without widening explicit allowlists', () => {

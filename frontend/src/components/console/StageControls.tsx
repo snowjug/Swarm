@@ -18,17 +18,19 @@ export function StageStatus({ project, step }: { project: ProjectDetail; step: E
           {stepLabels[step]} · {status ?? 'not recorded'}
         </strong>
         <p>
-          {status === 'ready'
-            ? 'Recorded output is ready for inspection.'
-            : status === 'pending'
-              ? 'Not started. No output has been generated for this stage.'
-              : status === 'queued'
-                ? 'Accepted by the server; waiting for execution.'
-                : status === 'running'
-                  ? 'The server is executing this stage. Updates reflect persisted records.'
-                  : status === 'failed' || status === 'cancelled'
-                    ? 'Execution stopped. Inspect the error / log, then retry this current stage.'
-                    : 'This historical record has no guided stage status.'}
+          {status === 'paused'
+            ? `Paused after round ${project.currentRound} of ${project.roundCount} — saved and resumable.`
+            : status === 'ready'
+              ? 'Recorded output is ready for inspection.'
+              : status === 'pending'
+                ? 'Not started. No output has been generated for this stage.'
+                : status === 'queued'
+                  ? 'Accepted by the server; waiting for execution.'
+                  : status === 'running'
+                    ? 'The server is executing this stage. Updates reflect persisted records.'
+                    : status === 'failed' || status === 'cancelled'
+                      ? 'Execution stopped. Inspect the error / log, then retry this current stage.'
+                      : 'This historical record has no guided stage status.'}
         </p>
       </div>
     </div>

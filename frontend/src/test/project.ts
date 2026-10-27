@@ -1,5 +1,34 @@
 import { emptyConsole } from '../../../shared/guided';
-import type { ProjectDetail } from '../../../shared/types';
+import type { ProjectDetail, RoundSnapshot } from '../../../shared/types';
+
+export function roundFixture(round = 1): RoundSnapshot {
+  return {
+    round,
+    meanOpinion: 0.2,
+    supportShare: 0.5,
+    oppositionShare: 0.25,
+    undecidedShare: 0.25,
+    polarization: 0.3,
+    activityCount: 1,
+    interactions: 1,
+    opinions: [{ agentId: 'agent-1', opinion: 0.2 }],
+    actions: [],
+    intervention: null,
+  };
+}
+
+export function checkpointFixture(): ProjectDetail {
+  const project = projectFixture();
+  project.status = 'ready';
+  project.stage = 'simulation';
+  project.currentRound = 1;
+  project.rounds = [roundFixture()];
+  project.console!.steps.knowledge = 'ready';
+  project.console!.steps.environment = 'ready';
+  project.console!.steps.simulation = 'paused';
+  project.console!.activeStep = 'simulation';
+  return project;
+}
 
 export function projectFixture(): ProjectDetail {
   return {
@@ -7,6 +36,7 @@ export function projectFixture(): ProjectDetail {
     name: 'Test-only fictional scenario',
     question: 'How does this synthetic test scenario behave?',
     workflow: 'guided',
+    parentId: null,
     status: 'draft',
     stage: 'intake',
     progress: 0,

@@ -4,14 +4,17 @@ import type {
   ChatMessage,
   CreateProjectInput,
   EvidenceMatch,
+  Intervention,
   ProjectDetail,
   ProjectSummary,
 } from '../../shared/types';
 import type {
   EnvironmentUpdate,
+  BranchInput,
   ExecutionStep,
   ExtractedPdf,
   Platform,
+  RunComparison,
   SimulationMemory,
   SurveyInput,
   SurveyRecord,
@@ -75,7 +78,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const projectPath = (id: string) => `/api/projects/${encodeURIComponent(id)}`;
-const json = (body: unknown): RequestInit => ({
+const jsonBody = (body: unknown): RequestInit => ({
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),
@@ -88,21 +91,40 @@ export const api = {
   project: (id: string, signal?: AbortSignal) =>
     request<ProjectDetail>(projectPath(id), { signal }),
   create: (input: CreateProjectInput, signal?: AbortSignal) =>
-    request<ProjectDetail>('/api/projects', { ...json(input), signal }),
+    request<ProjectDetail>('/api/projects', { ...jsonBody(input), signal }),
   run: (id: string, signal?: AbortSignal) =>
     request<ProjectDetail>(`${projectPath(id)}/run`, { method: 'POST', signal }),
   cancel: (id: string, signal?: AbortSignal) =>
     request<ProjectDetail>(`${projectPath(id)}/cancel`, { method: 'POST', signal }),
+  pause: (id: string, signal?: AbortSignal) =>
+    request<ProjectDetail>(`${projectPath(id)}/pause`, { method: 'POST', signal }),
+  resume: (id: string, signal?: AbortSignal) =>
+    request<ProjectDetail>(`${projectPath(id)}/steps/simulation`, {
+      ...jsonBody({ resume: true }),
+      signal,
+    }),
+  intervention: (id: string, intervention: Intervention | null, signal?: AbortSignal) =>
+    request<ProjectDetail>(`${projectPath(id)}/intervention`, {
+      ...jsonBody(intervention),
+      method: 'PUT',
+      signal,
+    }),
+  branch: (id: string, input: BranchInput, signal?: AbortSignal) =>
+    request<ProjectDetail>(`${projectPath(id)}/branches`, { ...jsonBody(input), signal }),
+  compare: (id: string, otherId: string, signal?: AbortSignal) =>
+    request<RunComparison>(`${projectPath(id)}/compare?with=${encodeURIComponent(otherId)}`, {
+      signal,
+    }),
   step: (id: string, step: ExecutionStep, signal?: AbortSignal) =>
     request<ProjectDetail>(`${projectPath(id)}/steps/${step}`, { method: 'POST', signal }),
   environment: (id: string, input: EnvironmentUpdate, signal?: AbortSignal) =>
     request<ProjectDetail>(`${projectPath(id)}/environment`, {
-      ...json(input),
+      ...jsonBody(input),
       method: 'PATCH',
       signal,
     }),
   extractPdf: (name: string, data: string, signal?: AbortSignal) =>
-    request<ExtractedPdf>('/api/documents/extract', { ...json({ name, data }), signal }),
+    request<ExtractedPdf>('/api/documents/extract', { ...jsonBody({ name, data }), signal }),
   remove: async (id: string, signal?: AbortSignal) => {
     await checkedFetch(projectPath(id), { method: 'DELETE', signal });
   },
@@ -117,7 +139,7 @@ export const api = {
       { signal },
     ),
   survey: (id: string, input: SurveyInput, signal?: AbortSignal) =>
-    request<SurveyRecord>(`${projectPath(id)}/surveys`, { ...json(input), signal }),
+    request<SurveyRecord>(`${projectPath(id)}/surveys`, { ...jsonBody(input), signal }),
   cancelSurvey: (id: string, surveyId: string, signal?: AbortSignal) =>
     request<SurveyRecord>(`${projectPath(id)}/surveys/${encodeURIComponent(surveyId)}/cancel`, {
       method: 'POST',
@@ -130,7 +152,7 @@ export const api = {
     ),
   sendChat: (id: string, target: string, message: string, signal?: AbortSignal) =>
     request<{ messages: ChatMessage[] }>(`${projectPath(id)}/chat`, {
-      ...json({ target, message }),
+      ...jsonBody({ target, message }),
       signal,
     }),
   export: async (id: string, format: 'markdown' | 'json', signal?: AbortSignal) => {

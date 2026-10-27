@@ -132,7 +132,7 @@ export function MemoryStream({
                 className="text-button mono"
                 type="button"
                 onClick={() => onInspect({ kind: 'memory', id: memory.id })}
-                aria-label={`Inspect memory ${memory.id}`}
+                aria-label={`${memory.id}, inspect recorded memory`}
               >
                 {memory.id} <ArrowUpRight size={12} />
               </button>

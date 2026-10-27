@@ -12,6 +12,7 @@ import { clamp, makeSnapshot, mean } from '../agents/state.js';
 import { AppError, throwIfAborted } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
 import type { Repository } from '../storage/repository.js';
+import { readCheckpoint } from './checkpoint.js';
 import { requireConsole, traceOperation, updateConsole } from './state.js';
 import { searchMemories } from './tools.js';
 
@@ -31,8 +32,8 @@ function seedInclinations(agents: Agent[], posts: SeedPost[]): Agent[] {
   }));
 }
 
-function aggregate(runs: PlatformRun[], round: number, project: ProjectDetail) {
-  const agents = project.agents.map((agent): Agent => {
+export function combineAgents(template: Agent[], runs: PlatformRun[]): Agent[] {
+  return template.map((agent): Agent => {
     const versions = runs.map((run) => {
       const version = run.agents.find((item) => item.id === agent.id);
       if (!version) throw new Error('Platform populations must share the prepared proxy IDs.');
@@ -48,6 +49,10 @@ function aggregate(runs: PlatformRun[], round: number, project: ProjectDetail) {
         .slice(-4),
     };
   });
+}
+
+function aggregate(runs: PlatformRun[], round: number, project: ProjectDetail) {
+  const agents = combineAgents(project.agents, runs);
   const actions = runs.flatMap((run) => {
     const snapshot = run.rounds.at(-1);
     if (!snapshot || snapshot.round !== round) throw new Error('Platform rounds are out of sync.');
@@ -69,52 +74,74 @@ export async function runPlatforms(
   id: string,
   model: ModelGateway | null,
   signal: AbortSignal,
+  resume = false,
 ): Promise<void> {
   const project = repository.get(id);
   const state = requireConsole(project);
   const environment = state.environment;
   if (!environment || !project.agents.length)
     throw new AppError(409, 'ENVIRONMENT_NOT_READY', 'Prepare the environment first.');
-  const base = project.agents.map((agent) => ({
-    ...agent,
-    opinion: agent.initialOpinion,
-    memory: [],
-  }));
-  let runs: PlatformRun[] = environment.platforms.map((platform) => ({
-    platform,
-    label: platform === 'plaza' ? 'Info Plaza' : 'Topic Community',
-    network: platform === 'plaza' ? 'broadcast' : 'community',
-    status: 'running',
-    currentRound: 0,
-    elapsedMinutes: 0,
-    agents: base.map((agent) => ({ ...agent, memory: [] })),
-    rounds: [],
-  }));
-  const seeds: SimulationMemory[] = runs.flatMap((run) =>
-    postsFor(environment, run.platform).map((post) => ({
-      id: `M-${run.platform}-0-seed-${post.id}`,
-      platform: run.platform,
-      round: 0,
-      simulatedMinute: 0,
-      kind: 'seed' as const,
-      agentId: null,
-      actionType: 'seed' as const,
-      text: post.text,
-      opinion: post.stance,
-      peerIds: [],
-      sourceIds: post.sourceIds,
-    })),
-  );
-  repository.update(id, { agents: base, rounds: [], report: null, currentRound: 0 });
-  updateConsole(repository, id, (current) => ({
-    ...current,
-    platforms: runs,
-    memories: seeds,
-    reportPlan: null,
-    interviews: [],
-  }));
+  let startRound = 1;
+  let runs: PlatformRun[];
+  if (resume) {
+    const checkpoint = readCheckpoint(project);
+    if (checkpoint === null) {
+      throw new AppError(
+        409,
+        'NO_CHECKPOINT',
+        'There is no saved, consistent simulation round to resume from. Restart the simulation instead.',
+      );
+    }
+    startRound = checkpoint + 1;
+    runs = state.platforms.map((run) => ({ ...run, status: 'running' }));
+    updateConsole(repository, id, (current) => ({ ...current, platforms: runs }));
+    repository.addEvent(
+      id,
+      'simulation',
+      `Resuming from the saved state after round ${checkpoint}; rounds 1-${checkpoint} are not recomputed.`,
+    );
+  } else {
+    const base = project.agents.map((agent) => ({
+      ...agent,
+      opinion: agent.initialOpinion,
+      memory: [],
+    }));
+    runs = environment.platforms.map((platform) => ({
+      platform,
+      label: platform === 'plaza' ? 'Info Plaza' : 'Topic Community',
+      network: platform === 'plaza' ? 'broadcast' : 'community',
+      status: 'running',
+      currentRound: 0,
+      elapsedMinutes: 0,
+      agents: base.map((agent) => ({ ...agent, memory: [] })),
+      rounds: [],
+    }));
+    const seeds: SimulationMemory[] = runs.flatMap((run) =>
+      postsFor(environment, run.platform).map((post) => ({
+        id: `M-${run.platform}-0-seed-${post.id}`,
+        platform: run.platform,
+        round: 0,
+        simulatedMinute: 0,
+        kind: 'seed' as const,
+        agentId: null,
+        actionType: 'seed' as const,
+        text: post.text,
+        opinion: post.stance,
+        peerIds: [],
+        sourceIds: post.sourceIds,
+      })),
+    );
+    repository.update(id, { agents: base, rounds: [], report: null, currentRound: 0 });
+    updateConsole(repository, id, (current) => ({
+      ...current,
+      platforms: runs,
+      memories: seeds,
+      reportPlan: null,
+      interviews: [],
+    }));
+  }
   const chunks = repository.chunks(id);
-  for (let round = 1; round <= project.settings.rounds; round += 1) {
+  for (let round = startRound; round <= project.settings.rounds; round += 1) {
     throwIfAborted(signal);
     const current = repository.get(id);
     const memories = requireConsole(current).memories;
@@ -203,17 +230,19 @@ export async function runPlatforms(
         sourceIds: action.sourceIds,
       })),
     );
+    const persisted = repository.get(id);
     repository.update(id, {
       agents: combined.agents,
-      rounds: [...repository.get(id).rounds, combined.snapshot],
+      rounds: [...persisted.rounds, combined.snapshot],
       currentRound: round,
       progress: 40 + Math.floor((round / project.settings.rounds) * 44),
+      // One write: the combined history, platform populations and memories can never disagree.
+      console: {
+        ...requireConsole(persisted),
+        platforms: runs,
+        memories: [...requireConsole(persisted).memories, ...additions],
+      },
     });
-    updateConsole(repository, id, (latest) => ({
-      ...latest,
-      platforms: runs,
-      memories: [...latest.memories, ...additions],
-    }));
     repository.addEvent(
       id,
       'simulation',

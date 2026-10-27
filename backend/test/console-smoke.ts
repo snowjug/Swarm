@@ -31,7 +31,7 @@ async function request(path: string, method = 'GET', body?: unknown): Promise<un
 }
 
 const health = z
-  .object({ status: z.literal('ok'), version: z.literal('0.2.0') })
+  .object({ status: z.literal('ok'), version: z.literal('0.3.0') })
   .parse(await request('/api/health'));
 const pdfText =
   'Fictional container transit scenario. Residents discuss accessible bus stops and a reversible electric bus trial. A community group asks for transparent funding and service evidence. These notes are invented inputs, not measured outcomes or real people speaking.';

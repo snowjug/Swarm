@@ -52,7 +52,8 @@ export function canExecute(project: ProjectDetail, step: ExecutionStep): boolean
   if (!isGuided(project) || isBusy(project) || project.status === 'completed') return false;
   const state = project.console!;
   const status = state.steps[step];
-  if (status === 'ready' || status === 'running' || status === 'queued') return false;
+  if (status === 'ready' || status === 'running' || status === 'queued' || status === 'paused')
+    return false;
   if (status === 'failed' || status === 'cancelled') return state.activeStep === step;
   const index = stepOrder.indexOf(step);
   return index === 0 || state.steps[stepOrder[index - 1]!] === 'ready';

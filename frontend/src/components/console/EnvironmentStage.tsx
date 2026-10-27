@@ -97,6 +97,57 @@ function EnvironmentEditor({
   };
   return (
     <div className="view-stack">
+      <div className="stage-actions primary-stage-actions">
+        {editable && (
+          <button
+            className="button button-secondary"
+            type="button"
+            disabled={disabled || !dirty}
+            onClick={() => void save()}
+          >
+            {saving ? <Spinner label="Saving environment" /> : <Save size={15} />} Save environment
+          </button>
+        )}
+        {!dirty &&
+          (project.rounds.length > 0 &&
+          ['paused', 'failed', 'cancelled'].includes(project.console?.steps.simulation ?? '') ? (
+            <button
+              className="button button-primary"
+              type="button"
+              onClick={() => onNavigate('simulation')}
+            >
+              Review saved checkpoint recovery
+            </button>
+          ) : (
+            <RunStepButton
+              project={project}
+              step="simulation"
+              busy={busy || saving}
+              onRun={onRun}
+              label="Start Simulation"
+            />
+          ))}
+        {!canExecute(project, 'simulation') && project.console?.steps.simulation !== 'pending' && (
+          <button
+            className="button button-secondary"
+            type="button"
+            onClick={() => onNavigate('simulation')}
+          >
+            Inspect simulation <ArrowRight size={14} />
+          </button>
+        )}
+      </div>
+      {dirty && (
+        <p className="unsaved-note" role="status">
+          Unsaved assumptions. Save the environment before starting simulation; navigation discards
+          unsaved edits.
+        </p>
+      )}
+      {editable && !dirty && (
+        <p className="field-help">
+          The saved environment is up to date; Save is disabled until an assumption changes.
+        </p>
+      )}
       {!editable && (
         <div className="readonly-note">
           <LockKeyhole size={14} /> Read-only recorded environment. Editing closes when simulation
@@ -294,42 +345,6 @@ function EnvironmentEditor({
         <Notice tone="error" title="Environment was not saved">
           {error}
         </Notice>
-      )}
-      <div className="stage-actions">
-        {editable && (
-          <button
-            className="button button-secondary"
-            type="button"
-            disabled={disabled || !dirty}
-            onClick={() => void save()}
-          >
-            {saving ? <Spinner label="Saving environment" /> : <Save size={15} />} Save environment
-          </button>
-        )}
-        {!dirty && (
-          <RunStepButton
-            project={project}
-            step="simulation"
-            busy={busy || saving}
-            onRun={onRun}
-            label="Start Simulation"
-          />
-        )}
-        {!canExecute(project, 'simulation') && project.console?.steps.simulation !== 'pending' && (
-          <button
-            className="button button-secondary"
-            type="button"
-            onClick={() => onNavigate('simulation')}
-          >
-            Inspect simulation <ArrowRight size={14} />
-          </button>
-        )}
-      </div>
-      {dirty && (
-        <p className="unsaved-note" role="status">
-          Unsaved assumptions. Save the environment before starting simulation; navigation discards
-          unsaved edits.
-        </p>
       )}
     </div>
   );

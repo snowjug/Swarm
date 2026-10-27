@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { FileText, Plus, Trash2, Upload, X } from 'lucide-react';
 import {
   documentInputSchema,
@@ -25,12 +26,14 @@ export function SourceInput({
   onChange,
   disabled,
   onPending,
+  errorResetRef,
 }: {
   config: AppConfig | null;
   documents: DocumentInput[];
   onChange: (documents: DocumentInput[]) => void;
   disabled: boolean;
   onPending: (pending: boolean) => void;
+  errorResetRef?: RefObject<(() => void) | null>;
 }) {
   const [pasteName, setPasteName] = useState('notes.txt');
   const [paste, setPaste] = useState('');
@@ -45,6 +48,18 @@ export function SourceInput({
   const total = documents.reduce((sum, document) => sum + document.content.length, 0);
 
   useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    if (!errorResetRef) return;
+    const clear = () => setError(null);
+    errorResetRef.current = clear;
+    return () => {
+      if (errorResetRef.current === clear) errorResetRef.current = null;
+    };
+  }, [errorResetRef]);
+  const changeDocuments = (next: DocumentInput[]) => {
+    setError(null);
+    onChange(next);
+  };
 
   const addFiles = async (files: FileList | null) => {
     if (!files?.length || reading || disabled) return;
@@ -151,7 +166,11 @@ export function SourceInput({
   };
 
   return (
-    <section className="source-input" aria-label="Source material">
+    <section
+      className="source-input"
+      aria-label="Source material"
+      onChangeCapture={() => setError(null)}
+    >
       <div className="section-heading">
         <h3>01 / Source material</h3>
         <span className="mono muted">
@@ -209,7 +228,7 @@ export function SourceInput({
               rows={8}
               disabled={disabled || Boolean(reading)}
               onChange={(event) =>
-                onChange(
+                changeDocuments(
                   documents.map((item, itemIndex) =>
                     itemIndex === index ? { ...item, content: event.target.value } : item,
                   ),
@@ -221,7 +240,7 @@ export function SourceInput({
             className="text-button danger-text"
             type="button"
             disabled={disabled || Boolean(reading)}
-            onClick={() => onChange(documents.filter((_, itemIndex) => itemIndex !== index))}
+            onClick={() => changeDocuments(documents.filter((_, itemIndex) => itemIndex !== index))}
           >
             <Trash2 size={13} aria-hidden="true" /> Remove source
           </button>

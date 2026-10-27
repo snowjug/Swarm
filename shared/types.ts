@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { GuidedConsoleState } from './guided.js';
 
-export const APP_VERSION = '0.2.0';
+export const APP_VERSION = '0.3.0';
 export const MAX_DOCUMENT_CHARS = 40_000;
 export const MAX_TOTAL_CHARS = 100_000;
 export const MAX_DOCUMENTS = 5;
@@ -240,6 +240,8 @@ export interface ProjectSummary {
   createdAt: string;
   updatedAt: string;
   error: string | null;
+  /** Set when this scenario was branched from another scenario's checkpoint. */
+  parentId: string | null;
 }
 
 export interface ProjectDetail extends ProjectSummary {
@@ -297,6 +299,7 @@ export interface AppConfig {
     webRetrieval: boolean;
     guidedConsole: boolean;
     surveys: boolean;
+    whatIf: boolean;
     authentication: 'local-single-user';
   };
 }

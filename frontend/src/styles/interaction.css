@@ -1,6 +1,5 @@
 .tabs-scroll {
   min-width: 0;
-  overflow-x: auto;
 }
 .tabs {
   display: flex;
@@ -11,40 +10,38 @@
 .tabs > button {
   display: flex;
   justify-content: center;
-  gap: 6px;
   align-items: center;
+  gap: 6px;
   flex: 1;
-  padding: 11px 8px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 10px 7px;
   border-bottom: 2px solid transparent;
   color: var(--muted);
   background: transparent;
-  font-size: 10px;
-  white-space: nowrap;
+  font-size: 12px;
 }
 .tabs > button[aria-selected='true'] {
-  color: #a74e28;
-  border-bottom-color: #c76c41;
+  color: #91380f;
+  border-bottom-color: #a83b14;
 }
 .tab-count {
-  padding: 0 4px;
+  padding: 1px 5px;
   border-radius: 2px;
-  background: #eeebe7;
-  color: #937760;
-  font: 8px/15px var(--mono);
+  background: #eee7dc;
+  color: #72512e;
+  font: 12px/18px var(--mono);
 }
 .conversation {
-  max-height: 520px;
-  min-height: 240px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 13px;
-  overscroll-behavior-y: contain;
+  min-height: 160px;
   padding: 2px;
 }
 .chat-message {
   padding: 13px;
-  border: 1px solid #e0e2e4;
+  border: 1px solid #c7d0d7;
   border-radius: 3px;
   background: #fff;
   min-width: 0;
@@ -52,26 +49,25 @@
 .chat-message .section-heading {
   margin-bottom: 9px;
   align-items: baseline;
+  flex-wrap: wrap;
 }
 .chat-message .eyebrow {
-  font-size: 8px;
-  color: #77828d;
+  color: #42586c;
 }
 .chat-message time {
-  font-size: 8px;
-  color: #9a9fa4;
+  color: var(--muted);
 }
 .chat-message p {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.85;
 }
 .message-user {
-  background: #f8f5f0;
-  border-color: #e7ded1;
+  background: #faf4ec;
+  border-color: #d4bda1;
   margin-left: 16px;
 }
 .message-user .eyebrow {
-  color: #ad7750;
+  color: #845127;
 }
 .chat-compose {
   padding-top: 12px;
@@ -80,152 +76,129 @@
 .chat-compose > textarea {
   width: 100%;
   min-width: 0;
-  min-height: 88px;
+  min-height: 90px;
   resize: vertical;
-  border: 1px solid #d9dcde;
+  border: 1px solid #abb7c2;
   border-radius: 3px;
   padding: 12px;
   background: #fff;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.7;
 }
 .chat-compose .section-heading {
   margin-top: 8px;
   align-items: center;
-}
-.chat-compose .mono {
-  font-size: 7px;
+  flex-wrap: wrap;
 }
 .survey-form {
-  gap: 17px;
+  gap: 16px;
 }
 .survey-kind {
   display: flex;
   flex-wrap: wrap;
-  gap: 11px 15px;
+  gap: 10px 14px;
 }
 .survey-kind > legend {
   width: 100%;
-  font-size: 10px;
-  margin-bottom: 8px;
 }
 .survey-kind > label {
   display: flex;
   align-items: center;
-  gap: 5px;
-  font-size: 10px;
-}
-.survey-kind input {
-  margin: 0;
+  gap: 8px;
+  font-size: 12px;
+  min-height: 32px;
 }
 .survey-targets {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 7px;
+  gap: 8px;
 }
 .survey-targets > legend {
   grid-column: 1/-1;
   width: 100%;
-  font-size: 10px;
 }
 .survey-targets > legend > .mono {
-  float: right;
-  font-size: 8px;
   color: var(--muted);
-  margin-left: 7px;
+  margin-left: 8px;
 }
 .survey-targets > label {
   display: flex;
   align-items: flex-start;
-  gap: 7px;
-  padding: 9px;
-  border: 1px solid var(--border);
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #bbc5ce;
   border-radius: 3px;
   background: #fff;
   min-width: 0;
 }
-.survey-targets > label input {
-  margin: 3px 0 0;
-}
 .survey-targets > label strong {
-  font-size: 10px;
-  font-weight: 550;
+  font-size: 13px;
+  font-weight: 600;
   display: block;
   overflow-wrap: anywhere;
 }
 .survey-targets > label small {
-  font-size: 8px;
+  font-size: 12px;
   color: var(--muted);
   display: block;
   margin-top: 3px;
   overflow-wrap: anywhere;
 }
+.survey-record > .section-heading {
+  flex-wrap: wrap;
+}
 .survey-record > .section-heading > .mono {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   align-items: center;
-  font-size: 9px;
-}
-.survey-record .spinner-wrap > svg {
-  height: 12px;
-  width: 12px;
 }
 .survey-record > h3 {
-  font-size: 13px;
   overflow-wrap: anywhere;
 }
-.survey-record .record-meta {
-  font-size: 8px;
-}
 .survey-response {
-  border: 1px solid #e2e1df;
-  border-left: 2px solid #c4a386;
+  border: 1px solid #cbbba8;
+  border-left: 2px solid #a87c50;
   background: #fff;
   padding: 12px;
   min-width: 0;
 }
+.survey-response .section-heading {
+  flex-wrap: wrap;
+}
 .survey-response .section-heading > .mono {
-  color: #926548;
-  font-size: 9px;
+  color: #805125;
 }
 .survey-response > p {
-  font-size: 11px;
+  font-size: 13px;
   margin: 9px 0;
 }
 .snapshot-null {
-  background: #f6f7f8;
-  color: #7d8289;
+  background: #f0f3f6;
+  color: #4a5868;
   padding: 10px;
-  border: 1px solid #e5e6e8;
-  font: 10px/1.8 var(--mono) !important;
+  border: 1px solid #c6d0da;
+  font: 12px/1.8 var(--mono) !important;
 }
 .snapshot-null strong {
-  font-weight: 500;
-  color: #65727e;
+  font-weight: 600;
+  color: #354b5f;
 }
 .survey-completed {
-  border-color: #d2ded2;
+  border-color: #afc7b5;
 }
 .survey-failed,
 .survey-cancelled {
-  border-color: #e2cfca;
+  border-color: #d2ada7;
 }
 @media (max-width: 1250px) and (min-width: 901px) {
   .survey-targets {
     grid-template-columns: minmax(0, 1fr);
   }
-  .tabs > button {
-    padding: 10px 5px;
-    font-size: 9px;
-  }
 }
-@media (max-width: 500px) {
+@media (max-width: 640px) {
   .tabs > button {
-    font-size: 9px;
-    padding: 10px 5px;
-  }
-  .conversation {
-    max-height: 550px;
+    min-height: 44px;
+    padding: 9px 5px;
   }
   .survey-targets {
     grid-template-columns: minmax(0, 1fr);

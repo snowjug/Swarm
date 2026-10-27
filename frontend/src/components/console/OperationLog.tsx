@@ -1,12 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Terminal } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Terminal } from 'lucide-react';
 import type { ProjectDetail } from '../../../../shared/types';
 import { dateTime } from '../../lib/format';
 
-export function OperationLog({ project }: { project: ProjectDetail }) {
-  const [open, setOpen] = useState(true);
+export function OperationLog({
+  project,
+  initialExpanded = false,
+}: {
+  project: ProjectDetail;
+  initialExpanded?: boolean;
+}) {
+  const [open, setOpen] = useState(initialExpanded);
   const [follow, setFollow] = useState(true);
   const scroll = useRef<HTMLDivElement>(null);
+  const id = useId();
   const lines = [
     ...project.events.map((event) => ({
       id: `event-${event.id}`,
@@ -33,53 +40,63 @@ export function OperationLog({ project }: { project: ProjectDetail }) {
       aria-label="Persisted diagnostic event log"
     >
       <div className="log-toolbar">
+        <span className="log-heading">
+          <Terminal size={16} aria-hidden="true" /> OPERATION LOG · {lines.length} records
+        </span>
+        <p className="log-latest" title={lines.at(-1)?.text}>
+          {lines.at(-1)?.text ?? 'No persisted events returned.'}
+        </p>
         <button
+          className="button log-expand"
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
-          aria-controls="diagnostic-log-lines"
+          aria-controls={id}
         >
-          <Terminal size={14} />
-          <strong>OPERATION LOG</strong>
-          <span>{lines.length} PERSISTED RECORDS</span>
-          {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          {open ? 'Collapse' : 'Expand'} log
         </button>
-        {open && (
-          <label>
-            <input
-              type="checkbox"
-              checked={follow}
-              onChange={(event) => setFollow(event.target.checked)}
-            />{' '}
-            Follow latest
-          </label>
-        )}
       </div>
       {open && (
-        <div
-          className="log-lines"
-          id="diagnostic-log-lines"
-          ref={scroll}
-          tabIndex={0}
-          aria-label="Recorded server events, scrollable"
-        >
-          {!lines.length && (
-            <p className="log-empty">
-              No persisted events or operation traces returned by the API.
-            </p>
-          )}
-          {lines.slice(-120).map((line) => (
-            <div className={`log-line log-${line.status}`} key={line.id}>
-              <time dateTime={line.time}>{dateTime(line.time)}</time>
-              <span className="log-tag">{line.tag}</span>
-              <span>{line.text}</span>
-            </div>
-          ))}
-          {lines.length > 120 && (
-            <p className="log-empty">Showing latest 120 of {lines.length} loaded records.</p>
-          )}
-        </div>
+        <label className="log-follow">
+          <input
+            type="checkbox"
+            checked={follow}
+            onChange={(event) => setFollow(event.target.checked)}
+          />{' '}
+          Follow latest saved event
+        </label>
       )}
+      <div
+        id={id}
+        hidden={!open}
+        className="log-lines"
+        ref={scroll}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions text"
+        tabIndex={open ? 0 : -1}
+        aria-label="Recorded server events and operation traces"
+      >
+        {open && (
+          <>
+            {!lines.length && (
+              <p className="log-empty">
+                No persisted events or operation traces returned by the API.
+              </p>
+            )}
+            {lines.slice(-120).map((line) => (
+              <div className={`log-line log-${line.status}`} key={line.id}>
+                <time dateTime={line.time}>{dateTime(line.time)}</time>
+                <span className="log-tag">{line.tag}</span>
+                <span>{line.text}</span>
+              </div>
+            ))}
+            {lines.length > 120 && (
+              <p className="log-empty">Showing latest 120 of {lines.length} loaded records.</p>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

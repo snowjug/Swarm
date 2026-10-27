@@ -25,12 +25,14 @@ export type ModelFactory = (
 interface QueuedTask {
   id: string;
   step: ExecutionStep | 'quick';
+  resume: boolean;
 }
 
 export class Orchestrator {
   private readonly pending: QueuedTask[] = [];
   private readonly guided: GuidedWorkflow;
   private activeId: string | null = null;
+  private activeStep: QueuedTask['step'] | null = null;
   private activeTask: Promise<void> | null = null;
   private controller: AbortController | null = null;
   private stopping = false;
@@ -104,17 +106,17 @@ export class Orchestrator {
       'knowledge',
       'Run queued. One local worker processes at most three waiting runs.',
     );
-    this.pending.push({ id, step: 'quick' });
+    this.pending.push({ id, step: 'quick', resume: false });
     setImmediate(() => this.pump());
     return this.repository.get(id);
   }
 
-  enqueueStep(id: string, step: ExecutionStep): ReturnType<Repository['get']> {
+  enqueueStep(id: string, step: ExecutionStep, resume = false): ReturnType<Repository['get']> {
     if (this.stopping) throw new AppError(503, 'SERVER_STOPPING', 'The backend is stopping.');
     const project = this.repository.get(id);
     if (this.isBusy(id))
       throw new AppError(409, 'RUN_ACTIVE', 'This scenario already has active or stopping work.');
-    validateStep(project, step);
+    validateStep(project, step, resume);
     if (project.mode === 'llm') {
       if (!this.config.provider.configured)
         throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.provider.reason);
@@ -150,9 +152,45 @@ export class Orchestrator {
         outputTokens: 0,
       },
     });
-    this.repository.addEvent(id, stepStage[step], `${step} queued for the bounded local worker.`);
-    this.pending.push({ id, step });
+    this.repository.addEvent(
+      id,
+      stepStage[step],
+      resume
+        ? `${step} resume queued from the last saved round.`
+        : `${step} queued for the bounded local worker.`,
+    );
+    this.pending.push({ id, step, resume });
     setImmediate(() => this.pump());
+    return this.repository.get(id);
+  }
+
+  pause(id: string): ReturnType<Repository['get']> {
+    const pausedBy = new AppError(
+      409,
+      'RUN_PAUSED',
+      'The simulation was paused at its last saved round.',
+    );
+    const pendingIndex = this.pending.findIndex((task) => task.id === id);
+    if (pendingIndex >= 0) {
+      const task = this.pending[pendingIndex];
+      if (task?.step !== 'simulation')
+        throw new AppError(409, 'RUN_NOT_PAUSABLE', 'Only a simulation can be paused.');
+      this.pending.splice(pendingIndex, 1);
+      this.settleFailure(id, 'simulation', pausedBy);
+    } else if (this.activeId === id && this.controller && this.activeStep === 'simulation') {
+      this.controller.abort(pausedBy);
+      this.repository.addEvent(
+        id,
+        'simulation',
+        'Pause requested. The in-flight round is discarded; saved rounds are kept.',
+      );
+    } else {
+      throw new AppError(
+        409,
+        'RUN_NOT_PAUSABLE',
+        'Only a queued or running simulation can be paused.',
+      );
+    }
     return this.repository.get(id);
   }
 
@@ -198,6 +236,7 @@ export class Orchestrator {
     if (!task) return;
     const { id } = task;
     this.activeId = id;
+    this.activeStep = task.step;
     this.controller = new AbortController();
     const controller = this.controller;
     this.activeTask = this.execute(task, controller)
@@ -205,6 +244,7 @@ export class Orchestrator {
       .finally(() => {
         this.activeTask = null;
         this.activeId = null;
+        this.activeStep = null;
         this.controller = null;
         this.pump();
       });
@@ -230,7 +270,7 @@ export class Orchestrator {
     deadline.unref();
     try {
       if (task.step !== 'quick') {
-        await this.guided.execute(id, task.step, signal);
+        await this.guided.execute(id, task.step, signal, task.resume);
         return;
       }
       this.repository.update(id, { status: 'running' });
@@ -309,18 +349,37 @@ export class Orchestrator {
       );
     } catch (error) {
       const failure = signal.aborted && signal.reason instanceof AppError ? signal.reason : error;
-      const safe = publicFailure(failure);
-      if (task.step !== 'quick') failStage(this.repository, id, task.step, failure);
-      const current = this.repository.get(id);
-      this.repository.update(id, {
-        status: safe.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed',
-        error: safe.message,
-      });
-      this.repository.addEvent(id, current.stage, `${safe.code}: ${safe.message}`);
-      this.onFailure(id, safe.code);
+      const code = this.settleFailure(id, task.step, failure);
+      if (code !== 'RUN_PAUSED') this.onFailure(id, code);
     } finally {
       clearTimeout(deadline);
     }
+  }
+
+  /** Records a stopped run; a pause with saved rounds is a resumable state, not an error. */
+  private settleFailure(id: string, step: QueuedTask['step'], failure: unknown): string {
+    const safe = publicFailure(failure);
+    if (step !== 'quick') failStage(this.repository, id, step, failure);
+    const current = this.repository.get(id);
+    if (safe.code === 'RUN_PAUSED' && current.console?.steps.simulation === 'paused') {
+      this.repository.update(id, { status: 'ready', stage: 'simulation', error: null });
+      this.repository.addEvent(
+        id,
+        'simulation',
+        `Simulation paused after round ${current.rounds.length}. Saved rounds are intact: resume, schedule an intervention, or branch.`,
+      );
+      return safe.code;
+    }
+    const message =
+      safe.code === 'RUN_PAUSED'
+        ? 'Paused before any round was saved, so nothing was kept. Start the simulation again.'
+        : safe.message;
+    this.repository.update(id, {
+      status: safe.code === 'RUN_CANCELLED' || safe.code === 'RUN_PAUSED' ? 'cancelled' : 'failed',
+      error: message,
+    });
+    this.repository.addEvent(id, current.stage, `${safe.code}: ${message}`);
+    return safe.code;
   }
 
   async idle(): Promise<void> {

@@ -1,0 +1,98 @@
+.checkpoint-controls {
+  border: 1px solid #afc2d5;
+  border-radius: 4px;
+  padding: 14px;
+  background: #f6f9fc;
+}
+.checkpoint-editor {
+  padding: 14px;
+}
+.checkpoint-editor > .scheduled-intervention {
+  padding: 0;
+}
+.intervention-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.branch-form {
+  min-width: 0;
+}
+.branch-intervention-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.branch-intervention-choice > label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+  font-size: 13px;
+}
+.branch-proxies {
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.branch-proxy-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  background: #fafbfc;
+  border-radius: 3px;
+}
+.branch-banner {
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 1px solid #a9bfd5;
+  border-left: 3px solid #567d9f;
+  border-radius: 3px;
+  background: #f0f5fb;
+  color: #2f4d6c;
+  font-size: 13px;
+}
+.branch-banner > p {
+  margin: 7px 0;
+}
+.branch-declared-changes > ul {
+  padding-left: 20px;
+  margin: 8px 0 12px;
+  line-height: 1.8;
+}
+.branch-declared-changes > summary {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  font-weight: 600;
+}
+.branch-declared-changes > summary::before {
+  content: '+ ';
+  margin-right: 6px;
+}
+.branch-declared-changes[open] > summary::before {
+  content: '− ';
+}
+.branch-banner .stage-actions {
+  margin-top: 10px;
+}
+.branch-banner > .notice {
+  margin-top: 12px;
+}
+.branch-form [aria-live]:empty,
+.scheduled-intervention [aria-live]:empty {
+  display: none;
+}
+@media (max-width: 640px) {
+  .checkpoint-controls,
+  .checkpoint-editor {
+    padding: 12px;
+  }
+  .branch-intervention-choice > label {
+    min-height: 44px;
+  }
+  .branch-proxy-row .fields-grid.three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

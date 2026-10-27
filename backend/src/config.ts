@@ -31,6 +31,8 @@ export interface ServerConfig {
   provider: ProviderConfig;
   sourceUrl: string | null;
   storageWarning: string | null;
+  /** Multiplies every per-IP request limit. Default 1; raise only for automated tests/load tests. */
+  rateLimitScale: number;
 }
 
 const syncedFolders: readonly [string, RegExp][] = [
@@ -70,6 +72,7 @@ const environmentSchema = z.object({
   AI_MODEL: z.string().trim().max(150).default(''),
   AI_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(120_000),
   SOURCE_URL: z.string().trim().default(''),
+  RATE_LIMIT_SCALE: z.coerce.number().int().min(1).max(1_000).default(1),
 });
 
 type EndpointResult = { valid: true; url: string } | { valid: false; reason: string };
@@ -195,6 +198,7 @@ export function loadConfig(
     provider: buildProvider(input.AI_PROVIDER, input.AI_MODEL, input.AI_TIMEOUT_MS, environment),
     sourceUrl,
     storageWarning: storageWarning(databasePath),
+    rateLimitScale: input.RATE_LIMIT_SCALE,
   };
 }
 
@@ -227,6 +231,7 @@ export function publicConfig(config: ServerConfig): AppConfig {
       webRetrieval: false,
       guidedConsole: true,
       surveys: true,
+      whatIf: true,
       authentication: 'local-single-user',
     },
   };

@@ -73,7 +73,7 @@ function EvidenceBrowser({
           Search
         </button>
       </form>
-      <div className="document-shortcuts" aria-label="Original documents">
+      <div className="document-shortcuts" role="group" aria-label="Original documents">
         {project.documents.map((document) => (
           <button
             className="source-chip"
@@ -180,6 +180,10 @@ export function Inspector({
     );
   } else if (selection.kind === 'node') {
     const node = project.graph?.nodes.find((item) => item.id === selection.id);
+    const relationships =
+      project.graph?.edges
+        .map((edge, index) => ({ edge, index }))
+        .filter(({ edge }) => edge.source === selection.id || edge.target === selection.id) ?? [];
     title = node?.label ?? 'Node not recorded';
     content = node ? (
       <div className="view-stack">
@@ -200,6 +204,28 @@ export function Inspector({
         {!node.sourceIds.length && (
           <Notice tone="warning">No source citations were recorded for this node.</Notice>
         )}
+        <details className="record-details">
+          <summary>Recorded source relationships ({relationships.length})</summary>
+          {relationships.map(({ edge, index }) => (
+            <button
+              className="document-row"
+              type="button"
+              key={index}
+              onClick={() => onInspect({ kind: 'edge', index })}
+            >
+              <span className="preserve-text">
+                {project.graph?.nodes.find((item) => item.id === edge.source)?.label ?? edge.source}
+                {' → '}
+                {edge.label}
+                {' → '}
+                {project.graph?.nodes.find((item) => item.id === edge.target)?.label ?? edge.target}
+              </span>
+            </button>
+          ))}
+          {!relationships.length && (
+            <p className="field-help">No source relationships were recorded for this node.</p>
+          )}
+        </details>
       </div>
     ) : (
       <Notice tone="warning">This node is not present in the loaded graph.</Notice>

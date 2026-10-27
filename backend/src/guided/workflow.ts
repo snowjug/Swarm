@@ -14,7 +14,12 @@ export class GuidedWorkflow {
     private readonly createModel: ModelFactory,
   ) {}
 
-  async execute(id: string, step: ExecutionStep, signal: AbortSignal): Promise<void> {
+  async execute(
+    id: string,
+    step: ExecutionStep,
+    signal: AbortSignal,
+    resume = false,
+  ): Promise<void> {
     beginStage(this.repository, id, step);
     const project = this.repository.get(id);
     const model =
@@ -33,7 +38,7 @@ export class GuidedWorkflow {
         await prepareEnvironment(this.repository, id, model, signal);
         break;
       case 'simulation':
-        await runPlatforms(this.repository, id, model, signal);
+        await runPlatforms(this.repository, id, model, signal, resume);
         break;
       case 'report':
         await generateGuidedReport(this.repository, id, model, signal);

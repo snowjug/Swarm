@@ -1,27 +1,24 @@
 import { useState } from 'react';
-import {
-  Check,
-  Copy,
-  GitBranch,
-  LayoutPanelLeft,
-  PanelRight,
-  RefreshCw,
-  Square,
-} from 'lucide-react';
+import { Copy, RefreshCw, Square } from 'lucide-react';
 import type {
   ConsoleStep,
+  BranchInput,
   EnvironmentUpdate,
   ExecutionStep,
   SurveyRecord,
 } from '../../../../shared/guided';
-import type { AppConfig, ProjectDetail } from '../../../../shared/types';
+import type {
+  AppConfig,
+  Intervention,
+  ProjectDetail,
+  ProjectSummary,
+} from '../../../../shared/types';
 import {
   initialStep,
   isBusy,
   isGuided,
   stepAvailable,
   stepLabels,
-  stepOrder,
   stepStatus,
 } from '../../lib/console';
 import type { Inspection } from '../../lib/graph';
@@ -35,8 +32,15 @@ import { OperationLog } from './OperationLog';
 import { ReportReader } from './ReportReader';
 import { ReportStage } from './ReportStage';
 import { SimulationStage } from './SimulationStage';
-
-type View = 'graph' | 'split' | 'workbench';
+import { BranchDialog } from './BranchDialog';
+import { BranchBanner } from './BranchBanner';
+import { CompareView } from './CompareView';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { ConsoleViewControls, CONSOLE_NARROW_QUERY } from './ConsoleViewControls';
+import type { ConsoleView } from './ConsoleViewControls';
+import { ConsoleStepper } from './ConsoleStepper';
+import { useJsonSnapshotExport } from '../../hooks/useJsonSnapshotExport';
+import { JsonSnapshotExportButton, JsonSnapshotExportError } from './JsonSnapshotExport';
 
 export function ConsoleWorkspace({
   project,
@@ -49,6 +53,14 @@ export function ConsoleWorkspace({
   onRefresh,
   onDuplicate,
   onSurvey,
+  onPause,
+  onResume,
+  onIntervention,
+  onBranch,
+  onSelectProject,
+  projects,
+  comparisonRequested = false,
+  onCloseComparison,
 }: {
   project: ProjectDetail;
   config: AppConfig | null;
@@ -60,21 +72,49 @@ export function ConsoleWorkspace({
   onRefresh: () => void;
   onDuplicate: () => void;
   onSurvey: (record: SurveyRecord) => void;
+  onPause: () => Promise<void>;
+  onResume: () => Promise<void>;
+  onIntervention: (value: Intervention | null) => Promise<void>;
+  onBranch: (input: BranchInput) => Promise<void>;
+  onSelectProject: (id: string) => void;
+  projects: ProjectSummary[];
+  comparisonRequested?: boolean;
+  onCloseComparison: () => void;
 }) {
   const [step, setStep] = useState<ConsoleStep>(() => initialStep(project));
-  const [view, setView] = useState<View>('split');
-  const [mobilePane, setMobilePane] = useState<'canvas' | 'stage'>('stage');
+  const snapshotExport = useJsonSnapshotExport(project.id);
+  const [view, setView] = useState<ConsoleView>('split');
+  const narrow = useMediaQuery(CONSOLE_NARROW_QUERY);
+  const effectiveView = narrow && view === 'split' ? 'workbench' : view;
   const [inspection, setInspection] = useState<Inspection | null>(null);
+  const [branchOpen, setBranchOpen] = useState(false);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
+  const [comparisonOther, setComparisonOther] = useState<string | null>(null);
+  const [comparisonRevision, setComparisonRevision] = useState(0);
   const guided = isGuided(project);
+  const whatIf = guided && Boolean(config?.capabilities.whatIf);
+  const comparing = whatIf && (comparisonOpen || comparisonRequested);
+  const compare = (otherId?: string) => {
+    setComparisonOther(otherId ?? project.parentId);
+    setComparisonRevision((value) => value + 1);
+    setComparisonOpen(true);
+  };
+  const changeView = (next: ConsoleView) => {
+    setView(next);
+    setComparisonOpen(false);
+    onCloseComparison();
+  };
   const reportView = step === 'report' || step === 'interaction';
   const navigate = (next: ConsoleStep) => {
     if (!stepAvailable(project, next)) return;
     setStep(next);
-    setMobilePane('stage');
+    setComparisonOpen(false);
+    onCloseComparison();
+    if (narrow) setView('workbench');
   };
   const run = (next: ExecutionStep) => {
     setStep(next);
-    setMobilePane('stage');
+    if (narrow) setView('workbench');
     void onRun(next).catch(() => {
       // The operation hook displays the API error and refreshes persisted state.
     });
@@ -119,6 +159,15 @@ export function ConsoleWorkspace({
           onNavigate={navigate}
           onCancel={cancel}
           onInspect={inspect}
+          whatIf={whatIf}
+          onPause={onPause}
+          onResume={onResume}
+          onRestart={async () => {
+            await onRun('simulation');
+          }}
+          onIntervention={onIntervention}
+          onBranch={() => setBranchOpen(true)}
+          onCompare={() => compare()}
         />
       );
       break;
@@ -130,6 +179,7 @@ export function ConsoleWorkspace({
           onRun={run}
           onNavigate={navigate}
           onInspect={inspect}
+          onCompare={whatIf ? () => compare() : undefined}
         />
       );
       break;
@@ -164,7 +214,18 @@ export function ConsoleWorkspace({
           <p>{project.question}</p>
         </div>
         <div className="project-actions">
-          <StatusBadge status={project.status} />
+          <StatusBadge
+            status={stepStatus(project, 'simulation') === 'paused' ? 'paused' : project.status}
+          />
+          {whatIf && project.rounds.length > 0 && (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              onClick={() => compare()}
+            >
+              Compare
+            </button>
+          )}
           <button
             className="icon-button"
             type="button"
@@ -192,20 +253,28 @@ export function ConsoleWorkspace({
           >
             <Copy size={13} /> Duplicate as guided
           </button>
+          <JsonSnapshotExportButton
+            pending={snapshotExport.pending}
+            onExport={snapshotExport.download}
+          />
         </div>
       </section>
-      <div className="project-metadata mono">
-        <span>PROJECT {project.id}</span>
-        <span>
-          {project.mode === 'local' ? 'LOCAL / NO MODEL ASSISTANCE' : 'MODEL ASSISTED'} · {provider}
-        </span>
-        {project.execution && (
-          <span>
-            {project.execution.modelCalls} REAL MODEL CALLS · {project.execution.inputTokens} IN /{' '}
-            {project.execution.outputTokens} OUT TOKENS
-          </span>
-        )}
-      </div>
+      <JsonSnapshotExportError error={snapshotExport.error} />
+      <details className="project-metadata mono">
+        <summary>
+          Project {project.id.slice(0, 8)} ·{' '}
+          {project.mode === 'local' ? 'Local rules' : 'Model assisted'} · {provider}
+        </summary>
+        <div>
+          <span>Full project ID: {project.id}</span>
+          {project.execution && (
+            <span>
+              {project.execution.modelCalls} real model calls · {project.execution.inputTokens}{' '}
+              input / {project.execution.outputTokens} output tokens
+            </span>
+          )}
+        </div>
+      </details>
       {!guided && (
         <Notice
           tone="warning"
@@ -228,93 +297,80 @@ export function ConsoleWorkspace({
         </Notice>
       )}
       <div className="workspace-navigation">
-        <nav className="console-stepper" aria-label="Guided workflow steps">
-          {stepOrder.map((item, index) => {
-            const status = stepStatus(project, item);
-            const enabled = stepAvailable(project, item);
-            return (
-              <button
-                type="button"
-                className={`console-step ${step === item ? 'active' : ''} step-${status ?? 'unknown'}`}
-                key={item}
-                disabled={!enabled}
-                aria-current={step === item ? 'step' : undefined}
-                aria-label={`Step ${index + 1}: ${stepLabels[item]}, ${status ?? 'historical view'}${!enabled ? ', prerequisite not ready' : ''}`}
-                onClick={() => navigate(item)}
-              >
-                <span className="step-index">
-                  {status === 'ready' ? <Check size={13} /> : index + 1}
-                </span>
-                <span>
-                  <strong>{stepLabels[item]}</strong>
-                  <small>{status ?? 'historical view'}</small>
-                </span>
-                {(status === 'queued' || status === 'running') && (
-                  <Spinner label={`${stepLabels[item]} ${status}`} />
-                )}
-              </button>
-            );
-          })}
-        </nav>
-        <div className="segmented view-toggle" role="group" aria-label="Console view">
-          <button type="button" aria-pressed={view === 'graph'} onClick={() => setView('graph')}>
-            <GitBranch size={14} /> Graph
-          </button>
-          <button type="button" aria-pressed={view === 'split'} onClick={() => setView('split')}>
-            <LayoutPanelLeft size={14} /> Split
-          </button>
-          <button
-            type="button"
-            aria-pressed={view === 'workbench'}
-            onClick={() => setView('workbench')}
-          >
-            <PanelRight size={14} /> Workbench
-          </button>
-        </div>
+        <ConsoleStepper project={project} step={step} onNavigate={navigate} />
+        <ConsoleViewControls
+          narrow={narrow}
+          leftLabel={reportView ? 'Report' : 'Graph'}
+          view={view}
+          onChange={changeView}
+        />
       </div>
-      {view === 'split' && (
-        <div className="mobile-pane-tabs segmented" role="group" aria-label="Mobile console pane">
-          <button
-            type="button"
-            aria-pressed={mobilePane === 'canvas'}
-            onClick={() => setMobilePane('canvas')}
-          >
-            {reportView ? 'Report reader' : 'Graph'}
-          </button>
-          <button
-            type="button"
-            aria-pressed={mobilePane === 'stage'}
-            onClick={() => setMobilePane('stage')}
-          >
-            {stepLabels[step]} workbench
-          </button>
+      {whatIf && (
+        <BranchBanner
+          project={project}
+          enabled={whatIf}
+          onNavigate={onSelectProject}
+          onCompare={compare}
+        />
+      )}
+      {comparing ? (
+        <CompareView
+          key={comparisonRevision}
+          project={project}
+          projects={projects}
+          defaultOtherId={comparisonOther ?? project.parentId}
+          onClose={() => {
+            setComparisonOpen(false);
+            onCloseComparison();
+          }}
+        />
+      ) : (
+        <div
+          className={`console-grid view-${effectiveView} ${reportView && effectiveView === 'split' ? 'report-layout' : ''}`}
+        >
+          {effectiveView === 'graph' ? (
+            <div className="console-canvas">
+              {reportView ? (
+                <ReportReader project={project} onInspect={inspect} />
+              ) : (
+                <GraphCanvas
+                  project={project}
+                  onInspect={inspect}
+                  evolution={whatIf && step === 'simulation'}
+                />
+              )}
+            </div>
+          ) : (
+            <>
+              {effectiveView === 'split' && (
+                <div className="console-canvas">
+                  {reportView ? (
+                    <ReportReader project={project} onInspect={inspect} />
+                  ) : (
+                    <GraphCanvas
+                      project={project}
+                      onInspect={inspect}
+                      evolution={whatIf && step === 'simulation'}
+                    />
+                  )}
+                </div>
+              )}
+              <section className="console-stage" aria-label={`${stepLabels[step]} workbench`}>
+                {stage}
+              </section>
+            </>
+          )}
         </div>
       )}
-      <div
-        className={`console-grid view-${view} ${reportView ? 'report-layout' : ''} mobile-${mobilePane}`}
-      >
-        {view === 'graph' ? (
-          <div className="console-canvas">
-            <GraphCanvas project={project} onInspect={inspect} />
-          </div>
-        ) : (
-          <>
-            {(view === 'split' || reportView) && (
-              <div className="console-canvas">
-                {reportView ? (
-                  <ReportReader project={project} onInspect={inspect} />
-                ) : (
-                  <GraphCanvas project={project} onInspect={inspect} />
-                )}
-              </div>
-            )}
-            <section className="console-stage" aria-label={`${stepLabels[step]} workbench`}>
-              {stage}
-            </section>
-          </>
-        )}
-      </div>
       <OperationLog project={project} />
+      {branchOpen && whatIf && (
+        <BranchDialog
+          project={project}
+          busy={busy}
+          onSubmit={onBranch}
+          onClose={() => setBranchOpen(false)}
+        />
+      )}
       {inspection && (
         <Inspector
           project={project}

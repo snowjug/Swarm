@@ -1,49 +1,70 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
-import { Maximize2, Minus, Plus, RotateCcw, ScanSearch } from 'lucide-react';
+import { Minus, Plus, RotateCcw, ScanSearch } from 'lucide-react';
 import type { ProjectDetail } from '../../../../shared/types';
-import { layoutGraph } from '../../lib/graph';
+import { cycleGraphNode, layoutGraph } from '../../lib/graph';
 import type { GraphInput, GraphPoint, Inspection } from '../../lib/graph';
+import { useElementSize } from '../../hooks/useElementSize';
 import { EmptyPanel } from '../ui';
+import { GraphRoundControl } from './GraphRoundControl';
 
 const palette = [
-  '#6087bb',
-  '#b77b59',
-  '#7d9b66',
-  '#a684b9',
-  '#c8a348',
-  '#5b9a99',
-  '#b76c81',
-  '#8390a1',
+  '#547aa7',
+  '#9d6243',
+  '#607e49',
+  '#88609e',
+  '#917015',
+  '#397f7d',
+  '#a3546d',
+  '#66788f',
 ];
-const initialTransform = { x: 500, y: 350, k: 1 };
-const clamp = (value: number) => Math.max(0.3, Math.min(3.5, value));
-function fitGraph(nodes: GraphPoint[]) {
-  if (!nodes.length) return initialTransform;
+interface Transform {
+  x: number;
+  y: number;
+  k: number;
+}
+const clamp = (value: number) => Math.max(0.08, Math.min(4, value));
+function fit(nodes: GraphPoint[], width: number, height: number): Transform {
+  if (!nodes.length) return { x: width / 2, y: height / 2, k: 1 };
   const xs = nodes.map((node) => node.x ?? 0);
   const ys = nodes.map((node) => node.y ?? 0);
-  const left = Math.min(...xs);
-  const right = Math.max(...xs);
-  const top = Math.min(...ys);
-  const bottom = Math.max(...ys);
-  const k = Math.min(1.4, 820 / Math.max(100, right - left), 530 / Math.max(100, bottom - top));
-  return { k, x: 500 - ((left + right) / 2) * k, y: 350 - ((top + bottom) / 2) * k };
+  const left = Math.min(...xs),
+    right = Math.max(...xs),
+    top = Math.min(...ys),
+    bottom = Math.max(...ys);
+  const k = Math.min(
+    1.6,
+    Math.max(40, width - 120) / Math.max(100, right - left),
+    Math.max(40, height - 90) / Math.max(100, bottom - top),
+  );
+  return { k, x: width / 2 - ((left + right) * k) / 2, y: height / 2 - ((top + bottom) * k) / 2 };
 }
+const shortLabel = (label: string, maximum: number) =>
+  label.length > maximum ? `${label.slice(0, maximum - 1)}…` : label;
 
 export function GraphCanvas({
   project,
   onInspect,
+  evolution = false,
 }: {
   project: ProjectDetail;
   onInspect: (selection: Inspection) => void;
+  evolution?: boolean;
 }) {
   const [overlays, setOverlays] = useState(true);
   const [edgeLabels, setEdgeLabels] = useState(false);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const [transform, setTransform] = useState(initialTransform);
+  const [transform, setTransform] = useState<Transform>({ x: 160, y: 210, k: 1 });
   const [selected, setSelected] = useState('');
+  const [activeId, setActiveId] = useState('');
+  const [highlighted, setHighlighted] = useState('');
+  const [round, setRound] = useState<number | null>(null);
+  const completed = project.rounds.length;
+  const selectedRound = Math.min(round ?? completed, completed);
+  const changeRound = useCallback((value: number) => setRound(value), []);
+  const { ref: surface, width, height } = useElementSize<HTMLDivElement>();
   const svg = useRef<SVGSVGElement>(null);
-  const fitted = useRef(false);
+  const nodeRefs = useRef(new Map<string, SVGGElement>());
   const drag = useRef<{ x: number; y: number; tx: number; ty: number; pointer: number } | null>(
     null,
   );
@@ -55,8 +76,13 @@ export function GraphCanvas({
     seed: project.settings.seed,
   } satisfies GraphInput);
   const graph = useMemo(
-    () => layoutGraph(JSON.parse(signature) as GraphInput, overlays),
-    [signature, overlays],
+    () =>
+      layoutGraph(
+        JSON.parse(signature) as GraphInput,
+        overlays,
+        evolution ? selectedRound : undefined,
+      ),
+    [signature, overlays, evolution, selectedRound],
   );
   const sourceTypes = [
     ...new Set(graph.nodes.filter((node) => node.layer === 'source').map((node) => node.type)),
@@ -65,31 +91,28 @@ export function GraphCanvas({
     sourceTypes.map((type, index) => [type, palette[index % palette.length]!]),
   );
   colors.set('SIMULATED actor', '#20242b');
-  colors.set('SIMULATED memory', '#d87937');
+  colors.set('SIMULATED memory', '#ac5725');
   const types = [...new Set(graph.nodes.map((node) => node.type))];
   const visible = graph.nodes.filter((node) => !hidden.has(node.type));
+  const activeNode = visible.find((node) => node.id === activeId) ?? visible[0];
   const visibleIds = new Set(visible.map((node) => node.id));
   const lines = graph.links.filter(
     (line) =>
       visibleIds.has((line.source as GraphPoint).id) &&
       visibleIds.has((line.target as GraphPoint).id),
   );
-
-  useEffect(() => {
-    if (!fitted.current && graph.nodes.length) {
-      setTransform(fitGraph(graph.nodes));
-      fitted.current = true;
-    }
-  }, [graph]);
-
+  useLayoutEffect(() => {
+    setTransform(fit(graph.nodes, width, height));
+  }, [graph, width, height]);
   useEffect(() => {
     const element = svg.current;
     if (!element) return;
     const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
       event.preventDefault();
       const rect = element.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) * 1000) / rect.width;
-      const y = ((event.clientY - rect.top) * 700) / rect.height;
+      const x = event.clientX - rect.left,
+        y = event.clientY - rect.top;
       setTransform((old) => {
         const k = clamp(old.k * Math.exp(-event.deltaY * 0.001));
         return { k, x: x - ((x - old.x) * k) / old.k, y: y - ((y - old.y) * k) / old.k };
@@ -98,13 +121,17 @@ export function GraphCanvas({
     element.addEventListener('wheel', wheel, { passive: false });
     return () => element.removeEventListener('wheel', wheel);
   }, []);
-
   const zoom = (amount: number) =>
     setTransform((old) => {
       const k = clamp(old.k * amount);
-      return { k, x: 500 - ((500 - old.x) * k) / old.k, y: 350 - ((350 - old.y) * k) / old.k };
+      return {
+        k,
+        x: width / 2 - ((width / 2 - old.x) * k) / old.k,
+        y: height / 2 - ((height / 2 - old.y) * k) / old.k,
+      };
     });
   const open = (node: GraphPoint) => {
+    setActiveId(node.id);
     setSelected(node.id);
     onInspect({
       kind: node.layer === 'source' ? 'node' : node.layer === 'actor' ? 'agent' : 'memory',
@@ -124,46 +151,66 @@ export function GraphCanvas({
   };
   const pointerMove = (event: PointerEvent<SVGSVGElement>) => {
     const start = drag.current;
-    if (!start || start.pointer !== event.pointerId) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    setTransform((old) => ({
-      ...old,
-      x: start.tx + ((event.clientX - start.x) * 1000) / rect.width,
-      y: start.ty + ((event.clientY - start.y) * 700) / rect.height,
-    }));
+    if (start?.pointer === event.pointerId)
+      setTransform((old) => ({
+        ...old,
+        x: start.tx + event.clientX - start.x,
+        y: start.ty + event.clientY - start.y,
+      }));
   };
-  const graphKeys = (event: KeyboardEvent<SVGSVGElement>) => {
-    if (event.target !== event.currentTarget) return;
+  const keys = (event: KeyboardEvent<SVGSVGElement>) => {
+    const focusedId = (event.target as Element)
+      .closest('[data-node-id]')
+      ?.getAttribute('data-node-id');
+    const current = visible.find((node) => node.id === focusedId) ?? activeNode;
+    if (event.key === '[' || event.key === ']') {
+      event.preventDefault();
+      const next = cycleGraphNode(
+        visible.map((node) => node.id),
+        current?.id ?? '',
+        event.key === ']' ? 1 : -1,
+      );
+      if (next) {
+        setActiveId(next);
+        nodeRefs.current.get(next)?.focus();
+      }
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      if (current) {
+        event.preventDefault();
+        open(current);
+      }
+      return;
+    }
     if (event.key === '+' || event.key === '=') zoom(1.2);
     else if (event.key === '-') zoom(1 / 1.2);
-    else if (event.key.toLowerCase() === 'r') setTransform(fitGraph(graph.nodes));
-    else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    else if (event.key.toLowerCase() === 'r') setTransform(fit(graph.nodes, width, height));
+    else {
       const offsets: Record<string, [number, number]> = {
         ArrowUp: [0, 30],
         ArrowDown: [0, -30],
         ArrowLeft: [30, 0],
         ArrowRight: [-30, 0],
       };
-      const [x, y] = offsets[event.key]!;
-      setTransform((old) => ({ ...old, x: old.x + x, y: old.y + y }));
-    } else return;
+      const offset = offsets[event.key];
+      if (!offset) return;
+      setTransform((old) => ({ ...old, x: old.x + offset[0], y: old.y + offset[1] }));
+    }
     event.preventDefault();
   };
-
+  const fontSize = 12 / transform.k;
   return (
     <section className="graph-panel" aria-label="Interactive source graph and simulated overlays">
       <div className="panel-heading">
-        <div>
-          <span className="eyebrow">KNOWLEDGE + MEMORY</span>
-          <h2>
-            {project.graph?.method === 'lexical'
-              ? 'Lexical topic map'
-              : project.graph?.method === 'llm'
-                ? 'Source-grounded graph'
-                : 'Graph workspace'}
-          </h2>
-        </div>
-        <span className="mono muted">
+        <h2>
+          {project.graph?.method === 'lexical'
+            ? 'Lexical topic map'
+            : project.graph
+              ? 'Source-grounded graph'
+              : 'Graph workspace'}
+        </h2>
+        <span className="mono">
           {project.graph?.nodes.length ?? 0} N · {project.graph?.edges.length ?? 0} E
         </span>
       </div>
@@ -172,10 +219,7 @@ export function GraphCanvas({
           <input
             type="checkbox"
             checked={overlays}
-            onChange={(event) => {
-              fitted.current = false;
-              setOverlays(event.target.checked);
-            }}
+            onChange={(event) => setOverlays(event.target.checked)}
           />{' '}
           Simulated overlays
         </label>
@@ -189,40 +233,41 @@ export function GraphCanvas({
         </label>
         <div className="graph-zoom">
           <button
-            type="button"
             className="icon-button"
+            type="button"
             aria-label="Zoom out"
             onClick={() => zoom(1 / 1.25)}
           >
-            <Minus size={15} />
+            <Minus size={18} />
           </button>
           <span className="mono">{Math.round(transform.k * 100)}%</span>
           <button
-            type="button"
             className="icon-button"
+            type="button"
             aria-label="Zoom in"
             onClick={() => zoom(1.25)}
           >
-            <Plus size={15} />
+            <Plus size={18} />
           </button>
           <button
-            type="button"
             className="icon-button"
-            aria-label="Reset graph pan and zoom to fit recorded nodes"
-            onClick={() => setTransform(fitGraph(graph.nodes))}
+            type="button"
+            aria-label="Reset graph to fit all recorded nodes"
+            onClick={() => setTransform(fit(graph.nodes, width, height))}
           >
-            <RotateCcw size={15} />
+            <RotateCcw size={18} />
           </button>
         </div>
       </div>
-      <div className="graph-surface">
+      <div className="graph-surface" ref={surface}>
         <svg
           ref={svg}
-          viewBox="0 0 1000 700"
+          viewBox={`0 0 ${width} ${height}`}
+          preserveAspectRatio="xMidYMid meet"
           role="group"
-          aria-label="Graph. Drag background to pan, scroll to zoom. Keyboard: arrows pan, plus/minus zoom, R resets. Select a node to inspect."
-          tabIndex={0}
-          onKeyDown={graphKeys}
+          aria-label="Graph. Use [ and ] to cycle nodes, Enter or Space to inspect. Drag or use arrow keys to pan; plus/minus zoom and R resets. Control or Command plus scroll zooms; ordinary scrolling moves the page. Inspect node provides an equivalent keyboard list."
+          tabIndex={activeNode ? -1 : 0}
+          onKeyDown={keys}
           onPointerDown={pointerDown}
           onPointerMove={pointerMove}
           onPointerUp={() => {
@@ -234,34 +279,27 @@ export function GraphCanvas({
         >
           <defs>
             <pattern id={pattern} width="25" height="25" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="0.8" fill="#dfe2e6" />
+              <circle cx="1" cy="1" r=".8" fill="#dfe2e6" />
             </pattern>
           </defs>
-          <rect width="1000" height="700" fill={`url(#${pattern})`} />
+          <rect width={width} height={height} fill={`url(#${pattern})`} />
           <g transform={`translate(${transform.x},${transform.y}) scale(${transform.k})`}>
             {lines.map((line) => {
-              const source = line.source as GraphPoint;
-              const target = line.target as GraphPoint;
+              const source = line.source as GraphPoint,
+                target = line.target as GraphPoint;
               const inspect = () => {
                 if (line.evidenceIndex !== undefined)
                   onInspect({ kind: 'edge', index: line.evidenceIndex });
                 else if (line.memoryId) onInspect({ kind: 'memory', id: line.memoryId });
               };
+              const interactive = line.evidenceIndex !== undefined || Boolean(line.memoryId);
               return (
                 <g
                   key={line.id}
                   data-graph-item=""
                   className={`graph-edge ${line.simulated ? 'simulated' : ''}`}
-                  onClick={inspect}
-                  role={line.evidenceIndex !== undefined || line.memoryId ? 'button' : undefined}
-                  aria-label={`${line.simulated ? 'Simulated' : 'Source'} relationship: ${source.label} — ${line.label} — ${target.label}`}
-                  tabIndex={line.evidenceIndex !== undefined ? 0 : undefined}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      inspect();
-                    }
-                  }}
+                  aria-hidden="true"
+                  onClick={interactive ? inspect : undefined}
                 >
                   <line
                     x1={source.x}
@@ -269,6 +307,7 @@ export function GraphCanvas({
                     x2={target.x}
                     y2={target.y}
                     className="edge-hit"
+                    strokeWidth={24 / transform.k}
                   />
                   <line
                     x1={source.x}
@@ -276,69 +315,108 @@ export function GraphCanvas({
                     x2={target.x}
                     y2={target.y}
                     className="edge-line"
+                    vectorEffect="non-scaling-stroke"
                   />
                   {edgeLabels && (
                     <text
                       x={((source.x ?? 0) + (target.x ?? 0)) / 2}
-                      y={((source.y ?? 0) + (target.y ?? 0)) / 2 - 4}
+                      y={((source.y ?? 0) + (target.y ?? 0)) / 2 - 4 / transform.k}
+                      fontSize={fontSize}
                     >
-                      {line.label}
+                      {shortLabel(line.label, 24)}
                     </text>
                   )}
                 </g>
               );
             })}
-            {visible.map((node) => (
-              <g
-                key={node.id}
-                data-graph-item=""
-                transform={`translate(${node.x},${node.y})`}
-                className={`graph-node ${node.layer} ${selected === node.id ? 'selected' : ''}`}
-                role="button"
-                tabIndex={0}
-                aria-label={`${node.layer === 'source' ? 'Source' : 'Simulated'} ${node.type}: ${node.label}. Inspect.`}
-                onClick={() => open(node)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    open(node);
-                  }
-                }}
-              >
-                <title>
-                  {node.label} · {node.type}
-                </title>
-                {node.layer === 'actor' ? (
-                  <rect
-                    x={-node.radius}
-                    y={-node.radius}
-                    width={node.radius * 2}
-                    height={node.radius * 2}
-                    rx={3}
-                    fill={colors.get(node.type)}
+            {visible.map((node) => {
+              const radius = Math.max(node.radius, 6 / transform.k);
+              const labelVisible =
+                node.layer !== 'memory' || node.id === selected || node.id === highlighted;
+              const label = shortLabel(
+                node.label,
+                Math.min(
+                  node.layer === 'memory' ? 22 : 25,
+                  Math.max(8, Math.floor((width - 20) / 12)),
+                ),
+              );
+              const halfLabel = Math.min(width / 2 - 8, label.length * 6 + 6);
+              const screenX = transform.x + (node.x ?? 0) * transform.k;
+              const labelX =
+                (Math.max(halfLabel, Math.min(width - halfLabel, screenX)) - screenX) / transform.k;
+              return (
+                <g
+                  key={node.id}
+                  data-graph-item=""
+                  data-node-id={node.id}
+                  ref={(element) => {
+                    if (element) nodeRefs.current.set(node.id, element);
+                    else nodeRefs.current.delete(node.id);
+                  }}
+                  transform={`translate(${node.x},${node.y})`}
+                  className={`graph-node ${node.layer} ${selected === node.id ? 'selected' : ''}`}
+                  role="button"
+                  tabIndex={activeNode?.id === node.id ? 0 : -1}
+                  aria-label={`${label}, ${node.layer === 'source' ? 'source' : 'simulated'} ${node.type}. Inspect ${node.label}.`}
+                  onClick={() => open(node)}
+                  onMouseEnter={() => setHighlighted(node.id)}
+                  onMouseLeave={() => setHighlighted('')}
+                  onFocus={() => {
+                    setActiveId(node.id);
+                    setHighlighted(node.id);
+                  }}
+                  onBlur={() => setHighlighted('')}
+                >
+                  <title>
+                    {node.label} · {node.type}
+                  </title>
+                  <circle
+                    r={Math.max(radius, 12 / transform.k)}
+                    fill="transparent"
+                    className="node-hit"
                   />
-                ) : node.layer === 'memory' ? (
-                  <polygon
-                    points={`0,${-node.radius - 2} ${node.radius + 2},0 0,${node.radius + 2} ${-node.radius - 2},0`}
-                    fill={colors.get(node.type)}
-                  />
-                ) : (
-                  <circle r={node.radius} fill={colors.get(node.type)} />
-                )}
-                {(node.layer !== 'memory' || transform.k >= 1.2 || selected === node.id) && (
-                  <text y={node.radius + 15} textAnchor="middle">
-                    {node.label.length > 32 ? `${node.label.slice(0, 30)}…` : node.label}
-                  </text>
-                )}
-              </g>
-            ))}
+                  {node.layer === 'actor' ? (
+                    <rect
+                      x={-radius}
+                      y={-radius}
+                      width={radius * 2}
+                      height={radius * 2}
+                      rx={2 / transform.k}
+                      fill={colors.get(node.type)}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : node.layer === 'memory' ? (
+                    <polygon
+                      points={`0,${-radius} ${radius},0 0,${radius} ${-radius},0`}
+                      fill={colors.get(node.type)}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  ) : (
+                    <circle
+                      r={radius}
+                      fill={colors.get(node.type)}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  )}
+                  {labelVisible && (
+                    <text
+                      x={labelX}
+                      y={radius + 14 / transform.k}
+                      textAnchor="middle"
+                      fontSize={fontSize}
+                    >
+                      {label}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </g>
         </svg>
         {!graph.nodes.length && (
           <div className="graph-empty">
             <EmptyPanel title="No graph output recorded" icon={<ScanSearch size={28} />}>
-              Graph Build creates the source map. Nodes appear only when the API returns actual
-              graph data.
+              Graph nodes appear only when returned by the API.
             </EmptyPanel>
           </div>
         )}
@@ -354,15 +432,15 @@ export function GraphCanvas({
             </button>
           </div>
         )}
-        <span className="graph-pan-hint mono">
-          <Maximize2 size={11} /> DRAG TO PAN · SCROLL TO ZOOM
-        </span>
       </div>
-      <div className="graph-legend" aria-label="Filter graph node types">
+      {evolution && (
+        <GraphRoundControl round={selectedRound} completed={completed} onChange={changeRound} />
+      )}
+      <div className="graph-legend" role="group" aria-label="Filter graph node types">
         {types.map((type) => (
           <button
-            key={type}
             type="button"
+            key={type}
             aria-pressed={!hidden.has(type)}
             className={hidden.has(type) ? 'muted-filter' : ''}
             onClick={() =>
@@ -383,32 +461,30 @@ export function GraphCanvas({
           </button>
         ))}
       </div>
-      {!!graph.nodes.length && (
-        <label className="graph-accessible-select">
-          Inspect node
-          <select
-            value={selected && visibleIds.has(selected) ? selected : ''}
-            onChange={(event) => {
-              const node = visible.find((item) => item.id === event.target.value);
-              if (node) open(node);
-            }}
-          >
-            <option value="">Choose a visible node…</option>
-            {visible.map((node) => (
-              <option key={node.id} value={node.id}>
-                {node.type} / {node.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <label className="graph-accessible-select">
+        Inspect node
+        <select
+          value={selected && visibleIds.has(selected) ? selected : ''}
+          onChange={(event) => {
+            const node = visible.find((item) => item.id === event.target.value);
+            if (node) open(node);
+          }}
+        >
+          <option value="">Choose a visible node…</option>
+          {visible.map((node) => (
+            <option value={node.id} key={node.id}>
+              {node.type} / {node.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <p className="graph-caption">
-        Solid circles / lines: source graph with citations. Squares, diamonds and dashed links:{' '}
-        <strong>SIMULATED assumptions / recorded memory, not source facts.</strong>
+        Solid circles / lines: static source graph with citations. Squares, diamonds and dashed
+        links: <strong>SIMULATED assumptions and saved memory, not source evidence.</strong>
         {overlays &&
-          !!project.console?.memories.length &&
-          ` Showing latest ${graph.shownMemories} of ${project.console.memories.length} recorded memories; all remain inspectable in Simulation.`}
-        {!project.console && ' This quick run did not record guided platform memory overlays.'}
+          ` Showing latest ${graph.shownMemories} of ${graph.eligibleMemories} eligible saved memories${evolution ? ` through round ${selectedRound}` : ''}.`}{' '}
+        Memory labels appear only on selection, hover or keyboard focus. Use +/− or Ctrl/⌘ + scroll
+        to zoom. Keyboard: [ and ] cycle nodes; Enter or Space inspects; arrow keys pan; R resets.
       </p>
     </section>
   );

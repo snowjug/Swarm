@@ -14,6 +14,7 @@ import {
   type ValidatedProjectInput,
 } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
+import { readCheckpoint } from '../guided/checkpoint.js';
 import { chunkDocuments } from '../knowledge/retrieval.js';
 import {
   chatMessageSchema,
@@ -100,7 +101,7 @@ export class Repository {
       .all(id)
       .map((row) => eventSchema.parse(row))
       .reverse();
-    return { ...project, events };
+    return { ...project, events, parentId: project.console?.branch?.parentId ?? null };
   }
 
   count(): number {
@@ -145,6 +146,7 @@ export class Repository {
           createdAt,
           updatedAt,
           error,
+          parentId: project.console?.branch?.parentId ?? null,
         };
       });
     return { projects, total: this.count() };
@@ -298,7 +300,11 @@ export class Repository {
         (survey) => survey.status === 'queued' || survey.status === 'running',
       );
       if (!interrupted && !surveyInterrupted) continue;
-      const error = 'The backend restarted before this run finished. Retry to start a new attempt.';
+      const saved = readCheckpoint(project);
+      const error =
+        saved === null
+          ? 'The backend restarted before this run finished. Retry to start a new attempt.'
+          : `The backend restarted before this run finished. Rounds 1-${saved} are saved; resume from round ${saved + 1} or restart.`;
       const consoleState = project.console;
       if (consoleState) {
         const steps = { ...consoleState.steps };

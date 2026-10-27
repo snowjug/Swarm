@@ -32,7 +32,18 @@ export interface GraphLine extends SimulationLinkDatum<GraphPoint> {
   memoryId?: string;
 }
 
-export function layoutGraph(input: GraphInput, overlays: boolean) {
+export function cycleGraphNode(ids: string[], currentId: string, direction: -1 | 1): string | null {
+  if (!ids.length) return null;
+  const index = ids.indexOf(currentId);
+  if (index < 0) return direction === 1 ? ids[0]! : ids.at(-1)!;
+  return ids[(index + direction + ids.length) % ids.length]!;
+}
+
+export function recordedMemories(input: GraphInput, round?: number) {
+  return input.memories.filter((memory) => round === undefined || memory.round <= round);
+}
+
+export function layoutGraph(input: GraphInput, overlays: boolean, round?: number) {
   const nodes: GraphPoint[] = (input.graph?.nodes ?? []).map((node) => ({
     id: `source:${node.id}`,
     label: node.label,
@@ -49,7 +60,8 @@ export function layoutGraph(input: GraphInput, overlays: boolean) {
     simulated: false,
     evidenceIndex: index,
   }));
-  const memories = input.memories.slice(-48);
+  const eligibleMemories = recordedMemories(input, round);
+  const memories = eligibleMemories.slice(-48);
   if (overlays) {
     for (const agent of input.agents) {
       nodes.push({
@@ -125,5 +137,10 @@ export function layoutGraph(input: GraphInput, overlays: boolean) {
     .force('center', forceCenter(0, 0));
   simulation.tick(220);
   simulation.stop();
-  return { nodes, links: validLinks, shownMemories: overlays ? memories.length : 0 };
+  return {
+    nodes,
+    links: validLinks,
+    shownMemories: overlays ? memories.length : 0,
+    eligibleMemories: eligibleMemories.length,
+  };
 }

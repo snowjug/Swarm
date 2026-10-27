@@ -7,7 +7,7 @@ import {
   type GuidedConsoleState,
   type JsonValue,
 } from '../../../shared/guided.js';
-import type { Agent, RoundSnapshot } from '../../../shared/types.js';
+import { interventionSchema, type Agent, type RoundSnapshot } from '../../../shared/types.js';
 
 const jsonValue: z.ZodType<JsonValue> = z.lazy(() =>
   z.union([
@@ -22,6 +22,26 @@ const jsonValue: z.ZodType<JsonValue> = z.lazy(() =>
 const references = z.array(z.string());
 const platform = z.enum(PLATFORMS);
 const opinion = z.number().min(-1).max(1);
+const agentChange = z.object({
+  kind: z.literal('agent'),
+  agentId: z.string(),
+  field: z.enum(['influence', 'openness', 'opinion']),
+  from: z.number(),
+  to: z.number(),
+});
+const interventionChange = z.object({
+  kind: z.literal('intervention'),
+  from: interventionSchema.nullable(),
+  to: interventionSchema.nullable(),
+});
+const branchSchema = z.object({
+  parentId: z.string(),
+  parentName: z.string(),
+  rootId: z.string(),
+  fromRound: z.int().nonnegative(),
+  createdAt: z.string(),
+  changes: z.array(z.discriminatedUnion('kind', [agentChange, interventionChange])).max(60),
+});
 
 export function consoleSchema(
   agent: z.ZodType<Agent>,
@@ -30,9 +50,10 @@ export function consoleSchema(
   return z.object({
     steps: z.record(
       z.enum(CONSOLE_STEPS),
-      z.enum(['pending', 'queued', 'running', 'ready', 'failed', 'cancelled']),
+      z.enum(['pending', 'queued', 'running', 'paused', 'ready', 'failed', 'cancelled']),
     ),
     activeStep: z.enum(CONSOLE_STEPS),
+    branch: branchSchema.nullable().default(null),
     ontology: ontologySchema.nullable(),
     environment: environmentSchema.nullable(),
     platforms: z
@@ -41,7 +62,7 @@ export function consoleSchema(
           platform,
           label: z.string(),
           network: z.enum(['broadcast', 'community']),
-          status: z.enum(['ready', 'running', 'completed', 'failed', 'cancelled']),
+          status: z.enum(['ready', 'running', 'paused', 'completed', 'failed', 'cancelled']),
           currentRound: z.int().nonnegative(),
           elapsedMinutes: z.int().nonnegative(),
           agents: z.array(agent),
