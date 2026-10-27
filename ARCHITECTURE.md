@@ -85,6 +85,12 @@ Version 0.2 adds text-PDF extraction, real guided-stage boundaries, independent
 dual-platform contexts, synthetic memory, report-tool traces/chapters and
 asynchronous surveys. It does not turn the local lexical engine into generative AI.
 
+Version 0.3 adds the checkpointed what-if loop (pause, resume, one scheduled intervention, branching from a
+saved round with declared changes, and run comparison; see "Checkpoints, pause/resume, branching and
+comparison" below), a JSON snapshot export, an accessibility and responsive-layout rework of the console, a
+validated `RATE_LIMIT_SCALE` setting, and the browser/load verification described in "Verification
+architecture".
+
 ### Live-console interaction reference
 
 The live `/mirofish-demo/console` was followed through all five screens:
@@ -219,7 +225,8 @@ WAL files and would upload source material to a cloud provider.
 
 Guided project state is `draft -> queued -> running -> ready` for each of
 knowledge, environment and simulation. Report completion changes it to `completed`.
-Every stage has its own pending/queued/running/ready/failed/cancelled state.
+Every stage has its own pending/queued/running/ready/failed/cancelled state, and the
+simulation stage adds a non-error `paused` state (the project itself is `ready`).
 Quick-run compatibility retains `draft -> queued -> running -> completed`, or explicit
 `failed`/`cancelled`. An active cancellation remains running until in-flight work
 has stopped; restart is rejected while the previous worker still owns the job.
@@ -232,7 +239,46 @@ no existing project is rewritten as if a second world, ontology or operation tra
 had been recorded. The existing SQLite table schema stays at version 1; guided
 payloads and exports carry their explicit new shape (guided export version 2).
 Restart recovery fails active stages, platform states, traces and surveys while
-retaining completed upstream output and partial survey responses.
+retaining completed upstream output and partial survey responses. A simulation
+interrupted after saved rounds is marked `failed` with a message naming the saved
+round, and remains resumable (see below).
+
+### Checkpoints, pause/resume, branching and comparison
+
+A simulation round is the unit of durability. `runPlatforms` writes the combined
+history, both platform populations, the aggregated proxies and the new memories in
+**one** `repository.update`, so persisted state can never describe half a round.
+`guided/checkpoint.ts` then defines a _checkpoint_ as the last round on which the
+combined history, every platform's `currentRound`/`rounds` and the population size
+all agree; resume, intervention and branching only trust a state that passes it.
+
+- **Pause** (`Orchestrator.pause`) aborts the running simulation with `RUN_PAUSED`.
+  The round in flight is discarded (never partially saved). With at least one saved
+  round the step becomes `paused` and the project `ready` with no error; with none,
+  it becomes `cancelled`. Cancel remains available and also keeps saved rounds.
+- **Resume** is `POST /steps/simulation {resume:true}`. It requires a valid
+  checkpoint, restores each platform's population from the persisted state and
+  continues at `checkpoint + 1`. The local engine is a pure function of
+  `(population state, settings, seed + round * 9973)`, which is why a resumed run
+  matches an uninterrupted one exactly. A resume of a model run is refused if the
+  configured provider/model differs from the one that produced the saved rounds.
+- **Intervention** (`guided/whatif.ts#setIntervention`) edits the single scheduled
+  intervention for a round after the checkpoint. It is refused for a finished run,
+  and if the run already applied its intervention in a saved round.
+- **Branch** (`createBranch`) creates a new guided project that copies the source
+  documents (identical chunk IDs), graph, ontology and environment, truncates the
+  history to `fromRound`, rebuilds each platform's population from the saved
+  per-round opinions and recorded memories, applies the declared changes only to the
+  rounds that follow, and records `console.branch` (`parentId`, `rootId`,
+  `fromRound`, `changes`). The source is never modified. Replacing an intervention
+  already applied in the copied rounds is refused (the settings hold one).
+- **Compare** (`guided/compare.ts`) reads two histories and reports per-round
+  metrics, deltas, a lineage classification, and `identicalThroughRound`, which is
+  computed from the recorded opinions rather than trusted from lineage metadata.
+
+Evidence: `backend/test/whatif.test.ts` (determinism, tampering, recovery,
+conflicts), `backend/test/whatif-model.test.ts` (model-mode resume, token accounting
+and provider-change refusal, against a scripted double).
 
 Survey batches share the global follow-up lock with chat, not the simulation
 queue. They expose persisted per-target progress, cancellation, a five-minute
@@ -240,9 +286,46 @@ deadline and partial failure. Local state mode returns numeric recorded position
 with null generated answers. Model-interview mode requires the scenario's real
 configured provider; it cannot silently fall back to those state snapshots.
 
-See [README.md](./README.md) for tested operations, resource limits, API shapes,
-security assumptions and the currently unresolved transitive dependency advisory
-status. Deployment must not infer production readiness from local test success.
+See [README.md](./README.md) for tested operations, resource limits, API shapes and
+security assumptions, and [docs/security-review.md](./docs/security-review.md) and
+[docs/threat-model.md](./docs/threat-model.md) for the dependency and threat evidence.
+Deployment must not infer production readiness from local test success.
+
+## Verification architecture
+
+What each layer of testing can and cannot establish:
+
+| Layer                      | Where                                          | Establishes                                                                                                                       | Does **not** establish                         |
+| -------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)` | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                   | Browser rendering, real network behaviour      |
+| Browser end-to-end (local) | `e2e/local`                                    | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                     | Anything about model behaviour                 |
+| Browser end-to-end (model) | `e2e/model`                                    | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling | Quality or safety of a **live** model's output |
+| Real-browser audit         | `scripts/ui-audit.mjs`                         | Screenshots and layout/axe metrics at four viewports for design review                                                            | Subjective design quality                      |
+| Load measurement           | `scripts/load-test.mjs`                        | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                 | Capacity planning                              |
+
+**The fake provider** (`e2e/support/fake-provider.ts`) implements the Ollama `/api/chat` protocol so the real
+`ModelClient`, orchestrator, persistence and UI run end to end with no credential. It derives each answer from
+the request (population size, round, intervention, evidence IDs) and lets tests inject latency, a failure on a
+chosen round, or an invented citation. It is a test double. Its existence must never be read as evidence about
+any live model; live verification is tracked as blocked on a credential.
+
+**Isolation.** Playwright starts two application servers (local engine; model-assisted) and the fake provider,
+each with a throwaway data directory, so the suite can never touch a developer's own scenarios.
+
+**`RATE_LIMIT_SCALE`.** Production limits are per IP and deliberately tight (for example 8 guided-stage requests
+per minute). The browser suite and the load test multiply them through this validated setting (integer 1–1000,
+default 1). The production limiter is tested separately, including that a real over-limit request answers
+HTTP 429 `RATE_LIMITED` with `Retry-After`: this review found that it previously answered HTTP 500.
+
+### Measured limits of the current design
+
+`scripts/load-test.mjs` (Windows laptop, Node 24, local engine, 12 proxies × 8 rounds): 3,000 reads at
+concurrency 64 had p95 72 ms (health) and 113 ms (project list); 12 concurrent workflows all completed with no
+server errors, and the single worker's back-pressure produced 120 clean `QUEUE_FULL` rejections that clients
+retried; peak server memory was about 341 MB. **While simulations run, read latency rises** to p95 ≈ 570 ms and
+max ≈ 1.8 s, because rounds, JSON encoding and SQLite writes share one event loop. Two consequences are recorded
+in the roadmap rather than hidden: simulation should move to a worker thread or separate process, and the
+project-list endpoint decodes every stored payload instead of reading summary columns.
 
 ## Azure migration direction
 

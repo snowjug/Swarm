@@ -117,8 +117,8 @@ are absent from logs.
 
 ### 4. Build and deploy one authenticated container
 
-1. Run tests, format checks, dependency review and a real Docker smoke test.
-   Resolve/re-evaluate the documented transitive advisories before public deployment.
+1. Run tests, format checks, `npm audit` against the approved registry (0 advisories at
+   the last local review, which is not a standing guarantee) and a real Docker smoke test.
 2. Publish an image tagged with the source commit and pin its digest for a release.
    Make the corresponding source/build instructions accessible to all remote users.
 3. Configure Container Apps managed identity, database access and Entra authentication.

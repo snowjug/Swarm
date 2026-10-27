@@ -64,8 +64,10 @@ server with Ctrl+C before starting another on the same port.
 ## Use the guided console
 
 The default UI is a light, technical five-stage console, not a one-click replay.
-**Graph / Split / Workbench** switches the working layout; the graph, inspectors
-and docked operation log show actual persisted data. No example results, actors
+On wide screens a single **Graph / Split / Workbench** control switches the working
+layout (on narrow screens it becomes a two-way **Graph | Workbench** pane switch);
+the graph, inspectors and the collapsible, in-flow operation log show actual
+persisted data and never overlay stage content. No example results, actors
 or counters are preloaded. A fictional starter fills editable input only.
 
 1. **Graph Build:** attach or paste source material, name the scenario and frame
@@ -96,7 +98,36 @@ Later stages cannot bypass prerequisites. Cancellation stops owned work before
 retry is allowed. A failed stage preserves upstream outputs; retry re-executes that
 stage, replacing its unfinished output. Export JSON before retry if partial data
 matters. Interrupted stages and surveys are marked failed after restart, never
-silently completed or resumed.
+silently completed. A simulation interrupted after at least one saved round keeps
+those rounds and offers **Resume from round N** (an explicit action); everything
+else restarts the stage.
+
+### What-if loop: pause, resume, intervene, branch, compare
+
+Simulation rounds are saved atomically: the combined history, both platform
+populations and the recorded memories are written in one update, so a saved round
+is never half-written. This makes the following possible, all with real, tested
+behavior:
+
+- **Pause / Resume.** Pausing discards the in-flight round and keeps every saved
+  round; the project is `ready`, not failed. Resume continues from the next round
+  without recomputing earlier ones. In the local deterministic engine a resumed run
+  is identical to an uninterrupted run (asserted by `backend/test/whatif.test.ts`).
+  Resume also recovers from a crash or model error once rounds exist. Model-assisted
+  runs are not reproducible, and usage from a discarded in-flight round is still
+  counted because it was really spent.
+- **Intervention.** While paused you can schedule or remove the single scheduled
+  intervention for a _future_ round. "Live injection" is therefore pause → inject →
+  resume at the next round boundary; nothing mutates a round in progress.
+- **Branch.** From a paused or finished scenario, branch after any saved round (or
+  from round 0). The branch is an independent scenario that copies rounds 1…N
+  unchanged and applies your declared changes (a different intervention, or
+  per-proxy influence/openness/opinion) only to later rounds. The source run is
+  never modified, and a branch's report and exports record its lineage.
+- **Compare.** Compare two guided scenarios round by round (mean inclination,
+  support, opposition, polarization, activity), with the round through which they
+  are identical derived from recorded data, and notes that these are simulated
+  differences, not forecasts or causal estimates.
 
 **History** preserves existing quick-run projects. Their recorded results remain
 readable in the new console, without invented ontology, operation traces or
@@ -139,20 +170,21 @@ Copy [.env.example](./.env.example) locally. Never commit the resulting `.env`
 or paste keys into chat/source files. Server configuration is never bundled into
 the browser. The default is `AI_PROVIDER=none`.
 
-| Variable                                        | Purpose                                                             |
-| ----------------------------------------------- | ------------------------------------------------------------------- |
-| `HOST`, `PORT`                                  | API bind address/port; defaults to loopback and 3001                |
-| `DATA_DIR`                                      | SQLite storage directory, relative to the process working directory |
-| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`              | Explicit browser-origin and HTTP-host allowlists                    |
-| `LOG_LEVEL`                                     | Server log level; request bodies and credentials are not logged     |
-| `AI_PROVIDER`                                   | `none`, `ollama`, `openai`, or `azure`                              |
-| `AI_MODEL`                                      | Local/remote model name; Azure deployment name for `azure`          |
-| `AI_TIMEOUT_MS`                                 | Per-model-request timeout                                           |
-| `OLLAMA_BASE_URL`                               | Administrator-configured local Ollama endpoint                      |
-| `DOCKER_OLLAMA_BASE_URL`                        | Compose-only address of Ollama running on the host                  |
-| `OPENAI_BASE_URL`, `OPENAI_API_KEY`             | Trusted compatible v1 endpoint and server-side key                  |
-| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` | Azure resource/v1 endpoint and server-side key                      |
-| `SOURCE_URL`                                    | Public corresponding source for the exact remotely deployed version |
+| Variable                                        | Purpose                                                                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `HOST`, `PORT`                                  | API bind address/port; defaults to loopback and 3001                                                                                     |
+| `DATA_DIR`                                      | SQLite storage directory, relative to the process working directory                                                                      |
+| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`              | Explicit browser-origin and HTTP-host allowlists                                                                                         |
+| `LOG_LEVEL`                                     | Server log level; request bodies and credentials are not logged                                                                          |
+| `AI_PROVIDER`                                   | `none`, `ollama`, `openai`, or `azure`                                                                                                   |
+| `AI_MODEL`                                      | Local/remote model name; Azure deployment name for `azure`                                                                               |
+| `AI_TIMEOUT_MS`                                 | Per-model-request timeout                                                                                                                |
+| `OLLAMA_BASE_URL`                               | Administrator-configured local Ollama endpoint                                                                                           |
+| `DOCKER_OLLAMA_BASE_URL`                        | Compose-only address of Ollama running on the host                                                                                       |
+| `OPENAI_BASE_URL`, `OPENAI_API_KEY`             | Trusted compatible v1 endpoint and server-side key                                                                                       |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` | Azure resource/v1 endpoint and server-side key                                                                                           |
+| `SOURCE_URL`                                    | Public corresponding source for the exact remotely deployed version                                                                      |
+| `RATE_LIMIT_SCALE`                              | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine |
 
 If you explicitly configure origin/host allowlists, update them when changing
 ports or domains. Defaults use the configured API port and local Vite port.
@@ -232,25 +264,30 @@ All browser requests are same-origin. During development Vite provides the proxy
 Errors are non-2xx JSON: `{ "error": { "code": "...", "message": "...", "requestId": "..." } }`.
 Some not-found/rate-limit responses omit `requestId`; no provider error body is returned.
 
-| Method       | Path                                             | Behavior                                                                                         |
-| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                   |
-| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                        |
-| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                     |
-| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                             |
-| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                           |
-| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202 |
-| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                             |
-| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                               |
-| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                  |
-| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                           |
-| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                    |
-| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                           |
-| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported          |
-| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                            |
-| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                         |
-| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                    |
-| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks and conversation export                                                         |
+| Method       | Path                                             | Behavior                                                                                                           |
+| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                                     |
+| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                                          |
+| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                                       |
+| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                                               |
+| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                                             |
+| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202                   |
+| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                                               |
+| POST         | `/api/projects/:id/steps/simulation`             | With body `{ "resume": true }`: continue from the last saved round (paused, failed or cancelled with saved rounds) |
+| POST         | `/api/projects/:id/pause`                        | Pause a queued/running simulation at the last saved round (non-error `paused` state); returns 202                  |
+| PUT          | `/api/projects/:id/intervention`                 | Schedule (`Intervention` JSON) or remove (`null`) the one future intervention while paused                         |
+| POST         | `/api/projects/:id/branches`                     | Create an independent scenario from a checkpoint with declared assumption changes; returns 201                     |
+| GET          | `/api/projects/:id/compare?with=<id>`            | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                      |
+| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                                                 |
+| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                                    |
+| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                                             |
+| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                                      |
+| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                                             |
+| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                            |
+| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                                              |
+| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                                           |
+| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                                      |
+| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks and conversation export                                                                           |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
@@ -288,9 +325,44 @@ frontend graph/console helpers and provider protocol/error handling.
 
 Provider tests use explicitly labeled fixture HTTP responses; they do **not**
 establish live model connectivity or reasoning quality. Live AI requires a
-separately configured service. The native local workflow has also been exercised
-in the browser through input, completed rounds, report, source citation lookup
-and persisted evidence follow-up.
+separately configured service.
+
+### End-to-end, accessibility, security and load evidence
+
+```powershell
+npm.cmd run build          # the E2E servers run the built output in dist/
+$env:PW_CHANNEL = 'msedge' # reuse the installed Edge; CI installs Chromium instead
+npm.cmd run test:e2e       # npx playwright install chromium first if you do not use Edge
+npm.cmd run audit:ui       # screenshots + layout/axe metrics for four viewports (see scripts/ui-audit.mjs)
+node scripts/load-test.mjs # latency, queue back-pressure and memory on this machine
+```
+
+`test:e2e` drives a real browser against two isolated servers with throwaway data
+directories (never your own data):
+
+- **`e2e/local`** — the deterministic local engine: the complete guided journey
+  (input → graph → environment → simulation → branch with a declared intervention →
+  resume → compare → report → citations → interaction → Markdown export → history/delete),
+  error conditions (bad/corrupt/oversized uploads, API outage, rate limit, unknown
+  project, double click, hostile requests), responsive checks at 1920×1080, 1440×900,
+  1366×768 and 390×844 (no overflow, ≥11 px text, ≥24 px targets, unobstructed graph
+  nodes, ≥11 px rendered graph/chart text), and **axe-core on every reachable
+  state at two viewports with zero violations of any impact** plus keyboard/focus tests.
+- **`e2e/model`** — the model-assisted path against a **protocol-faithful fake Ollama
+  provider** (`e2e/support/fake-provider.ts`): real Pause clicked while rounds run,
+  resume, intervention, injected mid-run provider failure with checkpoint recovery,
+  invented-citation rejection, report, actor chat and token accounting. The fake is
+  a test double; it is **not** evidence about any live model.
+
+The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
+`backend/test/security.test.ts` (including that a genuinely rate-limited request
+returns HTTP 429 `RATE_LIMITED` with `Retry-After`).
+
+Automated checks do not replace a manual assistive-technology review (screen reader,
+200 % zoom, forced colors), which has not been done. `scripts/load-test.mjs`
+reports numbers for the machine it runs on; see
+[docs/requirements-matrix.md](./docs/requirements-matrix.md) for the measured results and
+their limits.
 
 Useful focused commands:
 
@@ -301,12 +373,13 @@ npm.cmd run lint
 npm.cmd run format
 ```
 
-CI performs these checks, dependency auditing at high severity, Compose validation,
+CI performs these checks, dependency auditing at high severity, a Playwright
+end-to-end run in Chromium (both projects above), Compose validation,
 and an actual Docker build/health/UI smoke test, including PDF parsing and the full
 staged local workflow inside the container. Local Docker image execution
 requires a running engine and is separate from native validation.
 
-Run the same real HTTP smoke flow against a local **0.2.0** backend:
+Run the same real HTTP smoke flow against a local **0.3.0** backend:
 
 ```powershell
 npm.cmd run smoke:console -- http://127.0.0.1:3001
@@ -371,19 +444,17 @@ automatically. Do not expose Ollama publicly merely to connect a container.
 
 ### Dependency advisory status
 
-The maintained static plugin replaces an initially vulnerable older major.
-AJV 8 is constrained to a patched compatible release without replacing ESLint's
-separate AJV 6 API.
+`npm audit` (run through the corporate registry mirror, because the public
+advisory endpoint fails TLS from the development machine) reports **0
+vulnerabilities** as of the last review. Earlier moderate `fast-uri` advisories
+were cleared by updating to `3.1.9` / `4.2.3`. AJV 8 is constrained to a patched
+compatible release without replacing ESLint's separate AJV 6 API, and the maintained
+static-file plugin replaces an initially vulnerable older major.
 
-The available registry currently reports **moderate transitive `fast-uri`
-advisories** (including inherited entries in Fastify's schema dependencies).
-Advertised fixed versions `3.1.9` and `4.2.3` were not available from this
-environment's trusted registry at verification time. The application does not
-accept user-provided JSON Schemas or URI references, but that is not a declaration
-that the dependency is universally safe. Do not dismiss the audit, force a
-cross-major override, or deploy publicly without resolving/re-evaluating it.
-Run `npm audit` against your approved registry before deployment. CI fails on new
-high/critical findings; a passing check does not mean zero advisories.
+This is a point-in-time result, not a guarantee. Run `npm audit` against your
+approved registry before every deployment. CI fails on new high/critical findings.
+See [docs/security-review.md](./docs/security-review.md) and
+[docs/threat-model.md](./docs/threat-model.md) for what was checked and what remains open.
 
 ## Troubleshooting
 
