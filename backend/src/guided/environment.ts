@@ -7,6 +7,7 @@ import { AppError, throwIfAborted } from '../errors.js';
 import { validateCitations } from '../knowledge/graph.js';
 import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { jsonValidated } from '../models/validated.js';
 import type { Repository } from '../storage/repository.js';
 import { generatedEnvironmentSchema } from './schemas.js';
 import { requireConsole, traceOperation, updateConsole } from './state.js';
@@ -57,7 +58,9 @@ export async function prepareEnvironment(
       let minutesPerRound = 60;
       let initialPosts: SeedPost[];
       if (model) {
-        const generated = await model.json(
+        const allowed = new Set(evidence.map((chunk) => chunk.id));
+        const generated = await jsonValidated(
+          model,
           generatedEnvironmentSchema,
           'Prepare initial scenario inputs. JSON {minutesPerRound,initialPosts:[{text,platform,stance,strength,sourceIds}]}. ' +
             'minutesPerRound5-180; 1-4 seed posts, text10-500 chars, platform plaza/community/both, assumed stance -1..1, assumed strength0..1, sourceIds0-5 supplied IDs. ' +
@@ -65,6 +68,9 @@ export async function prepareEnvironment(
           { question: project.question, rounds: project.settings.rounds, evidence },
           signal,
           2_500,
+          (value) => {
+            for (const post of value.initialPosts) validateCitations(post.sourceIds, allowed);
+          },
         );
         minutesPerRound = generated.minutesPerRound;
         initialPosts = generated.initialPosts.map((post, index) => ({

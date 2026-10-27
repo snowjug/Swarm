@@ -1,4 +1,5 @@
 import type { ExecutionStep } from '../../../shared/guided.js';
+import { actorCallBudget } from '../agents/actor.js';
 import { AppError, throwIfAborted } from '../errors.js';
 import type { ModelFactory } from '../orchestration/runner.js';
 import type { Repository } from '../storage/repository.js';
@@ -22,11 +23,24 @@ export class GuidedWorkflow {
   ): Promise<void> {
     beginStage(this.repository, id, step);
     const project = this.repository.get(id);
+    const platforms = project.console?.environment?.platforms.length ?? 2;
+    const maxCalls =
+      step === 'simulation'
+        ? actorCallBudget(
+            project.agents.length || project.settings.agentCount,
+            platforms,
+            project.settings.rounds,
+          )
+        : // The report stage runs a plan, interviews, a summary, up to five chapters and a grounding
+          // check; the rest is headroom for bounded repairs.
+          step === 'report'
+          ? 28
+          : 16;
     const model =
       project.mode === 'llm'
         ? this.createModel(
             (usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
-            { maxCalls: step === 'simulation' ? 24 : 16 },
+            { maxCalls },
           )
         : null;
     throwIfAborted(signal);

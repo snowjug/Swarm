@@ -6,8 +6,12 @@ import { api, errorMessage } from '../../api';
 import { actionLabel, platformNames } from '../../lib/console';
 import { signed } from '../../lib/format';
 import type { Inspection } from '../../lib/graph';
+import { nodeQuoteLabel } from '../../lib/transparency';
 import { EmptyPanel, Modal, Notice, Spinner } from '../ui';
 import { Citations } from './Citations';
+import { ProxyAssumptions } from './ProxyAssumptions';
+import { QuoteBlock } from './QuoteBlock';
+import { StatedReason } from './StatedReason';
 
 function EvidenceBrowser({
   project,
@@ -192,6 +196,7 @@ export function Inspector({
           · {node.entityType ?? node.kind}
         </span>
         <p className="preserve-text">{node.summary}</p>
+        {node.quote && <QuoteBlock label={nodeQuoteLabel(node.sourceIds)}>{node.quote}</QuoteBlock>}
         <dl className="record-grid">
           <dt>Node ID</dt>
           <dd className="mono">{node.id}</dd>
@@ -263,6 +268,7 @@ export function Inspector({
         </Notice>
         <h3>{agent.role}</h3>
         <p className="preserve-text">{agent.persona}</p>
+        <ProxyAssumptions goals={agent.goals} constraints={agent.constraints} />
         <dl className="record-grid">
           <dt>ID</dt>
           <dd className="mono">{agent.id}</dd>
@@ -328,6 +334,7 @@ export function Inspector({
           <dd>{memory.opinion === null ? 'Not recorded' : signed(memory.opinion)}</dd>
         </dl>
         <p className="preserve-text">{memory.text}</p>
+        <StatedReason rationale={memory.rationale} confidence={memory.confidence} />
         {!!memory.peerIds.length && (
           <div>
             <h4>Recorded peer context</h4>

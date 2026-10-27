@@ -1,9 +1,11 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
+import { afterEach, describe, expect, it } from 'vitest';
+import type { z } from 'zod';
+import { ACTOR_CONCURRENCY, actorCallBudget } from '../src/agents/actor.js';
 import { buildApp } from '../src/app.js';
 import { AppError } from '../src/errors.js';
 import { ModelClient, type ModelGateway } from '../src/models/client.js';
 import { fixtureInput, testConfig } from './fixtures.js';
+import { scriptedFetcher } from './support/model-brain.js';
 
 type Application = Awaited<ReturnType<typeof buildApp>>;
 const applications: Application[] = [];
@@ -32,6 +34,7 @@ const graph = {
       kind: 'organization',
       entityType: 'Organization',
       summary: 'A fictional office described in the transit notes.',
+      quote: 'The City Transit Office proposes a six-month electric bus pilot',
       weight: 1,
       sourceIds: ['S1'],
     },
@@ -41,6 +44,7 @@ const graph = {
       kind: 'group',
       entityType: 'Community',
       summary: 'A fictional community described in the transit notes.',
+      quote: 'Neighborhood groups ask for accessible stops and clear information',
       weight: 0.5,
       sourceIds: ['S1'],
     },
@@ -90,33 +94,41 @@ const summary = {
   summary:
     'This is a conditional comparison of two recorded synthetic contexts. It does not establish calibrated probabilities or real-world stakeholder beliefs.',
 };
+const sourceSentence =
+  'The City Transit Office proposes a six-month electric bus pilot with lower fares.';
 const chapter = {
-  body: 'Recorded platform inclinations differ under their assumed interaction structures. Review the source text and compare controlled scenarios before drawing conclusions.',
+  body: `${sourceSentence} Recorded platform inclinations differ under their assumed interaction structures. Review the source text and compare controlled scenarios before drawing conclusions.`,
   sourceIds: ['S1'],
   memoryIds: [],
   interviewIds: ['I1'],
+  claims: [
+    {
+      text: sourceSentence,
+      kind: 'source-fact',
+      sourceIds: ['S1'],
+      memoryIds: [],
+      quote: 'proposes a six-month electric bus pilot with lower fares',
+    },
+    {
+      text: 'Recorded platform inclinations differ under their assumed interaction structures.',
+      kind: 'analytical-conclusion',
+      sourceIds: [],
+      memoryIds: [],
+      quote: null,
+    },
+  ],
 };
 
-function decisions(platform: 'plaza' | 'community') {
-  return {
-    decisions: personas.agents.map((agent, index) => ({
-      agentId: agent.id,
-      opinion: (platform === 'plaza' ? 0.4 : -0.6) + index * 0.1,
-      type: 'post',
-      content: 'Transit service proposal is discussed in this fictional scenario.',
-      peerIds: [`agent-${((index + 1) % 4) + 1}`],
-      sourceIds: ['S1'],
-    })),
-  };
-}
-
 describe('model-guided console (explicit HTTP fixtures, not live inference)', () => {
-  it('supports 20 actual adapter calls for ten dual-platform rounds, chapter generation, tools and async interviews', async () => {
+  it('makes one real adapter call per proxy per platform per round, then chapters, tools and async interviews', async () => {
     const config = testConfig(environment);
-    const outputs: unknown[] = [ontology, graph, personas, prepared];
-    for (let round = 1; round <= 10; round += 1)
-      outputs.push(decisions('plaza'), decisions('community'));
-    outputs.push(
+    // Sequential setup/report calls come from this script; per-actor calls are answered from each
+    // actor's own context because they run in parallel and have no stable order.
+    const script: unknown[] = [
+      ontology,
+      graph,
+      personas,
+      prepared,
       plan,
       interview,
       interview,
@@ -126,19 +138,8 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
       chapter,
       interview,
       interview,
-    );
-    let cursor = 0;
-    const fetcher = vi.fn<typeof fetch>().mockImplementation(
-      async () =>
-        new Response(
-          JSON.stringify({
-            choices: [
-              { message: { content: JSON.stringify(outputs[cursor++]) }, finish_reason: 'stop' },
-            ],
-            usage: { prompt_tokens: 10, completion_tokens: 5 },
-          }),
-        ),
-    );
+    ];
+    const { fetcher, seen, contexts } = scriptedFetcher(script);
     const budgets: number[] = [];
     const instance = await buildApp({
       config,
@@ -163,12 +164,57 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
     }
     const result = instance.repository.get(project.id);
     expect(result.status).toBe('completed');
-    expect(budgets).toEqual([16, 16, 24, 16]);
-    expect(result.execution).toMatchObject({ modelCalls: 31, inputTokens: 310, outputTokens: 155 });
+    expect(budgets).toEqual([16, 16, actorCallBudget(4, 2, 10), 28]);
+    // 4 setup + one call per proxy per platform per round + 7 report calls + 1 grounding check,
+    // each 10 in / 5 out.
+    const actorCalls = 4 * 2 * 10;
+    const total = 4 + actorCalls + 7 + 1;
+    expect(seen).toEqual({ actor: actorCalls, entailment: 1, scripted: 4 + 7 });
+    expect(result.execution).toMatchObject({
+      modelCalls: total,
+      inputTokens: total * 10,
+      outputTokens: total * 5,
+    });
     expect(result.console?.platforms.map((world) => world.rounds.length)).toEqual([10, 10]);
+    // Every proxy decided exactly once per platform per round, from its own context.
+    const decided = new Set(contexts.map((c) => `${c.platform.id}:${c.round}:${c.self.id}`));
+    expect(decided.size).toBe(actorCalls);
+    for (const world of result.console!.platforms) {
+      for (const round of world.rounds) {
+        expect(round.actions).toHaveLength(4);
+        for (const action of round.actions) {
+          expect(action.rationale).toEqual(expect.any(String));
+          expect(action.confidence).toBeGreaterThanOrEqual(0);
+        }
+      }
+    }
+    expect(result.console?.memories.some((memory) => memory.rationale !== undefined)).toBe(true);
     expect(result.console?.reportPlan?.completedSections).toBe(3);
     expect(result.console?.interviews).toHaveLength(2);
     expect(result.report?.sections).toHaveLength(3);
+    // Claims are consumed by the grounding review and are not stored inside the chapters.
+    expect(result.report?.sections.every((section) => !('claims' in section))).toBe(true);
+    const grounding = result.report!.grounding!;
+    expect(grounding.method).toBe('deterministic+model');
+    expect(grounding.claims).toHaveLength(6);
+    expect(grounding.counts).toEqual({
+      supported: 3,
+      partial: 0,
+      unsupported: 0,
+      contradicted: 0,
+      unchecked: 3,
+    });
+    expect(grounding.claims.filter((claim) => claim.kind === 'source-fact')).toEqual(
+      Array.from({ length: 3 }, () =>
+        expect.objectContaining({
+          verdict: 'supported',
+          sourceIds: ['S1'],
+          checks: expect.objectContaining({ quote: 'found', entailment: 'supports' }),
+        }),
+      ),
+    );
+    expect(grounding.unverifiedFigures).toEqual([]);
+    expect(result.console?.traces.map((trace) => trace.name)).toContain('Grounding review');
     expect(result.console?.traces.map((trace) => trace.name)).toEqual(
       expect.arrayContaining([
         'Ontology definition',
@@ -181,6 +227,11 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
     const body = await instance.app.inject(`/api/projects/${project.id}/export?format=markdown`);
     expect(body.body).toContain('Generated fictional interviews');
     expect(body.body).toContain('I1');
+    expect(body.body).toContain('## Grounding review');
+    expect(body.body).toContain('Statements checked: 6.');
+    expect(body.body).toContain('Supported: 3');
+    expect(body.body).toContain('[Source fact; Supported]');
+    expect(body.body).toContain('independent model check that had to quote real text');
     const survey = instance.interaction.startSurvey(project.id, {
       kind: 'interview',
       question: 'Describe this fictional transit scenario.',
@@ -195,8 +246,9 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
     expect(
       recorded.responses.every((response) => response.answer?.includes('fictional proxy')),
     ).toBe(true);
-    expect(instance.repository.get(project.id).execution?.modelCalls).toBe(33);
-    expect(fetcher).toHaveBeenCalledTimes(33);
+    const totalCalls = 4 + 4 * 2 * 10 + 7 + 1 + 2;
+    expect(instance.repository.get(project.id).execution?.modelCalls).toBe(totalCalls);
+    expect(fetcher).toHaveBeenCalledTimes(totalCalls);
     fetcher.mockImplementation(
       (_url, options) =>
         new Promise((_resolve, reject) => {
@@ -219,11 +271,12 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
     expect(
       afterCancellation.console?.surveys.find((item) => item.id === cancelled.id)?.status,
     ).toBe('cancelled');
-    expect(afterCancellation.execution?.modelCalls).toBe(33);
+    expect(afterCancellation.execution?.modelCalls).toBe(totalCalls);
   });
 
-  it('stops the sibling platform request on failure and never persists a partial combined round as complete', async () => {
-    let siblingAborted = false;
+  it('stops in-flight sibling actor calls on the first failure, never starts queued ones, and persists no partial round', async () => {
+    let inFlightAborted = 0;
+    let actorCallsStarted = 0;
     const gateway: ModelGateway = {
       async json<T>(
         schema: z.ZodType<T>,
@@ -236,14 +289,13 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
           return schema.parse(graph);
         if (instructions.startsWith('Construct exactly')) return schema.parse(personas);
         if (instructions.startsWith('Prepare initial scenario')) return schema.parse(prepared);
-        const context = z
-          .object({ scenarioContext: z.object({ platform: z.enum(['plaza', 'community']) }) })
-          .parse(data);
-        if (context.scenarioContext.platform === 'plaza')
+        actorCallsStarted += 1;
+        // The first call in the round fails; the others stay in flight until they are aborted.
+        if (actorCallsStarted === 1)
           throw new AppError(502, 'MODEL_TEST_FAILURE', 'A fixture provider failure.');
         return new Promise<T>((_resolve, reject) => {
           const abort = () => {
-            siblingAborted = true;
+            inFlightAborted += 1;
             reject(signal.reason);
           };
           if (signal.aborted) abort();
@@ -274,6 +326,9 @@ describe('model-guided console (explicit HTTP fixtures, not live inference)', ()
     expect(result.rounds).toEqual([]);
     expect(result.report).toBeNull();
     expect(result.console?.platforms.every((world) => world.status === 'failed')).toBe(true);
-    expect(siblingAborted).toBe(true);
+    // The concurrency cap bounds how much work was ever started, and the rest was aborted/never begun.
+    expect(inFlightAborted).toBe(ACTOR_CONCURRENCY - 1);
+    expect(actorCallsStarted).toBe(ACTOR_CONCURRENCY);
+    expect(result.error).toContain('A fixture provider failure.');
   });
 });

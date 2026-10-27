@@ -6,15 +6,15 @@ import type {
   SimulationMemory,
 } from '../../../shared/guided.js';
 import type { Agent, ProjectDetail, RoundSnapshot } from '../../../shared/types.js';
+import { ACTOR_CONCURRENCY, actorRound, createKnowledgeIndex } from '../agents/actor.js';
 import { localRound } from '../agents/local.js';
-import { modelRound } from '../agents/model.js';
 import { clamp, makeSnapshot, mean } from '../agents/state.js';
 import { AppError, throwIfAborted } from '../errors.js';
+import { createLimiter } from '../limiter.js';
 import type { ModelGateway } from '../models/client.js';
 import type { Repository } from '../storage/repository.js';
 import { readCheckpoint } from './checkpoint.js';
 import { requireConsole, traceOperation, updateConsole } from './state.js';
-import { searchMemories } from './tools.js';
 
 function postsFor(config: EnvironmentConfig, platform: PlatformRun['platform']): SeedPost[] {
   return config.initialPosts.filter(
@@ -141,10 +141,12 @@ export async function runPlatforms(
     }));
   }
   const chunks = repository.chunks(id);
+  const knowledge = createKnowledgeIndex(chunks, project.question);
+  // One cap for the whole simulation, shared by both platforms, to respect provider rate limits.
+  const limit = createLimiter(ACTOR_CONCURRENCY);
   for (let round = startRound; round <= project.settings.rounds; round += 1) {
     throwIfAborted(signal);
     const current = repository.get(id);
-    const memories = requireConsole(current).memories;
     const roundController = new AbortController();
     const roundSignal = AbortSignal.any([signal, roundController.signal]);
     let primaryError: unknown = null;
@@ -170,11 +172,28 @@ export async function runPlatforms(
             { platform: run.platform, round, network: run.network, mode: project.mode },
             () =>
               model
-                ? modelRound(model, input, chunks, round, roundSignal, {
-                    platform: run.platform,
+                ? actorRound({
+                    model,
+                    question: project.question,
+                    agents: inputAgents,
+                    previousActions: run.rounds.at(-1)?.actions ?? [],
+                    knowledge,
+                    round,
+                    totalRounds: project.settings.rounds,
+                    platform: { id: run.platform, label: run.label, network: run.network },
                     simulatedMinute: round * environment.minutesPerRound,
-                    initialPosts: postsFor(environment, run.platform),
-                    memories: searchMemories(memories, project.question, 4, run.platform),
+                    seedPosts: postsFor(environment, run.platform),
+                    intervention:
+                      project.settings.intervention?.round === round
+                        ? project.settings.intervention
+                        : null,
+                    limit,
+                    signal: roundSignal,
+                    // Cancel both platforms the moment any actor fails, before queued calls can start.
+                    onFailure: (error) => {
+                      if (primaryError === null) primaryError = error;
+                      roundController.abort(error);
+                    },
                   })
                 : localRound(inputAgents, input.settings, round),
             (output) => ({
@@ -228,6 +247,8 @@ export async function runPlatforms(
         opinion: action.opinion,
         peerIds: action.peerIds,
         sourceIds: action.sourceIds,
+        ...(action.rationale === undefined ? {} : { rationale: action.rationale }),
+        ...(action.confidence === undefined ? {} : { confidence: action.confidence }),
       })),
     );
     const persisted = repository.get(id);

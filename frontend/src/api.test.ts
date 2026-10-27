@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, ApiError, errorMessage } from './api';
+import { api, ApiError, errorMessage, isAbort } from './api';
+import { realStatusFixture } from './test/provider';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -174,5 +175,90 @@ describe('guided API client', () => {
     );
     const blob = await api.export('test', 'markdown');
     expect(await blob.text()).toBe('# Recorded report');
+  });
+});
+
+describe('provider status API client', () => {
+  const jsonResponse = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  it('reads the safe status with a bodyless GET and forwards the caller abort signal', async () => {
+    const status = realStatusFixture({ connectivity: 'ok' });
+    const fetch = vi.fn().mockResolvedValue(jsonResponse(status));
+    vi.stubGlobal('fetch', fetch);
+    const controller = new AbortController();
+    await expect(api.providerStatus(controller.signal)).resolves.toEqual(status);
+    expect(fetch.mock.calls[0]![0]).toBe('/api/provider/status');
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBeUndefined();
+    expect(init.body).toBeUndefined();
+    expect(init.headers).toMatchObject({ Accept: 'application/json' });
+    controller.abort();
+    expect(init.signal?.aborted).toBe(true);
+  });
+
+  it('runs one explicit check with a bodyless POST and returns the refreshed status', async () => {
+    const status = realStatusFixture({ connectivity: 'ok', lastLatencyMs: 412 });
+    const fetch = vi.fn().mockResolvedValue(jsonResponse(status));
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.checkProvider()).resolves.toEqual(status);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(fetch.mock.calls[0]![0]).toBe('/api/provider/check');
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeUndefined();
+  });
+
+  it.each([
+    [503, 'MODEL_NOT_CONFIGURED', 'Local engine only. Configure a provider first.'],
+    [502, 'MODEL_AUTH', 'The provider rejected or could not obtain credentials.'],
+    [502, 'MODEL_UNREACHABLE', 'The provider endpoint could not be reached.'],
+    [502, 'MODEL_NOT_FOUND', 'The endpoint or deployment was not found.'],
+    [502, 'MODEL_OUTPUT_INVALID', 'The model returned output that failed validation.'],
+    [429, 'MODEL_RATE_LIMIT', 'The provider is rate limiting requests.'],
+  ])(
+    'keeps the server message and code for a failed check (%i %s)',
+    async (statusCode, code, message) => {
+      vi.stubGlobal(
+        'fetch',
+        vi
+          .fn()
+          .mockResolvedValue(
+            jsonResponse({ error: { code, message, requestId: 'req-9' } }, statusCode),
+          ),
+      );
+      const failure = await api.checkProvider().catch((error: unknown) => error);
+      expect(failure).toBeInstanceOf(ApiError);
+      expect(failure).toMatchObject({ code, message, requestId: 'req-9' });
+      expect(errorMessage(failure)).toBe(`${message} Request ID: req-9`);
+    },
+  );
+
+  it('describes an unreachable server instead of leaking a raw network error', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+    const failure = await api.providerStatus().catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: 'NETWORK_ERROR' });
+    expect(errorMessage(failure)).toContain('Cannot reach the local server');
+  });
+
+  it('rethrows a caller abort as an abort so polling can ignore it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        (_path: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('The operation was aborted.', 'AbortError')),
+            );
+          }),
+      ),
+    );
+    const controller = new AbortController();
+    const pending = api.providerStatus(controller.signal).catch((error: unknown) => error);
+    controller.abort();
+    expect(isAbort(await pending)).toBe(true);
   });
 });

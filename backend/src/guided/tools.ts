@@ -53,7 +53,7 @@ export function validateReferences(ids: string[], allowed: Set<string>, kind: st
     throw new AppError(
       502,
       'MODEL_OUTPUT_INVALID',
-      `The model cited ${kind} that was not provided in its bounded context.`,
+      `The model cited ${kind} that was not provided in its bounded context (valid IDs: ${[...allowed].slice(0, 12).join(', ') || 'none'}).`,
     );
   }
 }

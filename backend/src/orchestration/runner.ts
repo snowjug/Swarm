@@ -1,12 +1,21 @@
 import { setImmediate as yieldToLoop } from 'node:timers/promises';
 import type { Stage } from '../../../shared/types.js';
+import {
+  ACTOR_CONCURRENCY,
+  actorCallBudget,
+  actorRound,
+  createKnowledgeIndex,
+  type PlatformSpec,
+} from '../agents/actor.js';
 import { createLocalAgents, localRound } from '../agents/local.js';
-import { modelGraph, modelPersonas, modelReport, modelRound } from '../agents/model.js';
+import { modelGraph, modelPersonas, modelReport } from '../agents/model.js';
 import { buildLocalReport } from '../agents/report.js';
 import type { ServerConfig } from '../config.js';
 import { AppError, publicFailure, throwIfAborted } from '../errors.js';
 import { buildLocalGraph } from '../knowledge/graph.js';
-import { ModelClient, type ModelGateway, type ModelUsage } from '../models/client.js';
+import { createLimiter } from '../limiter.js';
+import { ModelClient } from '../models/client.js';
+import type { ModelFactory } from '../models/factory.js';
 import type { Repository } from '../storage/repository.js';
 import type { ExecutionStep } from '../../../shared/guided.js';
 import { GuidedWorkflow } from '../guided/workflow.js';
@@ -18,10 +27,7 @@ import {
   validateStep,
 } from '../guided/state.js';
 
-export type ModelFactory = (
-  onUsage: (usage: ModelUsage) => void,
-  options?: { maxCalls: number },
-) => ModelGateway;
+export type { ModelFactory } from '../models/factory.js';
 interface QueuedTask {
   id: string;
   step: ExecutionStep | 'quick';
@@ -284,8 +290,11 @@ export class Orchestrator {
       const chunks = this.repository.chunks(id);
       const model =
         initial.mode === 'llm'
-          ? this.createModel((usage) =>
-              this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
+          ? this.createModel(
+              (usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
+              {
+                maxCalls: actorCallBudget(initial.settings.agentCount, 1, initial.settings.rounds),
+              },
             )
           : null;
       throwIfAborted(signal);
@@ -311,11 +320,34 @@ export class Orchestrator {
         35,
         `${agents.length} proxies ready. Starting ${initial.settings.rounds} simultaneous-update rounds.`,
       );
+      const knowledge = createKnowledgeIndex(chunks, initial.question);
+      const limit = createLimiter(ACTOR_CONCURRENCY);
+      const platform: PlatformSpec =
+        initial.settings.network === 'broadcast'
+          ? { id: 'plaza', label: 'Info Plaza', network: 'broadcast' }
+          : { id: 'community', label: 'Topic Community', network: 'community' };
       for (let round = 1; round <= initial.settings.rounds; round += 1) {
         throwIfAborted(signal);
         const current = this.repository.get(id);
         const result = model
-          ? await modelRound(model, current, chunks, round, signal)
+          ? await actorRound({
+              model,
+              question: current.question,
+              agents: current.agents,
+              previousActions: current.rounds.at(-1)?.actions ?? [],
+              knowledge,
+              round,
+              totalRounds: current.settings.rounds,
+              platform,
+              simulatedMinute: round * 60,
+              seedPosts: [],
+              intervention:
+                current.settings.intervention?.round === round
+                  ? current.settings.intervention
+                  : null,
+              limit,
+              signal,
+            })
           : localRound(current.agents, current.settings, round);
         throwIfAborted(signal);
         this.repository.update(id, {

@@ -1,6 +1,13 @@
 import type { z } from 'zod';
+import type { ActorContext } from '../src/agents/actor.js';
 import { AppError } from '../src/errors.js';
-import type { ModelGateway, ModelUsage } from '../src/models/client.js';
+import type { JsonOptions, ModelGateway, ModelUsage } from '../src/models/client.js';
+import {
+  actorBrain,
+  entailmentBrain,
+  isActorCall,
+  isEntailmentCall,
+} from './support/model-brain.js';
 
 export const modelEnvironment = {
   AI_PROVIDER: 'openai',
@@ -26,6 +33,7 @@ export const graph = {
       kind: 'organization',
       entityType: 'Organization',
       summary: 'A fictional office described in the transit notes.',
+      quote: 'The City Transit Office proposes a six-month electric bus pilot',
       weight: 1,
       sourceIds: ['S1'],
     },
@@ -35,6 +43,7 @@ export const graph = {
       kind: 'group',
       entityType: 'Community',
       summary: 'A fictional community described in the transit notes.',
+      quote: 'Neighborhood groups ask for accessible stops and clear information',
       weight: 0.5,
       sourceIds: ['S1'],
     },
@@ -70,39 +79,65 @@ export const prepared = {
   ],
 };
 
-export function decisions(platform: 'plaza' | 'community') {
-  return {
-    decisions: personas.agents.map((agent, index) => ({
-      agentId: agent.id,
-      opinion: (platform === 'plaza' ? 0.4 : -0.6) + index * 0.1,
-      type: 'post',
-      content: 'Transit service proposal is discussed in this fictional scenario.',
-      peerIds: [`agent-${((index + 1) % 4) + 1}`],
-      sourceIds: ['S1'],
-    })),
-  };
-}
-
-export function simulationOutputs(rounds: number): unknown[] {
-  return Array.from({ length: rounds }, () => [decisions('plaza'), decisions('community')]).flat();
-}
-
 /**
- * A scripted model double for orchestration tests. It validates every scripted answer against the
- * caller's real schema, records the trusted/untrusted split of each request, and reports usage so
- * token accounting can be asserted. It is NOT evidence about any live model's behavior.
+ * A scripted model double for orchestration tests. Setup calls (ontology, graph, personas, ...) are
+ * answered from the script in order. Per-actor simulation calls run in parallel, so they are answered
+ * from the caller's own context by `actorBrain` instead of by position. Every answer is validated
+ * against the caller's real schema and semantic validator, the trusted/untrusted split of each
+ * request is recorded, and usage is reported so token accounting can be asserted. It is NOT
+ * evidence about any live model's behavior.
  */
 export class ScriptedProvider {
-  readonly calls: { instructions: string; data: unknown }[] = [];
+  readonly calls: { instructions: string; data: unknown; actor: boolean; entailment: boolean }[] =
+    [];
+  /** Fires with the global call index before the call is answered. */
   onCall: ((index: number) => void) | null = null;
+  /** Fires with the 0-based count of actor calls so far. */
+  onActorCall: ((actorIndex: number) => void) | null = null;
+  /** Replaces the default actor behavior, for example to return hostile output. */
+  actorOverride: ((context: ActorContext, actorIndex: number) => unknown) | null = null;
+  private scripted = 0;
+  private actors = 0;
 
   constructor(private readonly outputs: unknown[]) {}
 
+  get actorCalls(): { instructions: string; data: ActorContext }[] {
+    return this.calls.filter((call) => call.actor) as {
+      instructions: string;
+      data: ActorContext;
+    }[];
+  }
+
+  get setupCalls(): { instructions: string; data: unknown }[] {
+    return this.calls.filter((call) => !call.actor && !call.entailment);
+  }
+
   readonly factory = (onUsage: (usage: ModelUsage) => void): ModelGateway => ({
-    json: async <T>(schema: z.ZodType<T>, instructions: string, data: unknown): Promise<T> => {
-      const index = this.calls.push({ instructions, data }) - 1;
+    json: async <T>(
+      schema: z.ZodType<T>,
+      instructions: string,
+      data: unknown,
+      _signal?: AbortSignal,
+      _maxTokens?: number,
+      options?: JsonOptions<T>,
+    ): Promise<T> => {
+      const actor = isActorCall(instructions);
+      const entailment = isEntailmentCall(instructions);
+      const index = this.calls.push({ instructions, data, actor, entailment }) - 1;
       this.onCall?.(index);
-      const parsed = schema.safeParse(this.outputs[index]);
+      let raw: unknown;
+      if (actor) {
+        const actorIndex = this.actors++;
+        this.onActorCall?.(actorIndex);
+        raw = this.actorOverride
+          ? this.actorOverride(data as ActorContext, actorIndex)
+          : actorBrain(data as ActorContext);
+      } else if (entailment) {
+        raw = entailmentBrain(data);
+      } else {
+        raw = this.outputs[this.scripted++];
+      }
+      const parsed = schema.safeParse(raw);
       if (!parsed.success) {
         throw new AppError(
           502,
@@ -110,6 +145,7 @@ export class ScriptedProvider {
           'The model output did not match the contract.',
         );
       }
+      options?.validate?.(parsed.data);
       onUsage({ inputTokens: 100, outputTokens: 20 });
       return parsed.data;
     },

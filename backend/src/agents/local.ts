@@ -5,6 +5,7 @@ import type {
   SimulationSettings,
 } from '../../../shared/types.js';
 import { clamp, makeSnapshot, randomSource } from './state.js';
+import { selectPeers } from './peers.js';
 
 export function createLocalAgents(graph: KnowledgeGraph, settings: SimulationSettings): Agent[] {
   if (!graph.nodes.length) throw new Error('A source graph is required before persona creation.');
@@ -47,20 +48,7 @@ export function localRound(
   const intervention = settings.intervention?.round === round ? settings.intervention : null;
   const actions: AgentAction[] = [];
   const next = agents.map((agent): Agent => {
-    const candidates = agents.filter((peer) => peer.id !== agent.id);
-    const peers =
-      settings.network === 'broadcast'
-        ? candidates.sort((left, right) => right.influence - left.influence).slice(0, 4)
-        : candidates
-            .filter((peer) => Math.abs(peer.opinion - agent.opinion) <= 0.95)
-            .sort((left, right) => {
-              const affinity = (peer: Agent): number =>
-                peer.topicIds.filter((id) => agent.topicIds.includes(id)).length * 2 +
-                peer.influence * 0.25 -
-                Math.abs(peer.opinion - agent.opinion);
-              return affinity(right) - affinity(left) || left.id.localeCompare(right.id);
-            })
-            .slice(0, 5);
+    const peers = selectPeers(agent, agents, settings.network);
     const totalWeight = peers.reduce((sum, peer) => sum + peer.influence, 0);
     const peerMean = totalWeight
       ? peers.reduce((sum, peer) => sum + peer.opinion * peer.influence, 0) / totalWeight

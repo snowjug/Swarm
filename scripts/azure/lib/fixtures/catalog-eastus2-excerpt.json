@@ -1,0 +1,761 @@
+{
+  "capturedFrom": "GET locations/eastus2/models api-version=2024-10-01",
+  "value": [
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.gpt-4.1-mini.2025-04-14",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "FineTuneTokensMaxValue": "2000000000",
+          "FineTuneTokensMaxValuePerExample": "65536",
+          "agentsV2": "true",
+          "area": "US",
+          "assistants": "true",
+          "chatCompletion": "true",
+          "datazoneFineTune": "true",
+          "devTierFineTune": "true",
+          "globalFineTune": "true",
+          "responses": "true"
+        },
+        "deprecation": {
+          "fineTune": "2027-04-14T00:00:00Z",
+          "inference": "2027-04-14T00:00:00Z"
+        },
+        "description": "",
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "Legacy",
+        "maxCapacity": 3,
+        "name": "gpt-4.1-mini",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "Standard",
+            "usageName": "OpenAI.Standard.gpt4.1-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt4.1-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt4.1-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2028-04-13T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt4.1-mini-finetune"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2028-04-13T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt4.1-mini-finetune"
+          },
+          {
+            "capacity": {
+              "default": 50,
+              "maximum": 250
+            },
+            "deprecationDate": "2028-04-13T00:00:00Z",
+            "name": "DeveloperTier",
+            "usageName": "OpenAI.DeveloperTier.gpt4.1-mini-finetune"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "GlobalProvisionedManaged",
+            "usageName": "OpenAI.GlobalProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 25,
+              "step": 25
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "ProvisionedManaged",
+            "usageName": "OpenAI.ProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "GlobalBatch",
+            "usageName": "OpenAI.GlobalBatch.gpt-4.1-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "DataZoneBatch",
+            "usageName": "OpenAI.DataZoneBatch.gpt-4.1-mini"
+          }
+        ],
+        "version": "2025-04-14"
+      },
+      "name": "OpenAI.gpt-4.1-mini.2025-04-14",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.gpt-4o-mini.2024-07-18",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "FineTuneTokensMaxValue": "2000000000",
+          "FineTuneTokensMaxValuePerExample": "131072",
+          "agentsV2": "true",
+          "allowProvisionedManagedCommitment": "true",
+          "area": "US",
+          "assistants": "true",
+          "chatCompletion": "true",
+          "datazoneFineTune": "true",
+          "devTierFineTune": "true",
+          "globalFineTune": "true",
+          "jsonObjectResponse": "true",
+          "maxContextToken": "128000",
+          "maxOutputToken": "16384",
+          "responses": "true"
+        },
+        "deprecation": {
+          "fineTune": "2027-04-14T00:00:00Z",
+          "inference": "2027-04-14T00:00:00Z"
+        },
+        "description": "GPT-4o integrates text and images in a single model, enabling it to handle multiple data types simultaneously. This multimodal approach enhances accuracy and responsiveness in human-computer interactions. GPT-4o matches GPT-4 Turbo in English text and coding tasks while offering superior performance in non-English languages and vision tasks, setting new benchmarks for AI capabilities.\r\ninput format: text + image",
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "Deprecating",
+        "maxCapacity": 3,
+        "name": "gpt-4o-mini",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2026-03-31T00:00:00Z",
+            "name": "Standard",
+            "usageName": "OpenAI.Standard.gpt-4o-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt-4o-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "GlobalBatch",
+            "usageName": "OpenAI.GlobalBatch.gpt-4o-mini"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 25,
+              "step": 25
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "ProvisionedManaged",
+            "usageName": "OpenAI.ProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 50,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2028-04-13T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt-4o-mini-finetune"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2028-04-13T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt-4o-mini-finetune"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "GlobalProvisionedManaged",
+            "usageName": "OpenAI.GlobalProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt-4o-mini"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-04-14T00:00:00Z",
+            "name": "DataZoneBatch",
+            "usageName": "OpenAI.DataZoneBatch.gpt-4o-mini"
+          }
+        ],
+        "version": "2024-07-18"
+      },
+      "name": "OpenAI.gpt-4o-mini.2024-07-18",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.gpt-5-mini.2025-08-07",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "agentsV2": "true",
+          "area": "US",
+          "assistants": "true",
+          "chatCompletion": "true",
+          "responses": "true"
+        },
+        "deprecation": {
+          "inference": "2027-02-09T00:00:00Z"
+        },
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "GenerallyAvailable",
+        "maxCapacity": 3,
+        "name": "gpt-5-mini",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-02-09T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt-5-mini"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 25,
+              "step": 25
+            },
+            "deprecationDate": "2027-02-09T00:00:00Z",
+            "name": "ProvisionedManaged",
+            "usageName": "OpenAI.ProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-02-09T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-02-09T00:00:00Z",
+            "name": "GlobalProvisionedManaged",
+            "usageName": "OpenAI.GlobalProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-02-09T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt-5-mini"
+          }
+        ],
+        "version": "2025-08-07"
+      },
+      "name": "OpenAI.gpt-5-mini.2025-08-07",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.gpt-5.4-mini.2026-03-17",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "FineTuneTokensMaxValue": "2000000000",
+          "FineTuneTokensMaxValuePerExample": "196608",
+          "agentsV2": "true",
+          "area": "US",
+          "assistants": "true",
+          "chatCompletion": "true",
+          "datazoneFineTune": "true",
+          "priorityTierSkus": "DataZoneStandard,GlobalStandard",
+          "responses": "true"
+        },
+        "deprecation": {
+          "fineTune": "2027-09-21T00:00:00Z",
+          "inference": "2027-09-21T00:00:00Z"
+        },
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "GenerallyAvailable",
+        "maxCapacity": 3,
+        "name": "gpt-5.4-mini",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt-5.4-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt-5.4-mini"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "GlobalProvisionedManaged",
+            "usageName": "OpenAI.GlobalProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "GlobalBatch",
+            "usageName": "OpenAI.GlobalBatch.gpt-5.4-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "DataZoneBatch",
+            "usageName": "OpenAI.DataZoneBatch.gpt-5.4-mini"
+          }
+        ],
+        "version": "2026-03-17"
+      },
+      "name": "OpenAI.gpt-5.4-mini.2026-03-17",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.gpt-5.6-sol.2026-07-09",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "agentsV2": "true",
+          "area": "US",
+          "assistants": "true",
+          "chatCompletion": "true",
+          "flexTierSkus": "GlobalStandard",
+          "priorityTierSkus": "GlobalStandard",
+          "responses": "true"
+        },
+        "deprecation": {
+          "inference": "2028-01-11T00:00:00Z"
+        },
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "GenerallyAvailable",
+        "maxCapacity": 3,
+        "name": "gpt-5.6-sol",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2028-01-11T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt-5.6-sol"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2028-01-11T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt-5.6-sol"
+          },
+          {
+            "capacity": {
+              "maximum": 1000000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2028-01-11T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          }
+        ],
+        "version": "2026-07-09"
+      },
+      "name": "OpenAI.gpt-5.6-sol.2026-07-09",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.o3.2025-04-16",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "agentsV2": "true",
+          "area": "US",
+          "chatCompletion": "true",
+          "responses": "true"
+        },
+        "deprecation": {
+          "inference": "2026-11-19T00:00:00Z"
+        },
+        "description": "",
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "Deprecating",
+        "maxCapacity": 3,
+        "name": "o3",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.o3"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 50,
+              "step": 50
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "ProvisionedManaged",
+            "usageName": "OpenAI.ProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "GlobalProvisionedManaged",
+            "usageName": "OpenAI.GlobalProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "GlobalBatch",
+            "usageName": "OpenAI.GlobalBatch.o3"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.o3"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2026-11-19T00:00:00Z",
+            "name": "DataZoneBatch",
+            "usageName": "OpenAI.DataZoneBatch.o3"
+          }
+        ],
+        "version": "2025-04-16"
+      },
+      "name": "OpenAI.o3.2025-04-16",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/Anthropic.claude-sonnet-5.1",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "agentsV2": "true",
+          "chatCompletion": "true",
+          "hostedOn": "anthropic"
+        },
+        "deprecation": {
+          "inference": "2027-06-30T00:00:00Z"
+        },
+        "format": "Anthropic",
+        "isDefaultVersion": false,
+        "lifecycleStatus": "GenerallyAvailable",
+        "maxCapacity": 3,
+        "name": "claude-sonnet-5",
+        "publisher": "Anthropic",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-06-30T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "AIServices.GlobalStandard.claude-sonnet-5"
+          }
+        ],
+        "version": "1"
+      },
+      "name": "Anthropic.claude-sonnet-5.1",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/Anthropic.claude-sonnet-5.2",
+      "kind": "AIServices",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "agentsV2": "true",
+          "chatCompletion": "true",
+          "hostedOn": "azure"
+        },
+        "deprecation": {
+          "inference": "2027-06-30T00:00:00Z"
+        },
+        "format": "Anthropic",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "GenerallyAvailable",
+        "maxCapacity": 3,
+        "name": "claude-sonnet-5",
+        "publisher": "Anthropic",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-06-30T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "AIServices.GlobalStandard.claude-sonnet-5.Azure"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 1000000
+            },
+            "deprecationDate": "2027-06-30T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "AIServices.DataZoneStandard.claude-sonnet-5.Azure"
+          }
+        ],
+        "version": "2"
+      },
+      "name": "Anthropic.claude-sonnet-5.2",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    },
+    {
+      "id": "/subscriptions/00000000-0000-0000-0000-000000000000/providers/Microsoft.CognitiveServices/locations/EastUS2/models/OpenAI.gpt-5.4-mini.2026-03-17",
+      "kind": "OpenAI",
+      "location": "EastUS2",
+      "model": {
+        "capabilities": {
+          "FineTuneTokensMaxValue": "2000000000",
+          "FineTuneTokensMaxValuePerExample": "196608",
+          "agentsV2": "true",
+          "area": "US",
+          "assistants": "true",
+          "chatCompletion": "true",
+          "datazoneFineTune": "true",
+          "priorityTierSkus": "DataZoneStandard,GlobalStandard",
+          "responses": "true"
+        },
+        "deprecation": {
+          "fineTune": "2027-09-21T00:00:00Z",
+          "inference": "2027-09-21T00:00:00Z"
+        },
+        "format": "OpenAI",
+        "isDefaultVersion": true,
+        "lifecycleStatus": "GenerallyAvailable",
+        "maxCapacity": 3,
+        "name": "gpt-5.4-mini",
+        "skus": [
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "GlobalStandard",
+            "usageName": "OpenAI.GlobalStandard.gpt-5.4-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 10000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "DataZoneStandard",
+            "usageName": "OpenAI.DataZoneStandard.gpt-5.4-mini"
+          },
+          {
+            "capacity": {
+              "maximum": 100000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "DataZoneProvisionedManaged",
+            "usageName": "OpenAI.DataZoneProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "maximum": 30000,
+              "minimum": 15,
+              "step": 5
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "GlobalProvisionedManaged",
+            "usageName": "OpenAI.GlobalProvisionedManaged"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "GlobalBatch",
+            "usageName": "OpenAI.GlobalBatch.gpt-5.4-mini"
+          },
+          {
+            "capacity": {
+              "default": 10,
+              "maximum": 100000000
+            },
+            "deprecationDate": "2027-09-21T00:00:00Z",
+            "name": "DataZoneBatch",
+            "usageName": "OpenAI.DataZoneBatch.gpt-5.4-mini"
+          }
+        ],
+        "version": "2026-03-17"
+      },
+      "name": "OpenAI.gpt-5.4-mini.2026-03-17",
+      "skuName": "S0",
+      "type": "Microsoft.CognitiveServices/locations/models"
+    }
+  ]
+}

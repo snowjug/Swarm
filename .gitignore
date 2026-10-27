@@ -13,3 +13,4 @@ Thumbs.db
 .vscode/
 playwright-report/
 test-results/
+.azure/

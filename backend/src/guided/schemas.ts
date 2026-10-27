@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { chapterClaimSchema } from '../../../shared/grounding.js';
 import { ontologySchema } from '../../../shared/guided.js';
 import { extractedGraphSchema } from '../models/schemas.js';
 
@@ -46,6 +47,8 @@ export const reportChapterSchema = z.object({
   sourceIds: z.array(z.string()).max(5),
   memoryIds: z.array(z.string()).max(8),
   interviewIds: z.array(z.string()).max(2),
+  /** The checkable statements this chapter rests on; each is verified after the chapter is written. */
+  claims: z.array(chapterClaimSchema).min(1).max(6),
 });
 
 export const interviewSchema = z.object({
@@ -55,3 +58,4 @@ export const interviewSchema = z.object({
 });
 
 export { ontologySchema };
+export type GuidedGraph = z.infer<typeof guidedGraphSchema>;

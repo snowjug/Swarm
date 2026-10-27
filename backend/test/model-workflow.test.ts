@@ -7,6 +7,7 @@ import { AppError } from '../src/errors.js';
 import { ModelClient, type ModelGateway } from '../src/models/client.js';
 import { Repository } from '../src/storage/repository.js';
 import { fixtureInput, testConfig } from './fixtures.js';
+import { scriptedFetcher } from './support/model-brain.js';
 
 type Application = Awaited<ReturnType<typeof buildApp>>;
 const applications: Application[] = [];
@@ -22,6 +23,7 @@ const graphFixture = {
       label: 'Transit',
       kind: 'topic',
       summary: 'Proposed transit pilot described in the source.',
+      quote: 'The City Transit Office proposes a six-month electric bus pilot',
       weight: 1,
       sourceIds: ['S1'],
     },
@@ -30,6 +32,7 @@ const graphFixture = {
       label: 'Community',
       kind: 'group',
       summary: 'Fictional community groups described in the source.',
+      quote: 'Neighborhood groups ask for accessible stops and clear information',
       weight: 0.5,
       sourceIds: ['S1'],
     },
@@ -67,16 +70,6 @@ describe('model-assisted pipeline (explicit test fixtures, not live AI verificat
         sourceIds: ['S1'],
       })),
     };
-    const decisions = Array.from({ length: 3 }, (_, round) => ({
-      decisions: personas.agents.map((agent, index) => ({
-        agentId: agent.id,
-        opinion: (index - 1) / 3,
-        type: 'post',
-        content: `Fixture simulated statement for round ${round + 1}.`,
-        peerIds: [`agent-${((index + 1) % 4) + 1}`],
-        sourceIds: ['S1'],
-      })),
-    }));
     const report = {
       title: 'Fixture conditional scenario report',
       executiveSummary:
@@ -88,22 +81,13 @@ describe('model-assisted pipeline (explicit test fixtures, not live AI verificat
       })),
       limitations: ['Test fixture only; not a live provider evaluation.'],
     };
-    const outputs = [graphFixture, personas, ...decisions, report];
-    let index = 0;
-    const fetcher = vi.fn<typeof fetch>().mockImplementation(
-      async () =>
-        new Response(
-          JSON.stringify({
-            choices: [
-              { message: { content: JSON.stringify(outputs[index++]) }, finish_reason: 'stop' },
-            ],
-            usage: { prompt_tokens: 10, completion_tokens: 5 },
-          }),
-        ),
-    );
+    // Graph, personas and report are sequential and scripted; per-actor calls are answered from
+    // each actor's own context.
+    const { fetcher, seen } = scriptedFetcher([graphFixture, personas, report]);
     const instance = await buildApp({
       config,
-      modelFactory: (onUsage) => new ModelClient(config.provider, onUsage, fetcher),
+      modelFactory: (onUsage, options) =>
+        new ModelClient(config.provider, onUsage, fetcher, options?.maxCalls),
     });
     applications.push(instance);
     const project = instance.repository.create(
@@ -117,9 +101,22 @@ describe('model-assisted pipeline (explicit test fixtures, not live AI verificat
     expect(result.graph!.method).toBe('llm');
     expect(result.report!.generatedBy).toBe('llm');
     expect(result.rounds).toHaveLength(3);
-    expect(result.execution).toMatchObject({ modelCalls: 6, inputTokens: 60, outputTokens: 30 });
-    expect(fetcher).toHaveBeenCalledTimes(6);
-    expect(result.report!.metrics.totalInteractions).toBe(12);
+    // graph + personas + report, and one call per proxy per round on the single platform.
+    const total = 3 + 4 * 3;
+    expect(seen).toEqual({ actor: 12, entailment: 0, scripted: 3 });
+    expect(result.execution).toMatchObject({
+      modelCalls: total,
+      inputTokens: total * 10,
+      outputTokens: total * 5,
+    });
+    expect(fetcher).toHaveBeenCalledTimes(total);
+    const recorded = result.rounds.flatMap((round) => round.actions);
+    expect(recorded.every((action) => action.rationale && action.confidence !== undefined)).toBe(
+      true,
+    );
+    expect(result.report!.metrics.totalInteractions).toBe(
+      recorded.reduce((sum, action) => sum + action.peerIds.length, 0),
+    );
     expect(
       result.report!.limitations.some((limitation) =>
         limitation.includes('not a calibrated forecast'),
@@ -144,7 +141,7 @@ describe('model-assisted pipeline (explicit test fixtures, not live AI verificat
     await instance.jobs.idle();
     const result = instance.repository.get(project.id);
     expect(result.status).toBe('failed');
-    expect(result.error).toContain('HTTP 401');
+    expect(result.error).toContain('rejected the API key');
     expect(result.error).not.toContain('PRIVATE_PROVIDER_PAYLOAD');
     expect(result.graph).toBeNull();
     expect(result.report).toBeNull();

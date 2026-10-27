@@ -7,8 +7,11 @@
  *
  * Control surface (test-only, loopback):
  *   POST /__control {latencyMs?, failOnRound?: number|null, hostileCitation?: boolean}
- *   GET  /__stats   -> {calls, byKind, rounds}
+ *   GET  /__stats   -> {calls, byKind, rounds, actors}
  *   POST /__reset
+ *
+ * `actors` counts requests per "platform:round:agentId", which is the evidence that the simulation
+ * really makes one model call per proxy per platform per round.
  */
 import { createServer, type IncomingMessage } from 'node:http';
 
@@ -17,24 +20,28 @@ type Kind =
   | 'graph'
   | 'personas'
   | 'environment'
-  | 'decisions'
+  | 'actor'
   | 'plan'
   | 'interview'
   | 'summary'
   | 'chapter'
-  | 'followup';
+  | 'entailment'
+  | 'followup'
+  | 'ping';
 
 const signatures: [Kind, RegExp][] = [
   ['ontology', /Define a small ontology/u],
   ['graph', /Extract a source-grounded graph/u],
   ['personas', /Construct exactly (\d+) diverse FICTIONAL/u],
   ['environment', /Prepare initial scenario inputs/u],
-  ['decisions', /Simulate one simultaneous round/u],
+  ['actor', /ACTOR DECISION/u],
   ['plan', /Plan a conditional scenario report/u],
   ['interview', /Answer as an EXPLICITLY FICTIONAL proxy/u],
   ['summary', /Write a concise conditional simulation executive summary/u],
   ['chapter', /Write the requested report chapter/u],
+  ['entailment', /ENTAILMENT CHECK/u],
   ['followup', /Answer the follow-up about recorded simulation results/u],
+  ['ping', /Connectivity check/u],
 ];
 
 interface Controls {
@@ -47,6 +54,7 @@ let controls: Controls = { ...defaults };
 let calls = 0;
 const byKind: Record<string, number> = {};
 const rounds = new Set<number>();
+const actors: Record<string, number> = {};
 
 type Json = Record<string, unknown>;
 const asArray = (value: unknown): Json[] => (Array.isArray(value) ? (value as Json[]) : []);
@@ -95,6 +103,9 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
       const first = asText(entity[0]?.name, 'Organization');
       const second = asText(entity[1]?.name, first);
       const label = asText(relation[0]?.name, 'informs');
+      // A real quote, copied from the passage the request supplied, as the protocol requires.
+      const passage = asText(evidence[0]?.text, '').trim();
+      const quote = (offset: number) => passage.slice(offset, offset + 70).trim();
       return {
         nodes: [
           {
@@ -105,6 +116,7 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
             summary: 'The library service described in the supplied scenario text.',
             weight: 1,
             sourceIds: [controls.hostileCitation ? 'S999' : source],
+            quote: quote(0),
           },
           {
             id: 'n2',
@@ -114,6 +126,7 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
             summary: 'Residents who use the library, as described in the sources.',
             weight: 0.7,
             sourceIds: [source],
+            quote: quote(0),
           },
           {
             id: 'n3',
@@ -123,6 +136,7 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
             summary: 'The council that funds opening hours, as described.',
             weight: 0.5,
             sourceIds: [source],
+            quote: quote(0),
           },
         ],
         edges: [
@@ -162,33 +176,33 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
           },
         ],
       };
-    case 'decisions': {
-      const agents = asArray(data.agents);
-      const mean =
-        agents.reduce((sum, agent) => sum + Number(agent.opinion ?? 0), 0) /
-        Math.max(1, agents.length);
-      const event = data.intervention as Json | null;
-      const platform = asText((data.scenarioContext as Json | undefined)?.platform, 'plaza');
+    case 'actor': {
+      const self = (data.self ?? {}) as Json;
+      const platform = (data.platform ?? {}) as Json;
+      const heard = asArray(data.observations).filter((item) => typeof item.peerId === 'string');
+      const known = asArray(data.knowledge);
+      const event = data.event as Json | null;
+      const current = Number(self.opinion ?? 0);
+      const openness = Number(self.openness ?? 0.4);
+      const reach = Number(data.maxOpinionShift ?? 0.5) * 0.9;
+      const pull = openness * (heard.length ? -0.15 : -0.05) * current;
+      const shock = event
+        ? Number(event.strength ?? 0) * (Number(event.stance ?? 0) - current) * 0.6
+        : 0;
+      const tilt = platform.id === 'plaza' ? 0.02 : -0.02;
+      const first = heard[0];
       return {
-        decisions: agents.map((agent, index) => {
-          const id = asText(agent.id, `agent-${index + 1}`);
-          const current = Number(agent.opinion ?? 0);
-          const pull = Number(agent.openness ?? 0.4) * (mean - current);
-          const shock = event
-            ? Number(event.strength ?? 0) * (Number(event.stance ?? 0) - current) * 0.6
-            : 0;
-          const tilt = platform === 'plaza' ? 0.02 : -0.02;
-          return {
-            agentId: id,
-            opinion: Number(clamp(current + pull + shock + tilt).toFixed(3)),
-            type: 'post',
-            content: `Simulated statement from a fictional proxy about the library hours (round ${String(data.round)}).`,
-            peerIds: [asText(agents[(index + 1) % agents.length]?.id, 'agent-1')].filter(
-              (peer) => peer !== id,
-            ),
-            sourceIds: [source],
-          };
-        }),
+        // Always inside the per-round limit and the proxy's own context, so no repair call occurs.
+        opinion: Number(
+          clamp(current + Math.max(-reach, Math.min(reach, pull + shock + tilt))).toFixed(3),
+        ),
+        type: first ? 'reply' : 'post',
+        content: `Simulated statement from a fictional proxy about the library hours (round ${String(data.round)}, ${asText(platform.label, 'platform')}).`,
+        peerIds: first ? [asText(first.peerId, '')] : [],
+        sourceIds: known[0] ? [asText(known[0].id, '')] : [],
+        rationale:
+          'Reacted to the visible posts and any scheduled event, using only this proxy’s own context.',
+        confidence: 0.6,
       };
     }
     case 'plan':
@@ -212,12 +226,55 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
           'This is a conditional comparison of recorded synthetic contexts under stated assumptions. It does not establish calibrated probabilities or real-world beliefs.',
       };
     case 'chapter': {
-      const cited = firstId(data, /^S[1-9]\d*$/u);
+      const passage = evidence[0];
+      const cited = asText(passage?.id, firstId(data, /^S[1-9]\d*$/u) ?? '');
+      const sentence = (asText(passage?.text, '').split(/(?<=[.!?])\s+/u)[0] ?? '')
+        .trim()
+        .slice(0, 220);
+      const usable = cited !== '' && sentence.length >= 30;
+      const conclusion =
+        'Recorded platform positions differ under their assumed interaction structures.';
       return {
-        body: 'Recorded platform positions differ under their assumed interaction structures. Review the cited source text and compare controlled scenarios before drawing conclusions.',
+        // The first claim is a real sentence of the cited passage, quoted verbatim in the body.
+        body: `${usable ? `${sentence} ` : ''}${conclusion} Review the cited source text and compare controlled scenarios before drawing conclusions.`,
         sourceIds: cited ? [cited] : [],
         memoryIds: [],
         interviewIds: [],
+        claims: [
+          ...(usable
+            ? [
+                {
+                  text: sentence,
+                  kind: 'source-fact',
+                  sourceIds: [cited],
+                  memoryIds: [],
+                  quote: sentence,
+                },
+              ]
+            : []),
+          {
+            text: conclusion,
+            kind: 'analytical-conclusion',
+            sourceIds: [],
+            memoryIds: [],
+            quote: null,
+          },
+        ],
+      };
+    }
+    case 'entailment': {
+      const passages = new Map(
+        asArray(data.passages).map((entry) => [asText(entry.id, ''), asText(entry.text, '')]),
+      );
+      return {
+        judgements: asArray(data.items).map((item) => {
+          const ids = Array.isArray(item.passageIds) ? (item.passageIds as string[]) : [];
+          return {
+            claimId: asText(item.claimId, ''),
+            label: 'supports',
+            evidenceQuote: (passages.get(ids[0] ?? '') ?? '').trim().slice(0, 80),
+          };
+        }),
       };
     }
     case 'followup': {
@@ -229,6 +286,8 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
         memoryIds: memories.length ? [asText(memories[0]?.id, '')].filter(Boolean) : [],
       };
     }
+    case 'ping':
+      return { status: 'ok' };
   }
 }
 
@@ -256,11 +315,12 @@ createServer((request, response) => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (url.pathname === '/__health') return send(200, { ok: true });
       if (url.pathname === '/__stats')
-        return send(200, { calls, byKind, rounds: [...rounds].sort((a, b) => a - b) });
+        return send(200, { calls, byKind, rounds: [...rounds].sort((a, b) => a - b), actors });
       if (url.pathname === '/__reset') {
         controls = { ...defaults };
         calls = 0;
         for (const key of Object.keys(byKind)) delete byKind[key];
+        for (const key of Object.keys(actors)) delete actors[key];
         rounds.clear();
         return send(200, { ok: true });
       }
@@ -281,9 +341,13 @@ createServer((request, response) => {
       if (!kind) return send(400, { error: 'unrecognised request' });
       calls += 1;
       byKind[kind] = (byKind[kind] ?? 0) + 1;
-      if (kind === 'decisions') rounds.add(Number(data.round));
+      if (kind === 'actor') {
+        rounds.add(Number(data.round));
+        const key = `${asText((data.platform as Json | undefined)?.id, '?')}:${String(data.round)}:${asText((data.self as Json | undefined)?.id, '?')}`;
+        actors[key] = (actors[key] ?? 0) + 1;
+      }
       await sleep(controls.latencyMs);
-      if (kind === 'decisions' && controls.failOnRound === Number(data.round))
+      if (kind === 'actor' && controls.failOnRound === Number(data.round))
         return send(500, { error: 'injected provider failure' });
       const content = JSON.stringify(answer(kind, system, data));
       return send(200, {

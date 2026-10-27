@@ -8,14 +8,21 @@ import {
   MAX_PROJECTS,
   MAX_TOTAL_CHARS,
   type AppConfig,
+  type ProviderAuthMode,
   type ProviderName,
 } from '../../shared/types.js';
+
+export type ProviderAuth = ProviderAuthMode;
 
 export interface ProviderConfig {
   name: ProviderName;
   model: string | null;
   baseUrl: string | null;
+  /** Only populated for `api-key` auth; Entra ID never stores a credential in configuration. */
   apiKey: string | null;
+  auth: ProviderAuth;
+  /** User-assigned managed identity client ID for hosted Entra auth (non-secret). */
+  managedIdentityClientId: string | null;
   configured: boolean;
   reason: string;
   timeoutMs: number;
@@ -71,11 +78,19 @@ const environmentSchema = z.object({
   AI_PROVIDER: z.enum(['none', 'ollama', 'openai', 'azure']).default('none'),
   AI_MODEL: z.string().trim().max(150).default(''),
   AI_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(120_000),
+  AZURE_OPENAI_AUTH: z.enum(['entra', 'key']).default('entra'),
+  AZURE_CLIENT_ID: z.uuid().optional(),
   SOURCE_URL: z.string().trim().default(''),
   RATE_LIMIT_SCALE: z.coerce.number().int().min(1).max(1_000).default(1),
 });
 
 type EndpointResult = { valid: true; url: string } | { valid: false; reason: string };
+
+const AZURE_AI_HOSTS = [
+  '.openai.azure.com',
+  '.cognitiveservices.azure.com',
+  '.services.ai.azure.com',
+] as const;
 
 function endpoint(value: string, provider: Exclude<ProviderName, 'none'>): EndpointResult {
   if (!URL.canParse(value)) {
@@ -94,6 +109,13 @@ function endpoint(value: string, provider: Exclude<ProviderName, 'none'>): Endpo
     return { valid: false, reason: 'Use HTTPS, or a local HTTP endpoint for Ollama.' };
   }
   if (provider === 'azure') {
+    // A Microsoft Entra bearer token is sent to this host, so only Azure AI endpoints are allowed.
+    if (!AZURE_AI_HOSTS.some((suffix) => url.hostname.toLowerCase().endsWith(suffix))) {
+      return {
+        valid: false,
+        reason: `Azure endpoints must be on ${AZURE_AI_HOSTS.join(', ')}.`,
+      };
+    }
     if (url.pathname === '/') {
       url.pathname = '/openai/v1/';
     } else if (!/^\/openai\/v1\/?$/u.test(url.pathname)) {
@@ -112,18 +134,24 @@ function buildProvider(
   model: string,
   timeoutMs: number,
   environment: Record<string, string | undefined>,
+  azureAuth: 'entra' | 'key',
+  managedIdentityClientId: string | null,
 ): ProviderConfig {
   const base: ProviderConfig = {
     name,
     model: model || null,
     baseUrl: null,
     apiKey: null,
+    auth: 'none',
+    managedIdentityClientId: null,
     configured: false,
     reason: 'Local engine only. Configure a provider to enable model-assisted runs.',
     timeoutMs,
   };
   if (name === 'none') return base;
   if (!model) return { ...base, reason: 'Set AI_MODEL in the backend environment.' };
+  const auth: ProviderAuth =
+    name === 'ollama' ? 'none' : name === 'azure' && azureAuth === 'entra' ? 'entra' : 'api-key';
   const rawUrl =
     name === 'azure'
       ? environment.AZURE_OPENAI_ENDPOINT
@@ -132,7 +160,7 @@ function buildProvider(
         : environment.OPENAI_BASE_URL || 'https://api.openai.com/v1';
   const key = name === 'azure' ? environment.AZURE_OPENAI_API_KEY : environment.OPENAI_API_KEY;
   if (!rawUrl) return { ...base, reason: 'Set AZURE_OPENAI_ENDPOINT in the backend environment.' };
-  if (name !== 'ollama' && !key?.trim()) {
+  if (auth === 'api-key' && !key?.trim()) {
     return {
       ...base,
       reason: `Set ${name === 'azure' ? 'AZURE_OPENAI_API_KEY' : 'OPENAI_API_KEY'} in the backend environment.`,
@@ -143,9 +171,14 @@ function buildProvider(
   return {
     ...base,
     baseUrl: checked.url,
-    apiKey: name === 'ollama' ? null : key?.trim() || null,
+    apiKey: auth === 'api-key' ? key?.trim() || null : null,
+    auth,
+    managedIdentityClientId: auth === 'entra' ? managedIdentityClientId : null,
     configured: true,
-    reason: 'Configuration is present. Connectivity and model compatibility are not yet verified.',
+    reason:
+      auth === 'entra'
+        ? 'Microsoft Entra ID sign-in will be used (no API key). Connectivity and the "Cognitive Services OpenAI User" role are not yet verified.'
+        : 'Configuration is present. Connectivity and model compatibility are not yet verified.',
   };
 }
 
@@ -195,7 +228,14 @@ export function loadConfig(
     allowedOrigins: new Set(origins),
     allowedHosts: new Set(hosts),
     logLevel: input.LOG_LEVEL,
-    provider: buildProvider(input.AI_PROVIDER, input.AI_MODEL, input.AI_TIMEOUT_MS, environment),
+    provider: buildProvider(
+      input.AI_PROVIDER,
+      input.AI_MODEL,
+      input.AI_TIMEOUT_MS,
+      environment,
+      input.AZURE_OPENAI_AUTH,
+      input.AZURE_CLIENT_ID ?? null,
+    ),
     sourceUrl,
     storageWarning: storageWarning(databasePath),
     rateLimitScale: input.RATE_LIMIT_SCALE,
@@ -203,10 +243,11 @@ export function loadConfig(
 }
 
 export function publicConfig(config: ServerConfig): AppConfig {
-  const { name, model, configured, reason } = config.provider;
+  const { name, model, configured, reason, auth } = config.provider;
   return {
     version: APP_VERSION,
-    provider: { name, model, configured, reason },
+    // The endpoint, its host and any key stay server-side; only the auth *mode* is public.
+    provider: { name, model, configured, reason, auth },
     limits: {
       maxDocuments: MAX_DOCUMENTS,
       maxDocumentChars: MAX_DOCUMENT_CHARS,

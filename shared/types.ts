@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GroundingReview } from './grounding.js';
 import type { GuidedConsoleState } from './guided.js';
 
 export const APP_VERSION = '0.3.0';
@@ -100,6 +101,7 @@ export type ProjectStatus =
   'draft' | 'ready' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type Stage = 'intake' | 'knowledge' | 'personas' | 'simulation' | 'report' | 'complete';
 export type ProviderName = 'none' | 'ollama' | 'openai' | 'azure';
+export type ProviderAuthMode = 'none' | 'api-key' | 'entra';
 
 export interface SourceDocument {
   id: string;
@@ -129,6 +131,8 @@ export interface KnowledgeNode {
   weight: number;
   sourceIds: string[];
   entityType?: string;
+  /** Model graphs only: an excerpt that was found verbatim in one of the cited passages. */
+  quote?: string;
 }
 
 export interface KnowledgeEdge {
@@ -151,11 +155,15 @@ export interface Agent {
   name: string;
   role: string;
   persona: string;
+  /** Model-generated, optional: what this fictional proxy is trying to achieve and what limits it. */
+  goals?: string[];
+  constraints?: string[];
   topicIds: string[];
   initialOpinion: number;
   opinion: number;
   influence: number;
   openness: number;
+  /** Private to this proxy: only its own prompts ever include it. */
   memory: string[];
   sourceIds: string[];
 }
@@ -169,6 +177,10 @@ export interface AgentAction {
   opinion: number;
   peerIds: string[];
   sourceIds: string[];
+  /** Short stated reason (model runs only). A summary the model chose to give, not hidden reasoning. */
+  rationale?: string;
+  /** The proxy's self-reported firmness of its new stance, 0..1 (model runs only). */
+  confidence?: number;
 }
 
 export interface RoundSnapshot {
@@ -199,6 +211,8 @@ export interface SimulationReport {
   executiveSummary: string;
   sections: ReportSection[];
   limitations: string[];
+  /** Present only on model-written reports whose statements were checked against their sources. */
+  grounding?: GroundingReview;
   metrics: {
     initialMean: number;
     finalMean: number;
@@ -267,6 +281,33 @@ export interface ChatMessage {
   createdAt: string;
 }
 
+export type ProviderConnectivity = 'not-applicable' | 'unverified' | 'ok' | 'failing';
+
+/** Safe, credential-free view of the model provider for the UI and operators. */
+export interface ProviderStatus {
+  /** What the server can run: the offline rules engine only, or a configured real model. */
+  mode: 'local-rules' | 'real-model';
+  provider: ProviderName;
+  model: string | null;
+  auth: ProviderAuthMode;
+  configured: boolean;
+  connectivity: ProviderConnectivity;
+  lastCheckedAt: string | null;
+  lastLatencyMs: number | null;
+  lastError: { code: string; message: string } | null;
+  /** Counters since the server started: every real provider round trip, including repairs. */
+  counters: {
+    calls: number;
+    repairCalls: number;
+    failures: number;
+    inputTokens: number;
+    outputTokens: number;
+    /** False until the provider has reported usage; zero tokens then does not mean zero cost. */
+    tokensReported: boolean;
+  };
+  startedAt: string;
+}
+
 export interface AppConfig {
   version: string;
   provider: {
@@ -274,6 +315,7 @@ export interface AppConfig {
     model: string | null;
     configured: boolean;
     reason: string;
+    auth: ProviderAuthMode;
   };
   limits: {
     maxDocuments: number;

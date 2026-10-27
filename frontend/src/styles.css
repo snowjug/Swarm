@@ -6,6 +6,10 @@
 @import './styles/interaction.css';
 @import './styles/what-if.css';
 @import './styles/charts.css';
+@import './styles/provider.css';
+@import './styles/grounding.css';
+@import './styles/statements.css';
+@import './styles/transparency.css';
 
 :root {
   font-family:
@@ -28,6 +32,22 @@
   --orange: #a83b14;
   --orange-light: #fff3eb;
   --danger: #a52e36;
+  /* Support verdicts: text, tint and outline. Each pairs with an icon and a label, never colour alone. */
+  --verdict-supported: #32613e;
+  --verdict-supported-tint: #eef8f0;
+  --verdict-supported-line: #b7cfbd;
+  --verdict-partial: #78501f;
+  --verdict-partial-tint: #fff6e8;
+  --verdict-partial-line: #d9c29f;
+  --verdict-unsupported: #963238;
+  --verdict-unsupported-tint: #fbefef;
+  --verdict-unsupported-line: #d6afb2;
+  --verdict-contradicted: #a52e36;
+  --verdict-contradicted-tint: #fff3f3;
+  --verdict-contradicted-line: #ddb9bb;
+  --verdict-unchecked: #4a535f;
+  --verdict-unchecked-tint: #f0f1f2;
+  --verdict-unchecked-line: #c3c8ce;
   --mono: 'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   font-size: 13px;
 }
@@ -229,9 +249,10 @@ svg {
   z-index: 20;
   min-height: 48px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 6px 12px;
   padding: 4px 24px;
   border-bottom: 1px solid var(--border);
   background: #fff;
@@ -243,6 +264,9 @@ svg {
   align-items: center;
   gap: 10px;
   min-width: 0;
+}
+.header-actions {
+  margin-left: auto;
 }
 .brand-button {
   min-height: 32px;

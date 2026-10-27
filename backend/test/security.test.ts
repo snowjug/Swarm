@@ -4,15 +4,14 @@ import { buildApp } from '../src/app.js';
 import { ModelClient } from '../src/models/client.js';
 import { fixtureInput, testConfig } from './fixtures.js';
 import {
-  decisions,
   graph,
   modelEnvironment,
   ontology,
   personas,
   prepared,
   ScriptedProvider,
-  simulationOutputs,
 } from './model-fixtures.js';
+import { actorBrain } from './support/model-brain.js';
 
 const applications: Awaited<ReturnType<typeof buildApp>>[] = [];
 afterEach(async () => {
@@ -27,6 +26,18 @@ const hostileDocument = [
   'No survey has measured support. These notes describe proposed actions, not outcomes.',
 ].join('\n');
 const llmSettings = { mode: 'llm', agentCount: 4, rounds: 3, seed: 7, network: 'community' };
+
+// Node quotes must be verbatim in the cited passage, so this graph quotes the hostile document itself.
+const hostileGraph = {
+  ...graph,
+  nodes: graph.nodes.map((node, index) => ({
+    ...node,
+    quote:
+      index === 0
+        ? 'fictional scenario for testing a proposed community transit program'
+        : 'some commuters worry about route changes',
+  })),
+};
 
 async function hostileProject(outputs: unknown[]) {
   const provider = new ScriptedProvider(outputs);
@@ -50,22 +61,27 @@ describe('prompt-injection boundary', () => {
   it('sends hostile source and question text only as untrusted data, never in trusted instructions', async () => {
     const { provider, jobs, repository, id } = await hostileProject([
       ontology,
-      graph,
+      hostileGraph,
       personas,
       prepared,
-      ...simulationOutputs(3),
     ]);
     for (const step of ['knowledge', 'environment', 'simulation'] as const) {
       jobs.enqueueStep(id, step);
       await jobs.idle();
     }
     expect(repository.get(id).console?.steps.simulation).toBe('ready');
-    expect(provider.calls).toHaveLength(10);
+    // 4 setup calls, then one call per proxy per platform per round.
+    expect(provider.setupCalls).toHaveLength(4);
+    expect(provider.actorCalls).toHaveLength(4 * 2 * 3);
     for (const call of provider.calls) {
       expect(call.instructions).not.toContain(MARKER);
       expect(call.instructions).not.toMatch(/ignore all previous/iu);
     }
     expect(provider.calls.some((call) => JSON.stringify(call.data).includes(MARKER))).toBe(true);
+    // The hostile text reaches actors only inside the data payload they receive.
+    expect(provider.actorCalls.some((call) => JSON.stringify(call.data).includes(MARKER))).toBe(
+      true,
+    );
   });
 
   it('rejects model output that cites passages it was not given and persists nothing as complete', async () => {
@@ -84,29 +100,53 @@ describe('prompt-injection boundary', () => {
     expect(project.events.at(-1)?.message).toMatch(/^MODEL_OUTPUT_INVALID:/u);
   });
 
-  it('does not accept decisions for proxies outside the prepared population or out-of-range values', async () => {
-    const unknownAgent = decisions('plaza');
-    unknownAgent.decisions[0] = { ...unknownAgent.decisions[0]!, agentId: 'agent-99' };
-    const outOfRange = decisions('plaza');
-    outOfRange.decisions[0] = { ...outOfRange.decisions[0]!, opinion: 7 };
-    for (const hostile of [unknownAgent, outOfRange]) {
-      const { jobs, repository, id } = await hostileProject([
-        ontology,
-        graph,
-        personas,
-        prepared,
-        hostile,
-        decisions('community'),
-      ]);
-      for (const step of ['knowledge', 'environment', 'simulation'] as const) {
-        jobs.enqueueStep(id, step);
-        await jobs.idle();
-      }
-      const project = repository.get(id);
-      expect(project.console?.steps.simulation).toBe('failed');
-      expect(project.rounds).toEqual([]);
-      expect(project.events.at(-1)?.message).toMatch(/^MODEL_OUTPUT_INVALID:/u);
+  it('rejects a graph node whose quote is not in the passage it cites, and persists no graph', async () => {
+    const fabricated = {
+      ...hostileGraph,
+      nodes: hostileGraph.nodes.map((node, index) =>
+        index === 0 ? { ...node, quote: 'A sentence the document never contained at all' } : node,
+      ),
+    };
+    const { jobs, repository, id } = await hostileProject([ontology, fabricated]);
+    jobs.enqueueStep(id, 'knowledge');
+    await jobs.idle();
+    const project = repository.get(id);
+    expect(project.console?.steps.knowledge).toBe('failed');
+    expect(project.graph).toBeNull();
+    expect(project.error).toContain('Node quotes must be copied exactly');
+    // The fabricated text is not echoed into the persisted error.
+    expect(project.error).not.toContain('never contained');
+  });
+
+  it.each([
+    ['a peer that was never visible to the actor', { peerIds: ['agent-99'], type: 'reply' }],
+    ['a reply that names nobody', { peerIds: [], type: 'reply' }],
+    ['a source passage the actor does not hold', { sourceIds: ['S999'] }],
+    ['an out-of-range opinion', { opinion: 7 }],
+    ['an opinion jump larger than the per-round limit', { opinion: 'jump' }],
+    ['an empty statement', { content: '' }],
+  ])('does not accept a decision with %s', async (_name, override) => {
+    const { jobs, repository, id, provider } = await hostileProject([
+      ontology,
+      hostileGraph,
+      personas,
+      prepared,
+    ]);
+    provider.actorOverride = (context, index) => {
+      const honest = actorBrain(context);
+      if (index !== 0) return honest;
+      const patch: Record<string, unknown> = { ...override };
+      if (patch.opinion === 'jump') patch.opinion = context.self.opinion > 0 ? -1 : 1;
+      return { ...honest, ...patch };
+    };
+    for (const step of ['knowledge', 'environment', 'simulation'] as const) {
+      jobs.enqueueStep(id, step);
+      await jobs.idle();
     }
+    const project = repository.get(id);
+    expect(project.console?.steps.simulation).toBe('failed');
+    expect(project.rounds).toEqual([]);
+    expect(project.events.at(-1)?.message).toMatch(/^MODEL_OUTPUT_INVALID:/u);
   });
 });
 

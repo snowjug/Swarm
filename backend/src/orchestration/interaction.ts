@@ -6,6 +6,7 @@ import { validateCitations } from '../knowledge/graph.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import { ModelClient } from '../models/client.js';
 import { answerSchema } from '../models/schemas.js';
+import { jsonValidated } from '../models/validated.js';
 import type { Repository } from '../storage/repository.js';
 import type { ModelFactory } from './runner.js';
 import { z } from 'zod';
@@ -141,7 +142,8 @@ export class InteractionService {
           this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
         );
         const invoke = () =>
-          model.json(
+          jsonValidated(
+            model,
             followupSchema,
             'Answer the follow-up about recorded simulation results. JSON {answer,sourceIds}. Answer 10-6000 chars, plain text. ' +
               (target === 'report'
@@ -172,6 +174,14 @@ export class InteractionService {
             },
             signal,
             2_500,
+            (answer) => {
+              validateCitations(answer.sourceIds, new Set(evidence.map((chunk) => chunk.id)));
+              validateReferences(
+                answer.memoryIds,
+                new Set(memories.map((memory) => memory.id)),
+                'synthetic memories',
+              );
+            },
           );
         const result = project.console
           ? await traceOperation(
@@ -189,12 +199,6 @@ export class InteractionService {
               (answer) => ({ ...answer }),
             )
           : await invoke();
-        validateCitations(result.sourceIds, new Set(evidence.map((chunk) => chunk.id)));
-        validateReferences(
-          result.memoryIds,
-          new Set(memories.map((memory) => memory.id)),
-          'synthetic memories',
-        );
         content = result.answer;
         sourceIds = result.sourceIds;
         memoryIds = result.memoryIds;

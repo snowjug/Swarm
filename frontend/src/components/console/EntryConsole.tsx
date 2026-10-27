@@ -1,14 +1,24 @@
 import { useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import { ArrowRight, CheckCircle2, Circle, FlaskConical, History, Info } from 'lucide-react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  Circle,
+  FlaskConical,
+  History,
+  Info,
+  TriangleAlert,
+} from 'lucide-react';
 import type {
   AppConfig,
   CreateProjectInput,
   ProjectDetail,
+  ProviderConnectivity,
   SimulationSettings,
 } from '../../../../shared/types';
 import { errorMessage } from '../../api';
 import { validateEntry } from '../../lib/entryValidation';
+import { authText, modelReadiness, realModelLabel } from '../../lib/provider';
 import { SourceInput } from './SourceInput';
 import { Notice, Spinner } from '../ui';
 
@@ -47,12 +57,15 @@ const starter = {
 
 export function EntryConsole({
   config,
+  connectivity = null,
   initialProject,
   busy,
   onSubmit,
   onHistory,
 }: {
   config: AppConfig | null;
+  /** Live provider connectivity from the header badge, so this card never contradicts it. */
+  connectivity?: ProviderConnectivity | null;
   initialProject?: ProjectDetail;
   busy: boolean;
   onSubmit: (input: CreateProjectInput) => Promise<void>;
@@ -94,6 +107,7 @@ export function EntryConsole({
       ? (config?.limits.modelMaxRounds ?? 10)
       : (config?.limits.localMaxRounds ?? 24);
   const disabled = busy || reading;
+  const readiness = modelReadiness(modelAvailable, connectivity);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -167,11 +181,15 @@ export function EntryConsole({
             </strong>
           </div>
           <div className="readiness-row">
-            {modelAvailable ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+            {readiness.failing ? (
+              <TriangleAlert size={16} aria-hidden="true" />
+            ) : modelAvailable ? (
+              <CheckCircle2 size={16} />
+            ) : (
+              <Circle size={16} />
+            )}
             <span>Model provider</span>
-            <strong>
-              {config ? (modelAvailable ? 'Configured' : 'Not configured') : 'Unknown'}
-            </strong>
+            <strong>{config ? readiness.label : 'Unknown'}</strong>
           </div>
           <p>{config?.provider.reason ?? 'Waiting for the local API configuration.'}</p>
           {config?.provider.configured && (
@@ -180,8 +198,7 @@ export function EntryConsole({
             </p>
           )}
           <small>
-            <Info size={13} aria-hidden="true" /> Configured is not a connectivity check. Real
-            provider errors are shown when a model operation runs.
+            <Info size={13} aria-hidden="true" /> {readiness.note}
           </small>
           {config?.storage?.warning && (
             <Notice tone="warning" title="Data directory is cloud-synchronized">
@@ -318,6 +335,21 @@ export function EntryConsole({
               </span>
             </label>
           </fieldset>
+          {settings.mode === 'llm' && (
+            <p className={`run-target${modelAvailable ? '' : ' run-target-off'}`}>
+              {modelAvailable && config ? (
+                <>
+                  <strong>Will run on:</strong> {realModelLabel(config.provider.name)} ·{' '}
+                  {config.provider.model ?? 'model unspecified'} · {authText(config.provider.auth)}
+                </>
+              ) : (
+                <>
+                  <strong>Model assistance is unavailable:</strong>{' '}
+                  {config?.provider.reason ?? 'Waiting for the local API configuration.'}
+                </>
+              )}
+            </p>
+          )}
           <div className="fields-grid three">
             <div className="field">
               <label htmlFor="agent-count">Fictional proxies</label>

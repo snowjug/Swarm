@@ -202,6 +202,8 @@ export interface SimulationMemory {
   opinion: number | null;
   peerIds: string[];
   sourceIds: string[];
+  rationale?: string;
+  confidence?: number;
 }
 
 export interface OperationTrace {

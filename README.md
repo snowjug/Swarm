@@ -15,9 +15,17 @@ assumptions, not calibrated probabilities or decision-making guarantees.
 - **Local / rules-based:** no API keys, cloud services, model download, or network
   calls. Real term/co-occurrence extraction, sparse-vector retrieval, seeded
   opinion dynamics, computed reports and evidence lookup. Not AI-generated.
-- **Model-assisted:** explicitly selected per project. Actual model requests for
-  knowledge/personas, round decisions, reporting and interviews. Provider errors
-  are surfaced; there is no fabricated response or silent fallback.
+- **Model-assisted:** explicitly selected per project. Real model requests for
+  knowledge/personas, **one request per proxy per platform per round** (each proxy
+  sees only its own profile, private memory, the passages it holds and the public
+  posts the platform's network rules expose to it), a grounded report with an
+  independent support check, and interviews. Every reply is validated server-side
+  (IDs, citations, verbatim quotes, bounded opinion change) with at most two
+  corrective retries. Provider errors are surfaced; there is no fabricated response
+  or silent fallback.
+- The header always says which one is active: `LOCAL / RULES MODE`, or
+  `REAL AZURE AI` / `REAL MODEL · OpenAI` / `REAL MODEL · Ollama (local)` with the
+  model, how it authenticates and whether a real call has succeeded.
 
 The console accepts UTF-8 TXT/Markdown and bounded, text-based PDFs. PDF parsing
 runs locally in an isolated, resource-limited worker; scanned PDFs need OCR,
@@ -135,24 +143,52 @@ unrecorded second-platform results. Duplicate a historical project to use the
 guided workflow. Completed scenarios are read-only apart from follow-up history;
 duplicate inputs to run another scenario.
 
+### Grounding review (model-assisted reports)
+
+A model-written report lists the statements each chapter rests on and labels every
+one as a **source fact**, **extracted claim**, **user assumption**, **AI hypothesis**,
+**simulated event** or **analytical conclusion**, so “the source says”, “the simulation
+did”, “you assumed” and “the model guessed” are never blended. After the chapters are
+written, each statement is checked:
+
+- a quoted source fact must appear **verbatim** (ignoring case, spacing and
+  quotation style) in a passage it cites; graph nodes carry the same verified quote;
+- word overlap with the cited passage or simulation memory, and every figure compared
+  with the cited material or the recorded simulation metrics;
+- one independent model call judges support, contradiction or silence, and each
+  judgement must **quote real text** from the passage or it is rejected.
+
+Verdicts are `supported`, `partial`, `unsupported`, `contradicted` or `unchecked`
+(hypotheses and assumptions are shown as such, not verified). A model judgement can
+lower or confirm a verdict but cannot create support without word overlap. Figures
+in chapter prose that match neither the cited material nor the recorded data are
+listed as possible invented statistics. The review states which checks ran, and if
+the independent check fails the report still completes with the deterministic
+checks and says so.
+
+Limits: a citation proves provenance, not truth; only the statements the writer
+lists are checked; the rules-based report has no model-written statements and gets
+no review. This is a guard against unsupported claims, not a hallucination detector
+or a substitute for reading the sources.
+
 ### Deliberate resource limits
 
-| Item                      | Limit                                                                                                                              |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Source documents          | 1–5 UTF-8 TXT/MD/Markdown files, text PDFs, or pasted notes                                                                        |
-| Document size             | 80–40,000 characters each; 100,000 total                                                                                           |
-| PDF extraction            | 2 MB / 40 pages / 40,000 characters; one isolated worker, 10 seconds, 192 MB old-generation heap                                   |
-| HTTP request body         | 600 KB normally; 2.7 MB encoded extraction request                                                                                 |
-| Local population / rounds | 4–24 agents / 3–24 rounds                                                                                                          |
-| Model population / rounds | 4–10 agents / 3–10 rounds                                                                                                          |
-| Work queue                | One active execution stage, three waiting                                                                                          |
-| Execution deadline        | 15 minutes per stage; five minutes per asynchronous survey                                                                         |
-| Model context / response  | 48,000 serialized input characters / 256 KB response                                                                               |
-| Provider retries          | At most three HTTP attempts; bounded Retry-After on transient errors                                                               |
-| Model stages              | Guided initial pass: up to `platforms × rounds + 13` successful model responses (33 at the maximum); historical quick run up to 13 |
-| Follow-ups                | One active chat/survey globally; 30 chat exchanges and five surveys per scenario; at most five survey targets                      |
-| History                   | 100 experiments; export/delete old ones explicitly                                                                                 |
-| API rate limits           | 120 requests/minute/IP; create 20, quick run 6, guided step 8, PDF/chat 10, survey 5/minute/IP                                     |
+| Item                      | Limit                                                                                                                                                                                                                                                                                                                 |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source documents          | 1–5 UTF-8 TXT/MD/Markdown files, text PDFs, or pasted notes                                                                                                                                                                                                                                                           |
+| Document size             | 80–40,000 characters each; 100,000 total                                                                                                                                                                                                                                                                              |
+| PDF extraction            | 2 MB / 40 pages / 40,000 characters; one isolated worker, 10 seconds, 192 MB old-generation heap                                                                                                                                                                                                                      |
+| HTTP request body         | 600 KB normally; 2.7 MB encoded extraction request                                                                                                                                                                                                                                                                    |
+| Local population / rounds | 4–24 agents / 3–24 rounds                                                                                                                                                                                                                                                                                             |
+| Model population / rounds | 4–10 agents / 3–10 rounds                                                                                                                                                                                                                                                                                             |
+| Work queue                | One active execution stage, three waiting                                                                                                                                                                                                                                                                             |
+| Execution deadline        | 15 minutes per stage; five minutes per asynchronous survey                                                                                                                                                                                                                                                            |
+| Model context / response  | 48,000 serialized input characters / 256 KB response                                                                                                                                                                                                                                                                  |
+| Provider retries          | Network errors and 5xx: at most three HTTP attempts. Throttling (429): up to six, each honoring a bounded Retry-After; a truncated reply is retried once or twice with a larger output budget (all counted against the stage's call budget)                                                                           |
+| Model stages              | One provider call per proxy per platform per round, four at a time (at most 10 × 2 × 10 = 200), plus about 4 setup calls and about 8 report/grounding calls. Each stage has a hard budget: 16 for knowledge/environment, `1.5 × workload + 12` for simulation, 28 for the report. Corrective retries count against it |
+| Follow-ups                | One active chat/survey globally; 30 chat exchanges and five surveys per scenario; at most five survey targets                                                                                                                                                                                                         |
+| History                   | 100 experiments; export/delete old ones explicitly                                                                                                                                                                                                                                                                    |
+| API rate limits           | 120 requests/minute/IP; create 20, quick run 6, guided step 8, PDF/chat 10, survey 5/minute/IP                                                                                                                                                                                                                        |
 
 Recorded model calls count successful provider envelopes, not failed HTTP attempts.
 Token counts are stored only when reported by the provider; zero does **not**
@@ -170,21 +206,24 @@ Copy [.env.example](./.env.example) locally. Never commit the resulting `.env`
 or paste keys into chat/source files. Server configuration is never bundled into
 the browser. The default is `AI_PROVIDER=none`.
 
-| Variable                                        | Purpose                                                                                                                                  |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `HOST`, `PORT`                                  | API bind address/port; defaults to loopback and 3001                                                                                     |
-| `DATA_DIR`                                      | SQLite storage directory, relative to the process working directory                                                                      |
-| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`              | Explicit browser-origin and HTTP-host allowlists                                                                                         |
-| `LOG_LEVEL`                                     | Server log level; request bodies and credentials are not logged                                                                          |
-| `AI_PROVIDER`                                   | `none`, `ollama`, `openai`, or `azure`                                                                                                   |
-| `AI_MODEL`                                      | Local/remote model name; Azure deployment name for `azure`                                                                               |
-| `AI_TIMEOUT_MS`                                 | Per-model-request timeout                                                                                                                |
-| `OLLAMA_BASE_URL`                               | Administrator-configured local Ollama endpoint                                                                                           |
-| `DOCKER_OLLAMA_BASE_URL`                        | Compose-only address of Ollama running on the host                                                                                       |
-| `OPENAI_BASE_URL`, `OPENAI_API_KEY`             | Trusted compatible v1 endpoint and server-side key                                                                                       |
-| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY` | Azure resource/v1 endpoint and server-side key                                                                                           |
-| `SOURCE_URL`                                    | Public corresponding source for the exact remotely deployed version                                                                      |
-| `RATE_LIMIT_SCALE`                              | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine |
+| Variable                            | Purpose                                                                                                                                  |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                     |
+| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                      |
+| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                         |
+| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                          |
+| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                   |
+| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                               |
+| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                |
+| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                           |
+| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                       |
+| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                       |
+| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                    |
+| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                       |
+| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                        |
+| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                   |
+| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                      |
+| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine |
 
 If you explicitly configure origin/host allowlists, update them when changing
 ports or domains. Defaults use the configured API port and local Vite port.
@@ -206,15 +245,35 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 Restart the backend. Local engine mode still does not call Ollama. JSON generation
 quality, hardware capacity, context limits and inference speed vary by model.
 
-### Azure OpenAI / Foundry
+### Azure OpenAI / Microsoft Foundry (Microsoft Entra ID, no key)
 
-Deploy an OpenAI-compatible chat model with JSON output support. In your local,
-ignored `.env`, set `AI_PROVIDER=azure`, `AI_MODEL` to the deployment name,
-`AZURE_OPENAI_ENDPOINT` to your resource root or `/openai/v1/` endpoint, and
-`AZURE_OPENAI_API_KEY` to its key. Never put the key in frontend variables.
-The v1 API does not require a dated `api-version` query parameter.
-Managed-identity authentication is a future production migration, not implemented
-by this local API-key adapter.
+The default Azure mode needs no secret at all. In your local, ignored `.env` set
+`AI_PROVIDER=azure`, `AI_MODEL` to the **deployment** name and `AZURE_OPENAI_ENDPOINT`
+to your resource root or `/openai/v1/` endpoint, then run `az login`. The server
+obtains a Microsoft Entra token (`DefaultAzureCredential`; a managed identity in
+Azure) and sends it only to an allow-listed Azure AI host. Your identity needs the
+**Cognitive Services OpenAI User** role on the resource, and a missing role produces
+an error that names it.
+
+To create the resource and deployment from this repository (Bicep with keys disabled,
+a pay-as-you-go model chosen from live quota data, a strictly gated deploy) see
+[docs/AZURE.md](./docs/AZURE.md#provisioning-the-model-account-with-this-repository):
+`npm run azure:provision -- --subscription <guid> --preflight-only` is read-only and
+tells you exactly which permission is missing if you cannot deploy.
+
+Verify with a real round trip, never an assumption: `POST /api/provider/check` or the
+**Verify connection** button in the header. The badge and the entry readiness card read
+`connected` only after a real request has succeeded (that check, or any model
+operation since the server started) and `failing` after one has failed. To prove the whole journey (per-proxy calls, grounding, branch,
+chats, injection probe, no credential leakage) run `npm run azure:verify`; it exits `0`
+only if every check passes against the configured provider
+([details](./docs/AZURE.md#verifying-the-live-integration)). Legacy key authentication remains available with
+`AZURE_OPENAI_AUTH=key` and `AZURE_OPENAI_API_KEY`; never put a key in frontend
+variables. The v1 API does not require a dated `api-version` query parameter.
+
+> **Status:** the Entra path, the Bicep and the scripts are implemented and unit
+> tested, but they have **not** been exercised against a live Azure resource. See
+> the verified/unverified table in [docs/AZURE.md](./docs/AZURE.md).
 
 ### Other OpenAI-compatible providers
 
@@ -264,30 +323,32 @@ All browser requests are same-origin. During development Vite provides the proxy
 Errors are non-2xx JSON: `{ "error": { "code": "...", "message": "...", "requestId": "..." } }`.
 Some not-found/rate-limit responses omit `requestId`; no provider error body is returned.
 
-| Method       | Path                                             | Behavior                                                                                                           |
-| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                                     |
-| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                                          |
-| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                                       |
-| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                                               |
-| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                                             |
-| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202                   |
-| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                                               |
-| POST         | `/api/projects/:id/steps/simulation`             | With body `{ "resume": true }`: continue from the last saved round (paused, failed or cancelled with saved rounds) |
-| POST         | `/api/projects/:id/pause`                        | Pause a queued/running simulation at the last saved round (non-error `paused` state); returns 202                  |
-| PUT          | `/api/projects/:id/intervention`                 | Schedule (`Intervention` JSON) or remove (`null`) the one future intervention while paused                         |
-| POST         | `/api/projects/:id/branches`                     | Create an independent scenario from a checkpoint with declared assumption changes; returns 201                     |
-| GET          | `/api/projects/:id/compare?with=<id>`            | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                      |
-| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                                                 |
-| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                                    |
-| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                                             |
-| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                                      |
-| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                                             |
-| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                            |
-| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                                              |
-| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                                           |
-| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                                      |
-| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks and conversation export                                                                           |
+| Method       | Path                                             | Behavior                                                                                                             |
+| ------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                                       |
+| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                                            |
+| GET          | `/api/provider/status`                           | Mode, provider, model, auth type, connectivity, call and token counters, last error code; never a host, key or token |
+| POST         | `/api/provider/check`                            | One explicit real model round trip (rate limited); 503 when no provider is configured, never a local fallback        |
+| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                                         |
+| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                                                 |
+| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                                               |
+| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202                     |
+| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                                                 |
+| POST         | `/api/projects/:id/steps/simulation`             | With body `{ "resume": true }`: continue from the last saved round (paused, failed or cancelled with saved rounds)   |
+| POST         | `/api/projects/:id/pause`                        | Pause a queued/running simulation at the last saved round (non-error `paused` state); returns 202                    |
+| PUT          | `/api/projects/:id/intervention`                 | Schedule (`Intervention` JSON) or remove (`null`) the one future intervention while paused                           |
+| POST         | `/api/projects/:id/branches`                     | Create an independent scenario from a checkpoint with declared assumption changes; returns 201                       |
+| GET          | `/api/projects/:id/compare?with=<id>`            | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                        |
+| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                                                   |
+| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                                      |
+| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                                               |
+| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                                        |
+| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                                               |
+| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                              |
+| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                                                |
+| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                                             |
+| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                                        |
+| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks and conversation export                                                                             |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
@@ -321,7 +382,10 @@ offsets, real retrieval, deterministic state transitions, measurable interventio
 effects, stage prerequisites, editable preparation, separate platform state,
 memory, tool/citation validation, PDF extraction/bounds, asynchronous surveys,
 persistence/restart recovery, cancellation/queue bounds, HTTP boundaries, exports,
-frontend graph/console helpers and provider protocol/error handling.
+frontend graph/console helpers, provider protocol/error handling, the per-proxy
+simulation (context isolation, validation, concurrency and cancellation), the
+grounding review (quote matching, verdict table, entailment validation), Entra token
+handling with a fake credential, and the Azure provisioning scripts with a fake Azure CLI.
 
 Provider tests use explicitly labeled fixture HTTP responses; they do **not**
 establish live model connectivity or reasoning quality. Live AI requires a
@@ -350,9 +414,10 @@ directories (never your own data):
   state at two viewports with zero violations of any impact** plus keyboard/focus tests.
 - **`e2e/model`** — the model-assisted path against a **protocol-faithful fake Ollama
   provider** (`e2e/support/fake-provider.ts`): real Pause clicked while rounds run,
-  resume, intervention, injected mid-run provider failure with checkpoint recovery,
-  invented-citation rejection, report, actor chat and token accounting. The fake is
-  a test double; it is **not** evidence about any live model.
+  resume (saved rounds are never requested again), intervention, one provider call
+  per proxy per platform per round, injected mid-run provider failure with checkpoint
+  recovery, invented-citation rejection, a grounding-checked report, actor chat and
+  token accounting. The fake is a test double; it is **not** evidence about any live model.
 
 The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
 `backend/test/security.test.ts` (including that a genuinely rate-limited request
@@ -466,6 +531,8 @@ See [docs/security-review.md](./docs/security-review.md) and
 | 403 host/origin                             | Add the exact trusted hostname/origin to its allowlist and restart; do not use a wildcard                                                                                          |
 | AI option disabled                          | Inspect provider status; configure model name, endpoint and required server-side key                                                                                               |
 | Model 401/404                               | Verify key, Azure deployment name, endpoint path and model/API compatibility                                                                                                       |
+| Model `MODEL_REFUSED`                       | The provider's content filter blocked a request; the message names the flagged categories. Review the text or the deployment's filter policy. No fallback is used                  |
+| Model `MODEL_PARAMETER_UNSUPPORTED`         | The deployment rejected a request parameter (named in the message). Use a Chat Completions model that supports JSON output and `max_completion_tokens`                             |
 | Model 429/timeout                           | Reduce agents/rounds, check provider quota or local inference capacity; errors remain visible                                                                                      |
 | Invalid model JSON/citation                 | Use a model reliable at the documented structured schema; no fabricated fallback is returned                                                                                       |
 | SQLite busy/sync problems                   | Use one process and a non-synchronized local `DATA_DIR` (the readiness card and startup log warn about OneDrive/Dropbox/Drive/iCloud paths); restore a known-good backup if needed |

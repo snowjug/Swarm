@@ -4,12 +4,15 @@ import type { ProjectDetail } from '../../shared/types';
 import { ConsoleWorkspace } from './components/console/ConsoleWorkspace';
 import { EntryConsole } from './components/console/EntryConsole';
 import { HistoryDrawer } from './components/console/HistoryDrawer';
+import { ProviderBadge, ProviderPanel } from './components/ProviderBadge';
 import { EmptyPanel, Notice, Spinner } from './components/ui';
 import { useConsole } from './hooks/useConsole';
+import { useProviderStatus } from './hooks/useProviderStatus';
 import { sourceLink } from './lib/format';
 
 export default function App() {
   const console = useConsole();
+  const provider = useProviderStatus();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [comparisonProject, setComparisonProject] = useState<string | null>(null);
   const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
@@ -100,7 +103,15 @@ export default function App() {
             </button>
           )}
         </div>
+        <ProviderBadge state={provider.state} open={provider.open} onToggle={provider.toggle} />
       </header>
+      <ProviderPanel
+        state={provider.state}
+        open={provider.open}
+        onVerify={provider.verify}
+        onRetry={provider.retry}
+        onClose={() => provider.close(true)}
+      />
       <main
         id="main-content"
         tabIndex={-1}
@@ -222,6 +233,7 @@ export default function App() {
           <EntryConsole
             key={creation.key}
             config={console.config.error ? null : console.config.data}
+            connectivity={provider.state.status?.connectivity ?? null}
             initialProject={creation.project}
             busy={busy}
             onSubmit={console.create}

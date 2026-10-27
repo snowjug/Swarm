@@ -4,6 +4,7 @@ import { percent, signed } from '../../lib/format';
 import type { Inspection } from '../../lib/graph';
 import { EmptyPanel } from '../ui';
 import { Citations } from './Citations';
+import { GroundingReview } from './GroundingReview';
 import { ReportExport } from './ReportExport';
 
 export function ReportReader({
@@ -97,6 +98,7 @@ export function ReportReader({
                 />
               </section>
             ))}
+            <GroundingReview report={report} complete={completed} onInspect={onInspect} />
             <details className="report-metrics">
               <summary>Recorded scenario metrics — not a population forecast</summary>
               <dl className="record-grid">

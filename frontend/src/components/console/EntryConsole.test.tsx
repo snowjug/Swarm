@@ -1,9 +1,14 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { AppConfig } from '../../../../shared/types';
+import type { AppConfig, ProjectDetail, ProviderConnectivity } from '../../../../shared/types';
+import { projectFixture } from '../../test/project';
+import { expectNoSecretLikeText, visibleText } from '../../test/provider';
 import { EntryConsole } from './EntryConsole';
 
-function configFixture(storage?: AppConfig['storage']): AppConfig {
+function configFixture(
+  storage?: AppConfig['storage'],
+  provider: Partial<AppConfig['provider']> = {},
+): AppConfig {
   return {
     version: '0.3.0',
     provider: {
@@ -11,6 +16,8 @@ function configFixture(storage?: AppConfig['storage']): AppConfig {
       model: null,
       configured: false,
       reason: 'Local engine only. Configure a provider to enable model-assisted runs.',
+      auth: 'none',
+      ...provider,
     },
     limits: {
       maxDocuments: 5,
@@ -30,7 +37,7 @@ function configFixture(storage?: AppConfig['storage']): AppConfig {
     ...(storage ? { storage } : {}),
     capabilities: {
       local: true,
-      modelAssisted: false,
+      modelAssisted: provider.configured ?? false,
       fileTypes: ['txt', 'md', 'markdown', 'pdf'],
       pdf: true,
       webRetrieval: false,
@@ -42,9 +49,20 @@ function configFixture(storage?: AppConfig['storage']): AppConfig {
   };
 }
 
-function render(config: AppConfig | null): string {
+function render(
+  config: AppConfig | null,
+  initialProject?: ProjectDetail,
+  connectivity?: ProviderConnectivity | null,
+): string {
   return renderToStaticMarkup(
-    <EntryConsole config={config} busy={false} onSubmit={async () => {}} onHistory={() => {}} />,
+    <EntryConsole
+      config={config}
+      connectivity={connectivity}
+      initialProject={initialProject}
+      busy={false}
+      onSubmit={async () => {}}
+      onHistory={() => {}}
+    />,
   );
 }
 
@@ -66,5 +84,89 @@ describe('entry console storage readiness', () => {
     ['no configuration yet', null],
   ])('does not invent a storage warning for %s', (_label, config) => {
     expect(render(config)).not.toContain('cloud-synchronized');
+  });
+});
+
+describe('entry console execution target', () => {
+  function modelProject(): ProjectDetail {
+    const project = projectFixture();
+    project.mode = 'llm';
+    project.settings = { ...project.settings, mode: 'llm' };
+    return project;
+  }
+  const configured = (provider: Partial<AppConfig['provider']>) =>
+    configFixture(undefined, {
+      configured: true,
+      reason: 'A provider is configured.',
+      ...provider,
+    });
+
+  it.each([
+    [
+      { name: 'azure', model: 'swarm-dev', auth: 'entra' },
+      'REAL AZURE AI · swarm-dev · Microsoft Entra ID — no API key',
+    ],
+    [
+      { name: 'openai', model: 'gpt-4.1-mini', auth: 'api-key' },
+      'REAL MODEL · OpenAI · gpt-4.1-mini · API key (kept on the server)',
+    ],
+    [
+      { name: 'ollama', model: 'llama3.2', auth: 'none' },
+      'REAL MODEL · Ollama (local) · llama3.2 · none',
+    ],
+  ] as const)(
+    'names the provider, model and authentication Model assisted will use (%#)',
+    (provider, expected) => {
+      const text = visibleText(render(configured(provider), modelProject()));
+      expect(text).toContain(`Will run on: ${expected}`);
+      expect(text).not.toContain('Model assistance is unavailable');
+      expectNoSecretLikeText(text);
+    },
+  );
+
+  it('never implies a model will run while Local rules is selected, even if one is configured', () => {
+    const text = visibleText(
+      render(configured({ name: 'azure', model: 'swarm-dev', auth: 'entra' })),
+    );
+    expect(text).not.toContain('Will run on');
+    expect(text).toContain(
+      'Lexical graph · deterministic updates · evidence lookup. No model calls.',
+    );
+  });
+
+  it('keeps the server reason, not a target, when Model assisted is selected but not configured', () => {
+    const text = visibleText(render(configFixture(), modelProject()));
+    expect(text).toContain(
+      'Model assistance is unavailable: Local engine only. Configure a provider to enable model-assisted runs.',
+    );
+    expect(text).not.toContain('Will run on');
+    expect(visibleText(render(null, modelProject()))).toContain(
+      'Model assistance is unavailable: Waiting for the local API configuration.',
+    );
+  });
+
+  it('points at the explicit connection check only when a provider is configured', () => {
+    const azure = configured({ name: 'azure', model: 'swarm-dev', auth: 'entra' });
+    expect(visibleText(render(azure))).toContain(
+      'Configured is not a connectivity check. Real provider errors are shown when a model operation runs. Use Verify connection in the header provider badge',
+    );
+    expect(visibleText(render(configFixture()))).not.toContain('Verify connection');
+  });
+
+  it('agrees with the header badge about connectivity instead of repeating a stale note', () => {
+    const azure = configured({ name: 'azure', model: 'swarm-dev', auth: 'entra' });
+    const connected = visibleText(render(azure, undefined, 'ok'));
+    expect(connected).toContain('Model provider');
+    expect(connected).toContain('Connected');
+    expect(connected).toContain('A real request has succeeded since the server started');
+    expect(connected).not.toContain('Configured is not a connectivity check');
+
+    const failing = visibleText(render(azure, undefined, 'failing'));
+    expect(failing).toContain('Failing');
+    expect(failing).toContain('The most recent real request failed');
+
+    const unverified = visibleText(render(azure, undefined, 'unverified'));
+    expect(unverified).toContain('Configured is not a connectivity check');
+    expect(visibleText(render(configFixture(), undefined, 'ok'))).not.toContain('Connected');
   });
 });

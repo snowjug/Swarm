@@ -2,6 +2,7 @@ import type { ConsoleStep, SimulatedInterview } from '../../../shared/guided.js'
 import { AppError, throwIfAborted } from '../errors.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { jsonValidated } from '../models/validated.js';
 import type { Repository } from '../storage/repository.js';
 import { interviewSchema } from './schemas.js';
 import { requireConsole, traceOperation } from './state.js';
@@ -44,7 +45,10 @@ export async function interviewProxy(
       memoryIds: memories.map((memory) => memory.id),
     },
     async () => {
-      const answer = await model.json(
+      const allowedSources = new Set(evidence.map((chunk) => chunk.id));
+      const allowedMemories = new Set(memories.map((memory) => memory.id));
+      return jsonValidated(
+        model,
         interviewSchema,
         'Answer as an EXPLICITLY FICTIONAL proxy in this recorded simulation, not a real person. ' +
           'JSON {answer,sourceIds,memoryIds}. Answer10-2500 chars, plain text, no hidden reasoning. ' +
@@ -63,18 +67,11 @@ export async function interviewProxy(
         },
         signal,
         1_800,
+        (answer) => {
+          validateReferences(answer.sourceIds, allowedSources, 'source evidence');
+          validateReferences(answer.memoryIds, allowedMemories, 'simulation memories');
+        },
       );
-      validateReferences(
-        answer.sourceIds,
-        new Set(evidence.map((chunk) => chunk.id)),
-        'source evidence',
-      );
-      validateReferences(
-        answer.memoryIds,
-        new Set(memories.map((memory) => memory.id)),
-        'simulation memories',
-      );
-      return answer;
     },
     (answer) => ({
       agentId,

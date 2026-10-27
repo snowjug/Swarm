@@ -68,10 +68,11 @@ export function buildLocalGraph(chunks: EvidenceChunk[], question: string): Know
 
 export function validateCitations(sourceIds: string[], allowed: Set<string>): void {
   if (sourceIds.some((id) => !allowed.has(id))) {
+    // Model-supplied IDs are deliberately not echoed; the trusted list of valid IDs helps a repair.
     throw new AppError(
       502,
       'MODEL_OUTPUT_INVALID',
-      'The model returned citations outside the evidence provided to it. Retry or use a more reliable model.',
+      `The model returned citations outside the evidence provided to it (valid passage IDs: ${[...allowed].slice(0, 20).join(', ') || 'none'}). Retry or use a more reliable model.`,
     );
   }
 }

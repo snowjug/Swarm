@@ -23,16 +23,80 @@ describe('provider configuration and public boundaries', () => {
     const config = loadConfig({
       AI_PROVIDER: 'azure',
       AI_MODEL: 'my-deployment',
+      AZURE_OPENAI_AUTH: 'key',
       AZURE_OPENAI_ENDPOINT: 'https://example.openai.azure.com',
       AZURE_OPENAI_API_KEY: 'azure-test-placeholder',
     });
     expect(config.provider.baseUrl).toBe('https://example.openai.azure.com/openai/v1/');
     expect(config.provider.model).toBe('my-deployment');
     expect(config.provider.configured).toBe(true);
+    expect(config.provider.auth).toBe('api-key');
     const serialized = JSON.stringify(publicConfig(config));
     expect(serialized).not.toContain('azure-test-placeholder');
     expect(serialized).not.toContain('example.openai.azure.com');
     expect(publicConfig(config).provider.reason).toContain('not yet verified');
+  });
+
+  it('uses Microsoft Entra ID for Azure by default: no key is required, kept or exposed', () => {
+    const base = {
+      AI_PROVIDER: 'azure',
+      AI_MODEL: 'my-deployment',
+      AZURE_OPENAI_ENDPOINT: 'https://swarm-dev.cognitiveservices.azure.com/',
+    };
+    const config = loadConfig(base);
+    expect(config.provider).toMatchObject({
+      auth: 'entra',
+      configured: true,
+      apiKey: null,
+      managedIdentityClientId: null,
+    });
+    expect(config.provider.baseUrl).toBe(
+      'https://swarm-dev.cognitiveservices.azure.com/openai/v1/',
+    );
+    expect(publicConfig(config).provider.reason).toContain('Entra');
+
+    // A leftover key must never be used silently when Entra is selected.
+    const withKey = loadConfig({ ...base, AZURE_OPENAI_API_KEY: 'should-be-ignored-key' });
+    expect(withKey.provider.apiKey).toBeNull();
+    expect(JSON.stringify(publicConfig(withKey))).not.toContain('should-be-ignored-key');
+
+    const identity = '11111111-2222-4333-8444-555555555555';
+    expect(
+      loadConfig({ ...base, AZURE_CLIENT_ID: identity }).provider.managedIdentityClientId,
+    ).toBe(identity);
+    expect(() => loadConfig({ ...base, AZURE_CLIENT_ID: 'not-a-guid' })).toThrow('AZURE_CLIENT_ID');
+    expect(loadConfig({ ...base, AZURE_OPENAI_AUTH: 'key' }).provider.reason).toContain(
+      'AZURE_OPENAI_API_KEY',
+    );
+    expect(() => loadConfig({ ...base, AZURE_OPENAI_AUTH: 'password' })).toThrow(
+      'AZURE_OPENAI_AUTH',
+    );
+  });
+
+  it.each([
+    'https://evil.example.com/',
+    'https://openai.azure.com.evil.example.com/',
+    'https://evilopenai.azure.com.attacker.net/',
+    'https://swarm.blob.core.windows.net/',
+  ])('refuses to send an Azure credential to a non-Azure-AI host: %s', (endpoint) => {
+    const config = loadConfig({
+      AI_PROVIDER: 'azure',
+      AI_MODEL: 'my-deployment',
+      AZURE_OPENAI_ENDPOINT: endpoint,
+    });
+    expect(config.provider.configured).toBe(false);
+    expect(config.provider.reason).toContain('Azure endpoints must be on');
+  });
+
+  it.each([
+    'https://a.openai.azure.com',
+    'https://a.cognitiveservices.azure.com',
+    'https://a.services.ai.azure.com/openai/v1/',
+  ])('accepts the supported Azure AI hosts: %s', (endpoint) => {
+    expect(
+      loadConfig({ AI_PROVIDER: 'azure', AI_MODEL: 'd', AZURE_OPENAI_ENDPOINT: endpoint }).provider
+        .configured,
+    ).toBe(true);
   });
 
   it.each([

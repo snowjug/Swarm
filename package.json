@@ -16,7 +16,7 @@
     "build:backend": "tsc -p backend/tsconfig.json",
     "build:frontend": "vite build --config frontend/vite.config.ts",
     "start": "node --env-file-if-exists=.env dist/backend/src/index.js",
-    "typecheck": "tsc -p backend/tsconfig.test.json --noEmit && tsc -p frontend/tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit",
+    "typecheck": "tsc -p backend/tsconfig.test.json --noEmit && tsc -p frontend/tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -24,9 +24,14 @@
     "smoke:console": "tsx backend/test/console-smoke.ts",
     "test:e2e": "playwright test",
     "audit:ui": "node scripts/ui-audit.mjs",
+    "azure:provision": "tsx scripts/azure/provision.ts",
+    "azure:teardown": "tsx scripts/azure/teardown.ts",
+    "azure:verify": "tsx scripts/azure/verify.ts",
+    "scan:secrets": "node scripts/secret-scan.mjs",
     "check": "npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {
+    "@azure/identity": "4.13.0",
     "@fastify/helmet": "^13.2.0",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/static": "^10.1.6",
@@ -39,7 +44,10 @@
     "zod": "^4.6.7"
   },
   "overrides": {
-    "ajv@^8.0.0": "^8.20.0"
+    "ajv@^8.0.0": "^8.20.0",
+    "@azure/msal-node": {
+      "uuid": "^11.1.1"
+    }
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

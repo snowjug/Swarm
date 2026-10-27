@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { groundingReviewSchema } from '../../../shared/grounding.js';
 import {
   documentInputSchema,
   interventionSchema,
@@ -39,6 +40,7 @@ export const graphSchema: z.ZodType<KnowledgeGraph> = z.object({
       weight: fraction,
       sourceIds: ids,
       entityType: z.string().optional(),
+      quote: z.string().optional(),
     }),
   ),
   edges: z.array(
@@ -58,6 +60,8 @@ export const agentSchema: z.ZodType<Agent> = z.object({
   name: z.string(),
   role: z.string(),
   persona: z.string(),
+  goals: z.array(z.string()).optional(),
+  constraints: z.array(z.string()).optional(),
   topicIds: ids,
   initialOpinion: opinion,
   opinion,
@@ -87,6 +91,8 @@ export const roundSchema: z.ZodType<RoundSnapshot> = z.object({
       opinion,
       peerIds: ids,
       sourceIds: ids,
+      rationale: z.string().optional(),
+      confidence: fraction.optional(),
     }),
   ),
   intervention: interventionSchema.nullable(),
@@ -106,6 +112,7 @@ export const reportSchema: z.ZodType<SimulationReport> = z.object({
     }),
   ),
   limitations: z.array(z.string()),
+  grounding: groundingReviewSchema.optional(),
   metrics: z.object({
     initialMean: opinion,
     finalMean: opinion,

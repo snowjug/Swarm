@@ -8,6 +8,7 @@ import type { Inspection } from '../../lib/graph';
 import { EmptyPanel, Notice } from '../ui';
 import { Citations } from './Citations';
 import { MemoryStream } from './MemoryStream';
+import { StatedReason } from './StatedReason';
 import { RunStepButton, StageStatus } from './StageControls';
 import { CheckpointControls } from './CheckpointControls';
 import { TrajectoryChart } from './TrajectoryChart';
@@ -68,6 +69,7 @@ function LegacyRounds({
                   action.agentId}
               </h4>
               <p className="preserve-text">{action.content}</p>
+              <StatedReason rationale={action.rationale} confidence={action.confidence} />
               <small className="mono">
                 POSITION {signed(action.opinion)} · PEERS {action.peerIds.join(', ') || 'NONE'}
               </small>

@@ -4,6 +4,9 @@ import { buildLocalReport, reportMetrics, reviewLimitations } from '../agents/re
 import { AppError, throwIfAborted } from '../errors.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { jsonValidated } from '../models/validated.js';
+import { reviewClaims, validateChapterClaims, type ChapterForReview } from '../grounding/review.js';
+import { recordedFigures, type VerificationContext } from '../grounding/verify.js';
 import type { Repository } from '../storage/repository.js';
 import { interviewProxy } from './interviews.js';
 import { reportChapterSchema, reportPlanSchema, summarySchema } from './schemas.js';
@@ -131,8 +134,9 @@ export async function generateGuidedReport(
     'model',
     'Report outline and tool plan',
     { availableTools: ['evidence.search', 'memory.search', 'timeline.read', 'proxy.interview'] },
-    async () => {
-      const result = await model.json(
+    async () =>
+      jsonValidated(
+        model,
         reportPlanSchema,
         'Plan a conditional scenario report. JSON {title,sections,evidenceQueries,interviewAgentIds,interviewQuestion}. ' +
           '3-5 unique section titles3-100 chars;1-3 local evidence queries3-300 chars;0-2 unique supplied proxy IDs for optional fictional interviews; question5-500 chars. ' +
@@ -150,22 +154,22 @@ export async function generateGuidedReport(
         },
         signal,
         2_000,
-      );
-      if (
-        new Set(result.sections).size !== result.sections.length ||
-        new Set(result.interviewAgentIds).size !== result.interviewAgentIds.length ||
-        result.interviewAgentIds.some(
-          (agentId) => !project.agents.some((agent) => agent.id === agentId),
-        )
-      ) {
-        throw new AppError(
-          502,
-          'MODEL_OUTPUT_INVALID',
-          'The report plan contains duplicate chapters or invalid interview targets.',
-        );
-      }
-      return result;
-    },
+        (result) => {
+          if (
+            new Set(result.sections).size !== result.sections.length ||
+            new Set(result.interviewAgentIds).size !== result.interviewAgentIds.length ||
+            result.interviewAgentIds.some(
+              (agentId) => !project.agents.some((agent) => agent.id === agentId),
+            )
+          ) {
+            throw new AppError(
+              502,
+              'MODEL_OUTPUT_INVALID',
+              `The report plan contains duplicate chapters or invalid interview targets; interviewAgentIds must come from: ${project.agents.map((agent) => agent.id).join(', ')}.`,
+            );
+          }
+        },
+      ),
     (result) => ({ ...result }),
   );
   updateConsole(repository, id, (current) => ({
@@ -269,6 +273,17 @@ export async function generateGuidedReport(
       metrics,
     },
   });
+  const verification: VerificationContext = {
+    passages: new Map([...sourceMap].map(([sourceId, chunk]) => [sourceId, chunk.text])),
+    memories: new Map(
+      [...memoryMap].map(([memoryId, memory]) => [
+        memoryId,
+        `${memory.text} ${memory.rationale ?? ''}`.trim(),
+      ]),
+    ),
+    recorded: recordedFigures(repository.get(id), metrics),
+  };
+  const reviewChapters: ChapterForReview[] = [];
   for (const title of plan.sections) {
     throwIfAborted(signal);
     const chapter = await traceOperation(
@@ -284,41 +299,71 @@ export async function generateGuidedReport(
         interviewIds: interviews.map((interview) => interview.id),
       },
       async () => {
-        const chapterResult = await model.json(
+        const allowedSources = new Set(sourceMap.keys());
+        const allowedMemories = new Set(memoryMap.keys());
+        const allowedInterviews = new Set(interviews.map((interview) => interview.id));
+        return jsonValidated(
+          model,
           reportChapterSchema,
-          'Write the requested report chapter from supplied recorded data. JSON {body,sourceIds,memoryIds,interviewIds}. ' +
+          'Write the requested report chapter from supplied recorded data. JSON {body,sourceIds,memoryIds,interviewIds,claims}. ' +
             'body30-3500 chars, plain text. Cite only supplied IDs; sourceIds refer to original unverified documents, memoryIds to synthetic activity, interviewIds to generated fictional interviews. ' +
-            'Distinguish these categories. Use metrics exactly; no calibrated forecasts, invented statistics or hidden reasoning.',
+            'Distinguish these categories. Use metrics exactly; no calibrated forecasts, invented statistics or hidden reasoning. ' +
+            'claims: 1-6 atomic statements that your body makes and that carry its weight, each {text,kind,sourceIds,memoryIds,quote}. text restates something the body says (10-400 chars). ' +
+            'kind is one of: source-fact (a passage states it; REQUIRES quote copied exactly from a cited passage), extracted-claim (a paraphrase of a cited passage; cite it), ' +
+            'user-assumption (a setting, intervention or seed post), ai-hypothesis (your own speculation; cite nothing), simulated-event (something that happened in the simulation; cite its memoryIds), ' +
+            'analytical-conclusion (derived from the recorded metrics; use the exact figures). quote is null unless you can copy an exact excerpt of a cited passage. ' +
+            'Every number in the body and claims must come from the supplied metrics, timeline, memories or cited passages; do not invent statistics. The claims are independently checked.',
           { title, executiveSummary: summary.summary, ...context },
           signal,
-          2_000,
+          2_800,
+          (value) => {
+            validateReferences(value.sourceIds, allowedSources, 'source passages');
+            validateReferences(value.memoryIds, allowedMemories, 'synthetic memories');
+            validateReferences(value.interviewIds, allowedInterviews, 'fictional interviews');
+            validateChapterClaims(value, verification);
+          },
         );
-        validateReferences(chapterResult.sourceIds, new Set(sourceMap.keys()), 'source passages');
-        validateReferences(
-          chapterResult.memoryIds,
-          new Set(memoryMap.keys()),
-          'synthetic memories',
-        );
-        validateReferences(
-          chapterResult.interviewIds,
-          new Set(interviews.map((interview) => interview.id)),
-          'fictional interviews',
-        );
-        return chapterResult;
       },
       (result) => ({ title, ...result }),
     );
+    const { claims, ...written } = chapter;
+    reviewChapters.push({ title, ...written, claims });
     const report = repository.get(id).report;
     if (!report) throw new Error('The draft report disappeared during chapter generation.');
     repository.update(id, {
-      report: { ...report, sections: [...report.sections, { title, ...chapter }] },
+      report: { ...report, sections: [...report.sections, { title, ...written }] },
     });
     updateConsole(repository, id, (current) => ({
       ...current,
       reportPlan: { ...plan, completedSections: report.sections.length + 1 },
     }));
     repository.update(id, {
-      progress: 86 + Math.floor(((report.sections.length + 1) / plan.sections.length) * 13),
+      progress: 86 + Math.floor(((report.sections.length + 1) / plan.sections.length) * 12),
     });
   }
+  throwIfAborted(signal);
+  const grounding = await traceOperation(
+    repository,
+    id,
+    'report',
+    'review',
+    'Grounding review',
+    { statements: reviewChapters.reduce((sum, chapter) => sum + chapter.claims.length, 0) },
+    () =>
+      reviewClaims({
+        model,
+        signal,
+        chapters: reviewChapters,
+        context: verification,
+        now: new Date(),
+      }),
+    (review) => ({
+      method: review.method,
+      ...review.counts,
+      unverifiedFigures: review.unverifiedFigures.length,
+    }),
+  );
+  const drafted = repository.get(id).report;
+  if (!drafted) throw new Error('The draft report disappeared before the grounding review.');
+  repository.update(id, { report: { ...drafted, grounding }, progress: 99 });
 }

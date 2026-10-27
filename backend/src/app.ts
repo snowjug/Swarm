@@ -10,6 +10,9 @@ import { publicConfig, type ServerConfig } from './config.js';
 import { AppError, publicFailure } from './errors.js';
 import { InteractionService } from './orchestration/interaction.js';
 import { Orchestrator, type ModelFactory } from './orchestration/runner.js';
+import { createModelFactory } from './models/factory.js';
+import { ProviderTelemetry } from './models/telemetry.js';
+import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
 import { Repository } from './storage/repository.js';
 import { guidedRoutes } from './routes/guided.js';
@@ -52,6 +55,8 @@ export async function buildApp(options: AppOptions) {
   });
   const repository = options.repository || new Repository(config.databasePath);
   repository.recoverInterrupted();
+  const telemetry = new ProviderTelemetry(config.provider);
+  const modelFactory = options.modelFactory ?? createModelFactory(config, telemetry);
   const jobs = new Orchestrator(
     repository,
     config,
@@ -63,17 +68,10 @@ export async function buildApp(options: AppOptions) {
           'Run failed; inspect persisted status, not provider response bodies.',
         );
     },
-    options.modelFactory,
+    modelFactory,
   );
-  const interaction = new InteractionService(
-    repository,
-    config,
-    options.modelFactory,
-    (projectId, code) =>
-      app.log.error(
-        { projectId, code },
-        'Follow-up or survey failed. Inspect its persisted state.',
-      ),
+  const interaction = new InteractionService(repository, config, modelFactory, (projectId, code) =>
+    app.log.error({ projectId, code }, 'Follow-up or survey failed. Inspect its persisted state.'),
   );
   const pdf = new PdfService();
 
@@ -182,6 +180,7 @@ export async function buildApp(options: AppOptions) {
   }));
   app.get('/api/config', async () => publicConfig(config));
   projectRoutes(app, repository, jobs, interaction, config.rateLimitScale);
+  providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
 
   const frontend = resolve(process.cwd(), 'frontend', 'dist');

@@ -13,6 +13,10 @@ const styles = [
   'interaction.css',
   'what-if.css',
   'charts.css',
+  'provider.css',
+  'grounding.css',
+  'statements.css',
+  'transparency.css',
 ].map((name) => ({
   name,
   text: readFileSync(
@@ -123,5 +127,22 @@ describe('measured console accessibility CSS regressions', () => {
       /\.project-identity p\s*\{[^}]*white-space:\s*normal;[^}]*overflow:\s*visible;[^}]*text-overflow:\s*clip/u,
     );
     expect(css).not.toContain('mobile-pane-tabs');
+  });
+  it('keeps the provider panel in the page flow and the header wrapping instead of overflowing', () => {
+    const provider = styles.find((style) => style.name === 'provider.css')!.text;
+    for (const match of provider.matchAll(/(\.provider-panel[^{}]*)\{([^{}]*)\}/gu)) {
+      expect(match[2], match[1]).not.toMatch(
+        /position:|overflow(?:-[xy])?:\s*(?:auto|scroll|hidden)/u,
+      );
+      expect(match[2], match[1]).not.toContain('max-height');
+    }
+    const header = /\.app-header\s*\{([^}]+)\}/u.exec(styles[0]!.text)![1]!;
+    expect(header).toContain('flex-wrap: wrap');
+    expect(provider).toMatch(
+      /@media \(max-width: 1100px\)\s*\{\s*\.provider-badge\s*\{\s*flex:\s*1 1 100%/u,
+    );
+    expect(provider).toMatch(
+      /@media \(max-width: 640px\)\s*\{\s*\.provider-badge\s*\{\s*min-height:\s*44px/u,
+    );
   });
 });

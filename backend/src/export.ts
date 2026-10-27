@@ -1,3 +1,9 @@
+import {
+  CLAIM_KIND_LABELS,
+  SUPPORT_VERDICTS,
+  SUPPORT_VERDICT_LABELS,
+  type GroundingReview,
+} from '../../shared/grounding.js';
 import type { BranchChange } from '../../shared/guided.js';
 import type { EvidenceChunk, ProjectDetail } from '../../shared/types.js';
 import { AppError } from './errors.js';
@@ -17,6 +23,40 @@ function describeChange(change: BranchChange): string {
       : '- The scheduled intervention was removed';
   }
   return `- ${change.agentId}: ${change.field} ${text(change.from.toFixed(2))} to ${text(change.to.toFixed(2))}`;
+}
+
+function groundingSection(grounding: GroundingReview | undefined): string[] {
+  if (!grounding) return [];
+  const { counts } = grounding;
+  return [
+    '## Grounding review',
+    '',
+    `Checks run: ${grounding.method === 'deterministic+model' ? 'quote, word-overlap and figure checks, plus an independent model check that had to quote real text' : 'quote, word-overlap and figure checks only (the independent model check did not run)'}.`,
+    `Statements checked: ${grounding.claims.length}. ${SUPPORT_VERDICTS.map(
+      (verdict) => `${SUPPORT_VERDICT_LABELS[verdict]}: ${counts[verdict]}`,
+    ).join('; ')}.`,
+    '',
+    ...grounding.claims.flatMap((claim) => [
+      `- ${claim.id} (${text(claim.section)}) [${CLAIM_KIND_LABELS[claim.kind]}; ${SUPPORT_VERDICT_LABELS[claim.verdict]}] ${text(claim.text)}`,
+      `  - Why: ${text(claim.reason)}`,
+      ...(claim.sourceIds.length ? [`  - Sources: ${claim.sourceIds.join(', ')}`] : []),
+      ...(claim.memoryIds.length ? [`  - Synthetic memories: ${claim.memoryIds.join(', ')}`] : []),
+      ...(claim.quote ? [`  - Quote: ${text(claim.quote)}`] : []),
+    ]),
+    '',
+    ...(grounding.unverifiedFigures.length
+      ? [
+          'Figures in chapter text that match neither the cited material nor the recorded simulation (possible invented statistics):',
+          '',
+          ...grounding.unverifiedFigures.map(
+            (entry) => `- ${text(entry.section)}: ${entry.figures.map(text).join(', ')}`,
+          ),
+          '',
+        ]
+      : []),
+    ...grounding.notes.map((note) => `> ${text(note)}`),
+    '',
+  ];
 }
 
 function lineage(project: ProjectDetail): string[] {
@@ -96,6 +136,7 @@ export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]):
             ]),
         ]
       : []),
+    ...groundingSection(report.grounding),
     '## Limitations',
     '',
     ...report.limitations.map((limitation) => `- ${text(limitation)}`),

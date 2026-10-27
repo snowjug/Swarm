@@ -23,6 +23,8 @@ import {
 } from '../../lib/console';
 import type { Inspection } from '../../lib/graph';
 import { Notice, Spinner, StatusBadge } from '../ui';
+import { projectUsageText } from '../../lib/provider';
+import { ProjectModeChip } from './ProjectModeChip';
 import { EnvironmentStage } from './EnvironmentStage';
 import { GraphCanvas } from './GraphCanvas';
 import { Inspector } from './Inspector';
@@ -193,11 +195,6 @@ export function ConsoleWorkspace({
         />
       );
   }
-  const provider = project.execution
-    ? `${project.execution.provider}${project.execution.model ? ` / ${project.execution.model}` : ''}`
-    : project.mode === 'local'
-      ? 'local rules · execution not yet recorded'
-      : 'model provider · execution not yet recorded';
 
   return (
     <div className="console-workspace">
@@ -260,21 +257,16 @@ export function ConsoleWorkspace({
         </div>
       </section>
       <JsonSnapshotExportError error={snapshotExport.error} />
-      <details className="project-metadata mono">
-        <summary>
-          Project {project.id.slice(0, 8)} ·{' '}
-          {project.mode === 'local' ? 'Local rules' : 'Model assisted'} · {provider}
-        </summary>
-        <div>
-          <span>Full project ID: {project.id}</span>
-          {project.execution && (
-            <span>
-              {project.execution.modelCalls} real model calls · {project.execution.inputTokens}{' '}
-              input / {project.execution.outputTokens} output tokens
-            </span>
-          )}
-        </div>
-      </details>
+      <div className="project-provenance">
+        <ProjectModeChip project={project} />
+        <details className="project-metadata mono">
+          <summary>Project {project.id.slice(0, 8)} · usage and full ID</summary>
+          <div>
+            <span>Full project ID: {project.id}</span>
+            {project.execution && <span>{projectUsageText(project.execution)}</span>}
+          </div>
+        </details>
+      </div>
       {!guided && (
         <Notice
           tone="warning"

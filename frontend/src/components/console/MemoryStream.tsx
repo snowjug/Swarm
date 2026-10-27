@@ -7,6 +7,7 @@ import { signed } from '../../lib/format';
 import type { Inspection } from '../../lib/graph';
 import { EmptyPanel } from '../ui';
 import { Citations } from './Citations';
+import { StatedReason } from './StatedReason';
 
 export function MemoryStream({
   project,
@@ -149,6 +150,7 @@ export function MemoryStream({
               </span>
             </div>
             <p className="preserve-text">{memory.text}</p>
+            <StatedReason rationale={memory.rationale} confidence={memory.confidence} />
             <div className="memory-footer mono">
               <span>
                 {memory.opinion === null

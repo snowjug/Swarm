@@ -59,21 +59,189 @@ Private endpoints, dedicated networking, regional redundancy and additional queu
 services should follow actual compliance, load and recovery requirements, not be
 added automatically.
 
+## Azure AI integration: what exists and what is verified
+
+| Capability                                                 | Implemented | Verified how                                                        |
+| ---------------------------------------------------------- | ----------- | ------------------------------------------------------------------- |
+| Entra ID token auth (`DefaultAzureCredential`), no key     | Yes         | Unit tests with a fake credential. **Not** against a live resource  |
+| Host allow-list; bearer token never sent elsewhere         | Yes         | Unit tests                                                          |
+| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`   | Yes         | Unit tests with a fake HTTP server                                  |
+| Bounded structured-output repair loop                      | Yes         | Unit + integration tests with scripted replies                      |
+| Provider status/telemetry API and UI badge                 | Yes         | Unit tests, browser audit                                           |
+| One real model call per proxy, platform and round          | Yes         | Integration tests and e2e against a **fake** provider               |
+| Grounding review (quotes, support verdicts, contradiction) | Yes         | Unit and integration tests against a **fake** provider              |
+| Bicep for an Entra-only Foundry account + deployment       | Yes         | `bicep build` and lint; **never deployed**                          |
+| Provisioning/teardown scripts with safety gates            | Yes         | Unit tests with a fake Azure CLI; read-only preflight against Azure |
+| One-command live verification (`npm run azure:verify`)     | Yes         | Unit/flow tests and a Playwright run against a **fake** provider    |
+| Live Azure model calls, live E2E, live prompt-injection    | **No**      | Blocked: needs a subscription or resource group you can deploy to   |
+
+Nothing in this repository claims live Azure verification. The only live Azure
+evidence is the read-only preflight, which reported that the signed-in account had no
+permission to create a resource group, an AI account, a deployment or a role assignment
+in any visible subscription.
+
+## Provisioning the model account with this repository
+
+The infrastructure is plain Bicep plus two TypeScript scripts, so it runs from the
+Azure CLI login you already have, with no extra tooling and no `azd` hooks.
+
+```text
+infra/main.bicep                    subscription scope: resource group + account + deployment
+infra/modules/ai-services.bicep     resource-group scope: the account, deployment, role assignment
+scripts/azure/provision.ts          preflight, model selection, what-if, deploy, write .env
+scripts/azure/teardown.ts           tagged-resources-only delete and purge
+```
+
+What the template creates, and what it deliberately does not:
+
+- A Microsoft Foundry (`AIServices`) account with a custom sub-domain and
+  `disableLocalAuth: true`, so **only Entra ID can call it** and no key can ever exist.
+- One chat-model deployment on a **pay-as-you-go** SKU (`Standard`,
+  `DataZoneStandard` or `GlobalStandard`). Provisioned (reserved, hourly-billed)
+  capacity is not selectable. Capacity is a **rate limit, not a spend cap** (you pay
+  per token used): the default is 50K tokens per minute and the template caps it at
+  100K. A model-assisted run makes about `proxies × platforms × rounds` small calls
+  of roughly 3K tokens each, so six proxies over eight rounds on both platforms is
+  about 300K tokens; at 50K per minute that finishes in several minutes, and
+  throttling (HTTP 429) is retried up to five times before the stage fails.
+- The **Cognitive Services OpenAI User** role for the principal you name, and nothing
+  broader. No Contributor/Owner grant, no key, secret or connection string, and no
+  secret output.
+- The service's default content filtering stays on, and the model version is pinned
+  (`NoAutoUpgrade`) so evaluations are reproducible.
+
+Preflight is read-only and needs only your `az login`:
+
+```powershell
+az login
+az account list --query "[].{name:name,id:id}" -o table      # pick a DEVELOPMENT subscription
+npm run azure:provision -- --subscription <guid> --preflight-only
+```
+
+If the account cannot deploy, the script stops and states which permissions are
+missing. You need **Contributor plus Role Based Access Control Administrator** (or
+Owner) on a development subscription, or **Contributor on an empty resource group**
+with `--resource-group <name>` (add `--skip-role-assignment` if an administrator will
+grant the inference role). Then:
+
+```powershell
+npm run azure:provision -- --subscription <guid> --list-models     # ranked, with reasons
+npm run azure:provision -- --subscription <guid> --what-if         # preview, deploys nothing
+npm run azure:provision -- --subscription <guid> --yes             # deploy and write .env
+```
+
+Safety properties, all covered by tests:
+
+- The subscription must be named explicitly; the CLI's default is never used, and
+  disabled or production-looking names are refused.
+- Nothing is deployed without `--yes`, and a what-if always runs first.
+- Model choice comes from the live catalog and quota APIs, not a hard-coded name:
+  generally-available chat models only, small non-reasoning models first, nothing
+  retiring within 120 days, and quota-aware capacity. Legacy and preview models
+  need `--allow-legacy` / `--allow-preview`.
+- A resource group that already holds resources this project did not create is
+  refused unless you pass `--allow-non-empty-resource-group`.
+- `.env` receives only `AI_PROVIDER`, `AI_MODEL`, `AZURE_OPENAI_ENDPOINT` and
+  `AZURE_OPENAI_AUTH`, each validated against a strict pattern. No key can be written.
+- Azure CLI output is scrubbed of tokens and secret-shaped fields before display.
+
+`npm run azure:teardown -- --subscription <guid> --resource-group <name> --yes`
+deletes only what carries the `app=swarm-lab` tag and purges the soft-deleted account so
+the name can be reused.
+
+After provisioning, role assignments can take several minutes to propagate. Start
+the app, open the provider panel in the header and choose **Verify connection**.
+`REAL AZURE AI · connected` is shown only after a real call has succeeded.
+
+## Verifying the live integration
+
+`npm run azure:verify` is the single command that turns "implemented" into
+"verified". It talks only to the running app's public HTTP API, reads and writes no
+credentials, and exits `0` only if **every** check below passes against the provider
+the server is really configured for.
+
+```powershell
+npm run dev                  # in one terminal: the app, with AI_PROVIDER=azure and Entra sign-in
+npm run azure:verify         # in another: defaults to --expect-provider azure --expect-auth entra
+```
+
+It creates one clearly synthetic project (four fictional proxies, three rounds, one
+fictional source document that contains a hidden prompt-injection instruction) and
+runs the whole journey. Expect on the order of 60 small model calls.
+
+| Check                            | What has to hold                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Server set up for a real model   | Status reports `real-model`, the expected provider and authentication (a keyless Azure setup reports `entra`)       |
+| Real round trip                  | `POST /api/provider/check` succeeds against the endpoint; it never falls back to local mode                         |
+| Pipeline                         | Graph, proxies, simulation and report all reach `ready`; a failed stage is reported with its recorded error         |
+| Real calls recorded              | The project records the expected provider/model and at least one call per proxy, platform and round                 |
+| One decision per proxy per round | Both platforms, every round, every proxy: one decision with a stated reason and a 0-1 confidence                    |
+| Graph quotes                     | Every node's quote is found verbatim in a passage that node cites                                                   |
+| Grounding                        | Verdict counts add up, every source fact has a verified quote, every citation resolves to stored evidence           |
+| Independent model check          | The review method is `deterministic+model`, so the second model call really ran                                     |
+| Branching                        | A branch inherits the earlier rounds unchanged, re-runs only the later ones, and the comparison declares the change |
+| Analyst and actor chat           | Each reply is model-produced, cites only stored passages, and moves the server's provider counters                  |
+| Telemetry                        | The server's own round-trip counter is at least the completions recorded on the projects (two independent counts)   |
+| Injection probe                  | The hidden token never appears in proxy statements, chat replies or the executive summary                           |
+| No credential-shaped text        | No bearer token, JWT, key or connection-string secret in the project, branch, evidence, status, export or replies   |
+| Export                           | The Markdown export carries the grounding review and the synthetic-scenario disclaimer                              |
+
+A check that never ran is reported as `SKIP` and can never count as a pass, so the
+verdict cannot be reached by omission. The report prints only provider, model name and
+authentication mode, never an endpoint, tenant or subscription.
+
+Options: `--base-url`, `--expect-provider azure|openai|ollama`, `--expect-auth
+entra|api-key|none`, `--agents 4-10`, `--rounds 3-10`, `--step-timeout-minutes`,
+`--no-probe` and `--json`. Exit codes: `0` verified, `1` not verified, `2` usage error.
+
+**If Azure's content filter blocks the probe.** The synthetic source deliberately
+contains an "ignore all previous instructions" line. A deployment's content filter may
+include prompt-shield (jailbreak) detection and refuse the request, which fails the
+stage with `MODEL_REFUSED (flagged: jailbreak)` and a hint. Re-run with `--no-probe` to
+test everything else. The injection check is then reported as `SKIP` and the overall
+result is `NOT VERIFIED`, on purpose: the platform refusing an input is a real defence,
+but it is not evidence that the app's or the model's own handling resisted it.
+
+Provider errors are classified from the response's short machine codes only. A
+`400` is reported as `MODEL_REFUSED` (content filter, with the flagged category
+names), `MODEL_PARAMETER_UNSUPPORTED` (with the parameter name, for example a model that
+rejects `response_format` or `max_completion_tokens`) or `MODEL_CONTEXT_LIMIT`. The
+provider's free-text message is never read or shown, because it can echo prompt text.
+
+What this is and is not:
+
+- It was developed and tested against an in-memory stand-in, and end-to-end through
+  the real HTTP stack against a protocol-faithful **fake** provider (`e2e/model/verify.spec.ts`).
+  That proves the script and the app agree; it is **not** evidence about Azure, and
+  running it against any non-Azure provider prints a note saying so.
+- One hidden-instruction probe is evidence, not proof, of resistance to prompt
+  injection. The quality of a real model's grounding judgements is reported by the
+  counts, not assumed good.
+- It does not test Entra role propagation delays, quota exhaustion or multi-user
+  behaviour. Those surface as clear failures in the relevant check when they happen.
+
 ## Migration phases and acceptance criteria
 
 ### 1. Validate a real model while still local
 
-Create or select a suitable Azure model deployment supporting Chat Completions
-and JSON output. Configure the ignored local `.env`:
+Provision a model deployment with the repository scripts (see
+[Provisioning the model account](#provisioning-the-model-account-with-this-repository))
+or use one you already own that supports Chat Completions and JSON output. Configure
+the ignored local `.env`. None of these values is a secret:
 
 - `AI_PROVIDER=azure`
-- `AI_MODEL`: deployment name, not just the catalog model name
+- `AI_MODEL`: the **deployment** name, not just the catalog model name
 - `AZURE_OPENAI_ENDPOINT`: resource root or `/openai/v1/` URL
-- `AZURE_OPENAI_API_KEY`: configured privately in the environment
+- `AZURE_OPENAI_AUTH=entra` (the default): sign in with `az login`; no key exists
 
-No key belongs in Git, browser variables, a chat message, or an image.
-The service account/resource must permit inference and have quota. This credential
-is required only for actual Azure inference, not the rules-based local engine.
+The signed-in identity needs the **Cognitive Services OpenAI User** role on the
+resource and the resource needs quota. No key belongs in Git, browser variables, a
+chat message or an image. Credentials are required only for actual Azure inference,
+never for the rules-based local engine.
+
+Then verify with a real round trip (it makes exactly one tiny model call and never
+falls back to local mode): `POST /api/provider/check`, or the **Verify connection**
+button in the header's provider panel.
 
 Validate a small four-agent/three-round scenario first. Check actual JSON
 compatibility, valid project citations, reported usage, rate-limit errors,
@@ -102,18 +270,23 @@ or “completed” state before result persistence. Verify backup restore.
 
 ### 3. Replace model API keys with managed identity
 
-Add an Azure identity token provider to the model adapter. Use the appropriate
-Azure model resource audience/scope and inference role for the deployed endpoint.
-For Azure OpenAI this normally includes the **Cognitive Services OpenAI User**
-role; verify requirements for the specific Foundry/resource API being selected.
+**Implemented in the adapter, not yet verified against a live resource.** With
+`AZURE_OPENAI_AUTH=entra` (the default) the adapter acquires a Microsoft Entra token
+for `https://cognitiveservices.azure.com/.default` through `DefaultAzureCredential`
+and sends it as `Authorization: Bearer …`. Locally that resolves to your `az login`;
+in Azure it resolves to the managed identity (set `AZURE_CLIENT_ID` only for a
+user-assigned one). Tokens are cached and refreshed by the SDK, are sent only to an
+allow-listed Azure AI host, and never appear in logs, errors or API responses. A
+leftover `AZURE_OPENAI_API_KEY` is ignored in Entra mode.
 
-Do not simply place a managed-identity name in the API-key field: the current
-local Azure adapter uses an `api-key` header. Production identity authentication
-requires an implemented token acquisition/refresh path and `Authorization` header.
+The identity needs the **Cognitive Services OpenAI User** role. A missing role
+returns an explicit `MODEL_AUTH` error that names the role.
 
-Acceptance: inference succeeds without any Azure model key in environment or image;
-revoked permissions fail explicitly; tokens, source passages and provider bodies
-are absent from logs.
+Acceptance (still to be demonstrated live): inference succeeds without any Azure
+model key in environment or image; revoked permissions fail explicitly; tokens,
+source passages and provider bodies are absent from logs. Unit tests cover the header
+construction, scope, refresh, error mapping and secret hygiene with a fake
+credential; they are not evidence of a real Entra exchange.
 
 ### 4. Build and deploy one authenticated container
 
@@ -164,8 +337,9 @@ user deletion, backups, incident response and rollback ownership.
 ## What is intentionally not deployed
 
 No Azure subscription resources, public application endpoint, cloud database,
-Entra application registration, managed-identity inference path, semantic index,
-Blob upload pipeline or distributed worker has been created by this milestone.
+Entra application registration, semantic index, Blob upload pipeline or distributed
+worker has been created by this milestone. The Entra inference path and the Bicep
+exist in the repository but have not been exercised against a live resource.
 Those are explicit migration tasks with acceptance criteria, not hidden dependencies
 of a working local app.
 

@@ -7,6 +7,7 @@ import type {
   Intervention,
   ProjectDetail,
   ProjectSummary,
+  ProviderStatus,
 } from '../../shared/types';
 import type {
   EnvironmentUpdate,
@@ -86,6 +87,11 @@ const jsonBody = (body: unknown): RequestInit => ({
 
 export const api = {
   config: (signal?: AbortSignal) => request<AppConfig>('/api/config', { signal }),
+  providerStatus: (signal?: AbortSignal) =>
+    request<ProviderStatus>('/api/provider/status', { signal }),
+  /** One explicit, user-requested real model round trip; the server never runs it on its own. */
+  checkProvider: (signal?: AbortSignal) =>
+    request<ProviderStatus>('/api/provider/check', { method: 'POST', signal }),
   projects: (signal?: AbortSignal) =>
     request<{ projects: ProjectSummary[]; total: number }>('/api/projects', { signal }),
   project: (id: string, signal?: AbortSignal) =>

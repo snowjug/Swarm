@@ -110,8 +110,9 @@ Reports are computed from recorded states, not fabricated AI prose. Local follow
 is labeled evidence lookup, not an AI interview.
 
 Model-assisted mode makes actual configured-provider requests for knowledge,
-personas, per-round decisions, reports and interviews. It must fail visibly rather
-than fall back to local output after a provider or schema error.
+personas, a decision for every proxy on every platform in every round, reports,
+a grounding check and interviews. It must fail visibly rather than fall back to
+local output after a provider or schema error.
 
 ## Local components
 
@@ -132,6 +133,7 @@ React + TypeScript
                  ├─ Ollama local HTTP API
                  ├─ OpenAI-compatible Chat Completions
                  └─ Azure OpenAI / Foundry OpenAI v1
+                      └─ Microsoft Entra ID token (DefaultAzureCredential) or API key
 ```
 
 Node 24 supplies SQLite without a native npm addon. The installed Python 3.15 is
@@ -156,20 +158,21 @@ complete. This is a local, single-user architecture, not a distributed job syste
 
 ### Implemented module boundaries
 
-| Module                             | Responsibility                                                                                                 |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `shared/types.ts`                  | Shared input validation, limits and request/result types                                                       |
-| `backend/src/app.ts`, `routes/`    | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                         |
-| `backend/src/storage/`             | SQLite persistence, storage decoding, events, conversations and restart recovery                               |
-| `backend/src/knowledge/`           | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                           |
-| `backend/src/agents/`              | Persona setup, simultaneous state updates, model tasks, review and reporting                                   |
-| `backend/src/models/`              | Bounded provider transport, schemas, timeouts/retries and usage reporting                                      |
-| `backend/src/orchestration/`       | Shared quick/guided queue ownership, cancellation, follow-up locking and survey lifecycle                      |
-| `backend/src/guided/`              | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation               |
-| `backend/src/ingest/`              | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                  |
-| `shared/guided.ts`                 | Persisted stage, environment, memory, trace, survey and editing contracts                                      |
-| `frontend/src/hooks/`              | Race/abort-safe project lifecycle, history and active-run polling                                              |
-| `frontend/src/components/console/` | Light guided entry, graph/split/workbench, inspectors, preparation, streams, report/tool trace and interaction |
+| Module                             | Responsibility                                                                                                                |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `shared/types.ts`                  | Shared input validation, limits and request/result types                                                                      |
+| `backend/src/app.ts`, `routes/`    | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                        |
+| `backend/src/storage/`             | SQLite persistence, storage decoding, events, conversations and restart recovery                                              |
+| `backend/src/knowledge/`           | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                          |
+| `backend/src/agents/`              | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting |
+| `backend/src/grounding/`           | Verbatim quote matching, claim verdicts, independent entailment check, chapter-claim validation and the review                |
+| `backend/src/models/`              | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry        |
+| `backend/src/orchestration/`       | Shared quick/guided queue ownership, cancellation, follow-up locking and survey lifecycle                                     |
+| `backend/src/guided/`              | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                              |
+| `backend/src/ingest/`              | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                 |
+| `shared/guided.ts`                 | Persisted stage, environment, memory, trace, survey and editing contracts                                                     |
+| `frontend/src/hooks/`              | Race/abort-safe project lifecycle, history and active-run polling                                                             |
+| `frontend/src/components/console/` | Light guided entry, graph/split/workbench, inspectors, preparation, streams, report/tool trace and interaction                |
 
 The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
 topic interests, influence, openness and four recent memory entries. All round
@@ -184,12 +187,44 @@ and a scheduled intervention applies only in its nominated round. These rules
 are explicit assumptions, not fitted human-behavior parameters.
 
 Model-assisted tasks use distinct constrained prompts and schemas for graph,
-personas, configuration, each platform round and report. Review/limitations are also
-computed server-side. A bounded report plan can request local source/memory searches
-and up to two fictional interviews; only fixed, validated tools can run.
+personas, configuration, each proxy's decision and report. Review/limitations are
+also computed server-side. A bounded report plan can request local source/memory
+searches and up to two fictional interviews; only fixed, validated tools can run.
 There is no open-ended ReAct loop or arbitrary model-selected execution.
 User follow-ups receive retrieved passages, recorded report/persona state and a
 bounded conversation excerpt. There is no external web-research agent.
+
+**Per-proxy decisions.** In model mode each proxy decides separately: one provider
+call per proxy per platform per round, four at a time under one limiter shared by
+both platforms. A call carries only that proxy's own profile, goals and constraints,
+its last four private memory entries, up to three passages it holds (its own cited
+passages first, then relevant ones), the **public** posts of the peers its platform's
+network rules expose to it (broadcast: top influence; community: shared topics and
+similar views within the confidence bound; silence is invisible; round one sees only
+the platform's seed posts), and the scheduled event as an assumption. It never sees
+another proxy's memory, persona, rationale or confidence, or the other platform. The
+reply is `{opinion, type, content, peerIds, sourceIds, rationale, confidence}` and is
+validated server-side: peers must come from what the proxy observed, sources from what
+it held, a reply must name a peer, and opinion may move at most 0.5 per round. A
+violation is sent back for at most two corrective retries and otherwise fails the
+stage. The first failure aborts both platforms' in-flight and queued calls
+synchronously. Rounds still persist atomically as one combined write, so pause,
+resume and branching are unchanged, and a hard per-stage call budget bounds spend.
+The stored `rationale` is the short reason the model chose to state, not hidden
+reasoning, and `confidence` is the proxy's self-reported firmness.
+
+**Grounding.** Report chapters list the statements they rest on, each labeled with
+one of six kinds. `backend/src/grounding/` then verifies them: verbatim quote matching
+over normalized text (an ellipsis allows omissions; fragments must appear in order in
+one passage), word overlap against the cited passage or simulation memory, and figure
+checks against the cited material or the recorded simulation metrics. One independent
+call judges support/contradiction, and each judgement must quote real text from the
+passage or it is rejected and repaired. The verdict is a pure, tested function of the
+checks; a model judgement can lower or confirm but cannot create support without lexical
+overlap, which limits what a hostile passage can do. A failed model check degrades to
+deterministic verdicts and says so; a cancellation is never swallowed. Graph nodes carry
+the same verified verbatim quote. Only listed statements are verified; figures in
+unlisted prose are compared with the recorded data and cited passages.
 
 Info Plaza and Topic Community start from separate copies of the prepared
 population, use broadcast/community exposure respectively, and keep independent
@@ -203,14 +238,28 @@ receive the inputs as untrusted assumptions. Scenario minutes advance when actua
 round results persist, not through a presentation timer.
 
 Report model calls produce a real outline, optional interviews, summary and each
-chapter sequentially. Draft chapters remain visibly incomplete until the stage
-succeeds. Source IDs, synthetic-memory IDs and interview IDs are checked separately.
-No hidden reasoning or provider headers are placed in operation traces.
+chapter sequentially, then a grounding review. Draft chapters remain visibly
+incomplete until the stage succeeds. Source IDs, synthetic-memory IDs and interview
+IDs are checked separately. No hidden reasoning or provider headers are placed in
+operation traces.
 
 Support/opposition thresholds are `>= +0.2` / `<= -0.2`; all remaining proxies are
 undecided. Polarization is population standard deviation, not a calibrated
 political/social measure. Local interactions count actual selected peer exposures;
 model interactions count validated peer IDs reported in decisions.
+
+### Provider layer
+
+`ModelClient` is the only gateway to a model. For Azure it acquires a Microsoft Entra
+token for `https://cognitiveservices.azure.com/.default` (or sends `api-key` only when
+`AZURE_OPENAI_AUTH=key`), sends it only to an allow-listed Azure AI host, never follows
+redirects, bounds request and response size, and maps failures to actionable codes
+(`MODEL_AUTH` naming the missing role, `MODEL_NOT_FOUND`, `MODEL_RATE_LIMIT`, ...)
+without echoing provider bodies. Every call site supplies a server-side validator that
+is used twice: as the bounded repair hook and again on the final value, so no gateway
+can skip a check. `ProviderTelemetry` counts calls, repairs, failures and tokens and
+tracks connectivity (`unverified` until a real call succeeds) without storing content;
+it feeds `GET /api/provider/status`, which drives the always-visible header badge.
 
 ### Persistence and failure semantics
 
@@ -336,8 +385,10 @@ criteria, and [README.md](./README.md) for local operations.
 1. Keep the same React/API container. Prefer **Azure Container Apps** for an existing
    container workflow, or **App Service** when built-in Entra authentication and
    conventional web hosting are the stronger fit. Choose one, not both.
-2. Replace API-key model authentication with managed identity for **Azure OpenAI /
-   Foundry**. Use a deployed model supporting JSON Chat Completions.
+2. Managed-identity authentication to **Azure OpenAI / Foundry** is implemented in the
+   adapter (`DefaultAzureCredential`) and `infra/` creates an Entra-only account with
+   keys disabled; both are unit tested but **not yet exercised live**. Use a deployed
+   model supporting JSON Chat Completions.
 3. Before durable public hosting, replace local SQLite with a managed database
    adapter and externalize durable job ownership. A small managed PostgreSQL
    database is a natural relational choice. Do not put SQLite WAL on Azure Files,

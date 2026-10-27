@@ -84,6 +84,8 @@ export function consoleSchema(
           opinion: opinion.nullable(),
           peerIds: references,
           sourceIds: references,
+          rationale: z.string().optional(),
+          confidence: z.number().min(0).max(1).optional(),
         }),
       )
       .max(1_200),

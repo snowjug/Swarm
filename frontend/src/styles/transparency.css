@@ -1,0 +1,62 @@
+.stated-reason {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-left: 3px solid #7f99ac;
+  background: #f6f9fc;
+}
+.stated-reason p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.stated-reason .stated-reason-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #3c5971;
+}
+.stated-reason .stated-reason-note {
+  font-size: 12px;
+  color: var(--muted);
+}
+.stated-reason .stated-reason-firmness {
+  font-family: var(--mono);
+}
+.view-stack > .stated-reason {
+  margin: 0;
+}
+.proxy-assumptions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d4bd9f;
+  border-radius: 3px;
+  background: #fffcf8;
+}
+.proxy-assumptions .proxy-assumptions-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.proxy-assumptions h4 {
+  margin-top: 6px;
+  color: #845127;
+}
+.proxy-assumptions ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.proxy-assumptions li {
+  overflow-wrap: anywhere;
+}

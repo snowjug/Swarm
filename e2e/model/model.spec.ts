@@ -2,6 +2,9 @@ import { expect, test, type APIRequestContext, type PlaywrightWorkerArgs } from 
 import { advance, apiContext, createGuided, getProject } from '../support/helpers';
 
 const providerUrl = `http://127.0.0.1:${process.env.E2E_PROVIDER_PORT || 11999}`;
+// Fictional proxies in the first journey; each platform asks the model once per proxy per round.
+const PROXIES = 6;
+const ROUNDS = 8;
 
 async function provider(playwright: PlaywrightWorkerArgs['playwright']) {
   const request: APIRequestContext = await playwright.request.newContext({ baseURL: providerUrl });
@@ -13,6 +16,7 @@ async function provider(playwright: PlaywrightWorkerArgs['playwright']) {
         calls: number;
         byKind: Record<string, number>;
         rounds: number[];
+        actors: Record<string, number>;
       },
   };
 }
@@ -26,7 +30,7 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
   }) => {
     const fake = await provider(playwright);
     await fake.reset();
-    await fake.control({ latencyMs: 500 });
+    await fake.control({ latencyMs: 700 });
     const api = await apiContext(playwright);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/');
@@ -36,8 +40,8 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       await expect(mode).toBeEnabled();
       await mode.check();
       await page.getByRole('button', { name: 'Load fictional starter input' }).click();
-      await page.getByRole('spinbutton', { name: 'Fictional proxies' }).fill('6');
-      await page.getByRole('spinbutton', { name: 'Rounds / platform' }).fill('8');
+      await page.getByRole('spinbutton', { name: 'Fictional proxies' }).fill(String(PROXIES));
+      await page.getByRole('spinbutton', { name: 'Rounds / platform' }).fill(String(ROUNDS));
     });
 
     await test.step('Graph Build makes real provider calls and the graph comes from the model output', async () => {
@@ -73,14 +77,15 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       await expect(banner).toBeVisible({ timeout: 30_000 });
       pausedAt = Number(/round (\d+) of 8/.exec((await banner.textContent()) ?? '')?.[1]);
       expect(pausedAt).toBeGreaterThanOrEqual(2);
-      expect(pausedAt).toBeLessThan(8);
+      expect(pausedAt).toBeLessThan(ROUNDS);
 
       const paused = await getProject(api, id);
       expect(paused.console?.steps.simulation).toBe('paused');
       expect(paused.status).toBe('ready');
       expect(paused.rounds).toHaveLength(pausedAt);
-      // 4 setup calls + 2 platform calls per saved round, plus any in-flight work that was really spent.
-      expect(paused.execution!.modelCalls).toBeGreaterThanOrEqual(4 + 2 * pausedAt);
+      // 4 setup calls + one call per proxy per platform per saved round, plus any in-flight work
+      // that was really spent before the pause took effect.
+      expect(paused.execution!.modelCalls).toBeGreaterThanOrEqual(4 + 2 * PROXIES * pausedAt);
       expect(paused.execution!.inputTokens).toBeGreaterThan(0);
       expect(paused.execution!.outputTokens).toBeGreaterThan(0);
     });
@@ -98,20 +103,34 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
     });
 
     await test.step('Resume continues from the next round and the intervention reaches the provider', async () => {
-      const decisionsBefore = (await fake.stats()).byKind.decisions ?? 0;
+      const actorBefore = (await fake.stats()).byKind.actor ?? 0;
       await page.getByRole('button', { name: /^Resume/ }).click();
       await expect(page.getByRole('button', { name: /Generate Report/ })).toBeVisible({
-        timeout: 90_000,
+        timeout: 120_000,
       });
       const done = await getProject(api, id);
-      expect(done.rounds).toHaveLength(8);
+      expect(done.rounds).toHaveLength(ROUNDS);
       const applied = (done.rounds as { round: number; intervention: unknown }[]).filter(
         (round) => round.intervention !== null,
       );
       expect(applied.map((round) => round.round)).toEqual([pausedAt + 2]);
-      const decisionsAfter = (await fake.stats()).byKind.decisions ?? 0;
-      // Only the remaining rounds are requested again: 2 platforms each.
-      expect(decisionsAfter - decisionsBefore).toBe(2 * (8 - pausedAt));
+      const stats = await fake.stats();
+      // Only the remaining rounds are requested again: one call per proxy on each of 2 platforms.
+      expect((stats.byKind.actor ?? 0) - actorBefore).toBe(2 * PROXIES * (ROUNDS - pausedAt));
+      // Every (platform, round, proxy) was decided by its own model call...
+      const keys = Object.keys(stats.actors);
+      expect(keys).toHaveLength(2 * ROUNDS * PROXIES);
+      for (const platform of ['plaza', 'community']) {
+        for (let round = 1; round <= ROUNDS; round += 1) {
+          for (let proxy = 1; proxy <= PROXIES; proxy += 1) {
+            expect(stats.actors[`${platform}:${round}:agent-${proxy}`]).toBeGreaterThanOrEqual(1);
+          }
+        }
+      }
+      // ...and a round that was saved before the pause was never asked for again.
+      for (const [key, count] of Object.entries(stats.actors)) {
+        if (Number(key.split(':')[1]) <= pausedAt) expect(count, key).toBe(1);
+      }
     });
 
     await test.step('Report: provider-planned tools, three chapters and real citations', async () => {
@@ -121,6 +140,8 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       });
       await expect(page.getByText(/conditional comparison/i).first()).toBeVisible();
       expect((await fake.stats()).byKind).toMatchObject({ plan: 1, summary: 1, chapter: 3 });
+      // The report's statements were checked by an independent call that had to quote real text.
+      expect((await fake.stats()).byKind.entailment).toBe(1);
     });
 
     await test.step('Chat with a fictional actor is a real, labelled provider call', async () => {
