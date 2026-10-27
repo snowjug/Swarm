@@ -185,9 +185,10 @@ export class ModelClient implements ModelGateway {
     let throttled = 0;
     while (true) {
       throwIfAborted(signal);
+      // Signing in is local work: the provider timeout must cover only the request itself.
+      const authorization = await this.entraAuthorization(signal);
       const timeout = AbortSignal.timeout(timeoutMs);
       const requestSignal = AbortSignal.any([signal, timeout]);
-      const authorization = await this.entraAuthorization(signal);
       let response: Response;
       try {
         response = await this.fetcher(url, {

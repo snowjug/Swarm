@@ -61,24 +61,32 @@ added automatically.
 
 ## Azure AI integration: what exists and what is verified
 
-| Capability                                                 | Implemented | Verified how                                                        |
-| ---------------------------------------------------------- | ----------- | ------------------------------------------------------------------- |
-| Entra ID token auth (`DefaultAzureCredential`), no key     | Yes         | Unit tests with a fake credential. **Not** against a live resource  |
-| Host allow-list; bearer token never sent elsewhere         | Yes         | Unit tests                                                          |
-| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`   | Yes         | Unit tests with a fake HTTP server                                  |
-| Bounded structured-output repair loop                      | Yes         | Unit + integration tests with scripted replies                      |
-| Provider status/telemetry API and UI badge                 | Yes         | Unit tests, browser audit                                           |
-| One real model call per proxy, platform and round          | Yes         | Integration tests and e2e against a **fake** provider               |
-| Grounding review (quotes, support verdicts, contradiction) | Yes         | Unit and integration tests against a **fake** provider              |
-| Bicep for an Entra-only Foundry account + deployment       | Yes         | `bicep build` and lint; **never deployed**                          |
-| Provisioning/teardown scripts with safety gates            | Yes         | Unit tests with a fake Azure CLI; read-only preflight against Azure |
-| One-command live verification (`npm run azure:verify`)     | Yes         | Unit/flow tests and a Playwright run against a **fake** provider    |
-| Live Azure model calls, live E2E, live prompt-injection    | **No**      | Blocked: needs a subscription or resource group you can deploy to   |
+| Capability                                                 | Implemented | Verified how                                                                                                        |
+| ---------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
+| Entra ID token auth (`DefaultAzureCredential`), no key     | Yes         | Unit tests with a fake credential, plus one live token acquisition (see below). **Not** yet used against a resource |
+| Host allow-list; bearer token never sent elsewhere         | Yes         | Unit tests                                                                                                          |
+| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`   | Yes         | Unit tests with a fake HTTP server                                                                                  |
+| Bounded structured-output repair loop                      | Yes         | Unit + integration tests with scripted replies                                                                      |
+| Provider status/telemetry API and UI badge                 | Yes         | Unit tests, browser audit                                                                                           |
+| One real model call per proxy, platform and round          | Yes         | Integration tests and e2e against a **fake** provider                                                               |
+| Grounding review (quotes, support verdicts, contradiction) | Yes         | Unit and integration tests against a **fake** provider                                                              |
+| Bicep for an Entra-only Foundry account + deployment       | Yes         | `bicep build` and lint; **never deployed**                                                                          |
+| Provisioning/teardown scripts with safety gates            | Yes         | Unit tests with a fake Azure CLI; read-only preflight against Azure                                                 |
+| One-command live verification (`npm run azure:verify`)     | Yes         | Unit/flow tests and a Playwright run against a **fake** provider                                                    |
+| Live Azure model calls, live E2E, live prompt-injection    | **No**      | Blocked: needs a subscription or resource group you can deploy to                                                   |
 
 Nothing in this repository claims live Azure verification. The only live Azure
-evidence is the read-only preflight, which reported that the signed-in account had no
-permission to create a resource group, an AI account, a deployment or a role assignment
-in any visible subscription.
+evidence is:
+
+- the read-only permission checks, which found that the signed-in account has no
+  permission to create a resource group, an AI account, a deployment or a role assignment
+  in any of the 83 visible subscriptions (re-checked on 27 Oct 2026, with no errors); and
+- one real Microsoft Entra token, acquired through the app's own token provider
+  (`DefaultAzureCredential`, here via the `az` sign-in) for the Cognitive Services scope.
+  Its audience was `https://cognitiveservices.azure.com` and it was valid for about
+  64 minutes. The first acquisition took about 16 s (a cold start) and later ones about
+  3 s. This shows the sign-in works for the account; **no resource has accepted a token
+  yet**, because no resource exists.
 
 ## Provisioning the model account with this repository
 

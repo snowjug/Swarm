@@ -46,6 +46,27 @@ describe('Microsoft Entra ID authentication for Azure', () => {
     expect(tokens.getToken).toHaveBeenCalledTimes(2);
   });
 
+  it('does not count a slow sign-in against the provider timeout', async () => {
+    const slowSignIn = {
+      getToken: vi.fn<(signal: AbortSignal) => Promise<string>>().mockImplementation(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        return TOKEN;
+      }),
+    };
+    const config = testConfig({ ...azureEnvironment, AI_TIMEOUT_MS: '100' }).provider;
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => completion('{"answer":"ok"}'));
+    await new ModelClient(config, () => undefined, fetcher, 16, { tokens: slowSignIn }).json(
+      answer,
+      'Return JSON.',
+      {},
+      signal(),
+    );
+    // Sign-in took 2.5x the timeout, yet the request itself still had its full time budget.
+    expect(fetcher.mock.calls[0]![1]!.signal!.aborted).toBe(false);
+  });
+
   it('asks the Azure Identity credential for the Cognitive Services scope and honours cancellation', async () => {
     const credential = {
       getToken: vi

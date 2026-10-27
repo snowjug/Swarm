@@ -16,6 +16,8 @@ jobs:
       AI_PROVIDER: none
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: 24
@@ -24,6 +26,8 @@ jobs:
       - run: npm run check
       - run: npm run format:check
       - run: npm audit --audit-level=high
+      - name: Scan every reachable commit and the working tree for credentials
+        run: npm run scan:secrets
       - name: Install browser for end-to-end tests
         run: npx playwright install --with-deps chromium
       - name: End-to-end journey, error states, responsive layout and accessibility
