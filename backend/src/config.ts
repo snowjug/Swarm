@@ -175,10 +175,12 @@ function buildProvider(
     auth,
     managedIdentityClientId: auth === 'entra' ? managedIdentityClientId : null,
     configured: true,
+    // Describes configuration only. Whether the provider answers is the status endpoint's job, so
+    // this text must stay true both before and after a successful connection check.
     reason:
       auth === 'entra'
-        ? 'Microsoft Entra ID sign-in will be used (no API key). Connectivity and the "Cognitive Services OpenAI User" role are not yet verified.'
-        : 'Configuration is present. Connectivity and model compatibility are not yet verified.',
+        ? 'Microsoft Entra ID sign-in will be used (no API key). The signed-in identity needs the "Cognitive Services OpenAI User" role on the resource.'
+        : 'Provider settings are present on the server.',
   };
 }
 

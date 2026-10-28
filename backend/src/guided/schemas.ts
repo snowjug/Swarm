@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { chapterClaimSchema } from '../../../shared/grounding.js';
+import { trimmedIds } from '../../../shared/citations.js';
 import { ontologySchema } from '../../../shared/guided.js';
 import { extractedGraphSchema } from '../models/schemas.js';
 
@@ -23,7 +24,7 @@ export const generatedEnvironmentSchema = z.object({
         platform: z.enum(['plaza', 'community', 'both']),
         stance: z.number().min(-1).max(1),
         strength: z.number().min(0).max(1),
-        sourceIds: z.array(z.string()).max(5),
+        sourceIds: trimmedIds(z.string(), 5),
       }),
     )
     .min(1)
@@ -34,7 +35,7 @@ export const reportPlanSchema = z.object({
   title: z.string().trim().min(3).max(180),
   sections: z.array(z.string().trim().min(3).max(100)).min(3).max(5),
   evidenceQueries: z.array(z.string().trim().min(3).max(300)).min(1).max(3),
-  interviewAgentIds: z.array(z.string()).max(2),
+  interviewAgentIds: trimmedIds(z.string(), 2),
   interviewQuestion: z.string().trim().min(5).max(500),
 });
 
@@ -44,17 +45,17 @@ export const summarySchema = z.object({
 
 export const reportChapterSchema = z.object({
   body: z.string().trim().min(30).max(3_500),
-  sourceIds: z.array(z.string()).max(5),
-  memoryIds: z.array(z.string()).max(8),
-  interviewIds: z.array(z.string()).max(2),
+  sourceIds: trimmedIds(z.string(), 5),
+  memoryIds: trimmedIds(z.string(), 8),
+  interviewIds: trimmedIds(z.string(), 2),
   /** The checkable statements this chapter rests on; each is verified after the chapter is written. */
   claims: z.array(chapterClaimSchema).min(1).max(6),
 });
 
 export const interviewSchema = z.object({
   answer: z.string().trim().min(10).max(2_500),
-  sourceIds: z.array(z.string()).max(5),
-  memoryIds: z.array(z.string()).max(8).default([]),
+  sourceIds: trimmedIds(z.string(), 5),
+  memoryIds: trimmedIds(z.string(), 8).default([]),
 });
 
 export { ontologySchema };

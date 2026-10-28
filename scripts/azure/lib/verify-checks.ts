@@ -180,9 +180,12 @@ export function checkGrounding(
 export function checkGroundingModel(project: ProjectDetail): string {
   const review = project.report?.grounding;
   if (review?.method !== 'deterministic+model') {
-    const notes = review?.notes.slice(0, 2).join(' ') ?? '';
+    // The note that says why the check did not run is not always the first one.
+    const reason =
+      review?.notes.find((note) => /model check|No model was available/iu.test(note)) ??
+      'No note explains why.';
     throw new CheckFailure(
-      `The review method was "${review?.method ?? 'missing'}", so the independent model check did not run. ${notes}`.trim(),
+      `The review method was "${review?.method ?? 'missing'}", so the independent model check did not run. ${reason}`.trim(),
     );
   }
   return 'Verdicts combine the deterministic checks with an independent model judgement that had to quote real text.';
@@ -252,12 +255,16 @@ export function checkChatReply(
   return `${reply.content.length} characters, ${cited}, ${newCalls} real round trip${newCalls === 1 ? '' : 's'}.`;
 }
 
+/** The server's counters cover its whole process lifetime, so a verification run reports differences. */
+export type ProviderCounters = ProviderStatus['counters'];
+
 export function checkTelemetry(
   status: ProviderStatus,
-  baselineCalls: number,
+  baseline: ProviderCounters,
   recordedCalls: number,
 ): string {
-  const counted = status.counters.calls - baselineCalls;
+  const now = status.counters;
+  const counted = now.calls - baseline.calls;
   if (status.connectivity !== 'ok') {
     throw new CheckFailure(`Provider connectivity is "${status.connectivity}".`);
   }
@@ -266,11 +273,12 @@ export function checkTelemetry(
       `The server counted ${counted} provider round trips but ${recordedCalls} completions are recorded on the projects.`,
     );
   }
-  const { repairCalls, failures, inputTokens, outputTokens, tokensReported } = status.counters;
-  const tokens = tokensReported
-    ? `${inputTokens} input / ${outputTokens} output tokens`
+  const retries = now.repairCalls - baseline.repairCalls;
+  const failures = now.failures - baseline.failures;
+  const tokens = now.tokensReported
+    ? `${now.inputTokens - baseline.inputTokens} input / ${now.outputTokens - baseline.outputTokens} output tokens`
     : 'the provider reported no token usage';
-  return `${counted} round trips counted by the server against ${recordedCalls} recorded completions; ${repairCalls} corrective retries, ${failures} failed attempts; ${tokens}.`;
+  return `${counted} round trips counted by the server against ${recordedCalls} recorded completions; ${retries} corrective retries, ${failures} failed attempts; ${tokens}.`;
 }
 
 export function checkInjection(project: ProjectDetail, replies: readonly string[]): string {

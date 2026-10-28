@@ -34,7 +34,9 @@ describe('provider configuration and public boundaries', () => {
     const serialized = JSON.stringify(publicConfig(config));
     expect(serialized).not.toContain('azure-test-placeholder');
     expect(serialized).not.toContain('example.openai.azure.com');
-    expect(publicConfig(config).provider.reason).toContain('not yet verified');
+    // Configuration text is true before and after a connection check; verification is the status's job.
+    expect(publicConfig(config).provider.reason).toContain('settings are present');
+    expect(publicConfig(config).provider.reason).not.toMatch(/verified/iu);
   });
 
   it('uses Microsoft Entra ID for Azure by default: no key is required, kept or exposed', () => {
@@ -54,6 +56,8 @@ describe('provider configuration and public boundaries', () => {
       'https://swarm-dev.cognitiveservices.azure.com/openai/v1/',
     );
     expect(publicConfig(config).provider.reason).toContain('Entra');
+    expect(publicConfig(config).provider.reason).toContain('Cognitive Services OpenAI User');
+    expect(publicConfig(config).provider.reason).not.toMatch(/verified/iu);
 
     // A leftover key must never be used silently when Entra is selected.
     const withKey = loadConfig({ ...base, AZURE_OPENAI_API_KEY: 'should-be-ignored-key' });

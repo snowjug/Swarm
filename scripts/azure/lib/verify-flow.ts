@@ -202,7 +202,7 @@ export async function runLiveVerification(
     });
     return {
       detail: checkProviderConfig(status, expected),
-      value: { baselineCalls: status.counters.calls },
+      value: { baseline: status.counters },
     };
   });
   if (!configured) return finish();
@@ -265,7 +265,7 @@ export async function runLiveVerification(
   await recorder.run('telemetry', async () => {
     const [status, main] = await Promise.all([api.status(), api.project(project.id)]);
     const recorded = (main.execution?.modelCalls ?? 0) + (branch?.execution?.modelCalls ?? 0);
-    return checkTelemetry(status, configured.baselineCalls, recorded);
+    return checkTelemetry(status, configured.baseline, recorded);
   });
 
   let markdown: unknown = null;

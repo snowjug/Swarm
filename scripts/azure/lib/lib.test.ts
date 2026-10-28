@@ -395,6 +395,30 @@ describe('deployment helpers', () => {
     expect(() => parseOutputs(null)).toThrow(/no outputs/);
   });
 
+  // Captured from a real subscription-scope deployment: ARM returns the output names with their
+  // leading capitals rewritten, which made the first live provisioning succeed in Azure and then
+  // fail in this script ("outputs are missing the account, endpoint or deployment name").
+  it('reads the output names exactly as ARM returns them, with rewritten capitalization', () => {
+    const endpoint = 'https://ai-x.cognitiveservices.azure.com/';
+    expect(
+      parseOutputs({
+        azurE_AI_ACCOUNT_NAME: { type: 'String', value: 'ai-x' },
+        azurE_LOCATION: { type: 'String', value: 'eastus2' },
+        azurE_OPENAI_DEPLOYMENT: { type: 'String', value: 'swarm-chat' },
+        azurE_OPENAI_ENDPOINT: { type: 'String', value: endpoint },
+        azurE_OPENAI_MODEL: { type: 'String', value: 'gpt-4.1-mini' },
+        azurE_OPENAI_MODEL_VERSION: { type: 'String', value: '2025-04-14' },
+        azurE_RESOURCE_GROUP: { type: 'String', value: 'rg-swarm-dev' },
+      }),
+    ).toEqual({
+      accountName: 'ai-x',
+      endpoint,
+      deployment: 'swarm-chat',
+      resourceGroup: 'rg-swarm-dev',
+      location: 'eastus2',
+    });
+  });
+
   it.each([
     ['(InsufficientQuota) This operation require 10 new capacity in quota', 'quota'],
     ['(SkuNotSupported) The model is not supported in this region', 'model-unavailable'],

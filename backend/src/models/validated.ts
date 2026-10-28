@@ -16,8 +16,13 @@ export async function jsonValidated<T>(
   signal: AbortSignal,
   maxTokens: number | undefined,
   validate: (value: T) => void,
+  /** Corrective retries allowed for this call (the client caps it at three). */
+  repairs?: number,
 ): Promise<T> {
-  const value = await model.json(schema, instructions, data, signal, maxTokens, { validate });
+  const value = await model.json(schema, instructions, data, signal, maxTokens, {
+    validate,
+    ...(repairs === undefined ? {} : { repairs }),
+  });
   validate(value);
   return value;
 }

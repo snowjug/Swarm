@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { trimmedIds } from './citations.js';
 
 /**
  * What a statement in a report claims to be. A report mixes very different things; the label keeps
@@ -49,14 +50,31 @@ export const SUPPORT_VERDICT_LABELS: Record<SupportVerdict, string> = {
   unchecked: 'Not checkable',
 };
 
+/** What a claim may carry. Longer lists and quotes are trimmed, not rejected (see `chapterClaimSchema`). */
+export const MAX_CLAIM_CITATIONS = 3;
+export const MAX_CLAIM_QUOTE_LENGTH = 300;
+
+/**
+ * Format limits are applied by trimming, because a real model routinely overshoots them and
+ * rejecting a whole chapter for it costs a repair per slip. Trimming never creates support: a prefix
+ * of a verbatim quote is still verbatim and is still checked, and fewer citations can only make a
+ * verdict stricter. Integrity rules (known identifiers, a verbatim quote) stay strict elsewhere.
+ */
+const citationIds = trimmedIds(z.string(), MAX_CLAIM_CITATIONS);
+
 /** The model-written statement before any verification. */
 export const chapterClaimSchema = z.object({
   text: z.string().trim().min(10).max(400),
   kind: z.enum(CLAIM_KINDS),
-  sourceIds: z.array(z.string()).max(3),
-  memoryIds: z.array(z.string()).max(3),
+  sourceIds: citationIds,
+  memoryIds: citationIds,
   /** A verbatim excerpt of a cited source passage. Required for a source fact. */
-  quote: z.string().trim().min(8).max(300).nullable(),
+  quote: z
+    .string()
+    .trim()
+    .min(8)
+    .transform((quote) => quote.slice(0, MAX_CLAIM_QUOTE_LENGTH).trim())
+    .nullable(),
 });
 export type ChapterClaim = z.infer<typeof chapterClaimSchema>;
 

@@ -4,11 +4,22 @@ import { buildLocalGraph, validateCitations } from '../knowledge/graph.js';
 import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
 import { jsonValidated } from '../models/validated.js';
+import { suspiciousPassageIds } from '../models/injection.js';
 import { validateNodeQuotes } from '../grounding/graph.js';
 import type { Repository } from '../storage/repository.js';
 import { AppError, throwIfAborted } from '../errors.js';
 import { guidedGraphSchema, ontologySchema, type GuidedGraph } from './schemas.js';
 import { traceOperation, updateConsole } from './state.js';
+
+/** A plain notice for the user when a source contains text that is addressed to an AI system. */
+function injectionNotes(chunks: ReadonlyArray<{ id: string; text: string }>): string[] {
+  const ids = suspiciousPassageIds(chunks);
+  if (ids.length === 0) return [];
+  const shown = ids.slice(0, 5).join(', ');
+  return [
+    `Passage${ids.length === 1 ? '' : 's'} ${shown}${ids.length > 5 ? ` and ${ids.length - 5} more` : ''} contain${ids.length === 1 ? 's' : ''} text that reads as an instruction to an AI model. It is treated as data, and a model reply that repeats it is rejected; review the source before relying on the results.`,
+  ];
+}
 
 function assertUniqueTypes(ontology: Ontology): void {
   const typeNames = new Set(ontology.entityTypes.map((type) => type.name));
@@ -149,6 +160,7 @@ export async function buildKnowledge(
         ...extracted,
         notes: [
           `Model extraction used ${evidence.length} selected passages of ${chunks.length}; long sources are excerpted.`,
+          ...injectionNotes(chunks),
           'Citations establish provenance, not source truth or semantic entailment.',
           'Simulation memory is stored separately from seed evidence and is explicitly synthetic.',
         ],

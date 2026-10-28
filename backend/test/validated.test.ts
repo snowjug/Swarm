@@ -45,6 +45,36 @@ describe('jsonValidated', () => {
       mustBePositive,
     );
     expect(received?.validate).toBe(mustBePositive);
+    // No repair count is sent unless the call site asks for one, so the client's default applies.
+    expect(received).not.toHaveProperty('repairs');
+  });
+
+  it('passes the number of corrective retries a call site asks for', async () => {
+    let received: JsonOptions<{ n: number }> | undefined;
+    const gateway: ModelGateway = {
+      async json<T>(
+        _schema: z.ZodType<T>,
+        _i: string,
+        _d: unknown,
+        _s: AbortSignal,
+        _m?: number,
+        options?: JsonOptions<T>,
+      ): Promise<T> {
+        received = options as JsonOptions<{ n: number }>;
+        return { n: 1 } as T;
+      },
+    };
+    await jsonValidated(
+      gateway,
+      schemaOf((v) => v),
+      'x',
+      {},
+      new AbortController().signal,
+      100,
+      mustBePositive,
+      3,
+    );
+    expect(received).toMatchObject({ validate: mustBePositive, repairs: 3 });
   });
 
   it('still enforces the validator when a gateway ignores the hook', async () => {

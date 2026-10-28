@@ -16,6 +16,9 @@ const CANCELLATION_CODES = new Set(['RUN_CANCELLED', 'RUN_PAUSED', 'RUN_TIMEOUT'
 /** A listed claim must restate something the chapter actually says. */
 export const BODY_COVERAGE = 0.5;
 const MAX_FIGURES_PER_SECTION = 8;
+/** One repair message names at most this many problems; the model fixes them together. */
+const MAX_REPORTED_PROBLEMS = 8;
+const MAX_LISTED_IDS = 24;
 
 export interface ChapterForReview {
   title: string;
@@ -23,6 +26,8 @@ export interface ChapterForReview {
   sourceIds: string[];
   memoryIds: string[];
   claims: ChapterClaim[];
+  /** Listed statements that did not restate the chapter and were left out; the review says so. */
+  droppedClaims?: number;
 }
 
 function invalid(message: string): never {
@@ -38,51 +43,83 @@ function pick(ids: readonly string[], from: ReadonlyMap<string, string>): Map<st
   return picked;
 }
 
+function listIds(ids: Iterable<string>): string {
+  const all = [...ids];
+  const shown = all.slice(0, MAX_LISTED_IDS).join(', ') || 'none';
+  return all.length > MAX_LISTED_IDS ? `${shown} (and ${all.length - MAX_LISTED_IDS} more)` : shown;
+}
+
 /**
  * Server-side checks on the claims a model lists for a chapter. A failure is sent back to the
- * model for a bounded repair, so the messages say what to fix and never echo the model's own text.
+ * model for a bounded repair, so the message says what to fix and never echoes the model's own
+ * text. It reports every problem in one pass: a real model that is told about one claim at a time
+ * fixes that claim, trips over the next one, and runs out of repairs before it converges.
+ *
+ * Only integrity is enforced here (known identifiers, a citation where one is required, a verbatim
+ * quote). Whether a claim restates its chapter is handled by `splitCoveredClaims`.
  */
 export function validateChapterClaims(
-  chapter: Pick<ChapterForReview, 'body' | 'claims'>,
+  chapter: Pick<ChapterForReview, 'claims'>,
   context: Pick<VerificationContext, 'passages' | 'memories'>,
 ): void {
+  const problems: string[] = [];
+  let identifierProblem = false;
   chapter.claims.forEach((claim, index) => {
-    const label = `claims[${index}] (${claim.kind})`;
+    const report = (message: string): void => {
+      problems.push(`claims[${index}] (${claim.kind}) ${message}`);
+    };
     if (claim.sourceIds.some((id) => !context.passages.has(id))) {
-      invalid(
-        `${label} cites a passage that was not supplied; valid passage IDs: ${[...context.passages.keys()].join(', ') || 'none'}.`,
-      );
+      identifierProblem = true;
+      report('cites a passage that was not supplied.');
     }
     if (claim.memoryIds.some((id) => !context.memories.has(id))) {
-      invalid(
-        `${label} cites a simulation memory that was not supplied; valid memory IDs: ${[...context.memories.keys()].slice(0, 12).join(', ') || 'none'}.`,
-      );
+      identifierProblem = true;
+      report('cites a simulation memory that was not supplied.');
     }
     if (SOURCE_KINDS.has(claim.kind)) {
       if (claim.sourceIds.length === 0) {
-        invalid(`${label} must cite at least one supplied passage in sourceIds.`);
+        report('must cite at least one supplied passage in sourceIds.');
       }
       const cited = pick(claim.sourceIds, context.passages);
       if (claim.kind === 'source-fact' && claim.quote === null) {
-        invalid(
-          `${label} needs a quote copied verbatim from a cited passage; use "extracted-claim" for a paraphrase.`,
+        report(
+          'needs a quote copied verbatim from a cited passage; use "extracted-claim" for a paraphrase.',
         );
       }
       if (claim.quote !== null && !findQuote(claim.quote, cited).found) {
-        invalid(
-          `${label} has a quote that is not verbatim in the cited passages (at least 12 characters, copied exactly); fix the quote or use "extracted-claim" with quote null.`,
+        report(
+          'has a quote that is not verbatim in the cited passages (at least 12 characters, copied exactly); fix the quote or set it to null.',
         );
       }
     }
     if (claim.kind === 'simulated-event' && claim.memoryIds.length === 0) {
-      invalid(`${label} must cite the simulation memory it describes in memoryIds.`);
-    }
-    if (wordOverlap(claim.text, chapter.body) < BODY_COVERAGE) {
-      invalid(
-        `${label} must restate something the chapter body says; claims are statements from the body, not extra text.`,
-      );
+      report('must cite the simulation memory it describes in memoryIds.');
     }
   });
+  if (problems.length === 0) return;
+  const more =
+    problems.length > MAX_REPORTED_PROBLEMS
+      ? ` (and ${problems.length - MAX_REPORTED_PROBLEMS} more problems)`
+      : '';
+  const identifiers = identifierProblem
+    ? ` Copy identifiers exactly, never construct them: valid passage IDs: ${listIds(context.passages.keys())}; valid memory IDs: ${listIds(context.memories.keys())}. A claim's sourceIds hold only passage IDs and its memoryIds only simulation memory IDs; a claim cannot cite a fictional interview.`
+    : '';
+  invalid(`${problems.slice(0, MAX_REPORTED_PROBLEMS).join(' ')}${more}${identifiers}`);
+}
+
+/**
+ * A listed statement should restate something its chapter says. One that does not (a loose
+ * paraphrase, or text the chapter never wrote) is left out of the review instead of failing an
+ * otherwise sound chapter, and the review states how many were left out.
+ */
+export function splitCoveredClaims(chapter: Pick<ChapterForReview, 'body' | 'claims'>): {
+  kept: ChapterClaim[];
+  dropped: number;
+} {
+  const kept = chapter.claims.filter(
+    (claim) => wordOverlap(claim.text, chapter.body) >= BODY_COVERAGE,
+  );
+  return { kept, dropped: chapter.claims.length - kept.length };
 }
 
 function unverifiedFigures(chapter: ChapterForReview, context: VerificationContext): string[] {
@@ -128,6 +165,14 @@ export async function reviewClaims(input: ReviewInput): Promise<GroundingReview>
     );
   }
   const checks = claims.map(({ claim }) => checkClaim(claim, context));
+  for (const chapter of chapters) {
+    const left = chapter.droppedClaims ?? 0;
+    if (left > 0) {
+      notes.push(
+        `${left} listed ${left === 1 ? 'statement' : 'statements'} in “${chapter.title}” did not restate that chapter’s text and ${left === 1 ? 'was' : 'were'} left out of the review.`,
+      );
+    }
+  }
 
   let method: GroundingReview['method'] = 'deterministic';
   const eligible = claims.flatMap(({ claim }, index) => {

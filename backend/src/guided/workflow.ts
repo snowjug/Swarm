@@ -31,10 +31,10 @@ export class GuidedWorkflow {
             platforms,
             project.settings.rounds,
           )
-        : // The report stage runs a plan, interviews, a summary, up to five chapters and a grounding
-          // check; the rest is headroom for bounded repairs.
+        : // The report stage runs a plan, interviews, a summary, up to five chapters (each allowed up
+          // to three corrective retries) and a grounding check; the rest is headroom.
           step === 'report'
-          ? 28
+          ? 40
           : 16;
     const model =
       project.mode === 'llm'

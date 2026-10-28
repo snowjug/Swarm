@@ -2,7 +2,11 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { describe, expect, it } from 'vitest';
 import { branchInputSchema } from '../../../shared/guided.js';
-import { createProjectSchema, documentInputSchema } from '../../../shared/types.js';
+import {
+  createProjectSchema,
+  documentInputSchema,
+  type ProviderConnectivity,
+} from '../../../shared/types.js';
 import { parseVerifyArgs, UsageError } from './args.js';
 import { buildProject, buildStatus, EVIDENCE, MARKDOWN, MODEL } from './fixtures/verify-world.js';
 import {
@@ -10,11 +14,13 @@ import {
   checkExport,
   checkGraphQuotes,
   checkGrounding,
+  checkGroundingModel,
   checkInjection,
   checkNoSecrets,
   checkPerActor,
   checkProviderConfig,
   checkRealCalls,
+  checkTelemetry,
   minimumCalls,
 } from './verify-checks.js';
 import { fetchHttp } from './verify-http.js';
@@ -215,6 +221,49 @@ describe('verification checks', () => {
     );
   });
 
+  describe('the server counters', () => {
+    const baseline = {
+      calls: 100,
+      repairCalls: 5,
+      failures: 1,
+      inputTokens: 90_000,
+      outputTokens: 12_000,
+      tokensReported: true,
+    };
+    const after = (counters: Partial<typeof baseline>, connectivity: ProviderConnectivity = 'ok') =>
+      buildStatus({ connectivity, counters: { ...baseline, ...counters } });
+
+    // The server's counters span its whole lifetime, so on a server that already served other runs
+    // every figure in the report has to be a difference, not a cumulative total.
+    it('are reported as this run’s own changes on a server that served earlier runs', () => {
+      const status = after({
+        calls: 164,
+        repairCalls: 14,
+        failures: 1,
+        inputTokens: 200_000,
+        outputTokens: 28_000,
+      });
+      expect(checkTelemetry(status, baseline, 63)).toBe(
+        '64 round trips counted by the server against 63 recorded completions; 9 corrective retries, 0 failed attempts; 110000 input / 16000 output tokens.',
+      );
+    });
+
+    it('fail when the server counted fewer round trips than the projects record', () => {
+      expect(failure(() => checkTelemetry(after({ calls: 150 }), baseline, 60))).toContain(
+        'The server counted 50 provider round trips but 60 completions are recorded',
+      );
+    });
+
+    it('fail when the provider is not connected, and say so when it reports no tokens', () => {
+      expect(
+        failure(() => checkTelemetry(after({ calls: 200 }, 'failing'), baseline, 5)),
+      ).toContain('Provider connectivity is "failing"');
+      expect(checkTelemetry(after({ calls: 130, tokensReported: false }), baseline, 20)).toContain(
+        'the provider reported no token usage',
+      );
+    });
+  });
+
   it('requires one stated, bounded decision per proxy per platform per round', () => {
     const { project } = fresh();
     expect(checkPerActor(project, size)).toContain('24 decisions');
@@ -267,6 +316,26 @@ describe('verification checks', () => {
     expect(failure(() => checkGrounding(project, evidence, new Set()))).toContain(
       'local rules engine',
     );
+  });
+
+  it('says why the independent model check did not run, not just the first notes', () => {
+    const { project } = fresh();
+    expect(checkGroundingModel(project)).toContain('independent model judgement');
+    const review = project.report?.grounding;
+    if (review) {
+      review.method = 'deterministic';
+      review.notes = [
+        '2 listed statements in “Chapter” did not restate that chapter’s text and were left out of the review.',
+        'Citations establish provenance, not source truth.',
+        'No source-backed statement needed the independent model check.',
+      ];
+    }
+    const message = failure(() => checkGroundingModel(project));
+    expect(message).toContain('review method was "deterministic"');
+    expect(message).toContain('No source-backed statement needed the independent model check.');
+    expect(message).not.toContain('left out of the review');
+    if (review) review.notes = ['Nothing relevant here.'];
+    expect(failure(() => checkGroundingModel(project))).toContain('No note explains why.');
   });
 
   it('accepts a chat reply only with a real model call, real citations and content', () => {

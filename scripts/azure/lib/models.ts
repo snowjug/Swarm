@@ -111,10 +111,21 @@ function lifecycleProblem(status: string | undefined, options: RankOptions): str
   return `lifecycle is ${status}`;
 }
 
-/** The live catalog sometimes lists one SKU twice with different limits; keep the roomier entry. */
+/**
+ * Fine-tuning hosting reuses SKU names such as "DataZoneStandard" but meters a separate quota
+ * (its usage name ends in "-finetune"), so it can never stand in for the quota that deploying a
+ * base model consumes. The live catalog lists both kinds under the same model.
+ */
+const FINE_TUNING_USAGE = /fine-?tun/iu;
+
+/**
+ * Keeps one inference entry per SKU name. Fine-tuning entries are dropped; among genuine repeats
+ * of an inference SKU the roomier entry wins.
+ */
 function uniqueSkus(skus: readonly CatalogSku[]): CatalogSku[] {
   const byName = new Map<string, CatalogSku>();
   for (const sku of skus) {
+    if (sku.usageName && FINE_TUNING_USAGE.test(sku.usageName)) continue;
     const current = byName.get(sku.name);
     if (!current || (sku.capacity?.maximum ?? 0) > (current.capacity?.maximum ?? 0))
       byName.set(sku.name, sku);

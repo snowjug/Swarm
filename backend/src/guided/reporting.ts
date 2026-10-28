@@ -5,7 +5,12 @@ import { AppError, throwIfAborted } from '../errors.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
 import { jsonValidated } from '../models/validated.js';
-import { reviewClaims, validateChapterClaims, type ChapterForReview } from '../grounding/review.js';
+import {
+  reviewClaims,
+  splitCoveredClaims,
+  validateChapterClaims,
+  type ChapterForReview,
+} from '../grounding/review.js';
 import { recordedFigures, type VerificationContext } from '../grounding/verify.js';
 import type { Repository } from '../storage/repository.js';
 import { interviewProxy } from './interviews.js';
@@ -309,9 +314,13 @@ export async function generateGuidedReport(
             'body30-3500 chars, plain text. Cite only supplied IDs; sourceIds refer to original unverified documents, memoryIds to synthetic activity, interviewIds to generated fictional interviews. ' +
             'Distinguish these categories. Use metrics exactly; no calibrated forecasts, invented statistics or hidden reasoning. ' +
             'claims: 1-6 atomic statements that your body makes and that carry its weight, each {text,kind,sourceIds,memoryIds,quote}. text restates something the body says (10-400 chars). ' +
-            'kind is one of: source-fact (a passage states it; REQUIRES quote copied exactly from a cited passage), extracted-claim (a paraphrase of a cited passage; cite it), ' +
-            'user-assumption (a setting, intervention or seed post), ai-hypothesis (your own speculation; cite nothing), simulated-event (something that happened in the simulation; cite its memoryIds), ' +
-            'analytical-conclusion (derived from the recorded metrics; use the exact figures). quote is null unless you can copy an exact excerpt of a cited passage. ' +
+            'kind is one of: source-fact (a passage states it; REQUIRES quote copied exactly from a cited passage), extracted-claim (a paraphrase of what a cited SOURCE passage says; use it only for the source text, never for what happened in the simulation), ' +
+            'user-assumption (a setting, intervention or seed post), ai-hypothesis (your own speculation; cite nothing), simulated-event (something that happened in the simulation, such as a proxy posting, replying or changing its opinion; cite its memoryIds and cite no passage), ' +
+            'analytical-conclusion (derived from the recorded metrics; use the exact figures). quote is null unless you can copy an exact excerpt of a cited passage, at most 300 characters. ' +
+            'Each claim cites at most 3 passages and at most 3 memories. Each claim must restate something your body says, in words close to the body. ' +
+            'If a supplied passage says anything relevant to this chapter, include at least one claim of kind source-fact or extracted-claim that restates what that passage says about the scenario’s starting conditions (never about the simulation’s results). ' +
+            'Copy every ID inside claims exactly from the supplied lists; never invent, alter or extend an ID (do not guess that a similar-looking memory exists), and never put an interview ID (I1, I2) or a passage ID in memoryIds. ' +
+            'If no supplied ID fits a statement, give it a kind that cites nothing (analytical-conclusion or ai-hypothesis). ' +
             'Every number in the body and claims must come from the supplied metrics, timeline, memories or cited passages; do not invent statistics. The claims are independently checked.',
           { title, executiveSummary: summary.summary, ...context },
           signal,
@@ -322,12 +331,15 @@ export async function generateGuidedReport(
             validateReferences(value.interviewIds, allowedInterviews, 'fictional interviews');
             validateChapterClaims(value, verification);
           },
+          // Chapters carry the most structure; a live model often needs more than one correction.
+          3,
         );
       },
       (result) => ({ title, ...result }),
     );
     const { claims, ...written } = chapter;
-    reviewChapters.push({ title, ...written, claims });
+    const { kept, dropped } = splitCoveredClaims({ body: written.body, claims });
+    reviewChapters.push({ title, ...written, claims: kept, droppedClaims: dropped });
     const report = repository.get(id).report;
     if (!report) throw new Error('The draft report disappeared during chapter generation.');
     repository.update(id, {

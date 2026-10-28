@@ -227,6 +227,7 @@ for (const viewport of viewports) {
       await expect(page.locator('.readiness')).not.toContainText(
         'Configured is not a connectivity check',
       );
+      await expect(page.locator('.readiness')).not.toContainText('not yet verified');
       await expectFits(page, 'provider panel');
       await panel.getByRole('button', { name: 'Verify connection' }).click();
       await expect(panel).toContainText('Connection verified: one real round trip completed');

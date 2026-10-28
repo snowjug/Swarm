@@ -10,13 +10,14 @@ import { jsonValidated } from '../models/validated.js';
 import type { Repository } from '../storage/repository.js';
 import type { ModelFactory } from './runner.js';
 import { z } from 'zod';
+import { trimmedIds } from '../../../shared/citations.js';
 import { MAX_SURVEYS, type SurveyInput, type SurveyRecord } from '../../../shared/guided.js';
 import { executeSurvey } from '../guided/surveys.js';
 import { requireConsole, traceOperation, updateConsole } from '../guided/state.js';
 import { searchMemories, timeline, validateReferences } from '../guided/tools.js';
 import { publicFailure } from '../errors.js';
 
-const followupSchema = answerSchema.extend({ memoryIds: z.array(z.string()).max(8).default([]) });
+const followupSchema = answerSchema.extend({ memoryIds: trimmedIds(z.string(), 8).default([]) });
 
 export class InteractionService {
   private readonly active = new Map<string, AbortController>();

@@ -61,32 +61,113 @@ added automatically.
 
 ## Azure AI integration: what exists and what is verified
 
-| Capability                                                 | Implemented | Verified how                                                                                                        |
-| ---------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------- |
-| Entra ID token auth (`DefaultAzureCredential`), no key     | Yes         | Unit tests with a fake credential, plus one live token acquisition (see below). **Not** yet used against a resource |
-| Host allow-list; bearer token never sent elsewhere         | Yes         | Unit tests                                                                                                          |
-| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`   | Yes         | Unit tests with a fake HTTP server                                                                                  |
-| Bounded structured-output repair loop                      | Yes         | Unit + integration tests with scripted replies                                                                      |
-| Provider status/telemetry API and UI badge                 | Yes         | Unit tests, browser audit                                                                                           |
-| One real model call per proxy, platform and round          | Yes         | Integration tests and e2e against a **fake** provider                                                               |
-| Grounding review (quotes, support verdicts, contradiction) | Yes         | Unit and integration tests against a **fake** provider                                                              |
-| Bicep for an Entra-only Foundry account + deployment       | Yes         | `bicep build` and lint; **never deployed**                                                                          |
-| Provisioning/teardown scripts with safety gates            | Yes         | Unit tests with a fake Azure CLI; read-only preflight against Azure                                                 |
-| One-command live verification (`npm run azure:verify`)     | Yes         | Unit/flow tests and a Playwright run against a **fake** provider                                                    |
-| Live Azure model calls, live E2E, live prompt-injection    | **No**      | Blocked: needs a subscription or resource group you can deploy to                                                   |
+| Capability                                                    | Implemented | Verified how                                                                                                                                                         |
+| ------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entra ID token auth (`DefaultAzureCredential`), no key        | Yes         | Unit tests with a fake credential; **live**: every call in the three verification runs was authorised by an Entra token against a keyless account                    |
+| Host allow-list; bearer token never sent elsewhere            | Yes         | Unit tests                                                                                                                                                           |
+| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`      | Yes         | Unit tests with a fake HTTP server; **live**: the service's real content-filter refusal (HTTP 400) was classified as `MODEL_REFUSED`                                 |
+| Bounded structured-output repair loop                         | Yes         | Unit + integration tests with scripted replies                                                                                                                       |
+| Provider status/telemetry API and UI badge                    | Yes         | Unit tests, browser audit                                                                                                                                            |
+| One real model call per proxy, platform and round             | Yes         | Integration tests and e2e against a fake provider; **live**: 24 decisions per run (4 proxies × 2 platforms × 3 rounds), each with a stated reason, in all three runs |
+| Grounding review (quotes, support verdicts, contradiction)    | Yes         | Unit and integration tests against a fake provider; **live**: the independent model check ran in all three runs                                                      |
+| Bicep for an Entra-only Foundry account + deployment          | Yes         | `bicep build` and lint; **deployed** once to a development subscription (28 Oct 2026)                                                                                |
+| Provisioning/teardown scripts with safety gates               | Yes         | Unit tests with a fake Azure CLI; **live**: one real provisioning run (two script defects found and fixed)                                                           |
+| One-command live verification (`npm run azure:verify`)        | Yes         | Unit/flow tests and a Playwright run against a fake provider; **live**: 15 of 15 checks in three consecutive runs                                                    |
+| Live model calls, live verification run, live injection probe | Yes         | **Yes**, on one development deployment: see "Live evidence" below                                                                                                    |
 
-Nothing in this repository claims live Azure verification. The only live Azure
-evidence is:
+### Live evidence
 
-- the read-only permission checks, which found that the signed-in account has no
-  permission to create a resource group, an AI account, a deployment or a role assignment
-  in any of the 83 visible subscriptions (re-checked on 27 Oct 2026, with no errors); and
-- one real Microsoft Entra token, acquired through the app's own token provider
-  (`DefaultAzureCredential`, here via the `az` sign-in) for the Cognitive Services scope.
-  Its audience was `https://cognitiveservices.azure.com` and it was valid for about
-  64 minutes. The first acquisition took about 16 s (a cold start) and later ones about
-  3 s. This shows the sign-in works for the account; **no resource has accepted a token
-  yet**, because no resource exists.
+On 28 Oct 2026 the repository's provisioning script created `rg-swarm-dev` in a development
+subscription, and `npm run azure:verify` then passed **15 of 15 checks in three consecutive runs**
+against it. Earlier runs failed or half-passed; every failure is listed under
+[What the live runs found](#what-the-live-runs-found).
+
+| What                          | Value                                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Resource group, region        | `rg-swarm-dev`, East US 2                                                                                                             |
+| Account                       | Foundry (`AIServices`, S0) with `disableLocalAuth: true`. Azure refuses to list keys for it, so no key exists                         |
+| Deployment                    | `swarm-chat` = `gpt-4.1-mini` 2025-04-14, `GlobalStandard`, 100K tokens per minute                                                    |
+| Authentication                | Microsoft Entra only (the developer's `az` sign-in through `DefaultAzureCredential`) with the **Cognitive Services OpenAI User** role |
+| Written to the ignored `.env` | `AI_PROVIDER`, `AI_MODEL`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_AUTH`: none is a secret                                             |
+
+| Run                          | Pipeline | Server round trips | Corrective retries | Report statements (supported / partly / not supported / contradicted / not checkable) | Result |
+| ---------------------------- | -------- | ------------------ | ------------------ | ------------------------------------------------------------------------------------- | ------ |
+| 4                            | 136 s    | 61                 | 5                  | 24 (8 / 9 / 7 / 0 / 0)                                                                | 15/15  |
+| 5                            | 151 s    | 64                 | 9                  | 17 (8 / 3 / 4 / 0 / 2)                                                                | 15/15  |
+| 6 (fresh server, no tracing) | 187 s    | 67                 | 11                 | 24 (12 / 4 / 7 / 0 / 1)                                                               | 15/15  |
+
+Each run is four fictional proxies on two platforms over three rounds, then a branch from round 1,
+a report, an analyst chat, an actor chat and an export. The header badge in a real browser read
+**REAL AZURE AI · swarm-chat · connected**, and **Verify connection** completed one real round trip
+(about 4 s); the provider panel showed "Microsoft Entra ID — no API key" and 0 failures.
+
+Read these numbers for what they are:
+
+- The independent check judged **28 of the 65 report statements (43%) fully supported**, 16 partly
+  supported, 18 not supported, 0 contradicted and 3 not checkable. The report shows each verdict
+  next to its statement. Over a quarter of what this small model wrote (18 of 65) was not
+  supported by the sources, which is the reason the check exists.
+- It is one model, one scenario, one subscription and three runs: evidence that the integration
+  works, not a benchmark of quality. Model output varies between runs (the statement counts above
+  differ), so a pass is not a guarantee of the next run.
+- Not tested live: revoked-permission behaviour, quota exhaustion, role-propagation delay,
+  managed identity (the app is not hosted in Azure), multi-user behaviour and Application Insights.
+
+**Why `gpt-4.1-mini`.** The ranking preferred `gpt-5.4-mini`, but this subscription has no quota for it
+in any SKU. Real quota existed only for `GlobalStandard` `gpt-4.1-mini` (200K), `gpt-5-mini` (500K) and
+`o4-mini` (100K). `gpt-5-mini` retires on 2027-02-09, inside the script's 120-day safety window, so
+`gpt-4.1-mini` (lifecycle Legacy, retires 2027-04-14, therefore `--allow-legacy`) was deployed with
+100K. `GlobalStandard` may process prompts in any Azure region; that is acceptable here only because the
+resources are tagged `purpose=dev-synthetic-data-only` and the scenarios are fictional. To move to
+`gpt-5.4-mini`, request quota in the portal, then run
+`npm run azure:provision -- --subscription <guid> --regions eastus2 --models gpt-5.4-mini --yes`.
+
+#### What the live runs found
+
+Each item failed against the real service, was fixed at its cause, and has a test that fails without
+the fix.
+
+1. **Provisioning ranked fine-tuning quota as inference quota.** The catalog lists a model's inference
+   and fine-tuning SKUs under the same names; keeping the roomier one reported "500K free" for a
+   deployment that had no quota. Fine-tuning SKUs are now ignored.
+2. **Provisioning could not read its own outputs.** ARM lower-cases the first letter of output names
+   (`azurE_…`); the lookup is now case-insensitive. The first deployment had in fact succeeded.
+3. **The report stage did not converge.** The validator named one problem per attempt, cut its message
+   to 200 characters (mid-identifier) and echoed only 4,000 characters of the previous reply, so the
+   model repeated a different mistake each time. It now names every problem at once with the valid
+   identifiers (2,400 characters of feedback, 12,000 of the reply), chapters get three repairs and the
+   report-stage call budget rose from 28 to 40.
+4. **Avoidable failures on format limits.** A quote over 300 characters, a claim citing more than three
+   passages, or a claim that did not restate its chapter failed the whole report. These are now
+   disclosed normalizations (trimmed, de-duplicated, or left out with a note in the review). Unknown
+   IDs, missing citations and non-verbatim quotes still fail.
+5. **The model mislabelled simulation events as source claims.** The chapter prompt now defines the kinds
+   precisely; the independent check flags the ones that remain.
+6. **The hidden prompt injection worked.** In run 3 the planted token appeared in 24 of 24 proxy
+   statements (parent and branch), although the prompt said instructions in the data must not be
+   followed, and Azure's default content filter did not stop it. See
+   [Prompt injection, measured](#prompt-injection-measured).
+7. **Two defects in the verifier's own report:** the reason the independent check did not run was buried
+   behind unrelated notes, and the telemetry line mixed this run's counters with the server's lifetime
+   totals.
+8. **A contradictory message in the UI:** the entry card said connectivity was "not yet verified" directly
+   above "A real request has succeeded". The configuration text now describes configuration only.
+
+#### Prompt injection, measured
+
+| Condition                                                                                    | Result                                                                                    |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Run 3, before hardening                                                                      | Token in **24 of 24** proxy statements, parent and branch                                 |
+| Runs 4-6, after a stronger boundary and a trusted reminder placed after the data             | Token in **0 of 144** proxy statements and reasons, 0 of 6 chat replies, 0 of 3 summaries |
+| 16 single calls with the real source and instructions that invite following the planted note | 16 answered, **0** repeated the token                                                     |
+| The same sentence alone in a short passage, 16 calls                                         | 16 refused by Azure's content filter (`MODEL_REFUSED`)                                    |
+
+Two readings matter. First, the prompt change fixed it for this model on these runs; the
+deterministic echo guard (a reply repeating text that an AI-directed instruction asked for is
+rejected and re-requested) **has never fired against the live model**, so it is evidenced by unit
+tests only. Second, Azure's filter blocked the bare sentence but not the same sentence inside the
+scenario source, so platform filtering is inconsistent and is not a control to rely on. Counts of
+this kind are evidence, not proof, and a different or newer model may behave differently.
 
 ## Provisioning the model account with this repository
 
@@ -137,6 +218,18 @@ npm run azure:provision -- --subscription <guid> --list-models     # ranked, wit
 npm run azure:provision -- --subscription <guid> --what-if         # preview, deploys nothing
 npm run azure:provision -- --subscription <guid> --yes             # deploy and write .env
 ```
+
+When the default ranking has no quota in your subscription, name the region, model and
+capacity explicitly. The development deployment in
+[Live evidence](#live-evidence) is equivalent to:
+
+```powershell
+npm run azure:provision -- --subscription <guid> --regions eastus2 --models gpt-4.1-mini --allow-legacy --capacity 100 --yes
+```
+
+`--capacity` is in thousands of tokens per minute (1-100). The ranking reads quota from the
+usage API, which returns real figures only after `Microsoft.CognitiveServices` is registered;
+the first deployment registers it.
 
 Safety properties, all covered by tests:
 
@@ -210,6 +303,11 @@ test everything else. The injection check is then reported as `SKIP` and the ove
 result is `NOT VERIFIED`, on purpose: the platform refusing an input is a real defence,
 but it is not evidence that the app's or the model's own handling resisted it.
 
+Observed live: the filter refused this sentence when it was the only text in a short
+passage (16 of 16 calls), but did **not** refuse the same sentence inside the scenario
+source in any of runs 3-6. Whether the platform intervenes therefore depends on the
+surrounding text, which is why the app does not treat it as a control.
+
 Provider errors are classified from the response's short machine codes only. A
 `400` is reported as `MODEL_REFUSED` (content filter, with the flagged category
 names), `MODEL_PARAMETER_UNSUPPORTED` (with the parameter name, for example a model that
@@ -218,15 +316,17 @@ provider's free-text message is never read or shown, because it can echo prompt 
 
 What this is and is not:
 
-- It was developed and tested against an in-memory stand-in, and end-to-end through
-  the real HTTP stack against a protocol-faithful **fake** provider (`e2e/model/verify.spec.ts`).
-  That proves the script and the app agree; it is **not** evidence about Azure, and
-  running it against any non-Azure provider prints a note saying so.
+- The checks were developed against an in-memory stand-in and, end to end through the
+  real HTTP stack, against a protocol-faithful **fake** provider (`e2e/model/verify.spec.ts`).
+  Those runs prove that the script and the app agree; they are **not** evidence about
+  Azure, and running the script against any non-Azure provider prints a note saying so.
+  The Azure evidence is the live runs in [Live evidence](#live-evidence).
 - One hidden-instruction probe is evidence, not proof, of resistance to prompt
   injection. The quality of a real model's grounding judgements is reported by the
   counts, not assumed good.
-- It does not test Entra role propagation delays, quota exhaustion or multi-user
-  behaviour. Those surface as clear failures in the relevant check when they happen.
+- It does not test Entra role propagation delays, quota exhaustion, revoked permissions
+  or multi-user behaviour. Those surface as clear failures in the relevant check when
+  they happen.
 
 ## Migration phases and acceptance criteria
 
@@ -278,7 +378,7 @@ or “completed” state before result persistence. Verify backup restore.
 
 ### 3. Replace model API keys with managed identity
 
-**Implemented in the adapter, not yet verified against a live resource.** With
+**Implemented, and verified live with a developer's `az` sign-in.** With
 `AZURE_OPENAI_AUTH=entra` (the default) the adapter acquires a Microsoft Entra token
 for `https://cognitiveservices.azure.com/.default` through `DefaultAzureCredential`
 and sends it as `Authorization: Bearer …`. Locally that resolves to your `az login`;
@@ -290,11 +390,15 @@ leftover `AZURE_OPENAI_API_KEY` is ignored in Entra mode.
 The identity needs the **Cognitive Services OpenAI User** role. A missing role
 returns an explicit `MODEL_AUTH` error that names the role.
 
-Acceptance (still to be demonstrated live): inference succeeds without any Azure
-model key in environment or image; revoked permissions fail explicitly; tokens,
-source passages and provider bodies are absent from logs. Unit tests cover the header
-construction, scope, refresh, error mapping and secret hygiene with a fake
-credential; they are not evidence of a real Entra exchange.
+Acceptance, as demonstrated on 28 Oct 2026: inference succeeded in three verification
+runs with no Azure model key anywhere (the account has `disableLocalAuth`, so none can
+exist), and no credential-shaped text appeared in project data, replies, exports or in
+the debug-level server logs and model traces of those runs (scanned with patterns shown to
+detect synthetic samples of a JWT, bearer token, `sk-` key, `api-key` value, account key
+and client secret). Still to demonstrate: a managed identity running in hosted Azure,
+revoked permissions failing explicitly, and tokens, source passages and provider bodies
+being absent from hosted logs. Unit tests cover the header construction, scope, refresh,
+error mapping and secret hygiene with a fake credential.
 
 ### 4. Build and deploy one authenticated container
 
@@ -344,10 +448,13 @@ user deletion, backups, incident response and rollback ownership.
 
 ## What is intentionally not deployed
 
-No Azure subscription resources, public application endpoint, cloud database,
-Entra application registration, semantic index, Blob upload pipeline or distributed
-worker has been created by this milestone. The Entra inference path and the Bicep
-exist in the repository but have not been exercised against a live resource.
+Only the model account exists in Azure: one resource group (`rg-swarm-dev`) holding one
+Foundry account and one deployment in a development subscription. No application
+hosting, public endpoint, cloud database, Key Vault, Entra application registration,
+semantic index, Blob upload pipeline, distributed worker or Application Insights has
+been created. The Entra inference path, the Bicep and the verification script have run
+against that account (see [Live evidence](#live-evidence)), but never under a managed
+identity in hosted Azure.
 Those are explicit migration tasks with acceptance criteria, not hidden dependencies
 of a working local app.
 

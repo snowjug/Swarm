@@ -11,6 +11,7 @@ import {
 import {
   BODY_COVERAGE,
   reviewClaims,
+  splitCoveredClaims,
   validateChapterClaims,
   type ChapterForReview,
 } from '../src/grounding/review.js';
@@ -126,16 +127,6 @@ describe('validateChapterClaims', () => {
       { kind: 'simulated-event', sourceIds: [], quote: null, memoryIds: [] },
       /simulation memory/,
     ],
-    [
-      'a claim unrelated to the chapter',
-      {
-        text: 'Quantum blockchain synergy unlocks galactic harmony.',
-        kind: 'ai-hypothesis',
-        sourceIds: [],
-        quote: null,
-      },
-      /restate something the chapter body says/,
-    ],
   ])('rejects %s with an instruction the model can act on', (_name, override, message) => {
     expect(() => ok({ claims: [claim(override)] })).toThrow(AppError);
     expect(() => ok({ claims: [claim(override)] })).toThrow(message);
@@ -144,16 +135,176 @@ describe('validateChapterClaims', () => {
   it('never echoes the model’s own claim text in the error', () => {
     const text = 'Quantum blockchain synergy unlocks galactic harmony.';
     try {
-      ok({ claims: [claim({ text, kind: 'ai-hypothesis', sourceIds: [], quote: null })] });
+      ok({ claims: [claim({ text, kind: 'extracted-claim', sourceIds: [], quote: null })] });
       throw new Error('expected a rejection');
     } catch (error) {
       expect((error as Error).message).not.toContain('Quantum');
-      expect((error as Error).message).toMatch(/^claims\[0\] \(ai-hypothesis\)/);
+      expect((error as Error).message).toMatch(/^claims\[0\] \(extracted-claim\)/);
     }
+  });
+
+  it('does not reject a claim for being loosely related to the chapter: that is a disclosed split', () => {
+    const unrelated = claim({
+      text: 'Quantum blockchain synergy unlocks galactic harmony.',
+      kind: 'ai-hypothesis',
+      sourceIds: [],
+      quote: null,
+    });
+    expect(() => ok({ claims: [unrelated] })).not.toThrow();
   });
 
   it('requires claims to be covered by the body at the documented threshold', () => {
     expect(BODY_COVERAGE).toBe(0.5);
+  });
+
+  describe('splitCoveredClaims', () => {
+    const loose = claim({
+      text: 'Quantum blockchain synergy unlocks galactic harmony.',
+      kind: 'ai-hypothesis',
+      sourceIds: [],
+      quote: null,
+    });
+
+    it('keeps statements that restate the chapter and counts the ones it leaves out', () => {
+      const kept = claim();
+      const result = splitCoveredClaims(chapter({ claims: [kept, loose, loose] }));
+      expect(result.kept).toEqual([kept]);
+      expect(result.dropped).toBe(2);
+    });
+
+    it('leaves a chapter with no listed statements as it is', () => {
+      expect(splitCoveredClaims(chapter({ claims: [] }))).toEqual({ kept: [], dropped: 0 });
+    });
+
+    it('measures the share of the statement’s own words found in the body, boundary included', () => {
+      const statement = claim({
+        text: 'Transit pilot lower fares galactic harmony synergy blockchain.',
+        kind: 'ai-hypothesis',
+        sourceIds: [],
+        quote: null,
+      });
+      // Four of the statement's eight distinct words are in the body: exactly the threshold, kept.
+      expect(
+        splitCoveredClaims({
+          body: 'Transit pilot lower fares were discussed.',
+          claims: [statement],
+        }).kept,
+      ).toHaveLength(1);
+      // Three of eight is below it, so the statement is left out.
+      expect(
+        splitCoveredClaims({ body: 'Transit pilot lower were discussed.', claims: [statement] }),
+      ).toEqual({ kept: [], dropped: 1 });
+    });
+  });
+
+  describe('the review says what it left out', () => {
+    const run = (droppedClaims?: number) =>
+      reviewClaims({
+        model: null,
+        signal: noAbort(),
+        chapters: [chapter({ ...(droppedClaims === undefined ? {} : { droppedClaims }) })],
+        context: context(),
+        now: new Date('2026-01-01T00:00:00Z'),
+      });
+
+    it('names the chapter and the number of statements left out', async () => {
+      expect((await run(1)).notes).toContain(
+        '1 listed statement in “Evidence” did not restate that chapter’s text and was left out of the review.',
+      );
+      expect((await run(3)).notes).toContain(
+        '3 listed statements in “Evidence” did not restate that chapter’s text and were left out of the review.',
+      );
+    });
+
+    it('says nothing when nothing was left out', async () => {
+      for (const dropped of [undefined, 0]) {
+        const { notes } = await run(dropped);
+        expect(notes.some((note) => note.includes('left out of the review'))).toBe(false);
+      }
+    });
+  });
+
+  // Captured from a real model (gpt-4.1-mini on Azure): it extrapolated memory IDs from their naming
+  // pattern, kept a quote it had paraphrased, and put interview IDs in memoryIds. Reporting only the
+  // first problem meant each correction revealed the next one and the stage ran out of repairs.
+  describe('when a real model gets several claims wrong at once', () => {
+    const message = (claims: ChapterClaim[], memories = context().memories): string => {
+      try {
+        validateChapterClaims(chapter({ claims }), { passages: context().passages, memories });
+      } catch (error) {
+        return (error as Error).message;
+      }
+      throw new Error('expected a rejection');
+    };
+    const several = (): ChapterClaim[] => [
+      claim({ kind: 'simulated-event', sourceIds: [], quote: null, memoryIds: ['M-guessed-9'] }),
+      claim({ kind: 'extracted-claim', sourceIds: [], quote: null }),
+      claim({ kind: 'extracted-claim', quote: 'proposes a twelve-month electric tram pilot' }),
+      claim({ kind: 'source-fact', quote: null }),
+    ];
+
+    it('names every problem in one message so the model can fix them together', () => {
+      const text = message(several());
+      for (const label of [
+        'claims[0] (simulated-event) cites a simulation memory that was not supplied',
+        'claims[1] (extracted-claim) must cite at least one supplied passage',
+        'claims[2] (extracted-claim) has a quote that is not verbatim',
+        'claims[3] (source-fact) needs a quote copied verbatim',
+      ]) {
+        expect(text).toContain(label);
+      }
+    });
+
+    it('lists the valid identifiers once, and says where each kind of identifier belongs', () => {
+      const text = message(several());
+      expect(text.match(/valid memory IDs/g)).toHaveLength(1);
+      expect(text).toContain('valid passage IDs: S1, S2; valid memory IDs: M1');
+      expect(text).toContain('a claim cannot cite a fictional interview');
+    });
+
+    it('lists every valid identifier a chapter may cite, up to a bound, never a silent cut', () => {
+      const memories = new Map(
+        Array.from({ length: 30 }, (_, index) => [`M-${index + 1}`, 'A recorded post.'] as const),
+      );
+      const text = message(
+        [claim({ kind: 'simulated-event', sourceIds: [], quote: null, memoryIds: ['M-x'] })],
+        memories,
+      );
+      expect(text).toContain('M-1, M-2');
+      expect(text).toContain('M-24 (and 6 more)');
+      expect(text).not.toContain('M-25');
+    });
+
+    it('does not repeat identifier lists when no identifier is wrong', () => {
+      const text = message([claim({ kind: 'extracted-claim', sourceIds: [], quote: null })]);
+      expect(text).toContain('must cite at least one supplied passage');
+      expect(text).not.toContain('valid passage IDs');
+    });
+
+    it('names at most eight problems and counts the rest', () => {
+      const text = message(
+        Array.from({ length: 10 }, () =>
+          claim({ kind: 'extracted-claim', sourceIds: [], quote: null }),
+        ),
+      );
+      expect(text.match(/claims\[\d+\]/g)).toHaveLength(8);
+      expect(text).toContain('(and 2 more problems)');
+    });
+
+    it('never echoes an identifier or text the model invented', () => {
+      const text = message([
+        claim({
+          kind: 'simulated-event',
+          sourceIds: [],
+          quote: null,
+          memoryIds: ['M-ceommunity-1-agent-3'],
+        }),
+        claim({ sourceIds: ['S-invented-77'], quote: 'a quote the model made up entirely' }),
+      ]);
+      for (const echoed of ['ceommunity', 'S-invented-77', 'made up entirely']) {
+        expect(text).not.toContain(echoed);
+      }
+    });
   });
 });
 

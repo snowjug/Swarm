@@ -80,9 +80,16 @@ export interface DeploymentOutputs {
   location: string | undefined;
 }
 
+/**
+ * ARM rewrites the capitalization of output names (AZURE_OPENAI_ENDPOINT comes back as
+ * azurE_OPENAI_ENDPOINT), so names are matched case-insensitively.
+ */
 function text(outputs: Record<string, unknown>, ...names: string[]): string | undefined {
+  const byLowerName = new Map(
+    Object.entries(outputs).map(([key, entry]) => [key.toLowerCase(), entry]),
+  );
   for (const name of names) {
-    const entry = outputs[name];
+    const entry = byLowerName.get(name.toLowerCase());
     const value =
       entry && typeof entry === 'object' && 'value' in entry
         ? (entry as { value: unknown }).value

@@ -285,6 +285,64 @@ describe('rankCandidates', () => {
     expect(candidates).toHaveLength(1);
   });
 
+  // Captured from a live subscription: the catalog lists DataZoneStandard and GlobalStandard twice
+  // for gpt-4.1-mini. The larger, second entry of each pair hosts FINE-TUNED models and meters a
+  // different quota. Keeping it once made the script report 500K of free quota for a deployment
+  // whose real quota was zero, and Azure refused the deployment.
+  describe('when the catalog lists fine-tuning SKUs next to inference SKUs', () => {
+    const inference = { minimum: 1, maximum: 1_000_000, step: 1, default: 10 };
+    const fineTune = { minimum: 1, maximum: 10_000_000, step: 1, default: 10 };
+    const skus = [
+      sku('Standard', 'gpt4.1-mini', { capacity: inference }),
+      sku('GlobalStandard', 'gpt4.1-mini', { capacity: inference }),
+      sku('DataZoneStandard', 'gpt4.1-mini', { capacity: inference }),
+      sku('GlobalStandard', 'gpt4.1-mini-finetune', { capacity: fineTune }),
+      sku('DataZoneStandard', 'gpt4.1-mini-finetune', { capacity: fineTune }),
+    ];
+    const usages = [
+      usage('OpenAI.Standard.gpt4.1-mini', 0),
+      usage('OpenAI.GlobalStandard.gpt4.1-mini', 200),
+      usage('OpenAI.DataZoneStandard.gpt4.1-mini', 0),
+      usage('OpenAI.GlobalStandard.gpt4.1-mini-finetune', 500),
+      usage('OpenAI.DataZoneStandard.gpt4.1-mini-finetune', 500),
+    ];
+    const live = [
+      region('eastus2', [entry('gpt-4.1-mini', { lifecycleStatus: 'Legacy' }, skus)], usages),
+    ];
+    const options: RankOptions = { ...base, regions: ['eastus2'], capacity: 50, allowLegacy: true };
+
+    it('reports the inference quota, never the fine-tuning quota', () => {
+      const { candidates } = rankCandidates(live, options);
+      expect(candidates.map((c) => [c.sku, c.quotaAvailable, c.capacity])).toEqual([
+        ['GlobalStandard', 200, 50],
+      ]);
+      expect(candidates.some((c) => c.quotaAvailable === 500)).toBe(false);
+    });
+
+    it('rejects the SKUs whose inference quota is zero', () => {
+      const { rejected } = rankCandidates(live, options);
+      const zero = rejected.filter((r) => r.reason === 'no quota available in this region');
+      expect(zero.map((r) => r.sku).sort()).toEqual(['DataZoneStandard', 'Standard']);
+    });
+
+    it('never offers a SKU that exists only for fine-tuning', () => {
+      const onlyFineTune = [
+        sku('DataZoneStandard', 'gpt4.1-mini-finetune', { capacity: fineTune }),
+      ];
+      const { candidates } = rankCandidates(
+        [
+          region(
+            'eastus2',
+            [entry('gpt-4.1-mini', { lifecycleStatus: 'Legacy' }, onlyFineTune)],
+            usages,
+          ),
+        ],
+        options,
+      );
+      expect(candidates).toEqual([]);
+    });
+  });
+
   it('includes Legacy and Deprecating models only when explicitly allowed', () => {
     const legacy = [
       region('eastus2', [

@@ -261,6 +261,23 @@ can skip a check. `ProviderTelemetry` counts calls, repairs, failures and tokens
 tracks connectivity (`unverified` until a real call succeeds) without storing content;
 it feeds `GET /api/provider/status`, which drives the always-visible header badge.
 
+Untrusted text reaches a model only inside a JSON `untrustedScenarioData` object. Three layers
+stand between that text and an obeyed instruction, because a live run showed that prompt wording
+alone is not enough (a small model repeated a planted token in 24 of 24 statements):
+
+1. The system boundary says that an instruction inside the data is content to describe, never a
+   command, and that its text must not be repeated; a trusted `serverReminder` placed **after**
+   the data says the same as the last thing the model reads.
+2. `models/injection.ts` finds AI-directed instruction text in the data (phrasing such as "note to
+   the AI" or "ignore previous instructions", and the codes or quoted phrases such a line asks
+   for), and `ModelClient` rejects any reply that repeats one, asking again without repeating the
+   payload. It is a deterministic heuristic with stated limits: it does not stop steering that
+   repeats nothing, and a document that quotes an injection phrase makes replies repeating it fail
+   explicitly (`MODEL_OUTPUT_INVALID`).
+3. The user is told which source passages contain such text (a note on the graph).
+
+Server-side validators (citation IDs, quotes, ranges) then bound what any reply can carry.
+
 ### Persistence and failure semantics
 
 SQLite schema version 1 has `projects`, `chunks`, `events` and `messages`.
@@ -349,6 +366,7 @@ What each layer of testing can and cannot establish:
 | Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)` | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                   | Browser rendering, real network behaviour      |
 | Browser end-to-end (local) | `e2e/local`                                    | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                     | Anything about model behaviour                 |
 | Browser end-to-end (model) | `e2e/model`                                    | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling | Quality or safety of a **live** model's output |
+| Live verification          | `npm run azure:verify`                         | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)    | Quality beyond the counts it reports; scale    |
 | Real-browser audit         | `scripts/ui-audit.mjs`                         | Screenshots and layout/axe metrics at four viewports for design review                                                            | Subjective design quality                      |
 | Load measurement           | `scripts/load-test.mjs`                        | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                 | Capacity planning                              |
 
@@ -356,7 +374,8 @@ What each layer of testing can and cannot establish:
 `ModelClient`, orchestrator, persistence and UI run end to end with no credential. It derives each answer from
 the request (population size, round, intervention, evidence IDs) and lets tests inject latency, a failure on a
 chosen round, or an invented citation. It is a test double. Its existence must never be read as evidence about
-any live model; live verification is tracked as blocked on a credential.
+any live model; live evidence comes only from `npm run azure:verify` against a real deployment (see
+[docs/AZURE.md](./docs/AZURE.md#live-evidence)).
 
 **Isolation.** Playwright starts two application servers (local engine; model-assisted) and the fake provider,
 each with a throwaway data directory, so the suite can never touch a developer's own scenarios.

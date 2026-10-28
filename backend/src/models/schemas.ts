@@ -1,7 +1,10 @@
 import { z } from 'zod';
+import { trimmedIds } from '../../../shared/citations.js';
 
 const identifier = z.string().regex(/^[a-zA-Z0-9_-]{1,40}$/u);
-const citations = z.array(z.string().regex(/^S[1-9]\d*$/u)).max(5);
+const passageId = z.string().regex(/^S[1-9]\d*$/u);
+const citations = trimmedIds(passageId, 5);
+const requiredCitations = trimmedIds(passageId, 5, { min: 1 });
 const opinion = z.number().min(-1).max(1);
 
 export const extractedGraphSchema = z.object({
@@ -13,7 +16,7 @@ export const extractedGraphSchema = z.object({
         kind: z.enum(['topic', 'person', 'organization', 'group']),
         summary: z.string().trim().min(10).max(600),
         weight: z.number().min(0.1).max(1),
-        sourceIds: citations.min(1),
+        sourceIds: requiredCitations,
         /** An exact excerpt of a cited passage that shows the source describes this node. */
         quote: z.string().trim().min(12).max(240),
       }),
@@ -27,7 +30,7 @@ export const extractedGraphSchema = z.object({
         target: identifier,
         label: z.string().trim().min(2).max(80),
         weight: z.number().min(0).max(1),
-        sourceIds: citations.min(1),
+        sourceIds: requiredCitations,
       }),
     )
     .max(40),
@@ -49,7 +52,7 @@ export const personasSchema = z.object({
         initialOpinion: opinion,
         influence: z.number().min(0.1).max(2),
         openness: z.number().min(0).max(1),
-        sourceIds: citations.min(1),
+        sourceIds: requiredCitations,
       }),
     )
     .min(4)
@@ -61,7 +64,7 @@ export const actorDecisionSchema = z.object({
   opinion,
   type: z.enum(['post', 'reply', 'observe']),
   content: z.string().trim().min(1).max(600),
-  peerIds: z.array(z.string()).max(5),
+  peerIds: trimmedIds(z.string(), 5),
   sourceIds: citations,
   rationale: z.string().trim().min(5).max(240),
   confidence: z.number().min(0).max(1),

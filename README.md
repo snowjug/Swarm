@@ -185,7 +185,7 @@ or a substitute for reading the sources.
 | Execution deadline        | 15 minutes per stage; five minutes per asynchronous survey                                                                                                                                                                                                                                                            |
 | Model context / response  | 48,000 serialized input characters / 256 KB response                                                                                                                                                                                                                                                                  |
 | Provider retries          | Network errors and 5xx: at most three HTTP attempts. Throttling (429): up to six, each honoring a bounded Retry-After; a truncated reply is retried once or twice with a larger output budget (all counted against the stage's call budget)                                                                           |
-| Model stages              | One provider call per proxy per platform per round, four at a time (at most 10 × 2 × 10 = 200), plus about 4 setup calls and about 8 report/grounding calls. Each stage has a hard budget: 16 for knowledge/environment, `1.5 × workload + 12` for simulation, 28 for the report. Corrective retries count against it |
+| Model stages              | One provider call per proxy per platform per round, four at a time (at most 10 × 2 × 10 = 200), plus about 4 setup calls and about 8 report/grounding calls. Each stage has a hard budget: 16 for knowledge/environment, `1.5 × workload + 12` for simulation, 40 for the report. Corrective retries count against it |
 | Follow-ups                | One active chat/survey globally; 30 chat exchanges and five surveys per scenario; at most five survey targets                                                                                                                                                                                                         |
 | History                   | 100 experiments; export/delete old ones explicitly                                                                                                                                                                                                                                                                    |
 | API rate limits           | 120 requests/minute/IP; create 20, quick run 6, guided step 8, PDF/chat 10, survey 5/minute/IP                                                                                                                                                                                                                        |
@@ -271,9 +271,11 @@ only if every check passes against the configured provider
 `AZURE_OPENAI_AUTH=key` and `AZURE_OPENAI_API_KEY`; never put a key in frontend
 variables. The v1 API does not require a dated `api-version` query parameter.
 
-> **Status:** the Entra path, the Bicep and the scripts are implemented and unit
-> tested, but they have **not** been exercised against a live Azure resource. See
-> the verified/unverified table in [docs/AZURE.md](./docs/AZURE.md).
+> **Status:** verified live on 28 Oct 2026 against one development deployment (Entra
+> only, no key): `npm run azure:verify` passed 15 of 15 checks in three consecutive
+> runs. Not verified: a managed identity, hosted Azure, and anything beyond that one
+> small model. See [Live evidence](./docs/AZURE.md#live-evidence) for what was
+> measured, what failed on the way and the open risks.
 
 ### Other OpenAI-compatible providers
 
@@ -388,8 +390,9 @@ grounding review (quote matching, verdict table, entailment validation), Entra t
 handling with a fake credential, and the Azure provisioning scripts with a fake Azure CLI.
 
 Provider tests use explicitly labeled fixture HTTP responses; they do **not**
-establish live model connectivity or reasoning quality. Live AI requires a
-separately configured service.
+establish live model connectivity or reasoning quality. Live evidence comes only from
+`npm run azure:verify` against a real deployment (see
+[docs/AZURE.md](./docs/AZURE.md#live-evidence)).
 
 ### End-to-end, accessibility, security and load evidence
 
@@ -523,23 +526,25 @@ See [docs/security-review.md](./docs/security-review.md) and
 
 ## Troubleshooting
 
-| Symptom                                     | Action                                                                                                                                                                             |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm.ps1 cannot be loaded`                  | Use `npm.cmd`; do not weaken PowerShell execution policy                                                                                                                           |
-| UI cannot reach backend                     | Start both dev processes, check `/api/health`, and verify root `PORT`                                                                                                              |
-| `EADDRINUSE`                                | Stop the specific prior app process or choose another port; do not kill unrelated Node processes                                                                                   |
-| 403 host/origin                             | Add the exact trusted hostname/origin to its allowlist and restart; do not use a wildcard                                                                                          |
-| AI option disabled                          | Inspect provider status; configure model name, endpoint and required server-side key                                                                                               |
-| Model 401/404                               | Verify key, Azure deployment name, endpoint path and model/API compatibility                                                                                                       |
-| Model `MODEL_REFUSED`                       | The provider's content filter blocked a request; the message names the flagged categories. Review the text or the deployment's filter policy. No fallback is used                  |
-| Model `MODEL_PARAMETER_UNSUPPORTED`         | The deployment rejected a request parameter (named in the message). Use a Chat Completions model that supports JSON output and `max_completion_tokens`                             |
-| Model 429/timeout                           | Reduce agents/rounds, check provider quota or local inference capacity; errors remain visible                                                                                      |
-| Invalid model JSON/citation                 | Use a model reliable at the documented structured schema; no fabricated fallback is returned                                                                                       |
-| SQLite busy/sync problems                   | Use one process and a non-synchronized local `DATA_DIR` (the readiness card and startup log warn about OneDrive/Dropbox/Drive/iCloud paths); restore a known-good backup if needed |
-| Work marked failed after restart            | Retry explicitly; interrupted in-memory work is not durable/resumable                                                                                                              |
-| Docker named-pipe error                     | Start Docker Desktop/engine first; Compose parsing alone does not validate an image                                                                                                |
-| Export not appearing in an embedded browser | Open the app in a normal browser; embedded hosts may intercept downloads. Export HTTP payloads/attachments are independently tested                                                |
-| Zod `@__PURE__` build warnings              | Current upstream comments produce two non-fatal Rollup annotation warnings; builds still validate                                                                                  |
+| Symptom                                                                                  | Action                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm.ps1 cannot be loaded`                                                               | Use `npm.cmd`; do not weaken PowerShell execution policy                                                                                                                                                                                                                                      |
+| UI cannot reach backend                                                                  | Start both dev processes, check `/api/health`, and verify root `PORT`                                                                                                                                                                                                                         |
+| `EADDRINUSE`                                                                             | Stop the specific prior app process or choose another port; do not kill unrelated Node processes                                                                                                                                                                                              |
+| 403 host/origin                                                                          | Add the exact trusted hostname/origin to its allowlist and restart; do not use a wildcard                                                                                                                                                                                                     |
+| AI option disabled                                                                       | Inspect provider status; configure model name, endpoint and required server-side key                                                                                                                                                                                                          |
+| Model 401/404                                                                            | Verify key, Azure deployment name, endpoint path and model/API compatibility                                                                                                                                                                                                                  |
+| Model `MODEL_REFUSED`                                                                    | The provider's content filter blocked a request; the message names the flagged categories. Review the text or the deployment's filter policy. No fallback is used                                                                                                                             |
+| Model `MODEL_PARAMETER_UNSUPPORTED`                                                      | The deployment rejected a request parameter (named in the message). Use a Chat Completions model that supports JSON output and `max_completion_tokens`                                                                                                                                        |
+| Model 429/timeout                                                                        | Reduce agents/rounds, check provider quota or local inference capacity; errors remain visible                                                                                                                                                                                                 |
+| Azure `InsufficientQuota` while deploying                                                | The subscription has no quota for that model and SKU in that region. Run `npm run azure:provision -- --subscription <guid> --list-models` to see candidates with real quota, name `--regions` and `--models` explicitly, or request quota in the portal                                       |
+| Model `MODEL_OUTPUT_INVALID` saying the reply repeated text from an embedded instruction | A source passage contains an instruction aimed at an AI (the graph notes name the passage) and the model repeated its text; the reply was rejected on purpose. Remove or reword that line in the source. A document that quotes an injection phrase for a legitimate reason will trigger this |
+| Invalid model JSON/citation                                                              | Use a model reliable at the documented structured schema; no fabricated fallback is returned                                                                                                                                                                                                  |
+| SQLite busy/sync problems                                                                | Use one process and a non-synchronized local `DATA_DIR` (the readiness card and startup log warn about OneDrive/Dropbox/Drive/iCloud paths); restore a known-good backup if needed                                                                                                            |
+| Work marked failed after restart                                                         | Retry explicitly; interrupted in-memory work is not durable/resumable                                                                                                                                                                                                                         |
+| Docker named-pipe error                                                                  | Start Docker Desktop/engine first; Compose parsing alone does not validate an image                                                                                                                                                                                                           |
+| Export not appearing in an embedded browser                                              | Open the app in a normal browser; embedded hosts may intercept downloads. Export HTTP payloads/attachments are independently tested                                                                                                                                                           |
+| Zod `@__PURE__` build warnings                                                           | Current upstream comments produce two non-fatal Rollup annotation warnings; builds still validate                                                                                                                                                                                             |
 
 ### This environment's npm registry mismatch
 
