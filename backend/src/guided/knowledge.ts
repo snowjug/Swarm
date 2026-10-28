@@ -5,7 +5,7 @@ import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
 import { jsonValidated } from '../models/validated.js';
 import { suspiciousPassageIds } from '../models/injection.js';
-import { validateNodeQuotes } from '../grounding/graph.js';
+import { keepValidEdges, shortenNodeQuotes, validateNodeQuotes } from '../grounding/graph.js';
 import type { Repository } from '../storage/repository.js';
 import { AppError, throwIfAborted } from '../errors.js';
 import { guidedGraphSchema, ontologySchema, type GuidedGraph } from './schemas.js';
@@ -19,6 +19,22 @@ function injectionNotes(chunks: ReadonlyArray<{ id: string; text: string }>): st
   return [
     `Passage${ids.length === 1 ? '' : 's'} ${shown}${ids.length > 5 ? ` and ${ids.length - 5} more` : ''} contain${ids.length === 1 ? 's' : ''} text that reads as an instruction to an AI model. It is treated as data, and a model reply that repeats it is rejected; review the source before relying on the results.`,
   ];
+}
+
+/** Plain notices for graph slips that were repaired by leaving something out, so nothing changes silently. */
+function normalizationNotes(shortenedQuotes: number, droppedRelations: number): string[] {
+  const notes: string[] = [];
+  if (shortenedQuotes > 0) {
+    notes.push(
+      `${shortenedQuotes} node quote${shortenedQuotes === 1 ? '' : 's'} ran past the cited text and ${shortenedQuotes === 1 ? 'was' : 'were'} shortened to the part that appears verbatim in the passage.`,
+    );
+  }
+  if (droppedRelations > 0) {
+    notes.push(
+      `${droppedRelations} relation${droppedRelations === 1 ? ' was' : 's were'} left out because ${droppedRelations === 1 ? 'its' : 'their'} relationship type or endpoint is not in the scenario ontology and graph.`,
+    );
+  }
+  return notes;
 }
 
 function assertUniqueTypes(ontology: Ontology): void {
@@ -109,7 +125,24 @@ export async function buildKnowledge(
       }
       const allowed = new Set(evidence.map((chunk) => chunk.id));
       const passages = new Map(evidence.map((chunk) => [chunk.id, chunk.text]));
-      const validateGraph = (value: GuidedGraph): void => {
+      // Slips that can only remove or shorten what a reply claims are repaired here instead of
+      // costing a retry of the whole graph (tens of seconds each). It is pure, so the validator and
+      // the stored graph always agree. Every other rule below stays strict.
+      const normalize = (value: GuidedGraph) => {
+        const quotes = shortenNodeQuotes(value.nodes, passages);
+        const relations = keepValidEdges(
+          value.edges,
+          new Set(value.nodes.map((node) => node.id)),
+          relationNames,
+        );
+        return {
+          graph: { ...value, nodes: quotes.nodes, edges: relations.edges },
+          shortenedQuotes: quotes.shortened.length,
+          droppedRelations: relations.dropped,
+        };
+      };
+      const validateGraph = (candidate: GuidedGraph): void => {
+        const { graph: value } = normalize(candidate);
         const ids = new Set(value.nodes.map((node) => node.id));
         if (ids.size !== value.nodes.length)
           throw new AppError(
@@ -149,17 +182,19 @@ export async function buildKnowledge(
         'Extract a source-grounded graph under the supplied ontology. JSON {nodes:[{id,label,kind,entityType,summary,weight,sourceIds,quote}],edges:[{source,target,label,weight,sourceIds}]}. ' +
           '2-16 unique nodes, at most40 edges. IDs use letters/numbers/_/-. kind is topic/person/organization/group. entityType must be a supplied ontology entity type; edge label must be a supplied relationship name. ' +
           'Every node/edge cites1-5 supplied source IDs. Weights0.1-1. No invented causal links or inferred private beliefs. ' +
-          'Every node also needs quote: an EXACT excerpt (12-240 characters) copied from one of that node’s cited passages showing the source describes it. The quote is checked character by character.',
+          'Every node also needs quote: ONE contiguous excerpt (12-240 characters) copied exactly from one of that node’s cited passages, showing the source describes it. Never join sentences that are not next to each other; if you leave words out, mark each omission with an ellipsis (…). The quote is checked character by character.',
         { question: project.question, ontology, evidence },
         signal,
         7_000,
         validateGraph,
       );
+      const { graph: verified, shortenedQuotes, droppedRelations } = normalize(extracted);
       return {
         method: 'llm',
-        ...extracted,
+        ...verified,
         notes: [
           `Model extraction used ${evidence.length} selected passages of ${chunks.length}; long sources are excerpted.`,
+          ...normalizationNotes(shortenedQuotes, droppedRelations),
           ...injectionNotes(chunks),
           'Citations establish provenance, not source truth or semantic entailment.',
           'Simulation memory is stored separately from seed evidence and is explicitly synthetic.',

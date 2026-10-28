@@ -153,6 +153,33 @@ the fix.
 8. **A contradictory message in the UI:** the entry card said connectivity was "not yet verified" directly
    above "A real request has succeeded". The configuration text now describes configuration only.
 
+#### The live demo milestone (28 Oct 2026, final build)
+
+A five-source synthetic scenario ([docs/demo/larkholm-ferry](./demo/larkholm-ferry/README.md)) was built end to
+end through the real browser against the same deployment, which found defects that the small verification
+scenario had not:
+
+9. **Graph Build failed on model quotes.** A quote over 240 characters, then one that joined two
+   sentences that were not next to each other, failed the stage after two whole-graph retries of about
+   25 seconds each. Over-long quotes are trimmed, a failing quote is cut to its verbatim start, a
+   relation whose type is not in the ontology is left out, and each is disclosed in the graph notes.
+10. **Reports failed on slips the model repeated through every correction**: an empty `""` quote, a reworded
+    or stitched quote, a memory id it had not been given, a seventh statement, an omitted list, a body just
+    over the stated length, and a "source fact" with no quote. Two of five report attempts on one project failed.
+    One pure normalization now removes, shortens or weakens what the model claimed (it never adds), and
+    lists every repair in the grounding review. Afterwards 11 of 11 reports finished.
+11. **The independent check did not run in 3 of 3 reports.** One evidence quote over 300 characters, or stitched
+    from two sentences, failed the whole batch of judgements. Afterwards it ran in 8 of 8.
+12. **A chapter was titled "Predicted Future Trends".** Titles that use predict or forecast are sent back.
+13. **Graph labels piled up** (78 collisions across four viewports) **and were painted under later markers.**
+    Labels are now ranked and drawn only where they fit, in a layer above every marker.
+
+Run 7 (a fresh server, the final build): `npm run azure:verify` passed **15 of 15** in 169 s with 58 server
+round trips and 2 corrective retries; the report had 23 statements (10 supported, 4 partly supported,
+6 not supported, 0 contradicted, 3 not checkable) and the independent check ran. The demo's reports had
+18 statements (parent) and 29 (branch) with 0 and 1 not supported. These are single runs of one small model;
+read them as evidence the integration works, not as a measure of quality.
+
 #### Prompt injection, measured
 
 | Condition                                                                                    | Result                                                                                    |

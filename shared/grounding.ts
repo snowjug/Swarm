@@ -53,12 +53,19 @@ export const SUPPORT_VERDICT_LABELS: Record<SupportVerdict, string> = {
 /** What a claim may carry. Longer lists and quotes are trimmed, not rejected (see `chapterClaimSchema`). */
 export const MAX_CLAIM_CITATIONS = 3;
 export const MAX_CLAIM_QUOTE_LENGTH = 300;
+/** Anything shorter cannot be matched against a passage, so it counts as "no quote". */
+export const MIN_CLAIM_QUOTE_LENGTH = 8;
 
 /**
  * Format limits are applied by trimming, because a real model routinely overshoots them and
  * rejecting a whole chapter for it costs a repair per slip. Trimming never creates support: a prefix
  * of a verbatim quote is still verbatim and is still checked, and fewer citations can only make a
  * verdict stricter. Integrity rules (known identifiers, a verbatim quote) stay strict elsewhere.
+ *
+ * A model that has no quote often writes an empty string instead of null. That is how it says "no
+ * quote", so it is read that way; a source fact still needs a verbatim quote and is rejected later,
+ * with a message that says so (a schema error about string length did not, and a live model repeated
+ * the same empty string through every repair).
  */
 const citationIds = trimmedIds(z.string(), MAX_CLAIM_CITATIONS);
 
@@ -66,15 +73,18 @@ const citationIds = trimmedIds(z.string(), MAX_CLAIM_CITATIONS);
 export const chapterClaimSchema = z.object({
   text: z.string().trim().min(10).max(400),
   kind: z.enum(CLAIM_KINDS),
-  sourceIds: citationIds,
-  memoryIds: citationIds,
-  /** A verbatim excerpt of a cited source passage. Required for a source fact. */
+  // A list the model leaves out is a list with nothing in it, and a missing quote is no quote.
+  sourceIds: citationIds.default([]),
+  memoryIds: citationIds.default([]),
+  /** A verbatim excerpt of a cited source passage. A source fact without one is shown as an extracted claim. */
   quote: z
     .string()
     .trim()
-    .min(8)
-    .transform((quote) => quote.slice(0, MAX_CLAIM_QUOTE_LENGTH).trim())
-    .nullable(),
+    .transform((quote) =>
+      quote.length < MIN_CLAIM_QUOTE_LENGTH ? null : quote.slice(0, MAX_CLAIM_QUOTE_LENGTH).trim(),
+    )
+    .nullable()
+    .default(null),
 });
 export type ChapterClaim = z.infer<typeof chapterClaimSchema>;
 

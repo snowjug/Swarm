@@ -1,0 +1,41 @@
+# Troubleshooting
+
+Back to the [README](../README.md).
+
+| Symptom                                                                                  | Action                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm.ps1 cannot be loaded`                                                               | Use `npm.cmd`; do not weaken PowerShell execution policy                                                                                                                                                                                                                                      |
+| UI cannot reach backend                                                                  | Start both dev processes, check `/api/health`, and verify root `PORT`                                                                                                                                                                                                                         |
+| `EADDRINUSE`                                                                             | Stop the specific prior app process or choose another port; do not kill unrelated Node processes                                                                                                                                                                                              |
+| 403 host/origin                                                                          | Add the exact trusted hostname/origin to its allowlist and restart; do not use a wildcard                                                                                                                                                                                                     |
+| AI option disabled                                                                       | Inspect provider status; configure model name, endpoint and required server-side key                                                                                                                                                                                                          |
+| Model 401/404                                                                            | Verify key, Azure deployment name, endpoint path and model/API compatibility                                                                                                                                                                                                                  |
+| Model `MODEL_REFUSED`                                                                    | The provider's content filter blocked a request; the message names the flagged categories. Review the text or the deployment's filter policy. No fallback is used                                                                                                                             |
+| Model `MODEL_PARAMETER_UNSUPPORTED`                                                      | The deployment rejected a request parameter (named in the message). Use a Chat Completions model that supports JSON output and `max_completion_tokens`                                                                                                                                        |
+| Model 429/timeout                                                                        | Reduce agents/rounds, check provider quota or local inference capacity; errors remain visible                                                                                                                                                                                                 |
+| Azure `InsufficientQuota` while deploying                                                | The subscription has no quota for that model and SKU in that region. Run `npm run azure:provision -- --subscription <guid> --list-models` to see candidates with real quota, name `--regions` and `--models` explicitly, or request quota in the portal                                       |
+| Model `MODEL_OUTPUT_INVALID` saying the reply repeated text from an embedded instruction | A source passage contains an instruction aimed at an AI (the graph notes name the passage) and the model repeated its text; the reply was rejected on purpose. Remove or reword that line in the source. A document that quotes an injection phrase for a legitimate reason will trigger this |
+| Invalid model JSON/citation                                                              | Use a model reliable at the documented structured schema; no fabricated fallback is returned                                                                                                                                                                                                  |
+| SQLite busy/sync problems                                                                | Use one process and a non-synchronized local `DATA_DIR` (the readiness card and startup log warn about OneDrive/Dropbox/Drive/iCloud paths); restore a known-good backup if needed                                                                                                            |
+| Work marked failed after restart                                                         | Retry explicitly; interrupted in-memory work is not durable/resumable                                                                                                                                                                                                                         |
+| Docker named-pipe error                                                                  | Start Docker Desktop/engine first; Compose parsing alone does not validate an image                                                                                                                                                                                                           |
+| Export not appearing in an embedded browser                                              | Open the app in a normal browser; embedded hosts may intercept downloads. Export HTTP payloads/attachments are independently tested                                                                                                                                                           |
+| Zod `@__PURE__` build warnings                                                           | Current upstream comments produce two non-fatal Rollup annotation warnings; builds still validate                                                                                                                                                                                             |
+
+## This environment's npm registry mismatch
+
+The project uses the official registry by default (approved for this workspace).
+Here, its direct TLS handshake was unavailable. The existing Microsoft proxy was
+reachable but returned tarball URLs under a different registry prefix, which npm
+12 correctly rejected as disallowed remote packages. Installation succeeded by
+mapping that registry prefix back to the **same trusted proxy**, without changing
+TLS verification, remote-package restrictions, or install-script policy:
+
+```powershell
+npm.cmd ci --ignore-scripts --registry=https://packagefeedproxy.microsoft.io/npm/ --replace-registry-host=https://ms-feed-25.pkgs.visualstudio.com/1es-public/_packaging/npm-public/npm/registry
+```
+
+Use this only where that proxy is your approved registry. The lockfile retains
+versions/integrity but omits environment-specific registry resolution URLs.
+Do not solve connectivity problems with `strict-ssl=false`, token sharing, or
+enabling disallowed dependency/script types.

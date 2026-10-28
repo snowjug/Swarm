@@ -43,6 +43,80 @@ export function recordedMemories(input: GraphInput, round?: number) {
   return input.memories.filter((memory) => round === undefined || memory.round <= round);
 }
 
+/** Labels are drawn at a fixed 12 px, so these describe their box on screen whatever the zoom. */
+const LABEL_CHARACTER_PX = 7.4;
+const LABEL_HEIGHT_PX = 15;
+const LABEL_PADDING_PX = 6;
+const LABEL_BELOW_NODE_PX = 2;
+
+/** How far a label is kept from the left and right edges of the panel (the existing clamp). */
+function labelHalfSpan(text: string, panelWidth: number): number {
+  return Math.min(panelWidth / 2 - 8, text.length * 6 + 6);
+}
+
+/** The screen x at which a label is centred: under its node, kept inside the panel. */
+export function labelCenterX(nodeX: number, text: string, panelWidth: number): number {
+  const half = labelHalfSpan(text, panelWidth);
+  return Math.max(half, Math.min(panelWidth - half, nodeX));
+}
+
+export interface LabelCandidate {
+  id: string;
+  /** The node's position on screen, in CSS pixels. */
+  x: number;
+  y: number;
+  /** The drawn radius of the node on screen. */
+  radius: number;
+  /** The text that will be drawn. */
+  text: string;
+  /** Lower ranks are placed first and keep their label when two would overlap. */
+  rank: number;
+}
+
+export interface LabelBox {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** Where a label's text is drawn on screen. */
+export function labelBox(candidate: LabelCandidate, panelWidth: number): LabelBox {
+  const centre = labelCenterX(candidate.x, candidate.text, panelWidth);
+  const half = (candidate.text.length * LABEL_CHARACTER_PX) / 2 + LABEL_PADDING_PX / 2;
+  const top = candidate.y + candidate.radius + LABEL_BELOW_NODE_PX;
+  return { left: centre - half, right: centre + half, top, bottom: top + LABEL_HEIGHT_PX };
+}
+
+const overlaps = (a: LabelBox, b: LabelBox): boolean =>
+  a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+
+/**
+ * Which labels to draw so that none overlaps another. A graph fitted into a small panel is shrunk
+ * while its labels stay 12 px, so with a dozen or more nodes they pile up and cannot be read. Labels
+ * are placed in rank order and one is skipped when its box would touch a label already placed. A
+ * skipped label is not lost: its node keeps its accessible name, tooltip and place in the "Inspect
+ * node" list, and zooming in spreads the nodes so more labels fit. The result does not depend on the
+ * order the candidates are given in.
+ */
+export function visibleLabelIds(
+  candidates: readonly LabelCandidate[],
+  panelWidth: number,
+): Set<string> {
+  const placed: LabelBox[] = [];
+  const shown = new Set<string>();
+  const ordered = [...candidates].sort(
+    (left, right) => left.rank - right.rank || left.id.localeCompare(right.id),
+  );
+  for (const candidate of ordered) {
+    const box = labelBox(candidate, panelWidth);
+    if (placed.some((other) => overlaps(box, other))) continue;
+    placed.push(box);
+    shown.add(candidate.id);
+  }
+  return shown;
+}
+
 export function layoutGraph(input: GraphInput, overlays: boolean, round?: number) {
   const nodes: GraphPoint[] = (input.graph?.nodes ?? []).map((node) => ({
     id: `source:${node.id}`,

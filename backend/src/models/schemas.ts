@@ -7,6 +7,14 @@ const citations = trimmedIds(passageId, 5);
 const requiredCitations = trimmedIds(passageId, 5, { min: 1 });
 const opinion = z.number().min(-1).max(1);
 
+/**
+ * The longest source excerpt a graph node keeps. A model cannot count characters, so an over-long
+ * excerpt is cut to this length instead of failing the whole graph (each retry re-requests every
+ * node and takes tens of seconds). Cutting is safe: a prefix of a verbatim excerpt is still
+ * verbatim, and `validateNodeQuotes` still requires it to appear in a passage the node cites.
+ */
+export const MAX_NODE_QUOTE_LENGTH = 240;
+
 export const extractedGraphSchema = z.object({
   nodes: z
     .array(
@@ -18,7 +26,11 @@ export const extractedGraphSchema = z.object({
         weight: z.number().min(0.1).max(1),
         sourceIds: requiredCitations,
         /** An exact excerpt of a cited passage that shows the source describes this node. */
-        quote: z.string().trim().min(12).max(240),
+        quote: z
+          .string()
+          .trim()
+          .min(12)
+          .transform((quote) => quote.slice(0, MAX_NODE_QUOTE_LENGTH).trim()),
       }),
     )
     .min(2)

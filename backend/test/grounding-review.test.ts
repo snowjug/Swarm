@@ -4,6 +4,8 @@ import type { ChapterClaim } from '../../shared/grounding.js';
 import { AppError } from '../src/errors.js';
 import {
   ENTAILMENT_INSTRUCTIONS,
+  MAX_EVIDENCE_QUOTE_LENGTH,
+  entailmentSchema,
   judgeClaims,
   validateEntailment,
   type EntailmentItem,
@@ -15,6 +17,7 @@ import {
   validateChapterClaims,
   type ChapterForReview,
 } from '../src/grounding/review.js';
+import { normalizeClaims } from '../src/grounding/normalize.js';
 import type { VerificationContext } from '../src/grounding/verify.js';
 import { ModelClient, type JsonOptions, type ModelGateway } from '../src/models/client.js';
 import { testConfig } from './fixtures.js';
@@ -110,13 +113,6 @@ describe('validateChapterClaims', () => {
   it.each<[string, Partial<ChapterClaim>, RegExp]>([
     ['an unknown passage', { sourceIds: ['S9'] }, /valid passage IDs: S1, S2/],
     ['an unknown memory', { memoryIds: ['M9'], kind: 'simulated-event' }, /valid memory IDs: M1/],
-    ['a source fact with no quote', { quote: null }, /verbatim/],
-    [
-      'a quote that is not in the passage',
-      { quote: 'proposes a twelve-month electric tram pilot' },
-      /not verbatim/,
-    ],
-    ['a quote from a passage that was not cited', { sourceIds: ['S2'] }, /not verbatim/],
     [
       'a paraphrase that cites nothing',
       { kind: 'extracted-claim', sourceIds: [], quote: null },
@@ -225,7 +221,7 @@ describe('validateChapterClaims', () => {
   });
 
   // Captured from a real model (gpt-4.1-mini on Azure): it extrapolated memory IDs from their naming
-  // pattern, kept a quote it had paraphrased, and put interview IDs in memoryIds. Reporting only the
+  // pattern, cited passages it had not been given, and put interview IDs in memoryIds. Reporting only the
   // first problem meant each correction revealed the next one and the stage ran out of repairs.
   describe('when a real model gets several claims wrong at once', () => {
     const message = (claims: ChapterClaim[], memories = context().memories): string => {
@@ -239,8 +235,8 @@ describe('validateChapterClaims', () => {
     const several = (): ChapterClaim[] => [
       claim({ kind: 'simulated-event', sourceIds: [], quote: null, memoryIds: ['M-guessed-9'] }),
       claim({ kind: 'extracted-claim', sourceIds: [], quote: null }),
-      claim({ kind: 'extracted-claim', quote: 'proposes a twelve-month electric tram pilot' }),
-      claim({ kind: 'source-fact', quote: null }),
+      claim({ kind: 'source-fact', sourceIds: ['S-bad'] }),
+      claim({ kind: 'simulated-event', sourceIds: [], quote: null, memoryIds: [] }),
     ];
 
     it('names every problem in one message so the model can fix them together', () => {
@@ -248,8 +244,8 @@ describe('validateChapterClaims', () => {
       for (const label of [
         'claims[0] (simulated-event) cites a simulation memory that was not supplied',
         'claims[1] (extracted-claim) must cite at least one supplied passage',
-        'claims[2] (extracted-claim) has a quote that is not verbatim',
-        'claims[3] (source-fact) needs a quote copied verbatim',
+        'claims[2] (source-fact) cites a passage that was not supplied',
+        'claims[3] (simulated-event) must cite the simulation memory it describes',
       ]) {
         expect(text).toContain(label);
       }
@@ -281,14 +277,13 @@ describe('validateChapterClaims', () => {
       expect(text).not.toContain('valid passage IDs');
     });
 
-    it('names at most eight problems and counts the rest', () => {
+    it('names a problem for each of the six statements that are reviewed, and no others', () => {
+      // A chapter is cut to six statements before it is checked, so a seventh is never reported.
       const text = message(
-        Array.from({ length: 10 }, () =>
-          claim({ kind: 'extracted-claim', sourceIds: [], quote: null }),
-        ),
+        Array.from({ length: 8 }, () => claim({ sourceIds: ['S-bad'], quote: null })),
       );
-      expect(text.match(/claims\[\d+\]/g)).toHaveLength(8);
-      expect(text).toContain('(and 2 more problems)');
+      expect(text.match(/claims\[\d+\]/g)).toHaveLength(6);
+      expect(text).not.toContain('claims[6]');
     });
 
     it('never echoes an identifier or text the model invented', () => {
@@ -303,6 +298,109 @@ describe('validateChapterClaims', () => {
       ]);
       for (const echoed of ['ceommunity', 'S-invented-77', 'made up entirely']) {
         expect(text).not.toContain(echoed);
+      }
+    });
+
+    it('keeps one repair message inside the room a repair request has, with every identifier listed', () => {
+      const text = message(
+        Array.from({ length: 6 }, () => claim({ sourceIds: ['S-bad'], quote: null })),
+      );
+      expect(text.match(/claims\[\d+\]/g)).toHaveLength(6);
+      expect(text.length).toBeLessThan(2_400);
+    });
+  });
+
+  // Captured from live runs of the Larkholm demo (gpt-4.1-mini on Azure): statements carried quotes the
+  // model had reworded or joined, or were labelled "source fact" with no quote at all, and it repeated
+  // them through every corrective retry. A paraphrase does not need a quote, a quote that runs past the
+  // text is still a true excerpt up to that point, and a statement that cannot keep a verbatim quote
+  // is a paraphrase, so none of these fails the chapter. The label never over-promises: see below.
+  describe('a quote that is slightly wrong does not fail the chapter', () => {
+    const reworded = 'proposes a twelve-month electric tram pilot';
+
+    it('accepts a paraphrase whose quote is not in the passage: the quote is dropped, not the chapter', () => {
+      expect(() =>
+        ok({ claims: [claim({ kind: 'extracted-claim', quote: reworded })] }),
+      ).not.toThrow();
+    });
+
+    it('accepts a source fact whose quote runs past the text, because its start is verbatim', () => {
+      expect(() =>
+        ok({ claims: [claim({ quote: `${QUOTE}. Trams replace every bus by 2030.` })] }),
+      ).not.toThrow();
+    });
+
+    it.each<[string, Partial<ChapterClaim>]>([
+      ['a quote with no verbatim start', { quote: reworded }],
+      ['no quote at all', { quote: null }],
+      ['a quote from a passage it does not cite', { sourceIds: ['S2'] }],
+    ])(
+      'accepts a source fact with %s: it is shown as an extracted claim, never kept as a source fact',
+      (_name, override) => {
+        const original = claim(override);
+        expect(() => ok({ claims: [original] })).not.toThrow();
+        const [shown] = normalizeClaims([original], context()).claims;
+        expect(shown).toMatchObject({ kind: 'extracted-claim', quote: null });
+      },
+    );
+
+    it('still rejects the statement when that leaves it citing no passage that was supplied', () => {
+      expect(() => ok({ claims: [claim({ sourceIds: [], quote: reworded })] })).toThrow(
+        /claims\[0\] \(source-fact\) must cite at least one supplied passage/,
+      );
+    });
+  });
+
+  describe('the review says what happened to the quotes', () => {
+    const run = (shortenedQuotes?: number, removedQuotes?: number, relabelledClaims?: number) =>
+      reviewClaims({
+        model: null,
+        signal: noAbort(),
+        chapters: [
+          chapter({
+            ...(shortenedQuotes === undefined ? {} : { shortenedQuotes }),
+            ...(removedQuotes === undefined ? {} : { removedQuotes }),
+            ...(relabelledClaims === undefined ? {} : { relabelledClaims }),
+          }),
+        ],
+        context: context(),
+        now: new Date('2026-01-01T00:00:00Z'),
+      });
+
+    it('names the chapter and the number of quotes shortened', async () => {
+      expect((await run(1)).notes).toContain(
+        '1 quote in “Evidence” ran past the cited text and was shortened to the part that appears verbatim in the passage.',
+      );
+      expect((await run(2)).notes).toContain(
+        '2 quotes in “Evidence” ran past the cited text and were shortened to the part that appears verbatim in the passage.',
+      );
+    });
+
+    it('names the chapter and the number of quotes removed, and how those statements are judged', async () => {
+      expect((await run(undefined, 1)).notes).toContain(
+        '1 quote in “Evidence” could not be found in the cited passages and was removed; that statement is judged on its wording alone.',
+      );
+      expect((await run(undefined, 3)).notes).toContain(
+        '3 quotes in “Evidence” could not be found in the cited passages and were removed; those statements are judged on their wording alone.',
+      );
+    });
+
+    it('names the chapter and the number of source facts shown as extracted claims', async () => {
+      expect((await run(undefined, undefined, 1)).notes).toContain(
+        '1 statement in “Evidence” labelled “Source fact” had no quote that appears verbatim in a cited passage and is shown as “Extracted claim” instead.',
+      );
+      expect((await run(undefined, undefined, 4)).notes).toContain(
+        '4 statements in “Evidence” labelled “Source fact” had no quote that appears verbatim in a cited passage and are shown as “Extracted claim” instead.',
+      );
+    });
+
+    it('says nothing when no quote was touched', async () => {
+      for (const [shortened, removed, relabelled] of [
+        [undefined, undefined, undefined],
+        [0, 0, 0],
+      ] as const) {
+        const { notes } = await run(shortened, removed, relabelled);
+        expect(notes.some((note) => /shortened|removed|shown as/u.test(note))).toBe(false);
       }
     });
   });
@@ -322,6 +420,40 @@ describe('validateEntailment', () => {
 
   it('accepts one grounded judgement per claim', () => {
     expect(() => validateEntailment(good, items)).not.toThrow();
+  });
+
+  // Captured from live runs of the Larkholm demo (gpt-4.1-mini on Azure): the checker joined two
+  // sentences that are not next to each other, or pasted an excerpt past the 300-character limit. Either
+  // one failed the whole batch of judgements after two corrective retries, and the report was left
+  // with deterministic verdicts only.
+  it('accepts an evidence quote that runs past the passage when its start is verbatim', () => {
+    const reply = {
+      judgements: [
+        {
+          claimId: 'C1',
+          label: 'supports' as const,
+          evidenceQuote: `${QUOTE}. And then a sentence that the passage never says.`,
+        },
+        good.judgements[1]!,
+      ],
+    };
+    expect(() => validateEntailment(reply, items)).not.toThrow();
+  });
+
+  it('cuts an evidence quote that is over the limit instead of rejecting the reply', () => {
+    const long = `${SENTENCE} ${'The pilot continues. '.repeat(30)}`.trim();
+    expect(long.length).toBeGreaterThan(MAX_EVIDENCE_QUOTE_LENGTH + 100);
+    const parsed = entailmentSchema.parse({
+      judgements: [{ claimId: 'C1', label: 'supports', evidenceQuote: `  ${long}  ` }],
+    });
+    const quote = parsed.judgements[0]?.evidenceQuote ?? '';
+    expect(quote.length).toBeLessThanOrEqual(MAX_EVIDENCE_QUOTE_LENGTH);
+    expect(quote.length).toBeGreaterThan(MAX_EVIDENCE_QUOTE_LENGTH - 5);
+    expect(long.startsWith(quote)).toBe(true);
+    const passage = new Map([['S1', long]]);
+    expect(() =>
+      validateEntailment(parsed, [{ claimId: 'C1', claim: SENTENCE, passages: passage }]),
+    ).not.toThrow();
   });
 
   it.each([
@@ -454,6 +586,68 @@ describe('judgeClaims', () => {
     const labels = await judgeClaims(client, items, noAbort());
     expect(fetcher).toHaveBeenCalledTimes(2);
     expect([...labels.values()]).toEqual(['supports', 'supports']);
+  });
+
+  it('spends no repair on an over-long quote or one that runs past the passage', async () => {
+    const config = testConfig({
+      AI_PROVIDER: 'openai',
+      AI_MODEL: 'fixture-model',
+      OPENAI_API_KEY: 'test-placeholder-only',
+    });
+    const passage = Array.from(
+      { length: 8 },
+      (_, index) => `${SENTENCE} Detail ${index} adds more words to the passage.`,
+    ).join(' ');
+    const batch: EntailmentItem[] = [
+      { claimId: 'C1', claim: SENTENCE, passages: new Map([['S1', passage]]) },
+      { claimId: 'C2', claim: SENTENCE, passages: new Map([['S1', passage]]) },
+    ];
+    const reply = {
+      judgements: [
+        { claimId: 'C1', label: 'supports', evidenceQuote: passage.slice(0, 600) },
+        {
+          claimId: 'C2',
+          label: 'partial',
+          evidenceQuote: `${SENTENCE} A sentence the passage does not contain.`,
+        },
+      ],
+    };
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => chatCompletion(reply));
+    const client = new ModelClient(config.provider, () => undefined, fetcher, 5);
+    const labels = await judgeClaims(client, batch, noAbort());
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect([...labels]).toEqual([
+      ['C1', 'supports'],
+      ['C2', 'partial'],
+    ]);
+  });
+
+  it('still repairs a quote with no verbatim start, however it is cut', async () => {
+    const config = testConfig({
+      AI_PROVIDER: 'openai',
+      AI_MODEL: 'fixture-model',
+      OPENAI_API_KEY: 'test-placeholder-only',
+    });
+    const invented = `${'A made up sentence about trams. '.repeat(20)}`;
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as {
+        messages: { role: string; content: string }[];
+      };
+      const user = body.messages.find((message) => message.role === 'user')!.content;
+      const data = (JSON.parse(user) as { untrustedScenarioData: unknown }).untrustedScenarioData;
+      return body.messages.length === 2
+        ? chatCompletion({
+            judgements: items.map((item) => ({
+              claimId: item.claimId,
+              label: 'supports',
+              evidenceQuote: invented,
+            })),
+          })
+        : chatCompletion(entailmentBrain(data));
+    });
+    const client = new ModelClient(config.provider, () => undefined, fetcher, 5);
+    await judgeClaims(client, items, noAbort());
+    expect(fetcher).toHaveBeenCalledTimes(2);
   });
 });
 

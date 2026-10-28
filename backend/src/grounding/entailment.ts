@@ -3,11 +3,13 @@ import type { ClaimChecks } from '../../../shared/grounding.js';
 import { AppError } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
 import { jsonValidated } from '../models/validated.js';
+import { verbatimStart } from './quotes.js';
 import { findQuote } from './text.js';
 
 export const MAX_ENTAILMENT_CLAIMS = 30;
 /** Longer than any evidence chunk, so the checker always sees whole passages. */
 const PASSAGE_EXCERPT = 1_300;
+export const MAX_EVIDENCE_QUOTE_LENGTH = 300;
 
 export const entailmentSchema = z.object({
   judgements: z
@@ -15,8 +17,17 @@ export const entailmentSchema = z.object({
       z.object({
         claimId: z.string().max(12),
         label: z.enum(['supports', 'partial', 'contradicts', 'not_supported']),
-        /** An exact excerpt of a cited passage. Required unless the label is not_supported. */
-        evidenceQuote: z.string().trim().max(300).nullable(),
+        /**
+         * An exact excerpt of a cited passage. Required unless the label is not_supported. A longer
+         * one is cut to the limit rather than rejected: a prefix of a verbatim excerpt is still
+         * verbatim and is still checked against the passage, and in a live run this one slip failed
+         * the whole batch of judgements.
+         */
+        evidenceQuote: z
+          .string()
+          .trim()
+          .transform((quote) => quote.slice(0, MAX_EVIDENCE_QUOTE_LENGTH).trim())
+          .nullable(),
       }),
     )
     .max(MAX_ENTAILMENT_CLAIMS),
@@ -32,7 +43,8 @@ export const ENTAILMENT_INSTRUCTIONS = [
   '- partial: a listed passage states only part of the claim.',
   '- contradicts: a listed passage states something that conflicts with the claim (for example the opposite, a different number, or a negation).',
   '- not_supported: no listed passage addresses the claim.',
-  'For supports, partial and contradicts you MUST give evidenceQuote: an EXACT contiguous excerpt (at most 300 characters) copied from one of that claim’s listed passages that justifies the label.',
+  `For supports, partial and contradicts you MUST give evidenceQuote: an EXACT contiguous excerpt (at most ${MAX_EVIDENCE_QUOTE_LENGTH} characters) copied from one of that claim’s listed passages that justifies the label.`,
+  'Prefer the shortest excerpt that justifies the label (one clause or sentence), and never join sentences that are not next to each other.',
   'For not_supported use null. Do not paraphrase the quote: it is checked character by character.',
 ].join('\n');
 
@@ -56,7 +68,11 @@ function invalid(message: string): never {
   throw new AppError(502, 'MODEL_OUTPUT_INVALID', message);
 }
 
-/** Server-side checks that make the model's judgement accountable to real text. */
+/**
+ * Server-side checks that make the model's judgement accountable to real text. A quote that runs
+ * past the passage (the model joined two sentences that are not next to each other) is accepted when
+ * its start is verbatim: the judge did point at real text, and the label never depends on the rest.
+ */
 export function validateEntailment(reply: EntailmentReply, items: readonly EntailmentItem[]): void {
   const byId = new Map(items.map((item) => [item.claimId, item]));
   const seen = new Set<string>();
@@ -66,7 +82,12 @@ export function validateEntailment(reply: EntailmentReply, items: readonly Entai
     if (seen.has(judgement.claimId)) invalid('Return exactly one judgement per claimId.');
     seen.add(judgement.claimId);
     if (judgement.label === 'not_supported') continue;
-    if (!judgement.evidenceQuote || !findQuote(judgement.evidenceQuote, item.passages).found) {
+    const quote = judgement.evidenceQuote;
+    const pointsAtText =
+      quote !== null &&
+      quote !== '' &&
+      (findQuote(quote, item.passages).found || verbatimStart(quote, item.passages) !== null);
+    if (!pointsAtText) {
       invalid(
         `For ${judgement.claimId}, evidenceQuote must be copied exactly from one of that claim's passages (at least 12 characters); otherwise use not_supported.`,
       );

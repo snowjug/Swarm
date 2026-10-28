@@ -6,10 +6,12 @@ import {
   expectTargetSizes,
   renderedSvgTextPx,
   seed,
+  svgLabelCollisions,
+  svgLabelsUnderMarkers,
   viewports,
 } from '../support/helpers';
 
-const ids = {} as Record<'knowledge' | 'environment' | 'simulation' | 'report', string>;
+const ids = {} as Record<'knowledge' | 'environment' | 'simulation' | 'report' | 'dense', string>;
 
 test.beforeAll(async ({ playwright }) => {
   const api = await apiContext(playwright);
@@ -20,6 +22,12 @@ test.beforeAll(async ({ playwright }) => {
     rounds: 6,
   });
   ids.report = await seed(api, 'report', { name: 'Responsive: report stage' });
+  // Many simulated actors and recorded memories around the source graph, like a real model run.
+  ids.dense = await seed(api, 'simulation', {
+    name: 'Responsive: dense graph',
+    agents: 20,
+    rounds: 6,
+  });
 });
 
 async function openGraphPane(page: Page, narrow: boolean): Promise<void> {
@@ -84,6 +92,27 @@ for (const viewport of viewports) {
         Math.min(...labelPx),
         'graph labels must render at 11px or more',
       ).toBeGreaterThanOrEqual(11);
+    });
+
+    // Captured from a live model run: 13 source entities and 6 simulated actors fitted into a small
+    // panel left labels piled on top of each other (4 overlaps at 1440x900, 14 at 390x844).
+    test('graph labels never overlap, even with many simulated actors and recorded memories', async ({
+      page,
+    }) => {
+      await page.goto(`/?project=${ids.dense}`);
+      await openGraphPane(page, narrow);
+      await expect(page.locator('.graph-panel svg text').first()).toBeVisible();
+      expect(await svgLabelCollisions(page, '.graph-panel svg'), 'overlapping labels').toEqual([]);
+      // A marker is never painted over a name: labels sit in a layer above every node.
+      expect(
+        await svgLabelsUnderMarkers(page, '.graph-panel svg'),
+        'labels painted under a node marker',
+      ).toEqual([]);
+      // Hiding a label never hides its node: every node keeps its accessible name.
+      const named = await page.locator('.graph-panel svg [data-node-id]').count();
+      const drawn = await page.locator('.graph-panel svg .graph-labels text').count();
+      expect(drawn).toBeGreaterThan(0);
+      expect(named).toBeGreaterThan(drawn);
     });
 
     test('environment stage: primary action on screen at desktop sizes, no overflow, 24px targets', async ({

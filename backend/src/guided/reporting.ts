@@ -11,12 +11,22 @@ import {
   validateChapterClaims,
   type ChapterForReview,
 } from '../grounding/review.js';
+import {
+  MAX_REVIEWED_CLAIMS,
+  normalizeChapter,
+  type ChapterIdentifiers,
+} from '../grounding/normalize.js';
 import { recordedFigures, type VerificationContext } from '../grounding/verify.js';
 import type { Repository } from '../storage/repository.js';
 import { interviewProxy } from './interviews.js';
-import { reportChapterSchema, reportPlanSchema, summarySchema } from './schemas.js';
+import {
+  reportChapterSchema,
+  reportPlanSchema,
+  summarySchema,
+  TARGET_CHAPTER_BODY,
+} from './schemas.js';
 import { requireConsole, traceOperation, updateConsole } from './state.js';
-import { searchMemories, timeline, validateReferences } from './tools.js';
+import { searchMemories, timeline } from './tools.js';
 
 function limitations(repository: Repository, id: string): string[] {
   return [
@@ -144,7 +154,8 @@ export async function generateGuidedReport(
         model,
         reportPlanSchema,
         'Plan a conditional scenario report. JSON {title,sections,evidenceQueries,interviewAgentIds,interviewQuestion}. ' +
-          '3-5 unique section titles3-100 chars;1-3 local evidence queries3-300 chars;0-2 unique supplied proxy IDs for optional fictional interviews; question5-500 chars. ' +
+          'title: 3-180 chars. sections: an array of 3-5 unique chapter TITLES, each a short plain string of 3-100 characters (a heading: never an object, never a paragraph). Never use the words predict, prediction or forecast in a title: this explores possible scenarios and does not predict the future. ' +
+          'evidenceQueries: 1-3 plain strings of 3-300 characters that search the local sources. interviewAgentIds: 0-2 unique supplied proxy IDs for optional fictional interviews. interviewQuestion: 5-500 chars. ' +
           'Tools only search supplied local sources/memories, inspect recorded timelines and interview fictional proxies. No web/shell access. Do not promise real-world prediction.',
         {
           question: project.question,
@@ -174,6 +185,8 @@ export async function generateGuidedReport(
             );
           }
         },
+        // A live model has answered with objects, then with paragraphs, before a plain title list.
+        3,
       ),
     (result) => ({ ...result }),
   );
@@ -289,6 +302,27 @@ export async function generateGuidedReport(
     recorded: recordedFigures(repository.get(id), metrics),
   };
   const reviewChapters: ChapterForReview[] = [];
+  const supplied: ChapterIdentifiers = {
+    passages: verification.passages,
+    memories: verification.memories,
+    interviews: new Set(interviews.map((interview) => interview.id)),
+  };
+  // An interview's own citations point at passages and memories this chapter was not given. Offering
+  // them invited a live model to copy identifiers it could not use, so only what it needs is passed.
+  const chapterContext = {
+    ...context,
+    interviews: interviews.map(({ id: interviewId, agentId, question, answer }) => ({
+      id: interviewId,
+      agentId,
+      question,
+      answer,
+    })),
+    allowedIds: {
+      sourceIds: [...sourceMap.keys()],
+      memoryIds: [...memoryMap.keys()],
+      interviewIds: interviews.map((interview) => interview.id),
+    },
+  };
   for (const title of plan.sections) {
     throwIfAborted(signal);
     const chapter = await traceOperation(
@@ -303,43 +337,49 @@ export async function generateGuidedReport(
         memoryIds: [...memoryMap.keys()],
         interviewIds: interviews.map((interview) => interview.id),
       },
-      async () => {
-        const allowedSources = new Set(sourceMap.keys());
-        const allowedMemories = new Set(memoryMap.keys());
-        const allowedInterviews = new Set(interviews.map((interview) => interview.id));
-        return jsonValidated(
+      async () =>
+        jsonValidated(
           model,
           reportChapterSchema,
           'Write the requested report chapter from supplied recorded data. JSON {body,sourceIds,memoryIds,interviewIds,claims}. ' +
-            'body30-3500 chars, plain text. Cite only supplied IDs; sourceIds refer to original unverified documents, memoryIds to synthetic activity, interviewIds to generated fictional interviews. ' +
+            `body: plain text of 30-${TARGET_CHAPTER_BODY} characters; aim for 1,000-2,500 and keep it under ${TARGET_CHAPTER_BODY}. Cite only the IDs listed under allowedIds; sourceIds refer to original unverified documents, memoryIds to synthetic activity, interviewIds to generated fictional interviews. ` +
             'Distinguish these categories. Use metrics exactly; no calibrated forecasts, invented statistics or hidden reasoning. ' +
-            'claims: 1-6 atomic statements that your body makes and that carry its weight, each {text,kind,sourceIds,memoryIds,quote}. text restates something the body says (10-400 chars). ' +
-            'kind is one of: source-fact (a passage states it; REQUIRES quote copied exactly from a cited passage), extracted-claim (a paraphrase of what a cited SOURCE passage says; use it only for the source text, never for what happened in the simulation), ' +
+            `claims: 1-${MAX_REVIEWED_CLAIMS} atomic statements that your body makes and that carry its weight, each {text,kind,sourceIds,memoryIds,quote}. text restates something the body says (10-400 chars). ` +
+            'kind is one of: source-fact (a passage states it; REQUIRES a quote copied exactly from a cited passage, and is otherwise shown as an extracted-claim), extracted-claim (a paraphrase of what a cited SOURCE passage says; use it only for the source text, never for what happened in the simulation), ' +
             'user-assumption (a setting, intervention or seed post), ai-hypothesis (your own speculation; cite nothing), simulated-event (something that happened in the simulation, such as a proxy posting, replying or changing its opinion; cite its memoryIds and cite no passage), ' +
-            'analytical-conclusion (derived from the recorded metrics; use the exact figures). quote is null unless you can copy an exact excerpt of a cited passage, at most 300 characters. ' +
+            'analytical-conclusion (derived from the recorded metrics; use the exact figures). ' +
+            "quote: JSON null (never an empty string) for every kind except source-fact and extracted-claim. For those two, use null unless you can copy ONE contiguous excerpt (12-300 characters) exactly from a passage listed in that same claim's sourceIds; never join sentences that are not next to each other, never reword inside a quote, and use null when unsure. " +
             'Each claim cites at most 3 passages and at most 3 memories. Each claim must restate something your body says, in words close to the body. ' +
             'If a supplied passage says anything relevant to this chapter, include at least one claim of kind source-fact or extracted-claim that restates what that passage says about the scenario’s starting conditions (never about the simulation’s results). ' +
-            'Copy every ID inside claims exactly from the supplied lists; never invent, alter or extend an ID (do not guess that a similar-looking memory exists), and never put an interview ID (I1, I2) or a passage ID in memoryIds. ' +
-            'If no supplied ID fits a statement, give it a kind that cites nothing (analytical-conclusion or ai-hypothesis). ' +
+            'Copy every ID exactly from allowedIds; never invent, alter or extend an ID (do not guess that a similar-looking memory exists), and never put an interview ID (I1, I2) or a passage ID in memoryIds. ' +
+            'If no allowed ID fits a statement, give it a kind that cites nothing (analytical-conclusion or ai-hypothesis). ' +
             'Every number in the body and claims must come from the supplied metrics, timeline, memories or cited passages; do not invent statistics. The claims are independently checked.',
-          { title, executiveSummary: summary.summary, ...context },
+          { title, executiveSummary: summary.summary, ...chapterContext },
           signal,
           2_800,
           (value) => {
-            validateReferences(value.sourceIds, allowedSources, 'source passages');
-            validateReferences(value.memoryIds, allowedMemories, 'synthetic memories');
-            validateReferences(value.interviewIds, allowedInterviews, 'fictional interviews');
             validateChapterClaims(value, verification);
           },
           // Chapters carry the most structure; a live model often needs more than one correction.
           3,
-        );
-      },
+        ),
       (result) => ({ title, ...result }),
     );
-    const { claims, ...written } = chapter;
-    const { kept, dropped } = splitCoveredClaims({ body: written.body, claims });
-    reviewChapters.push({ title, ...written, claims: kept, droppedClaims: dropped });
+    // The same repair the validator applied, taken on the reply that was kept; the review discloses it.
+    const normalized = normalizeChapter(chapter, supplied);
+    const { claims, ...written } = normalized.chapter;
+    const covered = splitCoveredClaims({ body: written.body, claims });
+    reviewChapters.push({
+      title,
+      ...written,
+      claims: covered.kept,
+      droppedClaims: covered.dropped,
+      overflowClaims: normalized.overflow,
+      removedCitations: normalized.removedCitations,
+      shortenedQuotes: normalized.shortenedQuotes,
+      removedQuotes: normalized.removedQuotes,
+      relabelledClaims: normalized.relabelled,
+    });
     const report = repository.get(id).report;
     if (!report) throw new Error('The draft report disappeared during chapter generation.');
     repository.update(id, {

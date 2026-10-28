@@ -71,6 +71,8 @@ export async function interviewProxy(
           validateReferences(answer.sourceIds, allowedSources, 'source evidence');
           validateReferences(answer.memoryIds, allowedMemories, 'simulation memories');
         },
+        // A live model has run over the length limit and then cited a passage it was not given.
+        3,
       );
     },
     (answer) => ({

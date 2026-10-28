@@ -160,6 +160,56 @@ export async function expectReadableText(page: Page, label: string): Promise<voi
   expect(tiny, `text under 11px: ${label}`).toEqual([]);
 }
 
+/**
+ * Pairs of rendered SVG labels that overlap by more than 30% of the smaller one, which is the
+ * definition `scripts/ui-audit.mjs` uses. A label that is not drawn cannot overlap anything.
+ */
+export async function svgLabelCollisions(page: Page, scope: string): Promise<string[]> {
+  return page.evaluate((selector) => {
+    const labels = [...document.querySelectorAll(`${selector} text`)]
+      .filter((text) => text.getClientRects().length > 0)
+      .map((text) => ({
+        text: (text.textContent ?? '').trim(),
+        box: text.getBoundingClientRect(),
+      }));
+    const found: string[] = [];
+    for (let first = 0; first < labels.length; first += 1) {
+      for (let second = first + 1; second < labels.length; second += 1) {
+        const a = labels[first]!.box;
+        const b = labels[second]!.box;
+        const x = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const y = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        const smaller = Math.min(a.width * a.height, b.width * b.height);
+        if (x > 0 && y > 0 && smaller > 0 && (x * y) / smaller > 0.3)
+          found.push(`"${labels[first]!.text}" overlaps "${labels[second]!.text}"`);
+      }
+    }
+    return found;
+  }, scope);
+}
+
+/**
+ * Labels that are painted under a node marker: a later marker in document order is drawn over an
+ * earlier label, which cuts a name in half in a crowded graph. Labels must come after every marker.
+ */
+export async function svgLabelsUnderMarkers(page: Page, scope: string): Promise<string[]> {
+  return page.evaluate((selector) => {
+    const markers = [
+      ...document.querySelectorAll(
+        `${selector} .graph-node > circle:not(.node-hit), ${selector} .graph-node > rect, ${selector} .graph-node > polygon`,
+      ),
+    ];
+    return [...document.querySelectorAll(`${selector} text`)]
+      .filter((text) => text.getClientRects().length > 0 && !text.closest('.graph-edge'))
+      .filter((text) =>
+        markers.some(
+          (marker) => text.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ),
+      )
+      .map((text) => (text.textContent ?? '').trim());
+  }, scope);
+}
+
 /** SVG text is scaled by its viewBox; the rendered size is the computed size times the CTM scale. */
 export async function renderedSvgTextPx(page: Page, scope: string): Promise<number[]> {
   return page.evaluate((selector) => {

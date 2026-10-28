@@ -2,8 +2,8 @@ import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useSta
 import type { KeyboardEvent, PointerEvent } from 'react';
 import { Minus, Plus, RotateCcw, ScanSearch } from 'lucide-react';
 import type { ProjectDetail } from '../../../../shared/types';
-import { cycleGraphNode, layoutGraph } from '../../lib/graph';
-import type { GraphInput, GraphPoint, Inspection } from '../../lib/graph';
+import { cycleGraphNode, labelCenterX, layoutGraph, visibleLabelIds } from '../../lib/graph';
+import type { GraphInput, GraphPoint, Inspection, LabelCandidate } from '../../lib/graph';
 import { useElementSize } from '../../hooks/useElementSize';
 import { EmptyPanel } from '../ui';
 import { GraphRoundControl } from './GraphRoundControl';
@@ -200,6 +200,27 @@ export function GraphCanvas({
     event.preventDefault();
   };
   const fontSize = 12 / transform.k;
+  const labelTextFor = (node: GraphPoint) =>
+    shortLabel(
+      node.label,
+      Math.min(node.layer === 'memory' ? 22 : 25, Math.max(8, Math.floor((width - 20) / 12))),
+    );
+  // Labels stay 12 px while the graph is fitted into the panel, so a dozen nodes would pile up.
+  // Memory labels appear only on request; the others are drawn only where they do not overlap,
+  // source entities before simulated actors. A hidden label stays in the "Inspect node" list.
+  const shownLabels = visibleLabelIds(
+    visible
+      .filter((node) => node.layer !== 'memory')
+      .map((node): LabelCandidate => ({
+        id: node.id,
+        x: transform.x + (node.x ?? 0) * transform.k,
+        y: transform.y + (node.y ?? 0) * transform.k,
+        radius: Math.max(node.radius * transform.k, 6),
+        text: labelTextFor(node),
+        rank: (node.layer === 'source' ? 0 : 1000) - node.radius,
+      })),
+    width,
+  );
   return (
     <section className="graph-panel" aria-label="Interactive source graph and simulated overlays">
       <div className="panel-heading">
@@ -331,19 +352,7 @@ export function GraphCanvas({
             })}
             {visible.map((node) => {
               const radius = Math.max(node.radius, 6 / transform.k);
-              const labelVisible =
-                node.layer !== 'memory' || node.id === selected || node.id === highlighted;
-              const label = shortLabel(
-                node.label,
-                Math.min(
-                  node.layer === 'memory' ? 22 : 25,
-                  Math.max(8, Math.floor((width - 20) / 12)),
-                ),
-              );
-              const halfLabel = Math.min(width / 2 - 8, label.length * 6 + 6);
-              const screenX = transform.x + (node.x ?? 0) * transform.k;
-              const labelX =
-                (Math.max(halfLabel, Math.min(width - halfLabel, screenX)) - screenX) / transform.k;
+              const label = labelTextFor(node);
               return (
                 <g
                   key={node.id}
@@ -398,19 +407,38 @@ export function GraphCanvas({
                       vectorEffect="non-scaling-stroke"
                     />
                   )}
-                  {labelVisible && (
-                    <text
-                      x={labelX}
-                      y={radius + 14 / transform.k}
-                      textAnchor="middle"
-                      fontSize={fontSize}
-                    >
-                      {label}
-                    </text>
-                  )}
                 </g>
               );
             })}
+            {/*
+              Labels are drawn after every node, in one layer of their own. Inside a node's group a later
+              node's shape was painted over an earlier node's label, so in a crowded graph a name could
+              be cut in half by a marker. The nodes carry the accessible names; these are decoration.
+            */}
+            <g className="graph-labels" aria-hidden="true">
+              {visible.map((node) => {
+                const requested = node.id === selected || node.id === highlighted;
+                if (!requested && (node.layer === 'memory' || !shownLabels.has(node.id))) {
+                  return null;
+                }
+                const radius = Math.max(node.radius, 6 / transform.k);
+                const label = labelTextFor(node);
+                const screenX = transform.x + (node.x ?? 0) * transform.k;
+                const labelX = (labelCenterX(screenX, label, width) - screenX) / transform.k;
+                return (
+                  <text
+                    key={node.id}
+                    className={`graph-label ${node.layer}`}
+                    x={(node.x ?? 0) + labelX}
+                    y={(node.y ?? 0) + radius + 14 / transform.k}
+                    textAnchor="middle"
+                    fontSize={fontSize}
+                  >
+                    {label}
+                  </text>
+                );
+              })}
+            </g>
           </g>
         </svg>
         {!graph.nodes.length && (

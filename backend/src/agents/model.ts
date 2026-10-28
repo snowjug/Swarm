@@ -57,7 +57,7 @@ export async function modelGraph(
     'Extract a source-grounded graph. JSON: {nodes:[{id,label,kind,summary,weight,sourceIds,quote}],edges:[{source,target,label,weight,sourceIds}]}. ' +
       'Use 2-16 nodes, at most 40 edges, short unique IDs, kinds topic/person/organization/group, weights 0.1-1. ' +
       'Every node and edge needs 1-5 actual supplied evidence IDs. Describe only evidence-supported relations; no invented causal certainty. ' +
-      'Every node also needs quote: an EXACT excerpt (12-240 characters) copied from one of that node’s cited passages showing the source describes it. The quote is checked character by character.',
+      'Every node also needs quote: ONE contiguous excerpt (12-240 characters) copied exactly from one of that node’s cited passages, showing the source describes it. Never join sentences that are not next to each other; if you leave words out, mark each omission with an ellipsis (…). The quote is checked character by character.',
     { question: project.question, evidence },
     signal,
     7_000,

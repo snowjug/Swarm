@@ -57,6 +57,18 @@ protocol-faithful **fake** provider unless a row says it was measured live (Azur
 means _better on the stated measure against the documented or measured reference behaviour_, not a claim that
 Swarm Lab is a superior product: it simulates far smaller populations with simpler agents.)
 
+## Update: the live demo (28 Oct 2026)
+
+A five-source synthetic scenario ([docs/demo/larkholm-ferry](./demo/larkholm-ferry/README.md)) was built end to
+end through the real browser against the same Azure deployment: a 13-entity source graph whose quotes were
+verified verbatim, six proxies on two platforms over six rounds with a stated reason for every decision, a
+paused-and-resumed run with a scheduled intervention, a branch with a replaced intervention compared with its
+parent, two reports with a grounding review (18 and 29 statements), an analyst chat, an actor chat, and Markdown
+and JSON exports, with 0 console errors, 0 overflow and 0 axe violations at four viewports. That strengthens the
+live evidence behind the graph, persona, simulation, report, branch, chat and export rows. It changes **no**
+rating: it is still one small model and one scenario, and the live runs found reliability defects that are now
+fixed and listed in [requirements-matrix.md](./requirements-matrix.md).
+
 ## What this matrix does not claim
 
 - No claim about the reference's undocumented internals, scale behaviour or prediction quality.

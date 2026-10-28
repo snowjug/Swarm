@@ -206,8 +206,8 @@ another proxy's memory, persona, rationale or confidence, or the other platform.
 reply is `{opinion, type, content, peerIds, sourceIds, rationale, confidence}` and is
 validated server-side: peers must come from what the proxy observed, sources from what
 it held, a reply must name a peer, and opinion may move at most 0.5 per round. A
-violation is sent back for at most two corrective retries and otherwise fails the
-stage. The first failure aborts both platforms' in-flight and queued calls
+violation is sent back for a bounded number of corrective retries (two by default;
+three for report chapters and report plans) and otherwise fails the stage. The first failure aborts both platforms' in-flight and queued calls
 synchronously. Rounds still persist atomically as one combined write, so pause,
 resume and branching are unchanged, and a hard per-stage call budget bounds spend.
 The stored `rationale` is the short reason the model chose to state, not hidden
@@ -219,12 +219,28 @@ over normalized text (an ellipsis allows omissions; fragments must appear in ord
 one passage), word overlap against the cited passage or simulation memory, and figure
 checks against the cited material or the recorded simulation metrics. One independent
 call judges support/contradiction, and each judgement must quote real text from the
-passage or it is rejected and repaired. The verdict is a pure, tested function of the
-checks; a model judgement can lower or confirm but cannot create support without lexical
-overlap, which limits what a hostile passage can do. A failed model check degrades to
-deterministic verdicts and says so; a cancellation is never swallowed. Graph nodes carry
-the same verified verbatim quote. Only listed statements are verified; figures in
-unlisted prose are compared with the recorded data and cited passages.
+passage (an over-long quote is cut to the limit and one whose start is verbatim is
+accepted; one with no verbatim start is rejected and repaired). The verdict is a pure,
+tested function of the checks; a model judgement can lower or confirm but cannot create
+support without lexical overlap, which limits what a hostile passage can do. A failed
+model check degrades to deterministic verdicts and says so; a cancellation is never
+swallowed. Graph nodes carry the same verified verbatim quote. Only listed statements are
+verified; figures in unlisted prose are compared with the recorded data and cited passages.
+
+**Repairs that only remove, shorten or weaken.** A live model fails on format far more
+often than on substance, and a report that failed whole because the model repeated one slip
+through every correction was the largest reliability problem found live. Before a chapter is
+validated and again on the reply that is kept, `grounding/normalize.ts` and
+`grounding/quotes.ts` apply pure, idempotent repairs: statements past six are left out;
+identifiers that were not supplied are removed (a statement that needs a citation and has
+none left is still rejected); a quote that runs past the cited text is cut to its verbatim
+start; a quote with none is dropped; and a statement labelled a source fact without a
+verbatim quote is shown as an extracted claim. A repair never adds a citation, a quote or a
+statement, and a verdict never depends on a label the model chose. Every repair is counted
+and listed in the grounding review's notes. The same idea applies to graph nodes
+(`grounding/graph.ts`). Whatever cannot be repaired this way (an invented figure, a
+statement its own passage does not back, a simulated event with no recorded memory) is
+reported or rejected, not smoothed over.
 
 Info Plaza and Topic Community start from separate copies of the prepared
 population, use broadcast/community exposure respectively, and keep independent

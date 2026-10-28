@@ -1,23 +1,21 @@
 import {
+  CLAIM_KIND_LABELS,
   emptyVerdictCounts,
   type ChapterClaim,
-  type ClaimKind,
   type GroundedClaim,
   type GroundingReview,
 } from '../../../shared/grounding.js';
 import { AppError, publicFailure } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
 import { judgeClaims, MAX_ENTAILMENT_CLAIMS, type EntailmentItem } from './entailment.js';
-import { findQuote, numbersIn, wordOverlap } from './text.js';
-import { checkClaim, decideVerdict, type VerificationContext } from './verify.js';
+import { MAX_REVIEWED_CLAIMS, normalizeClaims } from './normalize.js';
+import { numbersIn, wordOverlap } from './text.js';
+import { checkClaim, decideVerdict, SOURCE_KINDS, type VerificationContext } from './verify.js';
 
-const SOURCE_KINDS: ReadonlySet<ClaimKind> = new Set(['source-fact', 'extracted-claim']);
 const CANCELLATION_CODES = new Set(['RUN_CANCELLED', 'RUN_PAUSED', 'RUN_TIMEOUT']);
 /** A listed claim must restate something the chapter actually says. */
 export const BODY_COVERAGE = 0.5;
 const MAX_FIGURES_PER_SECTION = 8;
-/** One repair message names at most this many problems; the model fixes them together. */
-const MAX_REPORTED_PROBLEMS = 8;
 const MAX_LISTED_IDS = 24;
 
 export interface ChapterForReview {
@@ -28,6 +26,16 @@ export interface ChapterForReview {
   claims: ChapterClaim[];
   /** Listed statements that did not restate the chapter and were left out; the review says so. */
   droppedClaims?: number;
+  /** Statements past the per-chapter limit, left out; the review says so. */
+  overflowClaims?: number;
+  /** Identifiers the model named that were not supplied, removed; the review says so. */
+  removedCitations?: number;
+  /** Quotes cut back to the part that is verbatim in a cited passage; the review says so. */
+  shortenedQuotes?: number;
+  /** Quotes dropped because none of the text was in a cited passage; the review says so. */
+  removedQuotes?: number;
+  /** Source facts left without a verbatim quote, shown as extracted claims; the review says so. */
+  relabelledClaims?: number;
 }
 
 function invalid(message: string): never {
@@ -55,8 +63,13 @@ function listIds(ids: Iterable<string>): string {
  * text. It reports every problem in one pass: a real model that is told about one claim at a time
  * fixes that claim, trips over the next one, and runs out of repairs before it converges.
  *
- * Only integrity is enforced here (known identifiers, a citation where one is required, a verbatim
- * quote). Whether a claim restates its chapter is handled by `splitCoveredClaims`.
+ * Only what cannot be repaired by removing or weakening is enforced here: a statement that rests on
+ * a passage must still cite one that was supplied, and a simulated event must still cite a memory
+ * that was supplied. Slips that only remove, shorten or weaken what a statement claims (an identifier
+ * that was not supplied, a quote that is reworded or runs past the text, a source fact without a
+ * verbatim quote, too many statements) are repaired by `normalizeClaims` first and never fail a
+ * chapter; the review discloses them. Whether a claim restates its chapter is handled by
+ * `splitCoveredClaims`.
  */
 export function validateChapterClaims(
   chapter: Pick<ChapterForReview, 'claims'>,
@@ -64,47 +77,35 @@ export function validateChapterClaims(
 ): void {
   const problems: string[] = [];
   let identifierProblem = false;
-  chapter.claims.forEach((claim, index) => {
+  const { claims } = normalizeClaims(chapter.claims, context);
+  claims.forEach((claim, index) => {
+    const written = chapter.claims[index];
     const report = (message: string): void => {
-      problems.push(`claims[${index}] (${claim.kind}) ${message}`);
+      // Name the label the model chose, not the one a repair may have weakened it to.
+      problems.push(`claims[${index}] (${written?.kind ?? claim.kind}) ${message}`);
     };
-    if (claim.sourceIds.some((id) => !context.passages.has(id))) {
-      identifierProblem = true;
-      report('cites a passage that was not supplied.');
-    }
-    if (claim.memoryIds.some((id) => !context.memories.has(id))) {
-      identifierProblem = true;
-      report('cites a simulation memory that was not supplied.');
-    }
-    if (SOURCE_KINDS.has(claim.kind)) {
-      if (claim.sourceIds.length === 0) {
+    if (SOURCE_KINDS.has(claim.kind) && claim.sourceIds.length === 0) {
+      if (written && written.sourceIds.length > 0) {
+        identifierProblem = true;
+        report('cites a passage that was not supplied.');
+      } else {
         report('must cite at least one supplied passage in sourceIds.');
-      }
-      const cited = pick(claim.sourceIds, context.passages);
-      if (claim.kind === 'source-fact' && claim.quote === null) {
-        report(
-          'needs a quote copied verbatim from a cited passage; use "extracted-claim" for a paraphrase.',
-        );
-      }
-      if (claim.quote !== null && !findQuote(claim.quote, cited).found) {
-        report(
-          'has a quote that is not verbatim in the cited passages (at least 12 characters, copied exactly); fix the quote or set it to null.',
-        );
       }
     }
     if (claim.kind === 'simulated-event' && claim.memoryIds.length === 0) {
-      report('must cite the simulation memory it describes in memoryIds.');
+      if (written && written.memoryIds.length > 0) {
+        identifierProblem = true;
+        report('cites a simulation memory that was not supplied.');
+      } else {
+        report('must cite the simulation memory it describes in memoryIds.');
+      }
     }
   });
   if (problems.length === 0) return;
-  const more =
-    problems.length > MAX_REPORTED_PROBLEMS
-      ? ` (and ${problems.length - MAX_REPORTED_PROBLEMS} more problems)`
-      : '';
   const identifiers = identifierProblem
     ? ` Copy identifiers exactly, never construct them: valid passage IDs: ${listIds(context.passages.keys())}; valid memory IDs: ${listIds(context.memories.keys())}. A claim's sourceIds hold only passage IDs and its memoryIds only simulation memory IDs; a claim cannot cite a fictional interview.`
     : '';
-  invalid(`${problems.slice(0, MAX_REPORTED_PROBLEMS).join(' ')}${more}${identifiers}`);
+  invalid(`${problems.join(' ')}${identifiers}`);
 }
 
 /**
@@ -170,6 +171,36 @@ export async function reviewClaims(input: ReviewInput): Promise<GroundingReview>
     if (left > 0) {
       notes.push(
         `${left} listed ${left === 1 ? 'statement' : 'statements'} in “${chapter.title}” did not restate that chapter’s text and ${left === 1 ? 'was' : 'were'} left out of the review.`,
+      );
+    }
+    const overflow = chapter.overflowClaims ?? 0;
+    if (overflow > 0) {
+      notes.push(
+        `${overflow} further listed ${overflow === 1 ? 'statement' : 'statements'} in “${chapter.title}” went past the limit of ${MAX_REVIEWED_CLAIMS} per chapter and ${overflow === 1 ? 'was' : 'were'} left out of the review.`,
+      );
+    }
+    const unsupplied = chapter.removedCitations ?? 0;
+    if (unsupplied > 0) {
+      notes.push(
+        `${unsupplied} ${unsupplied === 1 ? 'citation' : 'citations'} in “${chapter.title}” named a passage, simulation memory or interview that was not supplied and ${unsupplied === 1 ? 'was' : 'were'} removed.`,
+      );
+    }
+    const shortened = chapter.shortenedQuotes ?? 0;
+    if (shortened > 0) {
+      notes.push(
+        `${shortened} ${shortened === 1 ? 'quote' : 'quotes'} in “${chapter.title}” ran past the cited text and ${shortened === 1 ? 'was' : 'were'} shortened to the part that appears verbatim in the passage.`,
+      );
+    }
+    const removed = chapter.removedQuotes ?? 0;
+    if (removed > 0) {
+      notes.push(
+        `${removed} ${removed === 1 ? 'quote' : 'quotes'} in “${chapter.title}” could not be found in the cited passages and ${removed === 1 ? 'was' : 'were'} removed; ${removed === 1 ? 'that statement is' : 'those statements are'} judged on ${removed === 1 ? 'its' : 'their'} wording alone.`,
+      );
+    }
+    const relabelled = chapter.relabelledClaims ?? 0;
+    if (relabelled > 0) {
+      notes.push(
+        `${relabelled} ${relabelled === 1 ? 'statement' : 'statements'} in “${chapter.title}” labelled “${CLAIM_KIND_LABELS['source-fact']}” had no quote that appears verbatim in a cited passage and ${relabelled === 1 ? 'is' : 'are'} shown as “${CLAIM_KIND_LABELS['extracted-claim']}” instead.`,
       );
     }
   }

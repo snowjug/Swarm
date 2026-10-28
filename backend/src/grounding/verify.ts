@@ -20,7 +20,8 @@ export interface VerificationContext {
   recorded: ReadonlySet<string>;
 }
 
-const SOURCE_KINDS: ReadonlySet<ClaimKind> = new Set(['source-fact', 'extracted-claim']);
+/** Kinds that rest on a source passage. Only these can carry a quote, and only these are model-judged. */
+export const SOURCE_KINDS: ReadonlySet<ClaimKind> = new Set(['source-fact', 'extracted-claim']);
 
 function addRenderings(into: Set<string>, value: number): void {
   if (!Number.isFinite(value)) return;

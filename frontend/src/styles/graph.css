@@ -95,7 +95,8 @@
   stroke: #a83b14;
   stroke-width: 3;
 }
-.graph-node text {
+.graph-node text,
+.graph-labels text {
   font-family: var(--mono);
   fill: #303b47;
   stroke: #fff;
@@ -104,7 +105,8 @@
   stroke-linejoin: round;
   pointer-events: none;
 }
-.graph-node.memory text {
+.graph-node.memory text,
+.graph-labels .memory {
   fill: #8b401b;
 }
 .graph-edge {
