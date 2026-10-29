@@ -1,0 +1,170 @@
+{
+  "sources": {
+    "01-council-briefing-note.md": "dccf232dd17bbf7f6e689b151d44990e9d91870db1b453b6b82e1dace47abeb0",
+    "02-ferry-operator-feasibility-memo.md": "cefbc6831b9033162641bb17f8a99b7c7625e893a7e112d4a0873fd456c95fb5",
+    "03-residents-survey-summary.md": "e114ead10df002e731e205295110c07620a09843f8d25834a146e4bf4f1416bd",
+    "04-stakeholder-statements.md": "9a5503e1c2c61b772ba25f428f9cdd98e7cc001bf3d2ea3f820bcfe469e8b6df",
+    "05-scenario-assumptions.md": "fc15fd2edc13a20a85adce07ecc5b07be79ad2bd9a003b8fca118155b5ec236b"
+  },
+  "gate": {
+    "coverage": 0.4,
+    "score": 0.1
+  },
+  "retrieval": {
+    "dev": {
+      "questions": 12,
+      "recallAt4": 1,
+      "hitAt1": 0.75,
+      "mrr": 0.861,
+      "irrelevantReturned": 2.167,
+      "unreachable": []
+    },
+    "test": {
+      "questions": 12,
+      "recallAt4": 0.889,
+      "hitAt1": 0.833,
+      "mrr": 0.875,
+      "irrelevantReturned": 1.833,
+      "unreachable": []
+    }
+  },
+  "answerability": {
+    "neverAbstains": {
+      "falseAbstainRate": 0,
+      "abstentionRecall": 0
+    },
+    "dev": {
+      "answerable": 7,
+      "unanswerable": 7,
+      "falseAbstainRate": 0,
+      "abstentionRecall": 0.571,
+      "byKind": {
+        "off-topic": {
+          "total": 2,
+          "refused": 2
+        },
+        "absent-year": {
+          "total": 2,
+          "refused": 2
+        },
+        "absent-topic": {
+          "total": 1,
+          "refused": 0
+        },
+        "plausible-absent": {
+          "total": 2,
+          "refused": 0
+        }
+      },
+      "missed": ["Q23", "Q25", "Q27"],
+      "wronglyRefused": []
+    },
+    "test": {
+      "answerable": 7,
+      "unanswerable": 7,
+      "falseAbstainRate": 0,
+      "abstentionRecall": 0.857,
+      "byKind": {
+        "off-topic": {
+          "total": 2,
+          "refused": 2
+        },
+        "absent-year": {
+          "total": 1,
+          "refused": 1
+        },
+        "absent-topic": {
+          "total": 2,
+          "refused": 2
+        },
+        "plausible-absent": {
+          "total": 2,
+          "refused": 1
+        }
+      },
+      "missed": ["Q26"],
+      "wronglyRefused": []
+    }
+  },
+  "contradictions": {
+    "before": {
+      "recall": 0
+    },
+    "now": {
+      "expected": 3,
+      "detected": 1,
+      "truePositives": 1,
+      "precision": 1,
+      "recall": 0.333,
+      "deterministicRecall": 0.5,
+      "missed": ["K2", "K3"],
+      "unmatched": []
+    }
+  },
+  "claims": {
+    "dev": {
+      "claims": 11,
+      "accuracy": 0.364,
+      "unsupportedAccepted": 2,
+      "unsupportedAcceptedRate": 0.5,
+      "falseAlarmRate": 0,
+      "confusion": {
+        "supported": {
+          "supported": 1,
+          "partial": 4,
+          "unsupported": 0
+        },
+        "partial": {
+          "supported": 1,
+          "partial": 1,
+          "unsupported": 0
+        },
+        "unsupported": {
+          "supported": 2,
+          "partial": 0,
+          "unsupported": 2
+        }
+      },
+      "contaminationBefore": 0.545,
+      "contaminationAfter": 0.75,
+      "findingsBefore": 11,
+      "findingsAfter": 4
+    },
+    "test": {
+      "claims": 11,
+      "accuracy": 0.455,
+      "unsupportedAccepted": 1,
+      "unsupportedAcceptedRate": 0.25,
+      "falseAlarmRate": 0,
+      "confusion": {
+        "supported": {
+          "supported": 2,
+          "partial": 3,
+          "unsupported": 0
+        },
+        "partial": {
+          "supported": 2,
+          "partial": 0,
+          "unsupported": 0
+        },
+        "unsupported": {
+          "supported": 1,
+          "partial": 0,
+          "unsupported": 3
+        }
+      },
+      "contaminationBefore": 0.545,
+      "contaminationAfter": 0.6,
+      "findingsBefore": 11,
+      "findingsAfter": 5
+    }
+  },
+  "injection": {
+    "samples": 18,
+    "precision": 1,
+    "recall": 0.8,
+    "directRecall": 1,
+    "falsePositives": [],
+    "missed": ["I09", "I10"]
+  }
+}

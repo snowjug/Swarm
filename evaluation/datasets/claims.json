@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "description": "Statements a report might make about the Larkholm sources, each with the documents it cites and a gold support level read from those documents. 'supported' means the cited text states it; 'partial' means part of it is stated and part is not; 'unsupported' means a figure is wrong, or the text does not state it, or the text says otherwise. Several 'unsupported' and 'partial' items reuse the sources' own words on purpose: they are the cases a word-overlap check is expected to get wrong.",
+  "claims": [
+    {
+      "id": "L01",
+      "split": "dev",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "supported",
+      "text": "Council counts show 412,000 one-way crossings in 2025."
+    },
+    {
+      "id": "L02",
+      "split": "test",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "supported",
+      "text": "The battery-electric replacement would cost $14.2 million."
+    },
+    {
+      "id": "L03",
+      "split": "dev",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "supported",
+      "text": "The Clean Coasts Fund would pay 40% of the electric vessel's cost if the Council commits before 30 September."
+    },
+    {
+      "id": "L04",
+      "split": "test",
+      "kind": "source-fact",
+      "documents": ["03-residents-survey-summary.md"],
+      "gold": "supported",
+      "text": "71% of respondents oppose a reduced winter timetable."
+    },
+    {
+      "id": "L05",
+      "split": "dev",
+      "kind": "extracted-claim",
+      "documents": ["02-ferry-operator-feasibility-memo.md"],
+      "gold": "supported",
+      "text": "The operator proposes four daily return sailings in winter instead of six."
+    },
+    {
+      "id": "L06",
+      "split": "test",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "supported",
+      "text": "Grid upgrades for charging are expected to take 14 to 18 months."
+    },
+    {
+      "id": "L07",
+      "split": "dev",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "supported",
+      "text": "The Finance Committee will not raise the annual ferry subsidy above $1.8 million."
+    },
+    {
+      "id": "L08",
+      "split": "test",
+      "kind": "extracted-claim",
+      "documents": ["04-stakeholder-statements.md"],
+      "gold": "supported",
+      "text": "Visitors account for about 70% of summer crossings."
+    },
+    {
+      "id": "L09",
+      "split": "dev",
+      "kind": "source-fact",
+      "documents": ["03-residents-survey-summary.md"],
+      "gold": "supported",
+      "text": "The Health Centre reports about 140 patient trips a month to mainland clinics between November and March."
+    },
+    {
+      "id": "L10",
+      "split": "test",
+      "kind": "extracted-claim",
+      "documents": ["03-residents-survey-summary.md"],
+      "gold": "supported",
+      "text": "The Residents' Association asks the Council to cap any fare increase at 5%."
+    },
+    {
+      "id": "L11",
+      "split": "dev",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "unsupported",
+      "text": "Council counts show 450,000 one-way crossings in 2025."
+    },
+    {
+      "id": "L12",
+      "split": "test",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "unsupported",
+      "text": "The battery-electric replacement would cost $12.4 million."
+    },
+    {
+      "id": "L13",
+      "split": "dev",
+      "kind": "source-fact",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "unsupported",
+      "text": "The Clean Coasts Fund would pay 60% of the electric vessel's cost if the Council commits before 30 September."
+    },
+    {
+      "id": "L14",
+      "split": "test",
+      "kind": "source-fact",
+      "documents": ["03-residents-survey-summary.md"],
+      "gold": "unsupported",
+      "text": "85% of respondents oppose a reduced winter timetable."
+    },
+    {
+      "id": "L15",
+      "split": "dev",
+      "kind": "extracted-claim",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "unsupported",
+      "text": "The Council has approved the electric ferry and signed the vessel contract."
+    },
+    {
+      "id": "L16",
+      "split": "test",
+      "kind": "extracted-claim",
+      "documents": ["02-ferry-operator-feasibility-memo.md"],
+      "gold": "unsupported",
+      "text": "The operator guarantees that no winter sailings will be cancelled in storms."
+    },
+    {
+      "id": "L17",
+      "split": "dev",
+      "kind": "extracted-claim",
+      "documents": ["03-residents-survey-summary.md"],
+      "gold": "unsupported",
+      "text": "The Residents' Association will oppose an electric ferry under any conditions."
+    },
+    {
+      "id": "L18",
+      "split": "test",
+      "kind": "source-fact",
+      "documents": ["04-stakeholder-statements.md"],
+      "gold": "unsupported",
+      "text": "The Green Tide Alliance polled 4,000 visitors and residents."
+    },
+    {
+      "id": "L19",
+      "split": "dev",
+      "kind": "extracted-claim",
+      "documents": ["02-ferry-operator-feasibility-memo.md"],
+      "gold": "partial",
+      "text": "The operator proposes a 12% fare increase and a free bus link to the ferry terminal."
+    },
+    {
+      "id": "L20",
+      "split": "test",
+      "kind": "extracted-claim",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "partial",
+      "text": "The grant deadline is 30 September, and the grant covers the full cost of the vessel."
+    },
+    {
+      "id": "L21",
+      "split": "dev",
+      "kind": "extracted-claim",
+      "documents": ["01-council-briefing-note.md"],
+      "gold": "partial",
+      "text": "The diesel refit costs $3.1 million and would extend the vessel's life by about twenty years."
+    },
+    {
+      "id": "L22",
+      "split": "test",
+      "kind": "extracted-claim",
+      "documents": ["03-residents-survey-summary.md"],
+      "gold": "partial",
+      "text": "The Association surveyed 1,150 households and every household replied."
+    }
+  ]
+}

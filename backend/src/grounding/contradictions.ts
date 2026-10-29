@@ -9,6 +9,12 @@ import { hashText } from './ledger.js';
 
 /** Words that must be shared for two sentences to be about the same thing. */
 export const MIN_SHARED_WORDS = 3;
+/**
+ * Fewer shared words are enough when both sentences count the same thing (the words right after
+ * the figure are identical) over an identical, explicit period: "412,000 one-way crossings in
+ * 2025" against "365,000 one-way crossings in 2025".
+ */
+export const MIN_SHARED_WORDS_SAME_QUANTITY = 2;
 /** Share of the shorter sentence's content words that the other sentence must also contain. */
 export const MIN_TOPIC_OVERLAP = 0.6;
 /** Two values closer than this (relative) are the same figure written differently. */
@@ -37,6 +43,8 @@ export interface Measurement {
   raw: string;
   value: number;
   unit: 'percent' | 'currency' | 'count';
+  /** What the figure counts: the first content words after it. "412,000 one-way crossings" gives "one-way crossings". */
+  phrase: string;
 }
 
 const SCALES: Record<string, number> = {
@@ -74,10 +82,16 @@ export function measurementsIn(sentence: string): {
       (match.index ?? 0) + raw.length + 14,
     );
     const unit = percent ? 'percent' : symbol || CURRENCY_WORDS.test(after) ? 'currency' : 'count';
+    const phrase = tokenize(
+      sentence.slice((match.index ?? 0) + raw.length, (match.index ?? 0) + raw.length + 60),
+    )
+      .slice(0, 2)
+      .join(' ');
     measurements.push({
       raw: raw.trim(),
       value: percent ? base : base * (SCALES[suffixKey] ?? 1),
       unit,
+      phrase,
     });
   }
   return { measurements, times };
@@ -149,6 +163,11 @@ function sharesPeriod(left: Set<string>, right: Set<string>): boolean {
   return [...left].some((token) => right.has(token));
 }
 
+/** Both name a period, and the same one. Absence of a period never counts as agreement. */
+function sameExplicitPeriod(left: Set<string>, right: Set<string>): boolean {
+  return left.size > 0 && left.size === right.size && [...left].every((token) => right.has(token));
+}
+
 /**
  * Finds statements in different passages that seem to be about the same thing yet disagree: a
  * different figure for the same measure, or one affirming what the other denies. It deliberately
@@ -208,9 +227,17 @@ export function detectContradictions(
     }
     for (const [rightPosition, count] of shared) {
       const right = sentences[rightPosition];
-      if (!right || count < MIN_SHARED_WORDS || left.passageId === right.passageId) continue;
+      if (!right || left.passageId === right.passageId) continue;
       const overlap = count / Math.min(left.words.size, right.words.size);
-      if (overlap < MIN_TOPIC_OVERLAP || !sharesPeriod(left.times, right.times)) continue;
+      const standard =
+        count >= MIN_SHARED_WORDS &&
+        overlap >= MIN_TOPIC_OVERLAP &&
+        sharesPeriod(left.times, right.times);
+      const sameQuantity =
+        !standard &&
+        count >= MIN_SHARED_WORDS_SAME_QUANTITY &&
+        sameExplicitPeriod(left.times, right.times);
+      if (!standard && !sameQuantity) continue;
       const key = `${leftPosition}:${rightPosition}`;
       if (paired.has(key)) continue;
       const topic = [...left.words].filter((word) => right.words.has(word)).sort();
@@ -224,12 +251,14 @@ export function detectContradictions(
       for (const unit of units) {
         const a = left.measurements.find((measurement) => measurement.unit === unit);
         const b = right.measurements.find((measurement) => measurement.unit === unit);
+        // On the thinner evidence of the same-quantity path, the figures themselves must count the same thing.
+        if (sameQuantity && (!a?.phrase || a.phrase !== b?.phrase)) continue;
         if (a && b && differs(a, b)) {
           found.push({
             left,
             right,
             kind: 'numeric',
-            confidence: Math.min(0.95, overlap),
+            confidence: Math.min(0.95, sameQuantity ? Math.max(overlap, 0.6) : overlap),
             leftValue: format(a),
             rightValue: format(b),
             shared: topic,
@@ -240,6 +269,7 @@ export function detectContradictions(
       }
       if (
         !recorded &&
+        standard &&
         left.measurements.length === 0 &&
         right.measurements.length === 0 &&
         left.negated !== right.negated &&

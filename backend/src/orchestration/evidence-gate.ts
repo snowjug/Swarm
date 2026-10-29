@@ -8,8 +8,14 @@ export const ABSTENTION_MESSAGE =
 
 /** Share of a question's content terms that the project's material must contain. */
 export const MIN_TERM_COVERAGE = 0.4;
-/** The best lexical match between the question and any passage, memory or report section. */
-export const MIN_RETRIEVAL_SCORE = 0.12;
+/**
+ * The best stemmed lexical match between the question and any passage, memory or report section.
+ * Chosen for margin, not recall: on the dev split the lowest score of a question the sources do
+ * answer is 0.13, so 0.10 leaves headroom. A refused fair question costs more trust than a
+ * borderline question let through, which the model's own abstention and the citation rule still
+ * face. See evaluation/README.md.
+ */
+export const MIN_RETRIEVAL_SCORE = 0.1;
 
 const SUFFIXES = [
   'ization',

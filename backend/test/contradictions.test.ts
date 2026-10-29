@@ -204,6 +204,51 @@ describe('detectContradictions', () => {
     expect(detectContradictions([a, b], NOW)).toEqual([]);
   });
 
+  describe('short sentences that count the same thing over the same period', () => {
+    const council = passage('S1', 'Council counts show 412,000 one-way crossings in 2025.');
+    const operator = passage(
+      'S2',
+      'Our ticketing system recorded 365,000 one-way crossings in 2025.',
+    );
+
+    it('pairs them even though they share only the words that name the measure', () => {
+      const found = detectContradictions([council, operator], NOW);
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatchObject({ kind: 'numeric', status: 'detected' });
+      expect([found[0]?.leftValue, found[0]?.rightValue].sort()).toEqual(['365,000', '412,000']);
+    });
+
+    it('does not pair them when the periods differ', () => {
+      const earlier = passage(
+        'S2',
+        'Our ticketing system recorded 365,000 one-way crossings in 2024.',
+      );
+      expect(detectContradictions([council, earlier], NOW)).toEqual([]);
+    });
+
+    it('does not treat a missing period as agreement', () => {
+      const undated = passage('S2', 'Our ticketing system recorded 365,000 one-way crossings.');
+      expect(detectContradictions([council, undated], NOW)).toEqual([]);
+    });
+
+    it('does not pair them when the figures count different things', () => {
+      const other = passage('S2', 'Our ticketing system recorded 365,000 complaints in 2025.');
+      expect(detectContradictions([council, other], NOW)).toEqual([]);
+    });
+
+    it('does not flag the same figure written in two ways', () => {
+      const same = passage('S2', 'Our ticketing system recorded 412000 one-way crossings in 2025.');
+      expect(detectContradictions([council, same], NOW)).toEqual([]);
+    });
+
+    it('records what each figure counts', () => {
+      expect(
+        measurementsIn('Council counts show 412,000 one-way crossings in 2025.').measurements[0]
+          ?.phrase,
+      ).toBe('one-way crossings');
+    });
+  });
+
   it('is deterministic, with stable ids, regardless of passage order', () => {
     const forward = detectContradictions([council, operator], NOW);
     const backward = detectContradictions([operator, council], NOW);

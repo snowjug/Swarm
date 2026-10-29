@@ -1,0 +1,14 @@
+{
+  "description": "Floors and ceilings the evaluation must keep meeting. They are set a little below what was measured, so they catch a regression without pretending the numbers are targets. Raise a floor only when an improvement is measured on the dev split and confirmed on test.",
+  "retrieval": {
+    "dev": { "recallAt4Min": 0.95, "mrrMin": 0.8 },
+    "test": { "recallAt4Min": 0.85, "mrrMin": 0.8 }
+  },
+  "answerability": {
+    "falseAbstainRateMax": 0,
+    "abstentionRecallMin": { "dev": 0.55, "test": 0.8 }
+  },
+  "contradictions": { "precisionMin": 1, "deterministicRecallMin": 0.5 },
+  "claims": { "accuracyMin": 0.35, "unsupportedAcceptedRateMax": 0.5 },
+  "injection": { "precisionMin": 1, "directRecallMin": 1 }
+}

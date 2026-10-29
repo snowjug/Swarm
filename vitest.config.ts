@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     include: [
       'backend/test/**/*.test.ts',
+      'evaluation/test/**/*.test.ts',
       'frontend/src/**/*.test.{ts,tsx}',
       'scripts/azure/**/*.test.ts',
     ],
