@@ -117,6 +117,14 @@ export interface EvidenceChunk {
   text: string;
   start: number;
   end: number;
+  /** SHA-256 of `text`. Lets a later edit to a source be told apart from what was cited. */
+  contentHash?: string;
+  /** When the passage was cut from its document. */
+  extractedAt?: string;
+  /** Which chunker produced the passage, so a change in how passages are cut is auditable. */
+  parserVersion?: string;
+  /** A person's review of the passage. Passages start unreviewed. */
+  reviewStatus?: 'unreviewed' | 'accepted' | 'flagged';
 }
 
 export interface EvidenceMatch extends EvidenceChunk {
@@ -270,6 +278,17 @@ export interface ProjectDetail extends ProjectSummary {
   console: GuidedConsoleState | null;
 }
 
+export type ChatGroundingStatus = 'cited' | 'caveated' | 'abstained' | 'uncited';
+
+/** What the evidence gate and the answer check found, so an answer never overstates its support. */
+export interface ChatGrounding {
+  status: ChatGroundingStatus;
+  /** Plain statements about what was and was not found or checked. */
+  notes: string[];
+  /** How much of the question's key terms the project's own material covers, 0..1. */
+  coverage: number | null;
+}
+
 export interface ChatMessage {
   id: string;
   target: string;
@@ -279,6 +298,8 @@ export interface ChatMessage {
   memoryIds?: string[];
   mode: EngineMode;
   createdAt: string;
+  /** Present on assistant replies produced after the evidence gate existed. */
+  grounding?: ChatGrounding;
 }
 
 export type ProviderConnectivity = 'not-applicable' | 'unverified' | 'ok' | 'failing';
