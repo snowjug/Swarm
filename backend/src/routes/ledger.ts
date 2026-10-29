@@ -4,13 +4,10 @@ import {
   MAX_REVIEW_NOTE_LENGTH,
   REVIEW_RESULTS,
   contradictionReviewSchema,
-  type ClaimRecord,
+  type ClaimDetail,
   type ReviewResult,
 } from '../../../shared/evidence.js';
-import type { SimulationMemory } from '../../../shared/guided.js';
-import type { EvidenceChunk } from '../../../shared/types.js';
 import { LedgerService, deriveScenarioAssumptions } from '../grounding/service.js';
-import type { LedgerAssumption } from '../grounding/ledger.js';
 import type { Repository } from '../storage/repository.js';
 
 const projectParams = z.object({ id: z.uuid() });
@@ -25,15 +22,6 @@ const claimReviewBody = z.object({
   /** The version the reviewer was looking at. A different current version is a conflict. */
   expectedVersion: z.int().positive().optional(),
 });
-
-export interface ClaimDetail {
-  claim: ClaimRecord;
-  /** The cited passages, whole, so the exact quotation can be seen in its context. */
-  passages: EvidenceChunk[];
-  /** The simulation memories the statement rests on, if any. */
-  memories: SimulationMemory[];
-  assumptions: LedgerAssumption[];
-}
 
 export function ledgerRoutes(
   app: FastifyInstance,

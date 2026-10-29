@@ -4,6 +4,15 @@ import {
   SUPPORT_VERDICT_LABELS,
   type GroundingReview,
 } from '../../shared/grounding.js';
+import {
+  CONTRADICTION_STATUS_LABELS,
+  PUBLICATION_STATUS_LABELS,
+  REVIEW_RESULT_LABELS,
+  STATEMENT_TYPE_LABELS,
+  SUPPORT_CLASS_LABELS,
+  isOpenConflict,
+  type Ledger,
+} from '../../shared/evidence.js';
 import type { BranchChange } from '../../shared/guided.js';
 import type { EvidenceChunk, ProjectDetail } from '../../shared/types.js';
 import { AppError } from './errors.js';
@@ -59,6 +68,54 @@ function groundingSection(grounding: GroundingReview | undefined): string[] {
   ];
 }
 
+function ledgerSection(ledger: Ledger | null): string[] {
+  if (!ledger) return [];
+  const { sufficiency } = ledger;
+  const open = ledger.contradictions.filter((conflict) => isOpenConflict(conflict.status));
+  const share =
+    sufficiency.directlySupportedShare === null
+      ? ''
+      : ` ${Math.round(sufficiency.directlySupportedShare * 100)}% of the statements that rest on a source are directly supported.`;
+  return [
+    '## Evidence ledger',
+    '',
+    '> The chapters above were written by a model. This ledger records how well the sources support each statement in them, and where two sources disagree. A statement is a finding only when a source passage directly supports it.',
+    '',
+    `Evidence sufficiency: **${sufficiency.level}**.${share}`,
+    ...sufficiency.reasons.map((reason) => `- ${text(reason)}`),
+    '',
+    `### Conflicts between sources (${open.length} open of ${ledger.contradictions.length})`,
+    '',
+    ...(ledger.contradictions.length
+      ? ledger.contradictions.flatMap((conflict) => [
+          `- ${conflict.id} [${CONTRADICTION_STATUS_LABELS[conflict.status]}] ${text(conflict.topic)}`,
+          `  - ${text(conflict.left.documentName)}, ${conflict.left.passageId}${conflict.leftValue ? ` (${text(conflict.leftValue)})` : ''}: ${text(conflict.left.quote ?? '')}`,
+          `  - ${text(conflict.right.documentName)}, ${conflict.right.passageId}${conflict.rightValue ? ` (${text(conflict.rightValue)})` : ''}: ${text(conflict.right.quote ?? '')}`,
+          ...(conflict.note ? [`  - Reviewer note: ${text(conflict.note)}`] : []),
+        ])
+      : ['No conflicts between sources were detected. This is not proof that the sources agree.']),
+    '',
+    `### Statements (${ledger.claims.length})`,
+    '',
+    ...ledger.claims.flatMap((claim) => [
+      `- ${claim.id} [${STATEMENT_TYPE_LABELS[claim.statementType]}; ${SUPPORT_CLASS_LABELS[claim.supportClass]}; ${PUBLICATION_STATUS_LABELS[claim.publication.status]}; ${REVIEW_RESULT_LABELS[claim.review.result]}] ${text(claim.text)}`,
+      ...(claim.publication.qualification
+        ? [`  - Must be shown with: ${text(claim.publication.qualification)}`]
+        : []),
+      ...claim.supporting.map(
+        (ref) =>
+          `  - Supported by ${text(ref.documentName)}, ${ref.passageId}, characters ${ref.start + 1}-${ref.end}${ref.quote ? `: ${text(ref.quote)}` : ''}`,
+      ),
+      ...claim.contradicting.map(
+        (ref) =>
+          `  - Contradicted by ${text(ref.documentName)}, ${ref.passageId}${ref.quote ? `: ${text(ref.quote)}` : ''}`,
+      ),
+      ...(claim.review.note ? [`  - Reviewer note: ${text(claim.review.note)}`] : []),
+    ]),
+    '',
+  ];
+}
+
 function lineage(project: ProjectDetail): string[] {
   const branch = project.console?.branch;
   if (!branch) return [];
@@ -74,7 +131,11 @@ function lineage(project: ProjectDetail): string[] {
   ];
 }
 
-export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]): string {
+export function markdownExport(
+  project: ProjectDetail,
+  chunks: EvidenceChunk[],
+  ledger: Ledger | null = null,
+): string {
   const report = project.report;
   if (!report)
     throw new AppError(409, 'REPORT_NOT_READY', 'This experiment has no completed report yet.');
@@ -137,6 +198,7 @@ export function markdownExport(project: ProjectDetail, chunks: EvidenceChunk[]):
         ]
       : []),
     ...groundingSection(report.grounding),
+    ...ledgerSection(ledger),
     '## Limitations',
     '',
     ...report.limitations.map((limitation) => `- ${text(limitation)}`),

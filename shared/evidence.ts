@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { CLAIM_KINDS, SUPPORT_VERDICTS } from './grounding.js';
+import type { SimulationMemory } from './guided.js';
+import type { EvidenceChunk } from './types.js';
 
 /**
  * The ten things a statement in a decision output can be. They are never merged: the label travels
@@ -339,4 +341,20 @@ export interface Ledger {
   sufficiency: EvidenceSufficiency;
   /** When the grounding review that the statements came from was run. Null: no review exists. */
   reviewedAt: string | null;
+}
+
+/** A scenario input a statement may rest on. */
+export interface LedgerAssumption {
+  id: string;
+  statement: string;
+  /** Scenario inputs shape every simulated result, so they are listed on those statements. */
+  scope: 'scenario' | 'general';
+}
+
+/** One statement with what is needed to inspect it: the whole cited passages, memories and assumptions. */
+export interface ClaimDetail {
+  claim: ClaimRecord;
+  passages: EvidenceChunk[];
+  memories: SimulationMemory[];
+  assumptions: LedgerAssumption[];
 }

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { chatInputSchema, createProjectSchema } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
 import { markdownExport } from '../export.js';
+import { LedgerService } from '../grounding/service.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { InteractionService } from '../orchestration/interaction.js';
 import type { Orchestrator } from '../orchestration/runner.js';
@@ -110,6 +111,7 @@ export function projectRoutes(
       .parse(request.query);
     const project = repository.get(id);
     const chunks = repository.chunks(id);
+    const ledger = project.report ? new LedgerService(repository).get(id) : null;
     if (format === 'json') {
       return reply
         .header('content-disposition', `attachment; filename="swarm-lab-${id}.json"`)
@@ -119,6 +121,7 @@ export function projectRoutes(
           exportedAt: new Date().toISOString(),
           project,
           evidence: chunks,
+          ledger,
           messages: repository.allMessages(id),
         });
     }
@@ -131,6 +134,6 @@ export function projectRoutes(
     return reply
       .header('content-disposition', `attachment; filename="swarm-lab-${id}.md"`)
       .type('text/markdown; charset=utf-8')
-      .send(markdownExport(project, chunks));
+      .send(markdownExport(project, chunks, ledger));
   });
 }

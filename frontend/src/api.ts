@@ -20,6 +20,14 @@ import type {
   SurveyInput,
   SurveyRecord,
 } from '../../shared/guided';
+import type {
+  ClaimDetail,
+  ClaimRecord,
+  ContradictionRecord,
+  ContradictionReviewInput,
+  Ledger,
+  ReviewInput,
+} from '../../shared/evidence';
 
 export class ApiError extends Error {
   readonly code: string;
@@ -161,6 +169,30 @@ export const api = {
       ...jsonBody({ target, message }),
       signal,
     }),
+  ledger: (id: string, signal?: AbortSignal) =>
+    request<Ledger>(`${projectPath(id)}/ledger`, { signal }),
+  claim: (id: string, claimId: string, signal?: AbortSignal) =>
+    request<ClaimDetail>(`${projectPath(id)}/claims/${encodeURIComponent(claimId)}`, { signal }),
+  reviewClaim: (
+    id: string,
+    claimId: string,
+    review: ReviewInput & { expectedVersion?: number },
+    signal?: AbortSignal,
+  ) =>
+    request<{ claim: ClaimRecord }>(
+      `${projectPath(id)}/claims/${encodeURIComponent(claimId)}/review`,
+      { ...jsonBody(review), signal },
+    ),
+  reviewConflict: (
+    id: string,
+    conflictId: string,
+    review: ContradictionReviewInput,
+    signal?: AbortSignal,
+  ) =>
+    request<{ conflict: ContradictionRecord; ledger: Ledger }>(
+      `${projectPath(id)}/conflicts/${encodeURIComponent(conflictId)}/review`,
+      { ...jsonBody(review), signal },
+    ),
   export: async (id: string, format: 'markdown' | 'json', signal?: AbortSignal) => {
     const response = await checkedFetch(
       `${projectPath(id)}/export?format=${encodeURIComponent(format)}`,

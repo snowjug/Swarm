@@ -8,6 +8,7 @@ import { dateTime } from '../../lib/format';
 import type { Inspection } from '../../lib/graph';
 import { EmptyPanel, Notice, Spinner } from '../ui';
 import { Citations } from './Citations';
+import { ChatGroundingNote } from './LedgerParts';
 
 export function ChatPanel({
   project,
@@ -167,6 +168,9 @@ export function ChatPanel({
               </time>
             </div>
             <p className="preserve-text">{message.content}</p>
+            {message.role === 'assistant' && message.grounding && (
+              <ChatGroundingNote grounding={message.grounding} />
+            )}
             <Citations
               sourceIds={message.sourceIds}
               memoryIds={message.memoryIds}

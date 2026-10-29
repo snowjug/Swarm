@@ -8,6 +8,7 @@ import {
   type ClaimReview,
   type EvidenceRef,
   type EvidenceSufficiency,
+  type LedgerAssumption,
   type ReviewInput,
   type SimulationRef,
   type StatementType,
@@ -217,12 +218,7 @@ export function decidePublication(input: PublicationInput): ClaimPublication {
   return publication;
 }
 
-export interface LedgerAssumption {
-  id: string;
-  statement: string;
-  /** Scenario inputs shape every simulated result, so they are listed on those statements. */
-  scope: 'scenario' | 'general';
-}
+export type { LedgerAssumption } from '../../../shared/evidence.js';
 
 export interface LedgerInput {
   projectId: string;

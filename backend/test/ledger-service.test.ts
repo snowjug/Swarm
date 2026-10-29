@@ -514,3 +514,62 @@ describe('the ledger API', () => {
     expect(verified.json()).toMatchObject({ ok: true });
   });
 });
+
+describe('export', () => {
+  const api = (harness: Awaited<ReturnType<typeof setup>>) => `/api/projects/${harness.project.id}`;
+  it('carries the ledger in JSON, and nothing for a project with no report yet', async () => {
+    const harness = await setup();
+    const before = await harness.app.inject({
+      method: 'GET',
+      url: `${api(harness)}/export?format=json`,
+    });
+    expect(before.statusCode).toBe(200);
+    expect(before.json().ledger).toBeNull();
+
+    withReport(harness);
+    const after = await harness.app.inject({
+      method: 'GET',
+      url: `${api(harness)}/export?format=json`,
+    });
+    const { ledger } = after.json();
+    expect(ledger.claims).toHaveLength(4);
+    expect(ledger.contradictions).toHaveLength(1);
+    expect(ledger.sufficiency.level).toBe('insufficient');
+    expect(ledger.claims[0].publication.status).toBeTruthy();
+  });
+
+  it('puts a readable evidence ledger in Markdown, with how each statement must be shown', async () => {
+    const harness = await setup();
+    withReport(harness);
+    harness.repository.update(harness.project.id, { status: 'completed' });
+    const response = await harness.app.inject({
+      method: 'GET',
+      url: `${api(harness)}/export?format=markdown`,
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    const markdown = response.body;
+    expect(markdown).toContain('## Evidence ledger');
+    expect(markdown).toContain('The chapters above were written by a model');
+    expect(markdown).toContain('Evidence sufficiency: **insufficient**');
+    expect(markdown).toContain('### Conflicts between sources (1 open of 1)');
+    expect(markdown).toContain('Directly supported');
+    expect(markdown).toContain('Must be shown with');
+    expect(markdown).toContain('Supported by');
+    expect(markdown.indexOf('## Evidence ledger')).toBeLessThan(markdown.indexOf('## Limitations'));
+  });
+
+  it('escapes statement text in the Markdown ledger', async () => {
+    const harness = await setup();
+    const hostile = review();
+    hostile.claims[0]!.text = '<script>alert(1)</script> [click](javascript:alert(2))';
+    withReport(harness, hostile);
+    harness.repository.update(harness.project.id, { status: 'completed' });
+    const response = await harness.app.inject({
+      method: 'GET',
+      url: `${api(harness)}/export?format=markdown`,
+    });
+    expect(response.body).not.toContain('<script>');
+    expect(response.body).not.toContain('[click](javascript:');
+    expect(response.body).toContain('&lt;script&gt;');
+  });
+});
