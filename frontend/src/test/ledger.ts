@@ -100,6 +100,7 @@ export const ledgerFixture = (overrides: Partial<Ledger> = {}): Ledger => ({
       text: 'Residents may switch to the ferry if fares fall.',
       supportClass: 'not-checkable',
       supporting: [],
+      assumptionIds: ['A1'],
       publication: {
         status: 'labelled-unverified',
         qualification: 'Not verified.',
@@ -120,6 +121,14 @@ export const ledgerFixture = (overrides: Partial<Ledger> = {}): Ledger => ({
   ],
   contradictions: [conflictRecord()],
   sufficiency: sufficiency('limited', { reasons: ['Only 1 directly supported finding.'] }),
+  assumptions: [
+    {
+      id: 'A1',
+      statement: 'The fictional proxies start from recorded, not measured, opinions.',
+      scope: 'scenario',
+    },
+    { id: 'A2', statement: 'Intervention at round 2: an announcement.', scope: 'scenario' },
+  ],
   reviewedAt: '2026-01-01T00:00:00.000Z',
   ...overrides,
 });

@@ -55,12 +55,14 @@ function ledgerOf(
   claims: ClaimRecord[],
   contradictions: ContradictionRecord[],
   reviewedAt: string | null,
+  assumptions: LedgerAssumption[],
 ): Ledger {
   const open = contradictions.filter((conflict) => isOpenConflict(conflict.status)).length;
   return {
     claims,
     contradictions,
     sufficiency: assessSufficiency(claims, open),
+    assumptions,
     reviewedAt,
   };
 }
@@ -131,7 +133,7 @@ export class LedgerService {
         now,
       );
     });
-    return ledgerOf(claims, contradictions, reviewedAt);
+    return ledgerOf(claims, contradictions, reviewedAt, deriveScenarioAssumptions(project));
   }
 
   /** The ledger for a project, built on first use so projects that predate it still work. */
@@ -144,6 +146,7 @@ export class LedgerService {
       this.repository.ledger.claims(projectId),
       this.repository.ledger.contradictions(projectId),
       state.reviewedAt,
+      deriveScenarioAssumptions(project),
     );
   }
 

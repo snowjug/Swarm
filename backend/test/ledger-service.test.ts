@@ -398,6 +398,10 @@ describe('the ledger API', () => {
     expect(body.claims).toHaveLength(4);
     expect(body.contradictions).toHaveLength(1);
     expect(body.sufficiency.level).toBe('insufficient');
+    // The inputs that shape every simulated result are listed, and the export carries them too.
+    expect(body.assumptions.map((a: { id: string }) => a.id)).toEqual(['A1']);
+    expect(body.assumptions[0].statement).toContain('none of these is a measured value');
+    expect(body.assumptions[0].scope).toBe('scenario');
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
@@ -535,6 +539,7 @@ describe('export', () => {
     expect(ledger.claims).toHaveLength(4);
     expect(ledger.contradictions).toHaveLength(1);
     expect(ledger.sufficiency.level).toBe('insufficient');
+    expect(ledger.assumptions).toHaveLength(1);
     expect(ledger.claims[0].publication.status).toBeTruthy();
   });
 

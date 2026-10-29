@@ -15,6 +15,7 @@ import {
   NO_FILTER,
   PUBLICATION_TONE,
   SUPPORT_TONE,
+  assumptionDependents,
   filterClaims,
   isFilterActive,
   summarise,
@@ -106,6 +107,40 @@ export function LedgerBody({
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="ledger-assumptions">
+        <h3>{`Assumptions behind the simulated results (${ledger.assumptions.length})`}</h3>
+        <p className="field-help">
+          These are inputs, not findings. Every simulated statement rests on them, so if one is
+          wrong, the statements that depend on it are wrong with it.
+        </p>
+        <ul className="assumption-list" role="list">
+          {assumptionDependents(ledger).map(({ assumption, count }) => (
+            <li key={assumption.id} className="assumption">
+              <span className="mono muted claim-id">{assumption.id}</span>
+              <span className="assumption-text preserve-text">{assumption.statement}</span>
+              <button
+                className="text-button"
+                type="button"
+                disabled={count === 0}
+                aria-pressed={filter.assumption === assumption.id}
+                onClick={() =>
+                  setFilter({
+                    ...NO_FILTER,
+                    assumption: filter.assumption === assumption.id ? 'all' : assumption.id,
+                  })
+                }
+              >
+                {count === 0
+                  ? 'No statement depends on it'
+                  : filter.assumption === assumption.id
+                    ? `Showing ${count} dependent statement${count === 1 ? '' : 's'}`
+                    : `Show ${count} dependent statement${count === 1 ? '' : 's'}`}
+              </button>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="ledger-statements">

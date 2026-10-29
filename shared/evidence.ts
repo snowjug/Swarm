@@ -339,6 +339,8 @@ export interface Ledger {
   claims: ClaimRecord[];
   contradictions: ContradictionRecord[];
   sufficiency: EvidenceSufficiency;
+  /** Inputs that shape every simulated result, so a reader can see what a statement would depend on. */
+  assumptions: LedgerAssumption[];
   /** When the grounding review that the statements came from was run. Null: no review exists. */
   reviewedAt: string | null;
 }

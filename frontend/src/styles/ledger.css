@@ -117,11 +117,38 @@
 }
 
 .ledger-conflicts,
+.ledger-assumptions,
 .ledger-statements {
   display: flex;
   flex-direction: column;
   gap: 10px;
   min-width: 0;
+}
+.assumption-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.assumption {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: start;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  font-size: 13px;
+}
+.assumption-text {
+  overflow-wrap: anywhere;
+}
+.assumption .text-button {
+  grid-column: 2;
+  justify-self: start;
 }
 .conflict-list,
 .ledger-claims,

@@ -7,6 +7,7 @@ import {
   NO_FILTER,
   PUBLICATION_TONE,
   SUPPORT_TONE,
+  assumptionDependents,
   filterClaims,
   isFilterActive,
   locationText,
@@ -44,6 +45,14 @@ describe('tones', () => {
 describe('filterClaims', () => {
   const claims = ledgerFixture().claims;
 
+  it('narrows to the statements that rest on one assumption', () => {
+    expect(filterClaims(claims, { ...NO_FILTER, assumption: 'A1' }).map((c) => c.id)).toEqual([
+      'C2',
+    ]);
+    expect(filterClaims(claims, { ...NO_FILTER, assumption: 'A9' })).toEqual([]);
+    expect(isFilterActive({ ...NO_FILTER, assumption: 'A1' })).toBe(true);
+  });
+
   it('returns everything with no filter and nothing is marked active', () => {
     expect(filterClaims(claims, NO_FILTER)).toHaveLength(3);
     expect(isFilterActive(NO_FILTER)).toBe(false);
@@ -66,11 +75,26 @@ describe('filterClaims', () => {
   it('combines filters, and returns an empty list rather than failing', () => {
     expect(
       filterClaims(claims, {
+        ...NO_FILTER,
         support: 'unsupported',
         publication: 'finding',
-        unreviewedOnly: false,
       }),
     ).toEqual([]);
+  });
+});
+
+describe('assumptionDependents', () => {
+  it('counts the statements resting on each assumption, including none', () => {
+    expect(
+      assumptionDependents(ledgerFixture()).map(({ assumption, count }) => [assumption.id, count]),
+    ).toEqual([
+      ['A1', 1],
+      ['A2', 0],
+    ]);
+  });
+
+  it('is empty when the ledger lists no assumptions', () => {
+    expect(assumptionDependents(ledgerFixture({ assumptions: [] }))).toEqual([]);
   });
 });
 

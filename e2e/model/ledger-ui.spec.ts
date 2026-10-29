@@ -110,6 +110,31 @@ test('a statement opens an inspector, a review is recorded, and focus returns to
   await expect(reloaded.locator('.ledger-claim').first()).toContainText('Needs revision');
 });
 
+test('the assumptions behind the simulated results can filter the statements that rest on them', async ({
+  page,
+}) => {
+  const ledger = await openLedger(page, false);
+  await expect(
+    ledger.getByRole('heading', {
+      level: 3,
+      name: /Assumptions behind the simulated results \(\d+\)/,
+    }),
+  ).toBeVisible();
+  await expect(ledger).toContainText('inputs, not findings');
+  const total = await ledger.locator('.ledger-claim').count();
+  const dependent = ledger.locator('.assumption .text-button:not([disabled])').first();
+  await expect(dependent).toHaveAttribute('aria-pressed', 'false');
+  await dependent.click();
+  await expect(dependent).toHaveAttribute('aria-pressed', 'true');
+  await expect(dependent).toContainText(/^Showing \d+ dependent statements?$/);
+  const shown = await ledger.locator('.ledger-claim').count();
+  expect(shown).toBeGreaterThan(0);
+  expect(shown).toBeLessThanOrEqual(total);
+  await ledger.getByRole('button', { name: 'Clear filters' }).click();
+  await expect(ledger.locator('.ledger-claim')).toHaveCount(total);
+  await expectNoAxeViolations(page, 'assumption register');
+});
+
 test('filters narrow the statements and can be cleared', async ({ page }) => {
   const ledger = await openLedger(page, false);
   const total = await ledger.locator('.ledger-claim').count();

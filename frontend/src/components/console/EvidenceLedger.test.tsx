@@ -71,6 +71,32 @@ describe('LedgerBody', () => {
     expect(text(html)).toContain('Showing 3 of 3');
   });
 
+  it('lists the assumptions, how many statements rest on each, and lets a reader filter by one', () => {
+    expect(text(html)).toContain('Assumptions behind the simulated results (2)');
+    expect(text(html)).toContain('recorded, not measured, opinions');
+    expect(text(html)).toContain('Show 1 dependent statement');
+    expect(text(html)).toContain('No statement depends on it');
+    // An assumption nothing rests on cannot be used to filter.
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>No statement depends on it/u);
+    expect(text(html)).toContain('inputs, not findings');
+  });
+
+  it('renders an assumption’s text as text, never as markup', () => {
+    const markup = render(
+      createElement(LedgerBody, {
+        projectId: 'p1',
+        ledger: ledgerFixture({
+          assumptions: [
+            { id: 'A1', statement: '<script>alert(1)</script> seed post', scope: 'scenario' },
+          ],
+        }),
+        onChanged: () => {},
+      }),
+    );
+    expect(markup).not.toContain('<script>');
+    expect(markup).toContain('&lt;script&gt;');
+  });
+
   it('says so, rather than showing an empty box, when nothing was detected or listed', () => {
     const empty = text(
       render(

@@ -7,6 +7,7 @@ import {
   type EvidenceRef,
   type EvidenceSufficiency,
   type Ledger,
+  type LedgerAssumption,
   type PublicationStatus,
   type SupportClass,
 } from '../../../shared/evidence';
@@ -52,6 +53,8 @@ export const SUFFICIENCY_TONE: Record<EvidenceSufficiency['level'], Tone> = {
 export interface LedgerFilter {
   support: SupportClass | 'all';
   publication: PublicationStatus | 'all';
+  /** Only statements that rest on this assumption (an id such as A2). */
+  assumption: string;
   /** Only statements nobody has reviewed yet. */
   unreviewedOnly: boolean;
 }
@@ -59,6 +62,7 @@ export interface LedgerFilter {
 export const NO_FILTER: LedgerFilter = {
   support: 'all',
   publication: 'all',
+  assumption: 'all',
   unreviewedOnly: false,
 };
 
@@ -67,12 +71,28 @@ export function filterClaims(claims: readonly ClaimRecord[], filter: LedgerFilte
     (claim) =>
       (filter.support === 'all' || claim.supportClass === filter.support) &&
       (filter.publication === 'all' || claim.publication.status === filter.publication) &&
+      (filter.assumption === 'all' || claim.assumptionIds.includes(filter.assumption)) &&
       (!filter.unreviewedOnly || claim.review.result === 'pending'),
   );
 }
 
 export function isFilterActive(filter: LedgerFilter): boolean {
-  return filter.support !== 'all' || filter.publication !== 'all' || filter.unreviewedOnly;
+  return (
+    filter.support !== 'all' ||
+    filter.publication !== 'all' ||
+    filter.assumption !== 'all' ||
+    filter.unreviewedOnly
+  );
+}
+
+/** Each assumption with the number of statements that rest on it: what falls if it is wrong. */
+export function assumptionDependents(
+  ledger: Pick<Ledger, 'assumptions' | 'claims'>,
+): { assumption: LedgerAssumption; count: number }[] {
+  return ledger.assumptions.map((assumption) => ({
+    assumption,
+    count: ledger.claims.filter((claim) => claim.assumptionIds.includes(assumption.id)).length,
+  }));
 }
 
 /** Support classes that actually occur, in the fixed order of the taxonomy, with their counts. */
