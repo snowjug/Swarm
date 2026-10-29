@@ -33,13 +33,19 @@ export interface AppOptions {
   logStream?: { write(message: string): void };
 }
 
+/** Larger than the 60 s idle limit most load balancers and command-line clients apply, so the peer closes first. */
+export const KEEP_ALIVE_TIMEOUT_MS = 65_000;
+const BODY_LIMIT = 600_000;
+/** A declared length beyond this many times the route's limit is answered and the connection closed. */
+const DRAIN_FACTOR = 8;
+
 export async function buildApp(options: AppOptions) {
   const { config } = options;
   const app = Fastify({
-    bodyLimit: 600_000,
+    bodyLimit: BODY_LIMIT,
     requestTimeout: 30_000,
     connectionTimeout: 180_000,
-    keepAliveTimeout: 5_000,
+    keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS,
     maxRequestsPerSocket: 200,
     trustProxy: false,
     requestIdHeader: false,
@@ -126,6 +132,17 @@ export async function buildApp(options: AppOptions) {
     if (origin && !config.allowedOrigins.has(origin)) {
       throw new AppError(403, 'ORIGIN_NOT_ALLOWED', 'Cross-origin access is not permitted.');
     }
+  });
+  // A body the route will not accept is refused from its declared length before any of it is read,
+  // and the unread remainder is drained. Closing a connection while the client is still sending
+  // makes the kernel reset it, so the client saw "connection reset" instead of the 413 that says
+  // what to change. A length far beyond the limit is not worth draining: that connection is closed.
+  app.addHook('onRequest', async (request, reply) => {
+    const declared = Number(request.headers['content-length']);
+    const limit = request.routeOptions.bodyLimit;
+    if (!Number.isFinite(declared) || declared <= limit) return;
+    if (declared > limit * DRAIN_FACTOR) reply.header('connection', 'close');
+    throw Object.assign(new Error('Payload Too Large'), { statusCode: 413 });
   });
   registerAuth(app, {
     config: config.auth,
