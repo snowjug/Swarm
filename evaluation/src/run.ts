@@ -5,7 +5,7 @@ import {
   MIN_RETRIEVAL_SCORE,
   MIN_TERM_COVERAGE,
 } from '../../backend/src/orchestration/evidence-gate.js';
-import { PINNED_SOURCES, REPOSITORY_ROOT, loadCorpus } from './corpus.js';
+import { PINNED_SOURCES, REPOSITORY_ROOT, loadCorpus, projectMaterialFor } from './corpus.js';
 import {
   loadAnswerability,
   loadClaims,
@@ -32,6 +32,8 @@ import {
 export interface EvaluationResults {
   sources: Record<string, string>;
   gate: Thresholds;
+  /** Passages of report, graph and recorded activity the gate was shown besides the sources. */
+  materialPassages: number;
   retrieval: { dev: RetrievalMetrics; test: RetrievalMetrics };
   answerability: {
     /** The behaviour before the gate existed: every question was answered. */
@@ -49,6 +51,7 @@ export interface EvaluationResults {
 }
 
 export function evaluate(
+  material: readonly string[],
   gate: Thresholds = { coverage: MIN_TERM_COVERAGE, score: MIN_RETRIEVAL_SCORE },
 ): EvaluationResults {
   const corpus = loadCorpus();
@@ -58,11 +61,12 @@ export function evaluate(
     );
   }
   const retrieval = loadRetrieval();
-  const rows = readGate(loadAnswerability(), corpus.chunks);
+  const rows = readGate(loadAnswerability(), corpus.chunks, material);
   const claims = loadClaims();
   return {
     sources: { ...PINNED_SOURCES },
     gate,
+    materialPassages: material.length,
     retrieval: {
       dev: measureRetrieval(retrieval, corpus.chunks, 'dev'),
       test: measureRetrieval(retrieval, corpus.chunks, 'test'),
@@ -94,7 +98,7 @@ export function render(results: EvaluationResults): string {
       .map(([kind, { total, refused }]) => `${kind} ${refused}/${total}`)
       .join(', ');
   return [
-    `Gate: key-term coverage >= ${results.gate.coverage}, best-passage score >= ${results.gate.score}`,
+    `Gate: key-term coverage >= ${results.gate.coverage}, best-passage score >= ${results.gate.score}. It is shown the sources and ${results.materialPassages} further passages (report, graph and recorded activity of a deterministic local run), as the product shows it.`,
     '',
     '### Retrieval (top four passages)',
     line('split', 'questions', 'recall@4', 'hit@1', 'MRR', 'irrelevant returned'),
@@ -175,10 +179,12 @@ export function render(results: EvaluationResults): string {
   ].join('\n');
 }
 
-function main(): void {
-  const results = evaluate();
+async function main(): Promise<void> {
+  const corpus = loadCorpus();
+  const material = await projectMaterialFor(corpus);
+  const results = evaluate(material);
   if (process.argv.includes('--sweep')) {
-    const rows = readGate(loadAnswerability(), loadCorpus().chunks);
+    const rows = readGate(loadAnswerability(), corpus.chunks, material);
     console.log('Gate threshold sweep on the dev split (chosen on dev, reported on test):');
     for (const cell of sweepGate(rows, 'dev')) {
       console.log(
@@ -196,4 +202,9 @@ function main(): void {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

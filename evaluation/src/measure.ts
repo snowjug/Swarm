@@ -86,9 +86,13 @@ export interface GateRow {
 }
 
 /** The gate's raw readings for every question, from which any threshold can be scored. */
-export function readGate(set: AnswerabilitySet, chunks: EvidenceChunk[]): GateRow[] {
+export function readGate(
+  set: AnswerabilitySet,
+  chunks: EvidenceChunk[],
+  material: readonly string[],
+): GateRow[] {
   return set.questions.map((item) => {
-    const reading = assessAnswerability({ question: item.question, chunks, material: [] });
+    const reading = assessAnswerability({ question: item.question, chunks, material });
     return {
       id: item.id,
       kind: item.kind,

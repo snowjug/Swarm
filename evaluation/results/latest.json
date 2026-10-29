@@ -10,6 +10,7 @@
     "coverage": 0.4,
     "score": 0.1
   },
+  "materialPassages": 94,
   "retrieval": {
     "dev": {
       "questions": 12,
@@ -37,11 +38,11 @@
       "answerable": 7,
       "unanswerable": 7,
       "falseAbstainRate": 0,
-      "abstentionRecall": 0.571,
+      "abstentionRecall": 0.429,
       "byKind": {
         "off-topic": {
           "total": 2,
-          "refused": 2
+          "refused": 1
         },
         "absent-year": {
           "total": 2,
@@ -56,7 +57,12 @@
           "refused": 0
         }
       },
-      "missed": ["Q23", "Q25", "Q27"],
+      "missed": [
+        "Q17",
+        "Q23",
+        "Q25",
+        "Q27"
+      ],
       "wronglyRefused": []
     },
     "test": {
@@ -82,7 +88,9 @@
           "refused": 1
         }
       },
-      "missed": ["Q26"],
+      "missed": [
+        "Q26"
+      ],
       "wronglyRefused": []
     }
   },
@@ -97,7 +105,10 @@
       "precision": 1,
       "recall": 0.333,
       "deterministicRecall": 0.5,
-      "missed": ["K2", "K3"],
+      "missed": [
+        "K2",
+        "K3"
+      ],
       "unmatched": []
     }
   },
@@ -165,6 +176,9 @@
     "recall": 0.8,
     "directRecall": 1,
     "falsePositives": [],
-    "missed": ["I09", "I10"]
+    "missed": [
+      "I09",
+      "I10"
+    ]
   }
 }

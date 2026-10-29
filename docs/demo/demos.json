@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "description": "Synthetic demonstration packs. Each lists what a careful reader would flag, so a pack that stops showing its point fails a test. Every pack is fictional.",
+  "demos": [
+    {
+      "slug": "larkholm-ferry",
+      "title": "Larkholm electric ferry",
+      "question": "How might fictional stakeholders on Larkholm respond to replacing the island ferry with a battery-electric vessel and a reduced winter timetable?",
+      "files": [
+        "01-council-briefing-note.md",
+        "02-ferry-operator-feasibility-memo.md",
+        "03-residents-survey-summary.md",
+        "04-stakeholder-statements.md",
+        "05-scenario-assumptions.md"
+      ],
+      "conflicts": [["01-council-briefing-note.md", "02-ferry-operator-feasibility-memo.md"]],
+      "answerable": [
+        "What ceiling applies to the annual ferry subsidy?",
+        "How many patient trips a month go to mainland clinics?"
+      ],
+      "unanswerable": ["What was ferry ridership in 2019?", "What is the capital of France?"]
+    },
+    {
+      "slug": "hartwell-clinic-booking",
+      "title": "Hartwell clinic booking reform",
+      "question": "How might fictional patients and staff respond to a clinic releasing 40% of appointments for same-day booking?",
+      "files": [
+        "01-clinic-operations-report.md",
+        "02-patient-panel-survey.md",
+        "03-health-board-audit-note.md"
+      ],
+      "conflicts": [
+        ["01-clinic-operations-report.md", "03-health-board-audit-note.md"],
+        ["01-clinic-operations-report.md", "03-health-board-audit-note.md"]
+      ],
+      "answerable": [
+        "What does the Panel ask the clinic to keep bookable in advance?",
+        "What share of daily appointments would be released for same-day booking?"
+      ],
+      "unanswerable": [
+        "What was the median wait in 2019?",
+        "Who won the football match last night?"
+      ]
+    },
+    {
+      "slug": "eastfield-campus-parking",
+      "title": "Eastfield campus parking permits",
+      "question": "How might fictional students and staff respond to replacing free campus parking with paid permits?",
+      "files": [
+        "01-estates-proposal.md",
+        "02-student-union-survey.md",
+        "03-staff-association-briefing.md"
+      ],
+      "conflicts": [
+        ["01-estates-proposal.md", "03-staff-association-briefing.md"],
+        ["01-estates-proposal.md", "03-staff-association-briefing.md"],
+        ["02-student-union-survey.md", "03-staff-association-briefing.md"],
+        ["02-student-union-survey.md", "03-staff-association-briefing.md"]
+      ],
+      "note": "Two of the four are real conflicts (occupancy and permit price, between Estates and the Staff Association). The other two are two different surveys of different groups, students and staff, which differ because their populations differ: a person should dismiss them with Not a conflict. The detector cannot tell, because the population is named in a neighbouring sentence.",
+      "answerable": [
+        "How many students did the Union survey?",
+        "What does the Union ask for students on low incomes?"
+      ],
+      "unanswerable": [
+        "What was parking occupancy in 2031?",
+        "Which professor chairs the transport committee?"
+      ]
+    },
+    {
+      "slug": "northgate-bus-redesign",
+      "title": "Northgate bus network redesign",
+      "question": "How might fictional riders, the operator and the authority respond to withdrawing 11 routes in favour of six frequent corridors?",
+      "files": [
+        "01-authority-plan.md",
+        "02-bus-company-submission.md",
+        "03-riders-forum-feedback.md"
+      ],
+      "conflicts": [
+        ["01-authority-plan.md", "02-bus-company-submission.md"],
+        ["01-authority-plan.md", "02-bus-company-submission.md"]
+      ],
+      "answerable": [
+        "What does the Forum ask for the villages that lose their route?",
+        "How many routes would be withdrawn?"
+      ],
+      "unanswerable": ["What was bus ridership in 2018?", "What is the capital of France?"]
+    },
+    {
+      "slug": "docklands-warehouse-robotics",
+      "title": "Docklands warehouse robotics",
+      "question": "How might fictional managers, the union and the vendor respond to automating the main warehouse?",
+      "files": ["01-vendor-proposal.md", "02-union-briefing.md", "03-pilot-results.md"],
+      "conflicts": [],
+      "answerable": [
+        "How many roles does the Union say are at risk?",
+        "What did the pilot find about safety stops?"
+      ],
+      "unanswerable": [
+        "What did the vendor say about battery recycling?",
+        "How did the pilot perform in 2031?"
+      ]
+    },
+    {
+      "slug": "library-hours-thin-evidence",
+      "title": "Library hours: thin evidence",
+      "question": "How might fictional community groups respond to a proposed change in library opening hours?",
+      "files": ["01-library-notes.md"],
+      "conflicts": [],
+      "answerable": ["What does the Library Service propose about weekday opening?"],
+      "unanswerable": [
+        "How many residents signed the petition?",
+        "What was visitor turnout in 2024?"
+      ]
+    }
+  ]
+}
