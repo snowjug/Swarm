@@ -26,6 +26,12 @@ The short version. The full register, with what is in place and what remains for
   rules. A figure of 100% means no failure among those examples.
 - Nothing has been measured on real documents.
 - Live model evidence is one run per milestone against one deployment, not a distribution.
+- The author's own review missed four defects, one of them a cross-tenant read through a query
+  parameter. A separate automated code review of the branch found them after this package was
+  written; all four were fixed with tests that failed first
+  ([the list](../program/requirement-matrix.md#defects-found-by-an-independent-review-after-these-documents-were-written)).
+  That review was also a single pass, so it is evidence that review finds things, not that nothing
+  remains.
 - One evaluation figure was found to be overstated and was corrected (abstention recall 57% to 43%
   on the development split). That is the kind of error that remains possible elsewhere.
 

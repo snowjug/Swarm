@@ -30,7 +30,15 @@ request may touch, without trusting the browser.
 6. **Tenant and owner scoping.** Projects carry `tenant_id` and `owner_id`. Lists, counts and every
    by-id lookup are filtered by the caller's tenant; a project in another tenant returns the same
    404 as one that does not exist. Mutations need the owner or an administrator. Branches belong to
-   whoever branched. Health shows no counts in entra mode.
+   whoever branched. Health shows no counts in entra mode. The guard vouches only for the project
+   named by `:id` in the path. A handler that is given another project's identifier elsewhere must
+   call `ownerInTenant` on it. Only one does today: `GET /api/projects/:id/compare?with=`. It did
+   not at first, and an independent code review, run after these documents were written, found that
+   a reader could read another tenant's run through it. That was fixed, with a test, and is the
+   reason this paragraph exists: the review of routes the author did by hand had looked at the
+   path parameter and not at the query. A tripwire test now lists every UUID field the routes
+   accept, so a new one fails the build until someone has looked at it; it cannot tell whether the
+   handler checked it.
 7. The model call itself still uses Entra (the user's or a managed identity) and never a key; that is
    unchanged and separate from who may call the API.
 
@@ -50,12 +58,12 @@ request may touch, without trusting the browser.
 
 ## Evidence
 
-`backend/test/auth.test.ts`: 49 tests against a local test provider. One table refuses sixteen kinds
+`backend/test/auth.test.ts`: 42 tests against a local test provider. One table refuses sixteen kinds
 of bad token with an identical 401 (no token, oversized, expired, wrong audience, wrong issuer,
 another tenant's issuer, a tenant not on the allow-list, missing object id or issued-at, signed by
 another key, tampered claims, an HS256 algorithm-confusion token, and an unsigned `alg: none`
 token). Others cover role ordering, a key-service outage returning 503, tokens never reaching the
-logs, cross-tenant access returning the same 404 as a missing project, the route-table coverage
-test, and an upgrade of an old database. Four mutations (remove the tenant check, remove the
-ownership check, remove default deny, move authentication after body parsing) were each caught by
-a failing test.
+logs, cross-tenant access returning the same 404 as a missing project (including a comparison
+that names the other tenant's run in its query), the route-table coverage test, and an upgrade of
+an old database. Four mutations (remove the tenant check, remove the ownership check, remove
+default deny, move authentication after body parsing) were each caught by a failing test.

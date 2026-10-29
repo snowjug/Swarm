@@ -22,6 +22,11 @@ unreliably, and it cannot be tested without a model.
 
 2. When the gate lets a question through, the model's answer must **cite** a source passage, a
    recorded memory or a statement in the report's grounding review, or abstain in the same words.
+   An answer **is** an abstention only when the sentence is the whole answer (ignoring case,
+   spacing, wrapping quotes and a final stop). A reply that merely contains the sentence, such as
+   the sentence followed by a figure, is an answer, and is held to the same rules as any other: an
+   independent review found that treating it as an abstention let an uncited claim through with the
+   figure check switched off.
    The existing bounded corrective retry (the repair loop) tells the model which rule it broke and
    asks again. Citations are validated against what the model was shown.
    If nothing at all can be cited, the answer is allowed but recorded as `uncited`.

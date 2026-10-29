@@ -6,23 +6,24 @@ or region). Replace the two prices below with yours and the rest follows.
 
 ## Assumptions
 
-| Input                    | Value                                                                                                    | Source                                                                                                   |
-| ------------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Model                    | A GPT-4.1 mini class chat model, pay-as-you-go, Global Standard                                          | The development deployment                                                                               |
-| Input price              | US$0.40 per million tokens                                                                               | Public list price from price aggregators; **not** checked against the Azure pricing page or an agreement |
-| Output price             | US$1.60 per million tokens                                                                               | As above                                                                                                 |
-| Tokens per live scenario | 95,154 / 13,376 (baseline), 120,948 / 17,327 (after the chat change), 105,274 / 14,431 (final), in / out | `npm run azure:verify`; see [evaluation results](./evaluation-results.md)                                |
+| Input                    | Value                                                                                                                                                                 | Source                                                                                                   |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Model                    | A GPT-4.1 mini class chat model, pay-as-you-go, Global Standard                                                                                                       | The development deployment                                                                               |
+| Input price              | US$0.40 per million tokens                                                                                                                                            | Public list price from price aggregators; **not** checked against the Azure pricing page or an agreement |
+| Output price             | US$1.60 per million tokens                                                                                                                                            | As above                                                                                                 |
+| Tokens per live scenario | 95,154 / 13,376 (baseline), 120,948 / 17,327 (after the chat change), 105,274 / 14,431 and 103,501 / 15,807 (final tree, before and after the review fixes), in / out | `npm run azure:verify`; see [evaluation results](./evaluation-results.md)                                |
 
 ## One scenario
 
 The live scenario is four proxies, two platforms, three rounds, a branch, a report with a grounding
 review, and both chats. At the assumed prices:
 
-| Run                   | Input cost | Output cost | Total    |
-| --------------------- | ---------- | ----------- | -------- |
-| Baseline              | US$0.038   | US$0.021    | US$0.060 |
-| After the chat change | US$0.048   | US$0.028    | US$0.076 |
-| Final tree            | US$0.042   | US$0.023    | US$0.065 |
+| Run                                 | Input cost | Output cost | Total    |
+| ----------------------------------- | ---------- | ----------- | -------- |
+| Baseline                            | US$0.038   | US$0.021    | US$0.060 |
+| After the chat change               | US$0.048   | US$0.028    | US$0.076 |
+| Final tree, before the review fixes | US$0.042   | US$0.023    | US$0.065 |
+| Final tree, after the review fixes  | US$0.041   | US$0.025    | US$0.067 |
 
 About **six to eight US cents**. The spread between runs is model variation (retries, report
 length) as much as any change in the product. With one run per condition the effect of the evidence layer

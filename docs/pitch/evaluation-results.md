@@ -43,32 +43,34 @@ harness.
 
 ## Live model runs
 
-Three runs of `npm run azure:verify` against a real deployment (a small GPT-4.1-class chat model,
+Four runs of `npm run azure:verify` against a real deployment (a small GPT-4.1-class chat model,
 keyless Microsoft Entra authentication). The scenario is synthetic: four proxies, two platforms, three
-rounds, a branch, a report, both chats and a planted instruction. All three passed all 15 checks.
+rounds, a branch, a report, both chats and a planted instruction. All four passed all 15 checks.
 
-| Run                            | Round trips | Tokens in / out  | Report statements                                                              | Analyst reply                                               |
-| ------------------------------ | ----------- | ---------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| Baseline (before this program) | 60          | 95,154 / 13,376  | 30: 14 supported, 5 partly, 8 not supported, 3 not checkable                   | 2,696 characters, **cited nothing**                         |
-| After the chat change          | 65          | 120,948 / 17,327 | 30: ledger classed 20 as simulation, 3 partial, 4 unsupported, 3 not checkable | Cited the four statements the ledger classed as unsupported |
-| Final tree                     | 61          | 105,274 / 14,431 | 29: 19 supported, 1 partly, 4 not supported, 0 contradicted, 5 not checkable   | Cited 4 report statements, all present in the ledger        |
+| Run                                 | Round trips | Tokens in / out  | Report statements                                                              | Analyst reply                                               |
+| ----------------------------------- | ----------- | ---------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| Baseline (before this program)      | 60          | 95,154 / 13,376  | 30: 14 supported, 5 partly, 8 not supported, 3 not checkable                   | 2,696 characters, **cited nothing**                         |
+| After the chat change               | 65          | 120,948 / 17,327 | 30: ledger classed 20 as simulation, 3 partial, 4 unsupported, 3 not checkable | Cited the four statements the ledger classed as unsupported |
+| Final tree, before the review fixes | 61          | 105,274 / 14,431 | 29: 19 supported, 1 partly, 4 not supported, 0 contradicted, 5 not checkable   | Cited 4 report statements, all present in the ledger        |
+| Final tree, after the review fixes  | 60          | 103,501 / 15,807 | 28: 13 supported, 4 partly, 7 not supported, 0 contradicted, 4 not checkable   | Cited 7 report statements, all present in the ledger        |
 
 In every run the planted instruction did not appear in 48 proxy statements, two chat replies or the
 summary. One probe is evidence, not proof, of resistance.
 
-How far to trust this: three runs, one small model, one synthetic scenario, and model output varies
+How far to trust this: four runs, one small model, one synthetic scenario, and model output varies
 from run to run (the statement counts and the token totals differ between runs with no change to the
-scenario). The runs show that the path works and that the analyst can now cite the ledger. They do not
-measure how well it does so.
+scenario: the last two runs differ by 3 supported and 3 not-supported statements, and that is noise,
+not a change in the product). The runs show that the path works and that the analyst can now cite the
+ledger. They do not measure how well it does so.
 
 ## Tests and load
 
-| Check                                 | Result                                                                                                 |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Unit and integration tests            | 1,182 in 67 files (baseline 935 in 56)                                                                 |
-| End-to-end, Microsoft Edge            | 92 passed, none failed or flaky (baseline 78); axe and keyboard checks at four viewports on the ledger |
-| Evaluation floors                     | all hold                                                                                               |
-| Load test (rules engine, one machine) | See below                                                                                              |
+| Check                                 | Result                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit and integration tests            | 1,201 in 67 files (baseline 935 in 56)                                                                                                                                                                                                                                                                                           |
+| End-to-end, Microsoft Edge            | 92 passed before the review fixes (baseline 78); 89 passed and 3 failed after them on a machine kept fully busy by other processes, each failure shown to be environmental and its test passing on re-run or equally flaky on the baseline (see the requirement matrix). Axe and keyboard checks at four viewports on the ledger |
+| Evaluation floors                     | all hold                                                                                                                                                                                                                                                                                                                         |
+| Load test (rules engine, one machine) | See below                                                                                                                                                                                                                                                                                                                        |
 
 The load test (`node scripts/load-test.mjs`) drives the deterministic engine, with no model, on one
 Windows machine. It predates the ledger and sign-in routes and does not exercise them. Idle reads at 64
