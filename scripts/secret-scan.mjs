@@ -52,18 +52,40 @@ function scan(label, text) {
   }
 }
 
-let blobs = 0;
-const seen = new Set();
+// One `git cat-file --batch` process reads every object. Starting two processes per object took
+// minutes on a busy machine.
+const candidates = new Map();
 for (const line of git(['rev-list', '--objects', '--all']).toString('utf8').split('\n')) {
   const [sha, ...rest] = line.split(' ');
   const path = rest.join(' ');
-  if (!sha || !path || seen.has(sha) || SKIP_FILE.test(path)) continue;
-  seen.add(sha);
-  if (git(['cat-file', '-t', sha]).toString().trim() !== 'blob') continue;
-  const content = git(['cat-file', '-p', sha]);
-  if (content.length > MAX_BYTES || content.includes(0)) continue;
-  blobs += 1;
-  scan(`history:${path}@${sha.slice(0, 7)}`, content.toString('utf8'));
+  if (!sha || !path || candidates.has(sha) || SKIP_FILE.test(path)) continue;
+  candidates.set(sha, path);
+}
+
+let blobs = 0;
+if (candidates.size > 0) {
+  const objects = execFileSync('git', ['cat-file', '--batch'], {
+    cwd: root,
+    input: `${[...candidates.keys()].join('\n')}\n`,
+    maxBuffer: 1024 * 1024 * 1024,
+  });
+  // Each object is "<sha> <type> <size>\n", then <size> bytes, then "\n".
+  for (let offset = 0; offset < objects.length;) {
+    const lineEnd = objects.indexOf(0x0a, offset);
+    const [sha, type, size] = objects.toString('latin1', offset, lineEnd).split(' ');
+    if (type === 'missing') {
+      offset = lineEnd + 1;
+      continue;
+    }
+    const start = lineEnd + 1;
+    const end = start + Number(size);
+    offset = end + 1;
+    if (type !== 'blob') continue;
+    const content = objects.subarray(start, end);
+    if (content.length > MAX_BYTES || content.includes(0)) continue;
+    blobs += 1;
+    scan(`history:${candidates.get(sha)}@${sha.slice(0, 7)}`, content.toString('utf8'));
+  }
 }
 
 let files = 0;
