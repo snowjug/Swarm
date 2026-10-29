@@ -26,6 +26,20 @@ export function ownerOf(principal: Principal): Owner {
 }
 
 /**
+ * Who owns an experiment of the caller's tenant. Another tenant's experiment is reported exactly as
+ * one that does not exist, so knowing its identifier reveals nothing, not even that it exists. The
+ * guard applies this to the experiment named in the path; a route that is handed a second one in
+ * its query or body must apply it to that one too.
+ */
+export function ownerInTenant(repository: Repository, id: string, tenantId: string): Owner {
+  const owner = repository.ownership(id);
+  if (!owner || owner.tenantId !== tenantId) {
+    throw new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');
+  }
+  return owner;
+}
+
+/**
  * Authenticates and authorises every API request against the table in `policy.ts`, before the
  * request body is read. With `AUTH_MODE=none` the caller is the local user and nothing is checked:
  * the application is then only as exposed as the address it listens on. With `entra`, a missing
@@ -66,11 +80,7 @@ export function registerAuth(
     if (access.kind === 'signed-in') return;
 
     const { id } = projectParams.parse(request.params);
-    const owner = repository.ownership(id);
-    // Another tenant's project is indistinguishable from one that does not exist.
-    if (!owner || owner.tenantId !== principal.tenantId) {
-      throw new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');
-    }
+    const owner = ownerInTenant(repository, id, principal.tenantId);
     if (access.owner && owner.ownerId !== principal.id && principal.role !== 'admin') {
       throw new AppError(
         403,

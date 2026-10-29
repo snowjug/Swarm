@@ -35,6 +35,7 @@ import {
 } from './migrations.js';
 
 const payloadRow = z.object({ payload: z.string() });
+const idRow = z.object({ id: z.string() });
 const countRow = z.object({ count: z.number() });
 const ownerRow = z.object({ tenant_id: z.string(), owner_id: z.string() });
 
@@ -356,8 +357,15 @@ export class Repository {
   }
 
   recoverInterrupted(): void {
-    for (const summary of this.list().projects) {
-      const project = this.get(summary.id);
+    // Every experiment of every tenant. The list is paged and newest first, and the limit on how
+    // many one tenant may keep says nothing about how many the database holds, so a page would
+    // leave an older run "running" for ever: it could not be deleted, cancelled or restarted.
+    const ids = this.database
+      .prepare('SELECT id FROM projects ORDER BY created_at, id')
+      .all()
+      .map((row) => idRow.parse(row).id);
+    for (const id of ids) {
+      const project = this.get(id);
       const interrupted = project.status === 'queued' || project.status === 'running';
       const surveyInterrupted = project.console?.surveys.some(
         (survey) => survey.status === 'queued' || survey.status === 'running',

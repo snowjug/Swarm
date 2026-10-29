@@ -73,6 +73,30 @@ describe('SQLite persistence', () => {
     expect(repository.list().total).toBe(100);
   });
 
+  // The limit is per tenant, so the whole database can hold many more than one page of projects. A
+  // run that was interrupted by a restart must be recovered wherever it sits in that list, or it
+  // stays "running" for ever: it cannot be deleted, cancelled or restarted, and it keeps counting
+  // against its tenant's allowance.
+  it('recovers every interrupted run, however many experiments the database holds', () => {
+    const repository = memory();
+    const ids: string[] = [];
+    for (const tenantId of ['tenant-a', 'tenant-b']) {
+      for (let index = 0; index < MAX_PROJECTS; index += 1) {
+        const created = repository.create(fixtureInput(), { owner: { tenantId, ownerId: 'user' } });
+        repository.update(created.id, { status: 'running', stage: 'simulation', progress: 35 });
+        ids.push(created.id);
+      }
+    }
+    expect(repository.count()).toBe(2 * MAX_PROJECTS);
+
+    repository.recoverInterrupted();
+
+    const stillRunning = ids.filter((id) => repository.get(id).status === 'running');
+    expect(stillRunning).toEqual([]);
+    expect(repository.get(ids[0]!).status).toBe('failed');
+    expect(repository.get(ids.at(-1)!).status).toBe('failed');
+  });
+
   it('enforces the exchange limit atomically and cascades deletion', () => {
     const repository = memory();
     const project = repository.create(fixtureInput());

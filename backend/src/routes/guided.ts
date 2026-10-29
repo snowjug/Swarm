@@ -8,7 +8,7 @@ import {
   surveyInputSchema,
 } from '../../../shared/guided.js';
 import { AppError } from '../errors.js';
-import { ownerOf, principalOf } from '../auth/guard.js';
+import { ownerInTenant, ownerOf, principalOf } from '../auth/guard.js';
 import { compareRuns } from '../guided/compare.js';
 import { editEnvironment } from '../guided/environment.js';
 import { requireConsole } from '../guided/state.js';
@@ -75,6 +75,9 @@ export function guidedRoutes(
   app.get('/api/projects/:id/compare', async (request) => {
     const { id } = idParams.parse(request.params);
     const { with: otherId } = z.object({ with: z.uuid() }).parse(request.query);
+    // The guard vouched only for the experiment in the path. The one named in the query must be the
+    // caller's tenant's too, or this would read another tenant's runs and confirm their existence.
+    ownerInTenant(repository, otherId, principalOf(request).tenantId);
     return compareRuns(repository, id, otherId);
   });
 

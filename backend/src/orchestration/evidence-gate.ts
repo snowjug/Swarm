@@ -231,8 +231,22 @@ export function projectMaterial(project: ProjectDetail): string[] {
   return material;
 }
 
+/** Case, spacing, wrapping quotes or emphasis marks and a final stop do not change which sentence it is. */
+const sentenceKey = (text: string): string =>
+  text
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .replace(/^[\s"'“”‘’`*_]+|[\s"'“”‘’`*_.!]+$/gu, '')
+    .toLowerCase();
+const ABSTENTION_KEY = sentenceKey(ABSTENTION_MESSAGE);
+
+/**
+ * Whether a model's answer is the abstention and nothing else. A reply that merely contains the
+ * sentence is an answer: counting it as an abstention would excuse whatever follows the sentence
+ * from needing a citation and from the check on its figures.
+ */
 export function isAbstention(answer: string): boolean {
-  return answer.replace(/\s+/gu, ' ').toLowerCase().includes(ABSTENTION_MESSAGE.toLowerCase());
+  return sentenceKey(answer) === ABSTENTION_KEY;
 }
 
 /** Least supported first, so a cap on the list never hides the statements a reader most needs to see. */

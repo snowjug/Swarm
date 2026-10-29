@@ -33,10 +33,95 @@ export interface SourceSentence {
   passageHash: string;
 }
 
+const MIN_SENTENCE_LENGTH = 20;
+const SENTENCE_BREAK = /(?<=[.!?])\s+(?=[A-Z0-9"“(])|\n{2,}|\n(?=[-*•]\s)/u;
+
+/** Every piece of the text between sentence breaks, trimmed, however short. */
+function sentencePieces(text: string): string[] {
+  return text.split(SENTENCE_BREAK).map((part) => part.trim());
+}
+
 /** Sentences of a passage, each an exact slice of it, so a quoted sentence is verbatim by construction. */
 export function splitSentences(text: string): string[] {
-  const parts = text.split(/(?<=[.!?])\s+(?=[A-Z0-9"“(])|\n{2,}|\n(?=[-*•]\s)/u);
-  return parts.map((part) => part.trim()).filter((part) => part.length >= 20);
+  return sentencePieces(text).filter((part) => part.length >= MIN_SENTENCE_LENGTH);
+}
+
+/** How much of the text beside a passage is read to tell whether the passage was cut mid-sentence. */
+const CONTEXT_LENGTH = 48;
+const ENDS_SENTENCE = /[.!?]["”’')\]]*$/u;
+const BREAK_BEFORE = /(?:[.!?]["”’')\]]*\s+|\n[ \t]*\n\s*)$/u;
+const BREAK_AFTER = /^(?:\s*\n[ \t]*\n|[ \t]*\n[ \t]*[-*•]\s)/u;
+const BULLET = /^[-*•]\s/u;
+
+/** The document's text just before `position`, read from the passages that cover it. Null if none does. */
+function textBefore(position: number, siblings: readonly EvidenceChunk[]): string | null {
+  if (position <= 0) return '';
+  const holder = siblings.find((other) => other.start < position && other.end >= position);
+  if (!holder) return null;
+  const upTo = position - holder.start;
+  return holder.text.slice(Math.max(0, upTo - CONTEXT_LENGTH), upTo);
+}
+
+/** The document's text just after `position`. Empty at the end of the document, null if unknown. */
+function textAfter(position: number, siblings: readonly EvidenceChunk[]): string | null {
+  const holder = siblings.find((other) => other.start <= position && other.end > position);
+  if (holder) {
+    const from = position - holder.start;
+    return holder.text.slice(from, from + CONTEXT_LENGTH);
+  }
+  return siblings.some((other) => other.end > position) ? null : '';
+}
+
+function startsSentence(before: string | null, text: string): boolean {
+  if (before === null) return false;
+  const joined = before + (/^\s*/u.exec(text)?.[0] ?? '');
+  if (joined.trim() === '') return true;
+  return BREAK_BEFORE.test(joined) || (/\n[ \t]*$/u.test(joined) && BULLET.test(text.trimStart()));
+}
+
+function endsSentence(piece: string, text: string, after: string | null): boolean {
+  if (ENDS_SENTENCE.test(piece)) return true;
+  if (after === null) return false;
+  if (after === '') return true;
+  return BREAK_AFTER.test((/\s*$/u.exec(text)?.[0] ?? '') + after);
+}
+
+/** A sentence a passage holds whole, with where it sits in its document. */
+export interface PlacedSentence {
+  text: string;
+  /** Character offset of the sentence in the document, not in the passage. */
+  start: number;
+}
+
+/**
+ * The sentences of a passage that the passage holds whole. Passages are cut at a fixed size and
+ * overlap their neighbours by 120 characters, beginning wherever that falls, often mid-word. The
+ * first sentence of a passage can therefore be the tail of a sentence from the one before, and the
+ * last the head of one that continues in the next. Such a fragment has lost a negation or the front
+ * of a figure, and set against the whole sentence it came from, or against anything else, it looks
+ * like a disagreement that is nowhere in the document. A sentence shorter than the overlap is whole
+ * in at least one passage wherever the cut falls; a longer one that straddles a cut is whole in none
+ * and is not compared. `siblings` are the passages of the same document.
+ */
+export function completeSentences(
+  passage: EvidenceChunk,
+  siblings: readonly EvidenceChunk[],
+): PlacedSentence[] {
+  const pieces = sentencePieces(passage.text);
+  const opens = startsSentence(textBefore(passage.start, siblings), passage.text);
+  const after = textAfter(passage.end, siblings);
+  const placed: PlacedSentence[] = [];
+  let cursor = 0;
+  pieces.forEach((piece, index) => {
+    // The pieces are trimmed slices of the text, in order, so each is found at or after the last.
+    const at = piece === '' ? cursor : Math.max(passage.text.indexOf(piece, cursor), 0);
+    cursor = at + piece.length;
+    if (piece.length < MIN_SENTENCE_LENGTH) return;
+    if (index === 0 && !opens) return;
+    if (index === pieces.length - 1 && !endsSentence(piece, passage.text, after)) return;
+    placed.push({ text: piece, start: passage.start + at });
+  });
+  return placed;
 }
 
 export interface Measurement {
@@ -179,15 +264,35 @@ export function detectContradictions(
   passages: readonly EvidenceChunk[],
   now: Date,
 ): ContradictionRecord[] {
-  const sentences: Indexed[] = [];
+  const documents = new Map<string, EvidenceChunk[]>();
+  for (const passage of passages) {
+    const group = documents.get(passage.documentId);
+    if (group) group.push(passage);
+    else documents.set(passage.documentId, [passage]);
+  }
+  // The overlap between two passages holds some sentences twice. They are one sentence, found by
+  // where it sits in its document, and a conflict reported once for each copy would list the same
+  // two quotations twice. The earliest passage that holds it is kept, whatever order they arrive in.
+  const unique = new Map<string, Indexed>();
   for (const passage of passages) {
     const passageHash = passage.contentHash ?? hashText(passage.text);
-    for (const text of splitSentences(passage.text)) {
-      if (sentences.length >= MAX_SENTENCES) break;
+    for (const { text, start } of completeSentences(
+      passage,
+      documents.get(passage.documentId) ?? [],
+    )) {
+      const key = `${passage.documentId}:${start}:${text}`;
+      const earlier = unique.get(key);
+      if (earlier) {
+        const earlierFirst =
+          earlier.passageStart - passage.start || earlier.passageId.localeCompare(passage.id);
+        if (earlierFirst <= 0) continue;
+      } else if (unique.size >= MAX_SENTENCES) {
+        continue;
+      }
       const words = new Set(tokenize(text));
       if (words.size < MIN_SHARED_WORDS) continue;
       const { measurements, times } = measurementsIn(text);
-      sentences.push({
+      unique.set(key, {
         passageId: passage.id,
         documentId: passage.documentId,
         documentName: passage.documentName,
@@ -202,6 +307,7 @@ export function detectContradictions(
       });
     }
   }
+  const sentences = [...unique.values()];
 
   const index = new Map<string, number[]>();
   sentences.forEach((sentence, position) => {

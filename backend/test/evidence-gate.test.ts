@@ -142,6 +142,21 @@ describe('abstention wording', () => {
     expect(isAbstention('I am not sure.')).toBe(false);
   });
 
+  it('is only an abstention when the sentence is the whole answer', () => {
+    // Wrapping punctuation and a missing full stop are still the sentence.
+    expect(isAbstention(`"${ABSTENTION_MESSAGE}"`)).toBe(true);
+    expect(isAbstention(`**${ABSTENTION_MESSAGE}**`)).toBe(true);
+    expect(isAbstention(ABSTENTION_MESSAGE.replace(/\.$/u, ''))).toBe(true);
+    // An answer that merely contains it is an answer, and must be held to the rules for answers.
+    const claim = 'Ridership was 999,000 passengers in 2031, up 70%.';
+    expect(isAbstention(`${ABSTENTION_MESSAGE} ${claim}`)).toBe(false);
+    expect(isAbstention(`${claim} ${ABSTENTION_MESSAGE}`)).toBe(false);
+    expect(isAbstention(`${ABSTENTION_MESSAGE}\n\n${claim}`)).toBe(false);
+    expect(isAbstention(`Mostly: "${ABSTENTION_MESSAGE}" However, the chair voted against.`)).toBe(
+      false,
+    );
+  });
+
   it('notes only what a partly covered question lacked', () => {
     expect(partialCoverageNotes(null)).toEqual([]);
     expect(partialCoverageNotes(ask('How much does the electric option cost?'))).toEqual([]);
@@ -203,6 +218,16 @@ describe('checkAnswer', () => {
     expect(checkAnswer({ ...base, sourceIds: [], answer: ABSTENTION_MESSAGE })).toMatchObject({
       status: 'abstained',
     });
+  });
+
+  it('does not call an answer an abstention because it begins with the sentence', () => {
+    const result = checkAnswer({
+      ...base,
+      sourceIds: [],
+      answer: `${ABSTENTION_MESSAGE} Ridership was 999,000 passengers in 2031.`,
+    });
+    expect(result.status).toBe('uncited');
+    expect(result.notes.join(' ')).toContain('999000');
   });
 
   it('does not let a figure supplied by the question excuse an answer that adopts it', () => {
@@ -458,6 +483,28 @@ describe('analyst chat evidence gate', () => {
     const { messages } = await chat(harness, 'How much does the council dislike the operator?');
     expect(messages.at(-1)!.grounding).toMatchObject({ status: 'abstained' });
     expect(harness.model.rejected).toEqual([]);
+  });
+
+  it('does not let an uncited claim through by putting the abstention sentence in front of it', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: `${ABSTENTION_MESSAGE} The council reports 999,000 passengers in 2031, up 70%.`,
+        sourceIds: [],
+        memoryIds: [],
+      },
+      {
+        answer: 'The council reports 412,000 passengers in 2024.',
+        sourceIds: ['S1'],
+        memoryIds: [],
+      },
+    ]);
+    const { messages } = await chat(harness, 'How many passengers did the council report?');
+    // The first reply was refused and the model asked again, as for any uncited answer.
+    expect(harness.model.rejected).toHaveLength(1);
+    const reply = messages.at(-1)!;
+    expect(reply.grounding).toMatchObject({ status: 'cited' });
+    expect(reply.content).not.toContain('999,000');
+    expect(reply.sourceIds).toEqual(['S1']);
   });
 
   it('flags a model answer whose figure is nowhere in the evidence', async () => {

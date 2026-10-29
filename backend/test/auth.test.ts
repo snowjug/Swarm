@@ -1,6 +1,7 @@
-import { mkdtempSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from 'jose';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -440,6 +441,45 @@ describe('every API route has an authorization policy', () => {
   });
 });
 
+// The guard vouches only for the experiment named in the path. A route that is handed another
+// experiment's identifier anywhere else must check its tenant itself with `ownerInTenant`, which is
+// easy to forget and was forgotten once (compare). This is a tripwire and not a proof: it lists
+// every UUID field that any route accepts, so that a new one cannot arrive unnoticed. If it fails,
+// decide whether the new field names an experiment. If it does, call `ownerInTenant` on it, add a
+// case to "comparing two experiments" above, and then add the field here.
+describe('identifiers a route accepts outside the path', () => {
+  const routesDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'routes');
+  const uuidFields = (): string[] =>
+    readdirSync(routesDirectory)
+      .filter((file) => file.endsWith('.ts'))
+      .flatMap((file) =>
+        [
+          ...readFileSync(join(routesDirectory, file), 'utf8').matchAll(
+            /(\w+)\s*:\s*z\s*\.(?:string\(\)\s*\.)?uuid\(\)/gu,
+          ),
+        ].map((match) => `${file}: ${match[1]}`),
+      )
+      .sort();
+
+  it('are exactly the ones that have been looked at', () => {
+    expect(uuidFields()).toEqual([
+      // In the path: vouched for by the guard.
+      'guided.ts: id',
+      // In the path: a survey of that experiment, always looked up within it.
+      'guided.ts: surveyId',
+      // In the query: another experiment, checked by ownerInTenant in the handler.
+      'guided.ts: with',
+      'ledger.ts: id',
+      'projects.ts: id',
+    ]);
+  });
+
+  it('has the comparison check the tenant of the experiment it is asked to compare with', () => {
+    const source = readFileSync(join(routesDirectory, 'guided.ts'), 'utf8');
+    expect(source).toMatch(/ownerInTenant\(\s*repository,\s*otherId,/u);
+  });
+});
+
 describe('signing in', () => {
   it('refuses every API call without a valid token, and answers the same whatever is wrong', async () => {
     const instance = await secured();
@@ -564,6 +604,80 @@ describe('tenant isolation', () => {
     }
     // And nothing changed.
     expect(instance.repository.get(id).name).toBe('Community transit pilot');
+  });
+
+  // The guard checks the experiment named in the path. A second experiment named in the query is
+  // the caller's to prove, and it was once read without any tenant check at all.
+  describe('comparing two experiments', () => {
+    async function guidedRun(
+      instance: Secured,
+      owner: { tenantId: string; ownerId: string },
+    ): Promise<string> {
+      const created = instance.repository.create(
+        fixtureInput({
+          workflow: 'guided',
+          settings: { mode: 'local', agentCount: 4, rounds: 3, seed: 5, network: 'community' },
+        }),
+        { owner },
+      );
+      for (const step of ['knowledge', 'environment', 'simulation'] as const) {
+        instance.jobs.enqueueStep(created.id, step);
+        await instance.jobs.idle();
+      }
+      expect(instance.repository.get(created.id).rounds).toHaveLength(3);
+      return created.id;
+    }
+
+    it('answers a comparison with another tenant’s experiment exactly as with one that does not exist', async () => {
+      const instance = await secured();
+      const mine = await guidedRun(instance, { tenantId: TENANT_A, ownerId: ANALYST_1 });
+      const theirs = await guidedRun(instance, { tenantId: TENANT_B, ownerId: OUTSIDER });
+      const absent = '99999999-9999-4999-8999-999999999999';
+
+      const foreign = await call(
+        instance,
+        users.reader,
+        'GET',
+        `/api/projects/${mine}/compare?with=${theirs}`,
+      );
+      const nothing = await call(
+        instance,
+        users.reader,
+        'GET',
+        `/api/projects/${mine}/compare?with=${absent}`,
+      );
+      expect(foreign.statusCode, foreign.body).toBe(404);
+      expect(foreign.json().error.code).toBe('PROJECT_NOT_FOUND');
+      expect(foreign.json().error.code).toBe(nothing.json().error.code);
+      expect(foreign.json().error.message).toBe(nothing.json().error.message);
+      // Nothing of the other tenant's experiment is in the answer.
+      expect(foreign.body).not.toContain('Community transit pilot');
+
+      // The same is true in the other direction, for the other tenant's administrator.
+      const reverse = await call(
+        instance,
+        users.outsider,
+        'GET',
+        `/api/projects/${theirs}/compare?with=${mine}`,
+      );
+      expect(reverse.statusCode, reverse.body).toBe(404);
+      expect(reverse.json().error.code).toBe(nothing.json().error.code);
+      expect(reverse.json().error.message).toBe(nothing.json().error.message);
+    });
+
+    it('still compares two experiments of the same tenant', async () => {
+      const instance = await secured();
+      const mine = await guidedRun(instance, { tenantId: TENANT_A, ownerId: ANALYST_1 });
+      const colleague = await guidedRun(instance, { tenantId: TENANT_A, ownerId: ANALYST_2 });
+      const compared = await call(
+        instance,
+        users.reader,
+        'GET',
+        `/api/projects/${mine}/compare?with=${colleague}`,
+      );
+      expect(compared.statusCode, compared.body).toBe(200);
+      expect(compared.json().lineage).toBe('unrelated');
+    });
   });
 
   it('keeps the audit trail of one tenant’s project from another tenant', async () => {

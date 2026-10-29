@@ -13,6 +13,12 @@ export type Access =
    * An existing project in the caller's own tenant. A project in another tenant is reported as
    * missing, so its existence is not disclosed. `owner` additionally requires the project's owner
    * (administrators count as owners).
+   *
+   * This covers only the project named by `:id` in the path. A handler that is given another
+   * project's identifier anywhere else (the query or the body) must check it itself with
+   * `ownerInTenant`; `GET /api/projects/:id/compare?with=` once read another tenant's run for want
+   * of that. `auth.test.ts` lists every identifier field the routes accept, so a new one has to be
+   * looked at, but it cannot tell whether the handler checked it.
    */
   | { kind: 'project'; role: Role; owner?: boolean };
 
