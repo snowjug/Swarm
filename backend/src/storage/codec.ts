@@ -187,6 +187,7 @@ export const chatMessageSchema: z.ZodType<ChatMessage> = z.object({
   content: z.string(),
   sourceIds: ids,
   memoryIds: ids.optional(),
+  claimIds: ids.optional(),
   mode: z.enum(['local', 'llm']),
   createdAt: z.string(),
   grounding: z

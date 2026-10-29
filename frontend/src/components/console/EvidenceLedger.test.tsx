@@ -5,6 +5,7 @@ import type { ChatGrounding } from '../../../../shared/types';
 import { claimRecord, conflictRecord, ledgerFixture, sufficiency } from '../../test/ledger';
 import { visibleText } from '../../test/provider';
 import { ConflictCard } from './ConflictCard';
+import { Citations } from './Citations';
 import { LedgerBody } from './EvidenceLedger';
 import { ChatGroundingNote, SufficiencyBanner, ToneChip } from './LedgerParts';
 
@@ -194,6 +195,26 @@ describe('ConflictCard', () => {
   it('says what kind of disagreement it is', () => {
     expect(text(card({ kind: 'numeric' }))).toContain('Different figures');
     expect(text(card({ kind: 'polarity' }))).toContain('Opposite statements');
+  });
+});
+
+describe('Citations of report statements', () => {
+  it('labels the statements an answer cites, once each, as text and not as links', () => {
+    const html = render(
+      createElement(Citations, {
+        sourceIds: [],
+        claimIds: ['C3', 'C3', 'C1'],
+        onInspect: () => {},
+      }),
+    );
+    expect(text(html)).toContain('Report statements');
+    expect(html.match(/class="claim-ref/gu)).toHaveLength(2);
+    expect(html).not.toMatch(/<button[^>]*>\s*C3/u);
+  });
+
+  it('shows nothing for an answer that cites no statement', () => {
+    const html = render(createElement(Citations, { sourceIds: ['S1'], onInspect: () => {} }));
+    expect(text(html)).not.toContain('Report statements');
   });
 });
 

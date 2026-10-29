@@ -174,6 +174,7 @@ export function ChatPanel({
             <Citations
               sourceIds={message.sourceIds}
               memoryIds={message.memoryIds}
+              claimIds={message.claimIds}
               onInspect={onInspect}
             />
           </article>

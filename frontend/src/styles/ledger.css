@@ -319,6 +319,17 @@
   overflow-wrap: anywhere;
 }
 
+.claim-ref {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px dashed var(--tone-info-line);
+  border-radius: 3px;
+  background: var(--tone-info-tint);
+  color: var(--tone-info);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .chat-grounding {
   display: flex;
   flex-direction: column;

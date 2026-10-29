@@ -1,4 +1,12 @@
 import type { ChatGroundingStatus, EvidenceChunk, ProjectDetail } from '../../../shared/types.js';
+import {
+  isOpenConflict,
+  type Ledger,
+  type PublicationStatus,
+  type ReviewResult,
+  type StatementType,
+  type SupportClass,
+} from '../../../shared/evidence.js';
 import { numbersIn } from '../grounding/text.js';
 import { retrieve, tokenize } from '../knowledge/retrieval.js';
 
@@ -227,6 +235,65 @@ export function isAbstention(answer: string): boolean {
   return answer.replace(/\s+/gu, ' ').toLowerCase().includes(ABSTENTION_MESSAGE.toLowerCase());
 }
 
+/** Least supported first, so a cap on the list never hides the statements a reader most needs to see. */
+const SEVERITY: Record<SupportClass, number> = {
+  contradicted: 0,
+  unsupported: 1,
+  'partially-supported': 2,
+  'not-checkable': 3,
+  'assumption-dependent': 4,
+  'simulation-derived': 5,
+  'directly-supported': 6,
+  'not-applicable': 7,
+};
+
+export const MAX_PROMPT_CLAIMS = 40;
+const MAX_PROMPT_CLAIM_LENGTH = 220;
+
+/** A report statement as the analyst sees it: what it says, how well it is supported, and where from. */
+export interface PromptClaim {
+  id: string;
+  text: string;
+  type: StatementType;
+  support: SupportClass;
+  shownAs: PublicationStatus;
+  reviewed: ReviewResult;
+  sources: string[];
+}
+
+export function claimsForPrompt(ledger: Ledger, limit = MAX_PROMPT_CLAIMS): PromptClaim[] {
+  return [...ledger.claims]
+    .sort(
+      (a, b) =>
+        SEVERITY[a.supportClass] - SEVERITY[b.supportClass] ||
+        a.id.localeCompare(b.id, undefined, { numeric: true }),
+    )
+    .slice(0, limit)
+    .map((claim) => ({
+      id: claim.id,
+      text: claim.text.slice(0, MAX_PROMPT_CLAIM_LENGTH),
+      type: claim.statementType,
+      support: claim.supportClass,
+      shownAs: claim.publication.status,
+      reviewed: claim.review.result,
+      sources: [...new Set(claim.supporting.map((ref) => ref.passageId))],
+    }));
+}
+
+/** Open conflicts between sources, reduced to what an answer about them needs. */
+export function conflictsForPrompt(ledger: Ledger) {
+  return ledger.contradictions
+    .filter((conflict) => isOpenConflict(conflict.status))
+    .slice(0, 10)
+    .map((conflict) => ({
+      id: conflict.id,
+      status: conflict.status,
+      documents: [conflict.left.documentName, conflict.right.documentName],
+      figures: [conflict.leftValue, conflict.rightValue],
+      passages: [conflict.left.passageId, conflict.right.passageId],
+    }));
+}
+
 /** Passage, memory and claim identifiers ("S3", "M-community-2-agent-1") are labels, not figures. */
 const IDENTIFIER = /\b(?:M-[\w-]+|[A-Z]\d{1,3})\b/gu;
 
@@ -238,7 +305,9 @@ export interface AnswerCheckInput {
   answer: string;
   sourceIds: readonly string[];
   memoryIds: readonly string[];
-  /** Text of the passages and memories the answer actually cited. */
+  /** Report statements (evidence-ledger ids) the answer cites. */
+  claimIds: readonly string[];
+  /** Text of the passages, memories and report statements the answer actually cited. */
   citedText: string;
   /** Figures recorded by the simulation, which an answer may quote. */
   recordedFigures: ReadonlySet<string>;
@@ -261,10 +330,11 @@ export function checkAnswer(input: AnswerCheckInput): AnswerCheck {
     return { status: 'abstained', notes: ['The answer says the evidence does not support one.'] };
   }
   const notes: string[] = [];
-  const cited = input.sourceIds.length + input.memoryIds.length > 0;
+  const cited = input.sourceIds.length + input.memoryIds.length + input.claimIds.length > 0;
   const allowed = new Set([...numbersIn(input.citedText), ...input.recordedFigures]);
   const unsupported = figuresIn(input.answer).filter((figure) => !allowed.has(figure));
-  if (!cited) notes.push('This answer cites no source passage or simulation memory.');
+  if (!cited)
+    notes.push('This answer cites no source passage, simulation memory or report statement.');
   if (unsupported.length > 0) {
     notes.push(
       `These figures are not in the cited or recorded material: ${unsupported.slice(0, 6).join(', ')}.`,

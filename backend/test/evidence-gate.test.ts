@@ -1,6 +1,7 @@
 import type { z } from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ChatMessage, SourceDocument } from '../../shared/types.js';
+import type { GroundedClaim, GroundingReview } from '../../shared/grounding.js';
 import { buildApp } from '../src/app.js';
 import { AppError } from '../src/errors.js';
 import { chunkDocuments } from '../src/knowledge/retrieval.js';
@@ -155,9 +156,21 @@ describe('checkAnswer', () => {
   const base = {
     sourceIds: ['S1'],
     memoryIds: [],
+    claimIds: [] as string[],
     citedText: COUNCIL,
     recordedFigures: new Set<string>(),
   };
+
+  it('counts a cited report statement as a citation, and its figures as evidenced', () => {
+    const result = checkAnswer({
+      ...base,
+      sourceIds: [],
+      claimIds: ['C1'],
+      citedText: 'The council reports 412,000 passengers in 2024.',
+      answer: 'Statement C1 says the council reports 412,000 passengers.',
+    });
+    expect(result).toEqual({ status: 'cited', notes: [] });
+  });
 
   it('calls an answer with a citation and only evidenced figures cited', () => {
     expect(
@@ -241,16 +254,19 @@ afterEach(async () => {
 function repairing(replies: unknown[]) {
   const rejected: string[] = [];
   const state = { calls: 0 };
+  /** What the model was sent, so a test can check what it was and was not shown. */
+  const seen: Record<string, unknown>[] = [];
   const gateway: ModelGateway = {
     json: async <T>(
       schema: z.ZodType<T>,
       _instructions: string,
-      _data: unknown,
+      data: unknown,
       _signal?: AbortSignal,
       _maxTokens?: number,
       options?: JsonOptions<T>,
     ): Promise<T> => {
       state.calls += 1;
+      seen.push(data as Record<string, unknown>);
       for (const raw of replies) {
         const parsed = schema.parse(raw);
         try {
@@ -264,10 +280,61 @@ function repairing(replies: unknown[]) {
       throw new AppError(502, 'MODEL_OUTPUT_INVALID', 'The model kept returning invalid output.');
     },
   };
-  return { gateway, rejected, state };
+  return { gateway, rejected, state, seen };
 }
 
-async function completedModelProject(replies: unknown[]) {
+const groundedClaim = (
+  id: string,
+  text: string,
+  kind: GroundedClaim['kind'],
+  verdict: GroundedClaim['verdict'],
+  sourceIds: string[],
+): GroundedClaim => ({
+  id,
+  section: 'Ridership',
+  text,
+  kind,
+  sourceIds,
+  memoryIds: [],
+  quote: null,
+  verdict,
+  checks: { quote: null, overlap: 0.8, numbers: null, entailment: null },
+  reason: 'Checked against the cited passage.',
+});
+
+/** A review with one well-supported, one unsupported and one unchecked statement, in that id order. */
+const groundedReview: GroundingReview = {
+  checkedAt: '2026-01-01T00:00:00.000Z',
+  method: 'deterministic',
+  claims: [
+    groundedClaim(
+      'C1',
+      'The council reports 412,000 passengers in 2024.',
+      'source-fact',
+      'supported',
+      ['S1'],
+    ),
+    groundedClaim(
+      'C2',
+      'Residents may switch to the ferry if fares fall.',
+      'ai-hypothesis',
+      'unchecked',
+      [],
+    ),
+    groundedClaim(
+      'C3',
+      'The operator guarantees no cancellations.',
+      'extracted-claim',
+      'unsupported',
+      ['S2'],
+    ),
+  ],
+  counts: { supported: 1, partial: 0, unsupported: 1, contradicted: 0, unchecked: 1 },
+  unverifiedFigures: [],
+  notes: [],
+};
+
+async function completedModelProject(replies: unknown[], options: { grounded?: boolean } = {}) {
   const model = repairing(replies);
   const harness = await buildApp({
     config: testConfig(modelEnvironment),
@@ -297,6 +364,7 @@ async function completedModelProject(replies: unknown[]) {
         { title: 'Ridership', body: 'Two sources give different ridership.', sourceIds: ['S1'] },
       ],
       limitations: ['Synthetic sources.'],
+      ...(options.grounded ? { grounding: groundedReview } : {}),
       metrics: {
         initialMean: 0,
         finalMean: 0.1,
@@ -411,6 +479,140 @@ describe('analyst chat evidence gate', () => {
     const stored = harness.repository.conversation(harness.id, 'report').at(-1)!;
     expect(stored.grounding?.status).toBe('abstained');
     expect(stored.content).toContain(ABSTENTION_MESSAGE);
+  });
+
+  describe('citing the report’s own statements', () => {
+    const QUESTION = 'Which statements in the report are least supported by the sources?';
+
+    it('shows the analyst the ledger, least supported first, and accepts an answer that cites it', async () => {
+      const harness = await completedModelProject(
+        [
+          {
+            answer: 'The least supported statement is C3: no cited source states it.',
+            sourceIds: [],
+            memoryIds: [],
+            claimIds: ['C3'],
+          },
+        ],
+        { grounded: true },
+      );
+      const { response, messages } = await chat(harness, QUESTION);
+      expect(response.statusCode, response.body).toBe(200);
+
+      const sent = harness.model.seen[0]!;
+      const ledger = sent.ledger as {
+        claims: { id: string; support: string }[];
+        conflicts: { documents: string[] }[];
+        sufficiency: { level: string };
+      };
+      // Least supported first. C1 is stated by the council but the operator source gives a
+      // different figure, so mixed evidence makes it only partially supported.
+      expect(ledger.claims.map((claim) => [claim.id, claim.support])).toEqual([
+        ['C3', 'unsupported'],
+        ['C1', 'partially-supported'],
+        ['C2', 'not-checkable'],
+      ]);
+      expect(ledger.conflicts).toHaveLength(1);
+      expect(ledger.conflicts[0]!.documents.sort()).toEqual(['council.md', 'operator.md']);
+      expect(ledger.sufficiency.level).toBeTruthy();
+
+      const reply = messages.at(-1)!;
+      expect(reply.claimIds).toEqual(['C3']);
+      expect(reply.sourceIds).toEqual([]);
+      expect(reply.grounding).toMatchObject({ status: 'cited' });
+      expect(harness.repository.conversation(harness.id, 'report').at(-1)!.claimIds).toEqual([
+        'C3',
+      ]);
+    });
+
+    it('rejects a statement id the model was not shown, and says which ids are valid', async () => {
+      const harness = await completedModelProject(
+        [
+          {
+            answer: 'C99 is the weakest statement.',
+            sourceIds: [],
+            memoryIds: [],
+            claimIds: ['C99'],
+          },
+          {
+            answer: 'C3 is the weakest statement.',
+            sourceIds: [],
+            memoryIds: [],
+            claimIds: ['C3'],
+          },
+        ],
+        { grounded: true },
+      );
+      const { messages } = await chat(harness, QUESTION);
+      expect(harness.model.rejected).toHaveLength(1);
+      expect(harness.model.rejected[0]).toContain('valid IDs: C3, C1, C2');
+      expect(messages.at(-1)!.claimIds).toEqual(['C3']);
+    });
+
+    it('still requires a citation when the project holds statements it could cite', async () => {
+      const harness = await completedModelProject(
+        [
+          {
+            answer: 'The weakest statement is the one about cancellations.',
+            sourceIds: [],
+            memoryIds: [],
+          },
+          {
+            answer: 'The weakest statement is C3.',
+            sourceIds: [],
+            memoryIds: [],
+            claimIds: ['C3'],
+          },
+        ],
+        { grounded: true },
+      );
+      await chat(harness, QUESTION);
+      expect(harness.model.rejected).toHaveLength(1);
+      expect(harness.model.rejected[0]).toContain('report statement');
+    });
+
+    it('lets an answer stand, marked unverified, when nothing in the project can be cited', async () => {
+      const harness = await completedModelProject([
+        {
+          answer: 'The report says the two sources give different ridership.',
+          sourceIds: [],
+          memoryIds: [],
+        },
+      ]);
+      const { response, messages } = await chat(harness, 'What do the two sources give?');
+      expect(response.statusCode, response.body).toBe(200);
+      expect(harness.model.rejected).toEqual([]);
+      const grounding = messages.at(-1)!.grounding!;
+      expect(grounding.status).toBe('uncited');
+      expect(grounding.notes.join(' ')).toContain('rests on the report text alone');
+      expect((harness.model.seen[0]!.ledger as { claims: unknown[] }).claims).toEqual([]);
+    });
+
+    it('does not show a persona the ledger', async () => {
+      const harness = await completedModelProject(
+        [{ answer: 'I stay cautious about the plan, for now.', sourceIds: [], memoryIds: [] }],
+        { grounded: true },
+      );
+      harness.repository.update(harness.id, {
+        agents: [
+          {
+            id: 'agent-1',
+            name: 'Ferry commuter',
+            role: 'Daily commuter',
+            persona: 'A fictional commuter who uses the island ferry.',
+            topicIds: [],
+            initialOpinion: 0,
+            opinion: 0.2,
+            influence: 1,
+            openness: 0.5,
+            memory: [],
+            sourceIds: [],
+          },
+        ],
+      });
+      await chat(harness, 'How did your position change?', 'agent-1');
+      expect(harness.model.seen[0]!.ledger).toBeNull();
+    });
   });
 
   it('does not apply the gate to a persona, which speaks from its own recorded state', async () => {

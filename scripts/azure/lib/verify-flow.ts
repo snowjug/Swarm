@@ -232,6 +232,8 @@ export async function runLiveVerification(
   const { project, evidence } = pipeline;
   const evidenceIds = new Set(evidence.map((chunk) => chunk.id));
   const memoryIds = new Set((project.console?.memories ?? []).map((memory) => memory.id));
+  // The ledger's statement ids are the grounding review's claim ids, which the report already carries.
+  const claimIds = new Set((project.report?.grounding?.claims ?? []).map((claim) => claim.id));
 
   await recorder.run('real-calls', async () => checkRealCalls(project, await api.status(), size));
   await recorder.run('per-actor', () => checkPerActor(project, size));
@@ -253,7 +255,7 @@ export async function runLiveVerification(
     const after = (await api.status()).counters.calls;
     const reply = lastReply(messages);
     if (reply) replies.push(reply.content);
-    return checkChatReply(messages, evidenceIds, after - before);
+    return checkChatReply(messages, evidenceIds, after - before, claimIds);
   };
   await recorder.run('analyst-chat', () => converse('report', ANALYST_QUESTION));
   await recorder.run('actor-chat', () => {

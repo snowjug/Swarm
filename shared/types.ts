@@ -296,6 +296,8 @@ export interface ChatMessage {
   content: string;
   sourceIds: string[];
   memoryIds?: string[];
+  /** Report statements (evidence-ledger ids) an analyst answer cites. */
+  claimIds?: string[];
   mode: EngineMode;
   createdAt: string;
   /** Present on assistant replies produced after the evidence gate existed. */

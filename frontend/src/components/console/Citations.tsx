@@ -5,16 +5,33 @@ export function Citations({
   sourceIds = [],
   memoryIds = [],
   interviewIds = [],
+  claimIds = [],
   onInspect,
 }: {
   sourceIds?: string[];
   memoryIds?: string[];
   interviewIds?: string[];
+  /** Statements of the report's evidence ledger. They are shown as labels, not links. */
+  claimIds?: string[];
   onInspect: (selection: Inspection) => void;
 }) {
   return (
     <div className="citations">
       <SourceLinks ids={sourceIds} onOpen={(id) => onInspect({ kind: 'source', id })} />
+      {!!claimIds.length && (
+        <div className="source-links">
+          <span className="source-label">Report statements</span>
+          {[...new Set(claimIds)].map((id) => (
+            <span
+              className="claim-ref mono"
+              key={id}
+              title="A statement in this report’s evidence ledger"
+            >
+              {id}
+            </span>
+          ))}
+        </div>
+      )}
       {!!memoryIds.length && (
         <div className="source-links">
           <span className="source-label">Simulated memory</span>
