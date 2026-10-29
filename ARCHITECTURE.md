@@ -158,21 +158,23 @@ complete. This is a local, single-user architecture, not a distributed job syste
 
 ### Implemented module boundaries
 
-| Module                             | Responsibility                                                                                                                |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `shared/types.ts`                  | Shared input validation, limits and request/result types                                                                      |
-| `backend/src/app.ts`, `routes/`    | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                        |
-| `backend/src/storage/`             | SQLite persistence, storage decoding, events, conversations and restart recovery                                              |
-| `backend/src/knowledge/`           | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                          |
-| `backend/src/agents/`              | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting |
-| `backend/src/grounding/`           | Verbatim quote matching, claim verdicts, independent entailment check, chapter-claim validation and the review                |
-| `backend/src/models/`              | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry        |
-| `backend/src/orchestration/`       | Shared quick/guided queue ownership, cancellation, follow-up locking and survey lifecycle                                     |
-| `backend/src/guided/`              | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                              |
-| `backend/src/ingest/`              | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                 |
-| `shared/guided.ts`                 | Persisted stage, environment, memory, trace, survey and editing contracts                                                     |
-| `frontend/src/hooks/`              | Race/abort-safe project lifecycle, history and active-run polling                                                             |
-| `frontend/src/components/console/` | Light guided entry, graph/split/workbench, inspectors, preparation, streams, report/tool trace and interaction                |
+| Module                             | Responsibility                                                                                                                                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/types.ts`                  | Shared input validation, limits and request/result types                                                                                                                                                    |
+| `backend/src/app.ts`, `routes/`    | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                                                                                                      |
+| `backend/src/storage/`             | SQLite persistence, numbered migrations with a backup, the ledger store, the hash-chained audit log, events and restart recovery                                                                            |
+| `backend/src/knowledge/`           | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                                                                                                        |
+| `backend/src/agents/`              | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting                                                                               |
+| `backend/src/grounding/`           | Verbatim quote matching, claim verdicts, entailment check, chapter-claim validation, the review, and the evidence ledger: classification, publication policy, cross-source conflicts and the ledger service |
+| `backend/src/auth/`                | Optional Entra token verification, roles, the default-deny route table and the request guard                                                                                                                |
+| `backend/src/models/`              | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry                                                                                      |
+| `backend/src/orchestration/`       | Shared quick/guided queue ownership, cancellation, follow-up locking and survey lifecycle, and the analyst's evidence gate and citation checks                                                              |
+| `backend/src/guided/`              | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                                                                                                            |
+| `backend/src/ingest/`              | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                                                                                               |
+| `shared/guided.ts`                 | Persisted stage, environment, memory, trace, survey and editing contracts                                                                                                                                   |
+| `frontend/src/hooks/`              | Race/abort-safe project lifecycle, history and active-run polling                                                                                                                                           |
+| `frontend/src/components/console/` | Light guided entry, graph/split/workbench, inspectors, preparation, streams, report/tool trace, interaction and the evidence ledger                                                                         |
+| `evaluation/`                      | Labelled datasets pinned to their sources, the offline harness, thresholds and results                                                                                                                      |
 
 The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
 topic interests, influence, openness and four recent memory entries. All round
@@ -242,6 +244,38 @@ and listed in the grounding review's notes. The same idea applies to graph nodes
 statement its own passage does not back, a simulated event with no recorded memory) is
 reported or rejected, not smoothed over.
 
+**The evidence ledger.** `grounding/ledger.ts` turns the grounding review into records, one per
+material statement, with a statement type (ten), a support class (eight, from the verdicts and the
+conflicts) and a **publication status** that decides how the product may show it. The policy is a pure
+function of type and class: a source statement that another source contradicts becomes partly
+supported, an unsupported statement is only ever a labelled hypothesis, and accepting a statement in
+review records that a person looked without changing its class. Each record points at its evidence
+(passage, offsets, a SHA-256 of the passage, a verbatim quote only if one was found), at the
+assumptions it depends on and at the simulated events behind it. `grounding/contradictions.ts` finds
+candidate conflicts between sources (shared quantity over the same explicit period, or shared topic
+words with differing figures); they stay candidates until a person confirms or dismisses them, and
+dismissing one recalculates the statements it touched. `grounding/service.ts` builds the ledger lazily
+from the report's review, keeps human decisions across a rebuild, derives the assumption register from
+the scenario and writes the audit log. See [ADR 0001](./docs/adr/0001-evidence-integrity-model.md) and
+[ADR 0003](./docs/adr/0003-schema-migrations-and-audit-log.md).
+
+**The analyst's gate.** `orchestration/evidence-gate.ts` reads the question against the project's
+passages and its own report, graph and recorded activity before any model is called. If the key terms,
+the years it names and the best passage score cannot support an answer, the reply is a fixed sentence
+and no model call is made. When the gate lets a question through, the model is shown the passages, the
+recorded memories and the ledger's statements (least supported first, at most 40) and must cite one or
+decline; ids are checked against what it was shown, and the reply records a grounding status (cited,
+caveated, abstained or uncited). Personas are never shown the ledger and the gate does not apply to
+them. It is a lexical gate and says so: it cannot see meaning ([ADR 0002](./docs/adr/0002-abstention-and-citation-rule.md)).
+
+**Identity.** `auth/` runs as an `onRequest` hook, so it authenticates before a body is parsed. With
+`AUTH_MODE=none` the caller is a local administrator in a `local` tenant and nothing changes. With
+`AUTH_MODE=entra`, `tokens.ts` verifies the signature (RS256 only), audience, lifetime, tenant
+allow-list and an issuer derived from the token's own tenant, and answers every failure alike.
+`policy.ts` is a default-deny table keyed by route, and a test fails if a registered route is missing
+from it. Projects carry `tenant_id` and `owner_id`; a project in another tenant answers exactly as a
+missing one. See [ADR 0005](./docs/adr/0005-identity-roles-and-tenancy.md).
+
 Info Plaza and Topic Community start from separate copies of the prepared
 population, use broadcast/community exposure respectively, and keep independent
 state and memory. Matching simulated round clocks do not merge their histories.
@@ -296,7 +330,11 @@ Server-side validators (citation IDs, quotes, ranges) then bound what any reply 
 
 ### Persistence and failure semantics
 
-SQLite schema version 1 has `projects`, `chunks`, `events` and `messages`.
+SQLite is at schema version 3, applied by numbered migrations (`storage/migrations.ts`): version 1
+is the original `projects`, `chunks`, `events` and `messages`; version 2 adds `claim_records`,
+`source_conflicts`, `ledger_state` and the append-only `audit_events`; version 3 adds `tenant_id` and
+`owner_id` to projects. An existing database file is copied before it is upgraded, a failed step rolls
+back, and a database newer than the build is refused untouched.
 JSON payloads are decoded with runtime schemas. SQL values are parameterized and
 source filenames never become paths. Foreign-key deletion removes associated
 chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.
@@ -318,8 +356,7 @@ success-shaped local fallback.
 
 Payload decoding defaults older rows to `workflow: quick` and `console: null`;
 no existing project is rewritten as if a second world, ontology or operation trace
-had been recorded. The existing SQLite table schema stays at version 1; guided
-payloads and exports carry their explicit new shape (guided export version 2).
+had been recorded. Guided payloads and exports carry their explicit shape (guided export version 2).
 Restart recovery fails active stages, platform states, traces and surveys while
 retaining completed upstream output and partial survey responses. A simulation
 interrupted after saved rounds is marked `failed` with a message naming the saved

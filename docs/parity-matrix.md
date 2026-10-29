@@ -69,6 +69,23 @@ live evidence behind the graph, persona, simulation, report, branch, chat and ex
 rating: it is still one small model and one scenario, and the live runs found reliability defects that are now
 fixed and listed in [requirements-matrix.md](./requirements-matrix.md).
 
+## Capabilities the reference does not document
+
+The evidence-integrity program added capabilities that have no counterpart in the reference's public
+material. They are **not rated**: with nothing to compare against, neither BETTER nor EQUIVALENT can be
+supported. They are listed so a reader can see that the table above does not cover them, and each names its
+evidence and its limits.
+
+| Capability in Swarm                                                          | Evidence                                                                                                      | Limit                                                                                                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Statement types and support classes, with a deterministic publication policy | `backend/test/ledger.test.ts`, `ledger-service.test.ts`; [ADR 0001](./adr/0001-evidence-integrity-model.md)   | The checks are heuristics; the deterministic one accepted 3 of 8 unsupported statements in a labelled set  |
+| Conflicts between sources, as candidates for a person to confirm or dismiss  | `backend/test/contradictions.test.ts`; `evaluation/`; [demonstration packs](./demo/README.md)                 | 1 of 3 labelled conflicts found; false alarms on some material; conflicts of meaning missed                |
+| An analyst that declines without a model call, and must cite or decline      | `backend/test/evidence-gate.test.ts`, `demos.test.ts`; [ADR 0002](./adr/0002-abstention-and-citation-rule.md) | Refuses 43% (dev) and 86% (test) of unanswerable questions in the labelled set; 3 of 4 plausible ones pass |
+| An assumption register                                                       | `backend/test/ledger-service.test.ts`; `e2e/model/ledger-ui.spec.ts`                                          | Derived and read-only                                                                                      |
+| An append-only, hash-chained audit log                                       | `backend/test/storage.test.ts`; [ADR 0003](./adr/0003-schema-migrations-and-audit-log.md)                     | Not anchored outside the database                                                                          |
+| Microsoft Entra token checks, four roles and tenant isolation in the API     | `backend/test/auth.test.ts`; [ADR 0005](./adr/0005-identity-roles-and-tenancy.md)                             | Local test provider only; no browser sign-in                                                               |
+| An offline evaluation with published limits                                  | `evaluation/test/evaluation.test.ts`; [ADR 0004](./adr/0004-evaluation-approach.md)                           | Small, one fictional domain, author-labelled                                                               |
+
 ## What this matrix does not claim
 
 - No claim about the reference's undocumented internals, scale behaviour or prediction quality.
