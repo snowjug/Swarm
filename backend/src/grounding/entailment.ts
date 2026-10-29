@@ -98,16 +98,23 @@ export function validateEntailment(reply: EntailmentReply, items: readonly Entai
   }
 }
 
+export interface EntailmentJudgement {
+  label: EntailmentLabel;
+  /** The verified excerpt that justifies the label. Null for a not-supported judgement. */
+  quote: string | null;
+}
+
 /**
  * One independent model call that judges whether the cited passages back each claim. Its answers
  * are accepted only if every positive or negative judgement quotes real text from the passage.
+ * Returns the label together with the excerpt it pointed at, so a contradiction can be shown.
  */
-export async function judgeClaims(
+export async function judgeClaimsWithEvidence(
   model: ModelGateway,
   items: readonly EntailmentItem[],
   signal: AbortSignal,
-): Promise<Map<string, EntailmentLabel>> {
-  const outcomes = new Map<string, EntailmentLabel>();
+): Promise<Map<string, EntailmentJudgement>> {
+  const outcomes = new Map<string, EntailmentJudgement>();
   if (items.length === 0) return outcomes;
   const unique = new Map<string, string>();
   for (const item of items) for (const [id, text] of item.passages) unique.set(id, text);
@@ -128,7 +135,20 @@ export async function judgeClaims(
     (value) => validateEntailment(value, items),
   );
   for (const judgement of reply.judgements) {
-    outcomes.set(judgement.claimId, LABELS[judgement.label]);
+    outcomes.set(judgement.claimId, {
+      label: LABELS[judgement.label],
+      quote: judgement.label === 'not_supported' ? null : judgement.evidenceQuote,
+    });
   }
   return outcomes;
+}
+
+/** The labels alone, for callers that do not need the excerpt. */
+export async function judgeClaims(
+  model: ModelGateway,
+  items: readonly EntailmentItem[],
+  signal: AbortSignal,
+): Promise<Map<string, EntailmentLabel>> {
+  const detailed = await judgeClaimsWithEvidence(model, items, signal);
+  return new Map([...detailed].map(([claimId, judgement]) => [claimId, judgement.label]));
 }

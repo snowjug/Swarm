@@ -278,17 +278,20 @@ export function createBranch(
     surveys: [],
   };
 
-  const child = repository.create({
-    name: (input.name ?? `${parent.name.slice(0, 70)} · branch r${fromRound}`).slice(0, 100),
-    question: parent.question,
-    workflow: 'guided',
-    settings,
-    documents: parent.documents.map((document) => ({
-      name: document.name,
-      content: document.content,
-      ...(document.pageCount ? { pageCount: document.pageCount } : {}),
-    })),
-  });
+  const child = repository.create(
+    {
+      name: (input.name ?? `${parent.name.slice(0, 70)} · branch r${fromRound}`).slice(0, 100),
+      question: parent.question,
+      workflow: 'guided',
+      settings,
+      documents: parent.documents.map((document) => ({
+        name: document.name,
+        content: document.content,
+        ...(document.pageCount ? { pageCount: document.pageCount } : {}),
+      })),
+    },
+    { inheritChunksFrom: parent.id },
+  );
   try {
     repository.update(child.id, {
       graph: parent.graph,

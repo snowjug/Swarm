@@ -366,21 +366,43 @@ describe('buildClaimRecords', () => {
     expect(record?.publication.status).toBe('withheld');
   });
 
-  it('downgrades a supported statement when a different source conflicts with the cited one', () => {
-    const other: EvidenceRef = {
+  const conflict = {
+    id: 'X1',
+    topic: 'annual passengers ridership',
+    leftValue: '412,000',
+    rightValue: '365,000',
+    left: { ...ref(), passageId: 'S1' },
+    right: {
       ...ref('contradicts'),
       passageId: 'S2',
       documentId: 'D2',
       quote: '365,000 passengers',
-    };
+    },
+  };
+
+  it('downgrades a supported statement when a different source conflicts with what it says', () => {
     const [record] = buildClaimRecords({
       ...base,
-      conflicts: [{ id: 'X1', left: { ...ref(), passageId: 'S1' }, right: other }],
+      conflicts: [conflict],
       review: review([claim()]),
     });
     expect(record?.supportClass).toBe('partially-supported');
     expect(record?.contradicting[0]?.passageId).toBe('S2');
+    expect(record?.contradicting[0]?.conflictId).toBe('X1');
     expect(record?.publication.status).toBe('contradiction-shown');
+  });
+
+  it('leaves a statement about something else in the same passage alone', () => {
+    const [record] = buildClaimRecords({
+      ...base,
+      conflicts: [conflict],
+      review: review([
+        claim({ text: 'The council supports the electric ferry plan for the winter.' }),
+      ]),
+    });
+    expect(record?.supportClass).toBe('directly-supported');
+    expect(record?.contradicting).toEqual([]);
+    expect(record?.publication.status).toBe('finding');
   });
 
   it('lists the scenario inputs on a simulated statement and links the memory it cites', () => {

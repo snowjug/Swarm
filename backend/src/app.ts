@@ -14,6 +14,8 @@ import { createModelFactory } from './models/factory.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
+import { ledgerRoutes } from './routes/ledger.js';
+import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
 import { guidedRoutes } from './routes/guided.js';
 import { PdfService } from './ingest/pdf.js';
@@ -180,6 +182,7 @@ export async function buildApp(options: AppOptions) {
   }));
   app.get('/api/config', async () => publicConfig(config));
   projectRoutes(app, repository, jobs, interaction, config.rateLimitScale);
+  ledgerRoutes(app, repository, new LedgerService(repository), config.rateLimitScale);
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
 

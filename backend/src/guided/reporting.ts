@@ -17,6 +17,7 @@ import {
   type ChapterIdentifiers,
 } from '../grounding/normalize.js';
 import { recordedFigures, type VerificationContext } from '../grounding/verify.js';
+import { LedgerService } from '../grounding/service.js';
 import type { Repository } from '../storage/repository.js';
 import { interviewProxy } from './interviews.js';
 import {
@@ -418,4 +419,10 @@ export async function generateGuidedReport(
   const drafted = repository.get(id).report;
   if (!drafted) throw new Error('The draft report disappeared before the grounding review.');
   repository.update(id, { report: { ...drafted, grounding }, progress: 99 });
+  try {
+    new LedgerService(repository).rebuild(id);
+  } catch {
+    // The ledger is derived from the saved review, so it is built again on first use instead.
+    repository.addEvent(id, 'report', 'The claim ledger will be built when it is first opened.');
+  }
 }

@@ -1,4 +1,8 @@
-import type { EvidenceRef } from '../../../shared/evidence.js';
+import type {
+  ContradictionKind,
+  ContradictionRecord,
+  EvidenceRef,
+} from '../../../shared/evidence.js';
 import type { EvidenceChunk } from '../../../shared/types.js';
 import { tokenize } from '../knowledge/retrieval.js';
 import { hashText } from './ledger.js';
@@ -11,26 +15,6 @@ export const MIN_TOPIC_OVERLAP = 0.6;
 export const RELATIVE_TOLERANCE = 0.02;
 export const MAX_CONTRADICTIONS = 20;
 const MAX_SENTENCES = 2_000;
-
-export type ContradictionKind = 'numeric' | 'polarity';
-export type ContradictionStatus = 'detected' | 'confirmed' | 'dismissed' | 'resolved';
-
-export interface DetectedContradiction {
-  id: string;
-  kind: ContradictionKind;
-  /** The words the two sentences share: what they are both about. */
-  topic: string;
-  left: EvidenceRef;
-  right: EvidenceRef;
-  leftValue: string | null;
-  rightValue: string | null;
-  /** 0..1. How alike the two statements are, which is how likely they describe the same thing. */
-  confidence: number;
-  status: ContradictionStatus;
-  note: string | null;
-  detectedBy: 'deterministic-v1';
-  createdAt: string;
-}
 
 export interface SourceSentence {
   passageId: string;
@@ -175,7 +159,7 @@ function sharesPeriod(left: Set<string>, right: Set<string>): boolean {
 export function detectContradictions(
   passages: readonly EvidenceChunk[],
   now: Date,
-): DetectedContradiction[] {
+): ContradictionRecord[] {
   const sentences: Indexed[] = [];
   for (const passage of passages) {
     const passageHash = passage.contentHash ?? hashText(passage.text);
@@ -287,7 +271,7 @@ export function detectContradictions(
   return found.slice(0, MAX_CONTRADICTIONS).map((entry, position) => ({
     id: `X${position + 1}`,
     kind: entry.kind,
-    topic: entry.shared.slice(0, 6).join(' '),
+    topic: entry.shared.slice(0, 8).join(' '),
     left: refOf(entry.left),
     right: refOf(entry.right),
     leftValue: entry.leftValue,
@@ -297,5 +281,6 @@ export function detectContradictions(
     note: null,
     detectedBy: 'deterministic-v1',
     createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
   }));
 }

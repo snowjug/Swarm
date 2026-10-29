@@ -21,7 +21,8 @@ import type {
   SupportVerdict,
 } from '../../../shared/grounding.js';
 import type { EvidenceChunk } from '../../../shared/types.js';
-import { findQuote, wordOverlap } from './text.js';
+import { findQuote, numbersIn, wordOverlap } from './text.js';
+import { tokenize } from '../knowledge/retrieval.js';
 
 /** A recommendation needs at least this many directly supported findings behind the analysis. */
 export const MIN_FINDINGS_FOR_RECOMMENDATION = 3;
@@ -239,8 +240,49 @@ export interface LedgerInput {
 /** A conflict between two source passages, reduced to what a claim needs to display it. */
 export interface SourceConflict {
   id: string;
+  /** The words the two conflicting statements share: what the conflict is about. */
+  topic: string;
+  leftValue: string | null;
+  rightValue: string | null;
   left: EvidenceRef;
   right: EvidenceRef;
+}
+
+/**
+ * Whether a conflict is about what a statement says. Citing a conflicted passage is not enough: a
+ * statement about something else in the same passage is not weakened by a disagreement elsewhere.
+ * It is, when it repeats one of the conflicting figures or shares enough of the conflict's topic.
+ */
+export function conflictTouchesStatement(conflict: SourceConflict, text: string): boolean {
+  const figures = new Set(numbersIn(text));
+  const mentionsValue = [conflict.leftValue, conflict.rightValue].some((value) => {
+    const token = value === null ? undefined : numbersIn(value)[0];
+    return token !== undefined && figures.has(token);
+  });
+  if (mentionsValue) return true;
+  const topic = conflict.topic.split(' ').filter(Boolean);
+  const words = new Set(tokenize(text));
+  const shared = topic.filter((word) => words.has(word)).length;
+  return shared >= Math.min(3, Math.max(2, Math.ceil(topic.length / 2)));
+}
+
+/** The other side of every conflict that touches a passage the statement cites and is about it. */
+export function conflictEvidence(
+  cited: Iterable<string>,
+  conflicts: readonly SourceConflict[],
+  text: string,
+): EvidenceRef[] {
+  const passages = new Set(cited);
+  const refs: EvidenceRef[] = [];
+  for (const conflict of conflicts) {
+    if (!conflictTouchesStatement(conflict, text)) continue;
+    if (passages.has(conflict.left.passageId)) {
+      refs.push({ ...conflict.right, role: 'contradicts', conflictId: conflict.id });
+    } else if (passages.has(conflict.right.passageId)) {
+      refs.push({ ...conflict.left, role: 'contradicts', conflictId: conflict.id });
+    }
+  }
+  return refs;
 }
 
 function refFor(
@@ -300,11 +342,7 @@ function contradictingRefs(
       }
     }
   }
-  for (const conflict of conflicts) {
-    const cited = new Set(claim.sourceIds);
-    if (cited.has(conflict.left.passageId)) add({ ...conflict.right, role: 'contradicts' });
-    else if (cited.has(conflict.right.passageId)) add({ ...conflict.left, role: 'contradicts' });
-  }
+  for (const ref of conflictEvidence(claim.sourceIds, conflicts, claim.text)) add(ref);
   return refs;
 }
 
@@ -439,6 +477,65 @@ export function applyReview(record: ClaimRecord, input: ReviewInput, now: Date):
     change: `Review: ${input.result}${input.note ? ` (${input.note.slice(0, 120)})` : ''}.`,
   };
   return { ...record, version, review, publication, history: [...record.history, entry] };
+}
+
+/**
+ * Recalculates a statement after the open conflicts between sources changed. Evidence from the
+ * independent check is kept, evidence from a conflict is replaced by what the open conflicts say
+ * now, history is kept, and the version moves only when something actually changed.
+ */
+export function reconcileClaim(
+  record: ClaimRecord,
+  conflicts: readonly SourceConflict[],
+  now: Date,
+): ClaimRecord {
+  const own = record.contradicting.filter((ref) => ref.conflictId === undefined);
+  const contradicting = [
+    ...own,
+    ...conflictEvidence(
+      record.supporting.map((ref) => ref.passageId),
+      conflicts,
+      record.text,
+    ),
+  ];
+  const supportClass = classifySupport({
+    statementType: record.statementType,
+    verdict: record.verification.verdict,
+    contradicting: contradicting.length,
+    assumptions: record.assumptionIds.length,
+  });
+  const publication = decidePublication({
+    statementType: record.statementType,
+    supportClass,
+    supporting: record.supporting,
+    contradicting,
+    assumptionIds: record.assumptionIds,
+    review: record.review,
+    reason: record.verification.reason,
+  });
+  const unchanged =
+    supportClass === record.supportClass &&
+    publication.status === record.publication.status &&
+    publication.qualification === record.publication.qualification &&
+    JSON.stringify(contradicting) === JSON.stringify(record.contradicting);
+  if (unchanged) return record;
+  const version = record.version + 1;
+  return {
+    ...record,
+    version,
+    supportClass,
+    contradicting,
+    publication,
+    history: [
+      ...record.history,
+      {
+        version,
+        at: now.toISOString(),
+        actor: 'system',
+        change: `Recalculated after a change to the conflicts between sources: now ${supportClass}.`,
+      },
+    ],
+  };
 }
 
 /** Whether the evidence is strong enough for a recommendation. Deterministic, never model-decided. */

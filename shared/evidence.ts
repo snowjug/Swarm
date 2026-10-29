@@ -118,6 +118,8 @@ export interface EvidenceRef {
   /** SHA-256 of the passage text, so a later edit to a source cannot silently change what was cited. */
   contentHash: string;
   role: 'supports' | 'contradicts';
+  /** Set when this evidence comes from a conflict between sources, so it can be recalculated. */
+  conflictId?: string;
 }
 
 export interface SimulationRef {
@@ -193,6 +195,7 @@ const evidenceRefSchema: z.ZodType<EvidenceRef> = z.object({
   quote: z.string().nullable(),
   contentHash: z.string(),
   role: z.enum(['supports', 'contradicts']),
+  conflictId: z.string().optional(),
 });
 
 /** Validates a stored record when it is loaded, so a corrupted row fails loudly instead of rendering. */
@@ -266,4 +269,74 @@ export interface EvidenceSufficiency {
   counts: Record<SupportClass, number>;
   /** Directly supported share of the statements that rest on a source, 0..1. Null when none do. */
   directlySupportedShare: number | null;
+}
+
+export const CONTRADICTION_KINDS = ['numeric', 'polarity'] as const;
+export type ContradictionKind = (typeof CONTRADICTION_KINDS)[number];
+
+/** `detected` is a candidate. Only a person (or an independent check) confirms or dismisses it. */
+export const CONTRADICTION_STATUSES = ['detected', 'confirmed', 'dismissed', 'resolved'] as const;
+export type ContradictionStatus = (typeof CONTRADICTION_STATUSES)[number];
+
+export const CONTRADICTION_STATUS_LABELS: Record<ContradictionStatus, string> = {
+  detected: 'Possible conflict',
+  confirmed: 'Confirmed conflict',
+  dismissed: 'Dismissed',
+  resolved: 'Resolved',
+};
+
+/** Open conflicts weigh on the claims they touch. A dismissed or resolved one does not. */
+export function isOpenConflict(status: ContradictionStatus): boolean {
+  return status === 'detected' || status === 'confirmed';
+}
+
+/** Two statements in the project's sources that seem to be about the same thing yet disagree. */
+export interface ContradictionRecord {
+  id: string;
+  kind: ContradictionKind;
+  /** The words the two statements share: what they are both about. */
+  topic: string;
+  left: EvidenceRef;
+  right: EvidenceRef;
+  /** The figures that differ, as written. Null for a conflict of meaning rather than of number. */
+  leftValue: string | null;
+  rightValue: string | null;
+  /** 0..1. How alike the two statements are, which is how likely they describe the same thing. */
+  confidence: number;
+  status: ContradictionStatus;
+  note: string | null;
+  detectedBy: 'deterministic-v1';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const contradictionReviewSchema = z.object({
+  status: z.enum(['confirmed', 'dismissed', 'resolved']),
+  note: z.string().trim().max(MAX_REVIEW_NOTE_LENGTH).nullable().default(null),
+});
+export type ContradictionReviewInput = z.output<typeof contradictionReviewSchema>;
+
+export const contradictionRecordSchema: z.ZodType<ContradictionRecord> = z.object({
+  id: z.string(),
+  kind: z.enum(CONTRADICTION_KINDS),
+  topic: z.string(),
+  left: evidenceRefSchema,
+  right: evidenceRefSchema,
+  leftValue: z.string().nullable(),
+  rightValue: z.string().nullable(),
+  confidence: z.number().min(0).max(1),
+  status: z.enum(CONTRADICTION_STATUSES),
+  note: z.string().nullable(),
+  detectedBy: z.literal('deterministic-v1'),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** Everything the ledger holds for one project. */
+export interface Ledger {
+  claims: ClaimRecord[];
+  contradictions: ContradictionRecord[];
+  sufficiency: EvidenceSufficiency;
+  /** When the grounding review that the statements came from was run. Null: no review exists. */
+  reviewedAt: string | null;
 }

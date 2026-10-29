@@ -14,8 +14,10 @@ import {
   type ValidatedProjectInput,
 } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
+import { hashText } from '../grounding/ledger.js';
 import { readCheckpoint } from '../guided/checkpoint.js';
-import { chunkDocuments } from '../knowledge/retrieval.js';
+import { PARSER_VERSION, chunkDocuments } from '../knowledge/retrieval.js';
+import { AuditLog } from './audit.js';
 import {
   chatMessageSchema,
   chunkSchema,
@@ -24,20 +26,30 @@ import {
   storedProjectSchema,
   type StoredProject,
 } from './codec.js';
+import { LedgerStore } from './ledger-store.js';
+import {
+  LATEST_SCHEMA_VERSION,
+  migrate,
+  readSchemaVersion,
+  type MigrationReport,
+} from './migrations.js';
 
 const payloadRow = z.object({ payload: z.string() });
 const countRow = z.object({ count: z.number() });
 
 export class Repository {
   private readonly database: DatabaseSync;
+  /** Claim records and conflicts between sources. */
+  readonly ledger: LedgerStore;
+  /** Append-only record of who did what. Holds identifiers and counts, never content. */
+  readonly audit: AuditLog;
+  /** What the schema migration did when this database was opened. */
+  readonly migration: MigrationReport;
 
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.database = new DatabaseSync(path);
-    const version = z
-      .object({ user_version: z.number() })
-      .parse(this.database.prepare('PRAGMA user_version').get()).user_version;
-    if (version > 1) {
+    if (readSchemaVersion(this.database) > LATEST_SCHEMA_VERSION) {
       this.database.close();
       throw new AppError(
         500,
@@ -49,28 +61,15 @@ export class Repository {
       PRAGMA foreign_keys = ON;
       PRAGMA journal_mode = WAL;
       PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-        status TEXT NOT NULL, payload TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS chunks (
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY (project_id, id)
-      );
-      CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        stage TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS events_project ON events(project_id, id);
-      CREATE TABLE IF NOT EXISTS messages (
-        seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        target TEXT NOT NULL, payload TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS messages_project ON messages(project_id, target, seq);
-      PRAGMA user_version = 1;
     `);
+    try {
+      this.migration = migrate(this.database, { path });
+    } catch (error) {
+      this.database.close();
+      throw error;
+    }
+    this.ledger = new LedgerStore(this.database, (operation) => this.transaction(operation));
+    this.audit = new AuditLog(this.database);
   }
 
   private transaction<T>(operation: () => T): T {
@@ -83,6 +82,11 @@ export class Repository {
       this.database.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  /** Runs several changes as one unit: all of them are saved, or none. Not re-entrant. */
+  atomic<T>(operation: () => T): T {
+    return this.transaction(operation);
   }
 
   private readStored(id: string): StoredProject | undefined {
@@ -152,7 +156,10 @@ export class Repository {
     return { projects, total: this.count() };
   }
 
-  create(input: ValidatedProjectInput): ProjectDetail {
+  create(
+    input: ValidatedProjectInput,
+    options: { inheritChunksFrom?: string } = {},
+  ): ProjectDetail {
     if (this.count() >= MAX_PROJECTS) {
       throw new AppError(
         409,
@@ -194,8 +201,21 @@ export class Repository {
       const insert = this.database.prepare(
         'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
       );
-      for (const chunk of chunkDocuments(project.documents)) {
-        insert.run(project.id, chunk.id, JSON.stringify(chunk));
+      // A branch keeps the passages its parent was built from, with their original provenance:
+      // the sources did not change, so neither does when or how they were cut.
+      const inherited = options.inheritChunksFrom ? this.chunks(options.inheritChunksFrom) : null;
+      const passages: EvidenceChunk[] =
+        inherited ??
+        chunkDocuments(project.documents).map((chunk) => ({
+          ...chunk,
+          // Each passage records where it came from and what it said when it was cut.
+          contentHash: hashText(chunk.text),
+          extractedAt: now,
+          parserVersion: PARSER_VERSION,
+          reviewStatus: 'unreviewed',
+        }));
+      for (const passage of passages) {
+        insert.run(project.id, passage.id, JSON.stringify(passage));
       }
       this.addEvent(
         project.id,
@@ -350,8 +370,19 @@ export class Repository {
   }
 
   delete(id: string): void {
-    this.get(id);
-    this.database.prepare('DELETE FROM projects WHERE id = ?').run(id);
+    const project = this.get(id);
+    this.transaction(() => {
+      this.database.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      // The log keeps who deleted what, never the content that was deleted.
+      this.audit.record({
+        actor: 'local-user',
+        action: 'project.deleted',
+        targetType: 'project',
+        targetId: id,
+        projectId: id,
+        detail: { workflow: project.workflow, status: project.status },
+      });
+    });
   }
 
   close(): void {
