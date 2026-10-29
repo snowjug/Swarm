@@ -36,6 +36,16 @@ import {
 
 const payloadRow = z.object({ payload: z.string() });
 const countRow = z.object({ count: z.number() });
+const ownerRow = z.object({ tenant_id: z.string(), owner_id: z.string() });
+
+/** Who a project belongs to. The tenant is the workspace boundary; the owner may change it. */
+export interface Owner {
+  tenantId: string;
+  ownerId: string;
+}
+
+/** Without sign-in, everything belongs to the one local user. */
+export const LOCAL_OWNER: Owner = { tenantId: 'local', ownerId: 'local-user' };
 
 export class Repository {
   private readonly database: DatabaseSync;
@@ -108,59 +118,84 @@ export class Repository {
     return { ...project, events, parentId: project.console?.branch?.parentId ?? null };
   }
 
-  count(): number {
-    return countRow.parse(this.database.prepare('SELECT COUNT(*) AS count FROM projects').get())
-      .count;
+  /** All experiments, or only those of one tenant. */
+  count(tenantId?: string): number {
+    const row =
+      tenantId === undefined
+        ? this.database.prepare('SELECT COUNT(*) AS count FROM projects').get()
+        : this.database
+            .prepare('SELECT COUNT(*) AS count FROM projects WHERE tenant_id = ?')
+            .get(tenantId);
+    return countRow.parse(row).count;
   }
 
-  list(limit = 100, offset = 0): { projects: ProjectSummary[]; total: number } {
-    const projects = this.database
-      .prepare('SELECT payload FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?')
-      .all(limit, offset)
-      .map((row): ProjectSummary => {
-        const project = decode(storedProjectSchema, payloadRow.parse(row).payload);
-        const {
-          id,
-          name,
-          workflow,
-          question,
-          status,
-          stage,
-          progress,
-          mode,
-          agentCount,
-          roundCount,
-          currentRound,
-          createdAt,
-          updatedAt,
-          error,
-        } = project;
-        return {
-          id,
-          name,
-          workflow,
-          question,
-          status,
-          stage,
-          progress,
-          mode,
-          agentCount,
-          roundCount,
-          currentRound,
-          createdAt,
-          updatedAt,
-          error,
-          parentId: project.console?.branch?.parentId ?? null,
-        };
-      });
-    return { projects, total: this.count() };
+  /** Who an experiment belongs to, or null when there is no such experiment. */
+  ownership(id: string): Owner | null {
+    const row = this.database
+      .prepare('SELECT tenant_id, owner_id FROM projects WHERE id = ?')
+      .get(id);
+    if (!row) return null;
+    const parsed = ownerRow.parse(row);
+    return { tenantId: parsed.tenant_id, ownerId: parsed.owner_id };
+  }
+
+  list(limit = 100, offset = 0, tenantId?: string): { projects: ProjectSummary[]; total: number } {
+    const rows =
+      tenantId === undefined
+        ? this.database
+            .prepare('SELECT payload FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?')
+            .all(limit, offset)
+        : this.database
+            .prepare(
+              'SELECT payload FROM projects WHERE tenant_id = ? ORDER BY created_at DESC, id LIMIT ? OFFSET ?',
+            )
+            .all(tenantId, limit, offset);
+    const projects = rows.map((row): ProjectSummary => {
+      const project = decode(storedProjectSchema, payloadRow.parse(row).payload);
+      const {
+        id,
+        name,
+        workflow,
+        question,
+        status,
+        stage,
+        progress,
+        mode,
+        agentCount,
+        roundCount,
+        currentRound,
+        createdAt,
+        updatedAt,
+        error,
+      } = project;
+      return {
+        id,
+        name,
+        workflow,
+        question,
+        status,
+        stage,
+        progress,
+        mode,
+        agentCount,
+        roundCount,
+        currentRound,
+        createdAt,
+        updatedAt,
+        error,
+        parentId: project.console?.branch?.parentId ?? null,
+      };
+    });
+    return { projects, total: this.count(tenantId) };
   }
 
   create(
     input: ValidatedProjectInput,
-    options: { inheritChunksFrom?: string } = {},
+    options: { inheritChunksFrom?: string; owner?: Owner } = {},
   ): ProjectDetail {
-    if (this.count() >= MAX_PROJECTS) {
+    const owner = options.owner ?? LOCAL_OWNER;
+    // The limit is per tenant, so one organisation cannot use up another's allowance.
+    if (this.count(owner.tenantId) >= MAX_PROJECTS) {
       throw new AppError(
         409,
         'PROJECT_LIMIT',
@@ -195,9 +230,17 @@ export class Repository {
     this.transaction(() => {
       this.database
         .prepare(
-          'INSERT INTO projects (id, created_at, updated_at, status, payload) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO projects (id, created_at, updated_at, status, payload, tenant_id, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
         )
-        .run(project.id, now, now, project.status, JSON.stringify(project));
+        .run(
+          project.id,
+          now,
+          now,
+          project.status,
+          JSON.stringify(project),
+          owner.tenantId,
+          owner.ownerId,
+        );
       const insert = this.database.prepare(
         'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
       );
@@ -369,13 +412,13 @@ export class Repository {
     }
   }
 
-  delete(id: string): void {
+  delete(id: string, actor = 'local-user'): void {
     const project = this.get(id);
     this.transaction(() => {
       this.database.prepare('DELETE FROM projects WHERE id = ?').run(id);
       // The log keeps who deleted what, never the content that was deleted.
       this.audit.record({
-        actor: 'local-user',
+        actor,
         action: 'project.deleted',
         targetType: 'project',
         targetId: id,

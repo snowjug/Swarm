@@ -25,9 +25,9 @@ process.once('SIGTERM', () => {
 try {
   await app.listen({ host: config.host, port: config.port });
   if (config.storageWarning) app.log.warn(config.storageWarning);
-  if (config.host === '0.0.0.0' || config.host === '::') {
+  if (config.auth.mode === 'none' && (config.host === '0.0.0.0' || config.host === '::')) {
     app.log.warn(
-      'This application has no user authentication. Use a loopback-only port mapping or an authenticated reverse proxy. Do not expose it directly to the internet.',
+      'AUTH_MODE is none: this application has no user authentication. Use a loopback-only port mapping or an authenticated reverse proxy, or set AUTH_MODE=entra. Do not expose it directly to the internet.',
     );
   }
 } catch (error) {

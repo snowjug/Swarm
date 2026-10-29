@@ -8,6 +8,7 @@ import {
   surveyInputSchema,
 } from '../../../shared/guided.js';
 import { AppError } from '../errors.js';
+import { ownerOf, principalOf } from '../auth/guard.js';
 import { compareRuns } from '../guided/compare.js';
 import { editEnvironment } from '../guided/environment.js';
 import { requireConsole } from '../guided/state.js';
@@ -58,9 +59,17 @@ export function guidedRoutes(
   app.post('/api/projects/:id/branches', { config: limit(10) }, async (request, reply) => {
     const { id } = idParams.parse(request.params);
     requireIdle(id);
+    // The branch is a new experiment, owned by whoever branched it.
     return reply
       .code(201)
-      .send(createBranch(repository, id, branchInputSchema.parse(request.body)));
+      .send(
+        createBranch(
+          repository,
+          id,
+          branchInputSchema.parse(request.body),
+          ownerOf(principalOf(request)),
+        ),
+      );
   });
 
   app.get('/api/projects/:id/compare', async (request) => {

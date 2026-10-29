@@ -159,6 +159,7 @@ export class LedgerService {
     claimId: string,
     input: ReviewInput,
     expectedVersion?: number,
+    actor: string = LOCAL_ACTOR,
   ): ClaimRecord {
     const parsed = reviewInputSchema.parse(input);
     const existing = this.claim(projectId, claimId);
@@ -175,7 +176,7 @@ export class LedgerService {
       this.repository.ledger.saveClaim(projectId, updated, existing.version);
       this.repository.audit.record(
         {
-          actor: LOCAL_ACTOR,
+          actor,
           action: 'claim.reviewed',
           targetType: 'claim',
           targetId: claimId,
@@ -197,6 +198,7 @@ export class LedgerService {
     projectId: string,
     id: string,
     input: ContradictionReviewInput,
+    actor: string = LOCAL_ACTOR,
   ): { conflict: ContradictionRecord; ledger: Ledger } {
     const parsed = contradictionReviewSchema.parse(input);
     this.get(projectId);
@@ -224,7 +226,7 @@ export class LedgerService {
       }
       this.repository.audit.record(
         {
-          actor: LOCAL_ACTOR,
+          actor,
           action: 'conflict.reviewed',
           targetType: 'conflict',
           targetId: id,

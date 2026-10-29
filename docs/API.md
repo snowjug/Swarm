@@ -6,38 +6,55 @@ All browser requests are same-origin. During development Vite provides the proxy
 Errors are non-2xx JSON: `{ "error": { "code": "...", "message": "...", "requestId": "..." } }`.
 Some not-found/rate-limit responses omit `requestId`; no provider error body is returned.
 
-| Method       | Path                                             | Behavior                                                                                                             |
-| ------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
-| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                                       |
-| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                                            |
-| GET          | `/api/provider/status`                           | Mode, provider, model, auth type, connectivity, call and token counters, last error code; never a host, key or token |
-| POST         | `/api/provider/check`                            | One explicit real model round trip (rate limited); 503 when no provider is configured, never a local fallback        |
-| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                                         |
-| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                                                 |
-| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                                               |
-| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202                     |
-| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                                                 |
-| POST         | `/api/projects/:id/steps/simulation`             | With body `{ "resume": true }`: continue from the last saved round (paused, failed or cancelled with saved rounds)   |
-| POST         | `/api/projects/:id/pause`                        | Pause a queued/running simulation at the last saved round (non-error `paused` state); returns 202                    |
-| PUT          | `/api/projects/:id/intervention`                 | Schedule (`Intervention` JSON) or remove (`null`) the one future intervention while paused                           |
-| POST         | `/api/projects/:id/branches`                     | Create an independent scenario from a checkpoint with declared assumption changes; returns 201                       |
-| GET          | `/api/projects/:id/compare?with=<id>`            | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                        |
-| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                                                   |
-| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                                      |
-| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                                               |
-| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                                        |
-| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                                               |
-| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                              |
-| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                                                |
-| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                                             |
-| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                                        |
-| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks and conversation export                                                                             |
+| Method       | Path                                             | Behavior                                                                                                                  |
+| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                                            |
+| GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                                                 |
+| GET          | `/api/provider/status`                           | Mode, provider, model, auth type, connectivity, call and token counters, last error code; never a host, key or token      |
+| POST         | `/api/provider/check`                            | One explicit real model round trip (rate limited); 503 when no provider is configured, never a local fallback             |
+| GET / POST   | `/api/projects`                                  | Paginated history / validated draft creation                                                                              |
+| GET / DELETE | `/api/projects/:id`                              | Full persisted detail / delete non-active experiment                                                                      |
+| POST         | `/api/projects/:id/run`                          | Queue a draft/failed/cancelled experiment; returns 202                                                                    |
+| POST         | `/api/projects/:id/steps/:step`                  | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202                          |
+| PATCH        | `/api/projects/:id/environment`                  | Edit a prepared environment before simulation begins                                                                      |
+| POST         | `/api/projects/:id/steps/simulation`             | With body `{ "resume": true }`: continue from the last saved round (paused, failed or cancelled with saved rounds)        |
+| POST         | `/api/projects/:id/pause`                        | Pause a queued/running simulation at the last saved round (non-error `paused` state); returns 202                         |
+| PUT          | `/api/projects/:id/intervention`                 | Schedule (`Intervention` JSON) or remove (`null`) the one future intervention while paused                                |
+| POST         | `/api/projects/:id/branches`                     | Create an independent scenario from a checkpoint with declared assumption changes; returns 201                            |
+| GET          | `/api/projects/:id/compare?with=<id>`            | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                             |
+| POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                                                        |
+| POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                                           |
+| GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                                                    |
+| GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                                             |
+| GET / POST   | `/api/projects/:id/chat`                         | Read target conversation / perform a bounded follow-up                                                                    |
+| GET          | `/api/projects/:id/memories?query=&platform=all` | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                                   |
+| POST         | `/api/projects/:id/surveys`                      | Queue a bounded state snapshot or model-interview survey; returns 202                                                     |
+| POST         | `/api/projects/:id/surveys/:surveyId/cancel`     | Request cancellation of an active survey                                                                                  |
+| GET          | `/api/projects/:id/export?format=markdown`       | Escaped, source-linked report                                                                                             |
+| GET          | `/api/projects/:id/export?format=json`           | Snapshot, chunks, evidence ledger and conversation export                                                                 |
+| GET          | `/api/projects/:id/ledger`                       | The evidence ledger: every statement with support class, how it may be shown, its passages, and conflicts between sources |
+| GET          | `/api/projects/:id/claims/:claimId`              | One statement with whole cited passages, simulated events and assumptions                                                 |
+| POST         | `/api/projects/:id/claims/:claimId/review`       | Accept, reject or flag a statement (`{ result, note?, expectedVersion? }`); a reviewer can never upgrade support          |
+| POST         | `/api/projects/:id/conflicts/:conflictId/review` | Confirm, dismiss or resolve a detected conflict between sources; recalculates the statements it touches                   |
+| GET          | `/api/projects/:id/audit`                        | Tamper-evident audit entries for the project (ids and counts, never content)                                              |
+| GET          | `/api/audit/verify`                              | Recompute the audit hash chain                                                                                            |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
 Creation and result shapes are defined in [shared/types.ts](../shared/types.ts).
 Chat POST takes `{ "target": "report" | "agent-1", "message": "..." }`; GET accepts
-`?target=...`. Agent IDs must belong to the selected experiment.
+`?target=...`. Agent IDs must belong to the selected experiment. An analyst reply carries
+`grounding` (`cited`, `caveated`, `abstained` or `uncited`, with notes) and may cite passages,
+simulated memories and report statements (`claimIds`). When the project holds nothing that answers a
+question the reply is exactly `The available project evidence does not support a confident answer.`
+
+## Authentication
+
+With `AUTH_MODE=none` (the default) there is no sign-in. With `AUTH_MODE=entra` every `/api` call
+except `GET /api/health` needs `Authorization: Bearer <Microsoft Entra v2.0 access token>`, and the
+caller's role and tenant decide the result: `401 UNAUTHENTICATED` (the same answer for every kind of
+bad token), `403 NO_ROLE`, `403 FORBIDDEN` (role too low), `403 NOT_OWNER`, and `404` for another
+tenant's experiment. See [CONFIGURATION.md](./CONFIGURATION.md#sign-in-and-tenants) for the roles.
 New UI creation sends `workflow: "guided"`; omitted workflow remains `"quick"` for
 API compatibility. Stage state and environment/survey input contracts are in
 [shared/guided.ts](../shared/guided.ts). Guided exports use `schemaVersion: 2`;

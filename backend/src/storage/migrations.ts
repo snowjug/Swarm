@@ -73,6 +73,27 @@ export const MIGRATIONS: readonly Migration[] = [
     name: 'claim ledger, source conflicts and append-only audit log',
     up: (db) => db.exec(SCHEMA_V2),
   },
+  {
+    version: 3,
+    name: 'project ownership for tenant isolation',
+    up: (db) => {
+      // Existing projects were made by the single local user, so that is who they belong to. Adding
+      // a column is not idempotent in SQLite, so check first: a half-applied step must be safe to retry.
+      const present = new Set(
+        db
+          .prepare('PRAGMA table_info(projects)')
+          .all()
+          .map((row) => String((row as { name: unknown }).name)),
+      );
+      if (!present.has('tenant_id')) {
+        db.exec("ALTER TABLE projects ADD COLUMN tenant_id TEXT NOT NULL DEFAULT 'local'");
+      }
+      if (!present.has('owner_id')) {
+        db.exec("ALTER TABLE projects ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'local-user'");
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS projects_tenant ON projects(tenant_id, created_at)');
+    },
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0;

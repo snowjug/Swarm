@@ -8,6 +8,7 @@ import {
   type ReviewResult,
 } from '../../../shared/evidence.js';
 import { LedgerService, deriveScenarioAssumptions } from '../grounding/service.js';
+import { principalOf } from '../auth/guard.js';
 import type { Repository } from '../storage/repository.js';
 
 const projectParams = z.object({ id: z.uuid() });
@@ -57,7 +58,9 @@ export function ledgerRoutes(
   app.post('/api/projects/:id/claims/:claimId/review', { config: limit(30) }, async (request) => {
     const { id, claimId } = claimParams.parse(request.params);
     const { expectedVersion, ...review } = claimReviewBody.parse(request.body);
-    return { claim: ledger.reviewClaim(id, claimId, review, expectedVersion) };
+    return {
+      claim: ledger.reviewClaim(id, claimId, review, expectedVersion, principalOf(request).id),
+    };
   });
 
   app.post(
@@ -69,6 +72,7 @@ export function ledgerRoutes(
         id,
         conflictId,
         contradictionReviewSchema.parse(request.body),
+        principalOf(request).id,
       );
     },
   );
