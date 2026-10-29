@@ -63,17 +63,23 @@ for (const viewport of viewports) {
       await expectNoAxeViolations(page, 'entry filled');
     });
 
-    test('each guided stage', async ({ page }) => {
-      for (const [stage, key, ready] of [
-        ['graph', 'knowledge', /Prepare environment/],
-        ['environment', 'environment', 'Start Simulation'],
-        ['simulation', 'simulation', /Generate Report/],
-        ['report', 'report', /Open Interaction/],
-      ] as const) {
+    // One test per stage: each is an independent page load plus an axe scan, so a slow machine can
+    // only slow one of them, and a failure names the stage instead of ending a long loop.
+    for (const [stage, key, ready] of [
+      ['graph', 'knowledge', /Prepare environment/],
+      ['environment', 'environment', 'Start Simulation'],
+      ['simulation', 'simulation', /Generate Report/],
+      ['report', 'report', /Open Interaction/],
+    ] as const) {
+      test(`guided stage: ${stage}`, async ({ page }) => {
         await page.goto(`/?project=${ids[key]}`);
         await expect(page.getByRole('button', { name: ready })).toBeVisible();
         await expectNoAxeViolations(page, stage);
-      }
+      });
+    }
+
+    test('each interaction tab', async ({ page }) => {
+      await page.goto(`/?project=${ids.report}`);
       await page.getByRole('button', { name: /Open Interaction/ }).click();
       for (const tab of [/Report chat/, /Any fictional agent/, /Survey/]) {
         await page.getByRole('tab', { name: tab }).click();

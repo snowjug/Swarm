@@ -9,7 +9,11 @@ export default defineConfig({
       'scripts/azure/**/*.test.ts',
     ],
     environment: 'node',
-    testTimeout: 15000,
+    // A timeout is there to catch a hang, not to measure speed. The heaviest tests run a whole
+    // simulation or a PDF worker and take 7-14 s when the machine is busy, so 15 s failed them
+    // while they were passing.
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
     restoreMocks: true,
   },
 });

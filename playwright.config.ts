@@ -15,7 +15,8 @@ const server = (port: number, name: string, extra: Record<string, string> = {}) 
   command: 'node dist/backend/src/index.js',
   url: `http://127.0.0.1:${port}/api/health`,
   reuseExistingServer: false,
-  timeout: 60_000,
+  // Start-up is the one step whose duration depends on the machine; a failed start still fails.
+  timeout: 120_000,
   env: {
     PORT: String(port),
     HOST: '127.0.0.1',
