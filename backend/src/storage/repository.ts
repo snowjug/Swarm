@@ -14,8 +14,10 @@ import {
   type ValidatedProjectInput,
 } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
+import { hashText } from '../grounding/ledger.js';
 import { readCheckpoint } from '../guided/checkpoint.js';
-import { chunkDocuments } from '../knowledge/retrieval.js';
+import { PARSER_VERSION, chunkDocuments } from '../knowledge/retrieval.js';
+import { AuditLog } from './audit.js';
 import {
   chatMessageSchema,
   chunkSchema,
@@ -24,20 +26,41 @@ import {
   storedProjectSchema,
   type StoredProject,
 } from './codec.js';
+import { LedgerStore } from './ledger-store.js';
+import {
+  LATEST_SCHEMA_VERSION,
+  migrate,
+  readSchemaVersion,
+  type MigrationReport,
+} from './migrations.js';
 
 const payloadRow = z.object({ payload: z.string() });
+const idRow = z.object({ id: z.string() });
 const countRow = z.object({ count: z.number() });
+const ownerRow = z.object({ tenant_id: z.string(), owner_id: z.string() });
+
+/** Who a project belongs to. The tenant is the workspace boundary; the owner may change it. */
+export interface Owner {
+  tenantId: string;
+  ownerId: string;
+}
+
+/** Without sign-in, everything belongs to the one local user. */
+export const LOCAL_OWNER: Owner = { tenantId: 'local', ownerId: 'local-user' };
 
 export class Repository {
   private readonly database: DatabaseSync;
+  /** Claim records and conflicts between sources. */
+  readonly ledger: LedgerStore;
+  /** Append-only record of who did what. Holds identifiers and counts, never content. */
+  readonly audit: AuditLog;
+  /** What the schema migration did when this database was opened. */
+  readonly migration: MigrationReport;
 
   constructor(path: string) {
     if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.database = new DatabaseSync(path);
-    const version = z
-      .object({ user_version: z.number() })
-      .parse(this.database.prepare('PRAGMA user_version').get()).user_version;
-    if (version > 1) {
+    if (readSchemaVersion(this.database) > LATEST_SCHEMA_VERSION) {
       this.database.close();
       throw new AppError(
         500,
@@ -49,28 +72,15 @@ export class Repository {
       PRAGMA foreign_keys = ON;
       PRAGMA journal_mode = WAL;
       PRAGMA busy_timeout = 5000;
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-        status TEXT NOT NULL, payload TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS chunks (
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        id TEXT NOT NULL, payload TEXT NOT NULL, PRIMARY KEY (project_id, id)
-      );
-      CREATE TABLE IF NOT EXISTS events (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        stage TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS events_project ON events(project_id, id);
-      CREATE TABLE IF NOT EXISTS messages (
-        seq INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
-        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-        target TEXT NOT NULL, payload TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS messages_project ON messages(project_id, target, seq);
-      PRAGMA user_version = 1;
     `);
+    try {
+      this.migration = migrate(this.database, { path });
+    } catch (error) {
+      this.database.close();
+      throw error;
+    }
+    this.ledger = new LedgerStore(this.database, (operation) => this.transaction(operation));
+    this.audit = new AuditLog(this.database);
   }
 
   private transaction<T>(operation: () => T): T {
@@ -83,6 +93,11 @@ export class Repository {
       this.database.exec('ROLLBACK');
       throw error;
     }
+  }
+
+  /** Runs several changes as one unit: all of them are saved, or none. Not re-entrant. */
+  atomic<T>(operation: () => T): T {
+    return this.transaction(operation);
   }
 
   private readStored(id: string): StoredProject | undefined {
@@ -104,56 +119,84 @@ export class Repository {
     return { ...project, events, parentId: project.console?.branch?.parentId ?? null };
   }
 
-  count(): number {
-    return countRow.parse(this.database.prepare('SELECT COUNT(*) AS count FROM projects').get())
-      .count;
+  /** All experiments, or only those of one tenant. */
+  count(tenantId?: string): number {
+    const row =
+      tenantId === undefined
+        ? this.database.prepare('SELECT COUNT(*) AS count FROM projects').get()
+        : this.database
+            .prepare('SELECT COUNT(*) AS count FROM projects WHERE tenant_id = ?')
+            .get(tenantId);
+    return countRow.parse(row).count;
   }
 
-  list(limit = 100, offset = 0): { projects: ProjectSummary[]; total: number } {
-    const projects = this.database
-      .prepare('SELECT payload FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?')
-      .all(limit, offset)
-      .map((row): ProjectSummary => {
-        const project = decode(storedProjectSchema, payloadRow.parse(row).payload);
-        const {
-          id,
-          name,
-          workflow,
-          question,
-          status,
-          stage,
-          progress,
-          mode,
-          agentCount,
-          roundCount,
-          currentRound,
-          createdAt,
-          updatedAt,
-          error,
-        } = project;
-        return {
-          id,
-          name,
-          workflow,
-          question,
-          status,
-          stage,
-          progress,
-          mode,
-          agentCount,
-          roundCount,
-          currentRound,
-          createdAt,
-          updatedAt,
-          error,
-          parentId: project.console?.branch?.parentId ?? null,
-        };
-      });
-    return { projects, total: this.count() };
+  /** Who an experiment belongs to, or null when there is no such experiment. */
+  ownership(id: string): Owner | null {
+    const row = this.database
+      .prepare('SELECT tenant_id, owner_id FROM projects WHERE id = ?')
+      .get(id);
+    if (!row) return null;
+    const parsed = ownerRow.parse(row);
+    return { tenantId: parsed.tenant_id, ownerId: parsed.owner_id };
   }
 
-  create(input: ValidatedProjectInput): ProjectDetail {
-    if (this.count() >= MAX_PROJECTS) {
+  list(limit = 100, offset = 0, tenantId?: string): { projects: ProjectSummary[]; total: number } {
+    const rows =
+      tenantId === undefined
+        ? this.database
+            .prepare('SELECT payload FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?')
+            .all(limit, offset)
+        : this.database
+            .prepare(
+              'SELECT payload FROM projects WHERE tenant_id = ? ORDER BY created_at DESC, id LIMIT ? OFFSET ?',
+            )
+            .all(tenantId, limit, offset);
+    const projects = rows.map((row): ProjectSummary => {
+      const project = decode(storedProjectSchema, payloadRow.parse(row).payload);
+      const {
+        id,
+        name,
+        workflow,
+        question,
+        status,
+        stage,
+        progress,
+        mode,
+        agentCount,
+        roundCount,
+        currentRound,
+        createdAt,
+        updatedAt,
+        error,
+      } = project;
+      return {
+        id,
+        name,
+        workflow,
+        question,
+        status,
+        stage,
+        progress,
+        mode,
+        agentCount,
+        roundCount,
+        currentRound,
+        createdAt,
+        updatedAt,
+        error,
+        parentId: project.console?.branch?.parentId ?? null,
+      };
+    });
+    return { projects, total: this.count(tenantId) };
+  }
+
+  create(
+    input: ValidatedProjectInput,
+    options: { inheritChunksFrom?: string; owner?: Owner } = {},
+  ): ProjectDetail {
+    const owner = options.owner ?? LOCAL_OWNER;
+    // The limit is per tenant, so one organisation cannot use up another's allowance.
+    if (this.count(owner.tenantId) >= MAX_PROJECTS) {
       throw new AppError(
         409,
         'PROJECT_LIMIT',
@@ -188,14 +231,35 @@ export class Repository {
     this.transaction(() => {
       this.database
         .prepare(
-          'INSERT INTO projects (id, created_at, updated_at, status, payload) VALUES (?, ?, ?, ?, ?)',
+          'INSERT INTO projects (id, created_at, updated_at, status, payload, tenant_id, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
         )
-        .run(project.id, now, now, project.status, JSON.stringify(project));
+        .run(
+          project.id,
+          now,
+          now,
+          project.status,
+          JSON.stringify(project),
+          owner.tenantId,
+          owner.ownerId,
+        );
       const insert = this.database.prepare(
         'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
       );
-      for (const chunk of chunkDocuments(project.documents)) {
-        insert.run(project.id, chunk.id, JSON.stringify(chunk));
+      // A branch keeps the passages its parent was built from, with their original provenance:
+      // the sources did not change, so neither does when or how they were cut.
+      const inherited = options.inheritChunksFrom ? this.chunks(options.inheritChunksFrom) : null;
+      const passages: EvidenceChunk[] =
+        inherited ??
+        chunkDocuments(project.documents).map((chunk) => ({
+          ...chunk,
+          // Each passage records where it came from and what it said when it was cut.
+          contentHash: hashText(chunk.text),
+          extractedAt: now,
+          parserVersion: PARSER_VERSION,
+          reviewStatus: 'unreviewed',
+        }));
+      for (const passage of passages) {
+        insert.run(project.id, passage.id, JSON.stringify(passage));
       }
       this.addEvent(
         project.id,
@@ -293,8 +357,15 @@ export class Repository {
   }
 
   recoverInterrupted(): void {
-    for (const summary of this.list().projects) {
-      const project = this.get(summary.id);
+    // Every experiment of every tenant. The list is paged and newest first, and the limit on how
+    // many one tenant may keep says nothing about how many the database holds, so a page would
+    // leave an older run "running" for ever: it could not be deleted, cancelled or restarted.
+    const ids = this.database
+      .prepare('SELECT id FROM projects ORDER BY created_at, id')
+      .all()
+      .map((row) => idRow.parse(row).id);
+    for (const id of ids) {
+      const project = this.get(id);
       const interrupted = project.status === 'queued' || project.status === 'running';
       const surveyInterrupted = project.console?.surveys.some(
         (survey) => survey.status === 'queued' || survey.status === 'running',
@@ -349,9 +420,20 @@ export class Repository {
     }
   }
 
-  delete(id: string): void {
-    this.get(id);
-    this.database.prepare('DELETE FROM projects WHERE id = ?').run(id);
+  delete(id: string, actor = 'local-user'): void {
+    const project = this.get(id);
+    this.transaction(() => {
+      this.database.prepare('DELETE FROM projects WHERE id = ?').run(id);
+      // The log keeps who deleted what, never the content that was deleted.
+      this.audit.record({
+        actor,
+        action: 'project.deleted',
+        targetType: 'project',
+        targetId: id,
+        projectId: id,
+        detail: { workflow: project.workflow, status: project.status },
+      });
+    });
   }
 
   close(): void {

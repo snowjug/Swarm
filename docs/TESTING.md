@@ -7,7 +7,7 @@ npm.cmd run check
 npm.cmd run format:check
 ```
 
-`check` runs strict backend/test/frontend TypeScript checks, ESLint, Vitest, and
+`check` runs strict backend/test/frontend/scripts/evaluation TypeScript checks, ESLint, Vitest, and
 production backend/frontend builds. Tests cover input thresholds, exact source
 offsets, real retrieval, deterministic state transitions, measurable intervention
 effects, stage prerequisites, editable preparation, separate platform state,
@@ -17,6 +17,26 @@ frontend graph/console helpers, provider protocol/error handling, the per-proxy
 simulation (context isolation, validation, concurrency and cancellation), the
 grounding review (quote matching, verdict table, entailment validation), Entra token
 handling with a fake credential, and the Azure provisioning scripts with a fake Azure CLI.
+
+The evidence layer has its own tests: the ledger and its publication policy
+(`ledger.test.ts`, `ledger-service.test.ts`), conflicts between sources
+(`contradictions.test.ts`), the analyst's gate and citation rule (`evidence-gate.test.ts`),
+sign-in, roles and tenant isolation against a local test identity provider (`auth.test.ts`),
+migrations and the audit log (`storage.test.ts`), the six demonstration packs (`demos.test.ts`) and a
+front-end guard against raw-HTML sinks (`markup-sinks.test.ts`). Security-critical rules there were
+mutation-checked: the rule was removed and a test was seen to fail.
+
+```powershell
+npm.cmd run eval             # the offline evaluation, printed
+npm.cmd run eval -- --write  # also rewrite evaluation/results/latest.{json,md}
+npm.cmd run eval -- --sweep  # score the abstention gate's thresholds on the dev split
+```
+
+The evaluation measures only the deterministic parts (the gate, retrieval, conflict detection, the
+deterministic support checks and the injection warnings) against labelled sets pinned to their
+sources. `evaluation/test/evaluation.test.ts` runs it as part of `npm test` and fails if a result
+drops below `evaluation/thresholds.json`. Its limits are in
+[evaluation/README.md](../evaluation/README.md).
 
 Provider tests use explicitly labeled fixture HTTP responses; they do **not**
 establish live model connectivity or reasoning quality. Live evidence comes only from

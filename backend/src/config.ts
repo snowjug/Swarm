@@ -28,6 +28,20 @@ export interface ProviderConfig {
   timeoutMs: number;
 }
 
+export interface AuthConfig {
+  /**
+   * `none`: one local user, no sign-in (the default, meant for a loopback address).
+   * `entra`: every API call needs a Microsoft Entra access token.
+   */
+  mode: 'none' | 'entra';
+  /** Entra tenants whose tokens are accepted (lower-case GUIDs). Empty when `mode` is `none`. */
+  tenants: ReadonlySet<string>;
+  /** The `aud` claim a token must carry: this API's application ID URI or client ID. */
+  audience: string | null;
+  /** Where token signing keys are fetched. HTTPS only. Null when `mode` is `none`. */
+  jwksUri: string | null;
+}
+
 export interface ServerConfig {
   host: string;
   port: number;
@@ -36,6 +50,7 @@ export interface ServerConfig {
   allowedHosts: Set<string>;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'silent';
   provider: ProviderConfig;
+  auth: AuthConfig;
   sourceUrl: string | null;
   storageWarning: string | null;
   /** Multiplies every per-IP request limit. Default 1; raise only for automated tests/load tests. */
@@ -82,7 +97,48 @@ const environmentSchema = z.object({
   AZURE_CLIENT_ID: z.uuid().optional(),
   SOURCE_URL: z.string().trim().default(''),
   RATE_LIMIT_SCALE: z.coerce.number().int().min(1).max(1_000).default(1),
+  AUTH_MODE: z.enum(['none', 'entra']).default('none'),
+  AUTH_ENTRA_TENANT_ID: z.uuid().optional(),
+  AUTH_ENTRA_ALLOWED_TENANTS: z.string().optional(),
+  AUTH_ENTRA_AUDIENCE: z.string().trim().min(1).max(200).optional(),
+  AUTH_ENTRA_JWKS_URI: z.string().trim().optional(),
 });
+
+/** Microsoft publishes one signing-key set for all tenants; the token's own tenant is checked separately. */
+const ENTRA_JWKS = 'https://login.microsoftonline.com/common/discovery/v2.0/keys';
+
+function buildAuth(input: z.infer<typeof environmentSchema>): AuthConfig {
+  if (input.AUTH_MODE === 'none') {
+    return { mode: 'none', tenants: new Set(), audience: null, jwksUri: null };
+  }
+  const listed = (input.AUTH_ENTRA_ALLOWED_TENANTS ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  if (listed.some((tenant) => !z.uuid().safeParse(tenant).success)) {
+    throw new Error('AUTH_ENTRA_ALLOWED_TENANTS must be a comma-separated list of tenant GUIDs.');
+  }
+  const tenants = new Set([
+    ...(input.AUTH_ENTRA_TENANT_ID ? [input.AUTH_ENTRA_TENANT_ID.toLowerCase()] : []),
+    ...listed,
+  ]);
+  // Failing closed: a server asked to authenticate must never start in a state that accepts anyone.
+  if (tenants.size === 0) {
+    throw new Error(
+      'AUTH_MODE=entra needs AUTH_ENTRA_TENANT_ID (or AUTH_ENTRA_ALLOWED_TENANTS) so that a token’s tenant can be checked.',
+    );
+  }
+  if (!input.AUTH_ENTRA_AUDIENCE) {
+    throw new Error(
+      'AUTH_MODE=entra needs AUTH_ENTRA_AUDIENCE, the application ID URI or client ID that tokens are issued for.',
+    );
+  }
+  const jwksUri = input.AUTH_ENTRA_JWKS_URI || ENTRA_JWKS;
+  if (!URL.canParse(jwksUri) || new URL(jwksUri).protocol !== 'https:') {
+    throw new Error('AUTH_ENTRA_JWKS_URI must be an HTTPS URL.');
+  }
+  return { mode: 'entra', tenants, audience: input.AUTH_ENTRA_AUDIENCE, jwksUri };
+}
 
 type EndpointResult = { valid: true; url: string } | { valid: false; reason: string };
 
@@ -239,6 +295,7 @@ export function loadConfig(
       input.AZURE_CLIENT_ID ?? null,
     ),
     sourceUrl,
+    auth: buildAuth(input),
     storageWarning: storageWarning(databasePath),
     rateLimitScale: input.RATE_LIMIT_SCALE,
   };
@@ -275,7 +332,7 @@ export function publicConfig(config: ServerConfig): AppConfig {
       guidedConsole: true,
       surveys: true,
       whatIf: true,
-      authentication: 'local-single-user',
+      authentication: config.auth.mode === 'entra' ? 'entra' : 'local-single-user',
     },
   };
 }

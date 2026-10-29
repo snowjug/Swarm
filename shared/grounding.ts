@@ -97,6 +97,11 @@ export interface ClaimChecks {
   numbers: 'match' | 'mismatch' | null;
   /** An independent model judgement that had to point at real text. null: the model check did not run. */
   entailment: 'supports' | 'partial' | 'contradicts' | 'not-supported' | null;
+  /**
+   * The excerpt the independent check pointed at to justify its judgement. It was verified against
+   * the cited passage. For a contradiction this is the passage text that conflicts with the claim.
+   */
+  entailmentQuote?: string | null;
 }
 
 export interface GroundedClaim {
@@ -154,6 +159,7 @@ export const groundingReviewSchema: z.ZodType<GroundingReview> = z.object({
         overlap: z.number().min(0).max(1).nullable(),
         numbers: z.enum(['match', 'mismatch']).nullable(),
         entailment: z.enum(['supports', 'partial', 'contradicts', 'not-supported']).nullable(),
+        entailmentQuote: z.string().nullable().optional(),
       }),
       reason: z.string(),
     }),

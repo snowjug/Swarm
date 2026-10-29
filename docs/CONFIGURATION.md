@@ -8,29 +8,67 @@ Copy [.env.example](../.env.example) locally. Never commit the resulting `.env`
 or paste keys into chat/source files. Server configuration is never bundled into
 the browser. The default is `AI_PROVIDER=none`.
 
-| Variable                            | Purpose                                                                                                                                  |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                     |
-| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                      |
-| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                         |
-| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                          |
-| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                   |
-| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                               |
-| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                |
-| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                           |
-| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                       |
-| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                       |
-| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                    |
-| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                       |
-| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                        |
-| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                   |
-| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                      |
-| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine |
+| Variable                            | Purpose                                                                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                             |
+| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                              |
+| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                                 |
+| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                                  |
+| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                           |
+| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                                       |
+| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                        |
+| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                                   |
+| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                               |
+| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                               |
+| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                            |
+| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                               |
+| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                                |
+| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                           |
+| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                              |
+| `AUTH_MODE`                         | `none` (default): one local user, no sign-in. `entra`: every API call needs a Microsoft Entra access token (see [Sign-in](#sign-in-and-tenants)) |
+| `AUTH_ENTRA_TENANT_ID`              | Tenant whose tokens are accepted; required when `AUTH_MODE=entra`                                                                                |
+| `AUTH_ENTRA_ALLOWED_TENANTS`        | Optional comma-separated tenant GUIDs to accept as well                                                                                          |
+| `AUTH_ENTRA_AUDIENCE`               | Application ID URI or client ID that tokens must be issued for; required when `AUTH_MODE=entra`                                                  |
+| `AUTH_ENTRA_JWKS_URI`               | Optional HTTPS override of Microsoft's signing-key endpoint                                                                                      |
+| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine         |
 
 If you explicitly configure origin/host allowlists, update them when changing
 ports or domains. Defaults use the configured API port and local Vite port.
 Provider status means configuration exists, not that the service has been reached
 or its output quality verified. Restart the backend after changing environment variables.
+
+## Sign-in and tenants
+
+With the default `AUTH_MODE=none` there is one local user and no sign-in, so the server must only
+listen on a loopback address (the default). It logs a warning if it is bound to every interface.
+
+With `AUTH_MODE=entra` the server fails to start unless `AUTH_ENTRA_AUDIENCE` and a tenant are
+configured, and then requires `Authorization: Bearer <Microsoft Entra v2.0 access token>` on every
+`/api` call except `/api/health`. A token is accepted only if its signature, issuer (derived from the
+token's own tenant, which must be one you listed), audience, expiry and object id check out. Every
+failure returns the same 401, so a caller learns nothing about which check failed.
+
+Assign people the app roles `Swarm.Reader`, `Swarm.Analyst`, `Swarm.Reviewer` or `Swarm.Admin`. A
+person with several gets the highest. Each role includes those before it:
+
+| Role       | May                                                                                                  |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| `reader`   | Read every experiment in their tenant, its ledger, evidence and exports                              |
+| `analyst`  | Reader, plus create experiments and run, chat with, branch, survey or delete **their own**           |
+| `reviewer` | Analyst, plus accept, reject or flag statements and conflicts on **anyone's** experiment, read audit |
+| `admin`    | Everything inside their tenant, including other people's experiments and the audit-chain check       |
+
+A tenant is the workspace boundary. People see only their tenant's experiments, and an experiment in
+another tenant is reported as not found, exactly as one that does not exist. Counts, project limits
+and audit entries are kept per tenant. The authorisation table is one file,
+[`backend/src/auth/policy.ts`](../backend/src/auth/policy.ts), and a test fails if any API route lacks
+an entry (a route with no entry is refused).
+
+What this does **not** do yet: the browser app has no sign-in screen, so in this mode it needs a
+reverse proxy that adds the token (for example Azure Container Apps authentication) or another
+client; there is no per-experiment sharing list, group-based roles from a directory sync, or
+per-tenant data keys. Existing experiments from a local install belong to the tenant `local` and are
+not visible to any Entra user. See `docs/program/risk-register.md`.
 
 ## Model providers
 

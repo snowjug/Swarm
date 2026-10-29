@@ -279,11 +279,14 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
     }
     case 'followup': {
       const memories = asArray(data.memories);
+      // An analyst is shown the report's own statements and may cite them; a persona is not.
+      const claims = asArray(((data.ledger ?? {}) as Json).claims);
       return {
         answer:
           'Based on the supplied recorded scenario only: the report states its assumptions and limitations; this reply does not describe any real person.',
         sourceIds: evidence.length ? [asText(evidence[0]?.id, 'S1')] : [],
         memoryIds: memories.length ? [asText(memories[0]?.id, '')].filter(Boolean) : [],
+        claimIds: claims.length ? [asText(claims[0]?.id, '')].filter(Boolean) : [],
       };
     }
     case 'ping':

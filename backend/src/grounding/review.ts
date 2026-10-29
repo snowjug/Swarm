@@ -7,7 +7,11 @@ import {
 } from '../../../shared/grounding.js';
 import { AppError, publicFailure } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
-import { judgeClaims, MAX_ENTAILMENT_CLAIMS, type EntailmentItem } from './entailment.js';
+import {
+  judgeClaimsWithEvidence,
+  MAX_ENTAILMENT_CLAIMS,
+  type EntailmentItem,
+} from './entailment.js';
 import { MAX_REVIEWED_CLAIMS, normalizeClaims } from './normalize.js';
 import { numbersIn, wordOverlap } from './text.js';
 import { checkClaim, decideVerdict, SOURCE_KINDS, type VerificationContext } from './verify.js';
@@ -218,14 +222,21 @@ export async function reviewClaims(input: ReviewInput): Promise<GroundingReview>
     notes.push('No source-backed statement needed the independent model check.');
   } else {
     try {
-      const labels = await judgeClaims(
+      const judgements = await judgeClaimsWithEvidence(
         model,
         eligible.map((entry): EntailmentItem => entry.item),
         signal,
       );
       for (const { index, item } of eligible) {
         const check = checks[index];
-        if (check) check.entailment = labels.get(item.claimId) ?? null;
+        const judgement = judgements.get(item.claimId);
+        if (check) {
+          check.entailment = judgement?.label ?? null;
+          // Only a contradiction needs the passage text shown next to the statement.
+          if (judgement?.label === 'contradicts' && judgement.quote) {
+            check.entailmentQuote = judgement.quote;
+          }
+        }
       }
       method = 'deterministic+model';
     } catch (error) {

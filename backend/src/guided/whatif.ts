@@ -15,7 +15,7 @@ import {
   type ProjectDetail,
 } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
-import type { Repository } from '../storage/repository.js';
+import { LOCAL_OWNER, type Owner, type Repository } from '../storage/repository.js';
 import { readCheckpoint } from './checkpoint.js';
 import { combineAgents } from './simulation.js';
 import { requireConsole } from './state.js';
@@ -139,6 +139,7 @@ export function createBranch(
   repository: Repository,
   id: string,
   input: BranchRequest,
+  owner: Owner = LOCAL_OWNER,
 ): ProjectDetail {
   const parent = repository.get(id);
   const state = requireConsole(parent);
@@ -278,17 +279,20 @@ export function createBranch(
     surveys: [],
   };
 
-  const child = repository.create({
-    name: (input.name ?? `${parent.name.slice(0, 70)} · branch r${fromRound}`).slice(0, 100),
-    question: parent.question,
-    workflow: 'guided',
-    settings,
-    documents: parent.documents.map((document) => ({
-      name: document.name,
-      content: document.content,
-      ...(document.pageCount ? { pageCount: document.pageCount } : {}),
-    })),
-  });
+  const child = repository.create(
+    {
+      name: (input.name ?? `${parent.name.slice(0, 70)} · branch r${fromRound}`).slice(0, 100),
+      question: parent.question,
+      workflow: 'guided',
+      settings,
+      documents: parent.documents.map((document) => ({
+        name: document.name,
+        content: document.content,
+        ...(document.pageCount ? { pageCount: document.pageCount } : {}),
+      })),
+    },
+    { inheritChunksFrom: parent.id, owner },
+  );
   try {
     repository.update(child.id, {
       graph: parent.graph,

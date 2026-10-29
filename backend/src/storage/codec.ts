@@ -163,6 +163,13 @@ export const chunkSchema: z.ZodType<EvidenceChunk> = z.object({
   text: z.string(),
   start: z.int().nonnegative(),
   end: z.int().nonnegative(),
+  contentHash: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/u)
+    .optional(),
+  extractedAt: z.string().optional(),
+  parserVersion: z.string().optional(),
+  reviewStatus: z.enum(['unreviewed', 'accepted', 'flagged']).optional(),
 });
 
 export const eventSchema: z.ZodType<JobEvent> = z.object({
@@ -180,8 +187,16 @@ export const chatMessageSchema: z.ZodType<ChatMessage> = z.object({
   content: z.string(),
   sourceIds: ids,
   memoryIds: ids.optional(),
+  claimIds: ids.optional(),
   mode: z.enum(['local', 'llm']),
   createdAt: z.string(),
+  grounding: z
+    .object({
+      status: z.enum(['cited', 'caveated', 'abstained', 'uncited']),
+      notes: z.array(z.string()),
+      coverage: z.number().min(0).max(1).nullable(),
+    })
+    .optional(),
 });
 
 export function decode<T>(schema: z.ZodType<T>, payload: string): T {

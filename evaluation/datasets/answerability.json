@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "description": "Whether the project's sources can answer a question. 'direct' questions are answered by a passage. The other kinds cannot be answered from the sources: 'off-topic' has nothing to do with the project, 'absent-year' names a year no source mentions, 'absent-topic' names a subject no source covers, and 'plausible-absent' sounds like the project's subject but asks for something no source states. A lexical gate is expected to catch the first three kinds and not the last.",
+  "questions": [
+    {
+      "id": "Q01",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "How many one-way crossings did the council count in 2025?"
+    },
+    {
+      "id": "Q02",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "What does the ferry operator propose for the winter timetable?"
+    },
+    {
+      "id": "Q03",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "What share of respondents oppose a reduced winter timetable?"
+    },
+    {
+      "id": "Q04",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "How much would the battery-electric replacement cost?"
+    },
+    {
+      "id": "Q05",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "When is the Clean Coasts Fund grant deadline?"
+    },
+    {
+      "id": "Q06",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "How many tonnes of carbon dioxide does the diesel ferry emit each year?"
+    },
+    {
+      "id": "Q07",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "What ceiling applies to the annual ferry subsidy?"
+    },
+    {
+      "id": "Q08",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "How many patient trips a month go to mainland clinics?"
+    },
+    {
+      "id": "Q09",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "What is the Council's position on the size of the fare increase?"
+    },
+    {
+      "id": "Q10",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "Why does the operator say the electric option may become unaffordable?"
+    },
+    {
+      "id": "Q11",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "What do the sources say about dialysis appointments?"
+    },
+    {
+      "id": "Q12",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "Have islanders been surveyed about fewer winter sailings?"
+    },
+    {
+      "id": "Q13",
+      "split": "dev",
+      "kind": "direct",
+      "answerable": true,
+      "question": "Who asks for eight summer sailings a day?"
+    },
+    {
+      "id": "Q14",
+      "split": "test",
+      "kind": "direct",
+      "answerable": true,
+      "question": "Which assumption covers fares rising when the electric ferry enters service?"
+    },
+    {
+      "id": "Q15",
+      "split": "dev",
+      "kind": "off-topic",
+      "answerable": false,
+      "question": "What is the capital of France?"
+    },
+    {
+      "id": "Q16",
+      "split": "test",
+      "kind": "off-topic",
+      "answerable": false,
+      "question": "Summarise the quarterly revenue of Contoso Airlines."
+    },
+    {
+      "id": "Q17",
+      "split": "dev",
+      "kind": "off-topic",
+      "answerable": false,
+      "question": "What will the weather be like next Tuesday?"
+    },
+    {
+      "id": "Q18",
+      "split": "test",
+      "kind": "off-topic",
+      "answerable": false,
+      "question": "Write a poem about the sea."
+    },
+    {
+      "id": "Q19",
+      "split": "dev",
+      "kind": "absent-year",
+      "answerable": false,
+      "question": "What was ferry ridership in 2019?"
+    },
+    {
+      "id": "Q20",
+      "split": "test",
+      "kind": "absent-year",
+      "answerable": false,
+      "question": "What emissions target applies to the island in 2030?"
+    },
+    {
+      "id": "Q21",
+      "split": "dev",
+      "kind": "absent-year",
+      "answerable": false,
+      "question": "What happened to the ferry in 2031?"
+    },
+    {
+      "id": "Q22",
+      "split": "test",
+      "kind": "absent-topic",
+      "answerable": false,
+      "question": "How many cyclists use the island's bike lanes?"
+    },
+    {
+      "id": "Q23",
+      "split": "dev",
+      "kind": "absent-topic",
+      "answerable": false,
+      "question": "What did the harbour master say about dredging costs?"
+    },
+    {
+      "id": "Q24",
+      "split": "test",
+      "kind": "absent-topic",
+      "answerable": false,
+      "question": "What does the island's school curriculum teach about marine biology?"
+    },
+    {
+      "id": "Q25",
+      "split": "dev",
+      "kind": "plausible-absent",
+      "answerable": false,
+      "question": "How many electric ferries does the operator already run on other routes?"
+    },
+    {
+      "id": "Q26",
+      "split": "test",
+      "kind": "plausible-absent",
+      "answerable": false,
+      "question": "Which councillors voted against the electric ferry?"
+    },
+    {
+      "id": "Q27",
+      "split": "dev",
+      "kind": "plausible-absent",
+      "answerable": false,
+      "question": "What is the Health Centre's annual budget?"
+    },
+    {
+      "id": "Q28",
+      "split": "test",
+      "kind": "plausible-absent",
+      "answerable": false,
+      "question": "What is the name of the operator's chief executive?"
+    }
+  ]
+}

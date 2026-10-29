@@ -1,0 +1,191 @@
+{
+  "version": 1,
+  "description": "Questions with the passage that answers them, labelled from the text of the Larkholm demo sources. A returned passage counts as relevant when it comes from the named document and contains the phrase. R21-R24 ask about figures, which the retrieval tokenizer discards.",
+  "questions": [
+    {
+      "id": "R01",
+      "split": "dev",
+      "question": "How many one-way crossings did the council count in 2025?",
+      "relevant": [
+        { "document": "01-council-briefing-note.md", "contains": "412,000 one-way crossings" }
+      ]
+    },
+    {
+      "id": "R02",
+      "split": "test",
+      "question": "What does the ferry operator propose for the winter timetable?",
+      "relevant": [
+        {
+          "document": "02-ferry-operator-feasibility-memo.md",
+          "contains": "four daily return sailings"
+        }
+      ]
+    },
+    {
+      "id": "R03",
+      "split": "dev",
+      "question": "What share of respondents oppose a reduced winter timetable?",
+      "relevant": [{ "document": "03-residents-survey-summary.md", "contains": "71% oppose" }]
+    },
+    {
+      "id": "R04",
+      "split": "test",
+      "question": "How much would the battery-electric replacement cost?",
+      "relevant": [{ "document": "01-council-briefing-note.md", "contains": "$14.2 million" }]
+    },
+    {
+      "id": "R05",
+      "split": "dev",
+      "question": "When is the Clean Coasts Fund grant deadline?",
+      "relevant": [
+        { "document": "01-council-briefing-note.md", "contains": "30 September" },
+        { "document": "04-stakeholder-statements.md", "contains": "30 September" }
+      ]
+    },
+    {
+      "id": "R06",
+      "split": "test",
+      "question": "How many tonnes of carbon dioxide does the diesel ferry emit each year?",
+      "relevant": [{ "document": "04-stakeholder-statements.md", "contains": "2,900 tonnes" }]
+    },
+    {
+      "id": "R07",
+      "split": "dev",
+      "question": "What ceiling applies to the annual ferry subsidy?",
+      "relevant": [{ "document": "01-council-briefing-note.md", "contains": "$1.8 million" }]
+    },
+    {
+      "id": "R08",
+      "split": "test",
+      "question": "How many patient trips a month go to mainland clinics?",
+      "relevant": [
+        { "document": "03-residents-survey-summary.md", "contains": "140 patient trips" }
+      ]
+    },
+    {
+      "id": "R09",
+      "split": "dev",
+      "question": "How long will the charging grid upgrades take?",
+      "relevant": [
+        { "document": "01-council-briefing-note.md", "contains": "14 to 18 months" },
+        { "document": "02-ferry-operator-feasibility-memo.md", "contains": "14 to 18 months" }
+      ]
+    },
+    {
+      "id": "R10",
+      "split": "test",
+      "question": "What fare cap does the Residents' Association ask for?",
+      "relevant": [
+        { "document": "03-residents-survey-summary.md", "contains": "cap any fare increase at 5%" }
+      ]
+    },
+    {
+      "id": "R11",
+      "split": "dev",
+      "question": "How much is summer visitor spending worth to island businesses?",
+      "relevant": [{ "document": "04-stakeholder-statements.md", "contains": "$9.5 million" }]
+    },
+    {
+      "id": "R12",
+      "split": "test",
+      "question": "How many summer sailings a day does the Business Council want?",
+      "relevant": [
+        { "document": "04-stakeholder-statements.md", "contains": "eight summer sailings" }
+      ]
+    },
+    {
+      "id": "R13",
+      "split": "dev",
+      "question": "How much fuel would an electric ferry save each year?",
+      "relevant": [
+        { "document": "02-ferry-operator-feasibility-memo.md", "contains": "$0.9 million" }
+      ]
+    },
+    {
+      "id": "R14",
+      "split": "test",
+      "question": "What response rate did the residents' survey achieve?",
+      "relevant": [{ "document": "03-residents-survey-summary.md", "contains": "52% of them" }]
+    },
+    {
+      "id": "R15",
+      "split": "dev",
+      "question": "How old is the MV Gannet?",
+      "relevant": [{ "document": "01-council-briefing-note.md", "contains": "27 years old" }]
+    },
+    {
+      "id": "R16",
+      "split": "test",
+      "question": "How many people did the Green Tide Alliance poll?",
+      "relevant": [
+        { "document": "04-stakeholder-statements.md", "contains": "400 visitors and residents" }
+      ]
+    },
+    {
+      "id": "R17",
+      "split": "dev",
+      "question": "Do islanders rank reliability above emissions reductions?",
+      "relevant": [
+        {
+          "document": "03-residents-survey-summary.md",
+          "contains": "year-round reliability above emissions"
+        }
+      ]
+    },
+    {
+      "id": "R18",
+      "split": "test",
+      "question": "Why might battery vessels cancel more winter sailings?",
+      "relevant": [
+        { "document": "02-ferry-operator-feasibility-memo.md", "contains": "heavy weather" }
+      ]
+    },
+    {
+      "id": "R19",
+      "split": "dev",
+      "question": "Which assumption covers when the charging works finish?",
+      "relevant": [{ "document": "05-scenario-assumptions.md", "contains": "A4." }]
+    },
+    {
+      "id": "R20",
+      "split": "test",
+      "question": "How do stakeholders learn about decisions in the simulation?",
+      "relevant": [
+        { "document": "05-scenario-assumptions.md", "contains": "broadcast notice board" }
+      ]
+    },
+    {
+      "id": "R21",
+      "split": "dev",
+      "question": "Which source reports 365,000 crossings?",
+      "relevant": [
+        {
+          "document": "02-ferry-operator-feasibility-memo.md",
+          "contains": "365,000 one-way crossings"
+        }
+      ]
+    },
+    {
+      "id": "R22",
+      "split": "test",
+      "question": "Where does the 58% figure come from?",
+      "relevant": [{ "document": "02-ferry-operator-feasibility-memo.md", "contains": "About 58%" }]
+    },
+    {
+      "id": "R23",
+      "split": "dev",
+      "question": "Who says 74% support an electric ferry?",
+      "relevant": [{ "document": "04-stakeholder-statements.md", "contains": "74% support" }]
+    },
+    {
+      "id": "R24",
+      "split": "test",
+      "question": "Which documents mention the 12% fare increase?",
+      "relevant": [
+        { "document": "02-ferry-operator-feasibility-memo.md", "contains": "12% fare increase" },
+        { "document": "03-residents-survey-summary.md", "contains": "12% fare increase" },
+        { "document": "05-scenario-assumptions.md", "contains": "12%" }
+      ]
+    }
+  ]
+}

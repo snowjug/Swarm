@@ -41,6 +41,21 @@ const PATTERNS: readonly Pattern[] = [
       /\b(reveal|print|show|repeat|output|leak)\b.{0,30}\b(system prompt|your instructions|api key|secret|password)\b/iu,
     direct: true,
   },
+  {
+    expression:
+      /\b(disregard|forget|discard|override)\b.{0,30}\b(the above|everything above|your (earlier|previous|prior|original) (rules|instructions|prompt|guidelines))\b/iu,
+    direct: true,
+  },
+  {
+    expression:
+      /\bas an? (ai|a\.i\.|assistant|language model|llm|chatbot)\b.{0,60}\byou (must|should|will|are to|need to)\b/iu,
+    direct: true,
+  },
+  {
+    expression:
+      /\b(reveal|print|show|repeat|output|leak|disclose)\b.{0,30}\b(hidden|secret|internal) (instructions|prompts?|rules)\b/iu,
+    direct: true,
+  },
   // An instruction to put text in every output. Ordinary policy text can say this to a human
   // ("include the form number in every message"), so it only counts when it carries a payload.
   {
@@ -52,6 +67,9 @@ const PATTERNS: readonly Pattern[] = [
 
 const SEPARATED_TOKEN = /\b[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)+\b/gu;
 const QUOTED_PHRASE = /["“”`]([^"“”`\n]{4,80})["“”`]/gu;
+// Single quotes also delimit a phrase, but an apostrophe must not: the opening quote cannot follow a
+// letter and the closing one cannot precede a letter.
+const SINGLE_QUOTED_PHRASE = /(?<![\p{L}\p{N}])'([^'\n]{4,80})'(?![\p{L}\p{N}])/gu;
 const MIN_PAYLOAD_LENGTH = 4;
 const MAX_PAYLOADS = 24;
 const MAX_STRINGS = 400;
@@ -83,9 +101,11 @@ function payloadsIn(sentence: string): string[] {
   for (const token of sentence.match(SEPARATED_TOKEN) ?? []) {
     if (codeLike(token)) found.add(token.toLowerCase());
   }
-  for (const match of sentence.matchAll(QUOTED_PHRASE)) {
-    const phrase = match[1]?.trim().toLowerCase();
-    if (phrase && phrase.length >= MIN_PAYLOAD_LENGTH) found.add(phrase);
+  for (const pattern of [QUOTED_PHRASE, SINGLE_QUOTED_PHRASE]) {
+    for (const match of sentence.matchAll(pattern)) {
+      const phrase = match[1]?.trim().toLowerCase();
+      if (phrase && phrase.length >= MIN_PAYLOAD_LENGTH) found.add(phrase);
+    }
   }
   return [...found];
 }

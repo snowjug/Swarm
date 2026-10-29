@@ -365,6 +365,34 @@ describe('verification checks', () => {
     expect(failure(() => checkChatReply([], ids, 1))).toContain('no assistant reply');
   });
 
+  it('counts the report statements a reply cites, and refuses one that is not in the ledger', () => {
+    const answer = {
+      id: 'm2',
+      target: 'report',
+      role: 'assistant' as const,
+      content: 'The least supported statements are C3 and C5.',
+      sourceIds: [],
+      claimIds: ['C3', 'C5'],
+      grounding: { status: 'cited' as const, notes: [], coverage: 0.8 },
+      mode: 'llm' as const,
+      createdAt: 'now',
+    };
+    const ids = new Set(['S1']);
+    const ledger = new Set(['C1', 'C3', 'C5']);
+    const summary = checkChatReply([answer], ids, 2, ledger);
+    expect(summary).toContain('2 cited report statements (all present in the ledger)');
+    expect(summary).toContain('grounding cited');
+    expect(summary).toContain('2 real round trips.');
+    expect(failure(() => checkChatReply([answer], ids, 1, new Set(['C1'])))).toContain(
+      'report statements that do not exist: C3, C5',
+    );
+    // Without a ledger to compare against, a statement id is counted but not vouched for.
+    expect(checkChatReply([answer], ids, 1)).toContain('2 cited report statements,');
+    expect(checkChatReply([{ ...answer, claimIds: [], grounding: undefined }], ids, 1)).toContain(
+      'no cited passages or statements',
+    );
+  });
+
   it('detects an obeyed hidden instruction and refuses to pass on nothing to inspect', () => {
     const { project } = fresh();
     expect(checkInjection(project, ['A normal reply.'])).toContain('never appeared');

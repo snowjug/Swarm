@@ -11,6 +11,11 @@ what-ifs, and writes a report in which every listed statement is labelled and ch
 sources. It runs entirely on your machine with a deterministic rules engine and no keys, or with a
 real model, including **Azure AI authenticated by Microsoft Entra ID, with no API key**.
 
+An **evidence ledger** sits beside the report. It gives every statement a type and a support class,
+decided by deterministic rules and not by a model, shows where two of your sources disagree, and
+records who reviewed what. The analyst chat declines, in fixed words and without calling a model,
+when your sources cannot answer a question.
+
 ![The source-grounded graph, with an entity's quote checked verbatim against the passage it cites](./docs/assets/swarm-graph-inspector.png)
 
 _Every screenshot in this repository shows a fictional scenario ([the Larkholm ferry demo](./docs/demo/larkholm-ferry/README.md))._
@@ -30,9 +35,12 @@ _Every screenshot in this repository shows a fictional scenario ([the Larkholm f
    checkpoint with declared changes, and compare the runs.
 6. **Writes a report you can audit.** Each statement is labelled as a source fact, extracted claim,
    user assumption, AI hypothesis, simulated event or analytical conclusion, and checked against the
-   cited passage or recorded run.
+   cited passage or recorded run. The **evidence ledger** classifies how well your sources back each
+   one, lists the conflicts between sources for you to confirm or dismiss, and shows the assumptions
+   the simulated results rest on.
 7. **Answers questions.** Ask the report an analyst question, or ask a fictional proxy. Answers cite
-   what they were given. Export the result as Markdown or JSON.
+   what they were given. If the project's own evidence cannot answer, the analyst says so and makes
+   no model call. Export the result as Markdown or JSON, ledger included.
 
 ## Why Swarm
 
@@ -59,6 +67,8 @@ _Every screenshot in this repository shows a fictional scenario ([the Larkholm f
 | What-if loop  | Pause, resume, schedule an intervention, branch from a checkpoint with declared changes, and compare runs round by round                                         |
 | Report        | A chapter-by-chapter report with a **grounding review**: verdicts, the checks that ran, and what the server repaired                                             |
 | Chat          | Ask the report or any fictional proxy. Answers cite the passages and memories they were given                                                                    |
+| Evidence      | An **evidence ledger**: statement types and support classes, conflicts between sources, assumptions, reviewer decisions and a hash-chained audit log             |
+| Sign-in       | Optional Microsoft Entra token checks in the API, with four roles and tenant isolation (`AUTH_MODE=entra`; not yet used with a real tenant)                      |
 | Export        | Markdown and JSON, with lineage for branches                                                                                                                     |
 | Providers     | Local rules engine (no network), Azure OpenAI with Entra ID, any OpenAI-compatible endpoint, or local Ollama                                                     |
 | Safety        | Prompt-injection screening, bounded resource use, host and origin allow-lists, a content-security policy, no keys in the browser                                 |
@@ -256,7 +266,9 @@ Every variable is described in [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).
 
 The repository includes a fictional scenario with five source files that disagree on purpose. It is
 documented in [docs/demo/larkholm-ferry](./docs/demo/larkholm-ferry/README.md), together with the
-question, the steps to reproduce it and the limits of what it shows.
+question, the steps to reproduce it and the limits of what it shows. Five more small fictional packs
+show what the evidence layer does with a clean conflict, with false alarms and a miss, and with too
+little evidence; they are described in [docs/demo](./docs/demo/README.md).
 
 |                                                                                               |                                                                                    |
 | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -285,30 +297,39 @@ Simulated results are hypothetical. They describe the scenario, not the world.
 These are the results of this milestone's runs on the development machine. Re-run them yourself; the
 commands are in [Development](#development).
 
-| Check                                                | Result                                                                                                                                                                                                                                                                                                                                                    |
-| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check` (typecheck, lint, unit tests, build) | Passes. Strict typecheck, ESLint with 0 warnings, **935 unit and integration tests in 56 files** (backend 418, frontend 341, Azure scripts 176), production build                                                                                                                                                                                         |
-| `npm run test:e2e` (real Edge, two isolated servers) | **78 passed** in 3.7 minutes (57 against the local engine, 21 model-assisted against a protocol-faithful fake provider)                                                                                                                                                                                                                                   |
-| `npm run format:check`                               | All files pass                                                                                                                                                                                                                                                                                                                                            |
-| `npm audit` (corporate registry mirror)              | 0 vulnerabilities, at every severity                                                                                                                                                                                                                                                                                                                      |
-| `npm run scan:secrets` (every reachable commit)      | 0 findings in 505 history blobs and 292 working-tree files; no `.env` tracked                                                                                                                                                                                                                                                                             |
-| `npm run audit:ui` (four viewports, axe-core)        | 44 states: 0 console errors, 0 axe violations, no state with overflow, text under 11 px, targets under 24 px, unnamed controls or label collisions                                                                                                                                                                                                        |
-| `npm run azure:verify` (real Azure AI, Entra only)   | **15 of 15 checks passed** in 169 s with 58 server round trips, against a real Azure deployment using Microsoft Entra only                                                                                                                                                                                                                                |
-| Live demo journey (real UI, real Azure model)        | A five-source scenario built through the real UI against Azure: graph, six proxies on two platforms over six rounds (paused and resumed), an intervention, a branch and comparison, two reports with a grounding review, both chats and both exports. Audit of 40 states at four viewports: 0 console errors, 0 HTTP errors, 0 overflow, 0 axe violations |
+| Check                                                | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check` (typecheck, lint, unit tests, build) | Passes. Strict typecheck of five projects, ESLint with 0 warnings, **1,201 unit and integration tests in 67 files**, production build                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `npm run test:e2e` (real Edge, two isolated servers) | **92 passed** in 10.1 minutes (63 against the local engine, 29 model-assisted against a protocol-faithful fake provider) before the code-review fixes. After them, on a machine kept fully busy by other processes, 89 passed and 3 failed for reasons shown to be environmental (a timeout in an accessibility check, and two connection resets that the baseline build shows equally); see [the requirement matrix](./docs/program/requirement-matrix.md#end-to-end-runs-on-the-final-tree). CI runs the whole suite on a Linux runner for every push |
+| `npm run eval` (offline, no model)                   | Every floor in `evaluation/thresholds.json` holds. The analyst's gate refuses no answerable question and refuses 43% (dev) and 86% (test) of unanswerable ones; 1 of 3 labelled conflicts between sources is found; injection warnings catch 80% of 18 labelled samples (in-sample). Small, in-domain, author-labelled sets: see [evaluation/README.md](./evaluation/README.md)                                                                                                                                                                         |
+| `npm run format:check`                               | All files pass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `npm audit` (corporate registry mirror)              | 0 vulnerabilities, at every severity                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `npm run scan:secrets` (every reachable commit)      | 0 findings in 698 history blobs and 383 working-tree files; no `.env` tracked                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `npm run audit:ui` (four viewports, axe-core)        | 44 states: 0 console errors, 0 axe violations, none of the layout findings it reports (overflow, small text, small targets, unnamed controls, label collisions), and a visible focus indicator on every Tab stop                                                                                                                                                                                                                                                                                                                                        |
+| `npm run azure:verify` (real Azure AI, Entra only)   | **15 of 15 checks passed** in 349 s with 60 server round trips, against a real Azure deployment using Microsoft Entra only; the same result was recorded at the start of this program, after the analyst changes, and again after the code-review fixes                                                                                                                                                                                                                                                                                                 |
+| Live demo journey (real UI, real Azure model)        | Recorded at the previous milestone and not repeated on this tree. A five-source scenario built through the real UI against Azure: graph, six proxies on two platforms over six rounds (paused and resumed), an intervention, a branch and comparison, two reports with a grounding review, both chats and both exports. Audit of 40 states at four viewports: 0 console errors, 0 HTTP errors, 0 overflow, 0 axe violations                                                                                                                             |
 
 What these do **not** show: that the model's output is correct, that any scenario predicts the real
-world, that a manual screen-reader review has been done (it has not), or that the application is
-ready for production. See [Known Limitations](#known-limitations) and
-[docs/requirements-matrix.md](./docs/requirements-matrix.md) for the requirement-by-requirement
-status, including what is partial or missing.
+world, that a manual screen-reader review has been done (it has not), that sign-in works against a
+real Microsoft Entra tenant (it has only met a local test provider), or that the application is
+ready for production. See [Known Limitations](#known-limitations),
+[docs/requirements-matrix.md](./docs/requirements-matrix.md) and
+[docs/program/requirement-matrix.md](./docs/program/requirement-matrix.md) for the
+requirement-by-requirement status, including what is partial or missing, and
+[docs/production-readiness.md](./docs/production-readiness.md) for the gates a production service
+would have to meet.
 
 ## Security
 
-Swarm is a **local, single-user prototype**. Read this before you expose it to anything.
+Swarm is a **local, single-user prototype** by default. Read this before you expose it to anything.
 
-- **No authentication and no tenant isolation.** It binds to loopback, checks host and origin,
-  applies a content-security policy, request limits and rate limits, and none of that replaces
-  authentication. Do not expose it to the internet.
+- **Sign-in is off by default.** With `AUTH_MODE=none` there is no authentication and no tenant
+  isolation: it binds to loopback, checks host and origin, applies a content-security policy, request
+  limits and rate limits, and none of that replaces authentication. Do not expose it to the
+  internet. With `AUTH_MODE=entra` the API verifies Microsoft Entra bearer tokens, applies a
+  default-deny role table (reader, analyst, reviewer, admin) and separates tenants. That mode has
+  only been tested against a local test identity provider, never a real tenant, and the browser has
+  no sign-in screen, so treat it as a verified API and not as a finished feature.
 - **Prompt injection is an active risk and cannot be considered completely solved.** Source text,
   retrieved passages, memories and model output are untrusted data. Embedded instructions are
   flagged, the model is told to treat them as content, a reply that repeats text an embedded
@@ -326,7 +347,9 @@ Swarm is a **local, single-user prototype**. Read this before you expose it to a
   guarantee.
 
 Details are in [docs/security-model.md](./docs/security-model.md),
-[docs/security-review.md](./docs/security-review.md) and [docs/threat-model.md](./docs/threat-model.md).
+[docs/security-review.md](./docs/security-review.md) and [docs/threat-model.md](./docs/threat-model.md),
+which now has an addendum for the evidence ledger, sign-in and tenancy. Nothing here says Swarm is
+secure: the remaining risks are in [docs/program/risk-register.md](./docs/program/risk-register.md).
 
 ## Known Limitations
 
@@ -335,6 +358,16 @@ Details are in [docs/security-model.md](./docs/security-model.md),
 - **The analyst can miss a conflict unless you ask.** In the demo it said it found no direct
   contradictions when asked in general terms, although two are planted, and found the difference
   when asked about it by name.
+- **The evidence layer is heuristic.** The deterministic support check accepted 3 of 8 unsupported
+  statements in a labelled set. The conflict detector found 1 of 3 labelled conflicts, raises false
+  alarms on some material and misses conflicts of meaning; you confirm or dismiss every candidate.
+  The analyst's first check refuses off-topic questions and years the sources never mention, but
+  lets through 3 of 4 plausible questions about something absent and questions that mix an unrelated
+  topic with a word the project uses. Those rest on the model declining, which is seen only in live
+  runs. The evaluation sets are small, in one fictional domain, and labelled by the author; see
+  [evaluation/README.md](./evaluation/README.md).
+- **Rules mode has no statements in its ledger.** It produces no grounding review, so the ledger
+  shows conflicts and assumptions only.
 - **Proxies tend to sound like an analyst.** Their answers are useful, but often read as a summary
   rather than as the character speaking.
 - **Chat citations show what the model was given, not what supports each sentence.** They come from
@@ -344,8 +377,12 @@ Details are in [docs/security-model.md](./docs/security-model.md),
   read the review's notes.
 - **Small scale.** Model mode accepts 4 to 10 proxies and 3 to 10 rounds, and a stage's model calls
   are budgeted. Only six proxies and six rounds were exercised live.
-- **Single user, local, plain text at rest.** No accounts, no roles, no encryption of the database, no
-  automatic import of exports.
+- **Local by default, plain text at rest.** One SQLite file means one instance. No encryption of
+  the database and no automatic import of exports. Sign-in exists in the API only (see Security),
+  with one owner per project and no sharing. A PostgreSQL design is proposed in
+  [ADR 0006](./docs/adr/0006-postgres-adapter-proposed.md) and is not built.
+- **Operations are basic.** Structured logs and per-project token counts, with no distributed
+  tracing, no per-tenant budget and no automatic resume of a run interrupted by a restart.
 - **Text only.** Scanned PDFs need OCR, which is not implemented. There is no web crawling and no
   live social-media connection.
 - **One development deployment.** Live Azure checks ran against one small model. Managed identity and
@@ -385,6 +422,7 @@ npm.cmd run format:check   # Prettier
 npm.cmd run test:e2e       # builds first: the E2E servers run dist/ (set PW_CHANNEL=msedge to reuse Edge)
 npm.cmd run audit:ui       # screenshots and layout and axe metrics at four viewports
 npm.cmd run scan:secrets   # credentials in every reachable commit and the working tree
+npm.cmd run eval           # the offline evaluation: abstention gate, retrieval, conflicts, injection warnings
 npm.cmd run azure:verify   # the real Azure AI journey (needs your own deployment)
 ```
 
@@ -397,15 +435,16 @@ npm.cmd run azure:verify   # the real Azure AI journey (needs your own deploymen
 | `smoke:console`                                     | A real HTTP smoke flow against a running local backend                                   |
 | `azure:provision`, `azure:teardown`, `azure:verify` | Create, remove and verify the Azure model account (see [docs/AZURE.md](./docs/AZURE.md)) |
 
-| Folder      | Contents                                                                          |
-| ----------- | --------------------------------------------------------------------------------- |
-| `frontend/` | React console                                                                     |
-| `backend/`  | Fastify API, simulation, grounding, providers, storage, and their unit tests      |
-| `shared/`   | Types and schemas used by both                                                    |
-| `e2e/`      | Playwright journeys, error states, responsive and accessibility checks            |
-| `scripts/`  | Azure provisioning and verification, the UI audit, the secret scan, the load test |
-| `infra/`    | Bicep for the Azure model account                                                 |
-| `docs/`     | Guides, references, the parity matrix, the requirements matrix and the roadmap    |
+| Folder        | Contents                                                                                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `frontend/`   | React console                                                                                                                                                                              |
+| `backend/`    | Fastify API, simulation, grounding, providers, storage, and their unit tests                                                                                                               |
+| `shared/`     | Types and schemas used by both                                                                                                                                                             |
+| `e2e/`        | Playwright journeys, error states, responsive and accessibility checks                                                                                                                     |
+| `scripts/`    | Azure provisioning and verification, the UI audit, the secret scan, the load test                                                                                                          |
+| `evaluation/` | Labelled datasets, the offline evaluation harness, thresholds and results                                                                                                                  |
+| `infra/`      | Bicep for the Azure model account                                                                                                                                                          |
+| `docs/`       | Guides, references, the parity and requirement matrices, architecture decisions (`adr/`), the program records (`program/`), demonstration packs (`demo/`) and the pitch package (`pitch/`) |
 
 More: [user guide](./docs/USER_GUIDE.md), [configuration](./docs/CONFIGURATION.md),
 [HTTP API](./docs/API.md), [testing](./docs/TESTING.md), [Docker](./docs/DOCKER.md),
@@ -415,9 +454,12 @@ More: [user guide](./docs/USER_GUIDE.md), [configuration](./docs/CONFIGURATION.m
 
 The work that remains, split into what a credible prototype, a strong internal demo, a
 production-grade architecture and further research each need, is in
-[docs/microsoft-product-roadmap.md](./docs/microsoft-product-roadmap.md). In short: multi-user
-authentication and tenant isolation, a production database, durable and resumable jobs, managed
-identity and hosting in Azure, observability, and a manual accessibility review.
+[docs/microsoft-product-roadmap.md](./docs/microsoft-product-roadmap.md). In short: browser sign-in
+against a real tenant, a production database, automatic resume of interrupted jobs, hosting and
+managed identity in Azure, tracing and per-tenant budgets, a report studio, and a manual
+accessibility review. [docs/production-readiness.md](./docs/production-readiness.md) lists every
+gate and says which are met (this is a prototype, not a production service), and the
+[pitch package](./docs/pitch/README.md) holds the material for a pilot proposal.
 
 ## License
 

@@ -236,6 +236,8 @@ export function checkChatReply(
   messages: readonly ChatMessage[],
   evidenceIds: ReadonlySet<string>,
   newCalls: number,
+  /** Statements of the report's evidence ledger. When given, every cited statement must be one. */
+  claimIds: ReadonlySet<string> | null = null,
 ): string {
   const reply = lastReply(messages);
   if (!reply) throw new CheckFailure('The conversation has no assistant reply.');
@@ -245,14 +247,31 @@ export function checkChatReply(
   if (dangling.length > 0) {
     throw new CheckFailure(`The reply cites passages that do not exist: ${dangling.join(', ')}.`);
   }
+  const claims = reply.claimIds ?? [];
+  const danglingClaims = claimIds ? claims.filter((id) => !claimIds.has(id)) : [];
+  if (danglingClaims.length > 0) {
+    throw new CheckFailure(
+      `The reply cites report statements that do not exist: ${danglingClaims.join(', ')}.`,
+    );
+  }
   if (newCalls < 1) {
     throw new CheckFailure('The server’s provider counters show no new model call for this reply.');
   }
-  const cited =
-    reply.sourceIds.length === 0
-      ? 'no cited passages'
-      : `${reply.sourceIds.length} cited passage${reply.sourceIds.length === 1 ? '' : 's'} (all present in the stored evidence)`;
-  return `${reply.content.length} characters, ${cited}, ${newCalls} real round trip${newCalls === 1 ? '' : 's'}.`;
+  const plural = (count: number, noun: string): string =>
+    `${count} ${noun}${count === 1 ? '' : 's'}`;
+  const parts = [
+    ...(reply.sourceIds.length > 0
+      ? [`${plural(reply.sourceIds.length, 'cited passage')} (all present in the stored evidence)`]
+      : []),
+    ...(claims.length > 0
+      ? [
+          `${plural(claims.length, 'cited report statement')}${claimIds ? ' (all present in the ledger)' : ''}`,
+        ]
+      : []),
+  ];
+  const cited = parts.length === 0 ? 'no cited passages or statements' : parts.join(', ');
+  const grounding = reply.grounding ? `, grounding ${reply.grounding.status}` : '';
+  return `${reply.content.length} characters, ${cited}${grounding}, ${plural(newCalls, 'real round trip')}.`;
 }
 
 /** The server's counters cover its whole process lifetime, so a verification run reports differences. */

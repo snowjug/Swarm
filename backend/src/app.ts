@@ -7,6 +7,8 @@ import staticFiles from '@fastify/static';
 import Fastify from 'fastify';
 import { ZodError } from 'zod';
 import { publicConfig, type ServerConfig } from './config.js';
+import { registerAuth } from './auth/guard.js';
+import type { TokenVerifier } from './auth/tokens.js';
 import { AppError, publicFailure } from './errors.js';
 import { InteractionService } from './orchestration/interaction.js';
 import { Orchestrator, type ModelFactory } from './orchestration/runner.js';
@@ -14,6 +16,8 @@ import { createModelFactory } from './models/factory.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
+import { ledgerRoutes } from './routes/ledger.js';
+import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
 import { guidedRoutes } from './routes/guided.js';
 import { PdfService } from './ingest/pdf.js';
@@ -23,6 +27,8 @@ export interface AppOptions {
   config: ServerConfig;
   repository?: Repository;
   modelFactory?: ModelFactory;
+  /** Test hook: verify tokens against local keys instead of Microsoft's published key set. */
+  tokenVerifier?: TokenVerifier;
   /** Test hook: capture structured logs to assert that no secret or content is written. */
   logStream?: { write(message: string): void };
 }
@@ -54,6 +60,11 @@ export async function buildApp(options: AppOptions) {
     },
   });
   const repository = options.repository || new Repository(config.databasePath);
+  // Every route as registered, so a test can prove that none of them lacks an authorization policy.
+  const routes: { method: string; url: string }[] = [];
+  app.addHook('onRoute', (route) => {
+    for (const method of [route.method].flat()) routes.push({ method, url: route.url });
+  });
   repository.recoverInterrupted();
   const telemetry = new ProviderTelemetry(config.provider);
   const modelFactory = options.modelFactory ?? createModelFactory(config, telemetry);
@@ -116,6 +127,11 @@ export async function buildApp(options: AppOptions) {
       throw new AppError(403, 'ORIGIN_NOT_ALLOWED', 'Cross-origin access is not permitted.');
     }
   });
+  registerAuth(app, {
+    config: config.auth,
+    repository,
+    ...(options.tokenVerifier ? { verifier: options.tokenVerifier } : {}),
+  });
   app.addHook('onSend', async (request, reply, payload) => {
     if (request.url.startsWith('/api')) {
       reply.header('cache-control', 'no-store');
@@ -174,12 +190,14 @@ export async function buildApp(options: AppOptions) {
     status: 'ok',
     service: 'swarm-lab',
     version: APP_VERSION,
-    storage: 'sqlite',
-    experiments: repository.count(),
-    queue: jobs.state(),
+    // Counts across every tenant are not for an unauthenticated probe to read.
+    ...(config.auth.mode === 'none'
+      ? { storage: 'sqlite', experiments: repository.count(), queue: jobs.state() }
+      : {}),
   }));
   app.get('/api/config', async () => publicConfig(config));
   projectRoutes(app, repository, jobs, interaction, config.rateLimitScale);
+  ledgerRoutes(app, repository, new LedgerService(repository), config.rateLimitScale);
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
 
@@ -222,5 +240,5 @@ export async function buildApp(options: AppOptions) {
   });
   app.addHook('onClose', async () => repository.close());
   await app.ready();
-  return { app, repository, jobs, interaction, pdf };
+  return { app, repository, jobs, interaction, pdf, routes };
 }

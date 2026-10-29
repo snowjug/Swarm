@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "description": "Conflicts between sources that a careful reader would flag, labelled from the corpus design (not from the detector's output). A detection matches when it pairs the two named documents and its quotes contain every phrase. 'semantic' conflicts disagree in meaning rather than in a figure; the deterministic detector is not expected to find them.",
+  "expected": [
+    {
+      "id": "K1",
+      "kind": "deterministic",
+      "description": "Crossings in 2025: council 412,000, operator 365,000.",
+      "documents": ["01-council-briefing-note.md", "02-ferry-operator-feasibility-memo.md"],
+      "mustContain": ["412,000", "365,000"]
+    },
+    {
+      "id": "K2",
+      "kind": "deterministic",
+      "description": "Share of crossings between June and September: council 61%, operator about 58%.",
+      "documents": ["01-council-briefing-note.md", "02-ferry-operator-feasibility-memo.md"],
+      "mustContain": ["61%", "58%"]
+    },
+    {
+      "id": "K3",
+      "kind": "semantic",
+      "description": "Green Tide says islanders overwhelmingly prefer an electric ferry even with fewer winter sailings; the residents' survey finds 71% oppose a reduced winter timetable.",
+      "documents": ["03-residents-survey-summary.md", "04-stakeholder-statements.md"],
+      "mustContain": ["overwhelmingly prefer", "71% oppose"]
+    }
+  ],
+  "knownNonConflicts": [
+    "Both the council and the operator say charging upgrades take 14 to 18 months: they agree.",
+    "The Association asks for a 5% fare cap and the operator proposes 12%: a difference of position, not of fact.",
+    "Green Tide's 74% (400 visitors and residents) and the survey's 52% (islanders, on a condition) measure different groups.",
+    "Visitors are about 70% of summer crossings, which is not the June to September share of all crossings."
+  ]
+}

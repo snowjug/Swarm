@@ -1,8 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { chatInputSchema, createProjectSchema } from '../../../shared/types.js';
+import { ownerOf, principalOf } from '../auth/guard.js';
 import { AppError } from '../errors.js';
 import { markdownExport } from '../export.js';
+import { LedgerService } from '../grounding/service.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { InteractionService } from '../orchestration/interaction.js';
 import type { Orchestrator } from '../orchestration/runner.js';
@@ -26,11 +28,14 @@ export function projectRoutes(
         offset: z.coerce.number().int().min(0).max(100).default(0),
       })
       .parse(request.query);
-    return repository.list(pageSize, offset);
+    // A caller sees their own tenant's experiments and nobody else's.
+    return repository.list(pageSize, offset, principalOf(request).tenantId);
   });
 
   app.post('/api/projects', { config: limit(20) }, async (request, reply) => {
-    const project = repository.create(createProjectSchema.parse(request.body));
+    const project = repository.create(createProjectSchema.parse(request.body), {
+      owner: ownerOf(principalOf(request)),
+    });
     return reply.code(201).send(project);
   });
 
@@ -57,7 +62,7 @@ export function projectRoutes(
     ) {
       throw new AppError(409, 'PROJECT_BUSY', 'Stop active work before deleting this experiment.');
     }
-    repository.delete(id);
+    repository.delete(id, principalOf(request).id);
     return reply.code(204).send();
   });
 
@@ -110,6 +115,7 @@ export function projectRoutes(
       .parse(request.query);
     const project = repository.get(id);
     const chunks = repository.chunks(id);
+    const ledger = project.report ? new LedgerService(repository).get(id) : null;
     if (format === 'json') {
       return reply
         .header('content-disposition', `attachment; filename="swarm-lab-${id}.json"`)
@@ -119,6 +125,7 @@ export function projectRoutes(
           exportedAt: new Date().toISOString(),
           project,
           evidence: chunks,
+          ledger,
           messages: repository.allMessages(id),
         });
     }
@@ -131,6 +138,6 @@ export function projectRoutes(
     return reply
       .header('content-disposition', `attachment; filename="swarm-lab-${id}.md"`)
       .type('text/markdown; charset=utf-8')
-      .send(markdownExport(project, chunks));
+      .send(markdownExport(project, chunks, ledger));
   });
 }

@@ -29,6 +29,9 @@ export function frequencies(text: string): Map<string, number> {
   return counts;
 }
 
+/** Identifies how passages were cut, so a later change to the chunker is visible in the evidence. */
+export const PARSER_VERSION = 'chunker-1';
+
 export function chunkDocuments(documents: SourceDocument[]): EvidenceChunk[] {
   const chunks: EvidenceChunk[] = [];
   for (const document of documents) {
