@@ -199,8 +199,9 @@ small development deployment the live checks ran against.
 
 ## Quick Start
 
-You need Node.js 24 or newer, npm and Git. On Windows use `npm.cmd` where shown, which avoids the
-PowerShell script-policy issue without changing your policy; elsewhere use `npm`.
+You need Node.js 24 (the version in `.nvmrc`; npm refuses other major versions), npm and Git. On
+Windows use `npm.cmd` where shown, which avoids the PowerShell script-policy issue without changing
+your policy; elsewhere use `npm`.
 
 ### Local / Rules Mode
 
