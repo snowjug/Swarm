@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+# Azure Developer CLI configuration for the hosted pilot. See docs/azure/pilot-plan.md for the procedure
+# and docs/azure/pilot-cost.md for what it creates and costs. Nothing here runs until you run azd.
+name: swarm
+
+infra:
+  provider: bicep
+  path: infra/pilot
+  module: main
+
+services:
+  swarm:
+    project: .
+    host: containerapp
+    language: ts
+    docker:
+      path: ./Dockerfile
+      context: .
+      # Builds in the registry's own build service, so no local Docker is needed. If that fails, azd
+      # falls back to a local build.
+      remoteBuild: true

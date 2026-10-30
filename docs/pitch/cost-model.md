@@ -9,8 +9,8 @@ or region). Replace the two prices below with yours and the rest follows.
 | Input                    | Value                                                                                                                                                                 | Source                                                                                                   |
 | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Model                    | A GPT-4.1 mini class chat model, pay-as-you-go, Global Standard                                                                                                       | The development deployment                                                                               |
-| Input price              | US$0.40 per million tokens                                                                                                                                            | Public list price from price aggregators; **not** checked against the Azure pricing page or an agreement |
-| Output price             | US$1.60 per million tokens                                                                                                                                            | As above                                                                                                 |
+| Input price              | US$0.40 per million tokens                                                                                                                                            | Azure Retail Prices API, meter `gpt 4.1 mini Inp glbl`, East US 2, 30 Oct 2026; not an agreement price.  |
+| Output price             | US$1.60 per million tokens                                                                                                                                            | Azure Retail Prices API, meter `gpt 4.1 mini Outp glbl`, East US 2, 30 Oct 2026; not an agreement price. |
 | Tokens per live scenario | 95,154 / 13,376 (baseline), 120,948 / 17,327 (after the chat change), 105,274 / 14,431 and 103,501 / 15,807 (final tree, before and after the review fixes), in / out | `npm run azure:verify`; see [evaluation results](./evaluation-results.md)                                |
 
 ## One scenario
@@ -45,11 +45,11 @@ model's latency varied.
 
 ## A hosted pilot (Option B)
 
-Not estimated. It needs the Azure Pricing Calculator once the hosting design is approved. Expect it to
-be dominated by always-on components (the application and a PostgreSQL server) at the smallest
-sizes, in the tens of US dollars per month, not by model usage; that is an order-of-magnitude judgement
-and not a price. Nothing in this repository provisions any of them, and no chargeable resource was
-created for this program.
+Estimated in [the hosted pilot cost](../azure/pilot-cost.md): about **US$31 to US$61 a month** at list prices in East US 2
+(a container app, a PostgreSQL server, a registry and logging, plus model usage), dominated by the two always-on
+components, not by model usage, as expected here. A three-day demonstration then deleting everything costs about
+US$2.40. It is a list-price estimate for a template that exists (`infra/pilot`) but has **not been deployed**: no
+chargeable resource was created for this program, and creating them needs the approval in that document.
 
 ## Cost controls that exist, and what is missing
 

@@ -55,6 +55,31 @@ describe('the liveness and readiness probes', () => {
     expect(live.json()).toEqual({ status: 'broken' });
   });
 
+  it('answer a platform that sends its own address as the Host, and nothing else does', async () => {
+    for (const signedIn of [false, true]) {
+      const { app } = await start({ signedIn });
+      const asPlatform = (url: string, host = '10.244.1.17:3001') =>
+        app.inject({ method: 'GET', url, headers: { host } });
+      expect((await asPlatform('/api/health/live')).statusCode).toBe(200);
+      expect((await asPlatform('/api/health/ready')).statusCode).toBe(200);
+      // Every other route still refuses a host that is not listed, health report included.
+      for (const url of ['/api/health', '/api/config', '/api/projects']) {
+        const refused = await asPlatform(url);
+        expect(refused.statusCode, url).toBe(403);
+        expect(refused.json()).toMatchObject({ error: { code: 'HOST_NOT_ALLOWED' } });
+      }
+      // A probe is not a way to send a malformed Host, and only a GET is a probe.
+      expect((await asPlatform('/api/health/live', 'a/b')).statusCode).toBe(403);
+      expect((await asPlatform('/api/health/live', 'user@evil.example')).statusCode).toBe(403);
+      const posted = await app.inject({
+        method: 'POST',
+        url: '/api/health/live',
+        headers: { host: '10.244.1.17:3001' },
+      });
+      expect(posted.statusCode).toBe(403);
+    }
+  });
+
   it('are not audited, counted or limited as if they were people', async () => {
     const instance = await start();
     for (let index = 0; index < 5; index++) await instance.app.inject('/api/health/live');

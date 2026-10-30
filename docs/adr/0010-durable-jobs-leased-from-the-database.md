@@ -2,7 +2,7 @@
 
 Status: Accepted. Built, and tested on SQLite and on PostgreSQL running in-process (PGlite). **Not
 run with workers in separate containers against a deployed Azure PostgreSQL server.** The hosted
-pilot's worker container is described in `docs/azure/`; it is not deployed.
+pilot runs one container app with `SWARM_ROLE=all` (the job runner is embedded); a separate worker container is only a sketch in `docs/azure/pilot-plan.md`. Nothing is deployed.
 
 ## Context
 

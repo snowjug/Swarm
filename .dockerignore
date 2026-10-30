@@ -9,3 +9,5 @@ data
 coverage
 test-results
 *.log
+# azd keeps its environment files here; they name subscriptions and resources.
+.azure/

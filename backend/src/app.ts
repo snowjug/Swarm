@@ -53,6 +53,9 @@ export interface AppOptions {
   jobs?: OrchestratorOptions;
 }
 
+/** The routes a platform's health probes call. They answer without sign-in, and for any host. */
+const PROBE_ROUTES: ReadonlySet<string> = new Set(['/api/health/live', '/api/health/ready']);
+
 /** How often ended sessions and abandoned sign-ins are removed from the database. */
 const SESSION_PURGE_INTERVAL_MS = 10 * 60_000;
 
@@ -156,7 +159,14 @@ export async function buildApp(options: AppOptions) {
 
   app.addHook('onRequest', async (request) => {
     const rawHost = request.headers.host || '';
-    if (/[/\\@\s]/u.test(rawHost) || !config.allowedHosts.has(request.hostname.toLowerCase())) {
+    // A platform probe sends the replica's own address as its Host, which no allow-list can name in
+    // advance. The two probe routes answer with a status word and nothing else, so they are the one
+    // place where an unlisted host is let through; a malformed one is still refused.
+    const probe = request.method === 'GET' && PROBE_ROUTES.has(request.routeOptions.url ?? '');
+    if (
+      /[/\\@\s]/u.test(rawHost) ||
+      (!probe && !config.allowedHosts.has(request.hostname.toLowerCase()))
+    ) {
       throw new AppError(
         403,
         'HOST_NOT_ALLOWED',
