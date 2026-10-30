@@ -7,6 +7,7 @@ export default defineConfig({
       'evaluation/test/**/*.test.ts',
       'frontend/src/**/*.test.{ts,tsx}',
       'scripts/azure/**/*.test.ts',
+      'scripts/demo/**/*.test.ts',
     ],
     environment: 'node',
     // A timeout is there to catch a hang, not to measure speed. The heaviest tests run a whole
