@@ -25,6 +25,11 @@ const patterns = {
     /\b(?:api[_-]?key|client[_-]?secret|password|secret)\s*[:=]\s*["'][A-Za-z0-9+/_=-]{16,}["']/i,
 };
 const CANARY = /canary|do-not-log/i;
+// Blobs already in history that hold only fake credentials made up for a test of redaction. History is
+// not rewritten, so the blob is named by the start of its hash, which commits to its content: any other
+// version of the same file is scanned as usual. Add to this list only for the same reason, and say which.
+//   4ddb42a  backend/test/telemetry.test.ts as first committed (98da19d); later versions build the fakes from parts
+const ACCEPTED_HISTORY_BLOBS = new Set(['4ddb42a']);
 const SKIP_FILE = /(?:^|\/)package-lock\.json$|\.(?:png|jpe?g|gif|ico|woff2?|pdf|sqlite)$/i;
 const IGNORED_DIRECTORIES = new Set([
   'node_modules',
@@ -84,6 +89,7 @@ if (candidates.size > 0) {
     const content = objects.subarray(start, end);
     if (content.length > MAX_BYTES || content.includes(0)) continue;
     blobs += 1;
+    if (ACCEPTED_HISTORY_BLOBS.has(sha.slice(0, 7))) continue;
     scan(`history:${candidates.get(sha)}@${sha.slice(0, 7)}`, content.toString('utf8'));
   }
 }
