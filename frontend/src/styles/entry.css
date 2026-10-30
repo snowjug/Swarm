@@ -15,7 +15,7 @@
   max-width: 480px;
   padding: 28px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--t-bg-ffffff);
   border-radius: 6px;
 }
 .sign-in-card p {
@@ -71,7 +71,7 @@
   font-size: 12px;
 }
 .readiness-row > svg {
-  color: #426d46;
+  color: var(--t-fg-426d46);
 }
 .readiness-row strong {
   margin-left: auto;
@@ -118,7 +118,7 @@
   bottom: 5px;
   left: 14px;
   width: 1px;
-  background: #cdd1d5;
+  background: var(--t-bg-cdd1d5);
 }
 .entry-steps li:last-child {
   padding-bottom: 0;
@@ -129,9 +129,9 @@
   flex-shrink: 0;
   display: grid;
   place-items: center;
-  border: 1px solid #b7bfc6;
+  border: 1px solid var(--t-bd-b7bfc6);
   border-radius: 50%;
-  background: #fff;
+  background: var(--t-bg-ffffff);
   font: 12px var(--mono);
 }
 .entry-steps h3 {
@@ -151,7 +151,7 @@
   min-width: 0;
 }
 .entry-form > .section-heading > svg {
-  color: #945332;
+  color: var(--t-fg-945332);
 }
 .entry-form h2 {
   font-size: 22px;
@@ -183,12 +183,12 @@
   align-items: center;
   gap: 12px;
   padding: 16px 13px;
-  background: #fafaf8;
-  border: 1px dashed #9faab5;
+  background: var(--t-bg-fafaf8);
+  border: 1px dashed var(--t-bd-9faab5);
   border-radius: 4px;
 }
 .upload-zone > svg {
-  color: #925b3e;
+  color: var(--t-fg-925b3e);
 }
 .upload-zone > div {
   flex: 1;
@@ -208,15 +208,15 @@
   outline-offset: 3px;
 }
 .disabled-label {
-  color: #5e6570;
-  background: #f1f2f1;
+  color: var(--t-fg-5e6570);
+  background: var(--t-bg-f1f2f1);
   cursor: not-allowed;
 }
 .source-file {
   border: 1px solid var(--border);
   border-radius: 3px;
   min-width: 0;
-  background: #fff;
+  background: var(--t-bg-ffffff);
 }
 .source-file > summary {
   padding: 10px 12px;
@@ -275,12 +275,12 @@
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: #fafaf9;
+  background: var(--t-bg-fafaf9);
   cursor: pointer;
 }
 .mode-options > label.selected {
-  border-color: #b17757;
-  background: #fff5ec;
+  border-color: var(--t-bd-b17757);
+  background: var(--t-bg-fff5ec);
 }
 .mode-options strong {
   display: block;
@@ -327,12 +327,12 @@
   border-radius: 3px;
 }
 .history-item.selected {
-  border-color: #b77c58;
-  box-shadow: inset 3px 0 #a85a30;
+  border-color: var(--t-bd-b77c58);
+  box-shadow: inset 3px 0 var(--t-bd-a85a30);
 }
 .history-item.history-branch {
   margin-left: 18px;
-  border-left: 3px solid #718ca8;
+  border-left: 3px solid var(--t-bd-718ca8);
 }
 .history-item p {
   font-size: 12px;
@@ -341,9 +341,9 @@
   overflow-wrap: anywhere;
 }
 .history-item .branch-history-badge {
-  color: #315a82;
-  background: #edf4fc;
-  border: 1px solid #abc1d7;
+  color: var(--t-fg-315a82);
+  background: var(--t-bg-edf4fc);
+  border: 1px solid var(--t-bd-abc1d7);
   padding: 6px 8px;
 }
 .history-open {
@@ -368,8 +368,8 @@
 .delete-confirm {
   margin-top: 10px;
   padding: 12px;
-  background: #fff3f2;
-  border: 1px solid #d5afa9;
+  background: var(--t-bg-fff3f2);
+  border: 1px solid var(--t-bd-d5afa9);
 }
 .delete-confirm > .text-button {
   margin-left: 12px;

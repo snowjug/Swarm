@@ -41,7 +41,7 @@ The short version. The full register, with what is in place and what remains for
 - Sign-in is verified in the API only, against a local test provider. No real tenant; no browser
   sign-in.
 - No tracing, no alerts, no per-tenant budget, no automatic resume.
-- Light theme only; no assistive-technology testing.
+- Dark and high-contrast themes are derived from the light one and checked by computation and axe, not by a designer or by someone using assistive technology.
 - No SBOM, no signed provenance, no independent penetration test.
 
 ## Open items that are not engineering

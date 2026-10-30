@@ -5,8 +5,8 @@
   min-width: 0;
   margin: 8px 0;
   padding: 8px 10px;
-  border-left: 3px solid #7f99ac;
-  background: #f6f9fc;
+  border-left: 3px solid var(--t-bd-7f99ac);
+  background: var(--t-bg-f6f9fc);
 }
 .stated-reason p {
   margin: 0;
@@ -19,7 +19,7 @@
   font-family: var(--mono);
   font-size: 12px;
   font-weight: 600;
-  color: #3c5971;
+  color: var(--t-fg-3c5971);
 }
 .stated-reason .stated-reason-note {
   font-size: 12px;
@@ -37,9 +37,9 @@
   gap: 4px;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid #d4bd9f;
+  border: 1px solid var(--t-bd-d4bd9f);
   border-radius: 3px;
-  background: #fffcf8;
+  background: var(--t-bg-fffcf8);
 }
 .proxy-assumptions .proxy-assumptions-note {
   margin: 0;
@@ -48,7 +48,7 @@
 }
 .proxy-assumptions h4 {
   margin-top: 6px;
-  color: #845127;
+  color: var(--t-fg-845127);
 }
 .proxy-assumptions ul {
   margin: 0;

@@ -105,15 +105,15 @@ never marked VERIFIED here.
 
 ## 8. Experience
 
-| ID  | Requirement                                | Status    | Evidence                                                                              | What remains                                              |
-| --- | ------------------------------------------ | --------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| 8.1 | Responsive at four viewports, no overflow  | VERIFIED  | `e2e/local/responsive.spec.ts`, `e2e/model/ledger-ui.spec.ts`                         |                                                           |
-| 8.2 | Automated accessibility checks             | VERIFIED  | `e2e/local/a11y.spec.ts`, `e2e/model/ledger-ui.spec.ts` (axe, keyboard, focus return) | Assistive-technology testing and a formal review (REVIEW) |
-| 8.3 | No markup injection through server text    | VERIFIED  | `frontend/src/test/markup-sinks.test.ts` (mutation-checked)                           |                                                           |
-| 8.4 | Dark, light and high-contrast themes       | NOT BUILT | Light only                                                                            |                                                           |
-| 8.5 | A Fluent UI component library; Storybook   | NOT BUILT | Custom CSS                                                                            |                                                           |
-| 8.6 | A report studio                            | NOT BUILT |                                                                                       | Compose and publish a report from reviewed statements     |
-| 8.7 | Quantitative analysis of simulation output | NOT BUILT |                                                                                       | Sensitivity and intervals, stated with care               |
+| ID  | Requirement                                | Status    | Evidence                                                                                                                                        | What remains                                                                                      |
+| --- | ------------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| 8.1 | Responsive at four viewports, no overflow  | VERIFIED  | `e2e/local/responsive.spec.ts`, `e2e/model/ledger-ui.spec.ts`                                                                                   |                                                                                                   |
+| 8.2 | Automated accessibility checks             | VERIFIED  | `e2e/local/a11y.spec.ts`, `e2e/model/ledger-ui.spec.ts` (axe, keyboard, focus return)                                                           | Assistive-technology testing and a formal review (REVIEW)                                         |
+| 8.3 | No markup injection through server text    | VERIFIED  | `frontend/src/test/markup-sinks.test.ts` (mutation-checked)                                                                                     |                                                                                                   |
+| 8.4 | Dark, light and high-contrast themes       | VERIFIED  | `theme-contrast.test.ts`, `accessibility.test.ts`, `scripts/ui/themes.test.ts`, `e2e/journey/themes.spec.ts` (axe on every stage in each theme) | A designer's review; a browser test of forced-colours mode; assistive-technology testing (REVIEW) |
+| 8.5 | A Fluent UI component library; Storybook   | NOT BUILT | Custom CSS                                                                                                                                      |                                                                                                   |
+| 8.6 | A report studio                            | NOT BUILT |                                                                                                                                                 | Compose and publish a report from reviewed statements                                             |
+| 8.7 | Quantitative analysis of simulation output | NOT BUILT |                                                                                                                                                 | Sensitivity and intervals, stated with care                                                       |
 
 ## 9. Demonstrations and documents
 

@@ -20,6 +20,8 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - An offline evaluation with hash-pinned labelled sets, a dev/test split, and floors that fail the
   build on a regression.
 - Six synthetic demonstration packs, each checked by a test.
+- Light, dark and high-contrast themes that follow the device until a choice is made; the contrast of
+  every declared text colour is computed in each theme, and axe-core is run on the demonstration in each.
 
 ## Built with limits
 
@@ -34,8 +36,8 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   assumption of their own.
 - **Sign-in** is verified in the API only. No real tenant has been used, and the browser has no
   sign-in screen.
-- **Accessibility** is checked by automated tools at four viewports. No assistive-technology testing
-  has been done.
+- **Accessibility** is checked by automated tools at four viewports, and on the demonstration in each
+  of the three themes. No assistive-technology testing has been done.
 - **Cost and budget controls** limit calls and run time. There is no per-tenant token budget.
 
 ## Not built
@@ -46,7 +48,7 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - A report studio for assembling and publishing a report from reviewed statements.
 - Quantitative analysis (sensitivity, intervals) of simulation results.
 - Hosting infrastructure as code (Container Apps, a database, a key vault, monitoring).
-- Dark and high-contrast themes; a Fluent UI component library; Storybook.
+- A Fluent UI component library; Storybook.
 - A model-in-the-loop regression suite, and any evaluation on real documents.
 - The persistent Azure development machine: prepared but not provisioned, awaiting approval for
   chargeable resources.

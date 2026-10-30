@@ -34,10 +34,10 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 7px;
-  border: 1px solid #c5cbd0;
+  border: 1px solid var(--t-bd-c5cbd0);
   border-radius: 2px;
-  background: #f2f3f4;
-  color: #3d4651;
+  background: var(--t-bg-f2f3f4);
+  color: var(--t-fg-3d4651);
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.5;
@@ -90,9 +90,9 @@
   border-color: var(--verdict-unsupported-line);
 }
 .verdict-badge.verdict-contradicted {
-  color: #fff;
-  background: var(--verdict-contradicted);
-  border-color: var(--verdict-contradicted);
+  color: var(--t-fg-ffffff);
+  background: var(--contradicted-fill);
+  border-color: var(--contradicted-fill);
 }
 .verdict-badge.verdict-unchecked {
   color: var(--verdict-unchecked);
@@ -104,8 +104,8 @@
   min-width: 0;
   margin: 8px 0 0;
   padding: 8px 10px;
-  border-left: 3px solid #7f99ac;
-  background: #f7fafc;
+  border-left: 3px solid var(--t-bd-7f99ac);
+  background: var(--t-bg-f7fafc);
 }
 .quote-block figcaption {
   margin-bottom: 4px;

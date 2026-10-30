@@ -33,7 +33,7 @@ needs.
 
 ## Phase 3: experience
 
-Fluent UI components and design tokens; dark and high-contrast themes; Storybook; assistive-technology
+Fluent UI components; Storybook; assistive-technology
 testing and a formal accessibility review (P1 for the demonstration, P2 for production).
 
 ## Phase 4: research and product opportunities (P3)

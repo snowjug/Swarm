@@ -2,6 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { PAGE_BACKGROUND, THEME_NAMES, colour, contrast, minimumContrast } from './palette';
 
 const styles = [
   'styles.css',
@@ -25,36 +26,6 @@ const styles = [
   ),
 }));
 
-function luminance(hex: string): number {
-  const raw = hex.slice(1);
-  const expanded =
-    raw.length === 3
-      ? raw
-          .split('')
-          .map((part) => part + part)
-          .join('')
-      : raw;
-  const values = [0, 2, 4].map((offset) => {
-    const value = Number.parseInt(expanded.slice(offset, offset + 2), 16) / 255;
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  });
-  return values[0]! * 0.2126 + values[1]! * 0.7152 + values[2]! * 0.0722;
-}
-function contrast(foreground: string, background: string) {
-  const a = luminance(foreground),
-    b = luminance(background);
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-}
-const tokens = Object.fromEntries(
-  [...styles[0]!.text.matchAll(/(--[\w-]+):\s*(#[\da-f]{3,8})/giu)].map((match) => [
-    match[1],
-    match[2]!,
-  ]),
-);
-function color(value: string) {
-  return value.startsWith('var(') ? tokens[value.slice(4, -1)]! : value;
-}
-
 describe('measured console accessibility CSS regressions', () => {
   it('has no text font declaration below 12 CSS pixels', () => {
     for (const style of styles) {
@@ -62,34 +33,35 @@ describe('measured console accessibility CSS regressions', () => {
         expect(Number(match[1]), `${style.name}: ${match[0]}`).toBeGreaterThanOrEqual(12);
     }
   });
-  it('keeps all declared text colours above 4.5:1 on their console surfaces', () => {
-    let pairs = 0;
-    for (const style of styles) {
-      for (const match of style.text.matchAll(/([^{}]+)\{([^{}]*)\}/gu)) {
-        const selector = match[1]!,
-          declarations = match[2]!;
-        const foreground = /(?:^|;)\s*color:\s*(#[\da-f]{3,6}|var\(--[\w-]+\))/iu.exec(
-          declarations,
-        )?.[1];
-        if (!foreground || selector.includes('::backdrop')) continue;
-        const background =
-          /(?:^|;)\s*background(?:-color)?:\s*(#[\da-f]{3,6}|var\(--[\w-]+\))/iu.exec(
+  it.each(THEME_NAMES)(
+    'keeps all declared text colours readable on their console surfaces in the %s theme',
+    (theme) => {
+      let pairs = 0;
+      for (const style of styles) {
+        for (const match of style.text.matchAll(/([^{}]+)\{([^{}]*)\}/gu)) {
+          const selector = match[1]!,
+            declarations = match[2]!;
+          const foreground = /(?:^|;)\s*color:\s*(#[\da-f]{3,6}|var\(--[\w-]+\))/iu.exec(
             declarations,
           )?.[1];
-        const surface = background
-          ? color(background)
-          : selector.includes('log-')
-            ? '#17191d'
-            : '#f7f7f5';
-        expect(
-          contrast(color(foreground), surface),
-          `${selector.trim()}: ${foreground} on ${surface}`,
-        ).toBeGreaterThanOrEqual(4.5);
-        pairs += 1;
+          if (!foreground || selector.includes('::backdrop')) continue;
+          const background =
+            /(?:^|;)\s*background(?:-color)?:\s*(#[\da-f]{3,6}|var\(--[\w-]+\))/iu.exec(
+              declarations,
+            )?.[1];
+          // A rule that paints no background sits on the page, or on the dark log.
+          const surface =
+            background ?? (selector.includes('log-') ? 'var(--t-bg-17191d)' : PAGE_BACKGROUND);
+          expect(
+            contrast(colour(foreground, theme), colour(surface, theme)),
+            `${style.name} ${selector.trim()}: ${foreground} on ${surface}`,
+          ).toBeGreaterThanOrEqual(minimumContrast(theme));
+          pairs += 1;
+        }
       }
-    }
-    expect(pairs).toBeGreaterThan(70);
-  });
+      expect(pairs).toBeGreaterThan(70);
+    },
+  );
   it('keeps the log in flow, caps only its expanded content and removes nested stage scrollers', () => {
     const css = styles.find((style) => style.name.endsWith('workspace.css'))!.text;
     const log = /\.diagnostic-log\s*\{([^}]+)\}/u.exec(css)![1]!;
@@ -103,7 +75,10 @@ describe('measured console accessibility CSS regressions', () => {
     const graph = styles.find((style) => style.name.endsWith('graph.css'))!.text;
     expect(graph).toMatch(/height:\s*clamp\(320px,\s*62dvh,\s*720px\)/u);
     const header = /\.app-header\s*\{([^}]+)\}/u.exec(styles[0]!.text)![1]!;
-    expect(header).toContain('background: #fff');
+    const fill = /(?:^|\s)background:\s*(var\(--[\w-]+\));/u.exec(header)?.[1];
+    expect(fill, 'the header paints a solid colour').toBeDefined();
+    // `colour` accepts only an opaque hex value, so a translucent fill in any theme fails here.
+    for (const theme of THEME_NAMES) expect(colour(fill!, theme)).toMatch(/^#[\da-f]{6}$/u);
     expect(header).not.toContain('rgba');
   });
   it('sizes the actual text/search/number/select controls, without shrinking native checkboxes or radios', () => {

@@ -9,14 +9,14 @@ import { EmptyPanel } from '../ui';
 import { GraphRoundControl } from './GraphRoundControl';
 
 const palette = [
-  '#547aa7',
-  '#9d6243',
-  '#607e49',
-  '#88609e',
-  '#917015',
-  '#397f7d',
-  '#a3546d',
-  '#66788f',
+  'var(--graph-1)',
+  'var(--graph-2)',
+  'var(--graph-3)',
+  'var(--graph-4)',
+  'var(--graph-5)',
+  'var(--graph-6)',
+  'var(--graph-7)',
+  'var(--graph-8)',
 ];
 interface Transform {
   x: number;
@@ -90,8 +90,8 @@ export function GraphCanvas({
   const colors = new Map(
     sourceTypes.map((type, index) => [type, palette[index % palette.length]!]),
   );
-  colors.set('SIMULATED actor', '#20242b');
-  colors.set('SIMULATED memory', '#ac5725');
+  colors.set('SIMULATED actor', 'var(--graph-actor)');
+  colors.set('SIMULATED memory', 'var(--graph-memory)');
   const types = [...new Set(graph.nodes.map((node) => node.type))];
   const visible = graph.nodes.filter((node) => !hidden.has(node.type));
   const activeNode = visible.find((node) => node.id === activeId) ?? visible[0];
@@ -300,7 +300,7 @@ export function GraphCanvas({
         >
           <defs>
             <pattern id={pattern} width="25" height="25" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r=".8" fill="#dfe2e6" />
+              <circle cx="1" cy="1" r=".8" fill="var(--graph-dot)" />
             </pattern>
           </defs>
           <rect width={width} height={height} fill={`url(#${pattern})`} />

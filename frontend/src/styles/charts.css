@@ -1,6 +1,29 @@
+/* Colours that charts and the graph draw with from script: tokens, so that they follow the theme. */
+:root {
+  --chart-1: var(--t-fg-235f91);
+  --chart-2: var(--t-fg-35613b);
+  --chart-3: var(--t-fg-9b401d);
+  --chart-4: var(--t-fg-704e87);
+  --chart-5: var(--t-fg-6e5408);
+  --chart-surface: var(--t-bg-ffffff);
+  --chart-grid: var(--t-bd-d7dce0);
+  --chart-axis: var(--t-bd-65717e);
+  --chart-label: var(--t-fg-424e5b);
+  --graph-1: var(--t-fg-547aa7);
+  --graph-2: var(--t-fg-9d6243);
+  --graph-3: var(--t-fg-607e49);
+  --graph-4: var(--t-fg-88609e);
+  --graph-5: var(--t-fg-917015);
+  --graph-6: var(--t-fg-397f7d);
+  --graph-7: var(--t-fg-a3546d);
+  --graph-8: var(--t-fg-66788f);
+  --graph-actor: var(--t-fg-20242b);
+  --graph-memory: var(--t-fg-ac5725);
+  --graph-dot: var(--t-bd-dfe2e6);
+}
 .compare-view {
   padding: 22px;
-  background: #fff;
+  background: var(--t-bg-ffffff);
   border: 1px solid var(--border);
   border-radius: 4px;
   min-width: 0;
@@ -22,9 +45,9 @@
 .identical-marker {
   align-self: flex-start;
   padding: 8px 10px;
-  border: 1px solid #a8c0ae;
-  background: #eef8f0;
-  color: #32613e;
+  border: 1px solid var(--t-bd-a8c0ae);
+  background: var(--t-bg-eef8f0);
+  color: var(--t-fg-32613e);
   border-radius: 3px;
   font: 12px var(--mono);
 }
@@ -36,7 +59,7 @@
 .comparison-run-info > div {
   border: 1px solid var(--border);
   padding: 12px;
-  background: #fafbfc;
+  background: var(--t-bg-fafbfc);
   overflow-wrap: anywhere;
 }
 .comparison-run-info p {
@@ -58,7 +81,7 @@
 .recorded-chart > figcaption {
   font-size: 14px;
   font-weight: 650;
-  color: #293b4d;
+  color: var(--t-fg-293b4d);
   line-height: 1.5;
   margin-bottom: 6px;
 }
@@ -103,7 +126,7 @@
 .comparison-honesty {
   padding: 14px;
   border: 1px solid var(--border);
-  background: #f7f9fb;
+  background: var(--t-bg-f7f9fb);
   font-size: 13px;
 }
 .comparison-changes > ul {
@@ -116,21 +139,21 @@
   margin-top: 9px;
 }
 .comparison-honesty {
-  background: #fff6e8;
-  border-color: #d2bb98;
-  color: #78501f;
+  background: var(--t-bg-fff6e8);
+  border-color: var(--t-bd-d2bb98);
+  color: var(--t-fg-78501f);
 }
 .metrics-table {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  background: #fff;
+  background: var(--t-bg-ffffff);
   font-size: 12px;
   line-height: 1.6;
 }
 .metrics-table caption {
   text-align: left;
-  color: #425267;
+  color: var(--t-fg-425267);
   font-size: 12px;
   font-weight: 600;
   padding: 8px 0 12px;
@@ -138,24 +161,24 @@
 }
 .metrics-table th,
 .metrics-table td {
-  border: 1px solid #bec8d2;
+  border: 1px solid var(--t-bd-bec8d2);
   padding: 8px 7px;
   text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
 .metrics-table thead th {
-  background: #eaf0f6;
-  color: #304b66;
+  background: var(--t-bg-eaf0f6);
+  color: var(--t-fg-304b66);
 }
 .metrics-table tbody th {
   font-weight: 550;
-  background: #f6f8fa;
-  color: #354b5f;
+  background: var(--t-bg-f6f8fa);
+  color: var(--t-fg-354b5f);
 }
 .metrics-table td {
   font-family: var(--mono);
-  color: #283a4b;
+  color: var(--t-fg-283a4b);
 }
 .comparison-table .round-column {
   width: 9%;

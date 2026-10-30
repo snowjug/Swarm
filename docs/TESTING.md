@@ -90,6 +90,46 @@ establish live model connectivity or reasoning quality. Live evidence comes only
 `npm run azure:verify` against a real deployment (see
 [AZURE.md](./AZURE.md#live-evidence)).
 
+## Colour themes
+
+The console has three themes: light, dark and high contrast. Every colour in a stylesheet is a token,
+`var(--t-bg-ffffff)`, named for its role (`bg` background, `fg` text, icons and strokes, `bd` borders)
+and its light value. `frontend/src/styles/theme-tokens.css` gives each token a value per theme; the dark
+and high-contrast values are derived from the light one in OKLab by `scripts/ui/themes.mjs`, so a new
+colour needs no hand-picked pair. A derived value that is wrong is corrected in
+`frontend/src/styles/theme.css`, which loads after the tokens, and never by editing the generated file.
+Colours that charts and the graph draw with from script are custom properties too (`--chart-*`,
+`--graph-*`); the only colour literals left in the sources are the browser-chrome colours in
+`frontend/src/lib/theme.ts`.
+
+```powershell
+node scripts/ui/themes.mjs rewrite   # after writing a hex colour in a stylesheet: turns it into a token
+node scripts/ui/themes.mjs tokens    # rewrites theme-tokens.css from the tokens the stylesheets use
+node scripts/ui/themes.mjs check     # what the unit tests run: no literals, and the token file is current
+```
+
+What guards them:
+
+- `scripts/ui/themes.test.ts` runs the checker on temporary trees: no hex, `rgb()` or `hsl()` colour in a
+  stylesheet or a component, a token file that lacks a used token or has a hand-edited value is refused,
+  and the real tree passes.
+- `frontend/src/test/theme-contrast.test.ts`, `accessibility.test.ts` and `grounding-guards.test.ts`
+  resolve every custom property to a colour in each theme and compute the WCAG contrast of text on
+  the surface it is declared with: 4.5:1 in light and dark, 7:1 in high contrast, and 3:1 for the parts
+  of the charts and the graph. They scan every declared text colour in the stylesheets, which covers
+  states a browser test does not visit. A degraded token makes them fail, which was checked by hand.
+- `frontend/src/lib/theme.test.ts` covers the rule that picks the theme (a choice beats the device; more
+  contrast beats dark beats light; an unknown stored value is ignored) and runs the real pre-paint
+  script, `frontend/public/theme-init.js`, against the same cases.
+- `e2e/journey/themes.spec.ts` uses a real browser: the page follows a changed device setting without a
+  reload, keeps a choice across a reload, works from the keyboard, and axe-core, contrast rule included,
+  finds nothing on the entry page, the project page and all five stages in each theme.
+
+What they do not show: the contrast of text on a surface other than the one it is declared with (a rule
+without a background is assumed to sit on the page), the Windows forced-colours rules in `theme.css`
+(there is no browser test for them), or what a person using a screen reader or a magnifier makes of any
+theme.
+
 ## End-to-end, accessibility, security and load evidence
 
 ```powershell

@@ -36,7 +36,7 @@ export function ComparisonResults({ comparison }: { comparison: RunComparison })
               {
                 id: 'base',
                 label: `Base: ${base.name}`,
-                color: '#235f91',
+                color: 'var(--chart-1)',
                 marker: 'circle',
                 points: rounds.map((round) => ({
                   round: round.round,
@@ -46,7 +46,7 @@ export function ComparisonResults({ comparison }: { comparison: RunComparison })
               {
                 id: 'other',
                 label: `Other: ${other.name}`,
-                color: '#9b401d',
+                color: 'var(--chart-3)',
                 dash: '8 4',
                 marker: 'square',
                 points: rounds.map((round) => ({

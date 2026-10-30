@@ -6,11 +6,11 @@ import { RecordedChart } from './RecordedChart';
 import type { ChartSeries } from './RecordedChart';
 
 const styles: Pick<ChartSeries, 'color' | 'dash' | 'marker'>[] = [
-  { color: '#235f91', marker: 'circle' },
-  { color: '#35613b', marker: 'square', dash: '9 3' },
-  { color: '#9b401d', marker: 'triangle', dash: '3 3' },
-  { color: '#704e87', marker: 'diamond', dash: '9 3 2 3' },
-  { color: '#6e5408', marker: 'cross', dash: '2 4' },
+  { color: 'var(--chart-1)', marker: 'circle' },
+  { color: 'var(--chart-2)', marker: 'square', dash: '9 3' },
+  { color: 'var(--chart-3)', marker: 'triangle', dash: '3 3' },
+  { color: 'var(--chart-4)', marker: 'diamond', dash: '9 3 2 3' },
+  { color: 'var(--chart-5)', marker: 'cross', dash: '2 4' },
 ];
 
 export function TrajectoryChart({ project }: { project: ProjectDetail }) {

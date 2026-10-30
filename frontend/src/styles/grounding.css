@@ -6,7 +6,7 @@
   background: var(--panel);
 }
 .grounding-review .eyebrow {
-  color: #79552f;
+  color: var(--t-fg-79552f);
 }
 .grounding-review h2 {
   font-size: 20px;

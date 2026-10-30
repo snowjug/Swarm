@@ -29,6 +29,11 @@ export default tseslint.config(
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   {
+    // Served to the browser as it is, ahead of the application: a classic script, not a module.
+    files: ['frontend/public/**/*.js'],
+    languageOptions: { sourceType: 'script', globals: globals.browser },
+  },
+  {
     files: ['frontend/src/**/*.{ts,tsx}'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks, 'react-refresh': reactRefresh },

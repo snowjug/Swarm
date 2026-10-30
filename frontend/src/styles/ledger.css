@@ -1,7 +1,7 @@
 :root {
-  --tone-info: #1f4e7a;
-  --tone-info-tint: #edf4fb;
-  --tone-info-line: #aec6de;
+  --tone-info: var(--t-fg-1f4e7a);
+  --tone-info-tint: var(--t-bg-edf4fb);
+  --tone-info-line: var(--t-bd-aec6de);
 }
 
 .tone-chip {
@@ -65,7 +65,7 @@
   font-size: 13px;
 }
 .evidence-ledger .eyebrow {
-  color: #79552f;
+  color: var(--t-fg-79552f);
 }
 .ledger-summary {
   font-size: 13px;
@@ -221,7 +221,7 @@
   border-left-color: var(--verdict-supported);
 }
 .evidence mark {
-  background: #ffe58a;
+  background: var(--t-bg-ffe58a);
   color: var(--text);
   padding: 0 2px;
 }

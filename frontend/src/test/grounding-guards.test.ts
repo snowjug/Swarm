@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SUPPORT_VERDICTS } from '../../../shared/grounding';
+import { THEME_NAMES, colour, contrastIn, minimumContrast } from './palette';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const rootStyles = read('../styles.css');
@@ -10,63 +11,40 @@ const grounding = read('../styles/grounding.css');
 const statements = read('../styles/statements.css');
 const transparency = read('../styles/transparency.css');
 
-const tokens: Record<string, string> = Object.fromEntries(
-  [...rootStyles.matchAll(/(--[\w-]+):\s*(#[\da-f]{3,8})\s*;/giu)].map((match) => [
-    match[1]!,
-    match[2]!,
-  ]),
-);
-const token = (name: string) => {
-  const value = tokens[name];
-  expect(value, `${name} must be a hex token in styles.css`).toBeDefined();
-  return value!;
-};
-
-function luminance(hex: string): number {
-  const raw = hex.slice(1);
-  const expanded =
-    raw.length === 3
-      ? raw
-          .split('')
-          .map((part) => part + part)
-          .join('')
-      : raw;
-  const [red, green, blue] = [0, 2, 4].map((offset) => {
-    const value = Number.parseInt(expanded.slice(offset, offset + 2), 16) / 255;
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  });
-  return red! * 0.2126 + green! * 0.7152 + blue! * 0.0722;
-}
-function contrast(foreground: string, background: string): number {
-  const a = luminance(foreground);
-  const b = luminance(background);
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
-}
-
 const ruleBody = (css: string, selector: string) => {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
   return new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`, 'u').exec(css)?.[1];
 };
 
 describe('verdict colours', () => {
-  it('keeps every verdict label readable on its own tint and on the white report page', () => {
-    for (const verdict of SUPPORT_VERDICTS) {
-      const ink = token(`--verdict-${verdict}`);
-      expect(
-        contrast(ink, token(`--verdict-${verdict}-tint`)),
-        `${verdict} on tint`,
-      ).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(ink, '#ffffff'), `${verdict} on white`).toBeGreaterThanOrEqual(4.5);
-      expect(
-        contrast(token('--text'), token(`--verdict-${verdict}-tint`)),
-        `text on ${verdict}`,
-      ).toBeGreaterThanOrEqual(4.5);
-    }
-  });
+  it.each(THEME_NAMES)(
+    'keeps every verdict label readable on its own tint and on the report page in the %s theme',
+    (theme) => {
+      for (const verdict of SUPPORT_VERDICTS) {
+        const ink = `var(--verdict-${verdict})`;
+        const tint = `var(--verdict-${verdict}-tint)`;
+        expect(contrastIn(theme, ink, tint), `${verdict} on tint`).toBeGreaterThanOrEqual(
+          minimumContrast(theme),
+        );
+        expect(
+          contrastIn(theme, ink, 'var(--panel)'),
+          `${verdict} on the page`,
+        ).toBeGreaterThanOrEqual(minimumContrast(theme));
+        expect(contrastIn(theme, 'var(--text)', tint), `text on ${verdict}`).toBeGreaterThanOrEqual(
+          minimumContrast(theme),
+        );
+      }
+    },
+  );
 
-  it('keeps the filled contradicted badge readable', () => {
-    expect(contrast('#ffffff', token('--verdict-contradicted'))).toBeGreaterThanOrEqual(4.5);
-    expect(ruleBody(statements, '.verdict-badge.verdict-contradicted')).toMatch(/color:\s*#fff;/u);
+  it.each(THEME_NAMES)('keeps the filled contradicted badge readable in the %s theme', (theme) => {
+    const rule = ruleBody(statements, '.verdict-badge.verdict-contradicted')!;
+    const ink = /(?:^|\s)color:\s*(var\(--[\w-]+\));/u.exec(rule)?.[1];
+    const fill = /(?:^|\s)background:\s*(var\(--[\w-]+\));/u.exec(rule)?.[1];
+    expect(ink, 'the badge sets its text colour').toBeDefined();
+    expect(fill, 'the badge sets its fill').toBeDefined();
+    expect(colour(ink!, theme)).toBeDefined();
+    expect(contrastIn(theme, ink!, fill!)).toBeGreaterThanOrEqual(minimumContrast(theme));
   });
 
   it('defines a badge, a tally colour and a distinct shape cue for every verdict', () => {

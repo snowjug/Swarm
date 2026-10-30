@@ -1,0 +1,50 @@
+/*
+ * Theme overrides that the derivation in theme-tokens.css does not get right, and what only a theme
+ * has: the page's colour scheme, the theme switch, forced colours. Selectors here are `:root[data-theme]`
+ * so that they outrank the `:root` rules of styles.css, which come after the imports.
+ */
+
+:root[data-theme='dark'],
+:root[data-theme='high-contrast'] {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+.theme-switch select {
+  min-height: 28px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* Windows high contrast and other forced colours replace the palette: keep what the palette drew. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+  }
+
+  .button,
+  .icon-button,
+  .theme-switch select {
+    border: 1px solid ButtonText;
+  }
+
+  .verdict-badge,
+  .tag,
+  .badge {
+    border: 1px solid CanvasText;
+  }
+}

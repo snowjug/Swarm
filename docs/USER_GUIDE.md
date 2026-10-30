@@ -2,7 +2,8 @@
 
 This guide describes every stage of the console, the what-if loop (pause, resume, intervene, branch, compare) and the grounding review. Back to the [README](../README.md).
 
-The default UI is a light, technical five-stage console, not a one-click replay.
+The default UI is a technical five-stage console, not a one-click replay. It has light, dark and
+high-contrast themes (see [Themes](#themes)).
 On wide screens a single **Graph / Split / Workbench** control switches the working
 layout (on narrow screens it becomes a two-way **Graph | Workbench** pane switch);
 the graph, inspectors and the collapsible, in-flow operation log show actual
@@ -45,6 +46,15 @@ matters. Interrupted stages and surveys are marked failed after restart, never
 silently completed. A simulation interrupted after at least one saved round keeps
 those rounds and offers **Resume from round N** (an explicit action); everything
 else restarts the stage.
+
+## Themes
+
+The **Colour theme** selector in the header offers System, Light, Dark and High contrast. System, the
+default, follows the device: high contrast when the device asks for more contrast, otherwise dark when it
+prefers a dark colour scheme, otherwise light; it changes with the device while the page is open. A
+choice is kept in this browser (local storage, the key `swarm.theme`, holding only the theme's name) and
+is applied before the page is drawn, so there is no flash of the wrong theme. The selector is a native
+control: open it with the keyboard and change it with the arrow keys.
 
 ## What-if loop: pause, resume, intervene, branch, compare
 

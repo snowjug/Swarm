@@ -21,7 +21,7 @@ function PointMarker({
   marker: ChartSeries['marker'];
   color: string;
 }) {
-  const props = { fill: '#fff', stroke: color, strokeWidth: 2 };
+  const props = { fill: 'var(--chart-surface)', stroke: color, strokeWidth: 2 };
   if (marker === 'square') return <rect x={x - 3.5} y={y - 3.5} width={7} height={7} {...props} />;
   if (marker === 'triangle')
     return (
@@ -103,21 +103,27 @@ export function RecordedChart({
           <desc>{summary} Lines join recorded values only. Gaps mean no recorded value.</desc>
           {ticks.map((tick) => (
             <g key={tick}>
-              <line x1={left} x2={right} y1={y(tick)} y2={y(tick)} stroke="#d7dce0" />
-              <text x={left - 8} y={y(tick) + 4} textAnchor="end" fill="#424e5b" fontSize={12}>
+              <line x1={left} x2={right} y1={y(tick)} y2={y(tick)} stroke="var(--chart-grid)" />
+              <text
+                x={left - 8}
+                y={y(tick) + 4}
+                textAnchor="end"
+                fill="var(--chart-label)"
+                fontSize={12}
+              >
                 {tick.toFixed(2)}
               </text>
             </g>
           ))}
-          <line x1={left} x2={left} y1={top} y2={bottom} stroke="#65717e" />
-          <line x1={left} x2={right} y1={bottom} y2={bottom} stroke="#65717e" />
+          <line x1={left} x2={left} y1={top} y2={bottom} stroke="var(--chart-axis)" />
+          <line x1={left} x2={right} y1={bottom} y2={bottom} stroke="var(--chart-axis)" />
           {roundTicks.map((round) => (
             <text
               key={round}
               x={x(round)}
               y={bottom + 20}
               textAnchor="middle"
-              fill="#424e5b"
+              fill="var(--chart-label)"
               fontSize={12}
             >
               {round}
@@ -127,7 +133,7 @@ export function RecordedChart({
             x={(left + right) / 2}
             y={height - 4}
             textAnchor="middle"
-            fill="#424e5b"
+            fill="var(--chart-label)"
             fontSize={12}
           >
             Recorded round

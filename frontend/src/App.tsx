@@ -16,9 +16,11 @@ import { EntryConsole } from './components/console/EntryConsole';
 import { HistoryDrawer } from './components/console/HistoryDrawer';
 import { ProviderBadge, ProviderPanel } from './components/ProviderBadge';
 import { SignInProblem } from './components/SignInProblem';
+import { ThemeSwitch } from './components/ThemeSwitch';
 import { EmptyPanel, Notice, Spinner } from './components/ui';
 import { useConsole } from './hooks/useConsole';
 import { useProviderStatus } from './hooks/useProviderStatus';
+import { useTheme } from './hooks/useTheme';
 import { sourceLink } from './lib/format';
 import { signInProblem } from './lib/signIn';
 
@@ -31,6 +33,7 @@ export default function App() {
 function Console() {
   const console = useConsole();
   const provider = useProviderStatus();
+  const theme = useTheme();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [comparisonProject, setComparisonProject] = useState<string | null>(null);
@@ -125,6 +128,7 @@ function Console() {
               <LogOut size={14} aria-hidden="true" /> Sign out
             </button>
           )}
+          <ThemeSwitch preference={theme.preference} onChoose={theme.choose} />
           <button
             className="button button-secondary button-small"
             type="button"

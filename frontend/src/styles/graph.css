@@ -3,7 +3,7 @@
   flex-direction: column;
   min-width: 0;
   height: auto;
-  background: #fff;
+  background: var(--t-bg-ffffff);
 }
 .panel-heading {
   display: flex;
@@ -59,7 +59,7 @@
   width: 100%;
   min-width: 0;
   overflow: hidden;
-  background: #fdfdfc;
+  background: var(--t-bg-fdfdfc);
 }
 .graph-surface > svg {
   width: 100%;
@@ -77,7 +77,7 @@
 .graph-node > circle:not(.node-hit),
 .graph-node > rect,
 .graph-node > polygon {
-  stroke: #fff;
+  stroke: var(--t-fg-ffffff);
   stroke-width: 1.5;
 }
 .graph-node:hover > circle:not(.node-hit),
@@ -86,20 +86,20 @@
 .graph-node:focus > circle:not(.node-hit),
 .graph-node:focus > rect,
 .graph-node:focus > polygon {
-  stroke: #24282e;
+  stroke: var(--t-fg-24282e);
   stroke-width: 2;
 }
 .graph-node.selected > circle:not(.node-hit),
 .graph-node.selected > rect,
 .graph-node.selected > polygon {
-  stroke: #a83b14;
+  stroke: var(--t-fg-a83b14);
   stroke-width: 3;
 }
 .graph-node text,
 .graph-labels text {
   font-family: var(--mono);
-  fill: #303b47;
-  stroke: #fff;
+  fill: var(--t-fg-303b47);
+  stroke: var(--t-fg-ffffff);
   stroke-width: 3px;
   paint-order: stroke;
   stroke-linejoin: round;
@@ -107,18 +107,18 @@
 }
 .graph-node.memory text,
 .graph-labels .memory {
-  fill: #8b401b;
+  fill: var(--t-fg-8b401b);
 }
 .graph-edge {
   cursor: pointer;
 }
 .edge-line {
-  stroke: #a6b4c3;
+  stroke: var(--t-fg-a6b4c3);
   stroke-width: 1;
   pointer-events: none;
 }
 .graph-edge.simulated .edge-line {
-  stroke: #b29c83;
+  stroke: var(--t-fg-b29c83);
   stroke-width: 1;
   stroke-dasharray: 4 4;
 }
@@ -127,14 +127,14 @@
 }
 .graph-edge:hover .edge-line,
 .graph-edge:focus .edge-line {
-  stroke: #a83b14;
+  stroke: var(--t-fg-a83b14);
   stroke-width: 2.5;
 }
 .graph-edge text {
   font-family: var(--mono);
   text-anchor: middle;
-  fill: #445161;
-  stroke: #fff;
+  fill: var(--t-fg-445161);
+  stroke: var(--t-fg-ffffff);
   stroke-width: 3px;
   paint-order: stroke;
 }
@@ -168,7 +168,7 @@
   min-height: 32px;
   font-size: 12px;
   background: transparent;
-  color: #454f5d;
+  color: var(--t-fg-454f5d);
 }
 .legend-shape {
   height: 9px;
@@ -181,8 +181,8 @@
   transform: rotate(45deg);
 }
 .graph-legend .muted-filter {
-  color: #505963;
-  background: #edf0f2;
+  color: var(--t-fg-505963);
+  background: var(--t-bg-edf0f2);
   text-decoration: line-through;
 }
 .graph-accessible-select {
@@ -205,7 +205,7 @@
   line-height: 1.7;
 }
 .graph-caption strong {
-  color: #815025;
+  color: var(--t-fg-815025);
   font-weight: 600;
 }
 .graph-evolution {
@@ -215,8 +215,8 @@
   gap: 8px 10px;
   padding: 12px;
   border-top: 1px solid var(--border);
-  background: #f8fafc;
-  color: #394b60;
+  background: var(--t-bg-f8fafc);
+  color: var(--t-fg-394b60);
   font-size: 12px;
 }
 .graph-evolution > p,

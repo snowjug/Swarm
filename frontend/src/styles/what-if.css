@@ -1,8 +1,8 @@
 .checkpoint-controls {
-  border: 1px solid #afc2d5;
+  border: 1px solid var(--t-bd-afc2d5);
   border-radius: 4px;
   padding: 14px;
-  background: #f6f9fc;
+  background: var(--t-bg-f6f9fc);
 }
 .checkpoint-editor {
   padding: 14px;
@@ -40,17 +40,17 @@
   gap: 12px;
   padding: 13px;
   border: 1px solid var(--border);
-  background: #fafbfc;
+  background: var(--t-bg-fafbfc);
   border-radius: 3px;
 }
 .branch-banner {
   padding: 12px 14px;
   margin-bottom: 12px;
-  border: 1px solid #a9bfd5;
-  border-left: 3px solid #567d9f;
+  border: 1px solid var(--t-bd-a9bfd5);
+  border-left: 3px solid var(--t-bd-567d9f);
   border-radius: 3px;
-  background: #f0f5fb;
-  color: #2f4d6c;
+  background: var(--t-bg-f0f5fb);
+  color: var(--t-fg-2f4d6c);
   font-size: 13px;
 }
 .branch-banner > p {

@@ -5,18 +5,18 @@
   gap: 6px;
   min-width: 0;
   max-width: 100%;
-  border: 1px solid #c3c8ce;
+  border: 1px solid var(--t-bd-c3c8ce);
   border-radius: 3px;
-  background: #f0f1f2;
-  color: #4a535f;
+  background: var(--t-bg-f0f1f2);
+  color: var(--t-fg-4a535f);
   font: 12px/1.5 var(--mono);
   overflow-wrap: anywhere;
 }
 .provider-badge-real,
 .mode-pill-real {
-  border-color: #ba8c72;
-  background: #fff3eb;
-  color: #91380f;
+  border-color: var(--t-bd-ba8c72);
+  background: var(--t-bg-fff3eb);
+  color: var(--t-fg-91380f);
 }
 .provider-badge {
   flex: 0 1 auto;
@@ -49,32 +49,32 @@
   align-items: center;
   gap: 4px;
   padding: 0 6px;
-  border: 1px solid #c3c8ce;
+  border: 1px solid var(--t-bd-c3c8ce);
   border-radius: 3px;
-  background: #fff;
-  color: #4a535f;
+  background: var(--t-bg-ffffff);
+  color: var(--t-fg-4a535f);
   font: 12px/1.5 var(--mono);
   white-space: nowrap;
 }
 .provider-chip-ok {
-  border-color: #b7cfbd;
-  background: #eef8f0;
-  color: #32613e;
+  border-color: var(--t-bd-b7cfbd);
+  background: var(--t-bg-eef8f0);
+  color: var(--t-fg-32613e);
 }
 .provider-chip-failing {
-  border-color: #d6afb2;
-  background: #fbefef;
-  color: #963238;
+  border-color: var(--t-bd-d6afb2);
+  background: var(--t-bg-fbefef);
+  color: var(--t-fg-963238);
 }
 .provider-chip-warn {
-  border-color: #d7bca4;
-  background: #fff4e9;
-  color: #874314;
+  border-color: var(--t-bd-d7bca4);
+  background: var(--t-bg-fff4e9);
+  color: var(--t-fg-874314);
 }
 .provider-panel {
   padding: 12px 24px 14px;
   border-bottom: 1px solid var(--border);
-  background: #fff;
+  background: var(--t-bg-ffffff);
   color: var(--text);
 }
 .provider-panel-inner {
@@ -121,17 +121,17 @@
 .run-target {
   margin: 0;
   padding: 8px 10px;
-  border: 1px solid #ba8c72;
+  border: 1px solid var(--t-bd-ba8c72);
   border-radius: 3px;
-  background: #fff3eb;
-  color: #91380f;
+  background: var(--t-bg-fff3eb);
+  color: var(--t-fg-91380f);
   font: 12px/1.6 var(--mono);
   overflow-wrap: anywhere;
 }
 .run-target-off {
-  border-color: #c3c8ce;
-  background: #f0f1f2;
-  color: #4a535f;
+  border-color: var(--t-bd-c3c8ce);
+  background: var(--t-bg-f0f1f2);
+  color: var(--t-fg-4a535f);
 }
 .project-provenance {
   display: flex;
