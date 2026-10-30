@@ -121,6 +121,14 @@ select {
   max-width: 100%;
   font-size: 13px;
 }
+/* A control with no colours of its own is painted with the browser's palette, which differs by browser and
+   platform and is not one of ours: a muted label over it was 4.5:1 in one browser and less in another.
+   Every native text control takes the surface of the theme; a rule below that sets its own still wins. */
+input:where(:not([type='checkbox'], [type='radio'], [type='range'], [type='file'])),
+textarea,
+select {
+  background-color: var(--panel);
+}
 input[type='text'],
 input[type='search'],
 input[type='number'],

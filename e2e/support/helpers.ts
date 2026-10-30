@@ -125,6 +125,53 @@ export async function expectNoAxeViolations(page: Page, label: string): Promise<
   ).toEqual([]);
 }
 
+/**
+ * No native control may be painted with the browser's own palette. A control with no colours of its
+ * own takes them from the browser, in the page's colour scheme, and those differ by browser and
+ * platform: a muted label over a dark field was 4.5:1 in one browser and less in another, and axe
+ * passed in one and failed in the other. The browser's palette is read here from a bare control in a
+ * blank frame, so the check needs no knowledge of which browser it runs in.
+ *
+ * Only meaningful where the browser's palette differs from the theme's: not in the light theme, in
+ * which a white field is the browser's white field as well.
+ */
+export async function expectNoBrowserPaintedControls(page: Page, label: string): Promise<void> {
+  const painted = await page.evaluate(() => {
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;left:-9999px;width:10px;height:10px';
+    document.body.append(frame);
+    const blank = frame.contentDocument!;
+    blank.documentElement.style.colorScheme = getComputedStyle(
+      document.documentElement,
+    ).colorScheme;
+    const defaults: Record<string, string> = {};
+    for (const tag of ['button', 'select', 'input', 'textarea']) {
+      const bare = blank.createElement(tag);
+      blank.body.append(bare);
+      defaults[tag] = frame.contentWindow!.getComputedStyle(bare).backgroundColor;
+    }
+    frame.remove();
+    const found: string[] = [];
+    const controls = document.querySelectorAll(
+      "button, select, textarea, input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='hidden'])",
+    );
+    for (const control of controls) {
+      const box = control.getBoundingClientRect();
+      const style = getComputedStyle(control);
+      if (!box.width || !box.height || style.visibility === 'hidden') continue;
+      const tag = control.tagName.toLowerCase();
+      if (style.backgroundColor === defaults[tag]) {
+        const text = (control.textContent || (control as HTMLInputElement).value || '').trim();
+        found.push(
+          `${tag}${control.className ? `.${control.className}` : ''} "${text.slice(0, 24)}"`,
+        );
+      }
+    }
+    return found;
+  });
+  expect(painted, `controls painted with the browser's own colours: ${label}`).toEqual([]);
+}
+
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   const overflow = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,

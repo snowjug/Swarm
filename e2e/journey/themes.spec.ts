@@ -3,7 +3,11 @@ import { expect, test, type Page } from '@playwright/test';
 import { DEMO_PROJECTS } from '../../shared/demo';
 import { Repository } from '../../backend/src/storage/repository';
 import { seedDemo } from '../../scripts/demo/lib/seed';
-import { expectNoAxeViolations, expectNoHorizontalOverflow } from '../support/helpers';
+import {
+  expectNoAxeViolations,
+  expectNoBrowserPaintedControls,
+  expectNoHorizontalOverflow,
+} from '../support/helpers';
 
 // The colour themes, in a real browser: the page follows the device until a choice is made, keeps the
 // choice, and is readable in every theme (axe, with its contrast rule, on every stage of the demonstration).
@@ -13,6 +17,11 @@ const STAGES = ['Graph Build', 'Env Setup', 'Simulation', 'Report', 'Interaction
 const [BASE] = DEMO_PROJECTS as [(typeof DEMO_PROJECTS)[number]];
 
 const html = (page: Page) => page.locator('html');
+
+/** The browser's own colours differ from the dark and high-contrast palettes, and agree with the light one. */
+async function checkNativeControls(page: Page, theme: (typeof THEMES)[number], label: string) {
+  if (theme !== 'light') await expectNoBrowserPaintedControls(page, `${theme}: ${label}`);
+}
 
 test.beforeAll(() => {
   const root = process.env.E2E_DATA_ROOT;
@@ -85,6 +94,7 @@ for (const theme of THEMES) {
     await page.goto('/');
     await expect(html(page)).toHaveAttribute('data-theme', theme);
     await expectNoAxeViolations(page, `${theme}: entry`);
+    await checkNativeControls(page, theme, 'entry');
 
     await page
       .getByRole('region', { name: 'Demonstration workspace' })
@@ -92,6 +102,7 @@ for (const theme of THEMES) {
       .click();
     await expect(page.getByRole('heading', { level: 1, name: BASE.title })).toBeVisible();
     await expectNoAxeViolations(page, `${theme}: project`);
+    await checkNativeControls(page, theme, 'project');
 
     for (const stage of STAGES) {
       await page
@@ -102,6 +113,7 @@ for (const theme of THEMES) {
       await expect(page.locator('.spin:visible')).toHaveCount(0);
       await expectNoHorizontalOverflow(page);
       await expectNoAxeViolations(page, `${theme}: ${stage}`);
+      await checkNativeControls(page, theme, stage);
     }
   });
 }
