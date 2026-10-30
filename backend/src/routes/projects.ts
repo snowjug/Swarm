@@ -9,6 +9,7 @@ import { retrieve } from '../knowledge/retrieval.js';
 import type { InteractionService } from '../orchestration/interaction.js';
 import type { Orchestrator } from '../orchestration/runner.js';
 import type { Repository } from '../storage/repository.js';
+import { idempotencyOptions } from './idempotency.js';
 
 const projectParams = z.object({ id: z.uuid() });
 const targetQuery = z.object({ target: z.string().min(1).max(80).default('report') });
@@ -51,7 +52,7 @@ export function projectRoutes(
 
   app.post('/api/projects/:id/run', { config: limit(6) }, async (request, reply) => {
     const { id } = projectParams.parse(request.params);
-    return reply.code(202).send(jobs.enqueue(id));
+    return reply.code(202).send(jobs.enqueue(id, idempotencyOptions(request)));
   });
 
   app.post('/api/projects/:id/cancel', async (request, reply) => {

@@ -59,6 +59,7 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   },
   'GET /api/projects/:id/evidence': reads('Reads passages the caller may already read.'),
   'GET /api/projects/:id/memories': reads('Reads recorded simulation memories.'),
+  'GET /api/projects/:id/jobs': reads('Reads the state of the stage jobs of a project.'),
   'GET /api/projects/:id/compare': reads('A comparison computed from two recorded runs.'),
   'GET /api/projects/:id/ledger': reads(
     'Reads the ledger; building it is recorded as ledger.built.',

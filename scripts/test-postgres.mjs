@@ -10,7 +10,13 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const result = spawnSync(
   process.execPath,
-  [resolve(root, 'node_modules', 'vitest', 'vitest.mjs'), 'run', ...process.argv.slice(2)],
+  [
+    resolve(root, 'node_modules', 'vitest', 'vitest.mjs'),
+    'run',
+    // PGlite is a whole database in this process and each statement blocks it: the stage tests need longer.
+    '--testTimeout=240000',
+    ...process.argv.slice(2),
+  ],
   { cwd: root, stdio: 'inherit', env: { ...process.env, SWARM_TEST_DATABASE: 'pglite' } },
 );
 process.exit(result.status ?? 1);

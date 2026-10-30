@@ -27,6 +27,7 @@ import { LedgerStore } from './ledger-store.js';
 import { MemberStore } from './members.js';
 import { migrate, type MigrationReport } from './migrations.js';
 import { openDatabase } from './open.js';
+import { JobStore, LEASE_HELD, jobLease } from './jobs.js';
 import { SessionStore } from './sessions.js';
 import type { SqlDatabase } from './sql.js';
 import { parseSnapshot } from './snapshot.js';
@@ -54,6 +55,14 @@ export interface Viewer {
   everything: boolean;
 }
 
+/** Raised for a write by a worker whose job was handed to another, which must stop and write nothing more. */
+const leaseLost = (): AppError =>
+  new AppError(
+    409,
+    'LEASE_LOST',
+    'This job was handed to another worker, so this one must stop and write nothing more.',
+  );
+
 export class Repository {
   private readonly database: SqlDatabase;
   /** Claim records and conflicts between sources. */
@@ -64,6 +73,8 @@ export class Repository {
   readonly members: MemberStore;
   /** Browser sign-in: logins in flight and the sessions they produced. */
   readonly sessions: SessionStore;
+  /** The queue of stage jobs: durable, leased, retried. */
+  readonly jobs: JobStore;
   /** What the schema migration did when this database was opened. */
   readonly migration: MigrationReport;
 
@@ -71,7 +82,15 @@ export class Repository {
    * `target` is a SQLite file path, `:memory:`, or a `postgres://` URL (see `openDatabase`). With
    * `entra`, a PostgreSQL connection is authenticated with a Microsoft Entra access token instead of a password.
    */
-  constructor(target: string, options: { now?: () => number; entra?: boolean } = {}) {
+  constructor(
+    target: string,
+    options: {
+      now?: () => number;
+      entra?: boolean;
+      /** Wait before attempt n+1 of a job; a test replaces the jittered default. */
+      retryDelayMs?: (attempt: number) => number;
+    } = {},
+  ) {
     this.database = openDatabase(
       target,
       options.entra === undefined ? {} : { entra: options.entra },
@@ -90,6 +109,12 @@ export class Repository {
       this.audit,
     );
     this.sessions = new SessionStore(this.database, options.now);
+    this.jobs = new JobStore(
+      this.database,
+      (operation) => (this.database.inTransaction ? operation() : this.transaction(operation)),
+      options.now,
+      options.retryDelayMs,
+    );
   }
 
   /** Which database this is: `sqlite` or `postgres`. */
@@ -418,6 +443,16 @@ export class Repository {
     return { id: project.id, replaced: Boolean(existing) };
   }
 
+  /**
+   * What a write made for a job must add to its statement so that it lands only while that job's
+   * worker still holds the lease: the check and the write are one statement, so they cannot be pulled
+   * apart by a hand-over in between. Null outside a job, where nothing is checked.
+   */
+  private lease(): { condition: string; parameters: [string, string] } | null {
+    const held = jobLease.getStore();
+    return held ? { condition: LEASE_HELD, parameters: [held.jobId, held.owner] } : null;
+  }
+
   update(
     id: string,
     changes: Partial<Omit<StoredProject, 'id' | 'createdAt' | 'updatedAt'>>,
@@ -430,9 +465,15 @@ export class Repository {
       }
       const next: StoredProject = { ...current, ...changes, updatedAt: new Date().toISOString() };
       storedProjectSchema.parse(next);
-      this.database
-        .prepare('UPDATE projects SET updated_at = ?, status = ?, payload = ? WHERE id = ?')
-        .run(next.updatedAt, next.status, JSON.stringify(next), id);
+      const guard = this.lease();
+      const result = this.database
+        .prepare(
+          `UPDATE projects SET updated_at = ?, status = ?, payload = ? WHERE id = ?${
+            guard ? ` AND ${guard.condition}` : ''
+          }`,
+        )
+        .run(next.updatedAt, next.status, JSON.stringify(next), id, ...(guard?.parameters ?? []));
+      if (guard && Number(result.changes) === 0) throw leaseLost();
     };
     if (this.database.inTransaction) write();
     else this.transaction(write);
@@ -440,11 +481,23 @@ export class Repository {
   }
 
   addEvent(projectId: string, stage: Stage, message: string): void {
-    this.database
-      .prepare('INSERT INTO events (project_id, stage, message, created_at) VALUES (?, ?, ?, ?)')
-      .run(projectId, stage, message, new Date().toISOString());
+    const at = new Date().toISOString();
+    const guard = this.lease();
+    if (!guard) {
+      this.database
+        .prepare('INSERT INTO events (project_id, stage, message, created_at) VALUES (?, ?, ?, ?)')
+        .run(projectId, stage, message, at);
+      return;
+    }
+    const result = this.database
+      .prepare(
+        `INSERT INTO events (project_id, stage, message, created_at)
+         SELECT CAST(? AS TEXT), CAST(? AS TEXT), CAST(? AS TEXT), CAST(? AS TEXT)
+         WHERE ${guard.condition}`,
+      )
+      .run(projectId, stage, message, at, ...guard.parameters);
+    if (Number(result.changes) === 0) throw leaseLost();
   }
-
   chunks(projectId: string): EvidenceChunk[] {
     this.get(projectId);
     return this.database
@@ -519,60 +572,71 @@ export class Repository {
       .prepare('SELECT id FROM projects ORDER BY created_at, id')
       .all()
       .map((row) => idRow.parse(row).id);
+    // A project with a job in the queue is not abandoned: the queue runs it, or hands it to
+    // another worker if its holder stops, so only a project that nothing owns is marked failed.
+    const owned = new Set(this.jobs.liveProjectIds());
     for (const id of ids) {
-      const project = this.get(id);
-      const interrupted = project.status === 'queued' || project.status === 'running';
-      const surveyInterrupted = project.console?.surveys.some(
-        (survey) => survey.status === 'queued' || survey.status === 'running',
-      );
-      if (!interrupted && !surveyInterrupted) continue;
-      const saved = readCheckpoint(project);
-      const error =
-        saved === null
-          ? 'The backend restarted before this run finished. Retry to start a new attempt.'
-          : `The backend restarted before this run finished. Rounds 1-${saved} are saved; resume from round ${saved + 1} or restart.`;
-      const consoleState = project.console;
-      if (consoleState) {
-        const steps = { ...consoleState.steps };
-        for (const step of [
-          'knowledge',
-          'environment',
-          'simulation',
-          'report',
-          'interaction',
-        ] as const) {
-          if (steps[step] === 'queued' || steps[step] === 'running') steps[step] = 'failed';
-        }
-        this.update(project.id, {
-          console: {
-            ...consoleState,
-            steps,
-            platforms: consoleState.platforms.map((run) => ({
-              ...run,
-              status: run.status === 'running' ? 'failed' : run.status,
-            })),
-            traces: consoleState.traces.map((trace) =>
-              trace.status === 'running'
-                ? { ...trace, status: 'failed', completedAt: new Date().toISOString(), error }
-                : trace,
-            ),
-            surveys: consoleState.surveys.map((survey) =>
-              survey.status === 'queued' || survey.status === 'running'
-                ? {
-                    ...survey,
-                    status: 'failed',
-                    completedAt: new Date().toISOString(),
-                    error:
-                      'The backend restarted before this survey finished. Partial results are retained.',
-                  }
-                : survey,
-            ),
-          },
-        });
-      }
-      if (interrupted) this.update(project.id, { status: 'failed', error });
-      this.addEvent(project.id, project.stage, error);
+      if (!owned.has(id)) this.interrupt(id, 'The backend restarted before this run finished.');
     }
+  }
+
+  /**
+   * Marks the work of a project that nothing is running as failed, so that it can be retried. Rounds
+   * already saved are kept, and the message says so.
+   */
+  interrupt(id: string, cause: string): void {
+    const project = this.get(id);
+    const interrupted = project.status === 'queued' || project.status === 'running';
+    const surveyInterrupted = project.console?.surveys.some(
+      (survey) => survey.status === 'queued' || survey.status === 'running',
+    );
+    if (!interrupted && !surveyInterrupted) return;
+    const saved = readCheckpoint(project);
+    const error =
+      saved === null
+        ? `${cause} Retry to start a new attempt.`
+        : `${cause} Rounds 1-${saved} are saved; resume from round ${saved + 1} or restart.`;
+    const consoleState = project.console;
+    if (consoleState) {
+      const steps = { ...consoleState.steps };
+      for (const step of [
+        'knowledge',
+        'environment',
+        'simulation',
+        'report',
+        'interaction',
+      ] as const) {
+        if (steps[step] === 'queued' || steps[step] === 'running') steps[step] = 'failed';
+      }
+      this.update(project.id, {
+        console: {
+          ...consoleState,
+          steps,
+          platforms: consoleState.platforms.map((run) => ({
+            ...run,
+            status: run.status === 'running' ? 'failed' : run.status,
+          })),
+          traces: consoleState.traces.map((trace) =>
+            trace.status === 'running'
+              ? { ...trace, status: 'failed', completedAt: new Date().toISOString(), error }
+              : trace,
+          ),
+          surveys: consoleState.surveys.map((survey) =>
+            survey.status === 'queued' || survey.status === 'running'
+              ? {
+                  ...survey,
+                  status: 'failed',
+                  completedAt: new Date().toISOString(),
+                  error:
+                    'The backend restarted before this survey finished. Partial results are retained.',
+                }
+              : survey,
+          ),
+        },
+      });
+    }
+    if (interrupted) this.update(project.id, { status: 'failed', error });
+    this.addEvent(project.id, project.stage, error);
   }
 
   delete(id: string, actor = 'local-user'): void {

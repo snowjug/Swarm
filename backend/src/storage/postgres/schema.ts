@@ -120,6 +120,27 @@ export const PG_V5 = `
   CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at);
 `;
 
+export const PG_V6 = `
+  CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('quick', 'knowledge', 'environment', 'simulation', 'report')),
+    resume INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL CHECK (state IN ('queued', 'running', 'paused', 'cancelling', 'cancelled',
+                                         'completed', 'partial', 'retrying', 'failed', 'expired')),
+    idempotency_key TEXT NOT NULL,
+    attempt INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL,
+    not_before BIGINT NOT NULL,
+    lease_owner TEXT, lease_expires_at BIGINT, heartbeat_at BIGINT,
+    cancel_requested INTEGER NOT NULL DEFAULT 0, pause_requested INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT,
+    created_at BIGINT NOT NULL, updated_at BIGINT NOT NULL, finished_at BIGINT,
+    UNIQUE (project_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS jobs_claim ON jobs(state, not_before);
+  CREATE INDEX IF NOT EXISTS jobs_project ON jobs(project_id, created_at);
+`;
+
 /** Where the schema version is kept: SQLite has `PRAGMA user_version`, PostgreSQL has no such thing. */
 export const PG_VERSION_TABLE = `
   CREATE TABLE IF NOT EXISTS swarm_schema (

@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync } from 'node:fs';
 import { z } from 'zod';
 import { AppError } from '../errors.js';
-import { PG_V1, PG_V2, PG_V3, PG_V4, PG_V5, PG_VERSION_TABLE } from './postgres/schema.js';
+import { PG_V1, PG_V2, PG_V3, PG_V4, PG_V5, PG_V6, PG_VERSION_TABLE } from './postgres/schema.js';
 import type { SqlDatabase } from './sql.js';
 
 export interface Migration {
@@ -122,6 +122,33 @@ const SCHEMA_V5 = `
   CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at);
 `;
 
+/**
+ * Durable jobs. A job is one stage of one project waiting to run, running, or finished; the table is
+ * the queue, so a restart of any process loses nothing. A worker takes a job with an atomic update
+ * that gives it a lease, renews the lease by heartbeats, and a job whose lease runs out is handed
+ * on. The unique key makes asking twice for the same thing one job.
+ */
+const SCHEMA_V6 = `
+  CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('quick', 'knowledge', 'environment', 'simulation', 'report')),
+    resume INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL CHECK (state IN ('queued', 'running', 'paused', 'cancelling', 'cancelled',
+                                         'completed', 'partial', 'retrying', 'failed', 'expired')),
+    idempotency_key TEXT NOT NULL,
+    attempt INTEGER NOT NULL DEFAULT 0, max_attempts INTEGER NOT NULL,
+    not_before INTEGER NOT NULL,
+    lease_owner TEXT, lease_expires_at INTEGER, heartbeat_at INTEGER,
+    cancel_requested INTEGER NOT NULL DEFAULT 0, pause_requested INTEGER NOT NULL DEFAULT 0,
+    error_code TEXT,
+    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, finished_at INTEGER,
+    UNIQUE (project_id, idempotency_key)
+  );
+  CREATE INDEX IF NOT EXISTS jobs_claim ON jobs(state, not_before);
+  CREATE INDEX IF NOT EXISTS jobs_project ON jobs(project_id, created_at);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
@@ -167,6 +194,11 @@ export const MIGRATIONS: readonly Migration[] = [
     version: 5,
     name: 'browser sign-in: login attempts and sessions',
     up: byDialect(SCHEMA_V5, PG_V5),
+  },
+  {
+    version: 6,
+    name: 'durable jobs: queue, leases and retries',
+    up: byDialect(SCHEMA_V6, PG_V6),
   },
 ];
 

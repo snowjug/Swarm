@@ -48,6 +48,7 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/projects/:id/export': project('export'),
   'GET /api/projects/:id/evidence': project('read'),
   'GET /api/projects/:id/memories': project('read'),
+  'GET /api/projects/:id/jobs': project('read'),
   'GET /api/projects/:id/compare': project('read'),
   'GET /api/projects/:id/ledger': project('read'),
   'GET /api/projects/:id/claims/:claimId': project('read'),

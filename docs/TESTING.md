@@ -24,27 +24,28 @@ The evidence layer has its own tests: the ledger and its publication policy
 sign-in, roles and tenant isolation against a local test identity provider (`auth.test.ts`,
 `membership.test.ts`, `session.test.ts`), migrations and the audit log (`storage.test.ts`), the six
 demonstration packs (`demos.test.ts`) and a front-end guard against raw-HTML sinks
-(`markup-sinks.test.ts`). Security-critical rules there are mutation-checked, as described next.
+(`markup-sinks.test.ts`). The job queue has two files: `jobs.test.ts` drives the queue rules directly (claims, leases, retries, poison, cancel, pause, the lease fence on repository writes), and `durable-jobs.test.ts` drives the orchestrator with a scripted model and a clock the test sets: a stalled worker, a crash, a stopped backend, cancel and pause from another process, retries, idempotency and branch lineage. Both run on PostgreSQL as part of `npm run test:postgres`. Security-critical rules and the queue's rules are mutation-checked, as described next.
 
 ## Mutation checks on security code
 
 A test that passes proves little unless it would fail when the rule it guards is gone. For the access
-rules (workspace and project membership, the seven roles, tenant isolation) and for browser sign-in
-(PKCE, nonce, state, sessions, expiry, the anti-forgery header, cookies), each rule is listed in
+rules (workspace and project membership, the seven roles, tenant isolation), for browser sign-in
+(PKCE, nonce, state, sessions, expiry, the anti-forgery header, cookies) and for the job queue (leases,
+the fence on a worker that lost its lease, retries, cancel and pause across processes), each rule is listed in
 [`scripts/mutation/mutants.json`](../scripts/mutation/mutants.json) as one small edit that breaks it:
 a check replaced by `false`, a capability added to a role, a `DELETE` that no longer deletes, a
 nonce that is no longer compared. The runner applies one edit at a time to the working copy, runs the
 tests that should notice, and restores the file.
 
 ```powershell
-npm.cmd run mutation:security                     # all 52; about half an hour on a busy machine
-npm.cmd run mutation:security -- --area=sign-in   # or membership, or storage
+npm.cmd run mutation:security                     # all 71; about three quarters of an hour on a busy machine
+npm.cmd run mutation:security -- --area=sign-in   # or membership, storage or jobs
 npm.cmd run mutation:security -- --only=M3,S8     # named ones
 npm.cmd run mutation:security -- --list
 ```
 
-Result when the list was last run in full: **15 of 15 membership, 27 of 27 sign-in and 10 of 10
-storage mutations were caught.** Two sign-in mutations survived the first run (an error reply that
+Result when each area was last run: **15 of 15 membership, 27 of 27 sign-in, 10 of 10 storage and 19
+of 19 job mutations were caught.** Two sign-in mutations survived the first run (an error reply that
 still carried a code, and a session that remembered every caller as a platform administrator); a
 test for each was added and both are now caught. This is a check of the tests, not proof that the
 rules are right, and a rule that is not in the list is not covered by it. Two storage rules cannot be

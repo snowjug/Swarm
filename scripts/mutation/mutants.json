@@ -468,6 +468,177 @@
       "find": "retry: !this.active",
       "replace": "retry: true",
       "tests": ["backend/test/postgres.test.ts"]
+    },
+    {
+      "id": "J1",
+      "area": "jobs",
+      "claim": "A worker takes a job that another worker already holds",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "           WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}) AND not_before <= ?\n                       ORDER BY not_before, created_at, id LIMIT 1)\n             AND state IN (${inList(WAITING)})\n           RETURNING id`,",
+      "replace": "           WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}, 'running') AND not_before <= ?\n                       ORDER BY not_before, created_at, id LIMIT 1)\n           RETURNING id`,",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J2",
+      "area": "jobs",
+      "claim": "A worker that lost its lease can still finish the job, over the new holder",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "finished_at = ?, updated_at = ?\n         WHERE id = ? AND lease_owner = ?",
+      "replace": "finished_at = ?, updated_at = ?\n         WHERE id = ? AND ? IS NOT NULL",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J3",
+      "area": "jobs",
+      "claim": "A worker that lost its lease is told by its heartbeat that it still holds the job",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "         WHERE id = ? AND lease_owner = ? AND state IN ('running', 'cancelling')\n         RETURNING cancel_requested, pause_requested",
+      "replace": "         WHERE id = ? AND ? IS NOT NULL AND state IN ('running', 'cancelling')\n         RETURNING cancel_requested, pause_requested",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J4",
+      "area": "jobs",
+      "claim": "The check that a writer holds the lease passes for a worker that does not, for every write it guards",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "WHERE id = ? AND lease_owner = ? AND state IN ('running', 'cancelling'))`;",
+      "replace": "WHERE id = ? AND ? IS NOT NULL AND state IN ('running', 'cancelling'))`;",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J5",
+      "area": "jobs",
+      "claim": "A write to the project by a worker that lost its lease is refused silently, not stopped",
+      "file": "backend/src/storage/repository.ts",
+      "find": "if (guard && Number(result.changes) === 0) throw leaseLost();",
+      "replace": "if (guard && Number(result.changes) === 0) void leaseLost();",
+      "tests": ["backend/test/jobs.test.ts", "backend/test/durable-jobs.test.ts"]
+    },
+    {
+      "id": "J6",
+      "area": "jobs",
+      "claim": "An event written by a worker that lost its lease is refused silently, not stopped",
+      "file": "backend/src/storage/repository.ts",
+      "find": "    if (Number(result.changes) === 0) throw leaseLost();",
+      "replace": "    if (Number(result.changes) === 0) void leaseLost();",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J7",
+      "area": "jobs",
+      "claim": "A job whose worker stopped heartbeating is never handed to another worker",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "AND lease_expires_at < ?",
+      "replace": "AND lease_expires_at < ? - 1000000000",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J8",
+      "area": "jobs",
+      "claim": "A job that takes its workers down on every attempt is retried for ever",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "} else if (job.attempt >= job.maxAttempts) {",
+      "replace": "} else if (false) {",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J9",
+      "area": "jobs",
+      "claim": "The wait between retries grows without a cap",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "const full = Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1));",
+      "replace": "const full = RETRY_BASE_MS * 2 ** Math.max(0, attempt - 1);",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J10",
+      "area": "jobs",
+      "claim": "Retries of many jobs arrive together, because the wait is not spread",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "return Math.round(full / 2 + (random() * full) / 2);",
+      "replace": "return Math.round(full);",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J11",
+      "area": "jobs",
+      "claim": "A failure that may pass is retried without limit",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "if (retryable && job.attempt < job.maxAttempts) {",
+      "replace": "if (retryable) {",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J12",
+      "area": "jobs",
+      "claim": "A job handed back at shutdown is charged an attempt, so deploys use up its retries",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "attempt = CASE WHEN attempt > 0 THEN attempt - 1 ELSE 0 END,",
+      "replace": "attempt = attempt,",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J13",
+      "area": "jobs",
+      "claim": "Asking twice with the same key makes two jobs, or fails",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "if (existing) return { job: existing, duplicate: true };",
+      "replace": "void existing;",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J14",
+      "area": "jobs",
+      "claim": "A cancellation is never passed on to the worker that is running the job",
+      "file": "backend/src/storage/jobs.ts",
+      "find": "`UPDATE jobs SET state = 'cancelling', cancel_requested = 1, updated_at = ? WHERE id = ?`,",
+      "replace": "`UPDATE jobs SET state = 'cancelling', cancel_requested = 0, updated_at = ? WHERE id = ?`,",
+      "tests": ["backend/test/jobs.test.ts"]
+    },
+    {
+      "id": "J15",
+      "area": "jobs",
+      "claim": "Starting a process marks runs that another worker is running as failed",
+      "file": "backend/src/storage/repository.ts",
+      "find": "if (!owned.has(id)) this.interrupt(id,",
+      "replace": "if (owned.has(id) || true) this.interrupt(id,",
+      "tests": ["backend/test/jobs.test.ts", "backend/test/durable-jobs.test.ts"]
+    },
+    {
+      "id": "J16",
+      "area": "jobs",
+      "claim": "A failure before any round was saved is retried by the queue, hiding it from the person",
+      "file": "backend/src/orchestration/runner.ts",
+      "find": "      this.retryCodes.has(code) &&\n      this.keptRounds(job) &&\n      !this.stopping",
+      "replace": "      this.retryCodes.has(code) &&\n      !this.stopping",
+      "tests": ["backend/test/durable-jobs.test.ts"]
+    },
+    {
+      "id": "J17",
+      "area": "jobs",
+      "claim": "A backend that stops fails its run instead of handing the job back to the queue",
+      "file": "backend/src/orchestration/runner.ts",
+      "find": "if (code === 'RUN_INTERRUPTED' && run.releasing) {",
+      "replace": "if (code === 'RUN_INTERRUPTED' && !run.releasing) {",
+      "tests": ["backend/test/durable-jobs.test.ts"]
+    },
+    {
+      "id": "J18",
+      "area": "jobs",
+      "claim": "A cancellation made through another process never reaches the worker, so model work goes on",
+      "file": "backend/src/orchestration/runner.ts",
+      "find": "} else if (beat.cancel) run.controller.abort(cancelledBy());",
+      "replace": "} else if (beat.cancel) void cancelledBy();",
+      "tests": ["backend/test/durable-jobs.test.ts"]
+    },
+    {
+      "id": "J19",
+      "area": "jobs",
+      "claim": "A process that is meant only to queue also runs jobs",
+      "file": "backend/src/orchestration/runner.ts",
+      "find": "if (this.stopping || this.activeTask || this.role === 'api') return;",
+      "replace": "if (this.stopping || this.activeTask) return;",
+      "tests": ["backend/test/durable-jobs.test.ts"]
     }
   ]
 }

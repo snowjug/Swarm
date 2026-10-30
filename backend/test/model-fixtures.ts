@@ -96,6 +96,8 @@ export class ScriptedProvider {
   onActorCall: ((actorIndex: number) => void) | null = null;
   /** Replaces the default actor behavior, for example to return hostile output. */
   actorOverride: ((context: ActorContext, actorIndex: number) => unknown) | null = null;
+  /** While set, every actor call waits for it: a test holds a worker in the middle of a round. */
+  gate: Promise<void> | null = null;
   private scripted = 0;
   private actors = 0;
 
@@ -129,6 +131,7 @@ export class ScriptedProvider {
       if (actor) {
         const actorIndex = this.actors++;
         this.onActorCall?.(actorIndex);
+        if (this.gate) await this.gate;
         raw = this.actorOverride
           ? this.actorOverride(data as ActorContext, actorIndex)
           : actorBrain(data as ActorContext);

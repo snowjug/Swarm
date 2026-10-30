@@ -40,9 +40,11 @@ export function sessionRoutes(
     verifier: TokenVerifier;
     endpoints: OidcEndpoints;
     fetcher?: typeof fetch;
+    /** Test hook: the managed identity's assertion, where there is no managed identity to ask. */
+    assertion?: () => Promise<string>;
   },
 ): void {
-  const { config, repository, verifier, endpoints, fetcher } = options;
+  const { config, repository, verifier, endpoints, fetcher, assertion } = options;
   const session = config.auth.session;
   if (!session) return;
   const secure = session.secureCookies;
@@ -105,6 +107,7 @@ export function sessionRoutes(
         endpoints,
         { code: query.data.code, verifier: attempt.verifier },
         fetcher,
+        assertion,
       );
       const principal = await verifier.verifyIdToken(idToken, {
         audience: session.clientId,

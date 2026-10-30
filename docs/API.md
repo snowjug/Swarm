@@ -25,6 +25,7 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | POST         | `/api/projects/:id/branches`                     | Create an independent scenario from a checkpoint with declared assumption changes; returns 201                            |
 | GET          | `/api/projects/:id/compare?with=<id>`            | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                             |
 | POST         | `/api/projects/:id/cancel`                       | Cancel waiting work or request active cancellation                                                                        |
+| GET          | `/api/projects/:id/jobs`                         | The newest stage jobs of a project: state, attempt, error code, times. Never the worker's identity or the idempotency key |
 | POST         | `/api/documents/extract`                         | Validate/base64-decode and isolate bounded local PDF extraction                                                           |
 | GET          | `/api/projects/:id/evidence?query=...`           | Sparse-vector search; exact `S1`-style citation lookup                                                                    |
 | GET          | `/api/projects/:id/evidence`                     | Explicit unranked browsing of this project's bounded passages                                                             |
@@ -85,6 +86,8 @@ valid session, and a change without the `X-Swarm-CSRF: 1` header returns `403 CS
 when sent, is the only credential considered.
 
 ## Request and response notes
+
+**Idempotency.** `POST /api/projects/:id/run` and `POST /api/projects/:id/steps/:step` accept an `Idempotency-Key` header (8-128 letters, digits and `-_.:`). A project that has already seen the key returns 202 with the project and queues nothing, so a client that retries after a lost reply does not start a second run; a malformed key is a 400. Without the header every request is its own job, and asking while work is active is a 409 `RUN_ACTIVE`.
 
 New UI creation sends `workflow: "guided"`; omitted workflow remains `"quick"` for
 API compatibility. Stage state and environment/survey input contracts are in

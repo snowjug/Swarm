@@ -58,16 +58,30 @@ const MAX_ID_TOKEN_LENGTH = 8_192;
 export const signInFailed = (): AppError =>
   new AppError(502, 'SIGN_IN_FAILED', 'Sign-in could not be completed. Try again.');
 
+/** What a managed identity's token is exchanged for at the token endpoint: the audience Entra defines for it. */
+export const ASSERTION_SCOPE = 'api://AzureADTokenExchange/.default';
+const ASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer';
+
+/** The token that proves to Entra that this is the application, from the platform's managed identity. */
+export async function managedIdentityAssertion(): Promise<string> {
+  const { DefaultAzureCredential } = await import('@azure/identity');
+  const token = await new DefaultAzureCredential().getToken(ASSERTION_SCOPE);
+  if (!token?.token) throw signInFailed();
+  return token.token;
+}
+
 /**
  * Redeems the authorization code for an ID token and returns that token and nothing else: the
  * access token, if the identity provider sends one, is discarded unread, so nothing but a short
- * session identifier ever reaches the browser or the database.
+ * session identifier ever reaches the browser or the database. A confidential client proves itself
+ * with a secret, or (preferably, because nothing is stored) with an assertion from its managed identity.
  */
 export async function exchangeCode(
-  session: Pick<SessionConfig, 'clientId' | 'redirectUri' | 'clientSecret'>,
+  session: Pick<SessionConfig, 'clientId' | 'redirectUri' | 'clientSecret' | 'clientAssertion'>,
   endpoints: OidcEndpoints,
   input: { code: string; verifier: string },
   fetcher: typeof fetch = fetch,
+  assertion: () => Promise<string> = managedIdentityAssertion,
 ): Promise<string> {
   const body = new URLSearchParams({
     grant_type: 'authorization_code',
@@ -78,6 +92,16 @@ export async function exchangeCode(
     scope: 'openid profile',
   });
   if (session.clientSecret) body.set('client_secret', session.clientSecret);
+  if (session.clientAssertion === 'managed-identity') {
+    let proof: string;
+    try {
+      proof = await assertion();
+    } catch {
+      throw signInFailed();
+    }
+    body.set('client_assertion_type', ASSERTION_TYPE);
+    body.set('client_assertion', proof);
+  }
   let response: Response;
   try {
     response = await fetcher(endpoints.token, {

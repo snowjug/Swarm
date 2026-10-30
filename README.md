@@ -103,6 +103,7 @@ capability is listed only if a test drives it; what is missing is under
 | Identity and access             | Sign in with Microsoft in the browser (Authorization Code with PKCE, a server-side session, no token in the page) or call with an Entra bearer token; seven roles through workspace and project membership; default-deny routes; tenant isolation; access removed on the next request (tested against a test identity provider, not a real tenant) | `auth.test.ts`, `membership.test.ts`, `session.test.ts`, `e2e/signin/signin.spec.ts`, `security.test.ts`                        |
 | Real Azure AI, no key           | Run every stage against an Azure model deployment with Entra authentication                                                                                                                                                                                                                                                                        | `npm run azure:verify` (15 checks), `scripts/azure/lib/*.test.ts`                                                               |
 | PostgreSQL storage (optional)   | Run the same stores on PostgreSQL (`DATABASE_URL`), with serializable transactions retried when they lose a race; copy a database between SQLite and PostgreSQL in either direction, checked, for migration and backup                                                                                                                             | `postgres.test.ts`, `postgres-driver.test.ts`, `copy.test.ts`, `npm run test:postgres` (the whole unit suite on PostgreSQL)     |
+| Durable stage jobs              | A refresh or a restart does not lose a run: stages are queued in the database, taken by a worker under a lease, retried a bounded number of times, resumed from the last saved round, cancelled or paused from any process; asking twice with the same `Idempotency-Key` is one job                                                                | `jobs.test.ts`, `durable-jobs.test.ts` (each also on PostgreSQL), 19 job mutations                                              |
 | Recorded demonstration          | Restore a real-model recording of one scenario and two branches, and walk the 32-step presentation in a real browser                                                                                                                                                                                                                               | `scripts/demo/lib/*.test.ts`, `e2e/journey/demo-journey.spec.ts`                                                                |
 | Accessibility checks            | Use the console by keyboard; axe-core finds no violation on the audited screens at four viewport sizes                                                                                                                                                                                                                                             | `e2e/local/a11y.spec.ts`, `e2e/local/responsive.spec.ts`, `npm run audit:ui`                                                    |
 
@@ -259,7 +260,7 @@ Current validated architecture. The application and database run locally; Azure 
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **On your machine**     | The browser console, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application |
 | **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                     |
-| **Proposed, not built** | Durable background jobs and a hosted worker, Azure Container Apps hosting, a PostgreSQL server in Azure, managed identity for the application, Service Bus, Application Insights and OpenTelemetry, a membership screen. They are designed in [docs/AZURE.md](./docs/AZURE.md); none is implemented or validated                      |
+| **Proposed, not built** | A hosted worker container, Azure Container Apps hosting, a PostgreSQL server in Azure, managed identity for the application, Application Insights and OpenTelemetry, a membership screen. They are designed in [docs/AZURE.md](./docs/AZURE.md) and [docs/azure/](./docs/azure/); none is deployed or validated                       |
 
 - **Frontend:** React and TypeScript. In the built application the same process serves it and the
   API. It holds no credentials.
@@ -528,8 +529,14 @@ ready for production use. See [Known Limitations](#known-limitations),
   is no screen for sharing a project; members are managed through the API. People are identified by
   their Entra object id: there are no groups, no invitations by name or email, and one workspace
   per tenant.
-- **Runs do not survive a restart on their own.** An interrupted run is marked failed and can be
-  retried; a paused run resumes from its saved round.
+- **Durable jobs have not run across real containers.** Stages are jobs in the database: they survive
+  a restart, a worker that stops is replaced after its lease runs out, and a simulation continues from
+  its last saved round ([ADR 0010](./docs/adr/0010-durable-jobs-leased-from-the-database.md)). That is
+  tested with a second worker modelled as a second queue consumer in one process, on SQLite and on
+  PostgreSQL in-process; two real processes racing for one deployed PostgreSQL row have not been tried.
+  A worker that lost its lease is stopped at its next write to the project, its events or its usage,
+  but not at a ledger write it is already making. A process killed outright waits for its lease (up
+  to 30 seconds) before its run is taken over.
 - **Operations are basic.** Structured logs and per-project token counts, with no distributed
   tracing, no per-tenant budget and no alerting.
 - **No Report Studio.** The report is read-only; reviewers record decisions in the ledger, and the

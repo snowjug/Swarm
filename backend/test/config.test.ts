@@ -145,6 +145,17 @@ describe('provider configuration and public boundaries', () => {
       expect(() => loadConfig({ RATE_LIMIT_SCALE: invalid })).toThrow('RATE_LIMIT_SCALE');
   });
 
+  it('serves and runs jobs by default, and accepts only a known role and a bounded lease', () => {
+    expect(loadConfig({}).role).toBe('all');
+    expect(loadConfig({}).jobLeaseMs).toBe(30_000);
+    for (const role of ['all', 'api', 'worker'] as const)
+      expect(loadConfig({ SWARM_ROLE: role }).role).toBe(role);
+    expect(loadConfig({ JOB_LEASE_SECONDS: '120' }).jobLeaseMs).toBe(120_000);
+    expect(() => loadConfig({ SWARM_ROLE: 'scheduler' })).toThrow('SWARM_ROLE');
+    for (const invalid of ['9', '601', '1.5', 'soon'])
+      expect(() => loadConfig({ JOB_LEASE_SECONDS: invalid })).toThrow('JOB_LEASE_SECONDS');
+  });
+
   it('derives loopback default origins from the API port without widening explicit allowlists', () => {
     expect(loadConfig({ PORT: '3002' }).allowedOrigins.has('http://127.0.0.1:3002')).toBe(true);
     expect(

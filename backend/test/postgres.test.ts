@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { LATEST_SCHEMA_VERSION } from '../src/storage/migrations.js';
 import type { BridgeReply, BridgeRequest, Transport } from '../src/storage/postgres/bridge.js';
 import { DatabaseError, PostgresDatabase } from '../src/storage/postgres/database.js';
 import { toPostgres } from '../src/storage/postgres/translate.js';
@@ -187,8 +188,8 @@ describe('the repository on PostgreSQL (PGlite, which is PostgreSQL running in t
   it('migrates a new database to the latest schema and says which database it is', () => {
     const db = repository();
     expect(db.dialect).toBe('postgres');
-    expect(db.migration).toMatchObject({ from: 0, to: 5, backup: null });
-    expect(db.migration.applied).toHaveLength(5);
+    expect(db.migration).toMatchObject({ from: 0, to: LATEST_SCHEMA_VERSION, backup: null });
+    expect(db.migration.applied).toHaveLength(LATEST_SCHEMA_VERSION);
     expect(db.ping()).toBe(true);
   });
 
@@ -196,7 +197,11 @@ describe('the repository on PostgreSQL (PGlite, which is PostgreSQL running in t
     const first = repository('pglite:reopened');
     const project = first.create(fixtureInput());
     const again = repository('pglite:reopened');
-    expect(again.migration).toMatchObject({ from: 5, to: 5, applied: [] });
+    expect(again.migration).toMatchObject({
+      from: LATEST_SCHEMA_VERSION,
+      to: LATEST_SCHEMA_VERSION,
+      applied: [],
+    });
     expect(again.get(project.id).name).toBe(project.name);
 
     rawOf(first).prepare('UPDATE swarm_schema SET version = 99 WHERE id = 1').run();

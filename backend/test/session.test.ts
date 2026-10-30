@@ -109,6 +109,7 @@ async function setup(
     extra?: Record<string, string>;
     now?: () => number;
     logStream?: { write(m: string): void };
+    assertion?: () => Promise<string>;
   } = {},
 ) {
   const config = testConfig({ ...environment, ...options.extra });
@@ -118,7 +119,10 @@ async function setup(
     config,
     repository,
     tokenVerifier: new TokenVerifier(config.auth, idp.keys),
-    oidc: { fetcher: provider.fetcher },
+    oidc: {
+      fetcher: provider.fetcher,
+      ...(options.assertion ? { assertion: options.assertion } : {}),
+    },
     ...(options.logStream ? { logStream: options.logStream } : {}),
   });
   applications.push(instance);
@@ -663,6 +667,65 @@ describe('finishing a sign-in', () => {
     const instance = await setup({ extra: { AUTH_ENTRA_CLIENT_SECRET: 'from-a-secret-store' } });
     await signIn(instance);
     expect(instance.provider.calls[0]!.form.get('client_secret')).toBe('from-a-secret-store');
+    expect(instance.provider.calls[0]!.form.has('client_assertion')).toBe(false);
+  });
+
+  describe('proving itself to Entra with the managed identity instead of a secret', () => {
+    const extra = { AUTH_ENTRA_CLIENT_ASSERTION: 'managed-identity' };
+    const PROOF = 'header.payload.signature-from-the-managed-identity';
+
+    it('is configured on its own, never alongside a secret, and defaults to off', () => {
+      expect(testConfig(environment).auth.session?.clientAssertion).toBeNull();
+      expect(testConfig({ ...environment, ...extra }).auth.session).toMatchObject({
+        clientAssertion: 'managed-identity',
+        clientSecret: null,
+      });
+      expect(() =>
+        testConfig({ ...environment, ...extra, AUTH_ENTRA_CLIENT_SECRET: 'a-secret' }),
+      ).toThrow(/not both/u);
+      expect(() =>
+        testConfig({ ...environment, AUTH_ENTRA_CLIENT_ASSERTION: 'password' }),
+      ).toThrow();
+    });
+
+    it('sends the identity’s assertion with the code, and no secret', async () => {
+      const instance = await setup({ extra, assertion: async () => PROOF });
+      const { cookie } = await signIn(instance);
+      expect(cookie).not.toBeNull();
+      const form = instance.provider.calls[0]!.form;
+      expect(form.get('client_assertion')).toBe(PROOF);
+      expect(form.get('client_assertion_type')).toBe(
+        'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+      );
+      expect(form.has('client_secret')).toBe(false);
+    });
+
+    it('does not call Microsoft, and starts no session, when the identity cannot give one, and logs nothing of it', async () => {
+      const lines: string[] = [];
+      const instance = await setup({
+        extra,
+        logStream: { write: (line) => void lines.push(line) },
+        assertion: async () => {
+          throw new Error(`could not reach the identity endpoint ${PROOF}`);
+        },
+      });
+      const { response, session } = await signIn(instance);
+      expect(response.headers.location).toBe('/?signin=failed');
+      expect(session).toBeUndefined();
+      expect(instance.provider.calls).toEqual([]);
+      expect(lines.join('')).not.toContain(PROOF);
+    });
+
+    it('is not asked for when it was not configured', async () => {
+      const instance = await setup({
+        assertion: async () => {
+          throw new Error('must not be called');
+        },
+      });
+      const { cookie } = await signIn(instance);
+      expect(cookie).not.toBeNull();
+      expect(instance.provider.calls[0]!.form.has('client_assertion')).toBe(false);
+    });
   });
 });
 

@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { LATEST_SCHEMA_VERSION } from '../src/storage/migrations.js';
 import { DatabaseError } from '../src/storage/postgres/database.js';
 import { Repository } from '../src/storage/repository.js';
 import type { SqlDatabase } from '../src/storage/sql.js';
@@ -42,7 +43,7 @@ describe('the repository over the pg driver', () => {
     const repository = new Repository(url);
     try {
       expect(repository.dialect).toBe('postgres');
-      expect(repository.migration.to).toBe(5);
+      expect(repository.migration.to).toBe(LATEST_SCHEMA_VERSION);
       const project = repository.create(fixtureInput({ name: 'Over the wire' }));
       expect(repository.get(project.id).name).toBe('Over the wire');
       expect(repository.list(10, 0, 'local').total).toBeGreaterThanOrEqual(1);

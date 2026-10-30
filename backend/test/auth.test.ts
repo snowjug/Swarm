@@ -1025,13 +1025,19 @@ describe('upgrading a database that has no owners', () => {
       DROP TABLE workspace_members;
       DROP TABLE sessions;
       DROP TABLE login_attempts;
+      DROP TABLE jobs;
       PRAGMA user_version = 2;
     `);
     legacy.close();
 
     const upgraded = new Repository(path);
     expect(upgraded.migration.from).toBe(2);
-    expect(upgraded.migration.applied.map((step) => step.slice(0, 2))).toEqual(['3:', '4:', '5:']);
+    expect(upgraded.migration.applied.map((step) => step.slice(0, 2))).toEqual([
+      '3:',
+      '4:',
+      '5:',
+      '6:',
+    ]);
     expect(upgraded.ownership(project.id)).toEqual({ tenantId: 'local', ownerId: 'local-user' });
     expect(upgraded.get(project.id).name).toBe(project.name);
     expect(upgraded.list(100, 0, 'local').projects).toHaveLength(1);

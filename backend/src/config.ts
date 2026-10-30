@@ -40,6 +40,12 @@ export interface SessionConfig {
    * flow is Authorization Code with PKCE either way, so a registration without a secret works.
    */
   clientSecret: string | null;
+  /**
+   * `managed-identity`: the token call is authenticated with a token of the application's managed
+   * identity (workload identity federation) instead of a secret, so that nothing needs to be stored.
+   * Needs a federated credential on the app registration; mutually exclusive with `clientSecret`.
+   */
+  clientAssertion: 'managed-identity' | null;
   /** A session ends after this long without a request. */
   idleMinutes: number;
   /** A session ends this long after sign-in, whatever is happening. */
@@ -83,6 +89,21 @@ export interface ServerConfig {
   storageWarning: string | null;
   /** Multiplies every per-IP request limit. Default 1; raise only for automated tests/load tests. */
   rateLimitScale: number;
+  /**
+   * How many reverse proxies sit in front of the server and are trusted to say who the caller is
+   * (`X-Forwarded-For`). 0 (the default) trusts none: the caller is the peer address. Behind one proxy,
+   * such as a container platform's ingress, set 1; otherwise every caller appears to be the proxy and
+   * the per-address rate limit is shared by everyone. Never set it when the port can be reached directly.
+   */
+  trustedProxies: number;
+  /**
+   * What this process does with the job queue. `all` (the default) serves requests and runs jobs;
+   * `api` serves requests and only queues jobs; `worker` runs jobs from the queue and answers health
+   * probes. Any number of each may share one database.
+   */
+  role: 'all' | 'api' | 'worker';
+  /** How long a worker may go without a heartbeat before its job is handed to another. */
+  jobLeaseMs: number;
 }
 
 const syncedFolders: readonly [string, RegExp][] = [
@@ -159,8 +180,12 @@ const environmentSchema = z.object({
   AUTH_ENTRA_CLIENT_ID: z.uuid().optional(),
   AUTH_ENTRA_REDIRECT_URI: z.string().trim().optional(),
   AUTH_ENTRA_CLIENT_SECRET: z.string().trim().min(1).max(500).optional(),
+  AUTH_ENTRA_CLIENT_ASSERTION: z.enum(['managed-identity']).optional(),
   AUTH_SESSION_IDLE_MINUTES: z.coerce.number().int().min(5).max(480).default(30),
   AUTH_SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(24).default(8),
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
+  SWARM_ROLE: z.enum(['all', 'api', 'worker']).default('all'),
+  JOB_LEASE_SECONDS: z.coerce.number().int().min(10).max(600).default(30),
 });
 
 /** Microsoft publishes one signing-key set for all tenants; the token's own tenant is checked separately. */
@@ -193,11 +218,17 @@ function buildSession(
       'AUTH_ENTRA_REDIRECT_URI must end in /auth/callback, with no query or credentials.',
     );
   }
+  if (input.AUTH_ENTRA_CLIENT_SECRET && input.AUTH_ENTRA_CLIENT_ASSERTION) {
+    throw new Error(
+      'Use AUTH_ENTRA_CLIENT_SECRET or AUTH_ENTRA_CLIENT_ASSERTION, not both: a client authenticates one way.',
+    );
+  }
   return {
     clientId: clientId.toLowerCase(),
     redirectUri: url.toString(),
     authorityTenant: tenants.size === 1 ? [...tenants][0]! : 'organizations',
     clientSecret: input.AUTH_ENTRA_CLIENT_SECRET ?? null,
+    clientAssertion: input.AUTH_ENTRA_CLIENT_ASSERTION ?? null,
     idleMinutes: input.AUTH_SESSION_IDLE_MINUTES,
     absoluteHours: input.AUTH_SESSION_ABSOLUTE_HOURS,
     secureCookies: url.protocol === 'https:',
@@ -410,6 +441,9 @@ export function loadConfig(
     auth,
     storageWarning: databaseUrl ? null : storageWarning(databasePath),
     rateLimitScale: input.RATE_LIMIT_SCALE,
+    trustedProxies: input.TRUST_PROXY,
+    role: input.SWARM_ROLE,
+    jobLeaseMs: input.JOB_LEASE_SECONDS * 1_000,
   };
 }
 

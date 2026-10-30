@@ -8,6 +8,7 @@ import {
   surveyInputSchema,
 } from '../../../shared/guided.js';
 import { AppError } from '../errors.js';
+import { idempotencyOptions } from './idempotency.js';
 import { ownerOf, principalOf, requireReadable } from '../auth/guard.js';
 import { workspaceAllows } from '../auth/roles.js';
 import { compareRuns } from '../guided/compare.js';
@@ -44,7 +45,27 @@ export function guidedRoutes(
     if (body?.resume && step !== 'simulation') {
       throw new AppError(400, 'RESUME_UNSUPPORTED', 'Only the simulation stage can be resumed.');
     }
-    return reply.code(202).send(jobs.enqueueStep(id, step, body?.resume === true));
+    return reply
+      .code(202)
+      .send(jobs.enqueueStep(id, step, body?.resume === true, idempotencyOptions(request)));
+  });
+
+  app.get('/api/projects/:id/jobs', async (request) => {
+    const { id } = idParams.parse(request.params);
+    // Only what a person needs to see: no lease holder, no idempotency key.
+    return {
+      jobs: repository.jobs.recent(id).map((job) => ({
+        id: job.id,
+        kind: job.kind,
+        state: job.state,
+        attempt: job.attempt,
+        maxAttempts: job.maxAttempts,
+        errorCode: job.errorCode,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+        finishedAt: job.finishedAt,
+      })),
+    };
   });
 
   app.post('/api/projects/:id/pause', { config: limit(20) }, async (request, reply) =>

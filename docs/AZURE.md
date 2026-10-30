@@ -17,14 +17,14 @@ adapters, multi-user authentication or distributed execution already exist.
 
 Use one **Azure Container Apps** application serving the built UI and API, with
 managed identity and **Azure OpenAI / Foundry** for optional model-assisted runs.
-Keep one replica until storage and job ownership have been externalized. Require
-Entra authentication before internet exposure.
+Keep one replica until several instances against one database have been validated.
+Require Entra authentication before internet exposure.
 
-For durable hosting, migrate the repository to a small managed PostgreSQL database
-and add durable job/lease ownership before deployment. That is an additional
-database service, not a claim that SQLite can safely scale on a network share.
-The current encapsulated repository is the replacement boundary; extract an
-interface when implementing the second adapter rather than inventing one early.
+For durable hosting, use a small managed PostgreSQL database. The PostgreSQL adapter
+([ADR 0009](./adr/0009-postgres-through-a-synchronous-bridge.md)) and durable job leases
+([ADR 0010](./adr/0010-durable-jobs-leased-from-the-database.md)) are built and tested
+in-process; they have not run against a deployed server. That is an additional database
+service, not a claim that SQLite can safely scale on a network share.
 
 ```text
 Authenticated user
@@ -59,6 +59,21 @@ Private endpoints, dedicated networking, regional redundancy and additional queu
 services should follow actual compliance, load and recovery requirements, not be
 added automatically.
 
+## Hosted pilot: plan and cost (not deployed)
+
+The smallest hosted shape this repository can serve safely has a template, an `azd` file, a
+post-deployment check and two documents:
+
+- [Pilot plan](./azure/pilot-plan.md): the architecture, what is created and what is left out, the
+  managed-identity and role matrix, deployment with `azd` or `az`, the Entra app registration, the first
+  owner, backup, restore and rollback, smoke checks, teardown, and what has **not** been validated.
+- [Pilot cost](./azure/pilot-cost.md): a monthly range for each resource from list prices, free grants, and
+  the approval request for the chargeable resources.
+- `infra/pilot/` (Bicep at resource-group scope), `azure.yaml`, and
+  `npx tsx scripts/azure/pilot-smoke.ts https://<address>`.
+
+The template compiles and lints. **Nothing has been deployed and no chargeable resource exists.**
+
 ## Azure AI integration: what exists and what is verified
 
 | Capability                                                    | Implemented | Verified how                                                                                                                                                         |
@@ -71,6 +86,7 @@ added automatically.
 | One real model call per proxy, platform and round             | Yes         | Integration tests and e2e against a fake provider; **live**: 24 decisions per run (4 proxies × 2 platforms × 3 rounds), each with a stated reason, in all three runs |
 | Grounding review (quotes, support verdicts, contradiction)    | Yes         | Unit and integration tests against a fake provider; **live**: the independent model check ran in all three runs                                                      |
 | Bicep for an Entra-only Foundry account + deployment          | Yes         | `bicep build` and lint; **deployed** once to a development subscription (28 Oct 2026)                                                                                |
+| Bicep for the hosted pilot (container app, PostgreSQL)        | Yes         | `bicep build` and lint only; **never deployed**: see [pilot plan](./azure/pilot-plan.md)                                                                             |
 | Provisioning/teardown scripts with safety gates               | Yes         | Unit tests with a fake Azure CLI; **live**: one real provisioning run (two script defects found and fixed)                                                           |
 | One-command live verification (`npm run azure:verify`)        | Yes         | Unit/flow tests and a Playwright run against a fake provider; **live**: 15 of 15 checks in three consecutive runs                                                    |
 | Live model calls, live verification run, live injection probe | Yes         | **Yes**, on one development deployment: see "Live evidence" below                                                                                                    |
@@ -438,12 +454,15 @@ error mapping and secret hygiene with a fake credential.
 4. Configure exact production `ALLOWED_HOSTS` and `ALLOWED_ORIGINS`, HTTPS ingress,
    and `SOURCE_URL` for the deployed source version. Keep secrets in Key Vault only
    if they cannot be eliminated with managed identity.
-5. Set minimum/maximum replicas to one while job coordination remains single-worker.
-   Do not scale to zero with active in-memory jobs; do not use local ephemeral disk
-   as a durability mechanism. Scale only after durable job ownership is working.
-6. Configure startup/liveness/readiness probes. Current `/api/health` verifies local
-   API/storage/queue readiness; add database/worker readiness semantics for the new
-   deployment, without charging a model call for every health probe.
+5. Set minimum/maximum replicas to one until two instances against one database have
+   been validated. Jobs are durable (a restart keeps them and a stopped worker's job is
+   taken over after its lease), but scaling to zero stops the embedded job runner, so
+   queued work waits; do not use local ephemeral disk as a durability mechanism.
+6. Configure startup/liveness/readiness probes. `/api/health/live` fails only when the
+   database connection is lost for good and `/api/health/ready` fails while the database
+   does not answer; neither charges a model call. The pilot template uses them with the
+   `Host` header set, because the app refuses any other host
+   ([pilot plan](./azure/pilot-plan.md#what-the-container-is-given)).
 
 Acceptance: authentication and tenant authorization are enforced, browser/API work
 over HTTPS, state survives revision changes, a prior image can be rolled back,
@@ -483,7 +502,9 @@ been created. The Entra inference path, the Bicep and the verification script ha
 against that account (see [Live evidence](#live-evidence)), but never under a managed
 identity in hosted Azure.
 Those are explicit migration tasks with acceptance criteria, not hidden dependencies
-of a working local app.
+of a working local app. A template for the hosted pilot now exists (see
+[Hosted pilot: plan and cost](#hosted-pilot-plan-and-cost-not-deployed)), but it has only
+been compiled and linted: no part of it has been deployed.
 
 ## Provider contract references
 

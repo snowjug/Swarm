@@ -13,7 +13,11 @@ import { microsoftEndpoints } from './auth/oidc.js';
 import { TokenVerifier } from './auth/tokens.js';
 import { AppError, publicFailure } from './errors.js';
 import { InteractionService } from './orchestration/interaction.js';
-import { Orchestrator, type ModelFactory } from './orchestration/runner.js';
+import {
+  Orchestrator,
+  type ModelFactory,
+  type OrchestratorOptions,
+} from './orchestration/runner.js';
 import { createModelFactory } from './models/factory.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
@@ -39,7 +43,14 @@ export interface AppOptions {
    * Test hook: send people to, and redeem codes at, a local identity provider instead of Microsoft.
    * `authorityHost` replaces `https://login.microsoftonline.com`; `fetcher` replaces the token call.
    */
-  oidc?: { fetcher?: typeof fetch; authorityHost?: string };
+  oidc?: {
+    fetcher?: typeof fetch;
+    authorityHost?: string;
+    /** Test hook: the managed identity's client assertion, where there is no managed identity. */
+    assertion?: () => Promise<string>;
+  };
+  /** Test hook: how the job queue is run (identity, leases, timers), to model several workers or a crash. */
+  jobs?: OrchestratorOptions;
 }
 
 /** How often ended sessions and abandoned sign-ins are removed from the database. */
@@ -59,7 +70,11 @@ export async function buildApp(options: AppOptions) {
     connectionTimeout: 180_000,
     keepAliveTimeout: KEEP_ALIVE_TIMEOUT_MS,
     maxRequestsPerSocket: 200,
-    trustProxy: false,
+    // Trust the first N hops from this server: the platform's ingress, and nothing a caller can add.
+    trustProxy:
+      config.trustedProxies > 0
+        ? (_address: string, hop: number) => hop < config.trustedProxies
+        : false,
     requestIdHeader: false,
     genReqId: () => randomUUID(),
     logger: {
@@ -102,6 +117,10 @@ export async function buildApp(options: AppOptions) {
         );
     },
     modelFactory,
+    {
+      onFault: (code) => app.log.error({ code }, 'The job queue could not be read or written.'),
+      ...(options.jobs ?? {}),
+    },
   );
   const interaction = new InteractionService(repository, config, modelFactory, (projectId, code) =>
     app.log.error({ projectId, code }, 'Follow-up or survey failed. Inspect its persisted state.'),
@@ -224,7 +243,12 @@ export async function buildApp(options: AppOptions) {
     version: APP_VERSION,
     // Counts across every tenant are not for an unauthenticated probe to read.
     ...(config.auth.mode === 'none'
-      ? { storage: repository.dialect, experiments: repository.count(), queue: jobs.state() }
+      ? {
+          storage: repository.dialect,
+          experiments: repository.count(),
+          queue: jobs.state(),
+          jobs: jobs.summary(),
+        }
       : {}),
   }));
   app.get('/api/config', async () => publicConfig(config));
@@ -252,6 +276,7 @@ export async function buildApp(options: AppOptions) {
       verifier,
       endpoints: microsoftEndpoints(config.auth.session, options.oidc?.authorityHost),
       ...(options.oidc?.fetcher ? { fetcher: options.oidc.fetcher } : {}),
+      ...(options.oidc?.assertion ? { assertion: options.oidc.assertion } : {}),
     });
     const purge = setInterval(() => repository.sessions.purge(), SESSION_PURGE_INTERVAL_MS);
     purge.unref();

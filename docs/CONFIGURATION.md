@@ -8,36 +8,40 @@ Copy [.env.example](../.env.example) locally. Never commit the resulting `.env`
 or paste keys into chat/source files. Server configuration is never bundled into
 the browser. The default is `AI_PROVIDER=none`.
 
-| Variable                            | Purpose                                                                                                                                                                   |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                                                      |
-| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                                                       |
-| `DATABASE_URL`                      | Optional `postgres://user@host:5432/database`. When set, PostgreSQL replaces the SQLite file (see [PostgreSQL](#postgresql)). The password goes in `PGPASSWORD`, not here |
-| `DATABASE_AUTH`                     | `password` (default) or `entra`: authenticate to PostgreSQL with a Microsoft Entra access token instead of a password                                                     |
-| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                                                          |
-| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                                                           |
-| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                                                    |
-| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                                                                |
-| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                                                 |
-| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                                                            |
-| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                                                        |
-| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                                                        |
-| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                                                     |
-| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                                                        |
-| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                                                         |
-| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                                                    |
-| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                                                       |
-| `AUTH_MODE`                         | `none` (default): one local user, no sign-in. `entra`: every API call needs a Microsoft Entra access token (see [Sign-in](#sign-in-and-tenants))                          |
-| `AUTH_ENTRA_TENANT_ID`              | Tenant whose tokens are accepted; required when `AUTH_MODE=entra`                                                                                                         |
-| `AUTH_ENTRA_ALLOWED_TENANTS`        | Optional comma-separated tenant GUIDs to accept as well                                                                                                                   |
-| `AUTH_ENTRA_AUDIENCE`               | Application ID URI or client ID that tokens must be issued for; required when `AUTH_MODE=entra`                                                                           |
-| `AUTH_ENTRA_JWKS_URI`               | Optional HTTPS override of Microsoft's signing-key endpoint                                                                                                               |
-| `AUTH_ENTRA_CLIENT_ID`              | Client id of the Entra app registration people sign in with. With `AUTH_ENTRA_REDIRECT_URI`, turns on browser sign-in (see [below](#browser-sign-in))                     |
-| `AUTH_ENTRA_REDIRECT_URI`           | Where Microsoft sends the browser back: `https://<host>/auth/callback` (plain `http` only on localhost). Its host must be in `ALLOWED_HOSTS`                              |
-| `AUTH_ENTRA_CLIENT_SECRET`          | Only for a confidential client. From a secret store or the environment, never from a file in the repository                                                               |
-| `AUTH_SESSION_IDLE_MINUTES`         | A session ends after this many minutes without a request (default 30, 5–480)                                                                                              |
-| `AUTH_SESSION_ABSOLUTE_HOURS`       | A session ends this many hours after sign-in however busy the person is (default 8, 1–24)                                                                                 |
-| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine                                  |
+| Variable                            | Purpose                                                                                                                                                                                                                                              |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                                                                                                                                 |
+| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                                                                                                                                  |
+| `DATABASE_URL`                      | Optional `postgres://user@host:5432/database`. When set, PostgreSQL replaces the SQLite file (see [PostgreSQL](#postgresql)). The password goes in `PGPASSWORD`, not here                                                                            |
+| `DATABASE_AUTH`                     | `password` (default) or `entra`: authenticate to PostgreSQL with a Microsoft Entra access token instead of a password                                                                                                                                |
+| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                                                                                                                                     |
+| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                                                                                                                                      |
+| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                                                                                                                               |
+| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                                                                                                                                           |
+| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                                                                                                                            |
+| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                                                                                                                                       |
+| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                                                                                                                                   |
+| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                                                                                                                                   |
+| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                                                                                                                                |
+| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                                                                                                                                   |
+| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                                                                                                                                    |
+| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                                                                                                                               |
+| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                                                                                                                                  |
+| `AUTH_MODE`                         | `none` (default): one local user, no sign-in. `entra`: every API call needs a Microsoft Entra access token (see [Sign-in](#sign-in-and-tenants))                                                                                                     |
+| `AUTH_ENTRA_TENANT_ID`              | Tenant whose tokens are accepted; required when `AUTH_MODE=entra`                                                                                                                                                                                    |
+| `AUTH_ENTRA_ALLOWED_TENANTS`        | Optional comma-separated tenant GUIDs to accept as well                                                                                                                                                                                              |
+| `AUTH_ENTRA_AUDIENCE`               | Application ID URI or client ID that tokens must be issued for; required when `AUTH_MODE=entra`                                                                                                                                                      |
+| `AUTH_ENTRA_JWKS_URI`               | Optional HTTPS override of Microsoft's signing-key endpoint                                                                                                                                                                                          |
+| `AUTH_ENTRA_CLIENT_ID`              | Client id of the Entra app registration people sign in with. With `AUTH_ENTRA_REDIRECT_URI`, turns on browser sign-in (see [below](#browser-sign-in))                                                                                                |
+| `AUTH_ENTRA_REDIRECT_URI`           | Where Microsoft sends the browser back: `https://<host>/auth/callback` (plain `http` only on localhost). Its host must be in `ALLOWED_HOSTS`                                                                                                         |
+| `AUTH_ENTRA_CLIENT_SECRET`          | Only for a confidential client. From a secret store or the environment, never from a file in the repository                                                                                                                                          |
+| `AUTH_ENTRA_CLIENT_ASSERTION`       | `managed-identity`: prove the application to Entra with a token from its managed identity (workload identity federation) instead of a secret, so nothing is stored. Needs a federated credential on the app registration. Not together with a secret |
+| `TRUST_PROXY`                       | How many reverse proxies in front of the server to trust for the caller's address (default 0, max 5). Behind one ingress set 1; never when the port is reachable directly                                                                            |
+| `SWARM_ROLE`                        | `all` (default): serve requests and run jobs. `api`: serve requests and only queue jobs. `worker`: run jobs from the queue and answer health probes (see [Jobs and workers](#jobs-and-workers))                                                      |
+| `JOB_LEASE_SECONDS`                 | How long a worker may go without a heartbeat before its job is handed to another worker (default 30, 10–600)                                                                                                                                         |
+| `AUTH_SESSION_IDLE_MINUTES`         | A session ends after this many minutes without a request (default 30, 5–480)                                                                                                                                                                         |
+| `AUTH_SESSION_ABSOLUTE_HOURS`       | A session ends this many hours after sign-in however busy the person is (default 8, 1–24)                                                                                                                                                            |
+| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine                                                                                                             |
 
 If you explicitly configure origin/host allowlists, update them when changing
 ports or domains. Defaults use the configured API port and local Vite port.
@@ -251,6 +255,39 @@ The destination must be empty. The copy is one transaction and is kept only if e
 matches and the audit chain verifies in the destination; sign-in state is not copied. To restore, copy
 the other way into an empty database. Targets are never printed, because a URL can hold a password.
 
+## Jobs and workers
+
+Every stage of a run (`knowledge`, `environment`, `simulation`, `report`, or a quick run) is a **job**
+in the database, not a task in the memory of one process ([ADR 0010](./adr/0010-durable-jobs-leased-from-the-database.md)).
+What that means in practice:
+
+- **A refresh or an API restart does not touch a run.** The run is on the server, and a restarted
+  process finds the queue as it was. Starting up does not mark a run failed while a job owns it.
+- **One worker holds a job at a time**, by a lease it renews every quarter of `JOB_LEASE_SECONDS`. If
+  it stops (a crash, a stall, a lost network) the lease runs out and the job goes back to the queue,
+  to be tried again after a wait that doubles from 15 seconds to five minutes and is spread at random.
+  A job gets three attempts (a quick run, one); after that it is set aside as `failed` with
+  `JOB_POISONED`. A worker that was only slow learns on its next write that it lost the job, and stops.
+- **A simulation continues from its last saved round** when it is run again; it does not compute the
+  rounds again. The other stages run again from the start.
+- **A provider failure that may pass** (`MODEL_UNREACHABLE`, `MODEL_TIMEOUT`, `MODEL_RATE_LIMIT`) is
+  retried by the queue only for a simulation with saved rounds. Any other failure is shown as it is.
+  A simulation that fails with saved rounds is recorded as `partial`, and can be resumed.
+- **Stopping the backend hands the job back** to the queue without using an attempt, and the run
+  shows as queued until a worker takes it. A job that waited more than two hours is expired instead of
+  being started late.
+- **Cancel and pause work across processes.** The request is written on the job and the worker reads
+  it at its next heartbeat; a run that had not started is stopped at once.
+- **Asking twice is one job** when the request carries the same `Idempotency-Key` header (8–128 letters,
+  digits and `-_.:`). Without the header every request is its own job.
+
+`SWARM_ROLE` splits the work for a hosted deployment: run some processes as `api` and others as
+`worker` against one PostgreSQL database. The SQLite file is for one process, so use `all` with it. A
+`worker` still answers the health probes and serves the whole API, so keep user traffic away from it.
+`GET /api/projects/:id/jobs` lists the newest jobs of a project (state, attempt, error code) without
+the identity of the worker or the key. `/api/health` shows the queue's counts and the age of the oldest
+waiting job on a local, unauthenticated server.
+
 ## Deliberate resource limits
 
 | Item                      | Limit                                                                                                                                                                                                                                                                                                                 |
@@ -261,7 +298,7 @@ the other way into an empty database. Targets are never printed, because a URL c
 | HTTP request body         | 600 KB normally; 2.7 MB encoded extraction request                                                                                                                                                                                                                                                                    |
 | Local population / rounds | 4–24 agents / 3–24 rounds                                                                                                                                                                                                                                                                                             |
 | Model population / rounds | 4–10 agents / 3–10 rounds                                                                                                                                                                                                                                                                                             |
-| Work queue                | One active execution stage, three waiting                                                                                                                                                                                                                                                                             |
+| Work queue                | One active execution stage per worker, three waiting for any worker; the queue is in the database, so a restart keeps it                                                                                                                                                                                              |
 | Execution deadline        | 15 minutes per stage; five minutes per asynchronous survey                                                                                                                                                                                                                                                            |
 | Model context / response  | 48,000 serialized input characters / 256 KB response                                                                                                                                                                                                                                                                  |
 | Provider retries          | Network errors and 5xx: at most three HTTP attempts. Throttling (429): up to six, each honoring a bounded Retry-After; a truncated reply is retried once or twice with a larger output budget (all counted against the stage's call budget)                                                                           |

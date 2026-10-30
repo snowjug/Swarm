@@ -15,6 +15,7 @@ not been built.
 | [0007](./0007-workspace-and-project-membership.md)      | Accepted          | Workspace and project membership, seven roles; supersedes the role model of 0005                                       |
 | [0008](./0008-browser-sign-in.md)                       | Accepted          | Browser sign-in run by the server: Authorization Code with PKCE, a server-side session                                 |
 | [0009](./0009-postgres-through-a-synchronous-bridge.md) | Accepted          | PostgreSQL behind the unchanged synchronous stores, through a worker-thread bridge; serializable, retried transactions |
+| [0010](./0010-durable-jobs-leased-from-the-database.md) | Accepted          | Stage jobs in the database, taken by a lease and a heartbeat, fenced writes, bounded retries, resumable simulations    |
 
 New records take the next number and never rewrite an accepted one; a reversed decision gets a new
 record that says so.
