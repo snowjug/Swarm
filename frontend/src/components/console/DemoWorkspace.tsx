@@ -61,8 +61,8 @@ export function DemoWorkspace({
       <section className="demo-workspace" aria-labelledby="demo-workspace-heading">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">DEMONSTRATION WORKSPACE</span>
-            <h2 id="demo-workspace-heading">Larkholm electric ferry</h2>
+            <span className="eyebrow">SYNTHETIC SCENARIO · LARKHOLM ELECTRIC FERRY</span>
+            <h2 id="demo-workspace-heading">Demonstration workspace</h2>
           </div>
           <Layers size={22} aria-hidden="true" />
         </div>

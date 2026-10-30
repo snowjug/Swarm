@@ -56,6 +56,13 @@ describe('product introduction', () => {
     }
   });
 
+  it('names the workspace region by what it is, and the scenario beside it', () => {
+    const html = render(loaded([]));
+    expect(html).toContain('aria-labelledby="demo-workspace-heading"');
+    expect(html).toContain('<h2 id="demo-workspace-heading">Demonstration workspace</h2>');
+    expect(visibleText(html)).toContain('LARKHOLM ELECTRIC FERRY');
+  });
+
   it('says that the demonstration is synthetic and was recorded with a real model', () => {
     const text = visibleText(render(loaded([])));
     expect(text).toMatch(/every source, organisation and person is fictional/u);

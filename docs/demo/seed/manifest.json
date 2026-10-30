@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "recordedAt": "2026-10-30T05:20:17.998Z",
+  "provider": "azure",
+  "model": "swarm-chat",
+  "usage": {
+    "modelCalls": 199,
+    "inputTokens": 533507,
+    "outputTokens": 62215
+  },
+  "projects": [
+    {
+      "id": "de300001-0000-4000-8000-000000000001",
+      "slug": "larkholm-base",
+      "file": "larkholm-base.json"
+    },
+    {
+      "id": "de300001-0000-4000-8000-000000000002",
+      "slug": "larkholm-guarantee",
+      "file": "larkholm-guarantee.json"
+    },
+    {
+      "id": "de300001-0000-4000-8000-000000000003",
+      "slug": "larkholm-no-notice",
+      "file": "larkholm-no-notice.json"
+    }
+  ],
+  "notes": [
+    "Compared with the parent, the guarantee branch is identical through round 3 of 6.",
+    "Compared with the parent, the no-notice branch is identical through round 3 of 6.",
+    "The two branches are siblings and identical through round 3."
+  ]
+}
