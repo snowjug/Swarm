@@ -887,6 +887,50 @@ describe('ownership of what people create', () => {
   });
 });
 
+describe('refusals are recorded for a signed-in caller', () => {
+  it('keeps who was refused, where and why, and nothing for a caller who was never signed in', async () => {
+    const instance = await secured();
+    const project = instance.repository.create(fixtureInput({ workflow: 'guided' }), {
+      owner: { tenantId: TENANT_A, ownerId: ANALYST_1 },
+    });
+    const step = `/api/projects/${project.id}/steps/knowledge`;
+
+    const forbidden = await call(instance, users.reader, 'POST', step);
+    const notOwner = await call(instance, users.analyst2, 'POST', step);
+    const otherTenant = await call(instance, users.outsider, 'GET', `/api/projects/${project.id}`);
+    const anonymous = await call(instance, null, 'GET', `/api/projects/${project.id}`);
+    expect([forbidden, notOwner, otherTenant, anonymous].map((r) => r.statusCode)).toEqual([
+      403, 403, 404, 401,
+    ]);
+
+    const refused = instance.repository.audit
+      .list({ limit: 500 })
+      .filter((entry) => entry.action === 'access.refused');
+    expect(refused.map((entry) => [entry.actor, entry.detail.code, entry.detail.status])).toEqual([
+      [READER, 'FORBIDDEN', 403],
+      [ANALYST_2, 'NOT_OWNER', 403],
+      [OUTSIDER, 'PROJECT_NOT_FOUND', 404],
+    ]);
+    expect(refused[0]!.detail).toMatchObject({ method: 'POST', experiment: project.id });
+    expect(refused.every((entry) => entry.targetType === 'route')).toBe(true);
+    // The route pattern, never the caller's own path or token.
+    expect(refused[0]!.targetId).toBe('/api/projects/:id/steps/:step');
+    expect(instance.repository.audit.verify().ok).toBe(true);
+  });
+
+  it('does not record a request that was allowed', async () => {
+    const instance = await secured();
+    const project = instance.repository.create(fixtureInput({ workflow: 'guided' }), {
+      owner: { tenantId: TENANT_A, ownerId: ANALYST_1 },
+    });
+    const allowed = await call(instance, users.reader, 'GET', `/api/projects/${project.id}`);
+    expect(allowed.statusCode).toBe(200);
+    expect(
+      instance.repository.audit.list({ limit: 500 }).filter((e) => e.action === 'access.refused'),
+    ).toEqual([]);
+  });
+});
+
 describe('the local mode is unchanged', () => {
   it('needs no token, treats the caller as the local user and owner, and shows full health', async () => {
     const instance = await buildApp({ config: testConfig() });

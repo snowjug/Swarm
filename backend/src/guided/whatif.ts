@@ -318,5 +318,23 @@ export function createBranch(
       ? `Branched from "${parent.name}" before round 1 with edited assumptions; start the simulation to run all ${total} rounds.`
       : `Branched from "${parent.name}" after round ${fromRound}. Rounds 1-${fromRound} are copied unchanged; resume to simulate rounds ${fromRound + 1}-${total}.`,
   );
+  repository.audit.record({
+    actor: owner.ownerId,
+    action: 'branch.created',
+    targetType: 'project',
+    targetId: child.id,
+    projectId: child.id,
+    detail: {
+      parentId: parent.id,
+      fromRound,
+      intervention:
+        input.intervention === undefined
+          ? 'inherited'
+          : input.intervention === null
+            ? 'removed'
+            : 'replaced',
+      proxyEdits: input.agentEdits.length,
+    },
+  });
   return repository.get(child.id);
 }

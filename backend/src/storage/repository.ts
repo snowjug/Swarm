@@ -33,6 +33,7 @@ import {
   readSchemaVersion,
   type MigrationReport,
 } from './migrations.js';
+import { parseSnapshot } from './snapshot.js';
 
 const payloadRow = z.object({ payload: z.string() });
 const idRow = z.object({ id: z.string() });
@@ -266,8 +267,101 @@ export class Repository {
         'intake',
         `${project.documents.length} source document(s) validated and indexed locally.`,
       );
+      this.audit.record({
+        actor: owner.ownerId,
+        action: 'project.created',
+        targetType: 'project',
+        targetId: project.id,
+        projectId: project.id,
+        detail: {
+          workflow: project.workflow,
+          mode: project.mode,
+          actors: project.agentCount,
+          rounds: project.roundCount,
+          documents: project.documents.length,
+          branch: Boolean(options.inheritChunksFrom),
+        },
+      });
     });
     return this.get(project.id);
+  }
+
+  /**
+   * Restores an exported experiment under its own identifier, replacing any earlier copy of it, so
+   * that restoring the same snapshot twice leaves the same state. The ledger is not part of the
+   * snapshot: it is derived from the report the first time it is read. Everything is written in one
+   * transaction with the audit entry that records it.
+   */
+  importSnapshot(
+    raw: unknown,
+    options: { owner?: Owner; actor?: string } = {},
+  ): { id: string; replaced: boolean } {
+    const snapshot = parseSnapshot(raw);
+    const owner = options.owner ?? LOCAL_OWNER;
+    const { project } = snapshot;
+    const existing = this.ownership(project.id);
+    if (existing && existing.tenantId !== owner.tenantId) {
+      throw new AppError(
+        409,
+        'IMPORT_CONFLICT',
+        'An experiment with this identifier belongs to another workspace.',
+      );
+    }
+    if (!existing && this.count(owner.tenantId) >= MAX_PROJECTS) {
+      throw new AppError(
+        409,
+        'PROJECT_LIMIT',
+        `Keep at most ${MAX_PROJECTS} experiments. Export/delete an old one first.`,
+      );
+    }
+    this.transaction(() => {
+      if (existing) this.database.prepare('DELETE FROM projects WHERE id = ?').run(project.id);
+      this.database
+        .prepare(
+          'INSERT INTO projects (id, created_at, updated_at, status, payload, tenant_id, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        )
+        .run(
+          project.id,
+          project.createdAt,
+          project.updatedAt,
+          project.status,
+          JSON.stringify(project),
+          owner.tenantId,
+          owner.ownerId,
+        );
+      const chunk = this.database.prepare(
+        'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
+      );
+      for (const passage of snapshot.evidence) {
+        chunk.run(project.id, passage.id, JSON.stringify(passage));
+      }
+      const event = this.database.prepare(
+        'INSERT INTO events (project_id, stage, message, created_at) VALUES (?, ?, ?, ?)',
+      );
+      for (const item of snapshot.events) {
+        event.run(project.id, item.stage, item.message, item.createdAt);
+      }
+      const message = this.database.prepare(
+        'INSERT INTO messages (id, project_id, target, payload) VALUES (?, ?, ?, ?)',
+      );
+      for (const item of snapshot.messages) {
+        message.run(item.id, project.id, item.target, JSON.stringify(item));
+      }
+      this.audit.record({
+        actor: options.actor ?? owner.ownerId,
+        action: 'project.imported',
+        targetType: 'project',
+        targetId: project.id,
+        projectId: project.id,
+        detail: {
+          replaced: Boolean(existing),
+          status: project.status,
+          passages: snapshot.evidence.length,
+          messages: snapshot.messages.length,
+        },
+      });
+    });
+    return { id: project.id, replaced: Boolean(existing) };
   }
 
   update(

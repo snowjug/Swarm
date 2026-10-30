@@ -74,18 +74,45 @@ export function registerAuth(
 
     const principal = await verifier.verify(bearerToken(request.headers.authorization));
     request.principal = principal;
+    // A signed-in caller that is refused is evidence worth keeping. An anonymous one is not: the
+    // log would fill with whatever the internet sends, and the rate limiter already counts it.
+    const refuse = (error: AppError): never => {
+      const attempted = projectParams.safeParse(request.params);
+      repository.audit.record({
+        actor: principal.id,
+        action: 'access.refused',
+        targetType: 'route',
+        targetId: url,
+        projectId: null,
+        detail: {
+          method: request.method,
+          status: error.statusCode,
+          code: error.code,
+          ...(attempted.success ? { experiment: attempted.data.id } : {}),
+        },
+      });
+      throw error;
+    };
     if (!atLeast(principal, access.role)) {
-      throw new AppError(403, 'FORBIDDEN', 'Your role does not allow this action.');
+      return refuse(new AppError(403, 'FORBIDDEN', 'Your role does not allow this action.'));
     }
     if (access.kind === 'signed-in') return;
 
     const { id } = projectParams.parse(request.params);
-    const owner = ownerInTenant(repository, id, principal.tenantId);
+    let owner: Owner;
+    try {
+      owner = ownerInTenant(repository, id, principal.tenantId);
+    } catch (error) {
+      if (error instanceof AppError) return refuse(error);
+      throw error;
+    }
     if (access.owner && owner.ownerId !== principal.id && principal.role !== 'admin') {
-      throw new AppError(
-        403,
-        'NOT_OWNER',
-        'Only the experiment’s owner or an administrator can do this.',
+      return refuse(
+        new AppError(
+          403,
+          'NOT_OWNER',
+          'Only the experiment’s owner or an administrator can do this.',
+        ),
       );
     }
   });

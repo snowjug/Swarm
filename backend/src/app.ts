@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import { ZodError } from 'zod';
 import { publicConfig, type ServerConfig } from './config.js';
 import { registerAuth } from './auth/guard.js';
+import { registerAudit } from './auth/audit-policy.js';
 import type { TokenVerifier } from './auth/tokens.js';
 import { AppError, publicFailure } from './errors.js';
 import { InteractionService } from './orchestration/interaction.js';
@@ -149,6 +150,7 @@ export async function buildApp(options: AppOptions) {
     repository,
     ...(options.tokenVerifier ? { verifier: options.tokenVerifier } : {}),
   });
+  registerAudit(app, repository);
   app.addHook('onSend', async (request, reply, payload) => {
     if (request.url.startsWith('/api')) {
       reply.header('cache-control', 'no-store');

@@ -183,8 +183,9 @@ describe('the audit log', () => {
     const project = repository.create(fixtureInput({ name: 'Confidential ferry plan' }));
     repository.delete(project.id);
     const events = repository.audit.list({ projectId: project.id });
-    expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ action: 'project.deleted', targetId: project.id });
+    // What happened to it, from its creation to its deletion, survives the project itself.
+    expect(events.map((event) => event.action)).toEqual(['project.created', 'project.deleted']);
+    expect(events[1]).toMatchObject({ action: 'project.deleted', targetId: project.id });
     expect(JSON.stringify(events)).not.toContain('Confidential');
     expect(JSON.stringify(events)).not.toContain(project.question);
     expect(repository.audit.verify().ok).toBe(true);
