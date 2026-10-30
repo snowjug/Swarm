@@ -4,8 +4,9 @@ Material for an internal pitch and a proposed pilot of Swarm. It is written to b
 persuade: every figure names the test or the run behind it, and every limit is stated next to the
 claim it limits.
 
-Swarm is a **pitch-ready prototype**. It is not production ready, and none of these documents says
-it is. Read [the production-readiness gates](../production-readiness.md) beside them.
+Swarm runs locally and has been demonstrated end to end against a real Azure model. It is not hosted,
+it has no browser sign-in, and it is not ready for production use. None of these documents says
+otherwise. Read [the production-readiness gates](../production-readiness.md) beside them.
 
 | Document                                                                | For whom              | What it answers                                                       |
 | ----------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------- |

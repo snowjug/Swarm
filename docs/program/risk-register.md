@@ -4,7 +4,8 @@ Risks to a pilot of Swarm, as understood at the end of this program. "In place" 
 exist and are tested; "Remains" is what they do not cover. Likelihood and impact are the author's
 judgement (H, M, L), not a measurement. A person who owns the risk should re-rate them.
 
-Status of the product these risks apply to: a **pitch-ready prototype**, not a production service.
+Status of the product these risks apply to: an application that runs locally and has been
+demonstrated against a real Azure model. It is not hosted and not a production service.
 See [the production-readiness gates](../production-readiness.md).
 
 ## Evidence and AI behaviour

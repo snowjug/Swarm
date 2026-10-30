@@ -216,6 +216,8 @@ export class LedgerService {
     };
     let recalculated = 0;
     this.repository.atomic(() => {
+      // The operation can run again if it loses a race on a shared database, so it starts from zero.
+      recalculated = 0;
       this.repository.ledger.saveContradiction(projectId, conflict, existing.updatedAt);
       // Open conflicts weigh on the statements that cite them, so those are recalculated. Their
       // history and reviews are kept: only the evidence and the class they depend on move.

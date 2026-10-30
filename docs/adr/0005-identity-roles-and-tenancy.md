@@ -1,6 +1,8 @@
 # 0005. Entra bearer tokens verified in the API, four roles, a default-deny route table, tenant scoping
 
-Status: Accepted (backend). The browser has no sign-in yet, and no real tenant has been used.
+Status: Accepted (backend). The browser has no sign-in yet, and no real tenant has been used. Its
+role model (decision 3) and owner rule (decision 6) are superseded by
+[0007](./0007-workspace-and-project-membership.md); the rest stands.
 
 ## Context
 

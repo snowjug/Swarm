@@ -8,29 +8,36 @@ Copy [.env.example](../.env.example) locally. Never commit the resulting `.env`
 or paste keys into chat/source files. Server configuration is never bundled into
 the browser. The default is `AI_PROVIDER=none`.
 
-| Variable                            | Purpose                                                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                             |
-| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                              |
-| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                                 |
-| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                                  |
-| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                           |
-| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                                       |
-| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                        |
-| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                                   |
-| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                               |
-| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                               |
-| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                            |
-| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                               |
-| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                                |
-| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                           |
-| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                              |
-| `AUTH_MODE`                         | `none` (default): one local user, no sign-in. `entra`: every API call needs a Microsoft Entra access token (see [Sign-in](#sign-in-and-tenants)) |
-| `AUTH_ENTRA_TENANT_ID`              | Tenant whose tokens are accepted; required when `AUTH_MODE=entra`                                                                                |
-| `AUTH_ENTRA_ALLOWED_TENANTS`        | Optional comma-separated tenant GUIDs to accept as well                                                                                          |
-| `AUTH_ENTRA_AUDIENCE`               | Application ID URI or client ID that tokens must be issued for; required when `AUTH_MODE=entra`                                                  |
-| `AUTH_ENTRA_JWKS_URI`               | Optional HTTPS override of Microsoft's signing-key endpoint                                                                                      |
-| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine         |
+| Variable                            | Purpose                                                                                                                                                                   |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HOST`, `PORT`                      | API bind address/port; defaults to loopback and 3001                                                                                                                      |
+| `DATA_DIR`                          | SQLite storage directory, relative to the process working directory                                                                                                       |
+| `DATABASE_URL`                      | Optional `postgres://user@host:5432/database`. When set, PostgreSQL replaces the SQLite file (see [PostgreSQL](#postgresql)). The password goes in `PGPASSWORD`, not here |
+| `DATABASE_AUTH`                     | `password` (default) or `entra`: authenticate to PostgreSQL with a Microsoft Entra access token instead of a password                                                     |
+| `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`  | Explicit browser-origin and HTTP-host allowlists                                                                                                                          |
+| `LOG_LEVEL`                         | Server log level; request bodies and credentials are not logged                                                                                                           |
+| `AI_PROVIDER`                       | `none`, `ollama`, `openai`, or `azure`                                                                                                                                    |
+| `AI_MODEL`                          | Local/remote model name; Azure deployment name for `azure`                                                                                                                |
+| `AI_TIMEOUT_MS`                     | Per-model-request timeout                                                                                                                                                 |
+| `OLLAMA_BASE_URL`                   | Administrator-configured local Ollama endpoint                                                                                                                            |
+| `DOCKER_OLLAMA_BASE_URL`            | Compose-only address of Ollama running on the host                                                                                                                        |
+| `OPENAI_BASE_URL`, `OPENAI_API_KEY` | Trusted compatible v1 endpoint and server-side key                                                                                                                        |
+| `AZURE_OPENAI_ENDPOINT`             | Azure resource/v1 endpoint (must be an Azure AI host)                                                                                                                     |
+| `AZURE_OPENAI_AUTH`                 | `entra` (default; no key) or `key` (legacy API-key authentication)                                                                                                        |
+| `AZURE_CLIENT_ID`                   | Client id of a user-assigned managed identity; empty for `az login` or a system-assigned identity                                                                         |
+| `AZURE_OPENAI_API_KEY`              | Read only when `AZURE_OPENAI_AUTH=key`                                                                                                                                    |
+| `SOURCE_URL`                        | Public corresponding source for the exact remotely deployed version                                                                                                       |
+| `AUTH_MODE`                         | `none` (default): one local user, no sign-in. `entra`: every API call needs a Microsoft Entra access token (see [Sign-in](#sign-in-and-tenants))                          |
+| `AUTH_ENTRA_TENANT_ID`              | Tenant whose tokens are accepted; required when `AUTH_MODE=entra`                                                                                                         |
+| `AUTH_ENTRA_ALLOWED_TENANTS`        | Optional comma-separated tenant GUIDs to accept as well                                                                                                                   |
+| `AUTH_ENTRA_AUDIENCE`               | Application ID URI or client ID that tokens must be issued for; required when `AUTH_MODE=entra`                                                                           |
+| `AUTH_ENTRA_JWKS_URI`               | Optional HTTPS override of Microsoft's signing-key endpoint                                                                                                               |
+| `AUTH_ENTRA_CLIENT_ID`              | Client id of the Entra app registration people sign in with. With `AUTH_ENTRA_REDIRECT_URI`, turns on browser sign-in (see [below](#browser-sign-in))                     |
+| `AUTH_ENTRA_REDIRECT_URI`           | Where Microsoft sends the browser back: `https://<host>/auth/callback` (plain `http` only on localhost). Its host must be in `ALLOWED_HOSTS`                              |
+| `AUTH_ENTRA_CLIENT_SECRET`          | Only for a confidential client. From a secret store or the environment, never from a file in the repository                                                               |
+| `AUTH_SESSION_IDLE_MINUTES`         | A session ends after this many minutes without a request (default 30, 5–480)                                                                                              |
+| `AUTH_SESSION_ABSOLUTE_HOURS`       | A session ends this many hours after sign-in however busy the person is (default 8, 1–24)                                                                                 |
+| `RATE_LIMIT_SCALE`                  | Integer 1–1000 multiplying every per-IP request limit (default 1). Raise it only for automated browser or load tests of your own machine                                  |
 
 If you explicitly configure origin/host allowlists, update them when changing
 ports or domains. Defaults use the configured API port and local Vite port.
@@ -44,31 +51,76 @@ listen on a loopback address (the default). It logs a warning if it is bound to 
 
 With `AUTH_MODE=entra` the server fails to start unless `AUTH_ENTRA_AUDIENCE` and a tenant are
 configured, and then requires `Authorization: Bearer <Microsoft Entra v2.0 access token>` on every
-`/api` call except `/api/health`. A token is accepted only if its signature, issuer (derived from the
+`/api` call except `/api/health` (or, with [browser sign-in](#browser-sign-in), a session cookie). A token is accepted only if its signature, issuer (derived from the
 token's own tenant, which must be one you listed), audience, expiry and object id check out. Every
 failure returns the same 401, so a caller learns nothing about which check failed.
 
-Assign people the app roles `Swarm.Reader`, `Swarm.Analyst`, `Swarm.Reviewer` or `Swarm.Admin`. A
-person with several gets the highest. Each role includes those before it:
+Assign people one of the app roles `Swarm.User`, `Swarm.Reader`, `Swarm.Analyst`, `Swarm.Reviewer`
+or `Swarm.Admin`. **They only let a person in**: a token with none of them is refused, and with one
+the person can sign in and see nothing until they are added to a workspace or a project. What they
+may then do comes from their role there, not from the app role:
 
-| Role       | May                                                                                                  |
-| ---------- | ---------------------------------------------------------------------------------------------------- |
-| `reader`   | Read every experiment in their tenant, its ledger, evidence and exports                              |
-| `analyst`  | Reader, plus create experiments and run, chat with, branch, survey or delete **their own**           |
-| `reviewer` | Analyst, plus accept, reject or flag statements and conflicts on **anyone's** experiment, read audit |
-| `admin`    | Everything inside their tenant, including other people's experiments and the audit-chain check       |
+| Role                   | Where                          | May                                                                |
+| ---------------------- | ------------------------------ | ------------------------------------------------------------------ |
+| Platform Administrator | app role `Swarm.PlatformAdmin` | Run a paid model check and verify the audit chain. Sees no project |
+| Workspace Owner        | workspace membership           | Everything in the workspace, and grant or remove owners            |
+| Workspace Admin        | workspace membership           | Everything in the workspace except the owners                      |
+| Project Lead           | project membership             | Read, export, review, run, chat, delete and share the project      |
+| Analyst                | project membership             | Read, export, run, branch, ask the analyst and the actors          |
+| Reviewer               | project membership             | Read, export, review statements and conflicts. Never runs          |
+| Viewer                 | project membership             | Read and export                                                    |
 
-A tenant is the workspace boundary. People see only their tenant's experiments, and an experiment in
-another tenant is reported as not found, exactly as one that does not exist. Counts, project limits
-and audit entries are kept per tenant. The authorisation table is one file,
+Any workspace member can create experiments and leads them. A workspace with no owner is claimed by
+the first person to call it who holds `Swarm.Admin`; after that the app role confers nothing, and an
+owner adds the others through `PUT /api/workspace/members/:principalId` and
+`PUT /api/projects/:id/members/:principalId` (see the [HTTP API](./API.md)). Membership is read on
+every request, so removing someone takes effect on their next call.
+[ADR 0007](./adr/0007-workspace-and-project-membership.md) has the full rules and what they cost.
+
+A tenant is the workspace boundary. People see only the experiments they were added to, an owner or
+admin sees all of their workspace's, and an experiment in another tenant, or one they were not added
+to, is reported as not found, exactly as one that does not exist. Counts, project limits and audit
+entries are kept per tenant. The authorisation table is one file,
 [`backend/src/auth/policy.ts`](../backend/src/auth/policy.ts), and a test fails if any API route lacks
 an entry (a route with no entry is refused).
 
-What this does **not** do yet: the browser app has no sign-in screen, so in this mode it needs a
-reverse proxy that adds the token (for example Azure Container Apps authentication) or another
-client; there is no per-experiment sharing list, group-based roles from a directory sync, or
-per-tenant data keys. Existing experiments from a local install belong to the tenant `local` and are
-not visible to any Entra user. See `docs/program/risk-register.md`.
+## Browser sign-in
+
+Set `AUTH_ENTRA_CLIENT_ID` and `AUTH_ENTRA_REDIRECT_URI` (both, or neither) with `AUTH_MODE=entra`, and
+the page sends a person who is not signed in to Microsoft and brings them back signed in. The server
+does the whole exchange: it uses the Authorization Code flow with PKCE, keeps the verifier to itself,
+reads only the ID token that comes back (checking its signature, issuer, audience, expiry, tenant
+allow-list and the nonce it started with), and then discards everything from Microsoft. The browser is
+given one opaque, random session identifier in a cookie it cannot read from script (`HttpOnly`,
+`SameSite=Lax`, `Secure` and `__Host-` prefixed on https). Only a hash of that identifier is stored.
+No access token, refresh token or ID token reaches the browser, the database or a log.
+
+- A session ends after 30 minutes without a request, or 8 hours after sign-in, whichever comes first
+  (both configurable). **Signing out** ends it on the server, and removing someone from the workspace
+  ends their sessions at once.
+- A change made with the cookie must also carry `X-Swarm-CSRF: 1` and come from an allowed origin; the
+  page does this itself, and another site cannot make a browser add the header. A bearer token needs
+  neither, because a browser does not send one unasked.
+- A bearer token, when sent, is the only credential considered: a bad token is not rescued by a cookie.
+  With neither, an `/api` call is `401 SIGN_IN_REQUIRED`; there is no fall-back to the local user.
+- Anything that goes wrong while signing in sends the browser back to the page with the same message
+  (`/?signin=failed`), and a person who signed in but holds no Swarm app role sees `/?signin=norole`.
+  The reason is logged as a short code only.
+- `scope` is `openid profile`: no API access and no `offline_access`, so no refresh token exists.
+- The roles in an Entra token (platform administrator in particular) are read once, at sign-in, so
+  removing `Swarm.PlatformAdmin` takes effect when the session ends, within the limits above.
+  Workspace and project membership are read from the database on every request.
+
+Setting this up needs an app registration in your Entra tenant with the redirect address above as a
+**Web** platform and the Swarm app roles; creating one needs a tenant administrator, so it is not
+something this repository can do for you. The code is tested against a local test identity provider
+that signs real tokens. **It has not yet been run against a real tenant.**
+
+What this does **not** do yet: there is no screen for sharing (membership is managed through the
+[HTTP API](./API.md)), no groups from a directory sync, no invitations by name or email (people are
+identified by their Entra object id), one workspace per tenant, and no per-tenant data keys. Existing
+experiments from a local install belong to the tenant `local` and are not visible to any Entra user.
+See `docs/program/risk-register.md`.
 
 ## Model providers
 
@@ -160,6 +212,44 @@ copying the complete data directory to a private backup location. Do not copy an
 actively changing SQLite file alone, use a network filesystem for WAL, or commit
 backups containing source material. JSON exports are portable inspection records,
 not an implemented automatic database-import format.
+
+### PostgreSQL
+
+A hosted deployment, or anything that more than one instance shares, should use PostgreSQL instead
+of the SQLite file. Set a connection URL; every other setting is the same, and the stores behave the
+same ([ADR 0009](./adr/0009-postgres-through-a-synchronous-bridge.md)):
+
+```powershell
+$env:DATABASE_URL = 'postgres://swarm@db.example.internal:5432/swarm'   # TLS is on unless the host is localhost
+$env:PGPASSWORD   = '<from a secret store>'                              # or put it in the URL
+npm.cmd start
+```
+
+With `DATABASE_AUTH=entra` there is no password at all: the server asks Microsoft Entra for an access
+token for each connection (`DefaultAzureCredential`: a managed identity when hosted, `az login` on a
+laptop) and presents it as the password, and the URL names the database user the identity maps to.
+The migrations run at start, take an advisory lock so that instances starting together take turns,
+and refuse a database written by a newer release. Transactions are serializable and retried when
+they lose a race.
+
+Limits to know about: the process waits for each query (a synchronous bridge, so one query at a
+time per process), tenant isolation is application-level with no row-level security, and the code has
+been run against PostgreSQL in-process and over the wire protocol but **not against a deployed Azure
+server**. Backups of a hosted server are the service's own (Azure Database for PostgreSQL keeps
+automated backups with point-in-time restore; configuring and testing that is part of the
+deployment, not of this repository).
+
+**Moving an existing installation, or taking a logical backup,** is one command that copies in either
+direction and checks what it did:
+
+```powershell
+npm.cmd run db:copy -- --from .\data\swarm-lab.sqlite --to postgres://swarm@db.example.internal:5432/swarm
+npm.cmd run db:copy -- --from postgres://swarm@db.example.internal:5432/swarm --to .\backup\swarm.sqlite
+```
+
+The destination must be empty. The copy is one transaction and is kept only if every table's row count
+matches and the audit chain verifies in the destination; sign-in state is not copied. To restore, copy
+the other way into an empty database. Targets are never printed, because a URL can hold a password.
 
 ## Deliberate resource limits
 

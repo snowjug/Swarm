@@ -36,6 +36,8 @@ const reads = (reason: string): AuditRule => ({ kind: 'none', reason });
 
 export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'GET /api/health': reads('A liveness probe: no caller, no data.'),
+  'GET /api/health/live': reads('Whether the process is running: no caller, no data.'),
+  'GET /api/health/ready': reads('Whether the database answers: no caller, no data.'),
   'GET /api/config': reads('Public settings only.'),
   'GET /api/provider/status': reads('Counters the provider reports about itself.'),
   'POST /api/provider/check': {
@@ -66,6 +68,29 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'GET /api/projects/:id/audit': reads(
     'Reading the log is not itself logged, or it would grow as it is read.',
   ),
+  'GET /api/workspace': reads('The caller’s own role.'),
+  'GET /api/session': reads('Whether, how and until when the caller is signed in.'),
+  'GET /api/workspace/members': reads('Lists who belongs to the workspace and in what role.'),
+  'GET /api/projects/:id/members': reads('Lists who may use the experiment and in what role.'),
+
+  'PUT /api/workspace/members/:principalId': {
+    kind: 'inside',
+    // Recorded as `workspace.member.changed` when the person already belonged to the workspace.
+    action: 'workspace.member.added',
+  },
+  'DELETE /api/workspace/members/:principalId': {
+    kind: 'inside',
+    action: 'workspace.member.removed',
+  },
+  'PUT /api/projects/:id/members/:principalId': {
+    kind: 'inside',
+    // Recorded as `project.member.changed` when the person already had a role on the project.
+    action: 'project.member.added',
+  },
+  'DELETE /api/projects/:id/members/:principalId': {
+    kind: 'inside',
+    action: 'project.member.removed',
+  },
 
   'POST /api/projects/:id/chat': {
     kind: 'request',

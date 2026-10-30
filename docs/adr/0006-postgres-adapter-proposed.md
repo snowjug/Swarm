@@ -1,7 +1,10 @@
 # 0006. A repository interface and a PostgreSQL implementation for multi-user hosting
 
-Status: **Proposed. Not built.** It needs a decision, and it is the largest piece of work between
-the current prototype and a hosted pilot.
+Status: **Partly superseded by [0009](./0009-postgres-through-a-synchronous-bridge.md).** A PostgreSQL
+implementation now exists, behind the same synchronous interface, so decision 1 below (an
+asynchronous interface first) was not taken; decisions 2, 4 (in part) and 5 were. Row-level
+security (decision 3) and a deployed server are still not built. The text below is the original
+proposal.
 
 ## Context
 

@@ -14,7 +14,7 @@ needs.
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------- |
 | 1     | An asynchronous repository interface, with no behaviour change, and the full suite as the safety net                                                      | P2    | Engineering time                      |
 | 2     | A PostgreSQL implementation behind it, with row-level security and the same tests run against both ([ADR 0006](../adr/0006-postgres-adapter-proposed.md)) | P2    | Order 1; an approved database         |
-| 3     | Browser sign-in (MSAL) and a real Entra app registration with the four app roles                                                                          | P2    | A tenant administrator                |
+| 3     | Browser sign-in (MSAL) and a real Entra app registration with the app roles (`Swarm.User`, `Swarm.Admin`, `Swarm.PlatformAdmin`)                          | P2    | A tenant administrator                |
 | 4     | OpenTelemetry traces and metrics to Application Insights; a per-run cost signal                                                                           | P2    | Order 7 for a destination             |
 | 5     | Per-tenant token budgets with alerts                                                                                                                      | P2    | Order 4                               |
 | 6     | Automatic resume of a run interrupted by a restart                                                                                                        | P2    | Order 1                               |

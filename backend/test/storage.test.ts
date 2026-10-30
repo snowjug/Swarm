@@ -12,6 +12,7 @@ import {
   type Migration,
 } from '../src/storage/migrations.js';
 import { Repository } from '../src/storage/repository.js';
+import { SqliteDatabase } from '../src/storage/sql.js';
 import { fixtureInput } from './fixtures.js';
 
 const directories: string[] = [];
@@ -77,7 +78,7 @@ describe('schema migrations', () => {
     expect(backup).toBe(`${path}.v1.bak`);
     expect(existsSync(backup ?? '')).toBe(true);
     const copy = new DatabaseSync(backup ?? '', { readOnly: true });
-    expect(readSchemaVersion(copy)).toBe(1);
+    expect(readSchemaVersion(new SqliteDatabase(copy))).toBe(1);
     expect(tables(copy)).not.toContain('audit_events');
     copy.close();
     upgraded.close();
@@ -102,13 +103,14 @@ describe('schema migrations', () => {
     expect(() => new Repository(path)).toThrow(/newer application version/u);
 
     const after = new DatabaseSync(path);
-    expect(readSchemaVersion(after)).toBe(99);
+    expect(readSchemaVersion(new SqliteDatabase(after))).toBe(99);
     expect(tables(after)).toEqual(before);
     after.close();
   });
 
   it('rolls back a step that fails and says which one', () => {
     const database = new DatabaseSync(':memory:');
+    const sql = new SqliteDatabase(database);
     const migrations: Migration[] = [
       { version: 1, name: 'first', up: (db) => db.exec('CREATE TABLE kept (id INTEGER)') },
       {
@@ -120,10 +122,10 @@ describe('schema migrations', () => {
         },
       },
     ];
-    expect(() => migrate(database, { path: ':memory:', migrations })).toThrow(
+    expect(() => migrate(sql, { path: ':memory:', migrations })).toThrow(
       /Migration 2 \(second\) failed and was rolled back/u,
     );
-    expect(readSchemaVersion(database)).toBe(1);
+    expect(readSchemaVersion(sql)).toBe(1);
     expect(tables(database)).toContain('kept');
     expect(tables(database)).not.toContain('lost');
     database.close();

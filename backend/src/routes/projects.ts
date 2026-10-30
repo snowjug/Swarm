@@ -28,8 +28,14 @@ export function projectRoutes(
         offset: z.coerce.number().int().min(0).max(100).default(0),
       })
       .parse(request.query);
-    // A caller sees their own tenant's experiments and nobody else's.
-    return repository.list(pageSize, offset, principalOf(request).tenantId);
+    // A caller sees the experiments they were added to in their own tenant, and nobody else's. An
+    // owner or admin of the workspace sees all of that workspace's.
+    const principal = principalOf(request);
+    return repository.list(pageSize, offset, principal.tenantId, {
+      principalId: principal.id,
+      everything:
+        request.membership.workspace === 'owner' || request.membership.workspace === 'admin',
+    });
   });
 
   app.post('/api/projects', { config: limit(20) }, async (request, reply) => {

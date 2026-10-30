@@ -262,3 +262,111 @@ describe('provider status API client', () => {
     expect(isAbort(await pending)).toBe(true);
   });
 });
+
+describe('browser sign-in in the API client', () => {
+  const json = { 'Content-Type': 'application/json' };
+  const signInRequired = () =>
+    new Response(
+      JSON.stringify({ error: { code: 'SIGN_IN_REQUIRED', message: 'Sign in to continue.' } }),
+      { status: 401, headers: json },
+    );
+
+  /** A page with just the parts of the browser the client touches, so nothing real is navigated. */
+  function stubPage(location = { pathname: '/', search: '' }) {
+    const storage = new Map<string, string>();
+    const assign = vi.fn();
+    vi.stubGlobal('window', {
+      location: { ...location, assign },
+      sessionStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => void storage.set(key, value),
+        removeItem: (key: string) => void storage.delete(key),
+      },
+    });
+    return { assign, storage };
+  }
+
+  it('marks every change as coming from this page, and a read as nothing special', async () => {
+    stubPage();
+    const fetch = vi
+      .fn()
+      .mockImplementation(
+        async () => new Response('{"status":"queued"}', { status: 202, headers: json }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    await api.step('p', 'environment');
+    await api.pause('p');
+    await api.config();
+    const headers = (call: number) => fetch.mock.calls[call]![1].headers as Record<string, string>;
+    expect(headers(0)['X-Swarm-CSRF']).toBe('1');
+    expect(headers(1)['X-Swarm-CSRF']).toBe('1');
+    expect(headers(2)).not.toHaveProperty('X-Swarm-CSRF');
+  });
+
+  it('sends a person who is not signed in to sign in, and brings them back to the same page', async () => {
+    const { assign } = stubPage({ pathname: '/projects/p', search: '?tab=report' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(signInRequired()));
+    // The page is leaving, so the call that found out never settles and nothing else runs from it.
+    let settled = false;
+    void api.config().then(
+      () => (settled = true),
+      () => (settled = true),
+    );
+    await vi.waitFor(() =>
+      expect(assign).toHaveBeenCalledWith('/auth/login?returnTo=%2Fprojects%2Fp%3Ftab%3Dreport'),
+    );
+    expect(settled).toBe(false);
+  });
+
+  it('does not go round again within half a minute: the page says sign-in did not complete', async () => {
+    const { assign, storage } = stubPage();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () => signInRequired()),
+    );
+    void api.config();
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    expect(storage.has('swarm.signin.attempted')).toBe(true);
+    const failure = await api.config().catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ApiError);
+    expect((failure as ApiError).code).toBe('SIGN_IN_REQUIRED');
+    expect((failure as ApiError).message).toContain('cookies');
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a person who signed out on purpose sign in again at once', async () => {
+    const { assign, storage } = stubPage();
+    const fetch = vi
+      .fn()
+      .mockImplementation(async (path: string) =>
+        path === '/auth/logout' ? new Response(null, { status: 204 }) : signInRequired(),
+      );
+    vi.stubGlobal('fetch', fetch);
+    void api.config();
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledTimes(1));
+    await api.signOut();
+    const [path, init] = fetch.mock.calls.at(-1)!;
+    expect(path).toBe('/auth/logout');
+    expect(init.method).toBe('POST');
+    expect(init.headers['X-Swarm-CSRF']).toBe('1');
+    expect(storage.has('swarm.signin.attempted')).toBe(false);
+    void api.config();
+    await vi.waitFor(() => expect(assign).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not treat other 401s as a reason to sign in', async () => {
+    const { assign } = stubPage();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'No.' } }), {
+          status: 401,
+          headers: json,
+        }),
+      ),
+    );
+    const failure = await api.config().catch((error: unknown) => error);
+    expect((failure as ApiError).code).toBe('UNAUTHENTICATED');
+    expect(assign).not.toHaveBeenCalled();
+  });
+});

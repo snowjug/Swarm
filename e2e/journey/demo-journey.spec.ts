@@ -217,9 +217,10 @@ test('the presentation, step by step, in a real browser', async ({
   playwright,
 }, testInfo) => {
   // Each axe scan is a whole-page scan, which takes seconds on a quiet machine and a minute on a
-  // saturated one; the budget is for the slow case, not an allowance for a hung step (every
-  // action and assertion still has its own short timeout).
-  test.setTimeout(LIVE ? 20 * 60_000 : 12 * 60_000);
+  // saturated one: the same walk took 6.9 and 11.7 minutes on one machine kept busy by other work,
+  // and well under two on a CI runner. The budget is for the slow case, not an allowance for a hung
+  // step: every action and assertion still has its own short timeout.
+  test.setTimeout(20 * 60_000);
   const baseURL = testInfo.project.use.baseURL!;
   const api = await playwright.request.newContext({ baseURL });
   const watch = watchPage(page);

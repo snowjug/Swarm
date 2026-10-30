@@ -365,7 +365,7 @@ export interface AppConfig {
     guidedConsole: boolean;
     surveys: boolean;
     whatIf: boolean;
-    authentication: 'local-single-user' | 'entra';
+    authentication: 'local-single-user' | 'entra' | 'entra-session';
   };
 }
 

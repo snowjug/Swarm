@@ -1,0 +1,473 @@
+{
+  "$comment": "Each entry weakens or removes one security rule in a copy of the source. The named tests must then fail. Run with `npm run mutation:security`; scripts/mutation/lib/mutants.test.ts keeps every entry applicable.",
+  "mutants": [
+    {
+      "id": "M1",
+      "area": "membership",
+      "claim": "A person who holds no role on a project may read it",
+      "file": "backend/src/auth/guard.ts",
+      "find": "if (!projectAllows('read', roles)) return refuse(notFound());",
+      "replace": "if (false) return refuse(notFound());",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M2",
+      "area": "membership",
+      "claim": "The capability a route needs is not checked",
+      "file": "backend/src/auth/guard.ts",
+      "find": "if (!projectAllows(access.capability, roles)) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M3",
+      "area": "membership",
+      "claim": "A project of another tenant is reachable",
+      "file": "backend/src/auth/guard.ts",
+      "find": "      ownerInTenant(repository, id, principal.tenantId);\n    } catch",
+      "replace": "      void 0;\n    } catch",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M4",
+      "area": "membership",
+      "claim": "A viewer may run a simulation",
+      "file": "backend/src/auth/roles.ts",
+      "find": "viewer: new Set<ProjectCapability>(['read', 'export'])",
+      "replace": "viewer: new Set<ProjectCapability>(['read', 'export', 'run'])",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M5",
+      "area": "membership",
+      "claim": "A reviewer may run a simulation, so one person could both run and review",
+      "file": "backend/src/auth/roles.ts",
+      "find": "reviewer: new Set<ProjectCapability>(['read', 'export', 'review'])",
+      "replace": "reviewer: new Set<ProjectCapability>(['read', 'export', 'review', 'run'])",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M6",
+      "area": "membership",
+      "claim": "The last owner of a workspace may leave it",
+      "file": "backend/src/storage/members.ts",
+      "find": "if (owners <= 1) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M7",
+      "area": "membership",
+      "claim": "Leaving a workspace keeps access to its projects",
+      "file": "backend/src/storage/members.ts",
+      "find": "DELETE FROM project_members WHERE principal_id = ?\n           AND project_id IN (SELECT id FROM projects WHERE tenant_id = ?)",
+      "replace": "DELETE FROM project_members WHERE principal_id = ? AND 0\n           AND project_id IN (SELECT id FROM projects WHERE tenant_id = ?)",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M8",
+      "area": "membership",
+      "claim": "The project in a comparison query is checked for tenant only, not for membership",
+      "file": "backend/src/routes/guided.ts",
+      "find": "requireReadable(repository, principalOf(request), otherId);",
+      "replace": "if (repository.ownership(otherId)?.tenantId !== principalOf(request).tenantId) throw new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M9",
+      "area": "membership",
+      "claim": "The project list shows everyone everything in their tenant",
+      "file": "backend/src/storage/repository.ts",
+      "find": "const restricted = tenantId !== undefined && viewer !== undefined && !viewer.everything;",
+      "replace": "const restricted = false as boolean;",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M10",
+      "area": "membership",
+      "claim": "Any administrator becomes an owner, not only the first of an empty workspace",
+      "file": "backend/src/storage/members.ts",
+      "find": "if (owners > 0) return false;",
+      "replace": "if (false) return false;",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M11",
+      "area": "membership",
+      "claim": "Talking to the analyst needs only the right to read",
+      "file": "backend/src/auth/policy.ts",
+      "find": "'POST /api/projects/:id/chat': project('chat'),",
+      "replace": "'POST /api/projects/:id/chat': project('read'),",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M12",
+      "area": "membership",
+      "claim": "A workspace admin may manage owners",
+      "file": "backend/src/auth/roles.ts",
+      "find": "return actor === 'admin' && target !== 'owner';",
+      "replace": "return actor === 'admin';",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M13",
+      "area": "membership",
+      "claim": "A platform administrator owns every workspace",
+      "file": "backend/src/auth/access.ts",
+      "find": "if (isLocalPrincipal(principal)) return 'owner';\n  const role",
+      "replace": "if (isLocalPrincipal(principal) || principal.platformAdmin) return 'owner';\n  const role",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M14",
+      "area": "membership",
+      "claim": "The last lead of a project may leave it",
+      "file": "backend/src/storage/members.ts",
+      "find": "if (leads <= 1) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "M15",
+      "area": "membership",
+      "claim": "Any member may use the platform routes",
+      "file": "backend/src/auth/guard.ts",
+      "find": "if (!principal.platformAdmin) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/membership.test.ts", "backend/test/auth.test.ts"]
+    },
+    {
+      "id": "S1",
+      "area": "sign-in",
+      "claim": "The nonce of the ID token is not compared",
+      "file": "backend/src/auth/tokens.ts",
+      "find": "if (typeof payload.nonce !== 'string' || !sameText(payload.nonce, expected.nonce)) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S2",
+      "area": "sign-in",
+      "claim": "An ID token is accepted as an access token",
+      "file": "backend/src/auth/tokens.ts",
+      "find": "if ('nonce' in payload) throw rejected();",
+      "replace": "void 0;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S3",
+      "area": "sign-in",
+      "claim": "A sign-in state can be replayed",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "this.database.prepare('DELETE FROM login_attempts WHERE state_hash = ?').run(hash);",
+      "replace": "void hash;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S4",
+      "area": "sign-in",
+      "claim": "A sign-in can be finished by another browser than the one that started it",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "if (row.binding_hash !== sha256Hex(binding)) return null;",
+      "replace": "if (false) return null;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S5",
+      "area": "sign-in",
+      "claim": "A sign-in attempt never expires",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "if (this.now() - row.created_at > LOGIN_TTL_MS) return null;",
+      "replace": "if (false) return null;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S6",
+      "area": "sign-in",
+      "claim": "A change made with a cookie does not need the anti-forgery header",
+      "file": "backend/src/auth/guard.ts",
+      "find": "if (UNSAFE_METHODS.has(request.method) && request.headers[CSRF_HEADER] !== '1') {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S7",
+      "area": "sign-in",
+      "claim": "A cookie is used even when a bearer token was sent, so a bad token is rescued",
+      "file": "backend/src/auth/guard.ts",
+      "find": "if (request.headers.authorization !== undefined || !signIn || !sessionCookie) {",
+      "replace": "if (!signIn || !sessionCookie) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S8",
+      "area": "sign-in",
+      "claim": "A request with no credentials is treated as the local user",
+      "file": "backend/src/auth/guard.ts",
+      "find": "if (!found) throw new AppError(401, 'SIGN_IN_REQUIRED', 'Sign in to continue.');",
+      "replace": "if (!found) return LOCAL_PRINCIPAL;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S9",
+      "area": "sign-in",
+      "claim": "A missing session is reported with a code the page does not recognise",
+      "file": "backend/src/auth/guard.ts",
+      "find": "throw new AppError(401, 'SIGN_IN_REQUIRED', 'Sign in to continue.');",
+      "replace": "throw new AppError(401, 'UNAUTHENTICATED', 'Sign in to continue.');",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S10",
+      "area": "sign-in",
+      "claim": "A session never ends for being idle",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "if (at >= row.expires_at || at - row.last_seen_at >= idleMs) {",
+      "replace": "if (at >= row.expires_at) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S11",
+      "area": "sign-in",
+      "claim": "A busy session never reaches its absolute limit",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "if (at >= row.expires_at || at - row.last_seen_at >= idleMs) {",
+      "replace": "if (at - row.last_seen_at >= idleMs) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S12",
+      "area": "sign-in",
+      "claim": "Using a session does not keep it from idling out",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "if (at - row.last_seen_at >= TOUCH_EVERY_MS) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S13",
+      "area": "sign-in",
+      "claim": "Ended sessions are never removed",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "this.database.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(at);",
+      "replace": "void at;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S14",
+      "area": "sign-in",
+      "claim": "The PKCE challenge is not the S256 of the verifier",
+      "file": "backend/src/auth/oidc.ts",
+      "find": "createHash('sha256').update(verifier).digest('base64url');",
+      "replace": "createHash('sha256').update(verifier).digest('hex');",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S15",
+      "area": "sign-in",
+      "claim": "A protocol-relative address is accepted as where to go after signing in",
+      "file": "backend/src/auth/oidc.ts",
+      "find": "if (!value.startsWith('/') || value.startsWith('//')) return '/';",
+      "replace": "if (!value.startsWith('/')) return '/';",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S16",
+      "area": "sign-in",
+      "claim": "A refresh token is asked for",
+      "file": "backend/src/auth/oidc.ts",
+      "find": "scope: 'openid profile',\n    state: parameters.state,",
+      "replace": "scope: 'openid profile offline_access',\n    state: parameters.state,",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S17",
+      "area": "sign-in",
+      "claim": "An empty client secret is sent when none is configured",
+      "file": "backend/src/auth/oidc.ts",
+      "find": "if (session.clientSecret) body.set('client_secret', session.clientSecret);",
+      "replace": "body.set('client_secret', session.clientSecret ?? '');",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S18",
+      "area": "sign-in",
+      "claim": "A person with no Swarm role is told that sign-in failed, not that they have no role",
+      "file": "backend/src/routes/session.ts",
+      "find": "if (error instanceof AppError && error.code === 'NO_ROLE') {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S19",
+      "area": "sign-in",
+      "claim": "A reply that reports an error but carries a code has the code redeemed",
+      "file": "backend/src/routes/session.ts",
+      "find": "if (query.data.error || !query.data.code) return back('/?signin=failed', 'refused');",
+      "replace": "if (!query.data.code) return back('/?signin=failed', 'refused');",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S20",
+      "area": "sign-in",
+      "claim": "The login cookie is left behind after a sign-in",
+      "file": "backend/src/routes/session.ts",
+      "find": "serializeCookie(sessionName, created.token, { maxAge: created.maxAgeSeconds, secure }),\n          clearLogin,",
+      "replace": "serializeCookie(sessionName, created.token, { maxAge: created.maxAgeSeconds, secure }),",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S21",
+      "area": "sign-in",
+      "claim": "Signing out does not end the session on the server",
+      "file": "backend/src/routes/session.ts",
+      "find": "repository.sessions.revoke(token);",
+      "replace": "void token;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S22",
+      "area": "sign-in",
+      "claim": "Signing out does not need the anti-forgery header",
+      "file": "backend/src/routes/session.ts",
+      "find": "if (request.headers[CSRF_HEADER] !== '1') {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S23",
+      "area": "sign-in",
+      "claim": "Removing someone from a workspace leaves their sessions alive",
+      "file": "backend/src/storage/members.ts",
+      "find": "'DELETE FROM sessions WHERE tenant_id = ? AND principal_id = ?'",
+      "replace": "'DELETE FROM sessions WHERE tenant_id = ? AND principal_id = ? AND 0'",
+      "tests": ["backend/test/session.test.ts", "backend/test/membership.test.ts"]
+    },
+    {
+      "id": "S24",
+      "area": "sign-in",
+      "claim": "The session cookie can be read by script",
+      "file": "backend/src/auth/cookies.ts",
+      "find": "    'HttpOnly',\n",
+      "replace": "",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S25",
+      "area": "sign-in",
+      "claim": "The session cookie is sent on cross-site requests",
+      "file": "backend/src/auth/cookies.ts",
+      "find": "'SameSite=Lax',",
+      "replace": "'SameSite=None',",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S26",
+      "area": "sign-in",
+      "claim": "Every session is a platform administrator's",
+      "file": "backend/src/storage/sessions.ts",
+      "find": "principal.platformAdmin ? 1 : 0,",
+      "replace": "1,",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "S27",
+      "area": "sign-in",
+      "claim": "A token from a tenant that was not allow-listed is accepted",
+      "file": "backend/src/auth/tokens.ts",
+      "find": "if (!this.config.tenants.has(tenant)) throw rejected();",
+      "replace": "void 0;",
+      "tests": ["backend/test/session.test.ts"]
+    },
+    {
+      "id": "P1",
+      "area": "storage",
+      "claim": "Every placeholder in a PostgreSQL statement is the first parameter",
+      "file": "backend/src/storage/postgres/translate.ts",
+      "find": ".replace(/\\?/gu, () => `$${++placeholder}`)",
+      "replace": ".replace(/\\?/gu, () => '$1')",
+      "tests": ["backend/test/postgres.test.ts"]
+    },
+    {
+      "id": "P2",
+      "area": "storage",
+      "claim": "INSERT OR IGNORE loses its conflict clause, so a duplicate becomes an error",
+      "file": "backend/src/storage/postgres/translate.ts",
+      "find": ": `${rewritten} ON CONFLICT DO NOTHING`;",
+      "replace": ": rewritten;",
+      "tests": ["backend/test/postgres.test.ts"]
+    },
+    {
+      "id": "P3",
+      "area": "storage",
+      "claim": "A transaction that loses a race on a shared database is not run again",
+      "file": "backend/src/storage/postgres/database.ts",
+      "find": "if (!isRaceLost(error) || attempt >= MAX_ATTEMPTS) throw error;",
+      "replace": "throw error;",
+      "tests": ["backend/test/postgres.test.ts"]
+    },
+    {
+      "id": "P4",
+      "area": "storage",
+      "claim": "PostgreSQL transactions are not serializable, so two instances can both pass a check",
+      "file": "backend/src/storage/postgres/database.ts",
+      "find": "'BEGIN ISOLATION LEVEL SERIALIZABLE'",
+      "replace": "'BEGIN'",
+      "tests": ["backend/test/postgres.test.ts"]
+    },
+    {
+      "id": "P5",
+      "area": "storage",
+      "claim": "A copy goes into a database that already holds data",
+      "file": "backend/src/storage/copy.ts",
+      "find": "if (countOf(to, name) > 0) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/copy.test.ts"]
+    },
+    {
+      "id": "P6",
+      "area": "storage",
+      "claim": "A copy of an audit log that has been tampered with is accepted",
+      "file": "backend/src/storage/copy.ts",
+      "find": "report.auditChainIntact = new AuditLog(to).verify().ok;",
+      "replace": "report.auditChainIntact = true;",
+      "tests": ["backend/test/copy.test.ts"]
+    },
+    {
+      "id": "P7",
+      "area": "storage",
+      "claim": "After a copy to PostgreSQL the next audit entry reuses a number already taken",
+      "file": "backend/src/storage/copy.ts",
+      "find": "pg_get_serial_sequence('audit_events', 'seq')",
+      "replace": "pg_get_serial_sequence('events', 'id')",
+      "tests": ["backend/test/copy.test.ts"]
+    },
+    {
+      "id": "P8",
+      "area": "storage",
+      "claim": "A migration is applied but its version is never recorded, so it runs again at every start",
+      "file": "backend/src/storage/migrations.ts",
+      "find": "writeSchemaVersion(database, migration.version);",
+      "replace": "void migration;",
+      "tests": ["backend/test/postgres.test.ts", "backend/test/storage.test.ts"]
+    },
+    {
+      "id": "P9",
+      "area": "storage",
+      "claim": "On PostgreSQL an audit entry can be rewritten",
+      "file": "backend/src/storage/postgres/schema.ts",
+      "find": "CREATE TRIGGER audit_events_no_update BEFORE UPDATE ON audit_events\n    FOR EACH ROW EXECUTE FUNCTION audit_events_append_only();",
+      "replace": "CREATE TRIGGER audit_events_no_update BEFORE UPDATE ON audit_events\n    FOR EACH ROW WHEN (false) EXECUTE FUNCTION audit_events_append_only();",
+      "tests": ["backend/test/postgres.test.ts"]
+    },
+    {
+      "id": "P10",
+      "area": "storage",
+      "claim": "A statement inside a transaction is retried on a new connection, outside the transaction",
+      "file": "backend/src/storage/postgres/database.ts",
+      "find": "retry: !this.active",
+      "replace": "retry: true",
+      "tests": ["backend/test/postgres.test.ts"]
+    }
+  ]
+}

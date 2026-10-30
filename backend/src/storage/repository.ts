@@ -1,7 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 import { emptyConsole } from '../../../shared/guided.js';
 import {
@@ -27,12 +24,11 @@ import {
   type StoredProject,
 } from './codec.js';
 import { LedgerStore } from './ledger-store.js';
-import {
-  LATEST_SCHEMA_VERSION,
-  migrate,
-  readSchemaVersion,
-  type MigrationReport,
-} from './migrations.js';
+import { MemberStore } from './members.js';
+import { migrate, type MigrationReport } from './migrations.js';
+import { openDatabase } from './open.js';
+import { SessionStore } from './sessions.js';
+import type { SqlDatabase } from './sql.js';
 import { parseSnapshot } from './snapshot.js';
 
 const payloadRow = z.object({ payload: z.string() });
@@ -49,51 +45,74 @@ export interface Owner {
 /** Without sign-in, everything belongs to the one local user. */
 export const LOCAL_OWNER: Owner = { tenantId: 'local', ownerId: 'local-user' };
 
+/**
+ * Whose view a listing is. Someone who sees everything in their tenant (a workspace owner or admin,
+ * or the one local user) gets all of it; anyone else gets only the projects they were added to.
+ */
+export interface Viewer {
+  principalId: string;
+  everything: boolean;
+}
+
 export class Repository {
-  private readonly database: DatabaseSync;
+  private readonly database: SqlDatabase;
   /** Claim records and conflicts between sources. */
   readonly ledger: LedgerStore;
   /** Append-only record of who did what. Holds identifiers and counts, never content. */
   readonly audit: AuditLog;
+  /** Workspace and project membership: who may see and do what. */
+  readonly members: MemberStore;
+  /** Browser sign-in: logins in flight and the sessions they produced. */
+  readonly sessions: SessionStore;
   /** What the schema migration did when this database was opened. */
   readonly migration: MigrationReport;
 
-  constructor(path: string) {
-    if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
-    this.database = new DatabaseSync(path);
-    if (readSchemaVersion(this.database) > LATEST_SCHEMA_VERSION) {
-      this.database.close();
-      throw new AppError(
-        500,
-        'STORAGE_VERSION',
-        'This database requires a newer application version.',
-      );
-    }
-    this.database.exec(`
-      PRAGMA foreign_keys = ON;
-      PRAGMA journal_mode = WAL;
-      PRAGMA busy_timeout = 5000;
-    `);
+  /**
+   * `target` is a SQLite file path, `:memory:`, or a `postgres://` URL (see `openDatabase`). With
+   * `entra`, a PostgreSQL connection is authenticated with a Microsoft Entra access token instead of a password.
+   */
+  constructor(target: string, options: { now?: () => number; entra?: boolean } = {}) {
+    this.database = openDatabase(
+      target,
+      options.entra === undefined ? {} : { entra: options.entra },
+    );
     try {
-      this.migration = migrate(this.database, { path });
+      this.migration = migrate(this.database, { path: target });
     } catch (error) {
       this.database.close();
       throw error;
     }
     this.ledger = new LedgerStore(this.database, (operation) => this.transaction(operation));
     this.audit = new AuditLog(this.database);
+    this.members = new MemberStore(
+      this.database,
+      (operation) => this.transaction(operation),
+      this.audit,
+    );
+    this.sessions = new SessionStore(this.database, options.now);
+  }
+
+  /** Which database this is: `sqlite` or `postgres`. */
+  get dialect(): SqlDatabase['dialect'] {
+    return this.database.dialect;
+  }
+
+  /** True when the database connection is lost for good, so that only a restart will help. */
+  get broken(): boolean {
+    return this.database.broken;
+  }
+
+  /** Answers a trivial query, so that a probe can tell a live database from a dead one. */
+  ping(): boolean {
+    try {
+      return this.database.prepare('SELECT 1 AS ok').get()?.ok === 1;
+    } catch {
+      return false;
+    }
   }
 
   private transaction<T>(operation: () => T): T {
-    this.database.exec('BEGIN IMMEDIATE');
-    try {
-      const result = operation();
-      this.database.exec('COMMIT');
-      return result;
-    } catch (error) {
-      this.database.exec('ROLLBACK');
-      throw error;
-    }
+    return this.database.transaction(operation);
   }
 
   /** Runs several changes as one unit: all of them are saved, or none. Not re-entrant. */
@@ -120,8 +139,18 @@ export class Repository {
     return { ...project, events, parentId: project.console?.branch?.parentId ?? null };
   }
 
-  /** All experiments, or only those of one tenant. */
-  count(tenantId?: string): number {
+  /** All experiments, those of one tenant, or those of one tenant that a viewer may see. */
+  count(tenantId?: string, viewer?: Viewer): number {
+    if (tenantId !== undefined && viewer && !viewer.everything) {
+      return countRow.parse(
+        this.database
+          .prepare(
+            `SELECT COUNT(*) AS count FROM projects WHERE tenant_id = ?
+             AND id IN (SELECT project_id FROM project_members WHERE principal_id = ?)`,
+          )
+          .get(tenantId, viewer.principalId),
+      ).count;
+    }
     const row =
       tenantId === undefined
         ? this.database.prepare('SELECT COUNT(*) AS count FROM projects').get()
@@ -141,9 +170,22 @@ export class Repository {
     return { tenantId: parsed.tenant_id, ownerId: parsed.owner_id };
   }
 
-  list(limit = 100, offset = 0, tenantId?: string): { projects: ProjectSummary[]; total: number } {
-    const rows =
-      tenantId === undefined
+  list(
+    limit = 100,
+    offset = 0,
+    tenantId?: string,
+    viewer?: Viewer,
+  ): { projects: ProjectSummary[]; total: number } {
+    const restricted = tenantId !== undefined && viewer !== undefined && !viewer.everything;
+    const rows = restricted
+      ? this.database
+          .prepare(
+            `SELECT payload FROM projects WHERE tenant_id = ?
+             AND id IN (SELECT project_id FROM project_members WHERE principal_id = ?)
+             ORDER BY created_at DESC, id LIMIT ? OFFSET ?`,
+          )
+          .all(tenantId, viewer.principalId, limit, offset)
+      : tenantId === undefined
         ? this.database
             .prepare('SELECT payload FROM projects ORDER BY created_at DESC, id LIMIT ? OFFSET ?')
             .all(limit, offset)
@@ -188,7 +230,7 @@ export class Repository {
         parentId: project.console?.branch?.parentId ?? null,
       };
     });
-    return { projects, total: this.count(tenantId) };
+    return { projects, total: this.count(tenantId, viewer) };
   }
 
   create(
@@ -243,6 +285,12 @@ export class Repository {
           owner.tenantId,
           owner.ownerId,
         );
+      this.members.insertLead(
+        { id: project.id, tenantId: owner.tenantId },
+        owner.ownerId,
+        owner.ownerId,
+        now,
+      );
       const insert = this.database.prepare(
         'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
       );
@@ -329,6 +377,12 @@ export class Repository {
           owner.tenantId,
           owner.ownerId,
         );
+      this.members.insertLead(
+        { id: project.id, tenantId: owner.tenantId },
+        owner.ownerId,
+        options.actor ?? owner.ownerId,
+        project.createdAt,
+      );
       const chunk = this.database.prepare(
         'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
       );
@@ -368,13 +422,20 @@ export class Repository {
     id: string,
     changes: Partial<Omit<StoredProject, 'id' | 'createdAt' | 'updatedAt'>>,
   ): ProjectDetail {
-    const current = this.readStored(id);
-    if (!current) throw new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');
-    const next: StoredProject = { ...current, ...changes, updatedAt: new Date().toISOString() };
-    storedProjectSchema.parse(next);
-    this.database
-      .prepare('UPDATE projects SET updated_at = ?, status = ?, payload = ? WHERE id = ?')
-      .run(next.updatedAt, next.status, JSON.stringify(next), id);
+    // Read and write as one step, so that a second writer on a shared database cannot be overwritten.
+    const write = () => {
+      const current = this.readStored(id);
+      if (!current) {
+        throw new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');
+      }
+      const next: StoredProject = { ...current, ...changes, updatedAt: new Date().toISOString() };
+      storedProjectSchema.parse(next);
+      this.database
+        .prepare('UPDATE projects SET updated_at = ?, status = ?, payload = ? WHERE id = ?')
+        .run(next.updatedAt, next.status, JSON.stringify(next), id);
+    };
+    if (this.database.inTransaction) write();
+    else this.transaction(write);
     return this.get(id);
   }
 

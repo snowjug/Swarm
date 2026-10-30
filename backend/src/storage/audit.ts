@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { DatabaseSync } from 'node:sqlite';
+import type { SqlDatabase } from './sql.js';
 import { z } from 'zod';
 
 export type AuditDetail = Record<string, string | number | boolean | null>;
@@ -97,9 +97,20 @@ function toEvent(raw: unknown): AuditEvent {
  * Call `record` inside the transaction of the change it describes so the two commit together.
  */
 export class AuditLog {
-  constructor(private readonly database: DatabaseSync) {}
+  constructor(private readonly database: SqlDatabase) {}
 
+  /**
+   * Adds an entry that commits to the one before it. The read of the last entry and the write of the
+   * new one are a transaction of their own unless the caller is already in one, so that two instances
+   * sharing a database cannot both extend the same link and fork the chain.
+   */
   record(input: AuditInput, now: Date = new Date()): AuditEvent {
+    return this.database.inTransaction
+      ? this.append(input, now)
+      : this.database.transaction(() => this.append(input, now));
+  }
+
+  private append(input: AuditInput, now: Date): AuditEvent {
     const last = this.database
       .prepare('SELECT hash FROM audit_events ORDER BY seq DESC LIMIT 1')
       .get();
@@ -114,12 +125,12 @@ export class AuditLog {
       detail: sanitizeDetail(input.detail),
     };
     const hash = auditHash(prevHash, base);
-    const result = this.database
+    const inserted = this.database
       .prepare(
         `INSERT INTO audit_events (at, actor, action, target_type, target_id, project_id, detail, prev_hash, hash)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING seq`,
       )
-      .run(
+      .get(
         base.at,
         base.actor,
         base.action,
@@ -130,7 +141,7 @@ export class AuditLog {
         prevHash,
         hash,
       );
-    return { seq: Number(result.lastInsertRowid), ...base, prevHash, hash };
+    return { seq: z.object({ seq: z.number() }).parse(inserted).seq, ...base, prevHash, hash };
   }
 
   list(filter: { projectId?: string; limit?: number } = {}): AuditEvent[] {

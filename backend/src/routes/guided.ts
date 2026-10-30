@@ -8,7 +8,8 @@ import {
   surveyInputSchema,
 } from '../../../shared/guided.js';
 import { AppError } from '../errors.js';
-import { ownerInTenant, ownerOf, principalOf } from '../auth/guard.js';
+import { ownerOf, principalOf, requireReadable } from '../auth/guard.js';
+import { workspaceAllows } from '../auth/roles.js';
 import { compareRuns } from '../guided/compare.js';
 import { editEnvironment } from '../guided/environment.js';
 import { requireConsole } from '../guided/state.js';
@@ -58,8 +59,12 @@ export function guidedRoutes(
 
   app.post('/api/projects/:id/branches', { config: limit(10) }, async (request, reply) => {
     const { id } = idParams.parse(request.params);
+    // The guard checked the caller may run the parent. A branch is a new experiment, which only a
+    // member of the workspace may create, and the caller leads it.
+    if (!workspaceAllows('create-project', request.membership.workspace)) {
+      throw new AppError(403, 'FORBIDDEN', 'You are not a member of this workspace.');
+    }
     requireIdle(id);
-    // The branch is a new experiment, owned by whoever branched it.
     return reply
       .code(201)
       .send(
@@ -75,9 +80,10 @@ export function guidedRoutes(
   app.get('/api/projects/:id/compare', async (request) => {
     const { id } = idParams.parse(request.params);
     const { with: otherId } = z.object({ with: z.uuid() }).parse(request.query);
-    // The guard vouched only for the experiment in the path. The one named in the query must be the
-    // caller's tenant's too, or this would read another tenant's runs and confirm their existence.
-    ownerInTenant(repository, otherId, principalOf(request).tenantId);
+    // The guard vouched only for the experiment in the path. The one named in the query must be one
+    // the caller may read too, or this would read another tenant's runs, or another project's of
+    // the same workspace, and confirm that they exist.
+    requireReadable(repository, principalOf(request), otherId);
     return compareRuns(repository, id, otherId);
   });
 

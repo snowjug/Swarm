@@ -3,6 +3,25 @@
   padding-top: 28px;
   padding-bottom: 32px;
 }
+.sign-in-problem {
+  display: grid;
+  place-items: center;
+  min-height: 60vh;
+}
+.sign-in-card {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  max-width: 480px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+}
+.sign-in-card p {
+  color: var(--muted);
+  line-height: 1.7;
+}
 .entry-console {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);

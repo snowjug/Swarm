@@ -1,23 +1,53 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ExternalLink, FlaskConical, History, Plus, RefreshCw, X } from 'lucide-react';
+import {
+  ArrowLeft,
+  ExternalLink,
+  FlaskConical,
+  History,
+  LogOut,
+  Plus,
+  RefreshCw,
+  X,
+} from 'lucide-react';
 import type { ProjectDetail } from '../../shared/types';
+import { api, errorMessage } from './api';
 import { ConsoleWorkspace } from './components/console/ConsoleWorkspace';
 import { EntryConsole } from './components/console/EntryConsole';
 import { HistoryDrawer } from './components/console/HistoryDrawer';
 import { ProviderBadge, ProviderPanel } from './components/ProviderBadge';
+import { SignInProblem } from './components/SignInProblem';
 import { EmptyPanel, Notice, Spinner } from './components/ui';
 import { useConsole } from './hooks/useConsole';
 import { useProviderStatus } from './hooks/useProviderStatus';
 import { sourceLink } from './lib/format';
+import { signInProblem } from './lib/signIn';
 
+/** A sign-in that did not produce a session is explained on its own screen, not behind the console. */
 export default function App() {
+  const problem = signInProblem(window.location.search);
+  return problem ? <SignInProblem kind={problem} /> : <Console />;
+}
+
+function Console() {
   const console = useConsole();
   const provider = useProviderStatus();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [comparisonProject, setComparisonProject] = useState<string | null>(null);
   const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
   const main = useRef<HTMLElement>(null);
   const didNavigate = useRef(false);
+  const authentication = console.config.data?.capabilities.authentication ?? 'local-single-user';
+  const signOut = async () => {
+    setSignOutError(null);
+    try {
+      await api.signOut();
+      // Back to the front door: the next request finds no session and sends the person to sign in.
+      window.location.assign('/');
+    } catch (failure) {
+      setSignOutError(errorMessage(failure));
+    }
+  };
   const project =
     console.detail.id === console.selectedId && console.detail.data?.id === console.selectedId
       ? console.detail.data
@@ -81,7 +111,20 @@ export default function App() {
           </button>
         </div>
         <div className="header-actions">
-          <span className="single-user-label mono">LOCAL · SINGLE USER</span>
+          {authentication === 'local-single-user' ? (
+            <span className="single-user-label mono">LOCAL · SINGLE USER</span>
+          ) : (
+            <span className="single-user-label mono">SIGNED IN · MICROSOFT ENTRA</span>
+          )}
+          {authentication === 'entra-session' && (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              onClick={() => void signOut()}
+            >
+              <LogOut size={14} aria-hidden="true" /> Sign out
+            </button>
+          )}
           <button
             className="button button-secondary button-small"
             type="button"
@@ -140,6 +183,24 @@ export default function App() {
           >
             {console.config.error} Creation and model assistance remain unavailable until current
             capabilities can be read.
+          </Notice>
+        )}
+        {signOutError && (
+          <Notice
+            tone="error"
+            title="Could not sign out"
+            action={
+              <button
+                className="icon-button"
+                type="button"
+                aria-label="Dismiss sign-out error"
+                onClick={() => setSignOutError(null)}
+              >
+                <X size={15} />
+              </button>
+            }
+          >
+            {signOutError} You are still signed in.
           </Notice>
         )}
         {actionError && (
@@ -254,8 +315,10 @@ export default function App() {
           · Fictional scenarios, not forecasts.
         </span>
         <span>
-          Local single-user tool. Do not expose this server publicly. No provider secrets are stored
-          in this UI.
+          {authentication === 'local-single-user'
+            ? 'Local single-user tool. Do not expose this server publicly. '
+            : 'Access is by Microsoft Entra sign-in and project membership. '}
+          No provider secrets are stored in this UI.
         </span>
         <span>
           AGPL-3.0

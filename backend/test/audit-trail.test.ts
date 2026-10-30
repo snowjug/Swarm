@@ -40,7 +40,7 @@ describe('what the audit log is told about', () => {
           expect(route).toBe('POST /api/documents/extract');
         }
       } else {
-        expect(rule.action, route).toMatch(/^[a-z]+\.[a-z]+$/u);
+        expect(rule.action, route).toMatch(/^[a-z]+(?:\.[a-z]+){1,2}$/u);
       }
     }
   });

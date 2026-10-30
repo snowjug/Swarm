@@ -28,10 +28,31 @@ export interface ProviderConfig {
   timeoutMs: number;
 }
 
+export interface SessionConfig {
+  /** The application (client) ID of the Entra app registration that people sign in to. */
+  clientId: string;
+  /** Where Entra sends the browser back with the code: https, or http on a loopback host. */
+  redirectUri: string;
+  /** The tenant segment of the authority: the one allowed tenant, or `organizations` for several. */
+  authorityTenant: string;
+  /**
+   * Optional credential of a confidential client, supplied by a secret store and never by source. The
+   * flow is Authorization Code with PKCE either way, so a registration without a secret works.
+   */
+  clientSecret: string | null;
+  /** A session ends after this long without a request. */
+  idleMinutes: number;
+  /** A session ends this long after sign-in, whatever is happening. */
+  absoluteHours: number;
+  /** Cookies are Secure and `__Host-` prefixed, except on a plain-http loopback redirect (development). */
+  secureCookies: boolean;
+}
+
 export interface AuthConfig {
   /**
    * `none`: one local user, no sign-in (the default, meant for a loopback address).
-   * `entra`: every API call needs a Microsoft Entra access token.
+   * `entra`: every API call needs a Microsoft Entra access token, or a session that was started by
+   * signing in with Microsoft Entra through this server (`session`).
    */
   mode: 'none' | 'entra';
   /** Entra tenants whose tokens are accepted (lower-case GUIDs). Empty when `mode` is `none`. */
@@ -40,12 +61,19 @@ export interface AuthConfig {
   audience: string | null;
   /** Where token signing keys are fetched. HTTPS only. Null when `mode` is `none`. */
   jwksUri: string | null;
+  /** Browser sign-in. Null when only bearer tokens are accepted. */
+  session: SessionConfig | null;
 }
 
 export interface ServerConfig {
   host: string;
   port: number;
+  /** The SQLite file. Used when `databaseUrl` is null. */
   databasePath: string;
+  /** A `postgres://` URL for the database of a hosted deployment. Never contains a password when `databaseAuth` is `entra`. */
+  databaseUrl: string | null;
+  /** `entra`: the password is a Microsoft Entra access token, fetched for each connection. */
+  databaseAuth: 'password' | 'entra';
   allowedOrigins: Set<string>;
   allowedHosts: Set<string>;
   logLevel: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'silent';
@@ -83,10 +111,36 @@ function storageWarning(databasePath: string): string | null {
   );
 }
 
+/**
+ * The PostgreSQL connection URL, checked so that a mistake fails at start-up and says which setting
+ * is wrong, without ever repeating the URL (it can hold a password).
+ */
+function buildDatabaseUrl(value: string | undefined, auth: 'password' | 'entra'): string | null {
+  if (!value) {
+    if (auth === 'entra') throw new Error('DATABASE_AUTH=entra needs DATABASE_URL.');
+    return null;
+  }
+  if (!/^postgres(?:ql)?:\/\//iu.test(value) || !URL.canParse(value)) {
+    throw new Error('DATABASE_URL must be a postgres:// URL.');
+  }
+  const url = new URL(value);
+  if (!url.hostname || url.pathname.length < 2 || !url.username) {
+    throw new Error('DATABASE_URL must name a host, a database and a user.');
+  }
+  if (auth === 'entra' && url.password) {
+    throw new Error(
+      'DATABASE_AUTH=entra authenticates with a token: leave the password out of DATABASE_URL.',
+    );
+  }
+  return value;
+}
+
 const environmentSchema = z.object({
   HOST: z.enum(['127.0.0.1', 'localhost', '0.0.0.0', '::']).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1024).max(65535).default(3001),
   DATA_DIR: z.string().trim().min(1).default('./data'),
+  DATABASE_URL: z.string().trim().max(1_000).optional(),
+  DATABASE_AUTH: z.enum(['password', 'entra']).default('password'),
   ALLOWED_ORIGINS: z.string().optional(),
   ALLOWED_HOSTS: z.string().default('localhost,127.0.0.1,[::1]'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'silent']).default('info'),
@@ -102,14 +156,57 @@ const environmentSchema = z.object({
   AUTH_ENTRA_ALLOWED_TENANTS: z.string().optional(),
   AUTH_ENTRA_AUDIENCE: z.string().trim().min(1).max(200).optional(),
   AUTH_ENTRA_JWKS_URI: z.string().trim().optional(),
+  AUTH_ENTRA_CLIENT_ID: z.uuid().optional(),
+  AUTH_ENTRA_REDIRECT_URI: z.string().trim().optional(),
+  AUTH_ENTRA_CLIENT_SECRET: z.string().trim().min(1).max(500).optional(),
+  AUTH_SESSION_IDLE_MINUTES: z.coerce.number().int().min(5).max(480).default(30),
+  AUTH_SESSION_ABSOLUTE_HOURS: z.coerce.number().int().min(1).max(24).default(8),
 });
 
 /** Microsoft publishes one signing-key set for all tenants; the token's own tenant is checked separately. */
 const ENTRA_JWKS = 'https://login.microsoftonline.com/common/discovery/v2.0/keys';
 
+const LOOPBACK_HOSTS: ReadonlySet<string> = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+function buildSession(
+  input: z.infer<typeof environmentSchema>,
+  tenants: ReadonlySet<string>,
+): SessionConfig | null {
+  const clientId = input.AUTH_ENTRA_CLIENT_ID;
+  const redirect = input.AUTH_ENTRA_REDIRECT_URI;
+  if (!clientId && !redirect) return null;
+  if (!clientId || !redirect) {
+    throw new Error(
+      'Browser sign-in needs both AUTH_ENTRA_CLIENT_ID and AUTH_ENTRA_REDIRECT_URI, or neither.',
+    );
+  }
+  if (!URL.canParse(redirect)) throw new Error('AUTH_ENTRA_REDIRECT_URI must be a valid URL.');
+  const url = new URL(redirect);
+  const loopback = LOOPBACK_HOSTS.has(url.hostname);
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) {
+    throw new Error(
+      'AUTH_ENTRA_REDIRECT_URI must be an HTTPS URL (http is allowed only on localhost).',
+    );
+  }
+  if (url.pathname !== '/auth/callback' || url.search || url.hash || url.username || url.password) {
+    throw new Error(
+      'AUTH_ENTRA_REDIRECT_URI must end in /auth/callback, with no query or credentials.',
+    );
+  }
+  return {
+    clientId: clientId.toLowerCase(),
+    redirectUri: url.toString(),
+    authorityTenant: tenants.size === 1 ? [...tenants][0]! : 'organizations',
+    clientSecret: input.AUTH_ENTRA_CLIENT_SECRET ?? null,
+    idleMinutes: input.AUTH_SESSION_IDLE_MINUTES,
+    absoluteHours: input.AUTH_SESSION_ABSOLUTE_HOURS,
+    secureCookies: url.protocol === 'https:',
+  };
+}
+
 function buildAuth(input: z.infer<typeof environmentSchema>): AuthConfig {
   if (input.AUTH_MODE === 'none') {
-    return { mode: 'none', tenants: new Set(), audience: null, jwksUri: null };
+    return { mode: 'none', tenants: new Set(), audience: null, jwksUri: null, session: null };
   }
   const listed = (input.AUTH_ENTRA_ALLOWED_TENANTS ?? '')
     .split(',')
@@ -137,7 +234,13 @@ function buildAuth(input: z.infer<typeof environmentSchema>): AuthConfig {
   if (!URL.canParse(jwksUri) || new URL(jwksUri).protocol !== 'https:') {
     throw new Error('AUTH_ENTRA_JWKS_URI must be an HTTPS URL.');
   }
-  return { mode: 'entra', tenants, audience: input.AUTH_ENTRA_AUDIENCE, jwksUri };
+  return {
+    mode: 'entra',
+    tenants,
+    audience: input.AUTH_ENTRA_AUDIENCE,
+    jwksUri,
+    session: buildSession(input, tenants),
+  };
 }
 
 type EndpointResult = { valid: true; url: string } | { valid: false; reason: string };
@@ -278,11 +381,20 @@ export function loadConfig(
     }
     sourceUrl = url.toString();
   }
+  const auth = buildAuth(input);
+  if (auth.session && !hosts.includes(new URL(auth.session.redirectUri).hostname)) {
+    throw new Error(
+      'ALLOWED_HOSTS must include the host of AUTH_ENTRA_REDIRECT_URI, or Entra’s redirect would be refused.',
+    );
+  }
   const databasePath = resolve(input.DATA_DIR, 'swarm-lab.sqlite');
+  const databaseUrl = buildDatabaseUrl(input.DATABASE_URL, input.DATABASE_AUTH);
   return {
     host: input.HOST,
     port: input.PORT,
     databasePath,
+    databaseUrl,
+    databaseAuth: input.DATABASE_AUTH,
     allowedOrigins: new Set(origins),
     allowedHosts: new Set(hosts),
     logLevel: input.LOG_LEVEL,
@@ -295,8 +407,8 @@ export function loadConfig(
       input.AZURE_CLIENT_ID ?? null,
     ),
     sourceUrl,
-    auth: buildAuth(input),
-    storageWarning: storageWarning(databasePath),
+    auth,
+    storageWarning: databaseUrl ? null : storageWarning(databasePath),
     rateLimitScale: input.RATE_LIMIT_SCALE,
   };
 }
@@ -332,7 +444,12 @@ export function publicConfig(config: ServerConfig): AppConfig {
       guidedConsole: true,
       surveys: true,
       whatIf: true,
-      authentication: config.auth.mode === 'entra' ? 'entra' : 'local-single-user',
+      authentication:
+        config.auth.mode === 'none'
+          ? 'local-single-user'
+          : config.auth.session
+            ? 'entra-session'
+            : 'entra',
     },
   };
 }

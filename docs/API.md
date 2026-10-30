@@ -9,6 +9,8 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | Method       | Path                                             | Behavior                                                                                                                  |
 | ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
 | GET          | `/api/health`                                    | Actual process/storage/queue readiness, not model connectivity                                                            |
+| GET          | `/api/health/live`                               | Liveness: `{ "status": "live" }`, or 503 `broken` when the database connection is lost for good (a restart cures it)      |
+| GET          | `/api/health/ready`                              | Readiness: 200 `ready`, or 503 `not-ready` with the check that failed (`database`); nothing else, and no sign-in needed   |
 | GET          | `/api/config`                                    | Safe capabilities, limits and provider status; no key or private endpoint                                                 |
 | GET          | `/api/provider/status`                           | Mode, provider, model, auth type, connectivity, call and token counters, last error code; never a host, key or token      |
 | POST         | `/api/provider/check`                            | One explicit real model round trip (rate limited); 503 when no provider is configured, never a local fallback             |
@@ -37,7 +39,13 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | POST         | `/api/projects/:id/claims/:claimId/review`       | Accept, reject or flag a statement (`{ result, note?, expectedVersion? }`); a reviewer can never upgrade support          |
 | POST         | `/api/projects/:id/conflicts/:conflictId/review` | Confirm, dismiss or resolve a detected conflict between sources; recalculates the statements it touches                   |
 | GET          | `/api/projects/:id/audit`                        | Tamper-evident audit entries for the project (ids and counts, never content)                                              |
-| GET          | `/api/audit/verify`                              | Recompute the audit hash chain                                                                                            |
+| GET          | `/api/audit/verify`                              | Recompute the audit hash chain (platform administrators)                                                                  |
+| GET          | `/api/workspace`                                 | The caller's role in their workspace (`owner`, `admin`, `member` or `null`) and whether they administer the platform      |
+| GET          | `/api/session`                                   | Whether the caller is signed in, how (`session`, `token` or `local`), and for a session when it idles out and ends        |
+| GET          | `/api/workspace/members`                         | Everyone in the caller's workspace, with their role (workspace owners and admins)                                         |
+| PUT / DELETE | `/api/workspace/members/:principalId`            | Add or change (`{ "role": "owner" \| "admin" \| "member" }`) / remove a member; removal also ends their project access    |
+| GET          | `/api/projects/:id/members`                      | Who may use the experiment, with their role                                                                               |
+| PUT / DELETE | `/api/projects/:id/members/:principalId`         | Add or change (`{ "role": "lead" \| "analyst" \| "reviewer" \| "viewer" }`) / remove a project member (project leads)     |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
@@ -50,11 +58,34 @@ question the reply is exactly `The available project evidence does not support a
 
 ## Authentication
 
-With `AUTH_MODE=none` (the default) there is no sign-in. With `AUTH_MODE=entra` every `/api` call
-except `GET /api/health` needs `Authorization: Bearer <Microsoft Entra v2.0 access token>`, and the
-caller's role and tenant decide the result: `401 UNAUTHENTICATED` (the same answer for every kind of
-bad token), `403 NO_ROLE`, `403 FORBIDDEN` (role too low), `403 NOT_OWNER`, and `404` for another
-tenant's experiment. See [CONFIGURATION.md](./CONFIGURATION.md#sign-in-and-tenants) for the roles.
+With `AUTH_MODE=none` (the default) there is no sign-in, and the one local user owns everything. With
+`AUTH_MODE=entra` every `/api` call except `GET /api/health` needs
+`Authorization: Bearer <Microsoft Entra v2.0 access token>`, and the caller's membership decides the
+result: `401 UNAUTHENTICATED` (the same answer for every kind of bad token), `403 NO_ROLE` (a valid
+token with no Swarm app role), `403 FORBIDDEN` (the caller's role does not allow it), `404
+PROJECT_NOT_FOUND` (another tenant's experiment, or one in the caller's workspace that they were not
+added to: the two are indistinguishable from an experiment that does not exist), and `409 LAST_OWNER`
+or `409 LAST_LEAD` when a membership change would leave a workspace without an owner or a project
+without a lead. Who may do what is in [ADR 0007](./adr/0007-workspace-and-project-membership.md); the
+app roles that let a person in are in [CONFIGURATION.md](./CONFIGURATION.md#sign-in-and-tenants).
+
+### Browser sign-in routes
+
+Present only when browser sign-in is configured (otherwise they are `404`). They are outside `/api`
+and carry no JSON.
+
+| Method | Path             | Behavior                                                                                                                                                        |
+| ------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/auth/login`    | Starts a sign-in: sets a short-lived binding cookie and redirects to Microsoft (`?returnTo=` takes a path on this site only)                                    |
+| GET    | `/auth/callback` | Finishes it: redeems the code, checks the ID token, sets the session cookie and redirects back. Any failure redirects to `/?signin=failed` or `/?signin=norole` |
+| POST   | `/auth/logout`   | Ends the session on the server and clears the cookie; needs the `X-Swarm-CSRF: 1` header. Returns 204                                                           |
+
+With a session cookie instead of a token, an `/api` call returns `401 SIGN_IN_REQUIRED` when there is no
+valid session, and a change without the `X-Swarm-CSRF: 1` header returns `403 CSRF_REQUIRED`. A token,
+when sent, is the only credential considered.
+
+## Request and response notes
+
 New UI creation sends `workflow: "guided"`; omitted workflow remains `"quick"` for
 API compatibility. Stage state and environment/survey input contracts are in
 [shared/guided.ts](../shared/guided.ts). Guided exports use `schemaVersion: 2`;

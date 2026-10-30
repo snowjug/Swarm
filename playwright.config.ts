@@ -6,6 +6,8 @@ import { defineConfig } from '@playwright/test';
 const localPort = Number(process.env.E2E_LOCAL_PORT || 3111);
 const modelPort = Number(process.env.E2E_MODEL_PORT || 3112);
 const journeyPort = Number(process.env.E2E_JOURNEY_PORT || 3113);
+const signinPort = Number(process.env.E2E_SIGNIN_PORT || 3114);
+const signinIdpPort = Number(process.env.E2E_SIGNIN_IDP_PORT || 3115);
 const providerPort = Number(process.env.E2E_PROVIDER_PORT || 11999);
 // One throwaway root per run: the runner creates it and workers inherit it through the environment,
 // so re-loading this file in a worker never creates another directory.
@@ -62,10 +64,27 @@ export default defineConfig({
       testMatch: /journey\/.*\.spec\.ts/u,
       use: { baseURL: `http://127.0.0.1:${journeyPort}` },
     },
+    {
+      // Browser sign-in with Microsoft Entra, against the real application and a test identity
+      // provider (backend/test/support/signin-e2e-server.ts). Microsoft's own page is never reached.
+      name: 'signin',
+      testMatch: /signin\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${signinPort}` },
+    },
   ],
   webServer: [
     server(localPort, 'local', { AI_PROVIDER: 'none' }),
     server(journeyPort, 'journey', { AI_PROVIDER: 'none' }),
+    {
+      command: 'node --import tsx backend/test/support/signin-e2e-server.ts',
+      url: `http://127.0.0.1:${signinPort}/api/health`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        SIGNIN_E2E_PORT: String(signinPort),
+        SIGNIN_E2E_IDP_PORT: String(signinIdpPort),
+      },
+    },
     {
       command: 'node --import tsx e2e/support/fake-provider.ts',
       url: `http://127.0.0.1:${providerPort}/__health`,

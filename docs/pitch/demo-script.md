@@ -4,6 +4,11 @@ Ten minutes. It uses the [demonstration packs](../demo/README.md), which are fic
 app as the [README](../../README.md#quick-start) describes. Rules mode needs nothing; with a model
 configured, every stage calls the model and the evidence ledger also shows classified statements.
 
+This script builds a project live from the packs. For a presentation, prefer
+[Presenting Swarm](../demo/presentation.md): it uses a recorded real-model run that restores in
+seconds (`npm run demo:seed`), has five- and ten-minute scripts, a backup-screenshot plan and a
+failure table, and is rehearsed by a 32-step browser test (`npm run demo:journey`).
+
 ## Before you start
 
 - Decide whether you are showing **rules mode** (fast, deterministic, no statements in the ledger) or

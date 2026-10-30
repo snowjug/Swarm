@@ -1,7 +1,7 @@
 # Questions and answers
 
-**Is it production ready?** No. Eight of 28 gates are met; see
-[the gates](../production-readiness.md). It is a pitch-ready prototype.
+**Is it ready for production use?** No. It runs locally, is not hosted, and has no browser sign-in.
+[The gates](../production-readiness.md) say which are met and which are not.
 
 **Does it predict the future?** No. It explores possible scenarios, and says so.
 

@@ -6,5 +6,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["azure/**/*.ts", "demo/**/*.ts"]
+  "include": ["azure/**/*.ts", "db/**/*.ts", "demo/**/*.ts", "mutation/**/*.ts"]
 }

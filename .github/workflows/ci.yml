@@ -51,3 +51,20 @@ jobs:
           curl --fail --retry 30 --retry-all-errors --retry-delay 1 --retry-max-time 60 --connect-timeout 2 --max-time 5 http://127.0.0.1:3001/api/health
           curl --fail http://127.0.0.1:3001/ | grep 'Swarm Lab'
           npm run smoke:console
+
+  postgres:
+    name: Unit tests against PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AI_PROVIDER: none
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts --no-fund
+      # Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the tests that guard
+      # the SQLite stores guard the PostgreSQL ones too.
+      - run: npm run test:postgres

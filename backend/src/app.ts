@@ -9,7 +9,8 @@ import { ZodError } from 'zod';
 import { publicConfig, type ServerConfig } from './config.js';
 import { registerAuth } from './auth/guard.js';
 import { registerAudit } from './auth/audit-policy.js';
-import type { TokenVerifier } from './auth/tokens.js';
+import { microsoftEndpoints } from './auth/oidc.js';
+import { TokenVerifier } from './auth/tokens.js';
 import { AppError, publicFailure } from './errors.js';
 import { InteractionService } from './orchestration/interaction.js';
 import { Orchestrator, type ModelFactory } from './orchestration/runner.js';
@@ -17,6 +18,8 @@ import { createModelFactory } from './models/factory.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
+import { memberRoutes } from './routes/members.js';
+import { sessionRoutes, sessionStatusRoute } from './routes/session.js';
 import { ledgerRoutes } from './routes/ledger.js';
 import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
@@ -32,7 +35,15 @@ export interface AppOptions {
   tokenVerifier?: TokenVerifier;
   /** Test hook: capture structured logs to assert that no secret or content is written. */
   logStream?: { write(message: string): void };
+  /**
+   * Test hook: send people to, and redeem codes at, a local identity provider instead of Microsoft.
+   * `authorityHost` replaces `https://login.microsoftonline.com`; `fetcher` replaces the token call.
+   */
+  oidc?: { fetcher?: typeof fetch; authorityHost?: string };
 }
+
+/** How often ended sessions and abandoned sign-ins are removed from the database. */
+const SESSION_PURGE_INTERVAL_MS = 10 * 60_000;
 
 /** Larger than the 60 s idle limit most load balancers and command-line clients apply, so the peer closes first. */
 export const KEEP_ALIVE_TIMEOUT_MS = 65_000;
@@ -66,7 +77,11 @@ export async function buildApp(options: AppOptions) {
       },
     },
   });
-  const repository = options.repository || new Repository(config.databasePath);
+  const repository =
+    options.repository ??
+    new Repository(config.databaseUrl ?? config.databasePath, {
+      entra: config.databaseAuth === 'entra',
+    });
   // Every route as registered, so a test can prove that none of them lacks an authorization policy.
   const routes: { method: string; url: string }[] = [];
   app.addHook('onRoute', (route) => {
@@ -145,11 +160,9 @@ export async function buildApp(options: AppOptions) {
     if (declared > limit * DRAIN_FACTOR) reply.header('connection', 'close');
     throw Object.assign(new Error('Payload Too Large'), { statusCode: 413 });
   });
-  registerAuth(app, {
-    config: config.auth,
-    repository,
-    ...(options.tokenVerifier ? { verifier: options.tokenVerifier } : {}),
-  });
+  const verifier =
+    config.auth.mode === 'entra' ? (options.tokenVerifier ?? new TokenVerifier(config.auth)) : null;
+  registerAuth(app, { config: config.auth, repository, ...(verifier ? { verifier } : {}) });
   registerAudit(app, repository);
   app.addHook('onSend', async (request, reply, payload) => {
     if (request.url.startsWith('/api')) {
@@ -211,11 +224,39 @@ export async function buildApp(options: AppOptions) {
     version: APP_VERSION,
     // Counts across every tenant are not for an unauthenticated probe to read.
     ...(config.auth.mode === 'none'
-      ? { storage: 'sqlite', experiments: repository.count(), queue: jobs.state() }
+      ? { storage: repository.dialect, experiments: repository.count(), queue: jobs.state() }
       : {}),
   }));
   app.get('/api/config', async () => publicConfig(config));
+  // Alive: the process is running and its event loop turns. It fails only when the database
+  // connection is lost for good, which a restart cures, and otherwise asks nothing of anything it
+  // depends on, so that a database that is merely down does not make a healthy process restart.
+  app.get('/api/health/live', async (_request, reply) =>
+    repository.broken ? reply.code(503).send({ status: 'broken' }) : reply.send({ status: 'live' }),
+  );
+  // Ready: the database answers. A probe is told whether, and which check failed, and nothing else.
+  app.get('/api/health/ready', async (_request, reply) => {
+    const database = repository.ping();
+    return reply.code(database ? 200 : 503).send({
+      status: database ? 'ready' : 'not-ready',
+      checks: { database: database ? 'ok' : 'failed' },
+    });
+  });
   projectRoutes(app, repository, jobs, interaction, config.rateLimitScale);
+  memberRoutes(app, repository, config.rateLimitScale);
+  sessionStatusRoute(app);
+  if (verifier && config.auth.session) {
+    sessionRoutes(app, {
+      config,
+      repository,
+      verifier,
+      endpoints: microsoftEndpoints(config.auth.session, options.oidc?.authorityHost),
+      ...(options.oidc?.fetcher ? { fetcher: options.oidc.fetcher } : {}),
+    });
+    const purge = setInterval(() => repository.sessions.purge(), SESSION_PURGE_INTERVAL_MS);
+    purge.unref();
+    app.addHook('onClose', async () => clearInterval(purge));
+  }
   ledgerRoutes(app, repository, new LedgerService(repository), config.rateLimitScale);
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
@@ -231,6 +272,7 @@ export async function buildApp(options: AppOptions) {
     app.setNotFoundHandler((request, reply) => {
       if (
         !request.url.startsWith('/api') &&
+        !request.url.startsWith('/auth/') &&
         request.method === 'GET' &&
         request.headers.accept?.includes('text/html')
       ) {

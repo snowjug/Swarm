@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { SqlDatabase } from './sql.js';
 import { z } from 'zod';
 import {
   claimRecordSchema,
@@ -31,7 +31,7 @@ function numericId(id: string): number {
 /** Stores the claim ledger and the conflicts between sources. Every row belongs to one project. */
 export class LedgerStore {
   constructor(
-    private readonly database: DatabaseSync,
+    private readonly database: SqlDatabase,
     private readonly transaction: <T>(operation: () => T) => T,
   ) {}
 

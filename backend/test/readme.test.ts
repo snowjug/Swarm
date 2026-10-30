@@ -55,21 +55,24 @@ describe('README structure', () => {
       '# Swarm',
       '## What Swarm Does',
       '## Why Swarm',
-      '## Key Features',
+      '## Verified Capabilities',
       '## How It Works',
       '## Architecture',
-      '## Real Azure AI',
       '## Quick Start',
       '### Local / Rules Mode',
+      '### Production Build',
       '### Real Azure AI Mode',
-      '## Demo Workflow',
-      '## Validation',
+      '### Demonstration',
+      '### Tests',
+      '### Browser Tests',
+      '### Azure Verification',
+      '### Secret Scanning',
+      '## Real Azure AI',
       '## Security',
+      '## Validation',
       '## Known Limitations',
       '## Responsible Use',
-      '## Inspiration and Comparison',
-      '## Development',
-      '## Roadmap',
+      '## Documentation',
       '## License',
     ];
     const found = headings(readme);
@@ -86,6 +89,59 @@ describe('README structure', () => {
     expect(readme).toContain(
       'Prompt injection is an active risk and cannot be considered completely solved',
     );
+  });
+
+  it('explains the ten statement types by name, in capitals', () => {
+    for (const label of [
+      'SOURCE FACT',
+      'EXTRACTED CLAIM',
+      'USER ASSUMPTION',
+      'INFERRED RELATIONSHIP',
+      'AI HYPOTHESIS',
+      'SIMULATED EVENT',
+      'ANALYTICAL CONCLUSION',
+      'RECOMMENDATION',
+      'CONTRADICTING EVIDENCE',
+      'UNRESOLVED UNCERTAINTY',
+    ]) {
+      expect(readme, label).toContain(`**${label}**`);
+    }
+  });
+
+  it('shows the whole flow, from sources to export', () => {
+    for (const step of [
+      'Sources → Evidence extraction → Claims and contradictions → Assumptions → Scenario graph',
+      '→ Synthetic actors → Multi-round simulation → Intervention → Branching → Comparison',
+      '→ Grounded report → Actor and analyst conversations → Export',
+    ]) {
+      expect(readme).toContain(step);
+    }
+  });
+
+  it('says what runs locally, what is deployed in Azure, and what is only proposed', () => {
+    for (const phrase of [
+      '**On your machine**',
+      '**Deployed in Azure**',
+      '**Proposed, not built**',
+    ]) {
+      expect(readme, phrase).toContain(phrase);
+    }
+  });
+
+  it('shows how to seed the demonstration, test, build, scan and verify against Azure', () => {
+    const commands = [
+      'npm.cmd ci',
+      'npm.cmd run dev',
+      'npm.cmd run build',
+      'npm.cmd start',
+      'npm.cmd run demo:seed',
+      'npm.cmd run demo:journey',
+      'npm.cmd run check',
+      'npm.cmd run test:e2e',
+      'npm.cmd run azure:verify',
+      'npm.cmd run scan:secrets',
+    ];
+    for (const command of commands) expect(readme, command).toContain(command);
   });
 
   it('links the parity matrix and the roadmap, and states the license', () => {
@@ -211,14 +267,15 @@ describe('the architecture diagram', () => {
     expect(diagram).toMatch(/^flowchart (?:LR|TB|TD|RL|BT)\n/u);
   });
 
-  it('has exactly the five subgraphs, named as specified', () => {
+  it('has exactly the six subgraphs, named as specified', () => {
     const titles = [...diagram.matchAll(/^\s*subgraph \w+\["([^"]+)"\]/gmu)].map((m) => m[1]);
     expect(titles).toEqual([
       'User experience',
-      'Swarm application',
+      'Swarm application (runs locally)',
       'Data and evidence',
       'Model providers',
-      'Azure',
+      'Azure (the only deployed component)',
+      'Test and observability boundaries',
     ]);
     const opened = (diagram.match(/^\s*subgraph\b/gmu) ?? []).length;
     const closed = (diagram.match(/^\s*end\s*$/gmu) ?? []).length;
@@ -236,25 +293,85 @@ describe('the architecture diagram', () => {
     }
   });
 
-  it('shows the boundaries the architecture depends on', () => {
-    for (const phrase of [
-      'No credentials',
-      'or tokens in',
-      'rules mode',
-      'Azure mode',
-      'requested on',
-      'Local SQLite',
-      'Scheduled',
+  it('shows every implemented component the architecture depends on', () => {
+    for (const component of [
+      'User browser',
+      'React and TypeScript console',
+      'Fastify and TypeScript API',
+      'Identity boundary',
+      'Authorization and tenant',
+      'Evidence ledger',
+      'Assumption<br/>register',
+      'Scenario graph',
+      'Actor runtime',
+      'Simulation orchestrator',
       'checkpoints',
-      'Branches',
+      'interventions',
+      'Branches from',
       'Run<br/>comparison',
-      'grounding review',
+      'Report generation and<br/>grounding review',
+      'Analyst chat',
+      'Actor chat',
+      'Local SQLite',
+      'Model-provider',
+      'Local rules provider',
+      'Azure AI Foundry<br/>provider',
+      'Microsoft Entra ID',
+      'audit log',
+      'JSON export',
+      'Test and observability boundaries',
     ]) {
-      expect(diagram, phrase).toContain(phrase);
+      expect(diagram, component).toContain(component);
     }
-    // The browser reaches the application only; it has no edge to Azure.
-    expect(diagram).not.toMatch(/Browser\s*(?:<-->|-->)\|?[^\n]*\b(?:Entra|Deployment)\b/u);
-    expect(/Provider\s*-->\|"Azure mode: token/u.test(diagram)).toBe(true);
+  });
+
+  it('does not draw anything that is only proposed', () => {
+    // Update this list, and the diagram, in the change that builds and validates a component.
+    for (const proposed of [
+      /service ?bus/iu,
+      /container apps?/iu,
+      /hosted/iu,
+      /managed identity/iu,
+      /key ?vault/iu,
+      /application insights/iu,
+      /opentelemetry/iu,
+      /\bmsal\b/iu,
+      /blob/iu,
+    ]) {
+      expect(diagram, String(proposed)).not.toMatch(proposed);
+    }
+  });
+
+  it('draws the PostgreSQL adapter as optional and not deployed, and keeps it out of Azure', () => {
+    const node = /^\s*Pg\[\((.*)\)\]/mu.exec(diagram)?.[1] ?? '';
+    expect(node).toContain('PostgreSQL adapter (optional)');
+    expect(node).toContain('none deployed');
+    const azure = /^\s*subgraph AZ\[[^\n]*\n([\s\S]*?)^\s*end\s*$/mu.exec(diagram)?.[1] ?? '';
+    expect(azure).not.toMatch(/postgres/iu);
+  });
+
+  it('keeps the browser away from the model, and the model token on the server', () => {
+    // The browser reaches the application only; it has no edge to Azure or to a provider.
+    expect(diagram).not.toMatch(
+      /(?:Browser|Frontend)\s*(?:<-->|-->|-\.->)\|?[^\n]*\b(?:Entra|Deployment|FoundryProv|Provider)\b/u,
+    );
+    expect(diagram).toContain('No credentials or tokens in');
+    expect(/Provider\s*-->\|"rules mode"\|\s*Rules/u.test(diagram)).toBe(true);
+    expect(/Provider\s*-->\|"Azure mode"\|\s*FoundryProv/u.test(diagram)).toBe(true);
+    expect(
+      /FoundryProv\s*-->\|"Azure mode: token<br\/>requested on the server"\|\s*Entra/u.test(
+        diagram,
+      ),
+    ).toBe(true);
+    expect(
+      /FoundryProv\s*-->\|"Azure mode: requests<br\/>with the token"\|\s*Deployment/u.test(diagram),
+    ).toBe(true);
+  });
+
+  it('puts only the model deployment and its identity service in Azure', () => {
+    const azure = /^\s*subgraph AZ\[[^\n]*\n([\s\S]*?)^\s*end\s*$/mu.exec(diagram)?.[1] ?? '';
+    const nodes = [...azure.matchAll(/^\s*(\w+)\[/gmu)].map((match) => match[1]);
+    expect(nodes).toEqual(['Entra', 'Deployment']);
   });
 
   it('is followed by the exact caption', () => {

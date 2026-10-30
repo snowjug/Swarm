@@ -46,12 +46,19 @@ export class ApiError extends Error {
 async function checkedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const timeout = AbortSignal.timeout(180_000);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+  const unsafe = !['GET', 'HEAD', undefined].includes(init.method?.toUpperCase());
   let response: Response;
   try {
     response = await fetch(path, {
       ...init,
       signal,
-      headers: { Accept: 'application/json', ...init.headers },
+      // A custom header on every change cannot be sent by another site, so the session cookie alone
+      // is never enough to make one: the server refuses a change that arrives without it.
+      headers: {
+        Accept: 'application/json',
+        ...(unsafe ? { 'X-Swarm-CSRF': '1' } : {}),
+        ...init.headers,
+      },
     });
   } catch (error) {
     if (init.signal?.aborted) throw error;
@@ -70,6 +77,9 @@ async function checkedFetch(path: string, init: RequestInit = {}): Promise<Respo
     } catch {
       // A proxy or an unavailable server may return a non-JSON response.
     }
+    if (response.status === 401 && body?.error?.code === 'SIGN_IN_REQUIRED') {
+      return await signIn();
+    }
     throw new ApiError(
       body?.error?.message || `The request failed (${response.status}). Please retry.`,
       body?.error?.code,
@@ -77,6 +87,29 @@ async function checkedFetch(path: string, init: RequestInit = {}): Promise<Respo
     );
   }
   return response;
+}
+
+const SIGN_IN_ATTEMPT = 'swarm.signin.attempted';
+
+/**
+ * The server wants a person who is not signed in to sign in with Microsoft. The browser is sent to
+ * the server's sign-in address and returns here with a session cookie; no token ever reaches this
+ * code. Sent once: if signing in produces no session (cookies blocked), the page says so rather
+ * than going round again.
+ */
+async function signIn(): Promise<never> {
+  const last = Number(window.sessionStorage.getItem(SIGN_IN_ATTEMPT) ?? '0');
+  if (Date.now() - last > 30_000) {
+    window.sessionStorage.setItem(SIGN_IN_ATTEMPT, String(Date.now()));
+    const back = `${window.location.pathname}${window.location.search}`;
+    window.location.assign(`/auth/login?returnTo=${encodeURIComponent(back)}`);
+    // The page is leaving; nothing that called the server should go on while it does.
+    return new Promise<never>(() => undefined);
+  }
+  throw new ApiError(
+    'Sign-in did not complete. Allow cookies for this site, then reload to try again.',
+    'SIGN_IN_REQUIRED',
+  );
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -177,6 +210,12 @@ export const api = {
     request<{ events: AuditEntry[] }>(`${projectPath(id)}/audit`, { signal }),
   verifyAudit: (signal?: AbortSignal) =>
     request<AuditVerification>('/api/audit/verify', { signal }),
+  /** Ends the signed-in session on the server and removes its cookie. */
+  signOut: async (signal?: AbortSignal): Promise<void> => {
+    await checkedFetch('/auth/logout', { method: 'POST', signal });
+    // Signing out on purpose is not a sign-in that failed: the next visit may start another at once.
+    window.sessionStorage.removeItem(SIGN_IN_ATTEMPT);
+  },
   claim: (id: string, claimId: string, signal?: AbortSignal) =>
     request<ClaimDetail>(`${projectPath(id)}/claims/${encodeURIComponent(claimId)}`, { signal }),
   reviewClaim: (

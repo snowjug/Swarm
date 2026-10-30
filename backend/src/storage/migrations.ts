@@ -1,13 +1,19 @@
 import { copyFileSync, existsSync } from 'node:fs';
-import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 import { AppError } from '../errors.js';
+import { PG_V1, PG_V2, PG_V3, PG_V4, PG_V5, PG_VERSION_TABLE } from './postgres/schema.js';
+import type { SqlDatabase } from './sql.js';
 
 export interface Migration {
   version: number;
   name: string;
-  up: (database: DatabaseSync) => void;
+  /** Receives either dialect; a step with different SQL for each chooses by `database.dialect`. */
+  up: (database: SqlDatabase) => void;
 }
+
+/** Runs the SQL for whichever database this is. */
+const byDialect = (sqlite: string, postgres: string) => (database: SqlDatabase) =>
+  database.exec(database.dialect === 'postgres' ? postgres : sqlite);
 
 /** The schema as shipped before migrations existed. Every statement is idempotent. */
 const SCHEMA_V1 = `
@@ -66,17 +72,75 @@ const SCHEMA_V2 = `
   BEGIN SELECT RAISE(ABORT, 'audit events are append-only'); END;
 `;
 
+/**
+ * Who belongs to a workspace (a tenant, in this release) and to each project, with the role they
+ * hold. Every statement is idempotent, so a half-applied step can be retried. Existing projects
+ * keep their owner as the project's lead and as a workspace member; nobody is an owner or admin of a
+ * workspace until one is made, so that nothing is widened by an upgrade.
+ */
+const SCHEMA_V4 = `
+  CREATE TABLE IF NOT EXISTS workspace_members (
+    tenant_id TEXT NOT NULL, principal_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')),
+    added_by TEXT NOT NULL, added_at TEXT NOT NULL,
+    PRIMARY KEY (tenant_id, principal_id)
+  );
+  CREATE INDEX IF NOT EXISTS workspace_members_role ON workspace_members(tenant_id, role);
+  CREATE TABLE IF NOT EXISTS project_members (
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    principal_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('lead', 'analyst', 'reviewer', 'viewer')),
+    added_by TEXT NOT NULL, added_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, principal_id)
+  );
+  CREATE INDEX IF NOT EXISTS project_members_principal ON project_members(principal_id, project_id);
+  INSERT OR IGNORE INTO project_members (project_id, principal_id, role, added_by, added_at)
+    SELECT id, owner_id, 'lead', 'migration', created_at FROM projects;
+  INSERT OR IGNORE INTO workspace_members (tenant_id, principal_id, role, added_by, added_at)
+    SELECT tenant_id, owner_id, 'member', 'migration', MIN(created_at) FROM projects
+    GROUP BY tenant_id, owner_id;
+`;
+
+/**
+ * Browser sign-in. A login attempt is the state of one sign-in in flight: it holds hashes of the
+ * state and of the browser binding, and the nonce and PKCE verifier that only this server needs, and
+ * it lives ten minutes. A session is a hash of a random identifier with who it is for and when it
+ * ends. Nothing a person's identity provider issued is stored in either.
+ */
+const SCHEMA_V5 = `
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    state_hash TEXT PRIMARY KEY, binding_hash TEXT NOT NULL, nonce TEXT NOT NULL,
+    verifier TEXT NOT NULL, return_to TEXT NOT NULL, created_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS login_attempts_created ON login_attempts(created_at);
+  CREATE TABLE IF NOT EXISTS sessions (
+    id_hash TEXT PRIMARY KEY, principal_id TEXT NOT NULL, tenant_id TEXT NOT NULL,
+    platform_admin INTEGER NOT NULL, bootstrap_admin INTEGER NOT NULL,
+    created_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL, expires_at INTEGER NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS sessions_principal ON sessions(tenant_id, principal_id);
+  CREATE INDEX IF NOT EXISTS sessions_expires ON sessions(expires_at);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
-  { version: 1, name: 'projects, passages, events and messages', up: (db) => db.exec(SCHEMA_V1) },
+  {
+    version: 1,
+    name: 'projects, passages, events and messages',
+    up: byDialect(SCHEMA_V1, PG_V1),
+  },
   {
     version: 2,
     name: 'claim ledger, source conflicts and append-only audit log',
-    up: (db) => db.exec(SCHEMA_V2),
+    up: byDialect(SCHEMA_V2, PG_V2),
   },
   {
     version: 3,
     name: 'project ownership for tenant isolation',
     up: (db) => {
+      if (db.dialect === 'postgres') {
+        db.exec(PG_V3);
+        return;
+      }
       // Existing projects were made by the single local user, so that is who they belong to. Adding
       // a column is not idempotent in SQLite, so check first: a half-applied step must be safe to retry.
       const present = new Set(
@@ -94,6 +158,16 @@ export const MIGRATIONS: readonly Migration[] = [
       db.exec('CREATE INDEX IF NOT EXISTS projects_tenant ON projects(tenant_id, created_at)');
     },
   },
+  {
+    version: 4,
+    name: 'workspace and project membership',
+    up: byDialect(SCHEMA_V4, PG_V4),
+  },
+  {
+    version: 5,
+    name: 'browser sign-in: login attempts and sessions',
+    up: byDialect(SCHEMA_V5, PG_V5),
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]?.version ?? 0;
@@ -107,18 +181,55 @@ export interface MigrationReport {
 }
 
 const versionRow = z.object({ user_version: z.number() });
+const swarmVersionRow = z.object({ version: z.number() });
 
-export function readSchemaVersion(database: DatabaseSync): number {
+/** Arbitrary, but fixed: the key of the advisory lock that keeps two starting instances from both migrating. */
+const MIGRATION_LOCK = 727_001;
+
+export function readSchemaVersion(database: SqlDatabase): number {
+  if (database.dialect === 'postgres') {
+    database.exec(PG_VERSION_TABLE);
+    const row = database.prepare('SELECT version FROM swarm_schema WHERE id = 1').get();
+    return row ? swarmVersionRow.parse(row).version : 0;
+  }
   return versionRow.parse(database.prepare('PRAGMA user_version').get()).user_version;
+}
+
+function writeSchemaVersion(database: SqlDatabase, version: number): void {
+  if (database.dialect === 'postgres') {
+    database
+      .prepare(
+        `INSERT INTO swarm_schema (id, version, updated_at) VALUES (1, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version, updated_at = EXCLUDED.updated_at`,
+      )
+      .run(version, new Date().toISOString());
+    return;
+  }
+  database.exec(`PRAGMA user_version = ${Math.trunc(version)}`);
 }
 
 /**
  * Brings the database up to the latest schema, one transactional step at a time. A database that
- * is newer than this build is refused untouched. An existing database file is copied before it is
- * upgraded, and a failed step rolls back, so there is always a known-good state to return to.
+ * is newer than this build is refused untouched. An existing SQLite file is copied before it is
+ * upgraded (PostgreSQL has its own point-in-time restore), and a failed step rolls back, so there is
+ * always a known-good state to return to. On PostgreSQL an advisory lock makes instances that start
+ * together take turns, and the second finds nothing left to do.
  */
 export function migrate(
-  database: DatabaseSync,
+  database: SqlDatabase,
+  options: { path: string; migrations?: readonly Migration[] },
+): MigrationReport {
+  const postgres = database.dialect === 'postgres';
+  if (postgres) database.exec(`SELECT pg_advisory_lock(${MIGRATION_LOCK})`);
+  try {
+    return migrateLocked(database, options);
+  } finally {
+    if (postgres) database.exec(`SELECT pg_advisory_unlock(${MIGRATION_LOCK})`);
+  }
+}
+
+function migrateLocked(
+  database: SqlDatabase,
   options: { path: string; migrations?: readonly Migration[] },
 ): MigrationReport {
   const migrations = options.migrations ?? MIGRATIONS;
@@ -135,7 +246,12 @@ export function migrate(
   const report: MigrationReport = { from, to: from, applied: [], backup: null };
   if (pending.length === 0) return report;
 
-  if (from > 0 && options.path !== ':memory:' && existsSync(options.path)) {
+  if (
+    database.dialect === 'sqlite' &&
+    from > 0 &&
+    options.path !== ':memory:' &&
+    existsSync(options.path)
+  ) {
     database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
     const backup = `${options.path}.v${from}.bak`;
     if (!existsSync(backup)) copyFileSync(options.path, backup);
@@ -143,13 +259,12 @@ export function migrate(
   }
 
   for (const migration of pending) {
-    database.exec('BEGIN IMMEDIATE');
     try {
-      migration.up(database);
-      database.exec(`PRAGMA user_version = ${Math.trunc(migration.version)}`);
-      database.exec('COMMIT');
+      database.transaction(() => {
+        migration.up(database);
+        writeSchemaVersion(database, migration.version);
+      });
     } catch (cause) {
-      database.exec('ROLLBACK');
       throw new AppError(
         500,
         'STORAGE_MIGRATION',

@@ -21,10 +21,55 @@ handling with a fake credential, and the Azure provisioning scripts with a fake 
 The evidence layer has its own tests: the ledger and its publication policy
 (`ledger.test.ts`, `ledger-service.test.ts`), conflicts between sources
 (`contradictions.test.ts`), the analyst's gate and citation rule (`evidence-gate.test.ts`),
-sign-in, roles and tenant isolation against a local test identity provider (`auth.test.ts`),
-migrations and the audit log (`storage.test.ts`), the six demonstration packs (`demos.test.ts`) and a
-front-end guard against raw-HTML sinks (`markup-sinks.test.ts`). Security-critical rules there were
-mutation-checked: the rule was removed and a test was seen to fail.
+sign-in, roles and tenant isolation against a local test identity provider (`auth.test.ts`,
+`membership.test.ts`, `session.test.ts`), migrations and the audit log (`storage.test.ts`), the six
+demonstration packs (`demos.test.ts`) and a front-end guard against raw-HTML sinks
+(`markup-sinks.test.ts`). Security-critical rules there are mutation-checked, as described next.
+
+## Mutation checks on security code
+
+A test that passes proves little unless it would fail when the rule it guards is gone. For the access
+rules (workspace and project membership, the seven roles, tenant isolation) and for browser sign-in
+(PKCE, nonce, state, sessions, expiry, the anti-forgery header, cookies), each rule is listed in
+[`scripts/mutation/mutants.json`](../scripts/mutation/mutants.json) as one small edit that breaks it:
+a check replaced by `false`, a capability added to a role, a `DELETE` that no longer deletes, a
+nonce that is no longer compared. The runner applies one edit at a time to the working copy, runs the
+tests that should notice, and restores the file.
+
+```powershell
+npm.cmd run mutation:security                     # all 52; about half an hour on a busy machine
+npm.cmd run mutation:security -- --area=sign-in   # or membership, or storage
+npm.cmd run mutation:security -- --only=M3,S8     # named ones
+npm.cmd run mutation:security -- --list
+```
+
+Result when the list was last run in full: **15 of 15 membership, 27 of 27 sign-in and 10 of 10
+storage mutations were caught.** Two sign-in mutations survived the first run (an error reply that
+still carried a code, and a session that remembered every caller as a platform administrator); a
+test for each was added and both are now caught. This is a check of the tests, not proof that the
+rules are right, and a rule that is not in the list is not covered by it. Two storage rules cannot be
+checked this way: that an operation on a shared database is made atomic, and that an audit entry
+is not forked by two instances, need two real connections to one PostgreSQL server, which the
+in-process test server does not give. The list itself is tested
+(`scripts/mutation/lib/mutants.test.ts`): every edit must still apply exactly once, and the named
+tests must be able to reach the file it changes, so the list cannot quietly go stale. The full run
+is not part of CI, because of its length.
+
+## PostgreSQL tests
+
+```powershell
+npm.cmd run test:postgres                              # the whole unit suite, on PostgreSQL
+npm.cmd run test:postgres -- backend/test/session.test.ts   # or some of it
+```
+
+`test:postgres` sets `SWARM_TEST_DATABASE=pglite`, which turns every in-memory database in the unit
+tests into PostgreSQL running inside the test process ([PGlite](https://pglite.dev)), so the tests that
+guard the SQLite stores guard the PostgreSQL ones. CI runs it as a separate job. Three files are
+about PostgreSQL itself: `postgres.test.ts` (the SQL translation, the retry of a transaction that
+loses a race, and the repository on PGlite), `postgres-driver.test.ts` (the repository through the
+real `pg` driver against PGlite behind the PostgreSQL wire protocol, in another process) and
+`copy.test.ts` (copying a database each way, with every table compared). None of this reaches a real
+server, so TLS, Entra authentication and two instances racing are not covered.
 
 ```powershell
 npm.cmd run eval             # the offline evaluation, printed
@@ -49,11 +94,11 @@ establish live model connectivity or reasoning quality. Live evidence comes only
 npm.cmd run build          # the E2E servers run the built output in dist/
 $env:PW_CHANNEL = 'msedge' # reuse the installed Edge; CI installs Chromium instead
 npm.cmd run test:e2e       # npx playwright install chromium first if you do not use Edge
-npm.cmd run audit:ui       # screenshots + layout/axe metrics for four viewports (see scripts/ui-audit.mjs)
+npm.cmd run audit:ui       # starts its own local-mode server on a free port; screenshots + layout/axe metrics for four viewports (see scripts/ui-audit.mjs)
 node scripts/load-test.mjs # latency, queue back-pressure and memory on this machine
 ```
 
-`test:e2e` drives a real browser against two isolated servers with throwaway data
+`test:e2e` drives a real browser against three isolated servers with throwaway data
 directories (never your own data):
 
 - **`e2e/local`** — the deterministic local engine: the complete guided journey
@@ -70,6 +115,18 @@ directories (never your own data):
   per proxy per platform per round, injected mid-run provider failure with checkpoint
   recovery, invented-citation rejection, a grounding-checked report, actor chat and
   token accounting. The fake is a test double; it is **not** evidence about any live model.
+- **`e2e/journey`** — the 32-step presentation (see
+  [Presenting Swarm](./demo/presentation.md)), on a server of its own that holds the
+  committed real-model recording of the demonstration scenario, with no model. It
+  checks every screen for console errors and warnings, failed API calls, credential-shaped
+  strings and private cloud hosts, horizontal overflow, endless spinners, axe violations,
+  undersized targets and unreadable text, and a guard test plants each of those to prove
+  the checks can fail. The same file runs against a live server with a real model:
+  `npm run demo:journey` (`JOURNEY_URL`, `JOURNEY_ASK=0`, `JOURNEY_SCREENSHOTS`,
+  `JOURNEY_FORBIDDEN`; see `playwright.journey.config.ts`). Its budget is 20 minutes because it
+  makes more than a dozen whole-page axe scans, which can take up to a minute each on a machine
+  that other work has saturated (it took 6.9 and 11.7 minutes on one such machine, and well under
+  two on a CI runner).
 
 The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
 `backend/test/security.test.ts` (including that a genuinely rate-limited request

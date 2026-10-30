@@ -59,7 +59,7 @@ flowchart LR
 | Azure Database for PostgreSQL flexible   | More than one instance, transactions for the audit chain, Entra authentication ([ADR 0006](../adr/0006-postgres-adapter-proposed.md)) | Adapter not built; server not provisioned              |
 | Azure OpenAI (the existing deployment)   | The model                                                                                                                             | Exists in a development subscription; not changed here |
 | Application Insights (via OpenTelemetry) | A pilot needs traces, failures and cost signals                                                                                       | Not built                                              |
-| Microsoft Entra app registration         | Sign-in and the four app roles                                                                                                        | Needs a tenant administrator                           |
+| Microsoft Entra app registration         | Sign-in and the app roles (`Swarm.User`, `Swarm.Admin`, `Swarm.PlatformAdmin`)                                                        | Needs a tenant administrator                           |
 
 **Left out on purpose:** Azure AI Search (lexical retrieval is adequate for the small document sets
 measured so far, and nothing shows semantic retrieval would help; revisit with a real corpus),

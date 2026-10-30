@@ -3,88 +3,39 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
-import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from 'jose';
+import { SignJWT } from 'jose';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { GroundingReview } from '../../shared/grounding.js';
 import { buildApp } from '../src/app.js';
 import { policyFor, ROUTE_POLICY } from '../src/auth/policy.js';
-import { LOCAL_PRINCIPAL, atLeast, highestRole, type Principal } from '../src/auth/principal.js';
+import { parseAppRoles } from '../src/auth/roles.js';
 import { TokenVerifier, bearerToken } from '../src/auth/tokens.js';
 import { loadConfig } from '../src/config.js';
 import { AppError } from '../src/errors.js';
 import { Repository } from '../src/storage/repository.js';
 import { fixtureInput, testConfig } from './fixtures.js';
+import {
+  TENANT_A,
+  TENANT_B,
+  TENANT_C,
+  authorization,
+  entraEnvironment,
+  idp,
+  mint,
+  verifier,
+  type Minted,
+} from './support/entra-idp.js';
 
-const TENANT_A = '11111111-1111-4111-8111-111111111111';
-const TENANT_B = '22222222-2222-4222-8222-222222222222';
-const TENANT_C = '33333333-3333-4333-8333-333333333333';
 const AUDIENCE = 'api://swarm-test';
 const ANALYST_1 = 'aaaaaaa1-0000-4000-8000-000000000001';
 const ANALYST_2 = 'aaaaaaa2-0000-4000-8000-000000000002';
 const READER = 'aaaaaaa3-0000-4000-8000-000000000003';
 const REVIEWER = 'aaaaaaa4-0000-4000-8000-000000000004';
 const ADMIN = 'aaaaaaa5-0000-4000-8000-000000000005';
+const PLATFORM = 'aaaaaaa6-0000-4000-8000-000000000006';
 const OUTSIDER = 'bbbbbbb1-0000-4000-8000-000000000001';
 
-const entraEnvironment = {
-  AUTH_MODE: 'entra',
-  AUTH_ENTRA_TENANT_ID: TENANT_A,
-  AUTH_ENTRA_ALLOWED_TENANTS: TENANT_B,
-  AUTH_ENTRA_AUDIENCE: AUDIENCE,
-};
-
-// A test identity provider: real RSA keys and really signed tokens. Only the network fetch of
-// Microsoft's published key set is replaced by a local one.
-const idp = await (async () => {
-  const pair = await generateKeyPair('RS256');
-  const attacker = await generateKeyPair('RS256');
-  const jwk: JWK = {
-    ...(await exportJWK(pair.publicKey)),
-    kid: 'test-key',
-    alg: 'RS256',
-    use: 'sig',
-  };
-  return {
-    privateKey: pair.privateKey,
-    attackerKey: attacker.privateKey,
-    jwk,
-    keys: createLocalJWKSet({ keys: [jwk] }),
-  };
-})();
-
-interface Minted {
-  tid?: string;
-  oid?: string | null;
-  roles?: string[] | null;
-  aud?: string;
-  iss?: string;
-  iat?: number | null;
-  exp?: number | string;
-  key?: Parameters<SignJWT['sign']>[0];
-  alg?: string;
-}
-
 const now = () => Math.floor(Date.now() / 1000);
-
-async function mint(claims: Minted = {}): Promise<string> {
-  const tid = claims.tid ?? TENANT_A;
-  const body: Record<string, unknown> = { tid, ver: '2.0' };
-  if (claims.oid !== null) body.oid = claims.oid ?? ANALYST_1;
-  if (claims.roles !== null) body.roles = claims.roles ?? ['Swarm.Analyst'];
-  const jwt = new SignJWT(body)
-    .setProtectedHeader({ alg: claims.alg ?? 'RS256', kid: 'test-key' })
-    .setIssuer(claims.iss ?? `https://login.microsoftonline.com/${tid}/v2.0`)
-    .setAudience(claims.aud ?? AUDIENCE)
-    .setExpirationTime(claims.exp ?? '10m');
-  if (claims.iat !== null) jwt.setIssuedAt(claims.iat);
-  return jwt.sign(claims.key ?? idp.privateKey);
-}
-
-const authorization = async (claims: Minted) => ({ authorization: `Bearer ${await mint(claims)}` });
-
-function verifier(environment: Record<string, string> = entraEnvironment): TokenVerifier {
-  return new TokenVerifier(testConfig(environment).auth, idp.keys);
-}
 
 async function refusal(token: string | null): Promise<AppError> {
   try {
@@ -104,6 +55,7 @@ describe('configuration', () => {
       tenants: new Set(),
       audience: null,
       jwksUri: null,
+      session: null,
     });
   });
 
@@ -154,20 +106,37 @@ describe('configuration', () => {
   });
 });
 
-describe('roles', () => {
-  it('rank reader below analyst below reviewer below admin', () => {
-    const at = (role: Principal['role']): Principal => ({ id: 'x', tenantId: 't', role });
-    expect(atLeast(at('admin'), 'reviewer')).toBe(true);
-    expect(atLeast(at('reviewer'), 'analyst')).toBe(true);
-    expect(atLeast(at('analyst'), 'reviewer')).toBe(false);
-    expect(atLeast(at('reader'), 'analyst')).toBe(false);
-    expect(atLeast(LOCAL_PRINCIPAL, 'admin')).toBe(true);
+describe('app roles', () => {
+  it('lets anyone with a Swarm app role in, and says which of them may do more', () => {
+    expect(parseAppRoles(['Swarm.User'])).toEqual({
+      user: true,
+      platformAdmin: false,
+      bootstrapAdmin: false,
+    });
+    // The roles of the first release still let a person in; membership decides what they may see.
+    for (const legacy of ['Swarm.Reader', 'swarm.ANALYST', 'Swarm.Reviewer']) {
+      expect(parseAppRoles([legacy])).toMatchObject({ user: true, platformAdmin: false });
+    }
+    expect(parseAppRoles(['Swarm.Admin'])).toEqual({
+      user: true,
+      platformAdmin: false,
+      bootstrapAdmin: true,
+    });
+    expect(parseAppRoles(['Swarm.PlatformAdmin'])).toEqual({
+      user: true,
+      platformAdmin: true,
+      bootstrapAdmin: false,
+    });
   });
 
-  it('takes the highest recognised app role and ignores the rest', () => {
-    expect(highestRole(['Swarm.Reader', 'swarm.REVIEWER', 'Other.Admin'])).toBe('reviewer');
-    expect(highestRole(['Other.Admin', 7, null])).toBeNull();
-    expect(highestRole([])).toBeNull();
+  it('ignores anything else, including values that are not strings', () => {
+    for (const values of [[], ['Other.Admin', 7, null], ['SwarmAdmin', 'Swarm.', ' Swarm.User']]) {
+      expect(parseAppRoles(values)).toEqual({
+        user: false,
+        platformAdmin: false,
+        bootstrapAdmin: false,
+      });
+    }
   });
 });
 
@@ -192,7 +161,12 @@ describe('bearerToken', () => {
 describe('token verification', () => {
   it('accepts a valid token from the configured tenant and builds a principal from it', async () => {
     const principal = await verifier().verify(await mint({ oid: ANALYST_1.toUpperCase() }));
-    expect(principal).toEqual({ id: ANALYST_1, tenantId: TENANT_A, role: 'analyst' });
+    expect(principal).toEqual({
+      id: ANALYST_1,
+      tenantId: TENANT_A,
+      platformAdmin: false,
+      bootstrapAdmin: false,
+    });
   });
 
   it('accepts a tenant that is on the allow-list, and keeps it apart from the first', async () => {
@@ -200,11 +174,11 @@ describe('token verification', () => {
     expect(principal).toMatchObject({ tenantId: TENANT_B, id: OUTSIDER });
   });
 
-  it('gives the highest of several roles', async () => {
+  it('reads the platform and bootstrap roles from among several', async () => {
     const principal = await verifier().verify(
-      await mint({ roles: ['Swarm.Reader', 'Swarm.Reviewer'] }),
+      await mint({ roles: ['Swarm.Reader', 'Swarm.PlatformAdmin', 'Swarm.Admin'] }),
     );
-    expect(principal.role).toBe('reviewer');
+    expect(principal).toMatchObject({ platformAdmin: true, bootstrapAdmin: true });
   });
 
   it('says a signed-in person with no Swarm role has no role, which is not the same as signed out', async () => {
@@ -320,6 +294,15 @@ async function secured(logStream?: { write(message: string): void }, level = 'si
     ...(logStream ? { logStream } : {}),
   });
   applications.push(instance);
+  // Who belongs to which workspace is set up directly; the membership tests drive it through the
+  // API. The administrators own their workspaces, and everyone else is a member who may create
+  // projects. What anyone may see beyond that is up to each project.
+  const setup = { id: 'test-setup', workspaceRole: 'owner' as const };
+  const enroll = (tenantId: string, principalId: string, role: 'owner' | 'member') =>
+    instance.repository.members.setWorkspaceMember({ tenantId, principalId, role, actor: setup });
+  enroll(TENANT_A, ADMIN, 'owner');
+  for (const member of [ANALYST_1, ANALYST_2, READER, REVIEWER]) enroll(TENANT_A, member, 'member');
+  enroll(TENANT_B, OUTSIDER, 'owner');
   return instance;
 }
 
@@ -345,6 +328,7 @@ const users = {
   reader: { oid: READER, roles: ['Swarm.Reader'] },
   reviewer: { oid: REVIEWER, roles: ['Swarm.Reviewer'] },
   admin: { oid: ADMIN, roles: ['Swarm.Admin'] },
+  platform: { oid: PLATFORM, roles: ['Swarm.PlatformAdmin'] },
   outsider: { tid: TENANT_B, oid: OUTSIDER, roles: ['Swarm.Admin'] },
 } satisfies Record<string, Minted>;
 
@@ -375,11 +359,24 @@ const grounding: GroundingReview = {
   notes: [],
 };
 
-/** A project owned by analyst 1, with a report so that there is something to read and review. */
+/** A project led by analyst 1, with a report so that there is something to read and review. */
 async function ownedProject(instance: Secured): Promise<string> {
   const created = await call(instance, users.analyst1, 'POST', '/api/projects', fixtureInput());
   expect(created.statusCode, created.body).toBe(201);
   const id = created.json<{ id: string }>().id;
+  // A viewer and a reviewer have been added to it; analyst 2 and everyone else have not.
+  for (const [principalId, role] of [
+    [READER, 'viewer'],
+    [REVIEWER, 'reviewer'],
+  ] as const) {
+    instance.repository.members.setProjectMember({
+      projectId: id,
+      tenantId: TENANT_A,
+      principalId,
+      role,
+      actor: { id: ANALYST_1 },
+    });
+  }
   instance.repository.update(id, {
     status: 'completed',
     report: {
@@ -433,20 +430,18 @@ describe('every API route has an authorization policy', () => {
       expect(response.statusCode).toBe(403);
       expect(response.json().error.code).toBe('ROUTE_NOT_AUTHORIZED');
     } finally {
-      (ROUTE_POLICY as Record<string, unknown>)['GET /api/projects'] = {
-        kind: 'signed-in',
-        role: 'reader',
-      };
+      (ROUTE_POLICY as Record<string, unknown>)['GET /api/projects'] = { kind: 'signed-in' };
     }
   });
 });
 
 // The guard vouches only for the experiment named in the path. A route that is handed another
-// experiment's identifier anywhere else must check its tenant itself with `ownerInTenant`, which is
-// easy to forget and was forgotten once (compare). This is a tripwire and not a proof: it lists
-// every UUID field that any route accepts, so that a new one cannot arrive unnoticed. If it fails,
-// decide whether the new field names an experiment. If it does, call `ownerInTenant` on it, add a
-// case to "comparing two experiments" above, and then add the field here.
+// experiment's identifier anywhere else must check that the caller may read it with
+// `requireReadable`, which is easy to forget and was forgotten once (compare). This is a tripwire and
+// not a proof: it lists every UUID field that any route accepts, so that a new one cannot arrive
+// unnoticed. If it fails, decide whether the new field names an experiment. If it does, call
+// `requireReadable` on it, add a case to "comparing two experiments" above, and then add the field
+// here.
 describe('identifiers a route accepts outside the path', () => {
   const routesDirectory = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'routes');
   const uuidFields = (): string[] =>
@@ -467,16 +462,24 @@ describe('identifiers a route accepts outside the path', () => {
       'guided.ts: id',
       // In the path: a survey of that experiment, always looked up within it.
       'guided.ts: surveyId',
-      // In the query: another experiment, checked by ownerInTenant in the handler.
+      // In the query: another experiment, checked by requireReadable in the handler.
       'guided.ts: with',
       'ledger.ts: id',
+      // In the path: the person a membership change is about. It names no experiment, and the
+      // store only ever writes it beside the experiment the guard vouched for.
+      'members.ts: id',
+      'members.ts: id',
+      'members.ts: principalId',
+      'members.ts: principalId',
       'projects.ts: id',
     ]);
   });
 
-  it('has the comparison check the tenant of the experiment it is asked to compare with', () => {
+  it('has the comparison check that the caller may read the experiment it is asked to compare with', () => {
     const source = readFileSync(join(routesDirectory, 'guided.ts'), 'utf8');
-    expect(source).toMatch(/ownerInTenant\(\s*repository,\s*otherId,/u);
+    expect(source).toMatch(
+      /requireReadable\(\s*repository,\s*principalOf\(request\),\s*otherId\s*\)/u,
+    );
   });
 });
 
@@ -636,13 +639,13 @@ describe('tenant isolation', () => {
 
       const foreign = await call(
         instance,
-        users.reader,
+        users.admin,
         'GET',
         `/api/projects/${mine}/compare?with=${theirs}`,
       );
       const nothing = await call(
         instance,
-        users.reader,
+        users.admin,
         'GET',
         `/api/projects/${mine}/compare?with=${absent}`,
       );
@@ -671,7 +674,7 @@ describe('tenant isolation', () => {
       const colleague = await guidedRun(instance, { tenantId: TENANT_A, ownerId: ANALYST_2 });
       const compared = await call(
         instance,
-        users.reader,
+        users.admin,
         'GET',
         `/api/projects/${mine}/compare?with=${colleague}`,
       );
@@ -706,10 +709,10 @@ describe('tenant isolation', () => {
   });
 });
 
-describe('roles', () => {
+describe('what each kind of person may do to a project', () => {
   const allowedOnOthers = (status: number) => ![401, 403, 404].includes(status);
 
-  it('let a reader look but not touch', async () => {
+  it('lets a viewer look but not touch', async () => {
     const instance = await secured();
     const id = await ownedProject(instance);
     for (const url of [
@@ -724,7 +727,6 @@ describe('roles', () => {
       expect((await call(instance, users.reader, 'GET', url)).statusCode, url).toBe(200);
     }
     for (const [method, url] of [
-      ['POST', '/api/projects'],
       ['POST', `/api/projects/${id}/run`],
       ['POST', `/api/projects/${id}/chat`],
       ['POST', `/api/projects/${id}/claims/C1/review`],
@@ -739,48 +741,66 @@ describe('roles', () => {
     }
   });
 
-  it('let an analyst change only what they own', async () => {
+  it('shows a project only to the people it was shared with', async () => {
     const instance = await secured();
     const id = await ownedProject(instance);
-    for (const [method, url, payload] of [
-      ['POST', `/api/projects/${id}/run`, undefined],
-      ['POST', `/api/projects/${id}/cancel`, undefined],
-      ['POST', `/api/projects/${id}/pause`, undefined],
-      ['POST', `/api/projects/${id}/steps/knowledge`, undefined],
-      ['PUT', `/api/projects/${id}/intervention`, {}],
-      ['PATCH', `/api/projects/${id}/environment`, {}],
-      ['POST', `/api/projects/${id}/chat`, { target: 'report', message: 'What does it say?' }],
-      ['POST', `/api/projects/${id}/surveys`, {}],
-      ['DELETE', `/api/projects/${id}`, undefined],
+    // A colleague in the same workspace who was not added cannot tell that it exists.
+    const absent = '99999999-9999-4999-8999-999999999999';
+    for (const [method, url] of [
+      ['GET', (p: string) => `/api/projects/${p}`],
+      ['GET', (p: string) => `/api/projects/${p}/export?format=json`],
+      ['POST', (p: string) => `/api/projects/${p}/run`],
+      ['POST', (p: string) => `/api/projects/${p}/chat`],
+      ['DELETE', (p: string) => `/api/projects/${p}`],
     ] as const) {
-      const notOwner = await call(instance, users.analyst2, method, url, payload ?? {});
-      expect(notOwner.statusCode, `${method} ${url} as a colleague`).toBe(403);
-      expect(notOwner.json().error.code).toBe('NOT_OWNER');
+      const hidden = await call(instance, users.analyst2, method, url(id), {});
+      const nothing = await call(instance, users.analyst2, method, url(absent), {});
+      expect(hidden.statusCode, `${method} ${url(id)}`).toBe(404);
+      // The request id differs on every request; what the caller can compare is the rest.
+      expect(hidden.json().error).toMatchObject({
+        code: nothing.json().error.code,
+        message: nothing.json().error.message,
+      });
     }
-    // The owner is not refused (what the action then does is another test's concern).
-    const owner = await call(instance, users.analyst1, 'POST', `/api/projects/${id}/run`);
-    expect(allowedOnOthers(owner.statusCode)).toBe(true);
-    // A colleague can still read it.
-    expect((await call(instance, users.analyst2, 'GET', `/api/projects/${id}`)).statusCode).toBe(
-      200,
-    );
+    const listed = (await call(instance, users.analyst2, 'GET', '/api/projects')).json();
+    expect(listed).toMatchObject({ projects: [], total: 0 });
+
+    // Once added as an analyst, they can run it but not delete it or share it.
+    instance.repository.members.setProjectMember({
+      projectId: id,
+      tenantId: TENANT_A,
+      principalId: ANALYST_2,
+      role: 'analyst',
+      actor: { id: ANALYST_1 },
+    });
+    const run = await call(instance, users.analyst2, 'POST', `/api/projects/${id}/run`);
+    expect(allowedOnOthers(run.statusCode)).toBe(true);
+    for (const [method, url, payload] of [
+      ['DELETE', `/api/projects/${id}`, undefined],
+      ['PUT', `/api/projects/${id}/members/${ANALYST_2}`, { role: 'lead' }],
+    ] as const) {
+      const refused = await call(instance, users.analyst2, method, url, payload ?? {});
+      expect(refused.statusCode, `${method} ${url}`).toBe(403);
+      expect(refused.json().error.code).toBe('FORBIDDEN');
+    }
   });
 
-  it('let an administrator act on any experiment in their tenant, but not in another', async () => {
+  it('lets an owner of the workspace act on any project in it, but not in another', async () => {
     const instance = await secured();
     const id = await ownedProject(instance);
     const run = await call(instance, users.admin, 'POST', `/api/projects/${id}/run`);
     expect(allowedOnOthers(run.statusCode)).toBe(true);
-    expect((await call(instance, users.admin, 'GET', '/api/audit/verify')).statusCode).toBe(200);
     expect((await call(instance, users.admin, 'GET', `/api/projects/${id}/audit`)).statusCode).toBe(
       200,
     );
+    // Owning a workspace is not running the platform.
+    expect((await call(instance, users.admin, 'GET', '/api/audit/verify')).statusCode).toBe(403);
     expect((await call(instance, users.admin, 'DELETE', `/api/projects/${id}`)).statusCode).toBe(
       204,
     );
   });
 
-  it('let a reviewer review anyone’s work, but not run it', async () => {
+  it('lets a reviewer review anyone’s work, but not run it', async () => {
     const instance = await secured();
     const id = await ownedProject(instance);
     const review = await call(
@@ -797,17 +817,24 @@ describe('roles', () => {
     expect(
       (await call(instance, users.reviewer, 'POST', `/api/projects/${id}/run`)).statusCode,
     ).toBe(403);
-    // The owner, an analyst, cannot review their own work: reviewing is a separate duty.
+    // An analyst on the project, who runs it, cannot review it: reviewing is a separate duty.
+    instance.repository.members.setProjectMember({
+      projectId: id,
+      tenantId: TENANT_A,
+      principalId: ANALYST_2,
+      role: 'analyst',
+      actor: { id: ANALYST_1 },
+    });
     expect(
       (
-        await call(instance, users.analyst1, 'POST', `/api/projects/${id}/claims/C2/review`, {
+        await call(instance, users.analyst2, 'POST', `/api/projects/${id}/claims/C2/review`, {
           result: 'rejected',
         })
       ).statusCode,
     ).toBe(403);
   });
 
-  it('record who reviewed a statement, by their object id and nothing about them', async () => {
+  it('records who reviewed a statement, by their object id and nothing about them', async () => {
     const instance = await secured();
     const id = await ownedProject(instance);
     await call(instance, users.reviewer, 'POST', `/api/projects/${id}/claims/C2/review`, {
@@ -825,13 +852,13 @@ describe('roles', () => {
     expect(JSON.stringify(audit)).not.toContain('Not supported.');
   });
 
-  it('record who deleted an experiment', async () => {
+  it('records who deleted an experiment', async () => {
     const instance = await secured();
     const id = await ownedProject(instance);
     expect((await call(instance, users.analyst1, 'DELETE', `/api/projects/${id}`)).statusCode).toBe(
       204,
     );
-    const verified = await call(instance, users.admin, 'GET', '/api/audit/verify');
+    const verified = await call(instance, users.platform, 'GET', '/api/audit/verify');
     expect(verified.json()).toMatchObject({ ok: true });
     const entries = instance.repository.audit.list({ projectId: id, limit: 50 });
     expect(entries.find((entry) => entry.action === 'project.deleted')?.actor).toBe(ANALYST_1);
@@ -839,13 +866,14 @@ describe('roles', () => {
 });
 
 describe('ownership of what people create', () => {
-  it('records the signed-in analyst as owner of a new experiment, in their tenant', async () => {
+  it('records the signed-in analyst as leader of a new experiment, in their tenant', async () => {
     const instance = await secured();
     const created = await call(instance, users.analyst2, 'POST', '/api/projects', fixtureInput());
     expect(instance.repository.ownership(created.json().id)).toEqual({
       tenantId: TENANT_A,
       ownerId: ANALYST_2,
     });
+    expect(instance.repository.members.projectRole(created.json().id, ANALYST_2)).toBe('lead');
   });
 
   it('gives a branch to whoever branched it, not to the owner of its parent', async () => {
@@ -862,6 +890,13 @@ describe('ownership of what people create', () => {
       instance.jobs.enqueueStep(id, step);
       await instance.jobs.idle();
     }
+    instance.repository.members.setProjectMember({
+      projectId: id,
+      tenantId: TENANT_A,
+      principalId: ANALYST_2,
+      role: 'analyst',
+      actor: { id: ANALYST_1 },
+    });
     const branch = await call(instance, users.analyst2, 'POST', `/api/projects/${id}/branches`, {
       fromRound: 0,
       name: 'A colleague’s what-if',
@@ -871,11 +906,12 @@ describe('ownership of what people create', () => {
       tenantId: TENANT_A,
       ownerId: ANALYST_2,
     });
-    // The colleague can change their branch; the parent's owner cannot change it unless an admin.
+    expect(instance.repository.members.projectRole(branch.json().id, ANALYST_2)).toBe('lead');
+    // The parent's leader was not added to their colleague's branch, so cannot even see it.
     expect(
       (await call(instance, users.analyst1, 'POST', `/api/projects/${branch.json().id}/run`))
         .statusCode,
-    ).toBe(403);
+    ).toBe(404);
     // And the outsider cannot branch it at all.
     expect(
       (
@@ -893,14 +929,21 @@ describe('refusals are recorded for a signed-in caller', () => {
     const project = instance.repository.create(fixtureInput({ workflow: 'guided' }), {
       owner: { tenantId: TENANT_A, ownerId: ANALYST_1 },
     });
+    instance.repository.members.setProjectMember({
+      projectId: project.id,
+      tenantId: TENANT_A,
+      principalId: READER,
+      role: 'viewer',
+      actor: { id: ANALYST_1 },
+    });
     const step = `/api/projects/${project.id}/steps/knowledge`;
 
     const forbidden = await call(instance, users.reader, 'POST', step);
-    const notOwner = await call(instance, users.analyst2, 'POST', step);
+    const notShared = await call(instance, users.analyst2, 'POST', step);
     const otherTenant = await call(instance, users.outsider, 'GET', `/api/projects/${project.id}`);
     const anonymous = await call(instance, null, 'GET', `/api/projects/${project.id}`);
-    expect([forbidden, notOwner, otherTenant, anonymous].map((r) => r.statusCode)).toEqual([
-      403, 403, 404, 401,
+    expect([forbidden, notShared, otherTenant, anonymous].map((r) => r.statusCode)).toEqual([
+      403, 404, 404, 401,
     ]);
 
     const refused = instance.repository.audit
@@ -908,7 +951,7 @@ describe('refusals are recorded for a signed-in caller', () => {
       .filter((entry) => entry.action === 'access.refused');
     expect(refused.map((entry) => [entry.actor, entry.detail.code, entry.detail.status])).toEqual([
       [READER, 'FORBIDDEN', 403],
-      [ANALYST_2, 'NOT_OWNER', 403],
+      [ANALYST_2, 'PROJECT_NOT_FOUND', 404],
       [OUTSIDER, 'PROJECT_NOT_FOUND', 404],
     ]);
     expect(refused[0]!.detail).toMatchObject({ method: 'POST', experiment: project.id });
@@ -923,7 +966,7 @@ describe('refusals are recorded for a signed-in caller', () => {
     const project = instance.repository.create(fixtureInput({ workflow: 'guided' }), {
       owner: { tenantId: TENANT_A, ownerId: ANALYST_1 },
     });
-    const allowed = await call(instance, users.reader, 'GET', `/api/projects/${project.id}`);
+    const allowed = await call(instance, users.analyst1, 'GET', `/api/projects/${project.id}`);
     expect(allowed.statusCode).toBe(200);
     expect(
       instance.repository.audit.list({ limit: 500 }).filter((e) => e.action === 'access.refused'),
@@ -947,7 +990,7 @@ describe('the local mode is unchanged', () => {
     });
     expect((await instance.app.inject('/api/projects')).json().total).toBe(1);
     const health = (await instance.app.inject('/api/health')).json();
-    expect(health).toMatchObject({ storage: 'sqlite', experiments: 1 });
+    expect(health).toMatchObject({ storage: instance.repository.dialect, experiments: 1 });
   });
 
   it('ignores a token it does not need, rather than failing on it', async () => {
@@ -971,22 +1014,33 @@ describe('upgrading a database that has no owners', () => {
     const project = first.create(fixtureInput());
     first.close();
 
-    // Make it what the previous release wrote: schema version 2, no ownership columns.
+    // Make it what the previous release wrote: schema version 2, no ownership columns, no members,
+    // no sign-in state.
     const legacy = new DatabaseSync(path);
     legacy.exec(`
       DROP INDEX projects_tenant;
       ALTER TABLE projects DROP COLUMN tenant_id;
       ALTER TABLE projects DROP COLUMN owner_id;
+      DROP TABLE project_members;
+      DROP TABLE workspace_members;
+      DROP TABLE sessions;
+      DROP TABLE login_attempts;
       PRAGMA user_version = 2;
     `);
     legacy.close();
 
     const upgraded = new Repository(path);
     expect(upgraded.migration.from).toBe(2);
-    expect(upgraded.migration.applied[0]).toMatch(/^3:/u);
+    expect(upgraded.migration.applied.map((step) => step.slice(0, 2))).toEqual(['3:', '4:', '5:']);
     expect(upgraded.ownership(project.id)).toEqual({ tenantId: 'local', ownerId: 'local-user' });
     expect(upgraded.get(project.id).name).toBe(project.name);
     expect(upgraded.list(100, 0, 'local').projects).toHaveLength(1);
+    // The owner leads their project and belongs to the workspace; nobody is made an administrator.
+    expect(upgraded.members.projectRole(project.id, 'local-user')).toBe('lead');
+    expect(upgraded.members.workspaceRole('local', 'local-user')).toBe('member');
+    expect(upgraded.members.workspaceMembers('local').map((member) => member.role)).toEqual([
+      'member',
+    ]);
     // Nobody else's tenant sees it.
     expect(upgraded.list(100, 0, TENANT_A)).toEqual({ projects: [], total: 0 });
     expect(upgraded.ownership('99999999-9999-4999-8999-999999999999')).toBeNull();

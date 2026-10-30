@@ -5,6 +5,16 @@ Back to the [README](../README.md). The evidence behind these statements is in [
 - **Local, single-user application; no user authentication or tenant isolation.**
   Loopback binding, explicit host/origin allowlists, CSP, request limits and rate
   limits do not replace authentication. Do not expose this server directly online.
+- **Hosted-mode identity boundary.** With `AUTH_MODE=entra` a person signs in with Microsoft in the
+  browser (the server runs the Authorization Code flow with PKCE and keeps an opaque, HttpOnly,
+  server-side session; no token reaches the page), or an API client sends a verified Microsoft Entra
+  bearer token. Every route is then authorised from workspace and project membership (seven roles,
+  read from the database on every request, so removing someone takes effect on their next call). A
+  project a person was not added to, or that belongs to another tenant, is reported as not found. The
+  audit log records sign-ins, sign-outs, membership changes and refusals. This has only met a test
+  identity provider, never a real tenant, and there has been no independent review
+  ([ADR 0007](./adr/0007-workspace-and-project-membership.md),
+  [ADR 0008](./adr/0008-browser-sign-in.md)).
 - Source names never become filesystem paths. Text input is type/size checked on
   both sides and stored with parameterized SQLite statements. PDFs use bounded
   in-memory bytes and a disposable worker; no original upload is written to disk.
