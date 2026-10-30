@@ -19,7 +19,7 @@
 .report-title > .eyebrow {
   color: #79552f;
 }
-.report-title h1 {
+.report-title h2 {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 31px;
   font-weight: 400;
@@ -257,7 +257,7 @@
   .report-reader {
     padding: 22px 16px;
   }
-  .report-title h1 {
+  .report-title h2 {
     font-size: 29px;
   }
   .report-section > h2 {

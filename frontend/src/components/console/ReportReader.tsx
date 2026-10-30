@@ -48,7 +48,7 @@ export function ReportReader({
                   ? 'LOCAL RULES / EVIDENCE SUMMARY'
                   : 'MODEL-ASSISTED SCENARIO ANALYSIS'}
               </span>
-              <h1>{report.title}</h1>
+              <h2>{report.title}</h2>
               <p className="report-question">{project.question}</p>
               {!completed && (
                 <p className="partial-notice">
@@ -102,7 +102,7 @@ export function ReportReader({
             <GroundingReview report={report} complete={completed} onInspect={onInspect} />
             {completed && <EvidenceLedger project={project} />}
             <details className="report-metrics">
-              <summary>Recorded scenario metrics — not a population forecast</summary>
+              <summary>Recorded scenario metrics â€” not a population forecast</summary>
               <dl className="record-grid">
                 <dt>Initial mean position</dt>
                 <dd>{signed(report.metrics.initialMean)}</dd>

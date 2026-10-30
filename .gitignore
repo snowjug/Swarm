@@ -14,3 +14,4 @@ Thumbs.db
 playwright-report/
 test-results/
 .azure/
+docs/demo/backup/

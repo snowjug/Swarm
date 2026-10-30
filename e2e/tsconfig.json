@@ -7,5 +7,10 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["./**/*.ts", "../playwright.config.ts", "../backend/test/pdf-fixture.ts"]
+  "include": [
+    "./**/*.ts",
+    "../playwright.config.ts",
+    "../playwright.journey.config.ts",
+    "../backend/test/pdf-fixture.ts"
+  ]
 }

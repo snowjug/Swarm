@@ -1,4 +1,39 @@
-# Demonstration packs
+# Demonstration
+
+Two things live here. A **recorded demonstration workspace** is what you show in a presentation.
+Six small **source packs** are what anyone can paste into a new project.
+
+## The recorded demonstration workspace
+
+Three projects about one fictional decision, the Larkholm electric ferry, were run once against a
+real Azure OpenAI model (Microsoft Entra sign-in, no keys) and stored in [seed/](./seed). They are
+the base run, a branch where an assumed council guarantee replaces the operator notice, and a branch
+where the notice is withdrawn. Restoring them takes seconds and makes no model call. The seed is the
+unedited export of those runs: the sources, the assumed inputs that were given to them, and the
+recorded model output. The [presenter guide](./presentation.md) says where the recording is weak.
+
+```bash
+npm run demo:seed                # restore, or reset after a rehearsal
+npm run demo:seed -- --dry-run   # check the files and say what would change; write nothing
+npm run demo:seed -- --remove    # delete the three demonstration projects
+```
+
+The seed touches only those three projects, which have fixed identifiers. Everything else in the
+database is left as it is, and anything added to them during a rehearsal (a branch, a question, an
+edit) is replaced. A server that signs people in (`AUTH_MODE=entra`) has no local workspace, so there
+the target must be named: `--tenant <id> --owner <id>`.
+
+| Command                | What it does                                                                                                                              |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run demo:seed`    | Restores the recorded workspace. No model calls.                                                                                          |
+| `npm run demo:journey` | Walks the 32-step presentation in a real browser against the running server (default `http://127.0.0.1:3001`). A rehearsal that checks.   |
+| `npm run demo:record`  | Re-records the three projects against a server that uses a real model. Spends about US$0.30 of model usage, so it is run on purpose only. |
+
+[Presenting Swarm](./presentation.md) is the presenter guide: the five-minute and ten-minute scripts,
+the screen sequence, speaking points, likely objections with answers, the backup screenshot plan,
+reset instructions and what to do when something fails.
+
+## Source packs
 
 Six small, fictional scenarios. Each is a handful of short source documents that you can paste into
 a new project. Everything in them is invented: no real place, organisation, person or figure.

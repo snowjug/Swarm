@@ -5,6 +5,7 @@ import { defineConfig } from '@playwright/test';
 
 const localPort = Number(process.env.E2E_LOCAL_PORT || 3111);
 const modelPort = Number(process.env.E2E_MODEL_PORT || 3112);
+const journeyPort = Number(process.env.E2E_JOURNEY_PORT || 3113);
 const providerPort = Number(process.env.E2E_PROVIDER_PORT || 11999);
 // One throwaway root per run: the runner creates it and workers inherit it through the environment,
 // so re-loading this file in a worker never creates another directory.
@@ -54,9 +55,17 @@ export default defineConfig({
       testMatch: /model\/.*\.spec\.ts/u,
       use: { baseURL: `http://127.0.0.1:${modelPort}` },
     },
+    {
+      // The presentation, on a server of its own that holds the committed demonstration, so that
+      // it neither depends on nor changes what the other projects leave behind.
+      name: 'journey',
+      testMatch: /journey\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${journeyPort}` },
+    },
   ],
   webServer: [
     server(localPort, 'local', { AI_PROVIDER: 'none' }),
+    server(journeyPort, 'journey', { AI_PROVIDER: 'none' }),
     {
       command: 'node --import tsx e2e/support/fake-provider.ts',
       url: `http://127.0.0.1:${providerPort}/__health`,

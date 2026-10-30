@@ -27,6 +27,7 @@
     "eval": "tsx evaluation/src/run.ts",
     "demo:record": "tsx scripts/demo/record.ts",
     "demo:seed": "tsx --env-file-if-exists=.env scripts/demo/seed.ts",
+    "demo:journey": "playwright test --config playwright.journey.config.ts",
     "azure:provision": "tsx scripts/azure/provision.ts",
     "azure:teardown": "tsx scripts/azure/teardown.ts",
     "azure:verify": "tsx scripts/azure/verify.ts",

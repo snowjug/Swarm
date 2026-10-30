@@ -33,6 +33,29 @@ describe('guided console record rendering', () => {
     expect(html).toContain('Source');
   });
 
+  it('keeps the project name as the only page heading: the report title is a section heading', () => {
+    const project = projectFixture();
+    project.status = 'completed';
+    project.report = {
+      generatedBy: 'local',
+      title: 'Recorded test report',
+      executiveSummary: 'Synthetic summary.',
+      sections: [{ title: 'Actual chapter', body: 'Synthetic body.', sourceIds: ['S1'] }],
+      limitations: ['Synthetic test only.'],
+      metrics: {
+        initialMean: 0,
+        finalMean: 0.2,
+        finalSupport: 0.5,
+        finalOpposition: 0.25,
+        polarization: 0.3,
+        totalInteractions: 4,
+      },
+    };
+    const html = renderToStaticMarkup(<ReportReader project={project} onInspect={() => {}} />);
+    expect(html).not.toMatch(/<h1[ >]/u);
+    expect(html).toMatch(/<h2[^>]*>Recorded test report<\/h2>/u);
+  });
+
   it('does not reconstruct ontology for historical quick runs', () => {
     const project = projectFixture();
     project.workflow = 'quick';
