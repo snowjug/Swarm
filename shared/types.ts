@@ -376,3 +376,24 @@ export interface ApiErrorBody {
     requestId?: string;
   };
 }
+
+/** One entry of the append-only audit log. It holds identifiers, counts and short labels only. */
+export interface AuditEntry {
+  seq: number;
+  at: string;
+  actor: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  projectId: string | null;
+  detail: Record<string, string | number | boolean | null>;
+  prevHash: string;
+  hash: string;
+}
+
+/** The result of recomputing the log's hash chain. */
+export interface AuditVerification {
+  ok: boolean;
+  checked: number;
+  brokenAt: number | null;
+}

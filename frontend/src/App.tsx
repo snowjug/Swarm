@@ -238,6 +238,13 @@ export default function App() {
             busy={busy}
             onSubmit={console.create}
             onHistory={() => setHistoryOpen(true)}
+            demoHistory={{
+              projects: console.history.data?.projects ?? null,
+              loading: console.history.loading,
+              error: console.history.error,
+            }}
+            onOpenProject={console.selectProject}
+            onRetryHistory={() => void console.loadHistory()}
           />
         )}
       </main>

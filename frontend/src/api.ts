@@ -1,6 +1,8 @@
 import type {
   ApiErrorBody,
   AppConfig,
+  AuditEntry,
+  AuditVerification,
   ChatMessage,
   CreateProjectInput,
   EvidenceMatch,
@@ -171,6 +173,10 @@ export const api = {
     }),
   ledger: (id: string, signal?: AbortSignal) =>
     request<Ledger>(`${projectPath(id)}/ledger`, { signal }),
+  audit: (id: string, signal?: AbortSignal) =>
+    request<{ events: AuditEntry[] }>(`${projectPath(id)}/audit`, { signal }),
+  verifyAudit: (signal?: AbortSignal) =>
+    request<AuditVerification>('/api/audit/verify', { signal }),
   claim: (id: string, claimId: string, signal?: AbortSignal) =>
     request<ClaimDetail>(`${projectPath(id)}/claims/${encodeURIComponent(claimId)}`, { signal }),
   reviewClaim: (

@@ -17,7 +17,8 @@
   align-items: flex-start;
   gap: 22px;
 }
-.entry-title h1 {
+.entry-title h1,
+.entry-title h2 {
   font-size: 29px;
   line-height: 1.3;
   margin: 10px 0 12px;
@@ -376,10 +377,12 @@
   .entry-guide {
     gap: 18px;
   }
-  .entry-title h1 {
+  .entry-title h1,
+  .entry-title h2 {
     font-size: 26px;
   }
-  .entry-title h1 br {
+  .entry-title h1 br,
+  .entry-title h2 br {
     display: none;
   }
   .entry-title p {

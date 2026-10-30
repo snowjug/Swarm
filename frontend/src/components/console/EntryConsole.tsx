@@ -20,6 +20,7 @@ import { errorMessage } from '../../api';
 import { validateEntry } from '../../lib/entryValidation';
 import { authText, modelReadiness, realModelLabel } from '../../lib/provider';
 import { SourceInput } from './SourceInput';
+import { DemoWorkspace, type DemoHistory } from './DemoWorkspace';
 import { Notice, Spinner } from '../ui';
 
 const explanations = [
@@ -62,6 +63,9 @@ export function EntryConsole({
   busy,
   onSubmit,
   onHistory,
+  demoHistory,
+  onOpenProject,
+  onRetryHistory,
 }: {
   config: AppConfig | null;
   /** Live provider connectivity from the header badge, so this card never contradicts it. */
@@ -70,6 +74,10 @@ export function EntryConsole({
   busy: boolean;
   onSubmit: (input: CreateProjectInput) => Promise<void>;
   onHistory: () => void;
+  /** The saved projects, for the demonstration workspace. Without them it is not shown. */
+  demoHistory?: DemoHistory;
+  onOpenProject?: (id: string) => void;
+  onRetryHistory?: () => void;
 }) {
   const [name, setName] = useState(
     initialProject ? `${initialProject.name.slice(0, 80)} (guided)` : '',
@@ -108,6 +116,8 @@ export function EntryConsole({
       : (config?.limits.localMaxRounds ?? 24);
   const disabled = busy || reading;
   const readiness = modelReadiness(modelAvailable, connectivity);
+  // The introduction carries the page's one h1 when it is shown; otherwise this heading does.
+  const Heading = demoHistory && onOpenProject ? 'h2' : 'h1';
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -157,13 +167,21 @@ export function EntryConsole({
 
   return (
     <div className="entry-console">
+      {demoHistory && onOpenProject && (
+        <DemoWorkspace
+          history={demoHistory}
+          busy={busy}
+          onOpen={onOpenProject}
+          onRetry={onRetryHistory ?? (() => undefined)}
+        />
+      )}
       <section className="entry-guide">
         <div className="entry-title">
           <span className="eyebrow">GUIDED SCENARIO CONSOLE</span>
-          <h1>
+          <Heading>
             From sources to a<br />
             testable scenario.
-          </h1>
+          </Heading>
           <p>
             Build, inspect, prepare, run. Each stage executes separately and waits for your review.
           </p>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, RefreshCw, Square } from 'lucide-react';
+import { Copy, RefreshCw, ShieldCheck, Square } from 'lucide-react';
 import type {
   ConsoleStep,
   BranchInput,
@@ -35,6 +35,7 @@ import { ReportReader } from './ReportReader';
 import { ReportStage } from './ReportStage';
 import { SimulationStage } from './SimulationStage';
 import { BranchDialog } from './BranchDialog';
+import { AuditDialog } from './AuditDialog';
 import { BranchBanner } from './BranchBanner';
 import { CompareView } from './CompareView';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -90,6 +91,7 @@ export function ConsoleWorkspace({
   const effectiveView = narrow && view === 'split' ? 'workbench' : view;
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [branchOpen, setBranchOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [comparisonOther, setComparisonOther] = useState<string | null>(null);
   const [comparisonRevision, setComparisonRevision] = useState(0);
@@ -245,6 +247,13 @@ export function ConsoleWorkspace({
           <button
             className="button button-secondary button-small"
             type="button"
+            onClick={() => setAuditOpen(true)}
+          >
+            <ShieldCheck size={13} aria-hidden="true" /> Audit log
+          </button>
+          <button
+            className="button button-secondary button-small"
+            type="button"
             disabled={busy}
             onClick={onDuplicate}
           >
@@ -363,6 +372,7 @@ export function ConsoleWorkspace({
           onClose={() => setBranchOpen(false)}
         />
       )}
+      {auditOpen && <AuditDialog projectId={project.id} onClose={() => setAuditOpen(false)} />}
       {inspection && (
         <Inspector
           project={project}
