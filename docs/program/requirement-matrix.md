@@ -86,13 +86,13 @@ never marked VERIFIED here.
 
 ## 6. Cost, observability and operations
 
-| ID  | Requirement                            | Status    | Evidence                                                                                                       | What remains                                                              |
-| --- | -------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| 6.1 | Token and call accounting per project  | VERIFIED  | `e2e/model/model.spec.ts` (honest token accounting); `azure:verify` records calls and tokens                   |                                                                           |
-| 6.2 | Budgets and limits                     | PARTIAL   | Call budget per operation, a 15-minute run budget, a rate limiter, a per-tenant project limit (`auth.test.ts`) | No per-tenant token budget, no alert                                      |
-| 6.3 | Logs without secrets or content        | VERIFIED  | `security.test.ts`, `auth.test.ts` (no token in logs, even a refused one)                                      |                                                                           |
-| 6.4 | OpenTelemetry and Application Insights | NOT BUILT |                                                                                                                | Traces, metrics and a destination                                         |
-| 6.5 | Load behaviour                         | PARTIAL   | `node scripts/load-test.mjs`, results in [evaluation results](../pitch/evaluation-results.md)                  | Rules engine only, one machine; it predates the ledger and sign-in routes |
+| ID  | Requirement                            | Status   | Evidence                                                                                                            | What remains                                                                                           |
+| --- | -------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 6.1 | Token and call accounting per project  | VERIFIED | `e2e/model/model.spec.ts` (honest token accounting); `azure:verify` records calls and tokens                        |                                                                                                        |
+| 6.2 | Budgets and limits                     | PARTIAL  | Call budget per operation, a 15-minute run budget, a rate limiter, a per-tenant project limit (`auth.test.ts`)      | No per-tenant token budget, no alert                                                                   |
+| 6.3 | Logs without secrets or content        | VERIFIED | `security.test.ts`, `auth.test.ts` (no token in logs, even a refused one)                                           |                                                                                                        |
+| 6.4 | OpenTelemetry and Application Insights | PARTIAL  | `telemetry.test.ts`, `telemetry-start.test.ts`; correlation id, spans, metrics, redaction gate, Entra-signed export | Never exported to a real Application Insights resource; dashboards and alerts are written, not created |
+| 6.5 | Load behaviour                         | PARTIAL  | `node scripts/load-test.mjs`, results in [evaluation results](../pitch/evaluation-results.md)                       | Rules engine only, one machine; it predates the ledger and sign-in routes                              |
 
 ## 7. Azure
 

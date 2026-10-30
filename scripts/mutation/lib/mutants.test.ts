@@ -23,6 +23,7 @@ describe('the security mutation list', () => {
       ['sign-in', 10],
       ['storage', 5],
       ['jobs', 10],
+      ['telemetry', 5],
     ] as const) {
       expect(mutants.filter((mutant) => mutant.area === area).length, area).toBeGreaterThan(
         atLeast,

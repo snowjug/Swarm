@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { signals } from '../telemetry/signals.js';
 import type { SqlDatabase } from './sql.js';
 import { z } from 'zod';
 
@@ -141,6 +142,7 @@ export class AuditLog {
         prevHash,
         hash,
       );
+    signals.audit(base.action);
     return { seq: z.object({ seq: z.number() }).parse(inserted).seq, ...base, prevHash, hash };
   }
 

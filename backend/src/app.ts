@@ -24,6 +24,8 @@ import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
 import { memberRoutes } from './routes/members.js';
 import { sessionRoutes, sessionStatusRoute } from './routes/session.js';
+import { recordApiError, registerRequestTelemetry } from './telemetry/http.js';
+import { signals } from './telemetry/signals.js';
 import { ledgerRoutes } from './routes/ledger.js';
 import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
@@ -100,6 +102,8 @@ export async function buildApp(options: AppOptions) {
     new Repository(config.databaseUrl ?? config.databasePath, {
       entra: config.databaseAuth === 'entra',
     });
+  // First, so that every answer, a refusal included, carries the correlation id.
+  registerRequestTelemetry(app);
   // Every route as registered, so a test can prove that none of them lacks an authorization policy.
   const routes: { method: string; url: string }[] = [];
   app.addHook('onRoute', (route) => {
@@ -125,6 +129,18 @@ export async function buildApp(options: AppOptions) {
       ...(options.jobs ?? {}),
     },
   );
+  const stopReporting = signals.observe(() => {
+    const summary = jobs.summary();
+    return {
+      role: summary.role,
+      jobsByState: summary.counts,
+      oldestWaitingSeconds:
+        summary.oldestWaitingMs === null ? null : Math.round(summary.oldestWaitingMs / 1000),
+      databaseUp: repository.ping(),
+      workerBusy: jobs.working(),
+    };
+  });
+  app.addHook('onClose', async () => stopReporting());
   const interaction = new InteractionService(repository, config, modelFactory, (projectId, code) =>
     app.log.error({ projectId, code }, 'Follow-up or survey failed. Inspect its persisted state.'),
   );
@@ -244,6 +260,7 @@ export async function buildApp(options: AppOptions) {
         'Request failed. Content and provider exception bodies are intentionally not logged.',
       );
     }
+    recordApiError(request, status, failure.code);
     return reply.code(status).send({ error: { ...failure, requestId: request.id } });
   });
 

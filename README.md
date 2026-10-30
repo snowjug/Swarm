@@ -104,6 +104,7 @@ capability is listed only if a test drives it; what is missing is under
 | Real Azure AI, no key           | Run every stage against an Azure model deployment with Entra authentication                                                                                                                                                                                                                                                                        | `npm run azure:verify` (15 checks), `scripts/azure/lib/*.test.ts`                                                               |
 | PostgreSQL storage (optional)   | Run the same stores on PostgreSQL (`DATABASE_URL`), with serializable transactions retried when they lose a race; copy a database between SQLite and PostgreSQL in either direction, checked, for migration and backup                                                                                                                             | `postgres.test.ts`, `postgres-driver.test.ts`, `copy.test.ts`, `npm run test:postgres` (the whole unit suite on PostgreSQL)     |
 | Durable stage jobs              | A refresh or a restart does not lose a run: stages are queued in the database, taken by a worker under a lease, retried a bounded number of times, resumed from the last saved round, cancelled or paused from any process; asking twice with the same `Idempotency-Key` is one job                                                                | `jobs.test.ts`, `durable-jobs.test.ts` (each also on PostgreSQL), 19 job mutations                                              |
+| Observability                   | Every answer carries a correlation id; OpenTelemetry spans and metrics for requests, jobs, model calls, the queue, denials and grounding, with a gate that keeps content, headers and credentials out; export to Application Insights signed by Entra (tested with in-memory exporters)                                                            | `telemetry.test.ts`, `telemetry-start.test.ts`, 9 telemetry mutations                                                           |
 | Recorded demonstration          | Restore a real-model recording of one scenario and two branches, and walk the 32-step presentation in a real browser                                                                                                                                                                                                                               | `scripts/demo/lib/*.test.ts`, `e2e/journey/demo-journey.spec.ts`                                                                |
 | Accessibility checks            | Use the console by keyboard; axe-core finds no violation on the audited screens at four viewport sizes                                                                                                                                                                                                                                             | `e2e/local/a11y.spec.ts`, `e2e/local/responsive.spec.ts`, `npm run audit:ui`                                                    |
 
@@ -537,8 +538,11 @@ ready for production use. See [Known Limitations](#known-limitations),
   A worker that lost its lease is stopped at its next write to the project, its events or its usage,
   but not at a ledger write it is already making. A process killed outright waits for its lease (up
   to 30 seconds) before its run is taken over.
-- **Operations are basic.** Structured logs and per-project token counts, with no distributed
-  tracing, no per-tenant budget and no alerting.
+- **Monitoring has not reached a real Application Insights resource.** OpenTelemetry traces and metrics
+  (requests, jobs, model calls, queue depth, denials, grounding) are built and tested with in-memory
+  exporters, and the export to Application Insights is authenticated with Microsoft Entra; the
+  dashboards, alert rules and runbook in [docs/operations/](./docs/operations/observability.md) are
+  written, not created or rehearsed. There is no per-tenant budget.
 - **No Report Studio.** The report is read-only; reviewers record decisions in the ledger, and the
   report cannot be edited, versioned or approved in the console.
 - **Light theme only.** No dark or high-contrast theme.
@@ -568,19 +572,20 @@ Swarm supports human analysis. It must not make high-impact decisions on its own
 
 ## Documentation
 
-| Topic                 | Where                                                                                                                                                                                                                                     |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture          | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md), [pitch architecture](./docs/pitch/architecture.md)                                                                                                  |
-| Production readiness  | [Gates and their status](./docs/production-readiness.md)                                                                                                                                                                                  |
-| Security review       | [Security model](./docs/security-model.md), [security review](./docs/security-review.md)                                                                                                                                                  |
-| Threat model          | [Threat model](./docs/threat-model.md)                                                                                                                                                                                                    |
-| Evaluation            | [Evaluation harness and datasets](./evaluation/README.md), [results](./docs/pitch/evaluation-results.md)                                                                                                                                  |
-| Pitch package         | [Executive summary, cost model, pilot plan and more](./docs/pitch/README.md)                                                                                                                                                              |
-| Parity matrix         | [Comparison with the publicly documented reference idea](./docs/parity-matrix.md), [attribution](./NOTICE.md)                                                                                                                             |
-| Roadmap               | [Product roadmap](./docs/microsoft-product-roadmap.md), [pitch roadmap](./docs/pitch/roadmap.md)                                                                                                                                          |
-| Limitations and risks | [Risks and limitations](./docs/pitch/risks-and-limitations.md), [risk register](./docs/program/risk-register.md), [requirement matrix](./docs/program/requirement-matrix.md)                                                              |
-| Demonstration         | [Demonstration workspace and packs](./docs/demo/README.md), [Presenting Swarm](./docs/demo/presentation.md)                                                                                                                               |
-| Using and running it  | [User guide](./docs/USER_GUIDE.md), [configuration](./docs/CONFIGURATION.md), [HTTP API](./docs/API.md), [testing](./docs/TESTING.md), [Docker](./docs/DOCKER.md), [troubleshooting](./docs/TROUBLESHOOTING.md), [Azure](./docs/AZURE.md) |
+| Topic                 | Where                                                                                                                                                                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Architecture          | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md), [pitch architecture](./docs/pitch/architecture.md)                                                                                                             |
+| Production readiness  | [Gates and their status](./docs/production-readiness.md)                                                                                                                                                                                             |
+| Security review       | [Security model](./docs/security-model.md), [security review](./docs/security-review.md)                                                                                                                                                             |
+| Threat model          | [Threat model](./docs/threat-model.md)                                                                                                                                                                                                               |
+| Evaluation            | [Evaluation harness and datasets](./evaluation/README.md), [results](./docs/pitch/evaluation-results.md)                                                                                                                                             |
+| Pitch package         | [Executive summary, cost model, pilot plan and more](./docs/pitch/README.md)                                                                                                                                                                         |
+| Parity matrix         | [Comparison with the publicly documented reference idea](./docs/parity-matrix.md), [attribution](./NOTICE.md)                                                                                                                                        |
+| Roadmap               | [Product roadmap](./docs/microsoft-product-roadmap.md), [pitch roadmap](./docs/pitch/roadmap.md)                                                                                                                                                     |
+| Limitations and risks | [Risks and limitations](./docs/pitch/risks-and-limitations.md), [risk register](./docs/program/risk-register.md), [requirement matrix](./docs/program/requirement-matrix.md)                                                                         |
+| Demonstration         | [Demonstration workspace and packs](./docs/demo/README.md), [Presenting Swarm](./docs/demo/presentation.md)                                                                                                                                          |
+| Operations            | [Observability](./docs/operations/observability.md), [service levels, dashboards and alerts](./docs/operations/slo-dashboards-alerts.md), [incident runbook](./docs/operations/runbook.md), [hosted pilot plan and cost](./docs/azure/pilot-plan.md) |
+| Using and running it  | [User guide](./docs/USER_GUIDE.md), [configuration](./docs/CONFIGURATION.md), [HTTP API](./docs/API.md), [testing](./docs/TESTING.md), [Docker](./docs/DOCKER.md), [troubleshooting](./docs/TROUBLESHOOTING.md), [Azure](./docs/AZURE.md)            |
 
 Swarm is an independent implementation inspired by a public idea: turn documents into a knowledge
 graph, simulate many agents against it, and report what happened. It contains none of that project's
@@ -595,7 +600,7 @@ fake results, supports branching and comparison, and authenticates to Azure with
 | `e2e/`        | Playwright journeys, error states, responsive and accessibility checks, and the presentation walk                      |
 | `scripts/`    | Azure provisioning and verification, the demonstration recorder and seed, the UI audit, the secret scan, the load test |
 | `evaluation/` | Labelled datasets, the offline evaluation harness, thresholds and results                                              |
-| `infra/`      | Bicep for the Azure model account                                                                                      |
+| `infra/`      | Bicep for the Azure model account and, not deployed, the hosted pilot                                                  |
 | `docs/`       | Guides, references, matrices, architecture decisions, program records, demonstration material and the pitch package    |
 
 ## License

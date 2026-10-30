@@ -13,6 +13,7 @@ import type { SimulationMemory } from '../../../shared/guided.js';
 import type { ProjectDetail } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
 import type { Repository } from '../storage/repository.js';
+import { signals } from '../telemetry/signals.js';
 import { detectContradictions } from './contradictions.js';
 import {
   applyReview,
@@ -133,6 +134,10 @@ export class LedgerService {
         now,
       );
     });
+    const byClass: Record<string, number> = {};
+    for (const claim of claims)
+      byClass[claim.supportClass] = (byClass[claim.supportClass] ?? 0) + 1;
+    signals.grounding(byClass);
     return ledgerOf(claims, contradictions, reviewedAt, deriveScenarioAssumptions(project));
   }
 

@@ -1,8 +1,12 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { startTelemetry } from './telemetry/azure-monitor.js';
 
 const config = loadConfig();
+// Before the application, so that nothing it does at start-up is missed. Off unless asked for.
+const telemetry = await startTelemetry(process.env);
 const { app } = await buildApp({ config });
+if (telemetry.warning) app.log.warn(telemetry.warning);
 let closing = false;
 
 async function shutdown(): Promise<void> {
@@ -10,6 +14,7 @@ async function shutdown(): Promise<void> {
   closing = true;
   try {
     await app.close();
+    await telemetry.handle?.shutdown();
   } catch {
     app.log.fatal('Backend shutdown failed. Check database availability and active work.');
     process.exitCode = 1;

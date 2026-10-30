@@ -1,4 +1,5 @@
 import type { ProviderConfig } from '../config.js';
+import { signals } from '../telemetry/signals.js';
 import type { ProviderConnectivity, ProviderStatus } from '../../../shared/types.js';
 
 export interface ModelCallEvent {
@@ -48,6 +49,16 @@ export class ProviderTelemetry implements ModelObserver {
   }
 
   onCall(event: ModelCallEvent): void {
+    signals.modelCall({
+      provider: this.config.name,
+      model: this.config.model ?? '',
+      ok: event.ok,
+      repair: event.repair,
+      latencyMs: event.latencyMs,
+      inputTokens: event.inputTokens,
+      outputTokens: event.outputTokens,
+      errorCode: event.errorCode,
+    });
     this.lastCheckedAt = new Date().toISOString();
     this.lastLatencyMs = Math.round(event.latencyMs);
     if (event.repair) this.repairCalls += 1;

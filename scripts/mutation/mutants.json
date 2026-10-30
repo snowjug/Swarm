@@ -639,6 +639,87 @@
       "find": "if (this.stopping || this.activeTask || this.role === 'api') return;",
       "replace": "if (this.stopping || this.activeTask) return;",
       "tests": ["backend/test/durable-jobs.test.ts"]
+    },
+    {
+      "id": "T1",
+      "area": "telemetry",
+      "claim": "An attribute that is not on the list is exported, so content can be attached to a span or a metric",
+      "file": "backend/src/telemetry/attributes.ts",
+      "find": "if (!ALLOWED_ATTRIBUTES.has(key)) continue;",
+      "replace": "if (false) continue;",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T2",
+      "area": "telemetry",
+      "claim": "A JWT in an attribute value is not redacted",
+      "file": "backend/src/telemetry/attributes.ts",
+      "find": "/\\beyJ[A-Za-z0-9_-]{6,}\\.[A-Za-z0-9_-]{6,}\\.[A-Za-z0-9_-]*/gu,",
+      "replace": "/(?!)/gu,",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T3",
+      "area": "telemetry",
+      "claim": "A long attribute value is exported whole",
+      "file": "backend/src/telemetry/attributes.ts",
+      "find": "return clean.length > MAX_VALUE ? `${clean.slice(0, MAX_VALUE)}…` : clean;",
+      "replace": "return clean;",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T4",
+      "area": "telemetry",
+      "claim": "String attribute values are exported as given, with no redaction",
+      "file": "backend/src/telemetry/attributes.ts",
+      "find": "if (typeof value === 'string') clean[key] = redact(value);",
+      "replace": "if (typeof value === 'string') clean[key] = value;",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T5",
+      "area": "telemetry",
+      "claim": "An answer carries no correlation id",
+      "file": "backend/src/telemetry/http.ts",
+      "find": "reply.header(REQUEST_ID_HEADER, request.id);",
+      "replace": "void REQUEST_ID_HEADER;",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T6",
+      "area": "telemetry",
+      "claim": "Requests are counted by their address and query string, not by route template",
+      "file": "backend/src/telemetry/http.ts",
+      "find": "    const route = request.routeOptions.url ?? 'unmatched';\n    const status = reply.statusCode;",
+      "replace": "    const route = request.url;\n    const status = reply.statusCode;",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T7",
+      "area": "telemetry",
+      "claim": "A caller with no valid token is not counted as a denial",
+      "file": "backend/src/telemetry/signals.ts",
+      "find": "  'ORIGIN_NOT_ALLOWED',\n  'UNAUTHENTICATED',\n]);",
+      "replace": "  'ORIGIN_NOT_ALLOWED',\n]);",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T8",
+      "area": "telemetry",
+      "claim": "The gauges of a closed application are still read, and ask a closed database",
+      "file": "backend/src/telemetry/signals.ts",
+      "find": "      sources.delete(source);",
+      "replace": "      void source;",
+      "tests": ["backend/test/telemetry.test.ts"]
+    },
+    {
+      "id": "T9",
+      "area": "telemetry",
+      "claim": "A malformed connection string is accepted and telemetry is started with it",
+      "file": "backend/src/telemetry/azure-monitor.ts",
+      "find": "if (!CONNECTION_STRING.test(connectionString)) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/telemetry-start.test.ts"]
     }
   ]
 }

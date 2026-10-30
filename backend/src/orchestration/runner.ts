@@ -19,6 +19,7 @@ import { ModelClient } from '../models/client.js';
 import type { ModelFactory } from '../models/factory.js';
 import { jobLease, type Job, type JobKind, type JobLease, type JobState } from '../storage/jobs.js';
 import type { Repository } from '../storage/repository.js';
+import { annotate, failSpan, inSpan, signals } from '../telemetry/signals.js';
 import type { ExecutionStep } from '../../../shared/guided.js';
 import { readCheckpoint } from '../guided/checkpoint.js';
 import { GuidedWorkflow } from '../guided/workflow.js';
@@ -139,6 +140,11 @@ export class Orchestrator {
       counts: this.repository.jobs.counts(),
       oldestWaitingMs: this.repository.jobs.oldestWaitingMs(),
     };
+  }
+
+  /** True while this process is running a job. */
+  working(): boolean {
+    return this.active !== null;
   }
 
   isBusy(id: string): boolean {
@@ -388,6 +394,7 @@ export class Orchestrator {
           job.projectId,
           'No worker took this run before it expired, so it was not started late.',
         );
+        signals.jobEvent('expired', job.kind);
         this.onFailure(job.projectId, 'JOB_EXPIRED');
       }
       this.pump();
@@ -398,6 +405,7 @@ export class Orchestrator {
 
   private afterReap(job: Job, outcome: 'retrying' | 'failed' | 'cancelled'): void {
     const id = job.projectId;
+    signals.jobEvent(`reaped-${outcome}`, job.kind);
     if (outcome === 'retrying') {
       this.requeue(
         job,
@@ -472,10 +480,30 @@ export class Orchestrator {
     const beat =
       this.options.timers === false ? null : setInterval(() => this.heartbeat(), this.heartbeatMs);
     beat?.unref();
+    const started = Date.now();
     let outcome: Outcome;
     try {
-      // Everything the run writes to the repository is checked against the lease, in this context.
-      outcome = await jobLease.run(lease, () => this.execute(run));
+      outcome = await inSpan(
+        'swarm.job',
+        {
+          'swarm.job.id': job.id,
+          'swarm.job.kind': job.kind,
+          'swarm.job.attempt': job.attempt,
+          'swarm.job.max_attempts': job.maxAttempts,
+          'swarm.project.id': job.projectId,
+          'swarm.role': this.role,
+        },
+        async (span) => {
+          // Everything the run writes to the repository is checked against the lease, in this context.
+          const result = await jobLease.run(lease, () => this.execute(run));
+          annotate(span, {
+            'swarm.job.outcome': result.kind,
+            ...('code' in result ? { 'swarm.error.code': result.code } : {}),
+          });
+          if (result.kind === 'failed') failSpan(span);
+          return result;
+        },
+      );
     } catch (error) {
       outcome = { kind: 'failed', code: publicFailure(error).code };
     } finally {
@@ -483,6 +511,25 @@ export class Orchestrator {
       if (beat) clearInterval(beat);
     }
     this.record(run, outcome);
+    signals.jobFinished({
+      kind: job.kind,
+      outcome: outcome.kind,
+      code: 'code' in outcome ? outcome.code : null,
+      attempt: job.attempt,
+      durationMs: Date.now() - started,
+      branch: this.isBranch(job.projectId),
+    });
+    if (outcome.kind === 'released' || outcome.kind === 'retry' || outcome.kind === 'lost') {
+      signals.jobEvent(outcome.kind, job.kind);
+    }
+  }
+
+  private isBranch(projectId: string): boolean {
+    try {
+      return this.repository.get(projectId).console?.branch != null;
+    } catch {
+      return false;
+    }
   }
 
   /** Writes the outcome into the job, which is only possible while this worker holds its lease. */
