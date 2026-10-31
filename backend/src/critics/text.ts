@@ -16,6 +16,8 @@ export function clip(text: string, max: number): string {
 /** Two decimals, never "-0.00". */
 export const fixed = (value: number): string => (Math.round(value * 100) / 100).toFixed(2);
 export const signed = (value: number): string => `${value > 0 ? '+' : ''}${fixed(value)}`;
+/** Up to three decimals without trailing zeros, so that an intensity of 0.001 is not shown as 0.00. */
+export const level = (value: number): string => String(Math.round(value * 1000) / 1000);
 
 export const plural = (count: number, one: string, many = `${one}s`): string =>
   `${count} ${count === 1 ? one : many}`;
@@ -82,6 +84,8 @@ export interface Draft {
   evidence?: EvidenceRef[];
   /** What changes in the conclusion if the objection stands. */
   impact: string;
+  /** The next step the objection asks for. Most criticisms only qualify the result and have none. */
+  action?: string;
 }
 
 /** A rules critique: every one is `origin: 'rules'`, open, and with no response. */
@@ -99,6 +103,7 @@ export function draft(now: string, fields: Draft): Critique {
     response: null,
     remainingDisagreement: null,
     impactOnConclusion: clip(fields.impact, 500),
+    ...(fields.action ? { requestedAction: clip(fields.action, 300) } : {}),
     createdAt: now,
   };
 }

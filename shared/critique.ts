@@ -44,6 +44,12 @@ export type CritiqueStatus = (typeof CRITIQUE_STATUSES)[number];
 
 const line = (max: number) => z.string().trim().max(max);
 
+/**
+ * The critique raised when no scenario in the comparison can move anyone, so that a page can lead with
+ * it: such a comparison says nothing about the change, and every other criticism is read after that.
+ */
+export const CHANGE_CANNOT_MOVE_ID = 'methodology-change-cannot-move-anyone';
+
 export const critiqueSchema = z.object({
   id: z.string().min(1).max(80),
   role: z.enum(CRITIC_ROLES),
@@ -79,6 +85,8 @@ export const critiqueSchema = z.object({
   remainingDisagreement: line(600).nullable().default(null),
   /** What the objection does to the conclusion if it stands. */
   impactOnConclusion: line(500).default(''),
+  /** The next step this objection asks for, when there is a clear one. */
+  requestedAction: line(300).optional(),
   createdAt: z.iso.datetime(),
 });
 export type Critique = z.infer<typeof critiqueSchema>;

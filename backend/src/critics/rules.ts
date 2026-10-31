@@ -1,5 +1,6 @@
-import { CRITIC_ROLES, type Critique } from '../../../shared/critique.js';
+import { CHANGE_CANNOT_MOVE_ID, CRITIC_ROLES, type Critique } from '../../../shared/critique.js';
 import type { EvidenceRef } from '../../../shared/evidence.js';
+import { changeCanMoveAnyone } from '../../../shared/signal.js';
 import { adversarialCritic } from './adversarial.js';
 import { assumptionCritic } from './assumption.js';
 import { biasCritic } from './bias.js';
@@ -37,13 +38,25 @@ function gather(input: CriticInput): Facts {
     if (group) group.push(ref);
     else citedByDocument.set(ref.documentId, [ref]);
   }
-  return { stakeholders, cited: [...cited.values()], citedByDocument };
+  return {
+    stakeholders,
+    cited: [...cited.values()],
+    citedByDocument,
+    changeCanMove: changeCanMoveAnyone(input.actors.actors, input.analysis.config.variants),
+  };
 }
 
-/** Most severe first, then by role in the order of `CRITIC_ROLES`, then by id. */
+/** The one criticism that is read before all the others, whatever their severity. */
+const isPinned = (critique: Critique): boolean => critique.id === CHANGE_CANNOT_MOVE_ID;
+
+/**
+ * The criticism that a comparison cannot say anything about the change first, then most severe first,
+ * then by role in the order of `CRITIC_ROLES`, then by id.
+ */
 export function sortCritiques(critiques: readonly Critique[]): Critique[] {
   return [...critiques].sort(
     (a, b) =>
+      Number(isPinned(b)) - Number(isPinned(a)) ||
       severityRank(b.severity) - severityRank(a.severity) ||
       CRITIC_ROLES.indexOf(a.role) - CRITIC_ROLES.indexOf(b.role) ||
       byText(a.id, b.id),

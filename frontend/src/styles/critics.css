@@ -240,6 +240,43 @@
   border-color: var(--tone-info-line);
   background: var(--tone-info-tint);
 }
+.critic-facts > .critic-action {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--orange);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text);
+}
+.critic-facts > .critic-action dt {
+  color: var(--text);
+}
+
+/* The one criticism that says that nothing in the comparison is about the change leads the page. */
+.critic-lead {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 2px solid var(--verdict-unsupported-line);
+  border-radius: 6px;
+  background: var(--verdict-unsupported-tint);
+}
+.critic-lead-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.critic-lead-head h3 {
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+.critic-lead-head p {
+  max-width: 78ch;
+  color: var(--text);
+  font-weight: 600;
+}
 
 .critic-answer summary,
 .critic-explain summary {
@@ -272,6 +309,7 @@
 @media (max-width: 640px) {
   .critic-run,
   .critic-summary,
+  .critic-lead,
   .critic-card {
     padding: 10px 12px;
   }

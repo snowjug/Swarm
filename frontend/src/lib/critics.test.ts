@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { CRITIC_ROLE_QUESTIONS, type CritiquesView } from '../../../shared/critique';
+import {
+  CHANGE_CANNOT_MOVE_ID,
+  CRITIC_ROLE_QUESTIONS,
+  type CritiquesView,
+} from '../../../shared/critique';
 import { critiqueFixture } from '../test/critics';
 import {
+  LEAD_EXPLANATION,
+  LEAD_HEADING,
   day,
   groupByRole,
   impactHeading,
   isOutOfDate,
+  leadCritique,
   modeText,
   summarise,
   targetLabel,
+  withoutLead,
 } from './critics';
 describe('summarising a review', () => {
   it('counts the criticisms by severity and by status, including the ones with none', () => {
@@ -44,6 +52,33 @@ describe('grouping by critic', () => {
     expect(groups[1]?.label).toBe('Adversarial reviewer');
     // Within a critic, the order the server gave.
     expect(groups[1]?.critiques.map((critique) => critique.id)).toEqual(['a', 'c']);
+  });
+});
+
+describe('the criticism that leads the page', () => {
+  it('finds the criticism that the change cannot move anyone, and leaves it out of the rest', () => {
+    const all = [
+      critiqueFixture({ id: 'a' }),
+      critiqueFixture({ id: CHANGE_CANNOT_MOVE_ID, severity: 'major' }),
+      critiqueFixture({ id: 'c' }),
+    ];
+    expect(leadCritique(all)?.id).toBe(CHANGE_CANNOT_MOVE_ID);
+    expect(withoutLead(all).map((critique) => critique.id)).toEqual(['a', 'c']);
+    // Nothing is edited on the way.
+    expect(all).toHaveLength(3);
+  });
+
+  it('is nothing when the review does not hold it, and every criticism stays', () => {
+    const all = [critiqueFixture({ id: 'a' }), critiqueFixture({ id: 'b' })];
+    expect(leadCritique(all)).toBeNull();
+    expect(leadCritique([])).toBeNull();
+    expect(withoutLead(all)).toEqual(all);
+  });
+
+  it('says in plain words that nothing in the comparison can be read', () => {
+    expect(LEAD_HEADING).toBe('This comparison cannot say anything about the change');
+    expect(LEAD_EXPLANATION).toContain('read nothing into these results');
+    expect(LEAD_EXPLANATION).not.toMatch(/\bwill\b/iu);
   });
 });
 

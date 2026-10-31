@@ -1,5 +1,6 @@
-import type { Critique } from '../../../shared/critique.js';
-import { draft, fixed, plural, signed, whole } from './text.js';
+import { CHANGE_CANNOT_MOVE_ID, type Critique } from '../../../shared/critique.js';
+import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
+import { draft, fixed, level, names, plural, signed, whole } from './text.js';
 import type { Resolved, RoleCritic } from './types.js';
 
 /** Are there enough repeated runs, and does the fidelity justify the wording? */
@@ -10,6 +11,59 @@ export const MIN_RUNS_PER_VARIANT = 20;
 /** A 95% interval wider than this leaves open how repeatable a headline finding is. */
 const WIDE_INTERVAL = 0.4;
 const Z_SQUARED = 1.96 ** 2;
+
+/** The notice every page uses, split into what is wrong and what to do about it, so that it is never reworded. */
+const [NOTICE_CLAIM = NO_DIRECTION_NOTICE, ...NOTICE_STEPS] =
+  NO_DIRECTION_NOTICE.split(/(?<=[.!?])\s+/u);
+const NOTICE_ACTION =
+  NOTICE_STEPS.join(' ') ||
+  'Say who is helped or harmed in the stakeholder review, or read the evidence with a model, then compare again.';
+
+/**
+ * A comparison in which no scenario can move anyone shows only noise, whatever its numbers say. This is
+ * the one criticism that has to be read before the others, so it is pinned to the top of the review.
+ */
+function changeCannotMove(input: Resolved): Critique[] {
+  if (input.facts.changeCanMove) return [];
+  const { analysis } = input;
+  const cast = input.actors.actors;
+  const alternatives = analysis.config.variants.filter((variant) => variant.kind !== 'baseline');
+  const directed = cast.filter(
+    (actor) =>
+      actor.traits.impact.value !== 0 ||
+      alternatives.some((variant) => (variant.impactOverrides[actor.id] ?? 0) !== 0),
+  );
+  const noDirection = directed.length === 0;
+  const reported = analysis.findings.find((finding) => finding.kind === 'direction-vs-baseline');
+  return [
+    draft(input.now, {
+      id: CHANGE_CANNOT_MOVE_ID,
+      role: ROLE,
+      target: whole(analysis.id),
+      severity: 'major',
+      objection: noDirection
+        ? NOTICE_CLAIM
+        : 'No scenario other than the baseline both has an intensity above nothing and affects an actor in some direction, so the change cannot move anyone in the simulation and every difference from no change is noise.',
+      basis: [
+        `Actors with an expected direction of impact: ${directed.length} of ${cast.length}.`,
+        alternatives.length === 0
+          ? 'Scenarios other than the baseline: none.'
+          : `Scenarios other than the baseline: ${names(
+              alternatives.map(
+                (variant) => `${variant.label} (intensity ${level(variant.intensity)})`,
+              ),
+              3,
+            )}.`,
+        ...(reported ? [`${reported.id}: ${reported.statement}`] : []),
+      ],
+      impact:
+        'If this stands, nothing in this comparison is about the change: “about the same”, or any other difference from no change, is noise from the seeds, and the conclusions drawn from it do not follow.',
+      action: noDirection
+        ? NOTICE_ACTION
+        : 'Give the change an intensity above nothing in a scenario that affects at least one actor, then compare again.',
+    }),
+  ];
+}
 
 function fewRuns(input: Resolved): Critique[] {
   const runs = input.analysis.config.runsPerVariant;
@@ -160,6 +214,7 @@ function wideIntervals(input: Resolved): Critique[] {
 }
 
 export const methodologyCritic: RoleCritic = (input) => [
+  ...changeCannotMove(input),
   ...fewRuns(input),
   ...rulesOnly(input),
   ...modelRepeats(input),

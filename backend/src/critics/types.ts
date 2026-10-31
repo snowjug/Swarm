@@ -47,6 +47,8 @@ export interface Facts {
   cited: EvidenceRef[];
   /** The cited passages by the document they come from. */
   citedByDocument: Map<string, EvidenceRef[]>;
+  /** Whether the cast and the scenarios give the change any way to move anyone at all. */
+  changeCanMove: boolean;
 }
 
 export interface Resolved extends CriticInput {
