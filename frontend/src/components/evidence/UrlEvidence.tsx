@@ -1,4 +1,5 @@
-import { useId } from 'react';
+import { useId, useRef } from 'react';
+import type { Ref } from 'react';
 import { Globe } from 'lucide-react';
 import type { SourceProvenance } from '../../../../shared/scenario';
 import type { UrlEvidenceResult } from '../../api/evidence';
@@ -48,6 +49,8 @@ export interface UrlEvidenceViewProps {
   onCancel: () => void;
   onAdd: () => void;
   onDiscard: () => void;
+  /** So that focus can return to the field when a page has been added or discarded. */
+  inputRef?: Ref<HTMLInputElement>;
 }
 
 /** What a person sees, for each state of fetching a page. It holds no state of its own. */
@@ -87,6 +90,7 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
         <div className="field">
           <label htmlFor={`${id}-address`}>Web address</label>
           <input
+            ref={props.inputRef}
             id={`${id}-address`}
             type="text"
             inputMode="url"
@@ -95,7 +99,8 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
             spellCheck={false}
             placeholder="https://example.com/page"
             value={address}
-            disabled={locked}
+            disabled={disabled || full}
+            readOnly={loading}
             aria-describedby={`${id}-help`}
             onChange={(event) => props.onAddressChange(event.target.value)}
           />
@@ -117,6 +122,9 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
           </button>
         </div>
       )}
+      <div className="sr-only" role="status">
+        {status === 'ready' ? 'The page was fetched. Review it, then add it as evidence.' : ''}
+      </div>
       {status === 'error' && error && (
         <Notice tone="error" title="The page could not be read">
           {error}
@@ -171,6 +179,11 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
 /** Adds a public web page as evidence: the server fetches it, and the person decides whether to keep it. */
 export function UrlEvidence({ onAdd, disabled, remainingDocuments }: UrlEvidenceProps) {
   const state = useUrlEvidence();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const finish = () => {
+    state.discard();
+    inputRef.current?.focus();
+  };
   return (
     <UrlEvidenceView
       address={state.address}
@@ -179,15 +192,16 @@ export function UrlEvidence({ onAdd, disabled, remainingDocuments }: UrlEvidence
       error={state.error}
       disabled={disabled}
       remainingDocuments={remainingDocuments}
+      inputRef={inputRef}
       onAddressChange={state.setAddress}
       onFetch={state.fetchPage}
       onCancel={state.cancel}
       onAdd={() => {
         if (!state.result) return;
         onAdd(state.result.document);
-        state.discard();
+        finish();
       }}
-      onDiscard={state.discard}
+      onDiscard={finish}
     />
   );
 }

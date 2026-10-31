@@ -66,7 +66,9 @@ describe('adding a public web page', () => {
     // Nothing has been fetched, so there is nothing to show beyond the form.
     expect(html).not.toContain('url-evidence-preview');
     expect(html).not.toContain('role="alert"');
-    expect(html).not.toContain('role="status"');
+    // The announcement region is always present, so a screen reader hears it change, but silent until ready.
+    expect(html).toContain('<div class="sr-only" role="status"></div>');
+    expect(html).not.toContain('was fetched');
   });
 
   it('cannot fetch until there is an address, and then can', () => {
@@ -98,7 +100,9 @@ describe('adding a public web page', () => {
     expect(visibleText(html)).toContain('Fetching the page');
     expect(tagOf(html, /<button[^>]*>Cancel/u)).toContain('type="button"');
     expect(tagOf(html, /<button[^>]*>Fetch page/u)).toContain('disabled');
-    expect(tagOf(html, /<input[^>]*>/u)).toContain('disabled');
+    // Read-only rather than disabled, so that keyboard focus is not thrown away mid-request.
+    expect(tagOf(html, /<input[^>]*>/u)).toContain('readOnly');
+    expect(tagOf(html, /<input[^>]*>/u)).not.toContain('disabled');
     expect(view()).not.toContain('aria-busy');
   });
 
@@ -137,6 +141,9 @@ describe('adding a public web page', () => {
     expect(excerpt.endsWith('\u2026')).toBe(true);
     expect(text).toContain('Swarm has not checked that it is true');
     expect(text).toContain('The address sent the reader on to www.example.org.');
+    expect(html).toContain(
+      '<div class="sr-only" role="status">The page was fetched. Review it, then add it as evidence.</div>',
+    );
     expect(tagOf(html, /<button[^>]*>Add as evidence/u)).not.toContain('disabled');
     expect(text).toContain('Discard');
     // The page's own address is not offered as a link to follow.
