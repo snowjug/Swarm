@@ -564,6 +564,74 @@ describe('the assumptions', () => {
     ).toBe(true);
   });
 
+  it('reads an impact that rests on a cited passage as an assumption about its size, and shows the passage for its direction only', () => {
+    const impact = (origin: 'evidence' | 'system-assumption') => ({
+      id: 's6',
+      target: { kind: 'trait' as const, actorId: 'subscribers', trait: 'impact' },
+      label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+      perturbation: -0.2,
+      metric: 'Share ending in switch or resist',
+      baseMean: 0.45,
+      shift: 0.2,
+      standardError: 0.01,
+      classification: 'assumption-sensitive' as const,
+      assumptionOrigin: origin,
+    });
+    const made = (cited: boolean) => {
+      const given = richInputs();
+      // Saved before size and direction were told apart: the whole impact labelled evidence.
+      const actors = given.analysis.actors.map((actor) =>
+        actor.id === 'subscribers'
+          ? {
+              ...actor,
+              traits: { ...actor.traits, impact: { ...actor.traits.impact, origin: 'evidence' } },
+            }
+          : actor,
+      );
+      given.analysis = analysisSchema.parse({
+        ...given.analysis,
+        actors,
+        sensitivity: [...given.analysis.sensitivity, impact('evidence')],
+      });
+      if (!cited) {
+        given.stakeholders = {
+          ...given.stakeholders!,
+          stakeholders: given.stakeholders!.stakeholders.map((stakeholder) =>
+            stakeholder.id === 'subscribers' ? { ...stakeholder, evidence: [] } : stakeholder,
+          ),
+        };
+      }
+      const brief = buildBrief(given);
+      const row = sectionOf(brief, 'assumptions').statements.find((statement) =>
+        statement.refs.sensitivityIds.includes('s6'),
+      )!;
+      const first = sectionOf(brief, 'first-order').statements.find((statement) =>
+        statement.text.startsWith('Simulated “Subscribers”'),
+      )!;
+      return { row, first };
+    };
+    const backed = made(true);
+    expect(backed.row.origin).toBe('system-assumption');
+    expect(backed.row.refs.evidence).toEqual([]);
+    expect(backed.row.text).toContain('Subscribers”: impact is set at -0.60');
+    expect(backed.row.text).toContain(
+      'only its direction rests on a cited passage, which gives no size',
+    );
+    expect(backed.first.text).toContain(
+      'impact -0.60, the direction rests on a cited passage and the size is an assumption',
+    );
+    const gone = made(false);
+    expect(gone.row.origin).toBe('system-assumption');
+    expect(gone.row.text).toContain(
+      'its direction was labelled as resting on evidence, but no passage is cited for it now',
+    );
+    expect(gone.row.text).not.toContain('rests on a cited passage');
+    expect(gone.first.text).toContain(
+      'the direction is labelled as resting on evidence but no passage is cited for it now',
+    );
+    expect(gone.first.text).not.toContain('labelled as resting on evidence,');
+  });
+
   it('says that a strength or a round the person set is theirs, and leaves the rest to the system', () => {
     const base = analysisFixture();
     const analysis = analysisFixture({
@@ -761,6 +829,89 @@ describe('second-order effects and risks', () => {
     expect(finding.text).toContain('held in 9 of 10 seeded simulated runs');
     expect(finding.text).toContain('an actor outside the organisation (competitor)');
     expect(finding.reliance).toBe('moderate');
+  });
+
+  it('says that an earlier event was needed only where the run was replayed without it, and otherwise only that it came first', () => {
+    const event = (
+      id: string,
+      round: number,
+      actorId: string,
+      description: string,
+      extra = {},
+    ) => ({
+      id,
+      round,
+      kind: 'counter-move',
+      actorId,
+      description,
+      causedBy: [] as string[],
+      ...extra,
+    });
+    const events = [
+      event('e1', 2, 'provider', 'The provider announced the change.'),
+      event('e2', 3, 'rival-provider', 'The rival provider made an offer.', {
+        causedBy: ['adverse-share', 'e1'],
+      }),
+      event('e3', 4, 'regulator', 'The regulator asked for information.', {
+        causedBy: ['risk-concern'],
+        followed: ['e1'],
+      }),
+    ];
+    const made = (explained: boolean) => {
+      const given = richInputs();
+      given.analysis = analysisSchema.parse({
+        ...given.analysis,
+        representativeRun: {
+          ...given.analysis.representativeRun!,
+          events,
+          ...(explained ? { explained: true } : {}),
+        },
+      });
+      return sectionOf(buildBrief(given), 'second-order').statements.map(
+        (statement) => statement.text,
+      );
+    };
+    const replayed = made(true);
+    const needed = replayed.find((text) => text.includes('could not have happened without'))!;
+    expect(needed).toContain(
+      '“The rival provider made an offer” in round 3 could not have happened without “The provider announced the change” in round 2: a replay of the same seed without that responder had no such event by then.',
+    );
+    expect(needed).toContain('not an observation');
+    const only = replayed.find((text) => text.includes('regulator asked'))!;
+    expect(only).toContain(
+      'after “The provider announced the change” in round 2, “The regulator asked for information” followed in round 4. Nothing shows that the earlier event mattered: a replay of the same seed without the responder still had this event',
+    );
+    expect(only).not.toContain('could not have happened');
+    // A run that was not replayed says nothing was tested, and an event it names as earlier only came first.
+    const older = made(false).join('\n');
+    expect(older).not.toContain('could not have happened without');
+    expect(older).toContain('the run was not replayed without the responder');
+  });
+
+  it('says which signal an event happened after when no event followed another', () => {
+    const given = richInputs();
+    given.analysis = analysisSchema.parse({
+      ...given.analysis,
+      representativeRun: {
+        ...given.analysis.representativeRun!,
+        events: [
+          {
+            id: 'e1',
+            round: 3,
+            kind: 'counter-move',
+            actorId: 'rival-provider',
+            description: 'The rival provider made an offer.',
+            causedBy: ['adverse-share'],
+          },
+        ],
+        explained: true,
+      },
+    });
+    const text = textOf(buildBrief(given), 'second-order');
+    expect(text).toContain(
+      '“The rival provider made an offer” occurred in round 3, when the simulated “adverse-share” signal it watches reached its threshold.',
+    );
+    expect(text).not.toContain('following from');
   });
 
   it('lists the risk from a harmed group, and from an actor outside the organisation', () => {

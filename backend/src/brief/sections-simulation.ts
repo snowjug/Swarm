@@ -1,4 +1,9 @@
-import { RESPONSE_CATEGORIES, RESPONSE_LABELS, type Finding } from '../../../shared/analysis.js';
+import {
+  RESPONSE_CATEGORIES,
+  RESPONSE_LABELS,
+  type Finding,
+  type SimEvent,
+} from '../../../shared/analysis.js';
 import type { BriefSection } from '../../../shared/brief.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
@@ -8,7 +13,7 @@ import type { Facts } from './facts.js';
 import { actorMeasure, findingsFor, pairRuns } from './measures.js';
 import { directionOf } from './rules.js';
 import { readingNote } from './signal.js';
-import { sensitivityContext } from './assumptions.js';
+import { impactOwner, sensitivityContext } from './assumptions.js';
 import { approx, decimals, embed, listed, plural, signed } from './text.js';
 import { classWords } from './sections-answer.js';
 import { sectionWriter, type Tally } from './writer.js';
@@ -227,12 +232,7 @@ export function firstOrder(facts: Facts, tally: Tally): BriefSection {
     if (!measure) continue;
     const base = baseline ? actorMeasure(baseline.runs, actor.id) : null;
     const own = findingsFor(analysis, { variantId: variant.variant.id, actorId: actor.id });
-    const owner =
-      actor.traits.impact.origin === 'user'
-        ? 'set by a person'
-        : actor.traits.impact.origin === 'evidence'
-          ? 'labelled as resting on evidence'
-          : 'an assumption';
+    const owner = impactOwner(actor, facts.evidence);
     writer.add({
       origin: 'actor-behavior',
       text: `Simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}) is set as ${directionOf(actor)} by the change (impact ${signed(actor.traits.impact.value)}, ${owner}). Under ${embed(variant.variant.label, 60)} its mean final stance was ${decimals(measure.stance)}${base && baseline ? `, against ${decimals(base.stance)} under ${embed(baseline.variant.label, 60)}` : ''}; about ${approx(measure.adverse)} of ${measure.members} simulated ${plural(measure.members, 'member')} ended up looking for an alternative or resisting.`,
@@ -268,22 +268,43 @@ export function secondOrder(facts: Facts, tally: Tally): BriefSection {
   const run = analysis.representativeRun;
   const events = run?.events ?? [];
   const byId = new Map(events.map((event) => [event.id, event]));
+  // An earlier event is said to have been needed only in a run that was replayed without it; in any
+  // other an earlier event only came first, and nothing shows that it mattered.
+  const replayed = run?.explained === true;
+  const earlier = (ids: readonly string[]): SimEvent[] =>
+    ids.flatMap((id) => {
+      const found = byId.get(id);
+      return found ? [found] : [];
+    });
+  const before = (event: SimEvent): { needed: SimEvent[]; came: SimEvent[] } => {
+    const named = earlier(event.causedBy);
+    const followed = earlier(event.followed ?? []);
+    return replayed
+      ? { needed: named, came: followed }
+      : { needed: [], came: [...named, ...followed] };
+  };
   const chain = events
-    .filter((event) => event.causedBy.some((cause) => byId.has(cause)))
+    .filter((event) => {
+      const { needed, came } = before(event);
+      return needed.length + came.length > 0;
+    })
     .sort((a, b) => a.round - b.round || (a.id < b.id ? -1 : 1))
     .slice(0, 8);
   for (const event of chain) {
-    const parents = event.causedBy.flatMap((cause) => {
-      const parent = byId.get(cause);
-      return parent ? [parent] : [];
-    });
-    const first = parents[0];
+    const { needed, came } = before(event);
+    const first = needed[0] ?? came[0];
     if (!first || !run) continue;
     const actor = facts.actorById.get(event.actorId ?? '');
-    const others = parents.length - 1;
+    const others = (needed.length > 0 ? needed : came).length - 1;
+    const also = others > 0 ? ` and ${others} other earlier ${plural(others, 'event')}` : '';
+    const where = `In the representative simulated run (the seeded run nearest the median, one of ${analysis.config.runsPerVariant} under ${embed(facts.variantLabel(run.variantId), 60)})`;
+    const them = came.length === 1 ? 'the earlier event' : 'the earlier events';
     writer.add({
       origin: actor ? 'actor-behavior' : 'simulation-aggregation',
-      text: `In the representative simulated run (the seeded run nearest the median, one of ${analysis.config.runsPerVariant} under ${embed(facts.variantLabel(run.variantId), 60)}), after ${embed(first.description, 120)} in round ${first.round}${others > 0 ? ` and ${others} other earlier ${plural(others, 'event')}` : ''}, ${embed(event.description, 120)} followed in round ${event.round}. The engine recorded it as following from the earlier ${plural(parents.length, 'event')}, which is a trace of the simulation and not an observation.`,
+      text:
+        needed.length > 0
+          ? `${where}, ${embed(event.description, 120)} in round ${event.round} could not have happened without ${embed(first.description, 120)} in round ${first.round}${also}: a replay of the same seed without that responder had no such event by then. This is a trace of the simulation and not an observation.`
+          : `${where}, after ${embed(first.description, 120)} in round ${first.round}${also}, ${embed(event.description, 120)} followed in round ${event.round}. Nothing shows that ${them} mattered: ${replayed ? 'a replay of the same seed without the responder still had this event' : 'the run was not replayed without the responder'}, so this is the order of events in a simulation, not a cause and not an observation.`,
       refs: {
         stakeholderIds: actor ? [actor.stakeholderId] : [],
         variantIds: [run.variantId],
@@ -293,9 +314,11 @@ export function secondOrder(facts: Facts, tally: Tally): BriefSection {
   if (run && chain.length === 0 && events.length > 0) {
     for (const event of events.slice(0, 4)) {
       const actor = facts.actorById.get(event.actorId ?? '');
+      const signals = event.causedBy.filter((cause) => !byId.has(cause));
+      const signalWords = signals.slice(0, 3).map((signal) => embed(signal, 40));
       writer.add({
         origin: actor ? 'actor-behavior' : 'simulation-aggregation',
-        text: `In the representative simulated run, ${embed(event.description, 160)} occurred in round ${event.round}${event.causedBy.length > 0 ? `, following from ${listed(event.causedBy.slice(0, 3).map((cause) => embed(cause, 40)))}` : ''}.`,
+        text: `In the representative simulated run, ${embed(event.description, 160)} occurred in round ${event.round}${signals.length > 0 ? `, when the simulated ${listed(signalWords)} ${signals.length === 1 ? 'signal' : 'signals'} it watches reached its threshold` : ''}.`,
         refs: {
           stakeholderIds: actor ? [actor.stakeholderId] : [],
           variantIds: [run.variantId],

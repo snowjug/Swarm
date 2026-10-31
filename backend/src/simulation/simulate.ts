@@ -37,6 +37,7 @@ import {
   stepRound,
   type RoundStats,
 } from './dynamics.js';
+import { explainEvents } from './explain.js';
 import { CHANGE_GAIN, DEFAULT_SAMPLE_CAP } from './parameters.js';
 import { buildPopulation, SimulationInputError } from './population.js';
 import { CATEGORY_COUNT } from './response.js';
@@ -158,7 +159,11 @@ export function simulateValidated(
     events: responders ? responders.emitted.map((emitted) => emitted.event) : [],
     work: { members: population.memberCount, updates: population.memberCount * spec.rounds },
   };
-  return outcome;
+  return options.explain
+    ? explainEvents(outcome, spec, (changed) =>
+        simulateValidated(changed, seed, { ...options, explain: false }),
+      )
+    : outcome;
 }
 
 /** Validates the spec with the schema, then runs it. Pure: the same spec and seed give the same outcome. */

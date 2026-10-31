@@ -73,8 +73,11 @@ missing, the statement is shown as unresolved uncertainty instead.
 A few rules decide the evidence origins. A document is retrieved public evidence only when its
 provenance is a web address and the server fetched it; a document marked as historical is a
 historical comparison; everything else is supplied evidence. A trait that is labelled as resting on
-evidence is shown as evidence only when a passage is cited for it; otherwise it is shown as a system
-assumption or as unresolved uncertainty. A trait proposed by a model that no one has changed is a
+evidence is shown as evidence only when a passage is cited for it now (what the stakeholder cites in the set
+as it stands, not the label the cast was saved with); otherwise it is shown as a system
+assumption or as unresolved uncertainty. The size of an impact is never shown as evidence: a passage can
+give its direction, so a statement about an impact says that the direction rests on a cited passage and
+the size is an assumption. A trait proposed by a model that no one has changed is a
 system assumption.
 
 The page and the exports show each statement's references, so a reader can open the quotation with

@@ -167,14 +167,15 @@ own resolution) and is made on the setting that holds it: the override, else the
 actor's own trait.
 
 Each row records where the moved assumption came from (`assumptionOrigin`): a trait's own origin
-(evidence, user, system assumption or model), "system assumption" for a spread, and for the intensity
-"system assumption" unless the scenario says it was set by the person. A value that the proposed change
-itself sets, an override or an edit, is the scenario author's, so its origin is `user`; its label says
-what the scenario set ("Leadership: how the change lands on them (impact), as Proposed change sets it
-(-1), 0.2 higher"), and the row carries `setting` (`scenario-override` or `scenario-edit`, and the value
-set before the move) so that a register of assumptions can show the number a person supplied and not the
-one the actor carries. A sensitive assumption that no evidence backs is highlighted, because it is where
-a result rests on a guess. The twelve most telling
+(evidence, user, system assumption or model; for an impact, the origin of its number, which is the system
+default even where its direction was read from cited passages, because a passage gives no size), "system
+assumption" for a spread, and for the intensity "system assumption" unless the scenario says it was set by
+the person. A value that the proposed change itself sets, an override or an edit, is the scenario author's,
+so its origin is `user`; its label says what the scenario set ("Leadership: how the change lands on them
+(impact), as Proposed change sets it (-1), 0.2 higher"), and the row carries `setting` (`scenario-override`
+or `scenario-edit`, and the value set before the move) so that a register of assumptions can show the
+number a person supplied and not the one the actor carries. A sensitive assumption that no evidence backs
+is highlighted, because it is where a result rests on a guess. The twelve most telling
 rows are kept: sensitive ones first, then by size of shift. The page shows the first 6, with the rest
 under "Show all N assumptions" on the same scale, and the table beside the chart has every row.
 
@@ -264,9 +265,10 @@ to the 90th and the median line, and has a table beside it.
 
 The representative run is the run whose overall final stance is nearest the median under the proposed
 change (the lowest seed when two are as near). The engine is deterministic, so it is simulated once
-more from that seed to keep its full detail: events with what each followed from, so that a chain can
-be read as "because ..., then ...". The findings, not this one run, say how often each kind of event
-occurred.
+more from that seed to keep its full detail: events with the signal each acted on and the earlier events
+that a replay without them showed it needed (`explained`), and, apart, those that only came first, so that
+a chain is never read as "because" where only "after" is known. The findings, not this one run, say how
+often each kind of event occurred.
 
 ## Fidelity, cost and the cross-check
 

@@ -52,10 +52,26 @@ conflicts" into the silence.
 | `assumption-sensitive-<row>`      | A sensitivity row is `assumption-sensitive` and its value is not backed by evidence                                   | `major` for a system assumption; `minor` for a value a person set, a model proposed or the scenario states |
 | `assumption-defaults-<actor>`     | A key actor nobody edited still has traits at their system default                                                    | `minor`                                                                                                    |
 | `assumption-key-actor-defaults`   | The same, folded into one for all such key actors while the change cannot move anyone (see below)                     | `minor`                                                                                                    |
-| `assumption-unconfirmed-impact`   | An actor's impact (harmed or benefited) is a system assumption or a model's proposal, and not zero                    | `major` if a key actor is among them, else `minor`                                                         |
+| `assumption-unconfirmed-impact`   | An actor's impact direction (harmed or benefited) is a system assumption or a model's proposal, and not zero          | `major` if a key actor is among them, else `minor`                                                         |
 | `assumption-no-registered-effect` | A repeatable "about the same" finding for a scenario that could move someone, with no sensitive intensity (see below) | `major`                                                                                                    |
 
 An `assumption-sensitive` row whose origin is `evidence` is not criticised: something supports it.
+
+**What an impact rests on.** The direction of an impact (harmed or benefited) and its size are two
+assumptions. A passage can show which way a change points for a group; none gives a number, so the size
+of an impact is a system default (harmed −0.6, benefited +0.6) unless a person or a model set the number
+itself. An impact whose direction was read from cited passages therefore has the origin
+`system-assumption` for its size, and the actor says what its direction rests on apart from that
+(`direction`, see [stakeholders.md](../stakeholders.md#actors)). A sensitivity row for an impact is never
+`evidence` for that reason: when the result moves with it, the criticism is `assumption-sensitive` about
+the size, and its objection says that the direction is cited and the number is not.
+
+**Checked against what is cited now.** A label of evidence is a claim about passages, so the direction of
+an impact, and any other sensitive assumption labelled `evidence`, are checked against what the actor's
+stakeholder cites in the stakeholder set as it is now, not against the label the cast was saved with. A
+direction labelled as read from cited passages when none is cited any more counts as unconfirmed
+(`assumption-unconfirmed-impact` names those actors), and a sensitive assumption labelled `evidence` for an
+actor that cites no passage is criticised like any other that nothing supports.
 
 ### Methodology: are there enough repeated runs, and does the fidelity justify the wording?
 

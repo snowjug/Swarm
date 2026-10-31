@@ -87,7 +87,9 @@ What it decides, and how:
 
 At most 25 stakeholders are proposed. Whatever is set by rule or taken from a category (the priority, how
 directly the group is affected, the size, a direction that is not read from the wording) is said to be so in
-the stakeholder's **assumptions**, and the review screen marks it as an assumption.
+the stakeholder's **assumptions**, and the review screen marks it as an assumption. A direction read from the
+wording is only a direction: no number is read from the words, so the actor's size of impact is a system
+default (see [Actors](#actors)).
 
 **What it cannot do.** It finds groups that the text names with a role word. It will miss a group the
 lexicon has no word for ("the city council" is missed, because _council_ counts only after a describing word
@@ -232,10 +234,14 @@ the light, dark and high-contrast themes, on a desktop and on a phone.
 | Prioritise | Key (one actor of its own), standard or background (a cohort).                                                                                       |
 
 The server enforces what the screen offers: a stakeholder is never deleted; who found it cannot be changed;
-**evidence can be taken away but never added**; a merge is always visible in the record; an impact is marked
-as the person's only if they changed it; relations are assumptions whoever wrote them. A change made after
-approval **takes the approval away** until it is given again, and at least two stakeholders must remain to
-approve. Finding stakeholders again over a reviewed list asks for confirmation first.
+**evidence can be taken away but never added or rewritten**, because each cited quotation is compared whole
+(its passage, its document and the document's name, where it sits, its words and fingerprint, and whether it
+supports or contradicts), so a quotation cannot be moved to another source or turned round; a merge is always
+visible in the record; an impact is marked as the person's only if they changed it, and a direction read from
+the wording is an assumption again once every quote it was read from has been taken away; relations are
+assumptions whoever wrote them. A change made after approval **takes the approval away** until it is given
+again, and at least two stakeholders must remain to approve. Finding stakeholders again over a reviewed list
+asks for confirmation first.
 
 ## Actors
 
@@ -259,6 +265,26 @@ A cohort's spread (0.15 for every trait) is the assumed difference between its m
 moves becomes theirs, and the actor is marked _edited by you_. The server refuses an edit that adds or
 removes an actor, changes a kind or a category, makes a key actor larger than one, or makes a sample larger
 than the group it stands for.
+
+**What an impact rests on.** An impact has a direction (harmed or benefited) and a size, and they do not rest
+on the same thing. A cited passage can show which way a change points for a group, by the tone of the
+sentences about it; no passage gives a number. So the size is the documented value for the direction (see
+below) and is a **system assumption**, unless the person sets the number on the slider or a model proposes it.
+An actor whose direction was read from the wording of cited sentences says so in a separate `direction` of its
+impact (`origin: "evidence"`, with the passages it was read from, and no other trait has one), and the reason
+beside the trait reads, for example, "The direction (harmed) rests on cited passages (S1, S2); the size,
+-0.60, is a system default, not read from any passage." The sentences cited are attached to the direction and
+to nothing else.
+
+- A label of evidence is a claim about passages, so it stands only while a quote is cited. When the person takes
+  every quote of a stakeholder away, the direction becomes an assumption and says so in its reason, and the
+  actors made from it claim no source. A direction is the person's once they change it.
+- A person who moves the number keeps what the direction rests on for as long as its sign stays; flipping the
+  sign makes the direction theirs. Nothing the request says about what a direction rests on is taken.
+- The critics and the brief read the same fact: a sensitive impact appears as an assumption about its size even
+  when its direction is cited, and a direction labelled as evidence is checked against what is cited now.
+- An actor saved before direction and size were told apart, with the whole impact labelled `evidence`, is read
+  as a direction from evidence with a system default size; nothing needs to be run again.
 
 ### Category priors
 
@@ -332,10 +358,12 @@ no stakeholders yet; it is not an error.
 | `PUT  /actors`                | edit        | Edited actors and the revision you saw                                |
 
 A change made against an old revision is refused with `ARTIFACT_CONFLICT` (HTTP 409) and nothing is
-overwritten. Other refusals say what to do: `STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace
-your work), `STAKEHOLDERS_NOT_APPROVED`, `MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and
-`STAKEHOLDERS_BUSY` (one discovery or generation runs at a time for a project). Finding stakeholders and
-making actors are limited to ten a minute.
+overwritten. A review that rewrites a cited quotation (its document, the document's name, its position, its
+words or whether it supports or contradicts) is refused with `EVIDENCE_ALTERED`, and one that adds a quotation
+with `EVIDENCE_NOT_VERIFIED` (both HTTP 400, nothing is stored). Other refusals say what to do:
+`STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace your work), `STAKEHOLDERS_NOT_APPROVED`,
+`MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and `STAKEHOLDERS_BUSY` (one discovery or generation runs at a
+time for a project). Finding stakeholders and making actors are limited to ten a minute.
 
 Every change is recorded in the audit trail, in the same step as the change. The record holds **counts and
 the mode only**: never the question, the sources or a stakeholder's text.

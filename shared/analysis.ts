@@ -98,7 +98,11 @@ export type SimulationSpec = z.infer<typeof simulationSpecSchema>;
 // One run
 // ---------------------------------------------------------------------------------------------
 
-/** A thing that happened in a run, with what it followed from, so that a chain can be read back. */
+/**
+ * A thing that happened in a run, so that a chain can be read back. `causedBy` is what its responder's
+ * trigger read, and, in a run that was `explained`, the earlier events a replay showed it needed;
+ * `followed` is the earlier events that had only come first.
+ */
 export const simEventSchema = z.object({
   id: z.string().min(1).max(60),
   round: z.int().min(1).max(MAX_ROUNDS),
@@ -106,8 +110,18 @@ export const simEventSchema = z.object({
   kind: z.string().min(1).max(60),
   actorId: idSchema.nullable(),
   description: line(300),
-  /** Ids of earlier events, or names of signals, that this followed from. */
+  /**
+   * The names of the signals its responder watched, then the ids of earlier events that were shown to
+   * be needed. An event id here is a cause only in a run that was `explained`; analyses saved before
+   * that was tested list earlier events here that merely came first.
+   */
   causedBy: z.array(z.string().max(80)).max(8).default([]),
+  /**
+   * Ids of earlier events that had already landed on actors the responder watches. They came first,
+   * and nothing shows that they mattered: in an `explained` run a replay without one still had the
+   * event; in any other nothing was tried.
+   */
+  followed: z.array(z.string().max(80)).max(8).optional(),
 });
 export type SimEvent = z.infer<typeof simEventSchema>;
 
@@ -140,6 +154,12 @@ export const runOutcomeSchema = z.object({
     byActor: z.array(actorOutcomeSchema).max(60),
   }),
   events: z.array(simEventSchema).max(200).default([]),
+  /**
+   * Set when the run was replayed once for each earlier event that could have mattered to a later one,
+   * with that event's responder switched off, so that an event id in `causedBy` was tested. Absent in
+   * any run that was not, where an earlier event in `causedBy` only came first.
+   */
+  explained: z.boolean().optional(),
   work: z.object({ members: z.int().min(0), updates: z.int().min(0) }),
 });
 export type RunOutcome = z.infer<typeof runOutcomeSchema>;
@@ -153,6 +173,13 @@ export interface SimulateOptions {
    * off on the same seeds shows how much the second-order effects change an outcome.
    */
   signals?: boolean;
+  /**
+   * Replays the run for each earlier event that could have mattered to a later one, with that event's
+   * responder switched off, and lists as a cause only the events without which the later one did not
+   * happen (see `explain.ts`). Off by default, because it costs a replay for each such pair; the analysis
+   * asks for it for the one run it keeps in detail.
+   */
+  explain?: boolean;
 }
 
 /**
@@ -210,7 +237,7 @@ export type SensitivityClass = (typeof SENSITIVITY_CLASSES)[number];
  * else changed, measured on the same seeds. `shift` is the mean paired difference and `standardError`
  * its noise; `assumption-sensitive` means the shift is clearly larger than that noise and material.
  */
-export const sensitivityRowSchema = z.object({
+const sensitivityRowShape = z.object({
   id: z.string().min(1).max(80),
   target: z.object({
     kind: z.enum(['trait', 'intensity', 'population']),
@@ -237,6 +264,13 @@ export const sensitivityRowSchema = z.object({
     })
     .optional(),
 });
+// Rows saved while `evidence` labelled a whole impact: only its direction was ever read from passages,
+// so the number that was moved was the system's default.
+export const sensitivityRowSchema = sensitivityRowShape.transform((row) =>
+  row.target.trait === 'impact' && row.assumptionOrigin === 'evidence'
+    ? { ...row, assumptionOrigin: 'system-assumption' as const }
+    : row,
+);
 export type SensitivityRow = z.infer<typeof sensitivityRowSchema>;
 
 export const fidelitySchema = z.object({

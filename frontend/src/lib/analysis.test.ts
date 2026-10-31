@@ -223,15 +223,51 @@ describe('reading a chain of events back', () => {
     work: { members: 10, updates: 10 },
   });
 
-  it('puts the events in the order they happened and says what each followed from', () => {
+  it('puts the events in the order they happened and says what each needed, and what only came first', () => {
     const steps = chainOf(run, actorSetFixture().actors);
     expect(steps.map((step) => step.id)).toEqual(['event-1', 'event-2']);
     expect(steps[0]).toMatchObject({
       round: 3,
       actor: 'Rival provider',
       because: [{ kind: 'signal', text: 'the simulated “adverse-share” signal' }],
+      followed: [],
     });
-    expect(steps[1]!.because).toEqual([{ kind: 'event', text: 'the counter-move in round 3' }]);
+    // The run was not replayed, so an earlier event that this one names only came first.
+    expect(steps[1]).toMatchObject({ because: [], followed: ['the counter-move in round 3'] });
+    expect(steps.map((step) => step.tested)).toEqual([false, false]);
+  });
+
+  it('counts an earlier event as needed only where the run was replayed without it', () => {
+    const replayed = runOutcomeSchema.parse({
+      ...run,
+      explained: true,
+      events: [
+        { ...run.events[0]!, causedBy: ['switching-pressure', 'event-1'] },
+        { ...run.events[1]!, followed: ['event-3'] },
+        {
+          id: 'event-3',
+          round: 2,
+          kind: 'scrutiny',
+          actorId: 'regulator',
+          description: 'The regulator asked.',
+          causedBy: ['risk-concern'],
+        },
+      ],
+    });
+    const steps = chainOf(replayed, actorSetFixture().actors);
+    expect(steps.map((step) => step.id)).toEqual(['event-3', 'event-1', 'event-2']);
+    expect(steps[2]).toMatchObject({
+      tested: true,
+      because: [
+        { kind: 'signal', text: 'the simulated “switching-pressure” signal' },
+        { kind: 'event', text: 'the counter-move in round 3' },
+      ],
+      followed: [],
+    });
+    expect(steps[1]).toMatchObject({
+      because: [{ kind: 'signal', text: 'the simulated “adverse-share” signal' }],
+      followed: ['the scrutiny in round 2'],
+    });
   });
 });
 

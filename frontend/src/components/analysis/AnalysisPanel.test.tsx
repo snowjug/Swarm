@@ -126,9 +126,19 @@ function finished(patch: Partial<Analysis> = {}): Analysis {
           kind: 'switching-pressure',
           actorId: 'subscribers',
           description: 'Switching became cheaper.',
-          causedBy: ['event-1'],
+          causedBy: ['switching-pressure', 'event-1'],
+        },
+        {
+          id: 'event-3',
+          round: 5,
+          kind: 'scrutiny',
+          actorId: 'regulator',
+          description: 'The regulator asked for information.',
+          causedBy: ['risk-concern'],
+          followed: ['event-1'],
         },
       ],
+      explained: true,
       work: { members: 10, updates: 10 },
     }),
     crossCheck: {
@@ -625,14 +635,38 @@ describe('the results', () => {
     expect(text).toContain('Treat conclusions that depend on them as hypotheses');
   });
 
-  it('reads one run as a chain of "because, then", from the representative run', () => {
+  it('reads one run from the representative run: what each event happened because of, what it needed, and what only came first', () => {
     expect(text).toContain('Second-order effects in one typical run');
     expect(text).toContain('seed 104');
     expect(text).toContain(
-      'Because the simulated “adverse-share” signal, then in round 3, a simulated “counter-move” event by Rival provider',
+      'Because the simulated “adverse-share” signal it watches reached its threshold, then in round 3, a simulated “counter-move” event by Rival provider',
+    );
+    // An earlier event a replay showed it needed is named as that, apart from what it happened because of.
+    expect(text).toContain(
+      'Because the simulated “switching-pressure” signal it watches reached its threshold, then in round 4, a simulated “switching-pressure” event by Subscribers',
     );
     expect(text).toContain(
-      'Because the counter-move in round 3, then in round 4, a simulated “switching-pressure” event by Subscribers',
+      'It could not have happened without the counter-move in round 3: a replay of this run without that responder had no such event by then.',
+    );
+    // One a replay showed it did not need only came first, and the page says so.
+    expect(text).toContain(
+      'It came after the counter-move in round 3, which had already reached actors it watches; a replay of this run without it still had the event, so it is not shown to have mattered.',
+    );
+  });
+
+  it('does not say that an earlier event was needed in a run that was not replayed', () => {
+    const older = finished();
+    older.representativeRun = {
+      ...older.representativeRun!,
+      explained: false,
+      events: older
+        .representativeRun!.events.slice(0, 2)
+        .map((event) => ({ ...event, followed: [] })),
+    };
+    const old = visibleText(view({ current: older }));
+    expect(old).not.toContain('It could not have happened without');
+    expect(old).toContain(
+      'It came after the counter-move in round 3, which had already reached actors it watches; nothing here shows that it mattered.',
     );
   });
 
