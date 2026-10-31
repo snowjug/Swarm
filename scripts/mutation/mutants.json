@@ -1387,8 +1387,8 @@
       "area": "lab",
       "claim": "A recommendation that predicts an outcome is shown as written",
       "file": "backend/src/brief/build.ts",
-      "find": "const recommendations = guardRecommendations(recommend(facts), tally);",
-      "replace": "const recommendations = recommend(facts);",
+      "find": "const recommendations = guardRecommendations(\n    advice.map((entry) => entry.recommendation),\n    tally,\n  );",
+      "replace": "const recommendations = advice.map((entry) => entry.recommendation);",
       "tests": ["backend/test/brief-rules.test.ts"]
     },
     {
@@ -1396,8 +1396,8 @@
       "area": "lab",
       "claim": "A check in the validation plan that asks about a real-world outcome in a forecast's words is shown as written",
       "file": "backend/src/brief/build.ts",
-      "find": "const plan = guardPlan(validationPlan(facts), tally);",
-      "replace": "const plan = validationPlan(facts);",
+      "find": "const plan = guardPlan(planned.map(experimentOf), tally);",
+      "replace": "const plan = planned.map(experimentOf);",
       "tests": ["backend/test/brief-rules.test.ts"]
     },
     {
@@ -1405,7 +1405,7 @@
       "area": "lab",
       "claim": "The guard looks only at what a check asks, not at its method or the signal that would count as success",
       "file": "backend/src/brief/build.ts",
-      "find": "const rules = rulesOf([experiment.question, experiment.method, experiment.successSignal]);",
+      "find": "const rules = rulesOf([\n      experiment.question,\n      experiment.method,\n      experiment.successSignal,\n      experiment.measure,\n      experiment.comparison,\n    ]);",
       "replace": "const rules = rulesOf([experiment.question]);",
       "tests": ["backend/test/brief-rules.test.ts"]
     },
