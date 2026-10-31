@@ -24,8 +24,10 @@ scenario, the stakeholders and the results are made the same way as for a questi
 
 1. **Ask.** On the first screen type a what-if question (one or two sentences), or choose an example. You
    can press **Understand my question** to see how Swarm reads it into a scenario (what changes, what is
-   affected, what is expected without the change, the options to compare) and correct it. Nothing runs
-   until you start, and you can skip this.
+   affected, what is expected without the change, the options to compare) and correct it. Rules on the
+   server read it and it goes nowhere else, unless you chose **Model assisted** under **Run settings**:
+   then it is sent to the model provider, and if that fails or takes more than 170 seconds the rules read
+   it and a note says so. Nothing runs until you start, and you can skip this.
 2. **Add evidence.** Attach TXT, MD or text-based PDF files, paste text, or add a public web page (the
    server fetches its text; it does not run scripts, sign in or read private networks, and it does not
    check that the page is true). Up to ten documents. Every document keeps where it came from.
@@ -33,18 +35,19 @@ scenario, the stakeholders and the results are made the same way as for a questi
    runs until you ask. Graph Build shows what was read from the evidence, with citations.
 4. **Stakeholders and actors** (the **Env Setup** stage, at the top). Swarm proposes who is affected,
    with the sources it found for each: by reading the text for roles with no model, or, only in a
-   model-assisted project and only if you choose it, by asking the model. You review the list (edit, add,
-   merge, remove), then **approve** it. Swarm makes **simulated actors** from the approved list. Every
-   trait of an actor says where it came from (an assumption of the category, the evidence, a model, or
-   you) and can be changed. See [stakeholders](./stakeholders.md).
+   model-assisted project and only if you choose it, by asking the model. You review the list (accept,
+   edit, add, merge, remove), then **approve** it. Swarm makes **simulated actors** from the approved list.
+   Every trait of an actor says where it came from (an assumption of the category, the evidence, a model,
+   or you) and can be changed. See [Reviewing the stakeholders and the actors](#reviewing-the-stakeholders-and-the-actors)
+   and [stakeholders](./stakeholders.md).
 5. **Compare scenarios** (the **Simulation** stage, at the top). Choose the scenarios (no change, the
    proposed change and any alternatives), how many seeded runs of each (10, 30 or 100), and whether to
    also test which assumptions the result is sensitive to. The comparison runs on the server while you
    watch its progress, and you can cancel it. See [the method](./analysis/methodology.md).
 6. **Decision brief and independent review** (the **Report** stage, at the top). **Generate decision
-   brief** writes the answer-first document from the comparison, by rules. **Run an independent
-   review** has critics check the work; you can respond to each criticism. The brief exports as Markdown,
-   JSON and a printable page. See [the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
+   brief** writes the answer-first document from the comparison, by rules. **Run independent review** has
+   critics check the work; you can respond to each criticism. The brief exports as Markdown, JSON and a
+   printable page. See [the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
 7. **Interaction** is the engine's stage for asking questions of its detailed report.
 
 Below the comparison, the Simulation stage also keeps the engine's **Deep dive (optional)**: a slower,
@@ -93,6 +96,51 @@ The journey strip above the stages (Question, Evidence, Stakeholders, Actors, Sc
 Results, Explore, Change, Compare, Export) ticks a step only when the project's record shows it. Proposed
 stakeholders are not ticked, and neither is a stopped comparison.
 
+## Reviewing the stakeholders and the actors
+
+In **Env Setup** the **Stakeholders and actors** panel is at the top. It is small until you ask for more, so
+that the stage's own **Start Simulation** button stays on the screen. This is what you meet, in order:
+
+1. **Before anything is found** the panel holds one line (actors are synthetic stand-ins, not real people),
+   **Find stakeholders by reading the text**, and **Or add stakeholders yourself**. In a project made in
+   **Model assisted** mode on a server with a provider there is also **Find stakeholders with the model**,
+   which is then the main button. **How stakeholders are found** says what each way costs and cannot do.
+2. **After finding**, the list opens under four counts: **found**, **need review**, **approved** and
+   **actors**. A line says how the stakeholders were found ("Found by reading the text, not by a model", or
+   by which model), and a note says how many have a direction of impact read from the wording. One button
+   says what to do next and changes as you go: **Review N stakeholders**, then **Approve and create
+   actors**, then **Review the N actors**. **Stakeholders** and **Actors** are toggles that open and shut the
+   list and the actors.
+3. **A row** is one line to scan, key actors first: the name, whether it is a key actor (one actor of its
+   own) or a cohort (a group of simulated members), its category, the direction of impact in words ("Impact:
+   mixed · read from the wording"), its uncertainty, whether it cites quotes ("4 cited quotes") or is an
+   "Assumption: no cited evidence", and whether it still needs review. Open a row (choose its name) to read
+   the quotes it rests on, word for word, each with the passage and the document it comes from, and what is
+   assumed, marked as an assumption in words. Its buttons are **Accept**, **Edit**, **Merge** (into another
+   stakeholder) and **Remove**, and a **Priority** menu (**Key actor**, **Standard cohort** or **Background
+   cohort**). Nothing is deleted: a
+   removed or merged stakeholder moves to **Removed**, where **Restore** or **Undo the merge** brings it
+   back. **Add a stakeholder** adds one of your own; it carries no evidence, says so and is marked "Added by
+   you". **Perspectives that may be missing** lists the kinds of stakeholder that nobody was found for: a
+   prompt to look, not an error.
+4. **Approving.** **Approve stakeholders and create actors** is below the list. It needs at least two
+   stakeholders, accepts the ones you did not look at, and makes the actors: a key actor for each key
+   stakeholder and a cohort of simulated members for each of the others. It shuts the list and puts focus on
+   **Review the N actors**. Changing the list afterwards takes the approval away until you approve again, and
+   **Find stakeholders again** replaces a list you have reviewed only after you confirm.
+5. **The actors.** **Review the N actors** opens them. An actor opens to its traits, each on a slider with its
+   origin (assumption, evidence, model or you) and the reason for its value. Moving a slider marks the trait
+   "Changed by you; not saved yet". **Save changes to the actors** keeps it, and the actor is then "Edited by
+   you"; **Discard unsaved changes** drops it, and **Reset all actors…** makes every actor again from the
+   approved list after you confirm. If you change the stakeholders later, the page says the actors are out
+   of date.
+
+The rules read the groups that the text names with a role word, and read a direction of impact only where a
+cited sentence has a word of concern or welcome. The others stay unclear until you say who is helped or
+harmed, which is what the warning before a comparison means when it says the change cannot move anyone. The
+method is in [Stakeholders and actors](./stakeholders.md), and how the panel behaves is in
+[UX.md](./UX.md#the-stakeholder-review).
+
 ## Reading the results
 
 A comparison does not say what will happen. It says what happened in a simulation of synthetic actors,
@@ -126,9 +174,11 @@ repeated over many seeds, under assumptions that the page lists.
   **Minor** or a **Note**, and stays **Open** until someone answers it. You can mark an answer
   **responded** (not settled), **accepted** (the objection stands, so its impact applies to the
   conclusion) or **disputed** (the disagreement stays in view); an answer does not change the analysis or
-  the criticism. The checks are rules and need no model. A deeper model review is optional, is capped at
-  Major so that it never blocks, and can only name things the review gave it; if the model is not
-  configured or fails, the rules criticisms are shown with a note that says why. Neither is a measure of
+  the criticism. The checks are rules and need no model. A deeper model review is optional (**Also ask the
+  model for a deeper review**), is offered only for a project made in **Model assisted** mode on a server
+  with a provider, is capped at Major so that it never blocks, and can only name things the review gave it;
+  if the model fails or takes more than 170 seconds, the rules criticisms are shown with a note that says
+  why, and a project that runs without a model says so beside the disabled box. Neither is a measure of
   confidence, and neither can tell whether a source is true.
 - **The decision brief puts the answer first, then what it rests on.** Its recommendations each name the
   findings they follow from, and its **validation plan** lists the real-world checks that would settle
