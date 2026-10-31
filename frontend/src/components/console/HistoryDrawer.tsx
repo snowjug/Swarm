@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpRight, RefreshCw, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, RefreshCw, Search, Trash2 } from 'lucide-react';
 import type { ProjectSummary } from '../../../../shared/types';
 import { dateTime } from '../../lib/format';
 import { errorMessage } from '../../api';
@@ -82,96 +82,105 @@ export function HistoryDrawer({
         </EmptyPanel>
       )}
       <div className="history-list">
-        {filtered.map((project) => (
-          <article
-            className={`history-item ${selectedId === project.id ? 'selected' : ''} ${project.parentId ? 'history-branch' : ''}`}
-            key={project.id}
-          >
-            <div className="section-heading">
-              <span className="eyebrow">
-                {project.workflow === 'guided' ? 'GUIDED' : 'LEGACY QUICK RUN'}
-              </span>
-              <StatusBadge status={historyStatus(project)} />
-            </div>
-            {project.parentId && (
-              <p className="branch-history-badge">
-                Branch of{' '}
-                {projects.find((item) => item.id === project.parentId)?.name ??
-                  `unavailable parent (${project.parentId})`}
-              </p>
-            )}
-            <button
-              className="history-open"
-              type="button"
-              onClick={() => {
-                onSelect(project.id);
-                onClose();
-              }}
+        {filtered.map((project) => {
+          const open = () => {
+            onSelect(project.id);
+            onClose();
+          };
+          return (
+            <article
+              className={`history-item ${selectedId === project.id ? 'selected' : ''} ${project.parentId ? 'history-branch' : ''}`}
+              key={project.id}
             >
-              <strong>{project.name}</strong>
-              <ArrowUpRight size={16} aria-hidden="true" />
-            </button>
-            <p>{project.question}</p>
-            <div className="section-heading">
-              <span className="mono muted">
-                {dateTime(project.updatedAt)} · {project.mode === 'llm' ? 'MODEL' : 'LOCAL'}
-              </span>
-              {whatIf &&
-                project.workflow === 'guided' &&
-                project.currentRound >= 1 &&
-                onCompare && (
+              <div className="section-heading">
+                <span className="eyebrow">
+                  {project.workflow === 'guided' ? 'GUIDED' : 'LEGACY QUICK RUN'}
+                </span>
+                <StatusBadge status={historyStatus(project)} />
+              </div>
+              {project.parentId && (
+                <p className="branch-history-badge">
+                  Branch of{' '}
+                  {projects.find((item) => item.id === project.parentId)?.name ??
+                    `unavailable parent (${project.parentId})`}
+                </p>
+              )}
+              <button className="history-open" type="button" onClick={open}>
+                <strong>{project.name}</strong>
+                <ArrowRight size={16} aria-hidden="true" />
+              </button>
+              <p>{project.question}</p>
+              <div className="section-heading">
+                <span className="mono muted">
+                  {dateTime(project.updatedAt)} · {project.mode === 'llm' ? 'MODEL' : 'LOCAL'}
+                </span>
+                <div className="stage-actions">
                   <button
-                    className="button button-secondary"
+                    className="button button-secondary button-small"
                     type="button"
+                    aria-label={`Open ${project.name}`}
+                    onClick={open}
+                  >
+                    Open
+                  </button>
+                  {whatIf &&
+                    project.workflow === 'guided' &&
+                    project.currentRound >= 1 &&
+                    onCompare && (
+                      <button
+                        className="button button-secondary button-small"
+                        type="button"
+                        onClick={() => {
+                          onCompare(project.id);
+                          onClose();
+                        }}
+                      >
+                        Compare
+                      </button>
+                    )}
+                  <button
+                    className="icon-button danger-text"
+                    type="button"
+                    disabled={busy || ['queued', 'running'].includes(project.status)}
+                    aria-label={`Delete ${project.name}`}
                     onClick={() => {
-                      onCompare(project.id);
-                      onClose();
+                      setDeleting(project.id);
+                      setFailure(null);
                     }}
                   >
-                    Compare
+                    <Trash2 size={14} aria-hidden="true" />
                   </button>
-                )}
-              <button
-                className="icon-button danger-text"
-                type="button"
-                disabled={busy || ['queued', 'running'].includes(project.status)}
-                aria-label={`Delete ${project.name}`}
-                onClick={() => {
-                  setDeleting(project.id);
-                  setFailure(null);
-                }}
-              >
-                <Trash2 size={14} aria-hidden="true" />
-              </button>
-            </div>
-            {deleting === project.id && (
-              <div className="delete-confirm">
-                <p>Permanently delete this project, its evidence, conversations and outputs?</p>
-                <button
-                  className="button button-danger button-small"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    void onDelete(project.id).then(
-                      () => setDeleting(null),
-                      (error: unknown) => setFailure(errorMessage(error)),
-                    );
-                  }}
-                >
-                  {busy ? 'Deleting…' : 'Delete permanently'}
-                </button>
-                <button
-                  className="text-button"
-                  type="button"
-                  disabled={busy}
-                  onClick={() => setDeleting(null)}
-                >
-                  Keep project
-                </button>
+                </div>
               </div>
-            )}
-          </article>
-        ))}
+              {deleting === project.id && (
+                <div className="delete-confirm">
+                  <p>Permanently delete this project, its evidence, conversations and outputs?</p>
+                  <button
+                    className="button button-danger button-small"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      void onDelete(project.id).then(
+                        () => setDeleting(null),
+                        (error: unknown) => setFailure(errorMessage(error)),
+                      );
+                    }}
+                  >
+                    {busy ? 'Deleting…' : 'Delete permanently'}
+                  </button>
+                  <button
+                    className="text-button"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setDeleting(null)}
+                  >
+                    Keep project
+                  </button>
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
       <p className="field-help">
         Stored on this local server, not in your browser. Busy projects cannot be deleted.
