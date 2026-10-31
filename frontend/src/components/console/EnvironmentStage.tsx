@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { ArrowRight, LockKeyhole, Save } from 'lucide-react';
 import { environmentUpdateSchema } from '../../../../shared/guided';
 import type {
@@ -357,6 +358,7 @@ export function EnvironmentStage({
   onRun,
   onNavigate,
   onInspect,
+  lead = null,
 }: {
   project: ProjectDetail;
   busy: boolean;
@@ -364,6 +366,8 @@ export function EnvironmentStage({
   onRun: (step: ExecutionStep) => void;
   onNavigate: (step: ConsoleStep) => void;
   onInspect: (selection: Inspection) => void;
+  /** Shown under the stage heading, above its status: where a feature adds its panel. */
+  lead?: ReactNode;
 }) {
   const guided = isGuided(project);
   const input = project.console?.environment ? environmentInput(project) : null;
@@ -373,6 +377,7 @@ export function EnvironmentStage({
         <span className="eyebrow">02 / ENVIRONMENT SETUP</span>
         <h2>Make the assumptions explicit</h2>
       </div>
+      {lead}
       <StageStatus project={project} step="environment" />
       <Notice tone="warning" title="Fictional proxies, not digital copies of people">
         Personas and numeric inclinations are generated scenario assumptions. Citation links provide

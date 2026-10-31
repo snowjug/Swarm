@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { ArrowRight, Radio, Square, Users } from 'lucide-react';
 import type { ConsoleStep, ExecutionStep, Platform } from '../../../../shared/guided';
 import type { Intervention, ProjectDetail } from '../../../../shared/types';
@@ -101,6 +102,7 @@ export function SimulationStage({
   onIntervention,
   onBranch,
   onCompare,
+  lead = null,
 }: {
   project: ProjectDetail;
   busy: boolean;
@@ -115,6 +117,8 @@ export function SimulationStage({
   onIntervention: (value: Intervention | null) => Promise<void>;
   onBranch: () => void;
   onCompare: () => void;
+  /** Shown under the stage heading, above the run controls: where a feature adds its panel. */
+  lead?: ReactNode;
 }) {
   const guided = isGuided(project);
   const platforms = project.console?.platforms ?? [];
@@ -131,6 +135,7 @@ export function SimulationStage({
         <span className="eyebrow">03 / SIMULATION</span>
         <h2>Observe recorded behavior</h2>
       </div>
+      {lead}
       <div className="stage-actions primary-stage-actions">
         {(!whatIf || !hasCheckpoint(project)) && (
           <RunStepButton

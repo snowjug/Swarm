@@ -47,8 +47,14 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ConsoleViewControls, CONSOLE_NARROW_QUERY } from './ConsoleViewControls';
 import type { ConsoleView } from './ConsoleViewControls';
 import { ConsoleStepper } from './ConsoleStepper';
+import { JourneyStrip } from './JourneyStrip';
 import { useJsonSnapshotExport } from '../../hooks/useJsonSnapshotExport';
 import { JsonSnapshotExportButton, JsonSnapshotExportError } from './JsonSnapshotExport';
+import type { UiMode } from '../../lib/mode';
+import { AnalysisPanel } from '../analysis/AnalysisPanel';
+import { DecisionBriefView } from '../brief/DecisionBriefView';
+import { CriticPanel } from '../critics/CriticPanel';
+import { StakeholderPanel } from '../stakeholders/StakeholderPanel';
 
 export function ConsoleWorkspace({
   project,
@@ -70,6 +76,7 @@ export function ConsoleWorkspace({
   comparisonRequested = false,
   onCloseComparison,
   sharing = false,
+  mode = 'guided',
 }: {
   project: ProjectDetail;
   config: AppConfig | null;
@@ -91,6 +98,8 @@ export function ConsoleWorkspace({
   onCloseComparison: () => void;
   /** Whether people sign in, so that who has access to the project is something to show and change. */
   sharing?: boolean;
+  /** Advanced opens the project details and the operation log, and leaves the step help out. */
+  mode?: UiMode;
 }) {
   const [step, setStep] = useState<ConsoleStep>(() => initialStep(project));
   const snapshotExport = useJsonSnapshotExport(project.id);
@@ -167,6 +176,7 @@ export function ConsoleWorkspace({
           onRun={run}
           onNavigate={navigate}
           onInspect={inspect}
+          lead={guided ? <StakeholderPanel project={project} onChanged={onRefresh} /> : null}
         />
       );
       break;
@@ -188,6 +198,7 @@ export function ConsoleWorkspace({
           onIntervention={onIntervention}
           onBranch={() => setBranchOpen(true)}
           onCompare={() => compare()}
+          lead={guided ? <AnalysisPanel project={project} /> : null}
         />
       );
       break;
@@ -265,54 +276,56 @@ export function ConsoleWorkspace({
               <Square size={12} /> Cancel stage
             </button>
           )}
-          <button
-            className="button button-secondary button-small"
-            type="button"
-            onClick={() => setAuditOpen(true)}
-          >
-            <ShieldCheck size={13} aria-hidden="true" /> Audit log
-          </button>
-          {sharing && (
+          <div className="project-tools" role="group" aria-label="Project tools">
             <button
               className="button button-secondary button-small"
               type="button"
-              onClick={() => setAccessOpen(true)}
+              onClick={() => setAuditOpen(true)}
             >
-              <Users size={13} aria-hidden="true" /> Access
+              <ShieldCheck size={13} aria-hidden="true" /> Audit log
             </button>
-          )}
-          {project.mode === 'llm' && (
+            {sharing && (
+              <button
+                className="button button-secondary button-small"
+                type="button"
+                onClick={() => setAccessOpen(true)}
+              >
+                <Users size={13} aria-hidden="true" /> Access
+              </button>
+            )}
+            {project.mode === 'llm' && (
+              <button
+                className="button button-secondary button-small"
+                type="button"
+                title={
+                  budget.budget
+                    ? budgetSummary(budget.budget)
+                    : 'What this project may spend on the model'
+                }
+                onClick={() => setBudgetOpen(true)}
+              >
+                <Gauge size={13} aria-hidden="true" /> {budgetButtonLabel(budget.budget)}
+              </button>
+            )}
             <button
               className="button button-secondary button-small"
               type="button"
-              title={
-                budget.budget
-                  ? budgetSummary(budget.budget)
-                  : 'What this project may spend on the model'
-              }
-              onClick={() => setBudgetOpen(true)}
+              disabled={busy}
+              onClick={onDuplicate}
             >
-              <Gauge size={13} aria-hidden="true" /> {budgetButtonLabel(budget.budget)}
+              <Copy size={13} /> Duplicate as guided
             </button>
-          )}
-          <button
-            className="button button-secondary button-small"
-            type="button"
-            disabled={busy}
-            onClick={onDuplicate}
-          >
-            <Copy size={13} /> Duplicate as guided
-          </button>
-          <JsonSnapshotExportButton
-            pending={snapshotExport.pending}
-            onExport={snapshotExport.download}
-          />
+            <JsonSnapshotExportButton
+              pending={snapshotExport.pending}
+              onExport={snapshotExport.download}
+            />
+          </div>
         </div>
       </section>
       <JsonSnapshotExportError error={snapshotExport.error} />
       <div className="project-provenance">
         <ProjectModeChip project={project} />
-        <details className="project-metadata mono">
+        <details className="project-metadata mono" open={mode === 'advanced'}>
           <summary>Project {project.id.slice(0, 8)} · usage and full ID</summary>
           <div>
             <span>Full project ID: {project.id}</span>
@@ -344,8 +357,9 @@ export function ConsoleWorkspace({
           {project.error}
         </Notice>
       )}
+      <JourneyStrip project={project} step={step} />
       <div className="workspace-navigation">
-        <ConsoleStepper project={project} step={step} onNavigate={navigate} />
+        <ConsoleStepper project={project} step={step} onNavigate={navigate} mode={mode} />
         <ConsoleViewControls
           narrow={narrow}
           leftLabel={reportView ? 'Report' : 'Graph'}
@@ -360,6 +374,15 @@ export function ConsoleWorkspace({
           onNavigate={onSelectProject}
           onCompare={compare}
         />
+      )}
+      {guided && step === 'report' && !comparing && !studioOpen && (
+        <>
+          <div className="seam-stack">
+            <DecisionBriefView project={project} />
+            <CriticPanel project={project} />
+          </div>
+          <h2 className="detailed-report-heading">Detailed report</h2>
+        </>
       )}
       {comparing ? (
         <CompareView
@@ -412,7 +435,7 @@ export function ConsoleWorkspace({
           )}
         </div>
       )}
-      <OperationLog project={project} />
+      <OperationLog key={mode} project={project} initialExpanded={mode === 'advanced'} />
       {branchOpen && whatIf && (
         <BranchDialog
           project={project}
