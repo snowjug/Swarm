@@ -68,15 +68,27 @@ export function InteractionStage({
               <select
                 id="interaction-agent"
                 value={agentId}
+                aria-describedby={project.agents.length ? 'interaction-agent-help' : undefined}
                 onChange={(event) => setAgentId(event.target.value)}
               >
                 {!project.agents.length && <option value="">No agents recorded</option>}
-                {project.agents.map((agent) => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name} · {agent.role}
-                  </option>
-                ))}
+                {project.agents.length > 0 && (
+                  <optgroup label={`Deep-dive proxies (${project.agents.length})`}>
+                    {project.agents.map((agent) => (
+                      <option key={agent.id} value={agent.id}>
+                        {agent.name} · {agent.role}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
+              {project.agents.length > 0 && (
+                <p className="field-help" id="interaction-agent-help">
+                  These are the proxies of the agent-by-agent deep dive, not every actor approved in
+                  Env Setup. Report chat answers from the report, and Env Setup shows each actor’s
+                  traits.
+                </p>
+              )}
             </div>
             {agentId ? (
               <ChatPanel

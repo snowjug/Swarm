@@ -340,6 +340,20 @@ test.describe('the workspace', () => {
     ).toEqual(['double', 'solid']);
   });
 
+  test('says in the agent picker of Interaction that it holds the deep-dive proxies, and not every actor', async ({
+    page,
+  }) => {
+    await page.goto(`/?project=${ids.report}`);
+    await openStage(page, /Interaction/u);
+    await page.getByRole('tab', { name: /Any fictional agent/u }).click();
+    const picker = page.getByLabel('Fictional agent context');
+    await expect(picker.locator('optgroup')).toHaveAttribute(
+      'label',
+      /^Deep-dive proxies \(\d+\)$/u,
+    );
+    await expect(picker).toHaveAccessibleDescription(/not every actor approved in Env Setup/u);
+  });
+
   test('puts the help away in Advanced, and keeps every stage reachable', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('swarm.mode', 'advanced'));
     await page.goto(`/?project=${ids.environment}`);
