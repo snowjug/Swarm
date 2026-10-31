@@ -40,8 +40,10 @@ function caveatOf(facts: Facts): { text: string; refs: Partial<BriefRefs> } {
     )
     .sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift) || (a.id < b.id ? -1 : 1))[0];
   if (row) {
+    // The size of a step in an assumption is written in words: a percent sign in the headline reads as a share of people.
+    const label = row.label.replace(/(\d+(?:\.\d+)?)\s*%/gu, '$1 per cent');
     return {
-      text: `Biggest open caveat: the simulated result is sensitive to ${embed(row.label, 120)}, which no cited passage backs; ${effectOf(row)}.`,
+      text: `Biggest open caveat: the simulated result is sensitive to ${embed(label, 120)}, which no cited passage backs; ${effectOf(row)}.`,
       refs: { sensitivityIds: [row.id], findingIds },
     };
   }

@@ -201,6 +201,22 @@ describe('the executive answer', () => {
     expect(brief.headline).not.toMatch(/\bwill\b|%/u);
   });
 
+  it('writes the size of a step in an assumption in words, so that no percent sign stands in the headline', () => {
+    const stepped = analysisSchema.parse({
+      ...analysis,
+      sensitivity: analysis.sensitivity.map((row) => ({
+        ...row,
+        label: `Intensity of Proposed change: 25% higher (${row.id})`,
+      })),
+    });
+    const made = buildBrief(baseInputs({ analysis: stepped }));
+    expect(sectionOf(made, 'executive-answer').statements[2]?.text).toContain(
+      '“Intensity of Proposed change: 25 per cent higher (',
+    );
+    expect(made.headline).toContain('25 per cent higher');
+    expect(made.headline).not.toContain('%');
+  });
+
   it('chooses the next caveat when nothing sensitive is left: an unstable headline, then missing evidence', () => {
     const unstable = analysisSchema.parse({
       ...analysisFixture(),
