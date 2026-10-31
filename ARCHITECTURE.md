@@ -78,7 +78,13 @@ kinds; no engine or route uses them (see [Known limitations](#known-limitations)
 `fetcher.ts` resolves the name, judges every answer and connects only to addresses that passed,
 `robots.ts` reads and obeys robots.txt through the same fetcher, redirects are followed by hand and
 judged again, `extract.ts` and `normalize.ts` turn the body into text without running anything, and
-`ingest.ts` and `provenance.ts` make a document with its provenance. The server remembers each page it
+`ingest.ts` and `provenance.ts` make a document with its provenance. A process-wide limit (`limiter.ts`,
+`FetchLimiter`, set by `URL_INGEST_CONCURRENCY`, `URL_INGEST_QUEUE` and `URL_INGEST_QUEUE_WAIT_MS`) wraps
+the fetch in the route for every caller together, so that many callers cannot hold many connections and
+buffers at once: a request beyond the line is answered `503 URL_BUSY`, naming nothing of the address. An
+address the server refuses to read (including a name that led inside a network, which the person is told
+is "not found") is recorded as `evidence.url.refused` with the host asked for and the code, never the path
+or query. The server remembers each page it
 fetched for one person for an hour (`FetchRegistry`), and a project created later keeps the claim
 `fetchedByServer` only for exactly that text and person. Every rule, and the test for it, is in
 [docs/security/url-ingestion.md](./docs/security/url-ingestion.md).
@@ -87,31 +93,45 @@ fetched for one person for an hour (`FetchRegistry`), and a project created late
 
 `AnalysisService.start` validates the request, refuses it without actors (`409 ACTORS_REQUIRED`), while
 one is running for the project (`409 ANALYSIS_RUNNING`) or when two are running in the process
-(`429 ANALYSIS_BUSY`), works out the size (at most 2,400 simulated runs, see `shared/analysis-plan.ts`),
-stores the analysis as `running` and answers `202`. The work then runs in this process, one run after
-another with the event loop given a turn between runs: the variants come from `autoVariants` (a
+(`429 ANALYSIS_BUSY`), and refuses a cast that no longer matches the stakeholders (`409
+STAKEHOLDERS_NOT_APPROVED`, `409 ACTORS_OUT_OF_DATE`). It works out the size (at most 2,400 simulated
+runs, see `shared/analysis-plan.ts`), stores the analysis as `running` with the revisions of the scenario,
+the stakeholders and the actors it runs on (`inputRevisions`, `lab/lineage.ts`) and answers `202`. The
+work then runs in this process, one run
+after another with the event loop given a turn between runs: the variants come from `autoVariants` (a
 baseline, the proposed change and one for each alternative), each is simulated on the same seeds,
 the findings and their Wilson intervals are counted, sensitivity moves one assumption at a time on up to
 30 of the same seeds, the run nearest the median is kept in full for reading a chain of events back, and
 the result is compared with any deep-dive run of the project. Progress is saved every few runs.
 A person may cancel; a server that stops marks what it left `interrupted`, and the analysis is
-reproducible from its seeds, so it is run again and not resumed. The method, the limits and what the
+reproducible from its seeds, so it is run again and not resumed. The brief and the review are judged
+against the revisions that comparison recorded, not against when they were written, so that one made from
+a comparison that predates a change says so. The method, the limits and what the
 numbers do not mean are in [docs/analysis/methodology.md](./docs/analysis/methodology.md).
 
 ### How the console carries it
 
 The lab sits in the existing five-stage console for projects made in the guided workflow: the entry form
-has the example picker, **Understand my question** (`components/intake/`) and the public page form
-(`components/evidence/`); **Env Setup** is led by the stakeholder and actor panel
+has the example picker (which folds into one line once an example is loaded), **Understand my question**
+(`components/intake/`), the public page form (`components/evidence/`) and **Build Graph** in a bar that
+stays in reach; **Env Setup** is led by the stakeholder and actor panel
 (`components/stakeholders/`), which is compact (four counts, the one next step, and the list and the
-actors shut until opened, so that the stage's own **Start Simulation** stays on the screen);
-**Simulation** by the comparison (`components/analysis/`) above the engine's **Deep dive (optional)**; and
-**Report** by the decision brief and the critics' panel (`components/brief/`, `components/critics/`)
-above the deep dive's own report. `lab` on the project (from `lab/progress.ts`) decides what can be
-opened: Simulation once there are actors, Report once a comparison has finished, and the next-step bar
-and the twelve-step journey strip read it too. `frontend/src/lib/console.ts` holds those rules. The
-workspace reads the project again by itself while a comparison runs and until the brief is written
-(`hooks/useLabRefresh.ts`), so a stage opens when the record allows it, without a reload.
+actors shut until opened), above the engine's fixed proxies, which are an optional deep dive with
+secondary buttons; **Simulation** by the comparison (`components/analysis/`) above the engine's **Deep
+dive (optional)**; and **Report** by a jump bar, the decision brief and the critics' panel
+(`components/brief/`, `components/critics/`) above the deep dive's own report. The brief is a document
+with a contents whose reference sections are closed until wanted (they stay in the page), and printing
+the stage prints the whole brief and the review. `lab` on the project (from `lab/progress.ts`) decides
+what can be opened: Simulation once there are actors, Report once a comparison has finished, and the
+next-step bar and the twelve-step journey strip read it too. `frontend/src/lib/console.ts` holds those
+rules, and the view each stage opens in (`defaultView`: Split for Graph Build and Interaction, the
+whole-width Workbench for Env Setup and, once there are actors or a finished comparison, for Simulation
+and Report). The workspace reads the project again by itself while a comparison runs and until the brief
+is written (`hooks/useLabRefresh.ts`), so a stage opens when the record allows it, without a reload. The
+console's code is a separate chunk (`React.lazy` in `App.tsx`) that is fetched when a project is chosen,
+and `npm run build` writes a Brotli and a gzip copy of each text asset (`scripts/precompress.mjs`) that
+the server sends as they are to a browser that accepts them (`preCompressed` in `app.ts`, with
+`Vary: Accept-Encoding`).
 
 ### Two engines, one cast
 
@@ -709,7 +729,9 @@ untouched.
 (SQLite through `node:sqlite`, in WAL mode with foreign keys on), a `postgres://` URL, or `pglite:`
 (PostgreSQL running inside the process, for tests). The PostgreSQL implementation translates the few
 differences (`storage/postgres/translate.ts`), keeps the same migrations (`schema.ts`) and reaches the
-server through a worker thread that the process waits for ([ADR 0009](./docs/adr/0009-postgres-through-a-synchronous-bridge.md)),
+server through a worker thread that the process waits for (a synchronous bridge: the thread that serves
+requests blocks for the length of every query, so a slow database slows every request;
+[ADR 0009](./docs/adr/0009-postgres-through-a-synchronous-bridge.md)),
 with serializable transactions retried when they lose a race. `npm run test:postgres` runs the unit
 suite on it, and `npm run db:copy` and `npm run db:drill` move and rehearse a database between the two,
 reading the source as one snapshot (`SqlDatabase.readSnapshot`), so that a copy is never half of a change.
@@ -794,17 +816,17 @@ Deployment must not infer production readiness from local test success.
 
 What each layer of testing can and cannot establish:
 
-| Layer                      | Where                                                      | Establishes                                                                                                                                                                                                    | Does **not** establish                            |
-| -------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                                                                                                | Browser rendering, real network behaviour         |
-| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                  | Anything about model behaviour                    |
-| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                              | Quality or safety of a **live** model's output    |
-| Browser end-to-end (lab)   | `e2e/lab`                                                  | The lab through its pages: the shell, the flagship and custom journeys from the question to the brief, the stakeholder review, the comparison, what opens each stage, the deep dive; public pages are fixtures | Model behaviour, or any page on the real internet |
-| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded 32-step presentation, Report Studio and themes; browser sign-in and access screens against a test identity provider                                                                               | A live model; a real Entra tenant                 |
-| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                            | The browser, or any model                         |
-| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                 | Quality beyond the counts it reports; scale       |
-| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout/axe metrics at four viewports for design review                                                                                                                                         | Subjective design quality                         |
-| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                              | Capacity planning                                 |
+| Layer                      | Where                                                      | Establishes                                                                                                                                                                                                                                                                             | Does **not** establish                            |
+| -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                                                                                                                                                                         | Browser rendering, real network behaviour         |
+| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                                                                                           | Anything about model behaviour                    |
+| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                                                                                                       | Quality or safety of a **live** model's output    |
+| Browser end-to-end (lab)   | `e2e/lab`                                                  | The lab through its pages: the shell and the entry screen, the flagship and custom journeys from the question to the brief, the stakeholder review, the comparison, what opens each stage, the Report page and its print, what is out of date, the deep dive; public pages are fixtures | Model behaviour, or any page on the real internet |
+| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded 32-step presentation, Report Studio and themes; browser sign-in and access screens against a test identity provider                                                                                                                                                        | A live model; a real Entra tenant                 |
+| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                                                                                                     | The browser, or any model                         |
+| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                                                                                          | Quality beyond the counts it reports; scale       |
+| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout/axe metrics at four viewports for design review                                                                                                                                                                                                                  | Subjective design quality                         |
+| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                                                                                                       | Capacity planning                                 |
 
 **The fake provider** (`e2e/support/fake-provider.ts`) implements the Ollama `/api/chat` protocol so the real
 `ModelClient`, orchestrator, persistence and UI run end to end with no credential. It derives each answer from
@@ -864,11 +886,19 @@ What is not built, and what has not been shown. The README keeps a short version
   holds the project record, passages, ledger and messages; the scenario, stakeholders, actors,
   comparisons, critiques and brief are separate documents. A brief is exported on its own
   (`GET .../brief/export`), and `npm run db:copy` carries all of them between databases. A branch copies
-  only the scenario.
+  only the scenario, and its documents with where each came from (a page the server fetched stays a
+  retrieved page).
 - **Retrieved pages are the page.** No JavaScript runs and no PDF, image or sign-in page is read. Which
   part of a web page is its own text (its menus, side panels and footers are left out) is a guess from how
-  the page is built, and a note says so. The record of which pages the server fetched is in the memory of
-  one process for an hour.
+  the page is built, and a note says so; so does a note when most of a page is built by scripts or shown
+  from another page (a frame), which are not read. The record of which pages the server fetched is in the
+  memory of one process for an hour, and the limit on pages read at once is for one process: behind several
+  replicas each keeps its own.
+- **The conflict scan is bounded.** So that a project at the evidence limit cannot stall the server, a
+  word that more than 512 sentences hold is not used to find partners and a sentence is compared with at
+  most 128 of them (the ones that overlap it most); a pair that is not reached within those limits is
+  skipped without a message, so on very large or repetitive evidence a conflict can go unfound. Evidence of
+  a few hundred sentences reaches neither limit (`grounding/contradictions.ts`).
 - **The two engines can disagree**, and the cross-check says that it compares different engines.
 
 **The deep dive and the platform**, as they stood when they were last measured:
