@@ -10,7 +10,7 @@ import {
   journey,
   journeyItems,
   keepLab,
-  labPollingNeeded,
+  labWatch,
   needsPolling,
   nextStep,
   stepAvailable,
@@ -463,23 +463,56 @@ describe('the one move offered from what the scenario lab has recorded', () => {
     plain.lab = lab({ ...WITH_ACTORS, analysis: 'completed' });
     expect(nextStep(plain, 'simulation')).toBeNull();
   });
+
+  it('does not offer the way back to a comparison that cannot be opened', () => {
+    const project = at({ analysis: 'completed' });
+    expect(stepAvailable(project, 'report')).toBe(true);
+    expect(stepAvailable(project, 'simulation')).toBe(false);
+    expect(nextStep(project, 'report')).toBeNull();
+  });
 });
 
-describe('when the project is read again while a comparison runs', () => {
-  it('is only in a stage that shows the comparison, and only while one is running', () => {
+describe('when the page reads the project again by itself', () => {
+  const watched = (change: Partial<LabProgress> | undefined, step: ConsoleStep) => {
     const project = projectFixture();
-    project.lab = lab({ actors: 5, analysis: 'running' });
-    expect(labPollingNeeded(project, 'simulation')).toBe(true);
-    expect(labPollingNeeded(project, 'report')).toBe(true);
+    if (change) project.lab = lab(change);
+    return labWatch(project, step);
+  };
+  const WITH_ACTORS = { stakeholders: 'approved', actors: 5 } as const;
+
+  it('is quick in every stage but Interaction while a comparison runs', () => {
+    for (const step of ['knowledge', 'environment', 'simulation', 'report'] as const) {
+      expect(watched({ ...WITH_ACTORS, analysis: 'running' }, step), step).toBe('running');
+    }
+    expect(watched({ ...WITH_ACTORS, analysis: 'running' }, 'interaction')).toBeNull();
+  });
+
+  it('waits in Simulation for a comparison to be started, and ends once one has finished', () => {
+    for (const analysis of ['none', 'failed'] as const) {
+      expect(watched({ ...WITH_ACTORS, analysis }, 'simulation'), analysis).toBe('waiting');
+    }
+    expect(watched({ ...WITH_ACTORS, analysis: 'completed' }, 'simulation')).toBeNull();
+    // Without actors there is nothing to compare, and nothing a panel here could start.
+    expect(watched({ stakeholders: 'approved' }, 'simulation')).toBeNull();
+  });
+
+  it('waits in Report for the brief to be written, and ends once it is', () => {
+    const finished = { ...WITH_ACTORS, analysis: 'completed' } as const;
+    expect(watched(finished, 'report')).toBe('waiting');
+    expect(watched({ ...finished, brief: true }, 'report')).toBeNull();
+    expect(watched({ ...WITH_ACTORS, analysis: 'none' }, 'report')).toBeNull();
+  });
+
+  it('reads nothing where no panel can change the record, or for a project with none', () => {
     for (const step of ['knowledge', 'environment', 'interaction'] as const) {
-      expect(labPollingNeeded(project, step), step).toBe(false);
+      expect(watched({ ...WITH_ACTORS, analysis: 'completed' }, step), step).toBeNull();
     }
-    for (const analysis of ['none', 'completed', 'failed'] as const) {
-      project.lab = lab({ actors: 5, analysis });
-      expect(labPollingNeeded(project, 'simulation'), analysis).toBe(false);
-    }
-    delete project.lab;
-    expect(labPollingNeeded(project, 'simulation')).toBe(false);
+    expect(watched(undefined, 'simulation')).toBeNull();
+    const plain = projectFixture();
+    plain.workflow = 'quick';
+    plain.console = null;
+    plain.lab = lab({ ...WITH_ACTORS, analysis: 'running' });
+    expect(labWatch(plain, 'simulation')).toBeNull();
   });
 });
 

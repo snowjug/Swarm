@@ -23,8 +23,12 @@ vi.mock('../stakeholders/StakeholderPanel', async () => {
 vi.mock('../analysis/AnalysisPanel', async () => {
   const { createElement } = await import('react');
   return {
-    AnalysisPanel: (props: { project: { id: string } }) =>
-      createElement('p', { 'data-seam': 'analysis', 'data-project': props.project.id }, 'analysis'),
+    AnalysisPanel: (props: { project: { id: string }; onOpenStep?: () => void }) =>
+      createElement(
+        'p',
+        { 'data-seam': 'analysis', 'data-project': props.project.id },
+        `onOpenStep is a ${typeof props.onOpenStep}`,
+      ),
   };
 });
 vi.mock('../brief/DecisionBriefView', async () => {
@@ -87,6 +91,8 @@ describe('where the workspace mounts the feature panels', () => {
   it('puts the analysis panel in the Simulation stage, above the run controls, and says what they are', () => {
     const html = render(checkpointFixture(), 'simulation');
     expect(seams(html)).toEqual(['analysis']);
+    // So that the panel can send the person to the step where who is affected is said.
+    expect(html).toContain('onOpenStep is a function');
     expect(html.indexOf('03 / SIMULATION')).toBeLessThan(html.indexOf('data-seam="analysis"'));
     expect(html.indexOf('data-seam="analysis"')).toBeLessThan(
       html.indexOf('Deep dive (optional): agent-by-agent simulation'),

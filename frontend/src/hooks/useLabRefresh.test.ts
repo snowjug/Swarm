@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ConsoleStep } from '../../../shared/guided';
-import { LAB_POLL_MS, startLabPolling, useLabRefresh } from './useLabRefresh';
+import type { LabWatch } from '../lib/console';
+import { LAB_NUDGE_MS, LAB_POLL_MS, startLabPolling, useLabRefresh } from './useLabRefresh';
 
 // The hook only needs refs and effects, so a few lines stand in for React's: effects run after each
 // "render" whose dependencies changed, and the clean-up of the last one runs first.
@@ -30,23 +31,24 @@ vi.mock('react', () => ({
 interface Props {
   step: ConsoleStep;
   enabled: boolean;
-  polling: boolean;
+  watch: LabWatch | null;
   refresh: () => void;
 }
 
-function render(props: Props): void {
+function render(props: Props): { nudge: () => void } {
   harness.nextRef = 0;
   harness.nextEffect = 0;
   harness.pending = [];
   // The stand-in for React above is what runs this, not a component.
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  useLabRefresh(props);
+  const result = useLabRefresh(props);
   for (const { index, run, deps } of harness.pending) {
     const previous = harness.effects[index];
     if (previous && deps.every((dep, at) => Object.is(dep, previous.deps[at]))) continue;
     if (previous) previous.cleanup?.();
     harness.effects[index] = { deps, cleanup: run() };
   }
+  return result;
 }
 
 function unmount(): void {
@@ -63,20 +65,24 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('reading the project again while a comparison runs', () => {
-  it('reads every four seconds until it is stopped', () => {
+describe('reading the project again', () => {
+  it('reads at the interval it is given until it is stopped', () => {
     const read = vi.fn();
-    const stop = startLabPolling(read);
-    expect(LAB_POLL_MS).toBe(4_000);
-    vi.advanceTimersByTime(LAB_POLL_MS - 1);
+    const stop = startLabPolling(read, 1_000);
+    vi.advanceTimersByTime(999);
     expect(read).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(read).toHaveBeenCalledTimes(1);
-    vi.advanceTimersByTime(LAB_POLL_MS * 2);
+    vi.advanceTimersByTime(2_000);
     expect(read).toHaveBeenCalledTimes(3);
     stop();
-    vi.advanceTimersByTime(LAB_POLL_MS * 5);
+    vi.advanceTimersByTime(5_000);
     expect(read).toHaveBeenCalledTimes(3);
+  });
+
+  it('is quick while a comparison runs and slow while one could be started', () => {
+    expect(LAB_POLL_MS).toEqual({ running: 2_000, waiting: 5_000 });
+    expect(LAB_NUDGE_MS).toBeLessThan(LAB_POLL_MS.running);
   });
 });
 
@@ -84,7 +90,7 @@ describe('keeping the lab’s progress up to date in the workspace', () => {
   const idle = (refresh: () => void, step: ConsoleStep = 'knowledge'): Props => ({
     step,
     enabled: true,
-    polling: false,
+    watch: null,
     refresh,
   });
 
@@ -112,38 +118,110 @@ describe('keeping the lab’s progress up to date in the workspace', () => {
 
   it('reads nothing for a record with no guided stages', () => {
     const refresh = vi.fn();
-    render({ ...idle(refresh), enabled: false });
-    render({ ...idle(refresh, 'simulation'), enabled: false, polling: true });
-    vi.advanceTimersByTime(LAB_POLL_MS * 3);
+    const { nudge } = render({ ...idle(refresh), enabled: false });
+    render({ ...idle(refresh, 'simulation'), enabled: false, watch: 'running' });
+    nudge();
+    vi.advanceTimersByTime(LAB_POLL_MS.waiting * 3);
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it('reads every four seconds while polling, and stops when the comparison is over', () => {
+  it('reads every two seconds while a comparison runs, and stops when it is over', () => {
     const refresh = vi.fn();
     render(idle(refresh, 'simulation'));
-    render({ ...idle(refresh, 'simulation'), polling: true });
-    vi.advanceTimersByTime(LAB_POLL_MS * 2);
-    expect(refresh).toHaveBeenCalledTimes(2);
-    render({ ...idle(refresh, 'simulation'), polling: false });
-    vi.advanceTimersByTime(LAB_POLL_MS * 3);
+    render({ ...idle(refresh, 'simulation'), watch: 'running' });
+    vi.advanceTimersByTime(LAB_POLL_MS.running * 3);
+    expect(refresh).toHaveBeenCalledTimes(3);
+    render({ ...idle(refresh, 'simulation'), watch: null });
+    vi.advanceTimersByTime(LAB_POLL_MS.waiting * 3);
+    expect(refresh).toHaveBeenCalledTimes(3);
+  });
+
+  it('reads every five seconds while it waits for a comparison to be started, and is quick once it runs', () => {
+    const refresh = vi.fn();
+    render({ ...idle(refresh, 'simulation'), watch: 'waiting' });
+    vi.advanceTimersByTime(LAB_POLL_MS.waiting - 1);
+    expect(refresh).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    render({ ...idle(refresh, 'simulation'), watch: 'running' });
+    vi.advanceTimersByTime(LAB_POLL_MS.running);
     expect(refresh).toHaveBeenCalledTimes(2);
   });
 
   it('calls the latest way of reading, not the one it started with', () => {
     const first = vi.fn();
     const second = vi.fn();
-    render({ ...idle(first, 'simulation'), polling: true });
-    render({ ...idle(second, 'simulation'), polling: true });
-    vi.advanceTimersByTime(LAB_POLL_MS);
+    render({ ...idle(first, 'simulation'), watch: 'running' });
+    render({ ...idle(second, 'simulation'), watch: 'running' });
+    vi.advanceTimersByTime(LAB_POLL_MS.running);
     expect(first).not.toHaveBeenCalled();
     expect(second).toHaveBeenCalledTimes(1);
   });
 
   it('stops reading when the workspace goes away', () => {
     const refresh = vi.fn();
-    render({ ...idle(refresh, 'report'), polling: true });
+    const { nudge } = render({ ...idle(refresh, 'report'), watch: 'waiting' });
+    nudge();
     unmount();
-    vi.advanceTimersByTime(LAB_POLL_MS * 3);
+    vi.advanceTimersByTime(LAB_POLL_MS.waiting * 3);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+});
+
+describe('reading at once after a click in a stage that is being watched', () => {
+  const watching = (refresh: () => void, watch: LabWatch | null = 'waiting'): Props => ({
+    step: 'simulation',
+    enabled: true,
+    watch,
+    refresh,
+  });
+
+  it('reads once, shortly after the click, not at the next read', () => {
+    const refresh = vi.fn();
+    const { nudge } = render(watching(refresh));
+    nudge();
+    vi.advanceTimersByTime(LAB_NUDGE_MS - 1);
+    expect(refresh).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    expect(LAB_NUDGE_MS).toBeLessThan(LAB_POLL_MS.waiting);
+  });
+
+  it('reads once for a run of clicks, counted from the last', () => {
+    const refresh = vi.fn();
+    const { nudge } = render(watching(refresh));
+    nudge();
+    vi.advanceTimersByTime(LAB_NUDGE_MS - 100);
+    nudge();
+    vi.advanceTimersByTime(LAB_NUDGE_MS - 1);
+    expect(refresh).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads nothing for a click where the record cannot be changing', () => {
+    const refresh = vi.fn();
+    const { nudge } = render(watching(refresh, null));
+    nudge();
+    vi.advanceTimersByTime(LAB_NUDGE_MS * 3);
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('follows what the workspace says now, not what it said when it rendered', () => {
+    const refresh = vi.fn();
+    const { nudge } = render(watching(refresh, null));
+    render(watching(refresh, 'waiting'));
+    nudge();
+    vi.advanceTimersByTime(LAB_NUDGE_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not read after the workspace is gone', () => {
+    const refresh = vi.fn();
+    const { nudge } = render(watching(refresh));
+    nudge();
+    unmount();
+    vi.advanceTimersByTime(LAB_NUDGE_MS * 3);
     expect(refresh).not.toHaveBeenCalled();
   });
 });

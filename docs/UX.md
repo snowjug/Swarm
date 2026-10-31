@@ -98,9 +98,25 @@ A stage that cannot be opened is a disabled button, so it is not a tab stop. It 
 a lock icon in place of its state and, in Guided, a line under its help says what it needs
 (`stepLock`): "Needs Graph Build first", "Needs actors from Env Setup", "Needs a finished
 comparison", "Needs the detailed report". Nothing opens it from a click or from the keyboard. Once
-the record allows it, it opens without a reload: opening Simulation or Report reads the project
-again, and while a comparison runs and either is in view the page reads it again every four
-seconds (`useLabRefresh`).
+the record allows it, it opens without a reload and without pressing Refresh.
+
+The workspace is told when the stakeholders or the actors change (`onChanged` of the stakeholder
+panel), but not when a comparison starts, finishes or is stopped, or when the brief is written: those
+panels keep their own state. So the workspace looks for the change itself (`labWatch` in
+`lib/console.ts`, `useLabRefresh`), and reads the project again:
+
+- when Simulation or Report is opened;
+- every two seconds while a comparison runs, in every stage but Interaction, since the stage in view
+  may be naming it;
+- every five seconds in Simulation, while there are actors and no comparison has finished, and in
+  Report, while the comparison has finished and no brief is written, which ends of itself;
+- 0.8 seconds after a click in a stage it is watching, so that what the click started (a
+  comparison, a brief) is seen at once and not at the next five seconds.
+
+These reads are quiet: the refresh button does not spin and a screen reader is told nothing. Nothing
+is read in Interaction. A comparison started again after one has finished is not noticed until
+Simulation or Report is opened again or Refresh is pressed; the page then shows what the server
+says, which is that the newest comparison, if it is running, decides.
 
 ### The next step
 
@@ -289,9 +305,10 @@ and 44px on a phone.
 - `e2e/lab/journey-gates.spec.ts`: projects made through the API at each point of the way (nothing,
   graph built, stakeholders proposed, approved, actors, a comparison stopped, finished, reviewed,
   brief written) and read in the browser: what is locked and why, the path, the next step and where
-  it leads, a comparison from running to finished without a reload, Guided and Advanced, the
-  keyboard and focus, a reload, three themes on a laptop and a phone, and the phone's header and
-  stage names. `e2e/lab/shell.spec.ts` covers the first screen, the examples, the modes and the
+  it leads, a comparison started, stopped and finished in the page, and the brief written there,
+  each without a reload or a press of Refresh (these fail if the workspace stops looking for the
+  change), Guided and Advanced, the keyboard and focus, a reload, three themes on a laptop and a
+  phone, and the phone's header and stage names. `e2e/lab/shell.spec.ts` covers the first screen, the examples, the modes and the
   workspace in every theme.
 
 ## Not done

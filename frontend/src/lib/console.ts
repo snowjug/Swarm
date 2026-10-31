@@ -307,18 +307,33 @@ function labFrontier(lab: LabProgress): NextStep | null {
 export function nextStep(project: ProjectDetail, step: ConsoleStep): NextStep | null {
   const lab = project.lab;
   if (!isGuided(project) || !lab || step === 'interaction') return null;
-  if (step === 'report' && lab.analysis === 'completed') return backToComparison;
+  if (step === 'report' && lab.analysis === 'completed') {
+    return stepAvailable(project, 'simulation') ? backToComparison : null;
+  }
   const move = labFrontier(lab);
   return move && move.to !== step && stepAvailable(project, move.to) ? move : null;
 }
 
 /**
- * Whether to read the project again every few seconds: while a comparison is running and the person
- * is in a stage that shows its result. The comparison runs on the server, and the project's progress
- * is not otherwise read again until something is done.
+ * Why the page reads the project again while the person works: `running` while a comparison runs, in
+ * every stage but Interaction, since the stage in view may be naming it; `waiting` where one could be
+ * started or a brief written and none has been yet, which ends of itself once it has.
  */
-export function labPollingNeeded(project: ProjectDetail, step: ConsoleStep): boolean {
-  return (step === 'simulation' || step === 'report') && project.lab?.analysis === 'running';
+export type LabWatch = 'running' | 'waiting';
+
+/**
+ * Whether, and why, to read the project again. The panels that change what the lab has recorded (a
+ * comparison, the brief) do not tell the workspace, which is only told about the stakeholders and the
+ * actors, so the workspace looks for the change itself: a Report that opened only after a reload would
+ * be a stage that stays locked after what unlocks it was done.
+ */
+export function labWatch(project: ProjectDetail, step: ConsoleStep): LabWatch | null {
+  const lab = project.lab;
+  if (!isGuided(project) || !lab || step === 'interaction') return null;
+  if (lab.analysis === 'running') return 'running';
+  if (step === 'simulation' && lab.actors > 0 && lab.analysis !== 'completed') return 'waiting';
+  if (step === 'report' && lab.analysis === 'completed' && !lab.brief) return 'waiting';
+  return null;
 }
 
 /**

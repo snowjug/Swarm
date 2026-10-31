@@ -408,7 +408,7 @@ const LEVELS: Record<Level, Expected> = {
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-const ids = {} as Record<Level | 'big' | 'unlocking', string>;
+const ids = {} as Record<Level | 'big' | 'unlocking' | 'starting' | 'cancelling', string>;
 let api: APIRequestContext;
 
 test.beforeAll(async ({ playwright }) => {
@@ -463,6 +463,10 @@ test.beforeAll(async ({ playwright }) => {
   await advance(api, ids.unlocking, 'knowledge');
   await storeScenario(api, ids.unlocking);
   await approveStakeholders(api, ids.unlocking);
+  // The two that a comparison is started from in the page itself.
+  ids.starting = await createGuided(api, { name: 'Gates: started from the page' });
+  await withActors(ids.starting);
+  ids.cancelling = await bigProject(api, 'Gates: stopped from the page');
 });
 
 test.afterAll(async () => {
@@ -682,19 +686,93 @@ test.describe('how a person unlocks the next stage', () => {
     );
   });
 
-  test('a running comparison is named in the next step from the stages that are not showing it', async ({
+  test('a comparison started in the page opens Report when it finishes, and the brief ticks the path, with no reload', async ({
+    page,
+  }) => {
+    await page.goto(`/?project=${ids.starting}`);
+    await expect(stageButton(page, 'Report')).toBeDisabled();
+    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
+    await stageButton(page, 'Simulation').click();
+    await expect(workbench(page, 'Simulation')).toBeVisible();
+
+    // The person does it all in the page: no request from here, and the refresh button is not touched.
+    await workbench(page, 'Simulation')
+      .getByRole('button', { name: 'Compare scenarios', exact: true })
+      .click();
+    await expect(page.getByRole('heading', { name: 'What this comparison says' })).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(stageButton(page, 'Report')).toBeEnabled();
+    await expect(stageButton(page, 'Report')).toContainText('ready to write');
+    await expect(stageButton(page, 'Simulation')).toContainText('compared');
+    await expect(nextBar(page)).toContainText('The comparison has finished');
+    await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText(COMPARED_DONE);
+
+    // On to the brief, and writing it in the page: the stage and the path follow it.
+    await nextBar(page).getByRole('button', { name: 'See the decision brief' }).click();
+    await expect(workbench(page, 'Report')).toBeFocused();
+    await page.getByRole('button', { name: 'Generate decision brief' }).click();
+    await expect(stageButton(page, 'Report')).toContainText('brief written');
+    await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText([
+      ...COMPARED_DONE,
+      'Export',
+    ]);
+    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
+      true,
+    );
+    expect(await readLab(api, ids.starting)).toMatchObject({ analysis: 'completed', brief: true });
+  });
+
+  test('a comparison stopped in the page leaves Report locked, and Simulation says it stopped, with no reload', async ({
+    page,
+  }) => {
+    await page.goto(`/?project=${ids.cancelling}`);
+    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
+    await stageButton(page, 'Simulation').click();
+    const simulation = workbench(page, 'Simulation');
+    await simulation.getByLabel('Seeded runs of each scenario').selectOption({ label: '100 runs' });
+    await simulation.getByRole('button', { name: 'Compare scenarios', exact: true }).click();
+    await simulation.getByRole('button', { name: 'Cancel the comparison' }).click();
+
+    await expect(stageButton(page, 'Simulation')).toContainText('stopped');
+    await expect(stageButton(page, 'Report')).toBeDisabled();
+    await expect(stageButton(page, 'Report')).toContainText('Needs a finished comparison');
+    expect((await readLab(api, ids.cancelling)).analysis).toBe('failed');
+    // From another stage the next step says that it stopped and offers to run it again.
+    await stageButton(page, 'Graph Build').click();
+    await expect(nextBar(page)).toContainText('stopped before it finished');
+    await expect(nextBar(page).getByRole('button')).toHaveText('Compare the scenarios');
+    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
+      true,
+    );
+  });
+
+  test('a running comparison is named from the stages that are not showing it, until it finishes', async ({
     page,
   }) => {
     const id = await bigProject(api, 'Gates: running');
-    const analysisId = await startComparison(api, id, LONG_COMPARISON);
+    await startComparison(api, id, LONG_COMPARISON);
     await page.goto(`/?project=${id}`);
-    expect((await readLab(api, id)).analysis).toBe('running');
+    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
+    expect(
+      (await readLab(api, id)).analysis,
+      'the comparison is still running when the page is read: it is made long enough for that',
+    ).toBe('running');
+    await expect(workbench(page, 'Graph Build')).toBeVisible();
     await expect(nextBar(page)).toContainText('A comparison is running');
     await expect(nextBar(page).getByRole('button')).toHaveText('Follow the comparison');
     await expect(stageButton(page, 'Simulation')).toContainText('comparing');
-    // Stopped, so that nothing is left running; one that has finished by now cannot be.
-    await api.post(`/api/projects/${id}/analysis/${analysisId}/cancel`);
-    await expect.poll(() => statusOf(api, id, analysisId)).not.toBe('running');
+    await expect(stageButton(page, 'Report')).toBeDisabled();
+
+    // The stage in view is not the one that shows the comparison, and the bar does not go on saying
+    // that it runs once it has finished.
+    await expect(nextBar(page).getByRole('button')).toHaveText('See the decision brief', {
+      timeout: 90_000,
+    });
+    await expect(stageButton(page, 'Report')).toBeEnabled();
+    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
+      true,
+    );
   });
 });
 

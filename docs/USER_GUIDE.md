@@ -69,8 +69,9 @@ stopped.
 A stage that cannot be opened yet is greyed out and says **locked**. In Guided mode a line under it says
 what it needs ("Needs actors from Env Setup", "Needs a finished comparison"), and a screen reader is told
 the same in both modes. It does not open from a click or from the keyboard. It opens by itself once the
-record allows it, with no reload: opening Simulation or Report reads the project again, and while a
-comparison runs and either is in view the page reads it again every few seconds.
+record allows it, with no reload and without pressing Refresh: the page looks for a comparison that has
+finished, was stopped or failed, and for a brief that has been written, and shows them within a few
+seconds.
 
 The **Next step** bar above the stage names the one next piece of work, with one button, whenever that work
 is in a stage other than the one you are in:
