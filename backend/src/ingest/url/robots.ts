@@ -62,10 +62,12 @@ function parseGroups(text: string): Group[] {
   let collectingAgents = false;
   let rules = 0;
   for (const raw of text.split(/\r\n|\n|\r/u).slice(0, MAX_LINES)) {
-    const line = raw
-      .replace(/^\uFEFF/u, '')
-      .replace(/#.*$/u, '')
-      .trim();
+    // A comment runs from the first `#` to the end of the line. Not `replace(/#.*$/u, '')`: that is
+    // tried again from every `#` of a line that holds a Unicode line separator, which grows with the
+    // square of the line.
+    const unmarked = raw.replace(/^\uFEFF/u, '');
+    const hash = unmarked.indexOf('#');
+    const line = (hash < 0 ? unmarked : unmarked.slice(0, hash)).trim();
     const colon = line.indexOf(':');
     if (colon < 0) continue;
     const key = line.slice(0, colon).trim().toLowerCase();
