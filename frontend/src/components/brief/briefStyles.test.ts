@@ -99,6 +99,21 @@ describe('the brief stylesheet', () => {
     },
   );
 
+  it('gives every card heading a size of its own, since a browser’s default is under 11 pixels here', () => {
+    // An h5 with no size takes 83% of the page's 13 pixels, which the readability audit refuses.
+    const sized = rules.filter(
+      (rule) => /\bh5$/u.test(rule.selector) && declared(rule.body, 'font-size'),
+    );
+    expect(sized.map((rule) => rule.selector)).toEqual(
+      expect.arrayContaining(['.brief-map-group h5', '.brief-compare h5']),
+    );
+    for (const rule of sized) {
+      expect(Number.parseFloat(declared(rule.body, 'font-size')!), rule.selector).toBeGreaterThan(
+        12,
+      );
+    }
+  });
+
   it('never removes the focus ring, and lays out for a narrow screen and for the printed page', () => {
     expect(css).not.toMatch(/outline:\s*(?:none|0)\b/u);
     expect(css).toContain('@media (max-width: 640px)');

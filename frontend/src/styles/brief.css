@@ -430,6 +430,10 @@
   border: 1px solid var(--border-soft);
   border-radius: 3px;
 }
+/* A heading with no size of its own takes the browser's 83% of the page's 13px: under 11px. */
+.brief-compare h5 {
+  font-size: 13px;
+}
 .brief-fill {
   display: block;
   height: 100%;
