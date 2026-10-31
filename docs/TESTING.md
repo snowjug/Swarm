@@ -82,8 +82,10 @@ written it held `shell.spec.ts`: the first screen says what Swarm answers and wh
 example picker fills the form and moves focus, Guided and Advanced keep their choice, the five stage
 names carry their plain-words help, the journey shows where the person is without acting as
 navigation, and the first screen and a project's workspace pass axe in each theme at a desktop and at
-a phone width, with reduced motion respected. The whole path from the question to the brief is also
-walked, through the routes the pages use, by `lab-journey.test.ts`.
+a phone width, with reduced motion respected; and `public-page.spec.ts`: **Fetch page** answers in
+place, by the button and by Enter, without submitting or emptying the entry form around it. The whole
+path from the question to the brief is also walked, through the routes the pages use, by
+`lab-journey.test.ts`; no browser test walks all of it yet.
 
 ## Mutation checks on security code
 
@@ -346,7 +348,11 @@ directory (never your own data):
   the workspace (five stage names with their plain-words help, the twelve-step journey that shows where
   the person is and is not navigation, the project tools, the report stage open for the brief and the
   critics), and the first screen and a project's workspace under axe, contrast, target-size and overflow
-  checks in each theme at 1440 and at 390 px, plus reduced motion. Add a lab spec to this folder and it
+  checks in each theme at 1440 and at 390 px, plus reduced motion. `public-page.spec.ts` fetches two
+  refused addresses (so it needs no network), by the button and by Enter, because **Fetch page** sits
+  inside the entry form and a form nested in a form is not submitted by a real browser the way a
+  page's handlers expect: the answer must appear in place, the entry form must keep its question,
+  nothing else may be posted and the page must not navigate. Add a lab spec to this folder and it
   runs here.
 
 The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
