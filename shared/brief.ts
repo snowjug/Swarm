@@ -155,10 +155,18 @@ export const validationExperimentSchema = z.object({
   /** The assumptions or findings the experiment would test. */
   targets: z.array(z.string().max(120)).min(1).max(6),
   question: line(300),
+  /** What is collected and how. */
   method: line(400),
+  /** The decision rule. It is left for the person to set, since the simulation supplies no value for it. */
   successSignal: line(300),
   effort: z.enum(['low', 'medium', 'high']),
   duration: line(80),
+  /** What would be observed in the world, in the scenario's own words. Empty in a brief made before it was stated. */
+  measure: line(400).default(''),
+  /** What it is compared with: a comparable group that is not exposed, or the same group before the change. */
+  comparison: line(300).default(''),
+  /** The function that would run the check. */
+  ownerFunction: line(120).default(''),
 });
 export type ValidationExperiment = z.infer<typeof validationExperimentSchema>;
 
@@ -236,11 +244,14 @@ export type DecisionBrief = z.infer<typeof decisionBriefSchema>;
 export const BRIEF_EXPORT_FORMATS = ['md', 'json', 'html'] as const;
 export type BriefExportFormat = (typeof BRIEF_EXPORT_FORMATS)[number];
 
-/** Mean, lowest and highest number of simulated members over the seeded runs of one variant. */
+/**
+ * Mean, lowest and highest over the seeded runs of one variant. The range is null where only the mean
+ * could be worked out: a count of simulated members whose per-run results were not stored.
+ */
 export interface BriefSpread {
   mean: number;
-  min: number;
-  max: number;
+  min: number | null;
+  max: number | null;
 }
 
 export interface BriefOutcomeRow {
@@ -248,11 +259,22 @@ export interface BriefOutcomeRow {
   label: string;
   kind: 'baseline' | 'alternative';
   runs: number;
-  /** Simulated members in one run: key actors and the sampled members of each cohort. */
-  members: number;
-  responses: ({ category: ResponseCategory } & BriefSpread)[];
-  /** Members who ended up looking for an alternative or resisting. */
-  adverse: BriefSpread;
+  /**
+   * Simulated members in one run: key actors and the sampled members of each cohort. How many are
+   * sampled for a group is a numerical resolution of the simulation, not a population. Null when the
+   * stored analysis kept no per-actor results to add up.
+   */
+  members: number | null;
+  /** The share of simulated members in each response, every actor counting equally: what the brief leads with. */
+  shares: ({ category: ResponseCategory } & BriefSpread)[];
+  /** The share ending in switch or resist, every actor counting equally, over the runs. */
+  adverseShare: BriefSpread;
+  /** Simulated members in each response; null with `members`. A mean only unless `perRun`. */
+  responses: ({ category: ResponseCategory } & BriefSpread)[] | null;
+  /** Members who ended up looking for an alternative or resisting; null with `members`. */
+  adverse: BriefSpread | null;
+  /** Whether every run's own per-actor results were stored, so that a count has a range over the runs. */
+  perRun: boolean;
   /** Mean final stance of the simulated members, from -1 (against) to 1 (in favour). */
   stanceMean: number;
 }
@@ -260,8 +282,15 @@ export interface BriefOutcomeRow {
 export interface BriefComparisonRow {
   variantId: string;
   label: string;
-  members: number;
-  adverseMean: number;
+  members: number | null;
+  /** The share ending in switch or resist, every actor counting equally, under this variant and the baseline. */
+  adverseShare: number;
+  baselineAdverseShare: number | null;
+  /** The mean paired difference of that share against the baseline, on the same seeds, and its standard error. */
+  shareDelta: number | null;
+  shareDeltaError: number | null;
+  /** Mean number of simulated members ending in switch or resist; null when no per-actor results were stored. */
+  adverseMean: number | null;
   baselineAdverseMean: number | null;
   /** Change in the mean number of adverse members against the baseline, on the same seeds. */
   adverseDelta: number | null;
@@ -269,7 +298,7 @@ export interface BriefComparisonRow {
   stanceDelta: number | null;
   /** Seeds that were run under both this variant and the baseline. */
   pairedRuns: number;
-  /** Paired seeds in which more simulated members ended up adverse than under the baseline. */
+  /** Paired seeds in which the share ending in switch or resist was higher than under the baseline. */
   worseInRuns: number;
   /** The finding that states the direction against the baseline, when the analysis recorded one. */
   findingId: string | null;
