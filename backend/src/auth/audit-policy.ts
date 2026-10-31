@@ -235,6 +235,20 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   },
 
   // [stakeholders audit]
+  // Recorded by the route, in the transaction of the change, with counts only: never a name or a quote.
+  'GET /api/projects/:id/stakeholders': reads('Reads the stakeholder list of an experiment.'),
+  'POST /api/projects/:id/stakeholders/discover': {
+    kind: 'inside',
+    action: 'stakeholders.discovered',
+  },
+  'PUT /api/projects/:id/stakeholders': { kind: 'inside', action: 'stakeholders.edited' },
+  'POST /api/projects/:id/stakeholders/approve': {
+    kind: 'inside',
+    action: 'stakeholders.approved',
+  },
+  'GET /api/projects/:id/actors': reads('Reads the actors of an experiment.'),
+  'POST /api/projects/:id/actors/generate': { kind: 'inside', action: 'actors.generated' },
+  'PUT /api/projects/:id/actors': { kind: 'inside', action: 'actors.edited' },
 
   // [analysis audit]
   'GET /api/projects/:id/analysis': reads(

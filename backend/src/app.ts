@@ -43,6 +43,7 @@ import type { PublicFetcher } from './ingest/url/fetcher.js';
 import { scenarioRoutes } from './routes/scenario.js';
 
 // [stakeholders imports]
+import { stakeholderRoutes } from './routes/stakeholders.js';
 
 // [analysis imports]
 import { analysisRoutes, type AnalysisServiceOptions } from './routes/analysis.js';
@@ -359,6 +360,7 @@ export async function buildApp(options: AppOptions) {
   scenarioRoutes(app, repository, config, modelFactory, config.rateLimitScale);
 
   // [stakeholders routes]
+  stakeholderRoutes(app, repository, modelFactory, config.provider, config.rateLimitScale);
 
   // [analysis routes]
   analysisRoutes(app, repository, options.analysis ?? {}, config.rateLimitScale);

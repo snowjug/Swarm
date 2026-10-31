@@ -116,6 +116,15 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'PUT /api/projects/:id/scenario': project('edit'),
 
   // [stakeholders policy]
+  // Finding stakeholders and making actors may ask a model, so they need the right to run; changing
+  // what was found, approving it and changing an actor need the right to edit.
+  'GET /api/projects/:id/stakeholders': project('read'),
+  'POST /api/projects/:id/stakeholders/discover': project('run'),
+  'PUT /api/projects/:id/stakeholders': project('edit'),
+  'POST /api/projects/:id/stakeholders/approve': project('edit'),
+  'GET /api/projects/:id/actors': project('read'),
+  'POST /api/projects/:id/actors/generate': project('run'),
+  'PUT /api/projects/:id/actors': project('edit'),
 
   // [analysis policy]
   'GET /api/projects/:id/analysis': project('read'),

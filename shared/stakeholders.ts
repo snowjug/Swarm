@@ -79,12 +79,20 @@ export const evidenceRefSchema: z.ZodType<EvidenceRef> = z.object({
   conflictId: z.string().max(80).optional(),
 });
 
+/**
+ * Where a number or a judgement came from: a passage of the evidence, a person, an assumption Swarm
+ * made from the category, or a model's reading. It is shown beside every actor trait.
+ */
+export const TRAIT_ORIGINS = ['evidence', 'user', 'system-assumption', 'model'] as const;
+export type TraitOrigin = (typeof TRAIT_ORIGINS)[number];
+
 export const UNCERTAINTY_LEVELS = ['low', 'medium', 'high'] as const;
 export type UncertaintyLevel = (typeof UNCERTAINTY_LEVELS)[number];
 export const uncertaintySchema = z.object({
   level: z.enum(UNCERTAINTY_LEVELS),
   reason: line(300),
 });
+export type Uncertainty = z.infer<typeof uncertaintySchema>;
 
 export const stakeholderSchema = z.object({
   id: idSchema,
@@ -106,6 +114,8 @@ export const stakeholderSchema = z.object({
     .object({
       direction: z.enum(['harmed', 'benefited', 'mixed', 'unclear']),
       rationale: line(400).default(''),
+      /** Who set the direction. Absent means a category default, which is a system assumption. */
+      origin: z.enum(TRAIT_ORIGINS).optional(),
     })
     .default({ direction: 'unclear', rationale: '' }),
   evidence: z.array(evidenceRefSchema).max(8).default([]),
@@ -138,7 +148,10 @@ export const stakeholderSetSchema = z.object({
     /** What discovery could and could not do, in a sentence a person can read. */
     note: line(500).default(''),
   }),
-  /** Kinds of stakeholder, or named roles, that nothing was found for. */
+  /**
+   * Kinds of stakeholder, or named roles, that nothing was found for: a category id such as
+   * `regulator` when no stakeholder of that category was found, or a few words naming a role.
+   */
   gaps: z.array(line(300)).max(20).default([]),
   /** Set when the person approved the set; actors are generated only from an approved set. */
   approvedAt: z.iso.datetime().nullable().default(null),
@@ -148,9 +161,6 @@ export type StakeholderSet = z.infer<typeof stakeholderSetSchema>;
 // ---------------------------------------------------------------------------------------------
 // Actors
 // ---------------------------------------------------------------------------------------------
-
-export const TRAIT_ORIGINS = ['evidence', 'user', 'system-assumption', 'model'] as const;
-export type TraitOrigin = (typeof TRAIT_ORIGINS)[number];
 
 /** One number the engine uses, with where it came from, so that no trait is an unexplained input. */
 export const traitSchema = z.object({
@@ -256,5 +266,34 @@ export const actorSetSchema = z.object({
   mode: z.enum(['rules', 'model', 'user']),
   /** The revision of the stakeholder set these were made from. */
   stakeholderRevision: z.int().min(1),
+  /** What generation could and could not do, in a sentence a person can read. */
+  note: line(500).default(''),
 });
 export type ActorSet = z.infer<typeof actorSetSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// What the routes answer
+// ---------------------------------------------------------------------------------------------
+
+/** Whether a model can be used for this project's discovery, and if not, why, in plain words. */
+export interface ModelAvailability {
+  available: boolean;
+  reason: string | null;
+}
+
+/** `GET /api/projects/:id/stakeholders`. `stakeholders` is null for a project that has none yet. */
+export interface StakeholdersView {
+  stakeholders: StakeholderSet | null;
+  revision: number | null;
+  model: ModelAvailability;
+  may: { edit: boolean; run: boolean };
+}
+
+/** `GET /api/projects/:id/actors`. `stale` means the stakeholders changed after these actors were made. */
+export interface ActorsView {
+  actors: ActorSet | null;
+  revision: number | null;
+  stale: boolean;
+  model: ModelAvailability;
+  may: { edit: boolean; run: boolean };
+}
