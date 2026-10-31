@@ -1,9 +1,14 @@
-import type { Analysis, Finding } from '../../../../shared/analysis';
+import type { Analysis, Finding, Variant } from '../../../../shared/analysis';
+import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
 import {
+  SHOWN_FINDINGS,
   STABILITY,
+  cannotMoveAnyone,
   chainOf,
+  comparisonSummary,
   durationText,
   holdsText,
+  rankFindings,
   unsupportedSensitive,
   variantDistributions,
 } from '../../lib/analysis';
@@ -12,38 +17,81 @@ import { ToneChip } from '../console/LedgerParts';
 import { Notice } from '../ui';
 import { BandChart, DistributionBars, SensitivityBars } from './AnalysisCharts';
 
-/** What was found, each with how often it held across the seeded runs and what that does and does not mean. */
-export function FindingsList({ findings }: { findings: Finding[] }) {
+/** One finding: what was counted, how often it held across the seeded runs, and what that class does and does not mean. */
+function FindingItem({ finding }: { finding: Finding }) {
+  const stability = STABILITY[finding.classification];
+  return (
+    <li className="analysis-finding">
+      <p className="analysis-finding-statement">{finding.statement}</p>
+      <p className="analysis-finding-count">
+        <ToneChip tone={stability.tone} label={stability.label} />
+        <span>It {holdsText(finding)}.</span>
+      </p>
+      <details className="analysis-predicate">
+        <summary>What this means and how it was tested</summary>
+        <p>{stability.explain(finding.of)}</p>
+        <p>{finding.predicate}</p>
+      </details>
+    </li>
+  );
+}
+
+/**
+ * What was found: the findings to read first, each with how often it held across the seeded runs, and
+ * the rest one disclosure away. Each says what it counted and what its class does and does not mean.
+ */
+export function FindingsList({
+  findings,
+  variants,
+}: {
+  findings: Finding[];
+  variants: Pick<Variant, 'id' | 'kind'>[];
+}) {
   if (findings.length === 0) {
     return <p className="field-help">No findings could be counted from these runs.</p>;
   }
+  const ranked = rankFindings(findings, variants);
+  const shown = ranked.slice(0, SHOWN_FINDINGS);
+  const rest = ranked.slice(SHOWN_FINDINGS);
   return (
     <>
       <p className="field-help">
         Each finding is a statement that is either true of a seeded run or not. “Repeatable”
         describes how steady it is under the simulation’s own randomness. It is not the chance of
-        anything happening in the world.
+        anything happening in the world. The repeatable findings, and any rare outcome that a change
+        might set off, come first; then the mostly repeatable ones, then the unstable ones.
       </p>
       <ol className="analysis-findings">
-        {findings.map((finding) => {
-          const stability = STABILITY[finding.classification];
-          return (
-            <li key={finding.id} className="analysis-finding">
-              <p className="analysis-finding-statement">{finding.statement}</p>
-              <p className="analysis-finding-count">
-                <ToneChip tone={stability.tone} label={stability.label} />
-                <span>It {holdsText(finding)}.</span>
-              </p>
-              <p className="field-help">{stability.explain(finding.of)}</p>
-              <details className="analysis-predicate">
-                <summary>How this was tested</summary>
-                <p>{finding.predicate}</p>
-              </details>
-            </li>
-          );
-        })}
+        {shown.map((finding) => (
+          <FindingItem key={finding.id} finding={finding} />
+        ))}
       </ol>
+      {rest.length > 0 && (
+        <details className="analysis-more">
+          <summary>Show all {findings.length} findings</summary>
+          <p className="field-help">The other {rest.length}, in the same order.</p>
+          <ol className="analysis-findings" start={shown.length + 1}>
+            {rest.map((finding) => (
+              <FindingItem key={finding.id} finding={finding} />
+            ))}
+          </ol>
+        </details>
+      )}
     </>
+  );
+}
+
+/** Three lines first, made only of what the comparison already states, so that the answer is not buried under its evidence. */
+export function ComparisonSummary({ analysis }: { analysis: Analysis }) {
+  return (
+    <section className="analysis-section" aria-labelledby="analysis-summary-title">
+      <h3 id="analysis-summary-title">What this comparison says</h3>
+      <ul className="analysis-says">
+        {comparisonSummary(analysis).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -125,13 +173,21 @@ export function Reliability({ analysis }: { analysis: Analysis }) {
   );
 }
 
-/** Everything a finished comparison shows, in the order a decision is made: the spread, what holds, what it rests on. */
+/** Everything a finished comparison shows, in the order a decision is made: the answer, the spread, what holds, what it rests on. */
 export function AnalysisResults({ analysis }: { analysis: Analysis }) {
   const distributions = variantDistributions(analysis);
   const unsupported = unsupportedSensitive(analysis.sensitivity);
   const seeds = analysis.config.baseSeed;
+  // Where nothing can move anyone, every difference below is noise, and nothing it says is about the change.
+  const noEffect = cannotMoveAnyone(analysis);
   return (
     <div className="analysis-results">
+      {noEffect && (
+        <Notice tone="warning" title="This comparison cannot say anything about the change">
+          {NO_DIRECTION_NOTICE}
+        </Notice>
+      )}
+      <ComparisonSummary analysis={analysis} />
       <p className="analysis-meta">
         {analysis.completedAt ? `Finished ${dateTime(analysis.completedAt)}. ` : ''}
         {analysis.config.variants.length} scenarios × {analysis.config.runsPerVariant} seeded runs,
@@ -146,7 +202,7 @@ export function AnalysisResults({ analysis }: { analysis: Analysis }) {
       </section>
       <section className="analysis-section" aria-labelledby="analysis-findings-title">
         <h3 id="analysis-findings-title">What held across the seeded runs</h3>
-        <FindingsList findings={analysis.findings} />
+        <FindingsList findings={analysis.findings} variants={analysis.config.variants} />
       </section>
       {analysis.sensitivity.length > 0 ? (
         <section className="analysis-section" aria-labelledby="analysis-sensitivity-title">
@@ -163,7 +219,7 @@ export function AnalysisResults({ analysis }: { analysis: Analysis }) {
               them as hypotheses until evidence is supplied or the value is confirmed.
             </Notice>
           )}
-          <SensitivityBars rows={analysis.sensitivity} />
+          <SensitivityBars rows={analysis.sensitivity} noEffect={noEffect} />
         </section>
       ) : analysis.config.sensitivity ? (
         <section className="analysis-section">

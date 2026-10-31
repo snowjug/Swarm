@@ -26,6 +26,7 @@
 .analysis-bars,
 .analysis-findings,
 .analysis-finding,
+.analysis-says,
 .analysis-sens,
 .analysis-sens-row,
 .analysis-chain,
@@ -173,6 +174,34 @@
   font-size: 13px;
   line-height: 1.6;
 }
+/* The answer first: three short lines before any of the evidence. */
+.analysis-says {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.analysis-says > li {
+  padding: 8px 12px;
+  border-left: 3px solid var(--border);
+  background: var(--panel);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.analysis-says > li:nth-child(2) {
+  font-weight: 600;
+}
+/* The rest of a list, one disclosure away: the same rows, not a summary of them. */
+.analysis-more > summary {
+  min-height: 32px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.analysis-more > * + * {
+  margin-top: 10px;
+}
 .analysis-section {
   display: grid;
   gap: 12px;
@@ -283,12 +312,14 @@
 /* The browser's own marker is hidden for every disclosure, so each says it can be opened. */
 .analysis-table-toggle > summary::before,
 .analysis-predicate > summary::before,
+.analysis-more > summary::before,
 .analysis-another > summary::before {
   margin-right: 6px;
   content: '+';
 }
 .analysis-table-toggle[open] > summary::before,
 .analysis-predicate[open] > summary::before,
+.analysis-more[open] > summary::before,
 .analysis-another[open] > summary::before {
   content: '−';
 }

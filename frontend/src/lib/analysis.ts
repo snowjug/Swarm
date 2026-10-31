@@ -10,6 +10,7 @@ import {
   type Variant,
 } from '../../../shared/analysis';
 import { MAX_TOTAL_RUNS, USER_SET_NOTE, planRuns } from '../../../shared/analysis-plan';
+import { changeCanMoveAnyone } from '../../../shared/signal';
 import type { Actor } from '../../../shared/stakeholders';
 import type { Tone } from './ledger';
 
@@ -143,6 +144,29 @@ export const SENSITIVITY: Record<SensitivityClass, { label: string; tone: Tone; 
     },
   };
 
+/** Whether the comparison's own cast and scenarios give the change any way to move anyone. */
+export const cannotMoveAnyone = (analysis: Pick<Analysis, 'actors' | 'config'>): boolean =>
+  !changeCanMoveAnyone(analysis.actors, analysis.config.variants);
+
+/**
+ * What a "robust" row says where the change cannot move anyone. Almost nothing changed when the
+ * assumption was moved because there was nothing to change, which is not the same as the result
+ * standing up to the assumption, so it must not read as a finding.
+ */
+export const NO_EFFECT_TO_TEST = {
+  label: 'No effect to test',
+  tone: 'neutral' as Tone,
+  explain:
+    'The change cannot move anyone under these assumptions, so there was no effect for this assumption to change. That is not evidence that the result is robust.',
+};
+
+export function sensitivityView(
+  classification: SensitivityClass,
+  noEffect: boolean,
+): { label: string; tone: Tone; explain: string } {
+  return noEffect && classification === 'robust' ? NO_EFFECT_TO_TEST : SENSITIVITY[classification];
+}
+
 export const ORIGIN: Record<
   SensitivityRow['assumptionOrigin'],
   { label: string; tone: Tone; evidenced: boolean }
@@ -165,6 +189,93 @@ export const unsupportedSensitive = (rows: readonly SensitivityRow[]): Sensitivi
       row.classification === 'assumption-sensitive' &&
       (row.assumptionOrigin === 'system-assumption' || row.assumptionOrigin === 'model'),
   );
+
+/** How many findings and assumptions the results show at once; the rest are one disclosure away, unchanged. */
+export const SHOWN_FINDINGS = 8;
+export const SHOWN_ASSUMPTIONS = 6;
+
+/**
+ * A rare finding is material when it is about what a change might set off, an adverse threshold being
+ * crossed or a follow-on event, under a scenario that is not the baseline. How seldom the threshold was
+ * crossed, even never, is what the person asked the comparison to find out. A rare ordering is not
+ * material, and nor is anything under the baseline, which is only the reference.
+ */
+const isMaterialRare = (finding: Finding, baselines: ReadonlySet<string>): boolean =>
+  finding.classification === 'rare' &&
+  (finding.kind === 'threshold-crossing' || finding.kind === 'second-order-event') &&
+  !baselines.has(finding.variantId);
+
+/**
+ * The findings in the order to read them: the repeatable ones and the rare ones that matter first, then
+ * the mostly repeatable, then the unstable, and last the rare ones that do not matter. Within each the
+ * order the server gave, which puts the change before its alternatives and the baseline last.
+ */
+export function rankFindings(
+  findings: readonly Finding[],
+  variants: readonly Pick<Variant, 'id' | 'kind'>[],
+): Finding[] {
+  const baselines = new Set(
+    variants.filter((variant) => variant.kind === 'baseline').map((variant) => variant.id),
+  );
+  const bucket = (finding: Finding): number => {
+    switch (finding.classification) {
+      case 'repeatable':
+        return 0;
+      case 'mostly-repeatable':
+        return 1;
+      case 'unstable':
+        return 2;
+      case 'rare':
+        return isMaterialRare(finding, baselines) ? 0 : 3;
+    }
+  };
+  return findings
+    .map((finding, index) => ({ finding, index, bucket: bucket(finding) }))
+    .sort((a, b) => a.bucket - b.bucket || a.index - b.index)
+    .map((entry) => entry.finding);
+}
+
+const nameList = (names: readonly string[]): string => {
+  if (names.length <= 1) return names[0] ?? '';
+  if (names.length > 4) return `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`;
+  return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+};
+
+/**
+ * Three short lines that say what the comparison found, made only of what it already states: which
+ * scenarios were compared and how many seeded runs of each, the finding that states the direction of the
+ * proposed change against the baseline, and whether that finding is repeatable. Where the change cannot
+ * move anyone there is no direction to state, and it says so instead.
+ */
+export function comparisonSummary(analysis: Analysis): string[] {
+  const { variants, runsPerVariant } = analysis.config;
+  const compared = `Compared ${nameList(variants.map((variant) => variant.label))}: ${runsPerVariant} seeded runs of each, on the same seeds.`;
+  if (cannotMoveAnyone(analysis)) {
+    return [
+      compared,
+      'Nothing in the change can move anyone in this cast, so a difference from no change below is noise and not an effect of the change.',
+      'Say who is helped or harmed in the stakeholder review, then compare again.',
+    ];
+  }
+  const proposed = variants.find((variant) => variant.kind === 'alternative');
+  const direction = proposed
+    ? analysis.findings.find(
+        (finding) => finding.kind === 'direction-vs-baseline' && finding.variantId === proposed.id,
+      )
+    : undefined;
+  if (!direction) {
+    return [
+      compared,
+      'No finding sets the proposed change against the baseline on the same seeds.',
+      'Read the findings below for what did hold.',
+    ];
+  }
+  return [
+    compared,
+    direction.statement,
+    `${STABILITY[direction.classification].label}: it ${holdsText(direction)}.`,
+  ];
+}
 
 export interface ChainStep {
   id: string;
@@ -221,23 +332,71 @@ export interface EstimateInput {
   runsPerVariant: number;
   sensitivity: boolean;
   perturbations: number;
+  /** The simulated members of the cast (a key actor counts as one) and the rounds of a run: what sets how long a run takes. */
+  members: number;
+  rounds: number;
+}
+
+/**
+ * What one seeded run takes, from measurement and not from any stand-in engine. The simulator's benchmark
+ * (docs/analysis/engine-benchmark.md) puts a run of its typical cast, 600 simulated members over 24
+ * rounds, at about 2 to 3 ms, and the comparison of the Copilot in Teams example on the real routes (25
+ * actors, 334 simulated members, 12 rounds, 1,201 runs with the summaries, findings and sensitivity
+ * around them) took 2.7 and 3.2 ms a run. A cast with more member updates (members times rounds) than
+ * the typical one takes proportionally longer: 12,000 members over 12 rounds ran at 17 to 18.5 ms. A
+ * smaller cast is not counted as faster, because what a run costs apart from its members (checking the
+ * actors, what each actor reports each round) does not shrink with them.
+ */
+export const TYPICAL_RUN_MS = { low: 2, high: 3 } as const;
+export const TYPICAL_MEMBER_ROUNDS = 600 * 24;
+
+export function estimateRunMs(members: number, rounds: number): { low: number; high: number } {
+  const scale = Math.max(1, (members * rounds) / TYPICAL_MEMBER_ROUNDS);
+  return { low: TYPICAL_RUN_MS.low * scale, high: TYPICAL_RUN_MS.high * scale };
 }
 
 export function estimate(input: EstimateInput) {
   return planRuns(input);
 }
 
+/** A span of milliseconds said roughly, in whole seconds or minutes, so that it claims no more than it knows. */
+export function durationRangeText(lowMs: number, highMs: number): string {
+  if (highMs < 1_000) return 'under a second';
+  const step = highMs < 10_000 ? 1_000 : highMs < 60_000 ? 5_000 : 60_000;
+  const per = step === 60_000 ? 60_000 : 1_000;
+  const unit = step === 60_000 ? 'minute' : 'second';
+  const say = (ms: number): string => `${ms / per} ${unit}${ms === per ? '' : 's'}`;
+  const high = Math.ceil(highMs / step) * step;
+  const low = Math.floor(lowMs / step) * step;
+  if (low <= 0) return `under ${say(high)}`;
+  if (low >= high) return `about ${say(high)}`;
+  return `about ${low / per} to ${say(high)}`;
+}
+
+/** How long a comparison of this size takes, from the engine's measured speed; null when the size of the cast is not known. */
+export function estimateWallText(input: EstimateInput): string | null {
+  if (input.members < 1) return null;
+  const { low, high } = estimateRunMs(input.members, input.rounds);
+  const { totalRuns } = estimate(input);
+  return durationRangeText(totalRuns * low, totalRuns * high);
+}
+
+/** One line under the estimate that says where its time comes from. */
+export const ESTIMATE_BASIS =
+  'The time is estimated from the engine’s measured speed, not an assumed one: about 2 to 3 ms a run for a typical cast (600 simulated members over 24 rounds), and more for a larger one. A busy server takes longer.';
+
 export function estimateText(input: EstimateInput, lastWallMs: number | null): string {
   const plan = estimate(input);
   const sensitivity =
     plan.sensitivityRuns > 0
-      ? `, plus ${plan.sensitivityRuns.toLocaleString('en-GB')} for sensitivity (${plan.sensitivitySeeds} seeds, ${input.perturbations} assumptions moved one at a time)`
+      ? `, plus ${plan.sensitivityRuns.toLocaleString('en-GB')} for sensitivity (${plan.sensitivitySeeds} seeds, ${input.perturbations} assumptions moved one at a time): ${plan.totalRuns.toLocaleString('en-GB')} in all`
       : '';
+  const time = estimateWallText(input);
   const last =
     lastWallMs === null
       ? ''
       : ` The last comparison on this project took ${durationText(lastWallMs)}.`;
-  return `This runs ${plan.mainRuns.toLocaleString('en-GB')} simulated runs (${input.variants} scenarios × ${input.runsPerVariant} seeds)${sensitivity}. No model is called, so it costs server time only.${last}`;
+  return `This runs ${plan.mainRuns.toLocaleString('en-GB')} simulated runs (${input.variants} scenarios × ${input.runsPerVariant} seeds)${sensitivity}. No model is called, so it costs server time only${time ? `, ${time}` : ''}.${last}`;
 }
 
 /** What stops a comparison from starting, in words, for the form to show beside the button. */

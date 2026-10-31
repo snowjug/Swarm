@@ -9,7 +9,7 @@ import { ScenarioSetup, type SetupSettings } from './ScenarioSetup';
 
 export interface AnalysisPanelProps {
   project: ProjectDetail;
-  /** When given, the empty state offers a way to the step where the actors are made. */
+  /** When given, the empty state and the warning about who the change affects offer a way to the step where that is said. */
   onOpenStep?: (step: 'environment') => void;
 }
 
@@ -232,6 +232,7 @@ export function AnalysisView({
               error={null}
               submitLabel="Compare scenarios again"
               onStart={(input) => void state.start(input)}
+              onOpenStep={onOpenStep}
             />
           </details>
         ) : (
@@ -241,6 +242,7 @@ export function AnalysisView({
             starting={state.starting}
             error={state.startError}
             onStart={(input) => void state.start(input)}
+            onOpenStep={onOpenStep}
           />
         )}
       </>
