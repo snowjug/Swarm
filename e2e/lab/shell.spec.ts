@@ -256,6 +256,43 @@ test.describe('the workspace', () => {
     await expect(path.locator('.journey-step.done')).toHaveCount(5);
   });
 
+  const STEPS = [
+    'Question',
+    'Evidence',
+    'Stakeholders',
+    'Actors',
+    'Scenarios',
+    'Run',
+    'Progress',
+    'Results',
+    'Explore',
+    'Change',
+    'Compare',
+    'Export',
+  ];
+  for (const size of [
+    { name: 'a desktop', width: 1440, height: 900 },
+    { name: 'a phone', width: 390, height: 844 },
+  ]) {
+    test(`names every step of the path to a screen reader on ${size.name}, drawn or not`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await page.goto(`/?project=${ids.environment}`);
+      const steps = page
+        .getByRole('group', { name: 'Your path through the scenario' })
+        .getByRole('list');
+      await expect(steps).toBeVisible();
+      // The accessibility tree is what a screen reader reads: each step by its name, then where it stands.
+      await expect(steps).toMatchAriaSnapshot(
+        [
+          '- list:',
+          ...STEPS.map((step) => `  - listitem: /^${step}\\s*, (in view, )?(done|not done yet)$/`),
+        ].join('\n'),
+      );
+    });
+  }
+
   test('puts the help away in Advanced, and keeps every stage reachable', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('swarm.mode', 'advanced'));
     await page.goto(`/?project=${ids.environment}`);
