@@ -203,9 +203,7 @@ export class InteractionService {
         // When nothing at all can be cited, requiring a citation would only force an abstention
         // the gate has already ruled out; the answer is allowed and shown as unverified instead.
         const citable = evidence.length + memories.length + ledgerClaims.length > 0;
-        const model = this.createModel((usage) =>
-          this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
-        );
+        const model = this.createModel(this.repository.modelUse(id));
         const invoke = () =>
           jsonValidated(
             model,
@@ -429,11 +427,7 @@ export class InteractionService {
     );
     deadline.unref();
     const model =
-      input.kind === 'interview'
-        ? this.createModel((usage) =>
-            this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
-          )
-        : null;
+      input.kind === 'interview' ? this.createModel(this.repository.modelUse(id)) : null;
     const task = executeSurvey(this.repository, id, record.id, model, controller.signal)
       .catch((error: unknown) => {
         const failure =

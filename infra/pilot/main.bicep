@@ -73,6 +73,16 @@ param logRetentionDays int = 30
 @description('Daily Log Analytics ingestion cap in GB, as text (for example 0.5). -1 removes the cap.')
 param dailyLogCapGb string = '0.5'
 
+@description('Most model calls one project may make in all, unless a workspace owner or administrator gives it a limit of its own (PROJECT_MODEL_CALL_LIMIT). 0 is no limit. A recorded demonstration scenario of three runs is about 200 calls.')
+@minValue(0)
+@maxValue(1000000000)
+param projectModelCallLimit int = 1500
+
+@description('Most tokens, input and output together, one project may use in all (PROJECT_MODEL_TOKEN_LIMIT). 0 is no limit. A recorded demonstration scenario of three runs is about 600,000 tokens. At the price of the existing deployment the default is a few US dollars at most per project.')
+@minValue(0)
+@maxValue(1000000000)
+param projectModelTokenLimit int = 4000000
+
 var baseName = toLower(environmentName)
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var workspaceName = 'log-${baseName}'
@@ -185,6 +195,8 @@ module app 'modules/container-app.bicep' = {
     azureOpenAiEndpoint: empty(azureOpenAiEndpoint) ? 'https://${aiAccountName}.openai.azure.com/' : azureOpenAiEndpoint
     appInsightsConnectionString: monitoring.outputs.appInsightsConnectionString
     sourceUrl: sourceUrl
+    projectModelCallLimit: projectModelCallLimit
+    projectModelTokenLimit: projectModelTokenLimit
   }
   dependsOn: [aiAccess]
 }

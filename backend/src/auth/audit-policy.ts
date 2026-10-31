@@ -76,6 +76,7 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'GET /api/session': reads('Whether, how and until when the caller is signed in.'),
   'GET /api/workspace/members': reads('Lists who belongs to the workspace and in what role.'),
   'GET /api/projects/:id/members': reads('Lists who may use the experiment and in what role.'),
+  'GET /api/projects/:id/budget': reads('Reads what the project has used and may use.'),
 
   'PUT /api/workspace/members/:principalId': {
     kind: 'inside',
@@ -94,6 +95,17 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'DELETE /api/projects/:id/members/:principalId': {
     kind: 'inside',
     action: 'project.member.removed',
+  },
+
+  'PUT /api/projects/:id/budget': {
+    kind: 'request',
+    action: 'project.budget.changed',
+    detail: (request) => ({
+      callLimit:
+        typeof body(request).callLimit === 'number' ? (body(request).callLimit as number) : null,
+      tokenLimit:
+        typeof body(request).tokenLimit === 'number' ? (body(request).tokenLimit as number) : null,
+    }),
   },
 
   'POST /api/projects/:id/chat': {

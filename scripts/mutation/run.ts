@@ -7,7 +7,7 @@
  * run fails: it means a rule could be deleted without anyone being told.
  *
  *   npm run mutation:security                     every mutation (about half an hour)
- *   npm run mutation:security -- --area=sign-in   one rule set: membership, sign-in, storage, jobs, telemetry, studio or analyst
+ *   npm run mutation:security -- --area=sign-in   one rule set: membership, sign-in, storage, jobs, telemetry, studio, analyst, budget or access
  *   npm run mutation:security -- --only=M3,S8     named mutations
  *   npm run mutation:security -- --list           what would run
  *

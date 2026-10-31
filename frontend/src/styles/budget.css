@@ -1,0 +1,67 @@
+/* The model budget of a project. Colour comes only from the tone variables that the tone chip and the
+   verdict colours already use, so that it follows the theme and is never the only cue: every row
+   also says its state in words and its use in numbers. */
+.budget-panel {
+  min-width: 0;
+}
+.budget-rows {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.budget-row {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.budget-row-head,
+.budget-row-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.budget-row-head strong {
+  font-size: 14px;
+}
+.budget-row-foot {
+  font-size: 13px;
+}
+.budget-source {
+  color: var(--muted);
+  font-size: 12px;
+}
+.budget-meter {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--tone-line);
+  border-radius: 999px;
+  background: var(--tone-tint);
+}
+.budget-meter-none {
+  border-style: dashed;
+}
+.budget-meter-fill {
+  height: 100%;
+  background: var(--tone-color);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .budget-meter-fill {
+    transition: width 0.25s ease;
+  }
+}
+.budget-form {
+  padding-top: 4px;
+  border-top: 1px solid var(--border-soft);
+}
+.budget-form h3 {
+  margin: 8px 0 0;
+  font-size: 15px;
+}

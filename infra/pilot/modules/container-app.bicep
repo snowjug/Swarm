@@ -57,6 +57,12 @@ param appInsightsConnectionString string
 @description('Public HTTPS address of the exact source version (SOURCE_URL). Empty omits the setting.')
 param sourceUrl string = ''
 
+@description('Most model calls one project may make in all (PROJECT_MODEL_CALL_LIMIT); 0 is no limit.')
+param projectModelCallLimit int = 0
+
+@description('Most tokens, input and output together, one project may use in all (PROJECT_MODEL_TOKEN_LIMIT); 0 is no limit.')
+param projectModelTokenLimit int = 0
+
 var targetPort = 3001
 var memoryByCpu = {
   '0.25': '0.5Gi'
@@ -137,6 +143,8 @@ var baseEnvironment = [
   { name: 'TRUST_PROXY', value: '1' }
   { name: 'RATE_LIMIT_SCALE', value: '1' }
   { name: 'SWARM_ROLE', value: 'all' }
+  { name: 'PROJECT_MODEL_CALL_LIMIT', value: string(projectModelCallLimit) }
+  { name: 'PROJECT_MODEL_TOKEN_LIMIT', value: string(projectModelTokenLimit) }
 ]
 var sourceEnvironment = empty(sourceUrl) ? [] : [{ name: 'SOURCE_URL', value: sourceUrl }]
 

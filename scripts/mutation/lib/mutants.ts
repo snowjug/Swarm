@@ -6,8 +6,18 @@ import { z } from 'zod';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 export const mutantSchema = z.object({
-  id: z.string().regex(/^[MSPJTRA][0-9]{1,3}$/u),
-  area: z.enum(['membership', 'sign-in', 'storage', 'jobs', 'telemetry', 'studio', 'analyst']),
+  id: z.string().regex(/^[MSPJTRABU][0-9]{1,3}$/u),
+  area: z.enum([
+    'membership',
+    'sign-in',
+    'storage',
+    'jobs',
+    'telemetry',
+    'studio',
+    'analyst',
+    'budget',
+    'access',
+  ]),
   /** What would be wrong if the rule were not there, in one sentence. */
   claim: z.string().min(10).max(200),
   /** Relative to the repository root, with forward slashes. */

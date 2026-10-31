@@ -11,6 +11,16 @@ export interface ModelUsage {
   outputTokens: number;
 }
 
+/**
+ * Where a client reports the tokens of each call that completes. The sink may also refuse the next
+ * call, by `admit`, which is asked before every call and throws to stop it: that is how a project
+ * that has used its model budget gets no further than the question.
+ */
+export interface ModelUsageSink {
+  (usage: ModelUsage): void;
+  admit?: () => void;
+}
+
 export interface JsonOptions<T> {
   /**
    * Server-side semantic validation (IDs, citations, bounds). Throw an
@@ -171,7 +181,7 @@ export class ModelClient implements ModelGateway {
 
   constructor(
     private readonly config: ProviderConfig,
-    private readonly onUsage: (usage: ModelUsage) => void,
+    private readonly onUsage: ModelUsageSink,
     private readonly fetcher: typeof fetch = fetch,
     private readonly maxCalls = 16,
     private readonly deps: ModelClientDeps = {},
@@ -299,6 +309,7 @@ export class ModelClient implements ModelGateway {
     let tokenBudget = maxTokens;
     for (let attempt = 0; attempt <= repairs; attempt += 1) {
       throwIfAborted(signal);
+      this.onUsage.admit?.();
       this.calls += 1;
       if (this.calls > this.maxCalls)
         throw new AppError(

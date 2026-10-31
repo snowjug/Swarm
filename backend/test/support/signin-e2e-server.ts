@@ -32,6 +32,9 @@ const people = {
   stranger: { oid: 'eeeeeee2-0000-4000-8000-000000000002', roles: ['Swarm.User'] },
   // Microsoft knows them; nobody gave them a Swarm role.
   norole: { oid: 'eeeeeee3-0000-4000-8000-000000000003', roles: [] as string[] },
+  // Allowed in like the stranger, and the person the owner adds in the access tests: those tests
+  // leave the stranger alone, because the sign-in tests rely on the stranger belonging to nothing.
+  colleague: { oid: 'eeeeeee4-0000-4000-8000-000000000004', roles: ['Swarm.User'] },
 } as const;
 
 type Person = keyof typeof people;

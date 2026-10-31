@@ -21,7 +21,7 @@ Most of this is built and has never met the real thing. The state column says wh
 | 5     | Per-tenant token budgets with alerts                                                                                          | Not built                                                                                                                       | Order 4                               |
 | 6     | Bicep for hosting (Container Apps, PostgreSQL, monitoring, managed identities), validated and deployed to a test subscription | Compiles and lints; no what-if run; nothing deployed ([pilot plan](../azure/pilot-plan.md))                                     | **Approval for chargeable resources** |
 | 7     | Row-level security in PostgreSQL                                                                                              | Not built; isolation is enforced in application code only                                                                       | Order 1                               |
-| 8     | A screen for sharing a project and managing members                                                                           | Not built; members are managed through the API                                                                                  | Design                                |
+| 8     | A screen for sharing a project and managing members                                                                           | Built: People (workspace) and Access (project) screens, by Entra object ID, tested in a browser; no directory lookup            | A real tenant to try it in            |
 
 ## Phase 2: evidence quality
 

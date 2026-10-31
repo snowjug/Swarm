@@ -20,7 +20,12 @@ disagree.
 **What leaves my machine?** In rules mode, nothing. In model mode, documents and prompts go to the
 Azure OpenAI deployment you configure, in your tenant. No key is stored; the call uses an Entra token.
 
-**Does it work with Entra sign-in?** The server verifies Entra tokens, signs a person in through the browser\n(Authorization Code with PKCE, a server-side session, no token in the page), enforces seven roles through\nworkspace and project membership, and separates tenants. All of it is tested against a local test identity\nprovider, with sixteen kinds of bad token among the cases. It has never been used with a real tenant: that\nneeds an app registration only a tenant administrator can create. There is no screen for managing members.
+**Does it work with Entra sign-in?** The server verifies Entra tokens, signs a person in through the browser
+(Authorization Code with PKCE, a server-side session, no token in the page), enforces seven roles through
+workspace and project membership, and separates tenants. All of it is tested against a local test identity
+provider, with sixteen kinds of bad token among the cases. It has never been used with a real tenant: that
+needs an app registration only a tenant administrator can create. Owners, administrators and project leads
+manage who has access from the browser, by Entra object ID; there is no directory lookup.
 
 **What does a run cost?** The live scenario used about 105,000 to 121,000 input and 14,000 to 17,000
 output tokens across the last two runs. At public list prices for the deployed model that is roughly

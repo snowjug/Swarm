@@ -46,13 +46,15 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   only in live runs.
 - **The assumption register** is derived from the scenario and read-only. An analyst cannot add an
   assumption of their own.
-- **Sign-in** is verified against a test identity provider only. No real tenant has been used, and there
-  is no screen for managing members.
+- **Sign-in** is verified against a test identity provider only. No real tenant has been used. People are added
+  to a workspace or a project by Entra object ID from the People and Access screens; there is no directory
+  lookup, so the page cannot say who an ID belongs to.
 - **PostgreSQL, the job queue and telemetry** have not met the real thing: no deployed database, no
   separate worker containers, no Application Insights resource.
 - **Accessibility** is checked by automated tools at four viewports, and on the demonstration in each
   of the three themes. No assistive-technology testing has been done.
-- **Cost and budget controls** limit calls and run time. There is no per-tenant token budget.
+- **Cost and budget controls** limit calls and run time, and each project has a model budget (calls and tokens)
+  that only a workspace owner or administrator can change. There is no per-tenant total and no spend alert.
 - **Report Studio** has run on a recording, not in use. Writing a chapter again has been tested only
   against a stand-in for the provider, never a live model. An approval is a record in the application,
   not an external attestation. There is no co-editing, merge or comment thread.

@@ -11,10 +11,10 @@ easier to trust and easier to review than the team's current method?
 
 ## Two ways to run it
 
-| Option                                 | What it needs                                                                                                                                                               | When it can start                                                            |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **A. Local pilot (recommended first)** | Each analyst runs Swarm on their own machine with `az login`, using the team's existing Azure OpenAI deployment. No hosting, no database, no app registration               | As soon as the [decisions](./decisions-needed.md) and data approval are made |
-| **B. Hosted pilot**                    | The first roadmap phase: an asynchronous repository and PostgreSQL, browser sign-in with a real Entra app registration, tracing, per-tenant budgets, hosting infrastructure | After that work; weeks, not days                                             |
+| Option                                 | What it needs                                                                                                                                                                                                       | When it can start                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| **A. Local pilot (recommended first)** | Each analyst runs Swarm on their own machine with `az login`, using the team's existing Azure OpenAI deployment. No hosting, no database, no app registration                                                       | As soon as the [decisions](./decisions-needed.md) and data approval are made |
+| **B. Hosted pilot**                    | The first roadmap phase: an asynchronous repository and PostgreSQL, browser sign-in with a real Entra app registration, tracing, a per-tenant total on top of the per-project model budgets, hosting infrastructure | After that work; weeks, not days                                             |
 
 Option A suits the product as it stands: it is local first, and documents leave the machine only for
 the Azure OpenAI deployment in the team's own tenant. Option B should wait until Option A shows that

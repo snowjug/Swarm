@@ -151,6 +151,18 @@ export const PG_V7 = `
   );
 `;
 
+export const PG_V8 = `
+  CREATE TABLE IF NOT EXISTS project_usage (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    calls BIGINT NOT NULL DEFAULT 0 CHECK (calls >= 0),
+    input_tokens BIGINT NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
+    output_tokens BIGINT NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
+    call_limit INTEGER CHECK (call_limit IS NULL OR call_limit >= 0),
+    token_limit INTEGER CHECK (token_limit IS NULL OR token_limit >= 0),
+    updated_at TEXT NOT NULL
+  );
+`;
+
 /** Where the schema version is kept: SQLite has `PRAGMA user_version`, PostgreSQL has no such thing. */
 export const PG_VERSION_TABLE = `
   CREATE TABLE IF NOT EXISTS swarm_schema (

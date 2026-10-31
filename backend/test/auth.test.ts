@@ -12,6 +12,7 @@ import { parseAppRoles } from '../src/auth/roles.js';
 import { TokenVerifier, bearerToken } from '../src/auth/tokens.js';
 import { loadConfig } from '../src/config.js';
 import { AppError } from '../src/errors.js';
+import { MIGRATIONS } from '../src/storage/migrations.js';
 import { Repository } from '../src/storage/repository.js';
 import { fixtureInput, testConfig } from './fixtures.js';
 import {
@@ -458,6 +459,8 @@ describe('identifiers a route accepts outside the path', () => {
 
   it('are exactly the ones that have been looked at', () => {
     expect(uuidFields()).toEqual([
+      // In the path: vouched for by the guard.
+      'budget.ts: id',
       // In the path: vouched for by the guard.
       'guided.ts: id',
       // In the path: a survey of that experiment, always looked up within it.
@@ -1035,13 +1038,12 @@ describe('upgrading a database that has no owners', () => {
 
     const upgraded = new Repository(path);
     expect(upgraded.migration.from).toBe(2);
-    expect(upgraded.migration.applied.map((step) => step.slice(0, 2))).toEqual([
-      '3:',
-      '4:',
-      '5:',
-      '6:',
-      '7:',
-    ]);
+    // Every migration after the one it was at, in order: this must not need editing for each new one.
+    expect(upgraded.migration.applied.map((step) => step.slice(0, step.indexOf(':') + 1))).toEqual(
+      MIGRATIONS.filter((migration) => migration.version > 2).map(
+        (migration) => `${migration.version}:`,
+      ),
+    );
     expect(upgraded.ownership(project.id)).toEqual({ tenantId: 'local', ownerId: 'local-user' });
     expect(upgraded.get(project.id).name).toBe(project.name);
     expect(upgraded.list(100, 0, 'local').projects).toHaveLength(1);

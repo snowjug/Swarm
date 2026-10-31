@@ -86,15 +86,23 @@ _Alert: denial spike._ By reason: `UNAUTHENTICATED` and `SIGN_IN_REQUIRED` are p
 asking for what their role does not allow; `HOST_NOT_ALLOWED` and `ORIGIN_NOT_ALLOWED` are other sites or
 scanners. A rise of `access.refused` from one principal across many projects is probing: read the audit
 entries (`GET /api/projects/:id/audit` for each project they touched), disable the principal's access in Entra
-and remove their memberships (`DELETE /api/workspace/members/:principalId` ends their project access and
+and remove their memberships (**Remove** in the People screen, or `DELETE /api/workspace/members/:principalId`, which ends their project access and
 their sessions on the next request), and escalate.
 
 ## Spend is higher than expected
 
 `swarm.model.tokens` by day, and the per-project execution records (`modelCalls`, tokens). A single
 project with unusually many calls is a person running large scenarios; a rise in `repaired` and `failed`
-calls is the model returning invalid output and Swarm retrying. Per-tenant budgets do not exist yet: the
-control today is the per-run call budget and the queue's size.
+calls is the model returning invalid output and Swarm retrying.
+
+Each project is held to a model budget of calls and tokens ([ADR 0013](../adr/0013-per-project-model-budget.md)).
+Read it with `GET /api/projects/:id/budget` or the project's **Model budget** button, and look for
+`model.budget.exhausted` in the project's audit log: that is a project that hit its limit and was refused.
+To stop one project spending, a workspace owner or administrator lowers its limit there. To protect every
+project, lower the deployment default (`PROJECT_MODEL_CALL_LIMIT` and `PROJECT_MODEL_TOKEN_LIMIT`; in the pilot
+the Bicep parameters `projectModelCallLimit` and `projectModelTokenLimit`) and redeploy. It is per project:
+many projects, or many branches, still add up, and there is no per-tenant total, no daily limit and no spend
+alert, so keep watching `swarm.model.tokens`.
 
 ## Telemetry is missing
 

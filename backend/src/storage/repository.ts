@@ -13,6 +13,7 @@ import {
 import { AppError } from '../errors.js';
 import { hashText } from '../grounding/ledger.js';
 import { readCheckpoint } from '../guided/checkpoint.js';
+import type { ModelUsage, ModelUsageSink } from '../models/client.js';
 import { PARSER_VERSION, chunkDocuments } from '../knowledge/retrieval.js';
 import { AuditLog } from './audit.js';
 import {
@@ -30,6 +31,7 @@ import { migrate, type MigrationReport } from './migrations.js';
 import { openDatabase } from './open.js';
 import { JobStore, LEASE_HELD, jobLease } from './jobs.js';
 import { SessionStore } from './sessions.js';
+import { UsageStore } from './usage.js';
 import type { SqlDatabase } from './sql.js';
 import { parseSnapshot } from './snapshot.js';
 
@@ -78,6 +80,8 @@ export class Repository {
   readonly sessions: SessionStore;
   /** The queue of stage jobs: durable, leased, retried. */
   readonly jobs: JobStore;
+  /** What each project has spent on the model, and what it may. */
+  readonly usage: UsageStore;
   /** What the schema migration did when this database was opened. */
   readonly migration: MigrationReport;
 
@@ -113,6 +117,7 @@ export class Repository {
       this.audit,
     );
     this.sessions = new SessionStore(this.database, options.now);
+    this.usage = new UsageStore(this.database);
     this.jobs = new JobStore(
       this.database,
       (operation) => (this.database.inTransaction ? operation() : this.transaction(operation)),
@@ -558,16 +563,64 @@ export class Repository {
     const execution = this.get(projectId).execution;
     if (!execution)
       throw new Error('Model usage cannot be recorded before execution metadata exists.');
-    this.update(projectId, {
-      execution: {
-        ...execution,
-        modelCalls: execution.modelCalls + 1,
-        inputTokens: execution.inputTokens + inputTokens,
-        outputTokens: execution.outputTokens + outputTokens,
-      },
+    // The execution record is the run's; the budget is the project's, and does not go back to zero
+    // when a run starts again.
+    this.transaction(() => {
+      this.update(projectId, {
+        execution: {
+          ...execution,
+          modelCalls: execution.modelCalls + 1,
+          inputTokens: execution.inputTokens + inputTokens,
+          outputTokens: execution.outputTokens + outputTokens,
+        },
+      });
+      this.usage.record(projectId, inputTokens, outputTokens);
     });
   }
 
+  /**
+   * What a model client of one project reports to and is held back by: the tokens of each call are
+   * recorded, and a call is refused once the project has used its budget. Every client of a project
+   * is made with this, so that a budget cannot be skipped by the way a model is reached. However many
+   * calls of one client are refused (a round asks for several at once), the audit log hears of it once.
+   */
+  modelUse(projectId: string, alsoRecord?: (usage: ModelUsage) => void): ModelUsageSink {
+    let reported = false;
+    const record = (usage: ModelUsage): void => {
+      this.recordUsage(projectId, usage.inputTokens, usage.outputTokens);
+      alsoRecord?.(usage);
+    };
+    const admit = (): void => {
+      try {
+        this.usage.admit(projectId);
+      } catch (error) {
+        if (!reported && error instanceof AppError && error.code === 'PROJECT_BUDGET') {
+          reported = true;
+          this.reportBudgetExhausted(projectId);
+        }
+        throw error;
+      }
+    };
+    return Object.assign(record, { admit });
+  }
+
+  /** Counts only, and no actor: it is the system that refuses. */
+  private reportBudgetExhausted(projectId: string): void {
+    const used = this.usage.get(projectId);
+    this.audit.record({
+      actor: 'system',
+      action: 'model.budget.exhausted',
+      targetType: 'project',
+      targetId: projectId,
+      projectId,
+      detail: {
+        calls: used.calls,
+        callLimit: used.limits.callLimit,
+        tokens: used.inputTokens + used.outputTokens,
+        tokenLimit: used.limits.tokenLimit,
+      },
+    });
+  }
   recoverInterrupted(): void {
     // Every experiment of every tenant. The list is paged and newest first, and the limit on how
     // many one tenant may keep says nothing about how many the database holds, so a page would

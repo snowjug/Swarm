@@ -233,15 +233,16 @@ An unset required value stops the run **before anything is created** (the parame
 Everything else has a default and is changed with `--parameters name=value` (for azd, add a `param name = value`
 line to [`main.bicepparam`](../../infra/pilot/main.bicepparam)):
 
-| Parameter                           | Default                                    | Effect                                                                            |
-| ----------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------- |
-| `location`                          | The resource group's region                | Region of everything created                                                      |
-| `azureOpenAiEndpoint`               | `https://<account name>.openai.azure.com/` | Set it when the account uses another custom sub-domain                            |
-| `authAudience`                      | The client ID                              | The audience tokens must carry                                                    |
-| `cpu`                               | `0.5` (memory is twice that)               | `0.25`, `0.5`, `1` or `2` vCPU                                                    |
-| `minReplicas`, `maxReplicas`        | `1`, `1`                                   | `0` stops the app, and its job runner, when idle; keep `maxReplicas` at 1 for now |
-| `backupRetentionDays`               | `7`                                        | 7 to 35: how far back a restore can go                                            |
-| `logRetentionDays`, `dailyLogCapGb` | `30`, `0.5`                                | Log retention, and the daily ingestion cap (`-1` removes it)                      |
+| Parameter                                         | Default                                    | Effect                                                                                                                                         |
+| ------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `location`                                        | The resource group's region                | Region of everything created                                                                                                                   |
+| `azureOpenAiEndpoint`                             | `https://<account name>.openai.azure.com/` | Set it when the account uses another custom sub-domain                                                                                         |
+| `authAudience`                                    | The client ID                              | The audience tokens must carry                                                                                                                 |
+| `cpu`                                             | `0.5` (memory is twice that)               | `0.25`, `0.5`, `1` or `2` vCPU                                                                                                                 |
+| `minReplicas`, `maxReplicas`                      | `1`, `1`                                   | `0` stops the app, and its job runner, when idle; keep `maxReplicas` at 1 for now                                                              |
+| `backupRetentionDays`                             | `7`                                        | 7 to 35: how far back a restore can go                                                                                                         |
+| `projectModelCallLimit`, `projectModelTokenLimit` | `1500`, `4000000`                          | Most model calls, and most tokens, one project may use in all (0 is no limit); a workspace owner or administrator may give one project its own |
+| `logRetentionDays`, `dailyLogCapGb`               | `30`, `0.5`                                | Log retention, and the daily ingestion cap (`-1` removes it)                                                                                   |
 
 **With plain `az`** (preview first; it changes nothing):
 
@@ -382,8 +383,9 @@ in one transaction and audited. After that the role confers nothing, so an owner
 
 1. Assign `Swarm.Admin` to **one** named person first, and `Swarm.User` to nobody else yet.
 2. That person signs in once. They are now the owner.
-3. They add the others to the workspace and its projects (people are identified by their Entra object ID; the
-   app has no invitation by name or email).
+3. They add the others to the workspace from **People** in the header, and to projects from **Access** on each
+   project (people are identified by their Entra object ID, which is on the person's page in the Entra admin
+   centre; the app has no invitation by name or email and cannot look an ID up, so check each one).
 4. Assign `Swarm.User` to the rest.
 
 ## Backup, restore and rollback

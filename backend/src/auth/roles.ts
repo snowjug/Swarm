@@ -6,6 +6,7 @@
  *   Workspace Owner         workspace membership; everything in the workspace, and the owners
  *   Workspace Admin         workspace membership; everything in the workspace except the owners
  *   Project Lead            project membership; runs, edits, reviews, deletes and shares the project
+ *                           (and does not set its model budget, which only owners and admins may)
  *   Analyst                 project membership; runs, branches, edits the report and asks questions
  *   Reviewer                project membership; reads, exports and reviews, never runs or edits
  *   Viewer                  project membership; reads and exports
@@ -29,6 +30,7 @@ export const PROJECT_CAPABILITIES = [
   'chat',
   'delete',
   'members',
+  'budget',
 ] as const;
 export type ProjectCapability = (typeof PROJECT_CAPABILITIES)[number];
 
@@ -42,7 +44,11 @@ const PROJECT_ROLE_CAPABILITIES: Readonly<Record<ProjectRole, ReadonlySet<Projec
   reviewer: new Set<ProjectCapability>(['read', 'export', 'review']),
   // An analyst runs, writes the report and asks. They do not review their own work, delete, or share.
   analyst: new Set<ProjectCapability>(['read', 'export', 'run', 'edit', 'chat']),
-  lead: new Set<ProjectCapability>(PROJECT_CAPABILITIES),
+  // A lead shares the project, but does not set what it may spend: that is the workspace's decision,
+  // so that the person who runs the work is not the one who lifts the limit on it.
+  lead: new Set<ProjectCapability>(
+    PROJECT_CAPABILITIES.filter((capability) => capability !== 'budget'),
+  ),
 };
 
 const WORKSPACE_ROLE_CAPABILITIES: Readonly<

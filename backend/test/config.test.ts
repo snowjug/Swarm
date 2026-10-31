@@ -156,6 +156,22 @@ describe('provider configuration and public boundaries', () => {
       expect(() => loadConfig({ JOB_LEASE_SECONDS: invalid })).toThrow('JOB_LEASE_SECONDS');
   });
 
+  it('puts no limit on a project’s use of the model unless the deployment sets one, and accepts only whole numbers within bounds', () => {
+    expect(loadConfig({}).modelBudget).toEqual({ callLimit: 0, tokenLimit: 0 });
+    expect(
+      loadConfig({ PROJECT_MODEL_CALL_LIMIT: '500', PROJECT_MODEL_TOKEN_LIMIT: '2000000' })
+        .modelBudget,
+    ).toEqual({ callLimit: 500, tokenLimit: 2_000_000 });
+    for (const invalid of ['-1', '1.5', '1000000001', 'lots']) {
+      expect(() => loadConfig({ PROJECT_MODEL_CALL_LIMIT: invalid })).toThrow(
+        'PROJECT_MODEL_CALL_LIMIT',
+      );
+      expect(() => loadConfig({ PROJECT_MODEL_TOKEN_LIMIT: invalid })).toThrow(
+        'PROJECT_MODEL_TOKEN_LIMIT',
+      );
+    }
+  });
+
   it('derives loopback default origins from the API port without widening explicit allowlists', () => {
     expect(loadConfig({ PORT: '3002' }).allowedOrigins.has('http://127.0.0.1:3002')).toBe(true);
     expect(

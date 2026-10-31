@@ -61,7 +61,7 @@ person to be signed out when access is taken away, and must never quietly act as
   eight hours).
 - **A client secret is optional** and read only from the environment or a secret store. A public-client
   registration with PKCE alone is supported; whether a tenant's policy allows that is its own matter.
-- **Not built:** a membership screen, groups, a login hint, and an account picker. **Not validated:** a
+- **Not built:** groups, a login hint, and an account picker. (The screens that manage membership are described in [0007](./0007-workspace-and-project-membership.md).) **Not validated:** a
   real tenant, Conditional Access, multi-factor prompts, or the consent screen.
 
 ## Evidence

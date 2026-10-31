@@ -652,12 +652,9 @@ export class Orchestrator {
     const chunks = this.repository.chunks(id);
     const model =
       initial.mode === 'llm'
-        ? this.createModel(
-            (usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
-            {
-              maxCalls: actorCallBudget(initial.settings.agentCount, 1, initial.settings.rounds),
-            },
-          )
+        ? this.createModel(this.repository.modelUse(id), {
+            maxCalls: actorCallBudget(initial.settings.agentCount, 1, initial.settings.rounds),
+          })
         : null;
     throwIfAborted(signal);
     const graph = model

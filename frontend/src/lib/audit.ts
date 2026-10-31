@@ -21,6 +21,8 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   'conflict.reviewed': 'Conflict reviewed',
   'access.refused': 'Access refused',
   'provider.checked': 'Model connection checked',
+  'project.budget.changed': 'Model budget changed',
+  'model.budget.exhausted': 'Model budget used up, a call was refused',
   'studio.started': 'Report opened in the studio',
   'studio.restarted': 'Studio document started again from a newer report',
   'studio.section.edited': 'Report section edited',

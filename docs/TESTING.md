@@ -34,21 +34,22 @@ rules (workspace and project membership, the seven roles, tenant isolation), for
 the fence on a worker that lost its lease, retries, cancel and pause across processes), for the
 redaction gate of telemetry (which names and values may leave the process) for Report Studio (who may
 edit and who may approve, locks and versions, what an approval is of, what a memo may call a finding)
-and for the analyst's handling of disputed sources, each rule is listed in
+for the analyst's handling of disputed sources, for the backup taken before an upgrade and the restore
+rehearsal, and for each project's model budget (where it is held, who may change it), and for the screens that manage who has access (who is offered which controls, and what an object ID must be), each rule is listed in
 [`scripts/mutation/mutants.json`](../scripts/mutation/mutants.json) as one small edit that breaks it:
 a check replaced by `false`, a capability added to a role, a `DELETE` that no longer deletes, a
 nonce that is no longer compared. The runner applies one edit at a time to the working copy, runs the
 tests that should notice, and restores the file.
 
 ```powershell
-npm.cmd run mutation:security                     # all 124; about an hour and a half on a busy machine
-npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry, studio or analyst
+npm.cmd run mutation:security                     # all 150; 19 minutes on a laptop when last run, longer on a busy one
+npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry, studio, analyst, budget or access
 npm.cmd run mutation:security -- --only=M3,S8     # named ones
 npm.cmd run mutation:security -- --list
 ```
 
-Result when each area was last run: **15 of 15 membership, 27 of 27 sign-in, 22 of 22 storage, 19 of 19
-job, 9 of 9 telemetry, 25 of 25 studio and 7 of 7 analyst mutations were caught.** One studio mutation survived the first run
+Result of the last full run: **all 150 were caught** (15 of 15 membership, 27 of 27 sign-in, 22 of 22 storage, 19 of 19
+job, 9 of 9 telemetry, 25 of 25 studio, 7 of 7 analyst, 17 of 17 budget and 9 of 9 access mutations). One studio mutation survived the first run
 (a memo that said APPROVED for an approval whose text had since changed, which no test had stored and
 exported), and a test was added. Two sign-in mutations survived the first run (an error reply that
 still carried a code, and a session that remembered every caller as a platform administrator); a
@@ -60,6 +61,43 @@ in-process test server does not give. The list itself is tested
 (`scripts/mutation/lib/mutants.test.ts`): every edit must still apply exactly once, and the named
 tests must be able to reach the file it changes, so the list cannot quietly go stale. The full run
 is not part of CI, because of its length.
+
+## Model budget
+
+- **Rules** (`backend/test/usage.test.ts`): what a project has used and that it never goes back when a run
+  starts again, where a limit comes from (the deployment's default, the project's own, 0 for none), the exact
+  boundary of the call limit and of the token limit, one audit entry for each client that is refused, and the
+  state (none, ok, running low, used up). On PostgreSQL too (`npm run test:postgres`).
+- **The client and its five places of use** (`backend/test/model-budget.test.ts`): a client is asked before every
+  call, repairs included, and sends nothing once refused; a quick run, a stage, an answer, a generated
+  interview and a chapter written again each hold the budget of their own project and of no other; and a whole
+  run is stopped at its limit with no request beyond it, says why, keeps what it did, and carries on when the
+  limit is lifted.
+- **Routes and access** (`backend/test/budget-routes.test.ts`, and the matrix in `backend/test/membership.test.ts`):
+  what is shown, what is refused (a limit that is not a whole number, a missing or unknown field), and for every
+  kind of person whether they may read it, may change it, and are told so. Only a workspace owner or
+  administrator may change it; a project lead may not.
+- **The page** (`frontend/src/lib/budget.test.ts`, `frontend/src/components/console/BudgetDialog.test.tsx`,
+  `frontend/src/api.test.ts`) and a browser test against the fake provider (`e2e/model/budget.spec.ts`): the
+  project stops at its budget with the reason, the page says so before it is asked, a limit that is not a
+  number is refused in the form, lifting the limit is saved and recorded and the stage runs again, a project
+  just short of its limit is warned, and the dialog passes axe in each theme and on a phone.
+
+## Who has access
+
+- **The server** (`backend/test/membership.test.ts`): every project route as every kind of person, the member
+  routes and their invariants (the last owner, the last lead, an administrator and an owner), and what the page is
+  told it may offer (`may.manage` on a project's member list) checked against what the same people are then
+  refused.
+- **The page** (`frontend/src/lib/members.test.ts`, `frontend/src/components/console/AccessDialog.test.tsx`,
+  `frontend/src/api.test.ts`): the role lists are held to `backend/src/auth/roles.ts` so that the two cannot
+  drift, an object ID is accepted only as a UUID and is lower-cased, which roles and which rows each kind of
+  person is offered, what each dialog shows, and the requests the client makes.
+- **A browser** (`e2e/signin/access.spec.ts`, on the sign-in test server): an owner adds a person by object ID,
+  changes their role and removes them, and is refused when removing the last owner; a colleague added to one
+  project sees that project and no other, reads who has access and is offered no control, and the server
+  refuses what the page withheld; an administrator is offered no way to touch an owner; and both dialogs pass
+  axe in each theme on a desktop and on a phone. Showing the People button to a member was seen to fail it.
 
 ## PostgreSQL tests
 
@@ -196,10 +234,11 @@ npm.cmd run build          # the E2E servers run the built output in dist/
 $env:PW_CHANNEL = 'msedge' # reuse the installed Edge; CI installs Chromium instead
 npm.cmd run test:e2e       # npx playwright install chromium first if you do not use Edge
 npm.cmd run audit:ui       # starts its own local-mode server on a free port; screenshots + layout/axe metrics for four viewports (see scripts/ui-audit.mjs)
-node scripts/load-test.mjs # latency, queue back-pressure and memory on this machine
+npm.cmd run test:load       # latency, queue back-pressure, memory, and the newer endpoints, on this machine
+npm.cmd run test:resilience # kills a real server mid-simulation, restarts it, and checks the run finishes intact
 ```
 
-`test:e2e` drives a real browser against three isolated servers with throwaway data
+`test:e2e` drives a real browser against four isolated servers with throwaway data
 directories (never your own data):
 
 - **`e2e/local`** — the deterministic local engine: the complete guided journey
@@ -228,6 +267,16 @@ directories (never your own data):
   makes more than a dozen whole-page axe scans, which can take up to a minute each on a machine
   that other work has saturated (it took 6.9 and 11.7 minutes on one such machine, and well under
   two on a CI runner).
+- **`e2e/signin`** — browser sign-in with Microsoft Entra, on the real application with Microsoft replaced
+  by a test identity provider on a second loopback port
+  (`backend/test/support/signin-e2e-server.ts`; Microsoft's own page is never reached, and no real tenant is
+  used). `signin.spec.ts`: the redirect with PKCE, no token anywhere the page can read, an HttpOnly session
+  cookie, sign-out ending the session on the server, the anti-forgery header, a person with no role, a
+  declined sign-in, and a form on another site. `access.spec.ts`: who has access, managed from the page by
+  the people who may: an owner adds, changes and removes a person by object ID and is refused when removing
+  the last owner; a colleague added to one project sees that project and no other and is offered no control;
+  an administrator is offered no way to touch an owner; the dialogs pass axe in each theme on a desktop and a
+  phone.
 
 The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
 `backend/test/security.test.ts` (including that a genuinely rate-limited request
@@ -238,6 +287,38 @@ Automated checks do not replace a manual assistive-technology review (screen rea
 reports numbers for the machine it runs on; see
 [requirements-matrix.md](./requirements-matrix.md) for the measured results and
 their limits.
+
+### Load, and a killed process
+
+`npm run test:load` starts a server of its own (local rules engine, no model, throwaway data) and reports
+latency percentiles, queue back-pressure (`QUEUE_FULL` rejections are the queue refusing work, not
+errors), memory and 5xx counts for health and listing reads, 40 creations and 12 whole workflows. It then
+exercises, on the projects those workflows finished, the evidence ledger (first build and repeated reads),
+the model budget, the audit log and Report Studio (opening, reading, the printable memo), and has **eight
+people save the same section from the same version at once**: exactly one must be accepted and seven told
+the section changed, with no failure. It fails on a 5xx, a failed workflow or any other outcome of that
+race. One run on a Windows laptop with Node 24 (the numbers are for that machine and say nothing about a
+deployment): 3,000 health reads at 64 at a time took 35 ms at the median and 76 ms at the 95th
+percentile, 3,000 budget reads 30 ms and 49 ms, 600 ledger reads at 32 at a time 149 ms and 177 ms,
+150 memo exports at 8 at a time 170 ms and 220 ms, 12 whole workflows finished in 20 s with 93
+back-pressure refusals, there were no 5xx, the race gave one winner and seven told, and the server
+peaked at 358 MB. Browser sign-in is not exercised, a model is not called, and nothing was run for
+longer than a minute.
+
+`npm run test:resilience` is the crash-recovery rehearsal, on real processes and with no simulation of
+the failure: it starts the built server and the fake provider, runs a model-assisted guided project
+(6 proxies, 8 rounds, two platforms) to the simulation, ends the server with **SIGKILL** after three
+rounds are saved and while the next round's model calls are in flight, starts it again on the same
+data, and leaves the run alone. It checks that the restart does not mark the run failed, that the run
+finishes by itself once the dead process's lease runs out, that each platform holds all 8 rounds with one
+action per proxy per round and none twice, that no saved round was asked of the model again (only the
+round that was under way, whose in-flight calls never reached the server), that the model budget counted
+the calls on both sides of the kill and none twice, that the job was taken again (attempt 2) and
+completed, and that the audit chain verifies. On the same laptop: 96 actions, 96 distinct; 4 of the 96
+actor calls asked twice, all for round 4; budget 100 counted of the 104 the provider answered (4 in flight
+when the process died); finished 18 s after the restart. It uses SQLite and one process at a time. It
+does not show two containers sharing a PostgreSQL server (the in-process PostgreSQL cannot be shared by
+two processes), a worker killed while an API process lives, or anything about a deployment.
 
 Useful focused commands:
 

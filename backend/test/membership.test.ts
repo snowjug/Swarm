@@ -67,13 +67,15 @@ const ALL: readonly ProjectCapability[] = [
   'chat',
   'delete',
   'members',
+  'budget',
 ];
 
 /** What each actor may do to project 1, written out. Everyone else may do nothing, and sees nothing. */
 const CAN: Record<Actor, readonly ProjectCapability[]> = {
   owner: ALL,
   wsAdmin: ALL,
-  lead: ALL,
+  // A lead shares the project but does not set what it may spend.
+  lead: ALL.filter((capability) => capability !== 'budget'),
   analyst: ['read', 'export', 'run', 'edit', 'chat'],
   reviewer: ['read', 'export', 'review'],
   viewer: ['read', 'export'],
@@ -182,10 +184,18 @@ describe('the roles, as a table', () => {
     expect(capabilitiesOf('viewer')).toEqual(['read', 'export']);
     expect(capabilitiesOf('reviewer')).toEqual(['read', 'export', 'review']);
     expect(capabilitiesOf('analyst')).toEqual(['read', 'export', 'run', 'edit', 'chat']);
-    expect(capabilitiesOf('lead')).toEqual(ALL);
+    expect(capabilitiesOf('lead')).toEqual(ALL.filter((capability) => capability !== 'budget'));
     expect([...PROJECT_ROLES]).toEqual(['lead', 'analyst', 'reviewer', 'viewer']);
     expect([...WORKSPACE_ROLES]).toEqual(['owner', 'admin', 'member']);
     expect([...PROJECT_CAPABILITIES]).toEqual(ALL);
+  });
+
+  it('keeps what a project may spend with the workspace: no project role sets it, not even a lead', () => {
+    for (const role of PROJECT_ROLES) expect(capabilitiesOf(role), role).not.toContain('budget');
+    expect(projectAllows('budget', { project: 'lead', workspace: 'member' })).toBe(false);
+    expect(projectAllows('budget', { project: 'lead', workspace: null })).toBe(false);
+    expect(projectAllows('budget', { project: null, workspace: 'admin' })).toBe(true);
+    expect(projectAllows('budget', { project: null, workspace: 'owner' })).toBe(true);
   });
 
   it('keeps reviewing apart from running and from writing: nobody below a lead can do either with it', () => {
@@ -281,6 +291,21 @@ describe('every project route, for every kind of person', () => {
       capability: 'read',
       method: 'GET',
       url: (id) => `/api/projects/${id}/members`,
+    },
+    {
+      name: 'read what it has used of its model budget',
+      policy: 'GET /api/projects/:id/budget',
+      capability: 'read',
+      method: 'GET',
+      url: (id) => `/api/projects/${id}/budget`,
+    },
+    {
+      name: 'change its model budget',
+      policy: 'PUT /api/projects/:id/budget',
+      capability: 'budget',
+      method: 'PUT',
+      url: (id) => `/api/projects/${id}/budget`,
+      payload: { invalid: true },
     },
     {
       name: 'export it as JSON',
@@ -714,6 +739,70 @@ describe('the other things people ask for', () => {
       { role: 'viewer' },
     );
     expect(notAnId.statusCode).toBe(400);
+  });
+});
+
+describe('who is told they may change who has access', () => {
+  it('is whoever the server would let: a lead, and a workspace owner or administrator, and nobody else', async () => {
+    const instance = await world();
+    const url = `/api/projects/${instance.shared}/members`;
+    for (const actor of ['owner', 'wsAdmin', 'lead'] as const) {
+      const shown = (await call(instance, actor, 'GET', url)).json();
+      expect(shown.may.manage, `${actor} is told`).toBe(true);
+      expect(Array.isArray(shown.members)).toBe(true);
+    }
+    for (const actor of ['analyst', 'reviewer', 'viewer'] as const) {
+      const response = await call(instance, actor, 'GET', url);
+      expect(response.statusCode, actor).toBe(200);
+      expect(response.json().may.manage, `${actor} is told`).toBe(false);
+    }
+    // What they are told is what happens: the same people are refused a change.
+    for (const actor of ['analyst', 'reviewer', 'viewer'] as const) {
+      const change = await call(instance, actor, 'PUT', `${url}/${ID.stranger}`, {
+        role: 'viewer',
+      });
+      expect(outcome(change), actor).toBe('forbidden');
+    }
+  });
+});
+
+describe('what a project may spend on the model', () => {
+  it('is changed only by a workspace owner or administrator, who are the only ones told they may', async () => {
+    const instance = await world();
+    const url = `/api/projects/${instance.shared}/budget`;
+    const ownLimit = () => instance.repository.usage.get(instance.shared).own.callLimit;
+    for (const actor of ['viewer', 'reviewer', 'analyst', 'lead'] as const) {
+      const shown = (await call(instance, actor, 'GET', url)).json().budget;
+      expect(shown.may.edit, `${actor} is told`).toBe(false);
+      const refused = await call(instance, actor, 'PUT', url, { callLimit: 9, tokenLimit: null });
+      expect(outcome(refused), actor).toBe('forbidden');
+      expect(ownLimit(), `${actor} changed it`).toBeNull();
+    }
+    for (const actor of ['wsAdmin', 'owner'] as const) {
+      const shown = (await call(instance, actor, 'GET', url)).json().budget;
+      expect(shown.may.edit, `${actor} is told`).toBe(true);
+      const changed = await call(instance, actor, 'PUT', url, { callLimit: 9, tokenLimit: null });
+      expect(changed.statusCode, changed.body).toBe(200);
+      expect(ownLimit()).toBe(9);
+      const entry = instance.repository.audit
+        .list({ projectId: instance.shared, limit: 500 })
+        .filter((candidate) => candidate.action === 'project.budget.changed')
+        .at(-1);
+      expect(entry?.actor, `${actor} is the one recorded`).toBe(ID[actor]);
+      await call(instance, actor, 'PUT', url, { callLimit: null, tokenLimit: null });
+    }
+  });
+
+  it('is shown to everyone who can read the project, and to nobody who cannot', async () => {
+    const instance = await world();
+    const url = `/api/projects/${instance.shared}/budget`;
+    for (const actor of ['owner', 'wsAdmin', 'lead', 'analyst', 'reviewer', 'viewer'] as const) {
+      expect((await call(instance, actor, 'GET', url)).statusCode, actor).toBe(200);
+    }
+    for (const actor of ['member', 'stranger', 'foreignOwner'] as const) {
+      expect(outcome(await call(instance, actor, 'GET', url)), actor).toBe('hidden');
+    }
+    expect(outcome(await call(instance, 'anonymous', 'GET', url))).toBe('unauthenticated');
   });
 });
 

@@ -86,18 +86,19 @@ requests
 
 ## Alert rules
 
-| Alert                  | Condition (window)                                                                     | Severity | First action                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------- |
-| API failing            | More than 5% of requests are server errors, over 10 minutes, with at least 20 requests | Sev 2    | [Runbook: API errors](./runbook.md#api-errors)                        |
-| Not ready              | The readiness probe has failed for 5 minutes, or `swarm.db.up` is 0                    | Sev 1    | [Runbook: database](./runbook.md#database-down-or-not-ready)          |
-| Jobs not starting      | `swarm.jobs.oldest_waiting` above 300 seconds, over 10 minutes                         | Sev 2    | [Runbook: stuck jobs](./runbook.md#jobs-are-stuck-or-slow)            |
-| Poison job             | Any `swarm.jobs.events` with event `reaped-failed`                                     | Sev 3    | [Runbook: poison](./runbook.md#a-job-is-set-aside-as-poison)          |
-| Lease churn            | More than 5 `reaped-retrying` events in an hour                                        | Sev 3    | [Runbook: stuck jobs](./runbook.md#jobs-are-stuck-or-slow)            |
-| Model provider failing | Failed model calls above 20% over 15 minutes, with at least 10 calls                   | Sev 2    | [Runbook: model provider](./runbook.md#the-model-provider-is-failing) |
-| Denial spike           | More than 50 denials in 5 minutes                                                      | Sev 2    | [Runbook: suspected abuse](./runbook.md#a-spike-of-refused-requests)  |
-| Spend                  | Tokens in a day above twice the previous seven days' mean                              | Sev 3    | [Runbook: spend](./runbook.md#spend-is-higher-than-expected)          |
-| Telemetry missing      | No `swarm.db.up` sample for 15 minutes while the app is running                        | Sev 3    | [Runbook: no telemetry](./runbook.md#telemetry-is-missing)            |
-| Backup missing         | No successful PostgreSQL backup in 26 hours (a platform metric)                        | Sev 2    | [Runbook: restore](./runbook.md#restore-the-database)                 |
+| Alert                  | Condition (window)                                                                                                                 | Severity | First action                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------- |
+| API failing            | More than 5% of requests are server errors, over 10 minutes, with at least 20 requests                                             | Sev 2    | [Runbook: API errors](./runbook.md#api-errors)                        |
+| Not ready              | The readiness probe has failed for 5 minutes, or `swarm.db.up` is 0                                                                | Sev 1    | [Runbook: database](./runbook.md#database-down-or-not-ready)          |
+| Jobs not starting      | `swarm.jobs.oldest_waiting` above 300 seconds, over 10 minutes                                                                     | Sev 2    | [Runbook: stuck jobs](./runbook.md#jobs-are-stuck-or-slow)            |
+| Poison job             | Any `swarm.jobs.events` with event `reaped-failed`                                                                                 | Sev 3    | [Runbook: poison](./runbook.md#a-job-is-set-aside-as-poison)          |
+| Lease churn            | More than 5 `reaped-retrying` events in an hour                                                                                    | Sev 3    | [Runbook: stuck jobs](./runbook.md#jobs-are-stuck-or-slow)            |
+| Model provider failing | Failed model calls above 20% over 15 minutes, with at least 10 calls                                                               | Sev 2    | [Runbook: model provider](./runbook.md#the-model-provider-is-failing) |
+| Denial spike           | More than 50 denials in 5 minutes                                                                                                  | Sev 2    | [Runbook: suspected abuse](./runbook.md#a-spike-of-refused-requests)  |
+| Spend                  | Tokens in a day above twice the previous seven days' mean                                                                          | Sev 3    | [Runbook: spend](./runbook.md#spend-is-higher-than-expected)          |
+| Budget refused         | Any `swarm.audit.events` with action `model.budget.exhausted` (a project was refused a model call; the audit entry has the counts) | Sev 3    | [Runbook: spend](./runbook.md#spend-is-higher-than-expected)          |
+| Telemetry missing      | No `swarm.db.up` sample for 15 minutes while the app is running                                                                    | Sev 3    | [Runbook: no telemetry](./runbook.md#telemetry-is-missing)            |
+| Backup missing         | No successful PostgreSQL backup in 26 hours (a platform metric)                                                                    | Sev 2    | [Runbook: restore](./runbook.md#restore-the-database)                 |
 
 Severity is a suggestion: Sev 1 wakes someone, Sev 2 is handled the same working day, Sev 3 is read the
 next day. The alert rules, action group and the people on it are not created by this repository.

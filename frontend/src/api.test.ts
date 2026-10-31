@@ -263,6 +263,168 @@ describe('provider status API client', () => {
   });
 });
 
+describe('model budget API client', () => {
+  const budget = {
+    calls: 3,
+    inputTokens: 30,
+    outputTokens: 15,
+    callLimit: 10,
+    tokenLimit: 0,
+    own: { callLimit: 10, tokenLimit: null },
+    defaults: { callLimit: 0, tokenLimit: 0 },
+    state: 'ok',
+    may: { edit: true },
+  };
+  const jsonResponse = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+  it('reads the budget of the named project with a bodyless GET and gives back the budget itself', async () => {
+    const fetch = vi.fn().mockResolvedValue(jsonResponse({ budget }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.budget('project id')).resolves.toEqual(budget);
+    expect(fetch.mock.calls[0]![0]).toBe('/api/projects/project%20id/budget');
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBeUndefined();
+    expect(init.body).toBeUndefined();
+  });
+
+  it('sets the limits with a PUT of exactly what was asked for, nulls included, and gives back the new budget', async () => {
+    const fetch = vi.fn().mockResolvedValue(jsonResponse({ budget }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.setBudget('project', { callLimit: 10, tokenLimit: null })).resolves.toEqual(
+      budget,
+    );
+    expect(fetch.mock.calls[0]![0]).toBe('/api/projects/project/budget');
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ callLimit: 10, tokenLimit: null });
+  });
+
+  it('passes the server’s refusal on, with its code and message, when someone may not change the limits', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          jsonResponse(
+            { error: { code: 'FORBIDDEN', message: 'Your role does not allow this.' } },
+            403,
+          ),
+        ),
+    );
+    const failure = await api
+      .setBudget('project', { callLimit: 1, tokenLimit: 1 })
+      .catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ApiError);
+    expect(failure).toMatchObject({ code: 'FORBIDDEN', message: 'Your role does not allow this.' });
+  });
+});
+
+describe('membership API client', () => {
+  const PERSON = '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d';
+  const jsonResponse = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  const headersOf = (init: RequestInit) => init.headers as Record<string, string>;
+
+  it('reads who may use a project and whether the caller may change that, with a bodyless GET', async () => {
+    const answer = { members: [], may: { manage: true } };
+    const fetch = vi.fn().mockResolvedValue(jsonResponse(answer));
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.projectMembers('project id')).resolves.toEqual(answer);
+    expect(fetch.mock.calls[0]![0]).toBe('/api/projects/project%20id/members');
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBeUndefined();
+    expect(init.body).toBeUndefined();
+    expect(headersOf(init)['X-Swarm-CSRF']).toBeUndefined();
+  });
+
+  it('adds or changes a project member with a PUT of only the role, and marks it as a change', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(
+        jsonResponse({ member: { principalId: PERSON, role: 'analyst' }, previous: null }),
+      );
+    vi.stubGlobal('fetch', fetch);
+    await api.setProjectMember('project', PERSON, 'analyst');
+    expect(fetch.mock.calls[0]![0]).toBe(`/api/projects/project/members/${PERSON}`);
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBe('PUT');
+    expect(JSON.parse(init.body as string)).toEqual({ role: 'analyst' });
+    expect(headersOf(init)['X-Swarm-CSRF']).toBe('1');
+  });
+
+  it('removes a project member with a bodyless DELETE, and marks it as a change', async () => {
+    const fetch = vi.fn().mockResolvedValue(jsonResponse({ removed: true }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.removeProjectMember('project', PERSON)).resolves.toEqual({ removed: true });
+    expect(fetch.mock.calls[0]![0]).toBe(`/api/projects/project/members/${PERSON}`);
+    const init = fetch.mock.calls[0]![1] as RequestInit;
+    expect(init.method).toBe('DELETE');
+    expect(init.body).toBeUndefined();
+    expect(headersOf(init)['X-Swarm-CSRF']).toBe('1');
+  });
+
+  it('reads the caller’s role in the workspace and the workspace’s members', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ role: 'admin', platformAdmin: false }))
+      .mockResolvedValueOnce(jsonResponse({ members: [] }));
+    vi.stubGlobal('fetch', fetch);
+    await expect(api.workspace()).resolves.toEqual({ role: 'admin', platformAdmin: false });
+    await expect(api.workspaceMembers()).resolves.toEqual({ members: [] });
+    expect(fetch.mock.calls.map((call) => call[0])).toEqual([
+      '/api/workspace',
+      '/api/workspace/members',
+    ]);
+  });
+
+  it('adds, changes and removes a workspace member the same way', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ member: { principalId: PERSON, role: 'admin' }, previous: 'member' }),
+      )
+      .mockResolvedValueOnce(jsonResponse({ removed: true }));
+    vi.stubGlobal('fetch', fetch);
+    await api.setWorkspaceMember(PERSON, 'admin');
+    await api.removeWorkspaceMember(PERSON);
+    const calls = fetch.mock.calls as [string, RequestInit][];
+    const put = calls[0]!;
+    const del = calls[1]!;
+    expect(put[0]).toBe(`/api/workspace/members/${PERSON}`);
+    expect(put[1].method).toBe('PUT');
+    expect(JSON.parse(put[1].body as string)).toEqual({ role: 'admin' });
+    expect(del[0]).toBe(`/api/workspace/members/${PERSON}`);
+    expect(del[1].method).toBe('DELETE');
+  });
+
+  it('gives the server’s reason when a change is refused, with its code', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: { code: 'FORBIDDEN', message: 'Only a workspace owner can remove an owner.' },
+          },
+          403,
+        ),
+      ),
+    );
+    const failure = await api.removeWorkspaceMember(PERSON).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(ApiError);
+    expect(failure).toMatchObject({
+      code: 'FORBIDDEN',
+      message: 'Only a workspace owner can remove an owner.',
+    });
+  });
+});
+
 describe('browser sign-in in the API client', () => {
   const json = { 'Content-Type': 'application/json' };
   const signInRequired = () =>

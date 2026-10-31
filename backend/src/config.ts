@@ -1,5 +1,6 @@
 import { resolve } from 'node:path';
 import { z } from 'zod';
+import { MAX_BUDGET_LIMIT } from '../../shared/budget.js';
 import { MAX_PDF_BYTES, MAX_PDF_PAGES, MAX_SURVEY_TARGETS } from '../../shared/guided.js';
 import {
   MAX_DOCUMENTS,
@@ -104,6 +105,11 @@ export interface ServerConfig {
   role: 'all' | 'api' | 'worker';
   /** How long a worker may go without a heartbeat before its job is handed to another. */
   jobLeaseMs: number;
+  /**
+   * What each project may spend on the model in all, unless a workspace owner or administrator gives
+   * it a limit of its own. 0 is no limit. Calls are those that completed; tokens are input and output.
+   */
+  modelBudget: { callLimit: number; tokenLimit: number };
 }
 
 const syncedFolders: readonly [string, RegExp][] = [
@@ -186,6 +192,8 @@ const environmentSchema = z.object({
   TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   SWARM_ROLE: z.enum(['all', 'api', 'worker']).default('all'),
   JOB_LEASE_SECONDS: z.coerce.number().int().min(10).max(600).default(30),
+  PROJECT_MODEL_CALL_LIMIT: z.coerce.number().int().min(0).max(MAX_BUDGET_LIMIT).default(0),
+  PROJECT_MODEL_TOKEN_LIMIT: z.coerce.number().int().min(0).max(MAX_BUDGET_LIMIT).default(0),
 });
 
 /** Microsoft publishes one signing-key set for all tenants; the token's own tenant is checked separately. */
@@ -444,6 +452,10 @@ export function loadConfig(
     trustedProxies: input.TRUST_PROXY,
     role: input.SWARM_ROLE,
     jobLeaseMs: input.JOB_LEASE_SECONDS * 1_000,
+    modelBudget: {
+      callLimit: input.PROJECT_MODEL_CALL_LIMIT,
+      tokenLimit: input.PROJECT_MODEL_TOKEN_LIMIT,
+    },
   };
 }
 

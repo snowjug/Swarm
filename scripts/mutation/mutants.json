@@ -1120,6 +1120,240 @@
       "find": "const shown = notes.slice(0, MAX_DISPUTE_NOTES);",
       "replace": "const shown = notes.slice(0, 99);",
       "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "B1",
+      "area": "budget",
+      "claim": "The call that reaches a call limit is let through, so a project spends one more than it may",
+      "file": "backend/src/storage/usage.ts",
+      "find": "callLimit > 0 && usage.calls >= callLimit",
+      "replace": "callLimit > 0 && usage.calls > callLimit",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "B2",
+      "area": "budget",
+      "claim": "The call after the tokens reach a token limit is let through",
+      "file": "backend/src/storage/usage.ts",
+      "find": "tokenLimit > 0 && tokens >= tokenLimit",
+      "replace": "tokenLimit > 0 && tokens > tokenLimit",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "B3",
+      "area": "budget",
+      "claim": "A limit of 0, which means no limit, refuses every call",
+      "file": "backend/src/storage/usage.ts",
+      "find": "callLimit > 0 && usage.calls >= callLimit",
+      "replace": "usage.calls >= callLimit",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "B4",
+      "area": "budget",
+      "claim": "A project's own limit is ignored in favour of the deployment's default",
+      "file": "backend/src/storage/usage.ts",
+      "find": "callLimit: stored.call_limit ?? this.defaults.callLimit,",
+      "replace": "callLimit: this.defaults.callLimit,",
+      "tests": ["backend/test/usage.test.ts", "backend/test/budget-routes.test.ts"]
+    },
+    {
+      "id": "B5",
+      "area": "budget",
+      "claim": "Each completed call replaces the count instead of adding to it",
+      "file": "backend/src/storage/usage.ts",
+      "find": "calls = project_usage.calls + 1,",
+      "replace": "calls = 1,",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "B6",
+      "area": "budget",
+      "claim": "A completed call is added to the run's record but not to the project's budget",
+      "file": "backend/src/storage/repository.ts",
+      "find": "this.usage.record(projectId, inputTokens, outputTokens);",
+      "replace": ";",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "B7",
+      "area": "budget",
+      "claim": "A model client is never asked before it makes a call",
+      "file": "backend/src/models/client.ts",
+      "find": "this.onUsage.admit?.();",
+      "replace": ";",
+      "tests": ["backend/test/model-budget.test.ts"]
+    },
+    {
+      "id": "B8",
+      "area": "budget",
+      "claim": "Every refused call of a client is written to the audit log, not only the first",
+      "file": "backend/src/storage/repository.ts",
+      "find": "if (!reported && error instanceof AppError",
+      "replace": "if (error instanceof AppError",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "B9",
+      "area": "budget",
+      "claim": "A quick run is made without the project's budget",
+      "file": "backend/src/orchestration/runner.ts",
+      "find": "? this.createModel(this.repository.modelUse(id), {",
+      "replace": "? this.createModel((usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens), {",
+      "tests": ["backend/test/model-budget.test.ts"]
+    },
+    {
+      "id": "B10",
+      "area": "budget",
+      "claim": "A stage of a guided run is made without the project's budget",
+      "file": "backend/src/guided/workflow.ts",
+      "find": "this.createModel(this.repository.modelUse(id), { maxCalls })",
+      "replace": "this.createModel((usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens), { maxCalls })",
+      "tests": ["backend/test/model-budget.test.ts"]
+    },
+    {
+      "id": "B11",
+      "area": "budget",
+      "claim": "The analyst and the actors are answered by a model made without the project's budget",
+      "file": "backend/src/orchestration/interaction.ts",
+      "find": "const model = this.createModel(this.repository.modelUse(id));",
+      "replace": "const model = this.createModel((usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens));",
+      "tests": ["backend/test/model-budget.test.ts"]
+    },
+    {
+      "id": "B12",
+      "area": "budget",
+      "claim": "A generated interview is made without the project's budget",
+      "file": "backend/src/orchestration/interaction.ts",
+      "find": "? this.createModel(this.repository.modelUse(id)) : null;",
+      "replace": "? this.createModel((usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens)) : null;",
+      "tests": ["backend/test/model-budget.test.ts"]
+    },
+    {
+      "id": "B13",
+      "area": "budget",
+      "claim": "A chapter written again is made without the project's budget",
+      "file": "backend/src/studio/regenerate.ts",
+      "find": "this.repository.modelUse(project.id, (used) => {",
+      "replace": "((used: { inputTokens: number; outputTokens: number }) => { this.repository.recordUsage(project.id, used.inputTokens, used.outputTokens);",
+      "tests": ["backend/test/model-budget.test.ts"]
+    },
+    {
+      "id": "B14",
+      "area": "budget",
+      "claim": "A project lead may change what the project may spend",
+      "file": "backend/src/auth/roles.ts",
+      "find": "PROJECT_CAPABILITIES.filter((capability) => capability !== 'budget')",
+      "replace": "PROJECT_CAPABILITIES",
+      "tests": ["backend/test/membership.test.ts"]
+    },
+    {
+      "id": "B15",
+      "area": "budget",
+      "claim": "Everyone who can read a project is told they may change its budget",
+      "file": "backend/src/routes/budget.ts",
+      "find": "may: { edit: projectAllows('budget', request.membership) },",
+      "replace": "may: { edit: true },",
+      "tests": ["backend/test/membership.test.ts"]
+    },
+    {
+      "id": "B16",
+      "area": "budget",
+      "claim": "The deployment's default limits are never applied",
+      "file": "backend/src/app.ts",
+      "find": "repository.usage.setDefaults(config.modelBudget);",
+      "replace": ";",
+      "tests": ["backend/test/budget-routes.test.ts"]
+    },
+    {
+      "id": "B17",
+      "area": "budget",
+      "claim": "A budget is only called exhausted once it is passed, not when it is reached",
+      "file": "backend/src/storage/usage.ts",
+      "find": "return worst >= 1 ? 'exhausted'",
+      "replace": "return worst > 1 ? 'exhausted'",
+      "tests": ["backend/test/usage.test.ts"]
+    },
+    {
+      "id": "U1",
+      "area": "access",
+      "claim": "Everyone who can read a project is told they may change who has access to it",
+      "file": "backend/src/routes/members.ts",
+      "find": "manage: projectAllows('members', request.membership)",
+      "replace": "manage: true",
+      "tests": ["backend/test/membership.test.ts"]
+    },
+    {
+      "id": "U2",
+      "area": "access",
+      "claim": "The page offers the workspace's people to every member, not only to an owner or administrator",
+      "file": "frontend/src/lib/members.ts",
+      "find": "role === 'owner' || role === 'admin';",
+      "replace": "role !== null;",
+      "tests": ["frontend/src/lib/members.test.ts"]
+    },
+    {
+      "id": "U3",
+      "area": "access",
+      "claim": "An administrator is offered the owner role to give",
+      "file": "frontend/src/lib/members.ts",
+      "find": "if (actor === 'admin') return WORKSPACE_ROLES.filter((role) => role !== 'owner');",
+      "replace": "if (actor === 'admin') return WORKSPACE_ROLES;",
+      "tests": ["frontend/src/lib/members.test.ts"]
+    },
+    {
+      "id": "U4",
+      "area": "access",
+      "claim": "Anyone with a workspace role is offered the means to change or remove an owner",
+      "file": "frontend/src/lib/members.ts",
+      "find": "return workspaceRolesGrantableBy(actor).includes(target);",
+      "replace": "return actor !== null;",
+      "tests": ["frontend/src/lib/members.test.ts"]
+    },
+    {
+      "id": "U5",
+      "area": "access",
+      "claim": "An object ID is sent as it was typed, in upper case if it was typed so",
+      "file": "frontend/src/lib/members.ts",
+      "find": "return { ok: true, value: value.toLowerCase() };",
+      "replace": "return { ok: true, value };",
+      "tests": ["frontend/src/lib/members.test.ts"]
+    },
+    {
+      "id": "U6",
+      "area": "access",
+      "claim": "Any text at all is accepted as an object ID",
+      "file": "frontend/src/lib/members.ts",
+      "find": "if (!OBJECT_ID.test(value)) {",
+      "replace": "if (false) {",
+      "tests": ["frontend/src/lib/members.test.ts"]
+    },
+    {
+      "id": "U7",
+      "area": "access",
+      "claim": "A person who may not change who has access to a project is shown the controls for it",
+      "file": "frontend/src/components/console/AccessDialog.tsx",
+      "find": "const manageable = state.mayManage && mayManageRow(member.role);",
+      "replace": "const manageable = mayManageRow(member.role);",
+      "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
+    },
+    {
+      "id": "U8",
+      "area": "access",
+      "claim": "A person who may not change who has access to a project is offered the form that adds someone",
+      "file": "frontend/src/components/console/AccessDialog.tsx",
+      "find": "{state.mayManage ? (",
+      "replace": "{true ? (",
+      "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
+    },
+    {
+      "id": "U9",
+      "area": "access",
+      "claim": "An administrator is offered the owner role in the form that adds a person to the workspace",
+      "file": "frontend/src/components/console/AccessDialog.tsx",
+      "find": "view={WORKSPACE_ROLE_VIEW}\n            assignable={assignable}\n            initial=\"member\"",
+      "replace": "view={WORKSPACE_ROLE_VIEW}\n            assignable={WORKSPACE_ROLES}\n            initial=\"member\"",
+      "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
     }
   ]
 }

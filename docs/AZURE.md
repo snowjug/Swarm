@@ -445,8 +445,9 @@ error mapping and secret hygiene with a fake credential.
 
 ### 4. Build and deploy one authenticated container
 
-1. Run tests, format checks, `npm audit` against the approved registry (0 advisories at
-   the last local review, which is not a standing guarantee) and a real Docker smoke test.
+1. Run tests, format checks, `npm audit` against the approved registry (it fails on high or critical;
+   two moderate advisories, in `glob` and `minimatch` and not reachable from a request, were open at
+   the last local review on 2026-10-31, and a result is not a standing guarantee) and a real Docker smoke test.
 2. Publish an image tagged with the source commit and pin its digest for a release.
    Make the corresponding source/build instructions accessible to all remote users.
 3. Configure Container Apps managed identity, database access and Entra authentication.

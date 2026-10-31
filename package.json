@@ -27,6 +27,8 @@
     "db:copy": "tsx scripts/db/copy.ts",
     "db:drill": "tsx scripts/db/drill.ts",
     "test:postgres": "node scripts/test-postgres.mjs",
+    "test:load": "node scripts/load-test.mjs",
+    "test:resilience": "node scripts/resilience-test.mjs",
     "mutation:security": "tsx scripts/mutation/run.ts",
     "eval": "tsx evaluation/src/run.ts",
     "demo:record": "tsx scripts/demo/record.ts",

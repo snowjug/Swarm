@@ -7,21 +7,25 @@ import {
   LogOut,
   Plus,
   RefreshCw,
+  Users,
   X,
 } from 'lucide-react';
 import type { ProjectDetail } from '../../shared/types';
 import { api, errorMessage } from './api';
 import { ConsoleWorkspace } from './components/console/ConsoleWorkspace';
 import { EntryConsole } from './components/console/EntryConsole';
+import { WorkspaceAccessDialog } from './components/console/AccessDialog';
 import { HistoryDrawer } from './components/console/HistoryDrawer';
 import { ProviderBadge, ProviderPanel } from './components/ProviderBadge';
 import { SignInProblem } from './components/SignInProblem';
 import { ThemeSwitch } from './components/ThemeSwitch';
 import { EmptyPanel, Notice, Spinner } from './components/ui';
 import { useConsole } from './hooks/useConsole';
+import { useWorkspaceRole } from './hooks/useMembers';
 import { useProviderStatus } from './hooks/useProviderStatus';
 import { useTheme } from './hooks/useTheme';
 import { sourceLink } from './lib/format';
+import { administersWorkspace } from './lib/members';
 import { signInProblem } from './lib/signIn';
 
 /** A sign-in that did not produce a session is explained on its own screen, not behind the console. */
@@ -35,12 +39,16 @@ function Console() {
   const provider = useProviderStatus();
   const theme = useTheme();
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [comparisonProject, setComparisonProject] = useState<string | null>(null);
   const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
   const main = useRef<HTMLElement>(null);
   const didNavigate = useRef(false);
   const authentication = console.config.data?.capabilities.authentication ?? 'local-single-user';
+  // Who has access is only something to show and change where people sign in.
+  const signedIn = authentication === 'entra-session';
+  const workspaceRole = useWorkspaceRole(signedIn);
   const signOut = async () => {
     setSignOutError(null);
     try {
@@ -126,6 +134,15 @@ function Console() {
               onClick={() => void signOut()}
             >
               <LogOut size={14} aria-hidden="true" /> Sign out
+            </button>
+          )}
+          {signedIn && administersWorkspace(workspaceRole) && (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              onClick={() => setPeopleOpen(true)}
+            >
+              <Users size={14} aria-hidden="true" /> People
             </button>
           )}
           <ThemeSwitch preference={theme.preference} onChoose={theme.choose} />
@@ -282,6 +299,7 @@ function Console() {
                 }}
                 onDuplicate={() => newProject(project)}
                 onSurvey={(record) => console.recordSurvey(project.id, record)}
+                sharing={signedIn}
               />
             ) : console.detail.loading ? (
               <div className="project-loading">
@@ -337,6 +355,9 @@ function Console() {
           )}
         </span>
       </footer>
+      {peopleOpen && (
+        <WorkspaceAccessDialog actor={workspaceRole} onClose={() => setPeopleOpen(false)} />
+      )}
       {historyOpen && (
         <HistoryDrawer
           projects={console.history.data?.projects ?? []}

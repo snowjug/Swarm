@@ -34,7 +34,7 @@ const grounding: GroundingReview = {
 
 /**
  * A database with a little of everything in it: a finished guided experiment with a conversation, a
- * ledger and a report a person has edited, a workspace member, and a second project. The application
+ * ledger and a report a person has edited, a workspace member, model usage, and a second project. The application
  * that wrote it is pushed on to `applications`, for the caller to close.
  */
 export async function populated(applications: Instance[]): Promise<Repository> {
@@ -72,5 +72,8 @@ export async function populated(applications: Instance[]): Promise<Repository> {
     actor: { id: 'local-user', workspaceRole: 'owner' },
   });
   repository.create(fixtureInput({ name: 'A second experiment' }));
+  // What the first has spent on the model, and the limit it was given.
+  repository.usage.setLimits(created.id, { callLimit: 100, tokenLimit: null });
+  repository.usage.record(created.id, 12, 7);
   return repository;
 }

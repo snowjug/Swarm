@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { principalOf } from '../auth/guard.js';
-import { PROJECT_ROLES, WORKSPACE_ROLES } from '../auth/roles.js';
+import { PROJECT_ROLES, WORKSPACE_ROLES, projectAllows } from '../auth/roles.js';
 import type { Repository } from '../storage/repository.js';
 
 const workspaceMemberParams = z.object({ principalId: z.uuid() });
@@ -53,6 +53,8 @@ export function memberRoutes(app: FastifyInstance, repository: Repository, rateS
 
   app.get('/api/projects/:id/members', async (request) => ({
     members: repository.members.projectMembers(projectParams.parse(request.params).id),
+    // So that the page offers the means to change it only to someone the server would let.
+    may: { manage: projectAllows('members', request.membership) },
   }));
 
   app.put('/api/projects/:id/members/:principalId', limit, async (request) => {

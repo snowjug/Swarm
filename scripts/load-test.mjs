@@ -4,7 +4,11 @@
  *
  * Spawns its own isolated server (temporary data directory, raised rate-limit scale so the limiter
  * does not mask server behaviour) and reports latency percentiles, throughput, queue back-pressure,
- * 5xx counts and server memory. These are numbers for THIS machine, not a capacity guarantee.
+ * 5xx counts and server memory. After the workflows it exercises the endpoints added since, on the
+ * projects they finished: the evidence ledger, the model budget, the audit log and Report Studio,
+ * including eight people saving the same section at once (exactly one must win, the rest must be
+ * told the section changed, and none may fail). Browser sign-in is not exercised: it needs an
+ * identity provider. These are numbers for THIS machine, not a capacity guarantee.
  *
  *   node scripts/load-test.mjs [--port 3131] [--reads 3000] [--creates 40] [--workflows 12]
  */
@@ -97,10 +101,12 @@ async function call(method, path, body) {
   });
   const text = await response.text();
   tally(response.status);
+  // The printable memo is HTML; only what says it is JSON is parsed.
+  const isJson = (response.headers.get('content-type') ?? '').includes('json');
   return {
     status: response.status,
     ms: performance.now() - started,
-    json: text ? JSON.parse(text) : null,
+    json: text && isJson ? JSON.parse(text) : null,
   };
 }
 
@@ -192,12 +198,14 @@ try {
   const startedAt = performance.now();
   let completed = 0;
   let failed = 0;
+  const finished = [];
   await pool(Math.min(workflows, ids.length), 6, async (index) => {
     try {
       for (const step of ['knowledge', 'environment', 'simulation', 'report']) {
         stageMs[step].push(await stage(ids[index], step, queueFull));
       }
       completed += 1;
+      finished.push(ids[index]);
     } catch (error) {
       failed += 1;
       console.error(`workflow ${index} failed:`, error.message);
@@ -216,13 +224,83 @@ try {
     ),
     readsWhileWorkflowsRun: summary(mixedReads),
   };
+
+  // The endpoints added since the workflows above were first measured.
+  const done = finished.slice(0, 6);
+  let contentionFailed = false;
+  if (done.length > 0) {
+    const projectAt = (index) => done[index % done.length];
+    const timed = async (total, concurrency, path) => {
+      const times = [];
+      await pool(Math.max(1, Math.ceil(total)), concurrency, async (index) =>
+        times.push((await call('GET', path(projectAt(index)))).ms),
+      );
+      return summary(times);
+    };
+
+    const firstBuild = [];
+    for (const id of done) firstBuild.push((await call('GET', `/api/projects/${id}/ledger`)).ms);
+    report.phases.ledger = {
+      firstBuild: summary(firstBuild),
+      repeatedReads: await timed(reads / 5, 32, (id) => `/api/projects/${id}/ledger`),
+      concurrency: 32,
+    };
+    report.phases.budget = {
+      reads: await timed(reads, 64, (id) => `/api/projects/${id}/budget`),
+      concurrency: 64,
+    };
+    report.phases.audit = {
+      reads: await timed(reads / 10, 16, (id) => `/api/projects/${id}/audit`),
+      concurrency: 16,
+    };
+
+    const opened = [];
+    for (const id of done) opened.push(await call('POST', `/api/projects/${id}/studio`, {}));
+    const studioOpened = opened.filter((item) => item.status === 201).length;
+    report.phases.studio = {
+      opened: studioOpened,
+      open: summary(opened.map((item) => item.ms)),
+      reads: await timed(reads / 10, 16, (id) => `/api/projects/${id}/studio`),
+      memo: await timed(reads / 20, 8, (id) => `/api/projects/${id}/studio/export?format=memo`),
+    };
+
+    // Eight people save the same section from the same version at the same moment: the rule is that
+    // nobody overwrites anybody, so one is accepted and the other seven are told it changed.
+    const target = done[0];
+    const view = (await call('GET', `/api/projects/${target}/studio`)).json;
+    const section = view?.document?.sections?.find((candidate) => candidate.id === 'summary');
+    if (section) {
+      const people = 8;
+      const attempts = await pool(people, people, async (index) =>
+        call('PUT', `/api/projects/${target}/studio/sections/summary`, {
+          body: `Edit ${index} of a load test, written by one of eight people who saved this section at once. ${'A person rewrote this summary. '.repeat(3)}`,
+          expectedVersion: section.version,
+          reason: null,
+        }),
+      );
+      const accepted = attempts.filter((item) => item.status === 200).length;
+      const told = attempts.filter(
+        (item) => item.status === 409 && item.json?.error?.code === 'SECTION_CONFLICT',
+      ).length;
+      report.phases.studioContention = {
+        people,
+        accepted,
+        toldItChanged: told,
+        other: people - accepted - told,
+        latency: summary(attempts.map((item) => item.ms)),
+      };
+      contentionFailed = accepted !== 1 || people - accepted - told !== 0;
+    } else {
+      contentionFailed = true;
+    }
+  }
   report.statusCounts = statuses;
   report.serverErrors5xx = Object.entries(statuses)
     .filter(([status]) => Number(status) >= 500)
     .reduce((sum, [, count]) => sum + count, 0);
   report.peakServerRssMb = Math.round(peakRssMb);
   console.log(JSON.stringify(report, null, 2));
-  if (report.serverErrors5xx > 0 || failed > 0) process.exitCode = 1;
+  if (report.serverErrors5xx > 0 || failed > 0 || contentionFailed) process.exitCode = 1;
 } finally {
   clearInterval(sampler);
   server.kill();

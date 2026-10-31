@@ -10,6 +10,7 @@ import {
   PG_V5,
   PG_V6,
   PG_V7,
+  PG_V8,
   PG_VERSION_TABLE,
 } from './postgres/schema.js';
 import type { SqlDatabase } from './sql.js';
@@ -174,6 +175,24 @@ const SCHEMA_V7 = `
   );
 `;
 
+/**
+ * The model budget of a project: what it has used, and the limits it was given. One row per project,
+ * made on its first model call or its first limit. The counters are only ever added to, in the
+ * statement that adds to them, so that two workers cannot lose each other's calls. A limit of NULL is
+ * "the deployment's default" and 0 is "no limit". The row is deleted with its project.
+ */
+const SCHEMA_V8 = `
+  CREATE TABLE IF NOT EXISTS project_usage (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    calls INTEGER NOT NULL DEFAULT 0 CHECK (calls >= 0),
+    input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
+    output_tokens INTEGER NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
+    call_limit INTEGER CHECK (call_limit IS NULL OR call_limit >= 0),
+    token_limit INTEGER CHECK (token_limit IS NULL OR token_limit >= 0),
+    updated_at TEXT NOT NULL
+  );
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
@@ -229,6 +248,11 @@ export const MIGRATIONS: readonly Migration[] = [
     version: 7,
     name: 'report studio: documents',
     up: byDialect(SCHEMA_V7, PG_V7),
+  },
+  {
+    version: 8,
+    name: 'per-project model budget: usage and limits',
+    up: byDialect(SCHEMA_V8, PG_V8),
   },
 ];
 

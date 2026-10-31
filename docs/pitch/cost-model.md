@@ -53,11 +53,12 @@ chargeable resource was created for this program, and creating them needs the ap
 
 ## Cost controls that exist, and what is missing
 
-| Control                                        | Status                                   |
-| ---------------------------------------------- | ---------------------------------------- |
-| Token and call counts recorded per project     | Built and tested                         |
-| A call budget per operation                    | Built                                    |
-| A 15-minute budget per run                     | Built                                    |
-| A rate limiter and a per-tenant project limit  | Built                                    |
-| A per-tenant token budget and a spend alert    | **Not built**                            |
-| A scheduled model-in-the-loop regression suite | **Not built**; it would need its own cap |
+| Control                                                                    | Status                                                                    |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Token and call counts recorded per project                                 | Built and tested                                                          |
+| A call budget per operation                                                | Built                                                                     |
+| A 15-minute budget per run                                                 | Built                                                                     |
+| A rate limiter and a per-tenant project limit                              | Built                                                                     |
+| A model budget per project: calls and tokens, held before every model call | Built and tested; the pilot's default is 1,500 calls and 4,000,000 tokens |
+| A per-tenant total, a daily limit and a spend alert                        | **Not built**                                                             |
+| A scheduled model-in-the-loop regression suite                             | **Not built**; it would need its own cap                                  |

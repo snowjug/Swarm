@@ -1,10 +1,10 @@
 import type { ServerConfig } from '../config.js';
-import { ModelClient, type ModelGateway, type ModelUsage } from './client.js';
+import { ModelClient, type ModelGateway, type ModelUsageSink } from './client.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
 import type { ProviderTelemetry } from './telemetry.js';
 
 export type ModelFactory = (
-  onUsage: (usage: ModelUsage) => void,
+  onUsage: ModelUsageSink,
   options?: { maxCalls: number },
 ) => ModelGateway;
 

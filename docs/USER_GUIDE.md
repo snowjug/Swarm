@@ -208,3 +208,49 @@ The design and its limits are in [ADR 0011](./adr/0011-report-studio.md).
 An approval means a person with the review capability read this text and accepted it. It does not mean
 the statements are true, and it is not an external attestation. There is no live co-editing and no
 merge: two people editing one section are told, and the second sees the first's text.
+
+## Model budget
+
+A project that calls a model has a budget for it: how many model calls, and how many tokens, it may use in
+all. The project header shows a **Model budget** button (it says how the project stands once a limit is near),
+and a notice above the work appears when the project is running low or has used up its budget. The design and
+its limits are in [ADR 0013](./adr/0013-per-project-model-budget.md).
+
+- **What it counts.** A call is counted when the provider answers, with its input and output tokens. It
+  covers every use of the model: a run, an answer from the analyst or an actor, a generated interview, and a
+  chapter written again in the studio. It does not start over when a run does.
+- **Running low and used up.** From four fifths of a limit the project is **running low**; at the limit it is
+  **used up**. The next call is then refused with a message that says so, and the operation fails like any
+  other that does not pass: it is not repaired or retried. A simulation that stopped keeps its saved rounds
+  and carries on from them once the limit is raised. Reading, editing and exporting never use the model and
+  are not affected, and neither is the local rules engine.
+- **Limits.** The deployment sets a default for every project. A workspace owner or administrator can give
+  one project its own limits in the dialog: leave a field empty for the deployment's default, enter 0 for no
+  limit. A project lead cannot change them, so that the person who runs the work is not the one who lifts the
+  limit on it. Everyone who can read the project can see them.
+- **A few calls may go over.** Calls already in flight when a limit is reached may finish, and a token limit
+  is checked between calls. It guards against a project that runs away; it is not a bill to the call.
+- **Audit.** A change of limits and a refusal are in the project's [audit log](../README.md#security), with
+  numbers and no content.
+
+## Who has access
+
+When sign-in is on (`AUTH_MODE=entra`) the header and each project show who may use what; in the local
+single-user mode there is nobody to share with and these buttons do not appear. The rules are in
+[ADR 0007](./adr/0007-workspace-and-project-membership.md).
+
+- **People** (in the header, for a workspace owner or administrator). Everyone in the workspace, with a role:
+  owner, admin or member. A member can create projects and sees only the projects they were added to; an owner
+  or admin sees every project. An administrator cannot make, change or remove an owner, and the page does not
+  offer it. Taking someone out of the workspace takes them out of every project in it and ends their
+  sign-ins. A workspace always keeps an owner.
+- **Access** (on a project, for a project lead or a workspace owner or administrator). Who may use this
+  project, as lead, analyst, reviewer or viewer. Anyone else who can read the project sees the list without
+  the controls, and is told who changes it. A project always keeps a lead, and a person who is not listed
+  cannot see the project at all. Adding someone to a project also makes them a member of the workspace.
+- **Adding someone.** Paste their Microsoft Entra object ID (a UUID, on their page in the Entra admin
+  centre) and choose a role; the dialog says what each role allows. There is no search by name or email, so
+  the page cannot tell you whose ID it is: check it before you add it. Every change is in the
+  [audit log](../README.md#security) with who made it, whom it was for, the role and the one before.
+- **Changing or removing.** Choose another role in the row. Removing asks first. When the server refuses a
+  change, for example the last owner or the last lead, the dialog shows its reason and nothing changes.

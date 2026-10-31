@@ -39,10 +39,10 @@ The short version. The full register, with what is in place and what remains for
 
 - By default one SQLite file: one instance, no sharing between hosts. The PostgreSQL adapter that lifts this
   passes the unit suite in-process and has never run against a deployed server.
-- Sign-in, in the API and in the browser, is verified against a local test provider only. No real tenant, and no
-  screen for managing members.
-- Telemetry reaches no real Application Insights resource, so there are no live traces or alerts. There is no
-  per-tenant budget. Durable jobs and their automatic resume have not run across separate containers.
+- Sign-in, in the API and in the browser, is verified against a local test provider only. No real tenant. People are
+  added by Entra object ID, because there is no directory lookup: the screens cannot say who an ID belongs to.
+- Telemetry reaches no real Application Insights resource, so there are no live traces or alerts. Each project has a
+  model budget, but there is no per-tenant total or spend alert. Durable jobs and their automatic resume have not run across separate containers.
 - Report Studio has run on a recording; writing a chapter again has run only against a stand-in for the provider.
 - Dark and high-contrast themes are derived from the light one and checked by computation and axe, not by a designer or by someone using assistive technology.
 - No SBOM, no signed provenance, no independent penetration test.

@@ -30,6 +30,8 @@ import type {
   Ledger,
   ReviewInput,
 } from '../../shared/evidence';
+import type { BudgetInput, BudgetView } from '../../shared/budget';
+import type { Member, ProjectRole, WorkspaceRole } from './lib/members';
 import type { EditSectionInput, StudioExportFormat, StudioView } from '../../shared/studio';
 
 export class ApiError extends Error {
@@ -211,6 +213,54 @@ export const api = {
     request<{ events: AuditEntry[] }>(`${projectPath(id)}/audit`, { signal }),
   verifyAudit: (signal?: AbortSignal) =>
     request<AuditVerification>('/api/audit/verify', { signal }),
+  /** The caller's role in their workspace, and whether they administer the platform. */
+  workspace: (signal?: AbortSignal) =>
+    request<{ role: WorkspaceRole | null; platformAdmin: boolean }>('/api/workspace', { signal }),
+  /** Everyone in the workspace (workspace owners and administrators). */
+  workspaceMembers: (signal?: AbortSignal) =>
+    request<{ members: Member<WorkspaceRole>[] }>('/api/workspace/members', { signal }),
+  setWorkspaceMember: (principalId: string, role: WorkspaceRole, signal?: AbortSignal) =>
+    request<{
+      member: { principalId: string; role: WorkspaceRole };
+      previous: WorkspaceRole | null;
+    }>(`/api/workspace/members/${encodeURIComponent(principalId)}`, {
+      ...jsonBody({ role }),
+      method: 'PUT',
+      signal,
+    }),
+  removeWorkspaceMember: (principalId: string, signal?: AbortSignal) =>
+    request<{ removed: boolean }>(`/api/workspace/members/${encodeURIComponent(principalId)}`, {
+      method: 'DELETE',
+      signal,
+    }),
+  /** Who may use the project, and whether the caller may change that. */
+  projectMembers: (id: string, signal?: AbortSignal) =>
+    request<{ members: Member<ProjectRole>[]; may: { manage: boolean } }>(
+      `${projectPath(id)}/members`,
+      { signal },
+    ),
+  setProjectMember: (id: string, principalId: string, role: ProjectRole, signal?: AbortSignal) =>
+    request<{ member: { principalId: string; role: ProjectRole }; previous: ProjectRole | null }>(
+      `${projectPath(id)}/members/${encodeURIComponent(principalId)}`,
+      { ...jsonBody({ role }), method: 'PUT', signal },
+    ),
+  removeProjectMember: (id: string, principalId: string, signal?: AbortSignal) =>
+    request<{ removed: boolean }>(`${projectPath(id)}/members/${encodeURIComponent(principalId)}`, {
+      method: 'DELETE',
+      signal,
+    }),
+  /** What a project has used of its model budget, and what it may use. */
+  budget: async (id: string, signal?: AbortSignal): Promise<BudgetView> =>
+    (await request<{ budget: BudgetView }>(`${projectPath(id)}/budget`, { signal })).budget,
+  /** Sets the project's own limits (a workspace owner or administrator). null is the default; 0 is none. */
+  setBudget: async (id: string, input: BudgetInput, signal?: AbortSignal): Promise<BudgetView> =>
+    (
+      await request<{ budget: BudgetView }>(`${projectPath(id)}/budget`, {
+        ...jsonBody(input),
+        method: 'PUT',
+        signal,
+      })
+    ).budget,
   /** Ends the signed-in session on the server and removes its cookie. */
   signOut: async (signal?: AbortSignal): Promise<void> => {
     await checkedFetch('/auth/logout', { method: 'POST', signal });

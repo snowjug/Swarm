@@ -30,12 +30,12 @@ a tamper-evident audit log.
 ## What is not
 
 - It is not production ready. See [the gates](../production-readiness.md): 8 of 29 are met.
-- Sign-in has never been used with a real Entra tenant, and there is no screen for managing members.
+- Sign-in has never been used with a real Entra tenant. People are added by Entra object ID (there is no directory lookup).
 - Storage is SQLite unless a PostgreSQL database is configured. The PostgreSQL adapter passes the unit suite
   in-process and has never run against a deployed server; the job queue has not run across separate
   containers.
-- Telemetry is built and tested with in-memory exporters; no Application Insights resource exists. There is
-  no per-tenant budget. Nothing is hosted: the Azure pilot is planned, costed and compiled, not deployed.
+- Telemetry is built and tested with in-memory exporters; no Application Insights resource exists. Each
+  project has a model budget; there is no per-tenant total or spend alert. Nothing is hosted: the Azure pilot is planned, costed and compiled, not deployed.
 - Report Studio has run on a recording, and writing a chapter again only against a stand-in for the provider.
 - The checks behind the support classes are heuristics. The deterministic check accepted 3 of 8
   unsupported statements in a labelled set. The analyst's abstention catches off-topic questions and

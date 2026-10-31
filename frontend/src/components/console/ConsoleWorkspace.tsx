@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Copy, RefreshCw, ShieldCheck, Square } from 'lucide-react';
+import { Copy, Gauge, RefreshCw, ShieldCheck, Square, Users } from 'lucide-react';
 import type {
   ConsoleStep,
   BranchInput,
@@ -23,6 +23,7 @@ import {
 } from '../../lib/console';
 import type { Inspection } from '../../lib/graph';
 import { Notice, Spinner, StatusBadge } from '../ui';
+import { budgetButtonLabel, budgetSummary } from '../../lib/budget';
 import { projectUsageText } from '../../lib/provider';
 import { ProjectModeChip } from './ProjectModeChip';
 import { EnvironmentStage } from './EnvironmentStage';
@@ -36,9 +37,12 @@ import { ReportStage } from './ReportStage';
 import { SimulationStage } from './SimulationStage';
 import { BranchDialog } from './BranchDialog';
 import { AuditDialog } from './AuditDialog';
+import { ProjectAccessDialog } from './AccessDialog';
+import { BudgetDialog, BudgetNotice } from './BudgetDialog';
 import { BranchBanner } from './BranchBanner';
 import { CompareView } from './CompareView';
 import { ReportStudio } from '../studio/ReportStudio';
+import { useBudget } from '../../hooks/useBudget';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ConsoleViewControls, CONSOLE_NARROW_QUERY } from './ConsoleViewControls';
 import type { ConsoleView } from './ConsoleViewControls';
@@ -65,6 +69,7 @@ export function ConsoleWorkspace({
   projects,
   comparisonRequested = false,
   onCloseComparison,
+  sharing = false,
 }: {
   project: ProjectDetail;
   config: AppConfig | null;
@@ -84,6 +89,8 @@ export function ConsoleWorkspace({
   projects: ProjectSummary[];
   comparisonRequested?: boolean;
   onCloseComparison: () => void;
+  /** Whether people sign in, so that who has access to the project is something to show and change. */
+  sharing?: boolean;
 }) {
   const [step, setStep] = useState<ConsoleStep>(() => initialStep(project));
   const snapshotExport = useJsonSnapshotExport(project.id);
@@ -93,6 +100,10 @@ export function ConsoleWorkspace({
   const [inspection, setInspection] = useState<Inspection | null>(null);
   const [branchOpen, setBranchOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
+  const [budgetOpen, setBudgetOpen] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
+  // Only a project that calls a model has a budget to speak of; it is read again as its calls are counted.
+  const budget = useBudget(project.id, project.mode === 'llm', project.execution?.modelCalls ?? 0);
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [comparisonOther, setComparisonOther] = useState<string | null>(null);
   const [comparisonRevision, setComparisonRevision] = useState(0);
@@ -261,6 +272,29 @@ export function ConsoleWorkspace({
           >
             <ShieldCheck size={13} aria-hidden="true" /> Audit log
           </button>
+          {sharing && (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              onClick={() => setAccessOpen(true)}
+            >
+              <Users size={13} aria-hidden="true" /> Access
+            </button>
+          )}
+          {project.mode === 'llm' && (
+            <button
+              className="button button-secondary button-small"
+              type="button"
+              title={
+                budget.budget
+                  ? budgetSummary(budget.budget)
+                  : 'What this project may spend on the model'
+              }
+              onClick={() => setBudgetOpen(true)}
+            >
+              <Gauge size={13} aria-hidden="true" /> {budgetButtonLabel(budget.budget)}
+            </button>
+          )}
           <button
             className="button button-secondary button-small"
             type="button"
@@ -301,6 +335,9 @@ export function ConsoleWorkspace({
           Duplicate inputs as guided to start a new staged workflow. Completed quick-run chat,
           evidence and Markdown export remain available.
         </Notice>
+      )}
+      {project.mode === 'llm' && (
+        <BudgetNotice budget={budget.budget} onOpen={() => setBudgetOpen(true)} />
       )}
       {project.error && (
         <Notice tone="error" title="Recorded execution error">
@@ -385,6 +422,18 @@ export function ConsoleWorkspace({
         />
       )}
       {auditOpen && <AuditDialog projectId={project.id} onClose={() => setAuditOpen(false)} />}
+      {accessOpen && (
+        <ProjectAccessDialog projectId={project.id} onClose={() => setAccessOpen(false)} />
+      )}
+      {budgetOpen && (
+        <BudgetDialog
+          projectId={project.id}
+          onClose={() => {
+            setBudgetOpen(false);
+            budget.reload();
+          }}
+        />
+      )}
       {inspection && (
         <Inspector
           project={project}

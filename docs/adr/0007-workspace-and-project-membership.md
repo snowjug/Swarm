@@ -1,7 +1,7 @@
 # 0007. Workspace and project membership, and seven roles
 
-Status: Accepted (backend). Browser sign-in is in [0008](./0008-browser-sign-in.md); there is still no
-membership screen, and no real tenant has been used. Supersedes the role model of [0005](./0005-identity-roles-and-tenancy.md)
+Status: Accepted. Browser sign-in is in [0008](./0008-browser-sign-in.md); the screens that manage
+membership are described under Consequences; no real tenant has been used. Supersedes the role model of [0005](./0005-identity-roles-and-tenancy.md)
 (decision 3, and the owner rule in decision 6). The rest of 0005 stands: bearer-token verification,
 the default-deny route table, authentication before the body is read, and tenant scoping.
 
@@ -64,9 +64,18 @@ token to expire or changing Entra.
   workspace member, and makes nobody an owner or admin. A tenant that used the first release has to
   assign `Swarm.Admin` to someone, who becomes the owner on their next call and then adds the others.
   Readers and analysts who could read everything can read nothing until they are added.
-- **Not built:** a membership screen, groups (membership is per person),
-  invitations by name or email (people are identified by their Entra object id), more than one
-  workspace per tenant, and deleting a workspace. (Browser sign-in is [0008](./0008-browser-sign-in.md).)
+- **The screens** (added after this decision, without changing it): a **People** dialog in the header for
+  a workspace owner or administrator, and an **Access** dialog on each project, both over the member
+  routes above. A person is added by Entra object ID, because there is no directory to look a name up
+  in, so the page cannot say who an ID belongs to. The page offers a control only to someone the
+  server would let (the workspace role comes from `GET /api/workspace`, and a project's member list
+  says `may.manage`), asks before removing anyone, says what happened in a live region, and shows the
+  server's own reason when it refuses: the last owner, the last lead, an administrator reaching for
+  an owner. It enforces nothing: every rule above is still the server's, and
+  `e2e/signin/access.spec.ts` shows that what the page withholds the server also refuses.
+- **Not built:** groups (membership is per person), invitations by name or email, a directory lookup of
+  an object ID, more than one workspace per tenant, and deleting a workspace. (Browser sign-in is
+  [0008](./0008-browser-sign-in.md).)
 - **Not validated:** a real Entra tenant. App-role assignment, group overage and multiple audiences
   have only met a local test provider.
 - Tenant and membership filtering is in application code. With PostgreSQL
@@ -85,3 +94,7 @@ routes themselves (a lead cannot reach another project's members, an admin canno
 owner, the last owner and last lead stay), revocation on the next request, bootstrap, the audit
 entries, the sharing bound, and the unchanged local mode. `auth.test.ts` keeps the token, tenant and
 comparison tests, and proves that migration 4 gives an upgraded database its leads and members.
+`frontend/src/lib/members.test.ts` holds the page's role lists to `roles.ts`, `AccessDialog.test.tsx`
+renders what each kind of person is offered, and `e2e/signin/access.spec.ts` drives both screens in a
+browser: an owner adding, changing and removing a person, a colleague who sees one project and no
+other and is offered no control, and an administrator who is offered no way to touch an owner.

@@ -37,12 +37,7 @@ export class GuidedWorkflow {
           ? 40
           : 16;
     const model =
-      project.mode === 'llm'
-        ? this.createModel(
-            (usage) => this.repository.recordUsage(id, usage.inputTokens, usage.outputTokens),
-            { maxCalls },
-          )
-        : null;
+      project.mode === 'llm' ? this.createModel(this.repository.modelUse(id), { maxCalls }) : null;
     throwIfAborted(signal);
     switch (step) {
       case 'knowledge':

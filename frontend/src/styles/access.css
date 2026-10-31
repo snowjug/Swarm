@@ -1,0 +1,72 @@
+/* Who has access to a project or a workspace. Colour comes only from the variables the rest of the
+   console already uses, so that it follows the theme. */
+.access-panel {
+  min-width: 0;
+}
+.access-panel h3 {
+  margin: 8px 0 0;
+  font-size: 15px;
+}
+.access-scroll {
+  max-height: min(40vh, 360px);
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.access-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.access-table th,
+.access-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  text-align: left;
+  vertical-align: middle;
+}
+.access-table th {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.access-table td:nth-child(3) {
+  white-space: nowrap;
+  color: var(--muted);
+}
+.access-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.access-add {
+  padding-top: 4px;
+  border-top: 1px solid var(--border-soft);
+}
+.access-roles {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.access-roles > div {
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+}
+.access-roles dt {
+  font-weight: 600;
+  font-size: 13px;
+}
+.access-roles dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.access-cannot {
+  color: var(--muted);
+}

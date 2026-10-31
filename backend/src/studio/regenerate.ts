@@ -141,12 +141,11 @@ export class ModelSectionRegenerator implements SectionRegenerator {
 
     const usage = { modelCalls: 0, inputTokens: 0, outputTokens: 0 };
     const model = this.createModel(
-      (used) => {
+      this.repository.modelUse(project.id, (used) => {
         usage.modelCalls += 1;
         usage.inputTokens += used.inputTokens;
         usage.outputTokens += used.outputTokens;
-        this.repository.recordUsage(project.id, used.inputTokens, used.outputTokens);
-      },
+      }),
       { maxCalls: MAX_REGENERATION_CALLS },
     );
 

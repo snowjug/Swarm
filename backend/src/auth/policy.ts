@@ -91,6 +91,11 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'PUT /api/projects/:id/members/:principalId': project('members'),
   'DELETE /api/projects/:id/members/:principalId': project('members'),
 
+  // What a project may spend on the model. Anyone who can read the project sees it; only a workspace
+  // owner or administrator, who hold every capability, change it.
+  'GET /api/projects/:id/budget': project('read'),
+  'PUT /api/projects/:id/budget': project('budget'),
+
   'GET /api/workspace/members': { kind: 'workspace', capability: 'manage-members' },
   'PUT /api/workspace/members/:principalId': { kind: 'workspace', capability: 'manage-members' },
   'DELETE /api/workspace/members/:principalId': {

@@ -65,19 +65,22 @@ ledger. They do not measure how well it does so.
 
 ## Tests and load
 
-| Check                                 | Result                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit and integration tests            | 1,201 in 67 files (baseline 935 in 56)                                                                                                                                                                                                                                                                                           |
-| End-to-end, Microsoft Edge            | 92 passed before the review fixes (baseline 78); 89 passed and 3 failed after them on a machine kept fully busy by other processes, each failure shown to be environmental and its test passing on re-run or equally flaky on the baseline (see the requirement matrix). Axe and keyboard checks at four viewports on the ledger |
-| Evaluation floors                     | all hold                                                                                                                                                                                                                                                                                                                         |
-| Load test (rules engine, one machine) | See below                                                                                                                                                                                                                                                                                                                        |
+| Check                                 | Result                                                                                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Unit and integration tests            | 1,925 in 112 files (baseline 935 in 56), and the same 1,925 on PostgreSQL in-process                                                       |
+| End-to-end, Microsoft Edge            | 143 passed, 0 failed, 0 flaky (baseline 78). Axe and keyboard checks at four viewports on the ledger and in each theme on the presentation |
+| Evaluation floors                     | all hold                                                                                                                                   |
+| Load test (rules engine, one machine) | See below                                                                                                                                  |
 
-The load test (`node scripts/load-test.mjs`) drives the deterministic engine, with no model, on one
-Windows machine. It predates the ledger and sign-in routes and does not exercise them. Idle reads at 64
-concurrent requests: p50 about 40 ms, p95 about 85 to 110 ms. Twelve complete workflows (four stages
-each): all completed, none failed, 92 clean queue-full rejections as back-pressure, no server error.
-Reads while those ran: p50 150 ms, p95 584 ms, p99 960 ms, worst 1.09 s. Peak server memory 392 MB.
-These are numbers for that machine and not a capacity guarantee.
+The load test (`npm run test:load`) drives the deterministic engine, with no model, on one Windows
+machine, and now also the evidence ledger, the model budget, the audit log and Report Studio. In one run
+(44 s): 3,000 health reads at 64 at a time took 35 ms at the median and 76 ms at the 95th percentile,
+600 ledger reads 149 ms and 177 ms, and 12 complete workflows (four stages each) finished in 20 s with
+93 clean queue-full rejections as back-pressure and no server error; eight simultaneous saves of one
+report section gave one winner and seven told the section had changed. Peak server memory 358 MB. A
+second script (`npm run test:resilience`) kills a real server mid-simulation and checks that the run
+finishes by itself after a restart. These are numbers for that machine and not a capacity guarantee;
+[the test guide](../TESTING.md#load-and-a-killed-process) has the method and its limits.
 
 ## What this does not show
 

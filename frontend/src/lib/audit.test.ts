@@ -16,6 +16,19 @@ function recordedStudioActions(): string[] {
   return [...found].sort();
 }
 
+/** The model-budget actions the server can record, read from the code that records them. */
+function recordedBudgetActions(): string[] {
+  const sources = ['backend/src/storage/repository.ts', 'backend/src/auth/audit-policy.ts'];
+  const found = new Set<string>();
+  for (const source of sources) {
+    const text = readFileSync(new URL(`../../../${source}`, import.meta.url), 'utf8');
+    for (const match of text.matchAll(/'((?:project|model)\.budget\.[a-z]+)'/gu)) {
+      found.add(match[1]!);
+    }
+  }
+  return [...found].sort();
+}
+
 const entry = (seq: number, overrides: Partial<AuditEntry> = {}): AuditEntry => ({
   seq,
   at: '2026-10-29T10:00:00.000Z',
@@ -45,6 +58,14 @@ describe('audit presentation', () => {
   it('names every action the report studio records, so that none reaches the audit log as a bare code', () => {
     const actions = recordedStudioActions();
     expect(actions.length).toBeGreaterThanOrEqual(15);
+    for (const action of actions) {
+      expect(actionLabel(action), action).not.toBe(action);
+    }
+  });
+
+  it('names every action the model budget records, so that none reaches the audit log as a bare code', () => {
+    const actions = recordedBudgetActions();
+    expect(actions).toEqual(['model.budget.exhausted', 'project.budget.changed']);
     for (const action of actions) {
       expect(actionLabel(action), action).not.toBe(action);
     }

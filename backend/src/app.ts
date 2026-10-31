@@ -22,6 +22,7 @@ import { createModelFactory } from './models/factory.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
+import { budgetRoutes } from './routes/budget.js';
 import { memberRoutes } from './routes/members.js';
 import { sessionRoutes, sessionStatusRoute } from './routes/session.js';
 import { recordApiError, registerRequestTelemetry } from './telemetry/http.js';
@@ -112,6 +113,7 @@ export async function buildApp(options: AppOptions) {
   app.addHook('onRoute', (route) => {
     for (const method of [route.method].flat()) routes.push({ method, url: route.url });
   });
+  repository.usage.setDefaults(config.modelBudget);
   repository.recoverInterrupted();
   const telemetry = new ProviderTelemetry(config.provider);
   const modelFactory = options.modelFactory ?? createModelFactory(config, telemetry);
@@ -298,6 +300,7 @@ export async function buildApp(options: AppOptions) {
   });
   projectRoutes(app, repository, jobs, interaction, config.rateLimitScale);
   memberRoutes(app, repository, config.rateLimitScale);
+  budgetRoutes(app, repository, config.rateLimitScale);
   sessionStatusRoute(app);
   if (verifier && config.auth.session) {
     sessionRoutes(app, {

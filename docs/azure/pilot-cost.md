@@ -165,8 +165,9 @@ is a rate limit, not a reservation, so the account has **no fixed monthly cost**
 | Ten such scenarios in a month (the high end above)                                                                                             | **US$3.13**                                                                                                                     |
 | The pilot sized in the [cost model](../pitch/cost-model.md): ten analysts, five scenarios each, four runs per scenario, at about US$0.20 a run | about **US$40** a month: more than the idle infrastructure, and not in the totals above                                         |
 
-Prices are assumptions of list price; the model, SKU and region of the real deployment decide the real figure, and there
-is no per-tenant budget or alert in the app yet.
+Prices are assumptions of list price; the model, SKU and region of the real deployment decide the real figure. Each project
+is held to a model budget (the template's default is 1,500 calls and 4,000,000 tokens, which at the price above is a few
+US dollars at most), but nothing totals a tenant or a day, and there is no spend alert in the app yet.
 
 ## A short demonstration
 
