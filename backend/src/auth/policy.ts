@@ -120,6 +120,11 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'PUT /api/projects/:id/critiques/:cid/response': project('edit'),
 
   // [brief policy]
+  // The decision brief: made by someone who may edit the project, read by anyone who may read it, and
+  // handed over (Markdown, JSON, printable page) by anyone who may export.
+  'GET /api/projects/:id/brief': project('read'),
+  'POST /api/projects/:id/brief': project('edit'),
+  'GET /api/projects/:id/brief/export': project('export'),
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */

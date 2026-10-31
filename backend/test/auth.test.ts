@@ -460,6 +460,8 @@ describe('identifiers a route accepts outside the path', () => {
   it('are exactly the ones that have been looked at', () => {
     expect(uuidFields()).toEqual([
       // In the path: vouched for by the guard.
+      'brief.ts: id',
+      // In the path: vouched for by the guard.
       'budget.ts: id',
       // In the path: vouched for by the guard. A critique is named by a short id of the review's own.
       'critiques.ts: id',
