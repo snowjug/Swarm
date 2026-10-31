@@ -27,6 +27,12 @@ export interface RunRecord {
   rounds: readonly { round: number; stanceMean: number }[];
   /** The distinct kinds of event that occurred in the run. */
   eventKinds: readonly string[];
+  /**
+   * The distinct events of the run by kind and by the actor that made them. A run holds at most one
+   * event for each actor, so this says who acted. Records made without it (an older caller) fall back
+   * to the kinds alone, and a finding about such an event names no actor.
+   */
+  events?: readonly { kind: string; actorId: string | null }[];
   /** The highest share of simulated members in switch or resist at any round of the run. */
   peakAdverse: number;
 }
@@ -88,6 +94,9 @@ const GROUPS: readonly ResponseGroup[] = [
 const groupShare = (shares: ResponseShares, group: ResponseGroup): number =>
   group.categories.reduce((sum, category) => sum + shares[category], 0);
 
+/** What a finding says of the members who ended up looking for an alternative or resisting. */
+export const ADVERSE_PHRASE = GROUPS[0]!.phrase;
+
 /** The group with the largest share; a tie goes to the more adverse group. */
 function largestGroup(shares: ResponseShares): ResponseGroup {
   let best = GROUPS[0]!;
@@ -104,6 +113,11 @@ function largestGroup(shares: ResponseShares): ResponseGroup {
 
 const clip = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+
+const eventsOf = (record: RunRecord): readonly { kind: string; actorId: string | null }[] =>
+  record.events ?? record.eventKinds.map((kind) => ({ kind, actorId: null }));
+
+const eventKey = (kind: string, actorId: string | null): string => `${kind}\u0000${actorId ?? ''}`;
 
 /** A short repeatable tag for a finding's identity, so that its id is stable and fits its limit. */
 function tag(key: string): string {
@@ -229,15 +243,16 @@ export function generateFindings(input: FindingsInput): Finding[] {
       );
     }
 
-    // How high the adverse share got at any round.
+    // How high the adverse share got at any round. The overall share the engine reports gives each
+    // actor the same weight, whatever its sampled members, so the statement says so.
     const crossed = runs.filter((run) => run.peakAdverse >= threshold).length;
     add(
       'threshold-crossing',
       variant,
       null,
       `threshold-${threshold}`,
-      `In ${crossed} of ${of} seeded runs, at least ${Math.round(threshold * 100)}% of simulated members were looking for an alternative or resisting at some round under ${variant.label}.`,
-      `At some round, the share of all simulated members (each actor weighted equally) whose response is switch or resist is at least ${threshold}.`,
+      `In ${crossed} of ${of} seeded runs, the share of simulated members looking for an alternative or resisting, counting each actor equally and not each member, reached at least ${Math.round(threshold * 100)} in 100 at some round under ${variant.label}.`,
+      `At some round, the mean over all actors of the share of each actor's simulated members whose response is switch or resist (each actor weighted equally, not each member) is at least ${threshold}.`,
       crossed,
       of,
       0,
@@ -346,30 +361,46 @@ export function generateFindings(input: FindingsInput): Finding[] {
       }
     }
 
-    // Which follow-on events occurred, and whether the baseline had them too.
-    const kinds = new Map<string, number>();
-    for (const run of runs)
-      for (const kind of run.eventKinds) kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
-    const frequent = [...kinds]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    // Which follow-on events occurred, by the actor that made them, and whether the baseline had them too.
+    const made = new Map<string, { kind: string; actorId: string | null; count: number }>();
+    for (const run of runs) {
+      for (const { kind, actorId } of eventsOf(run)) {
+        const key = eventKey(kind, actorId);
+        const seen = made.get(key);
+        if (seen) seen.count += 1;
+        else made.set(key, { kind, actorId, count: 1 });
+      }
+    }
+    const frequent = [...made.values()]
+      .sort(
+        (a, b) =>
+          b.count - a.count ||
+          a.kind.localeCompare(b.kind) ||
+          (a.actorId ?? '').localeCompare(b.actorId ?? ''),
+      )
       .slice(0, EVENT_KINDS_PER_VARIANT);
-    for (const [kind, holdsIn] of frequent) {
+    for (const { kind, actorId, count: holdsIn } of frequent) {
       const without = paired
-        ? reference.filter((run) => run.eventKinds.includes(kind)).length
+        ? reference.filter((run) =>
+            eventsOf(run).some((event) => event.kind === kind && event.actorId === actorId),
+          ).length
         : null;
       const clause =
         baseline && without !== null ? ` (under ${baseline.label}: ${without} of ${of})` : '';
+      const by = actorId === null ? '' : ` by ${nameOf(actorId)}`;
       add(
         'second-order-event',
         variant,
-        null,
+        actorId,
         `event-${kind}`,
-        `In ${holdsIn} of ${of} seeded runs, a simulated “${kind}” event occurred under ${variant.label}${clause}.`,
-        `At least one event of the kind “${kind}” was recorded in the run.`,
+        `In ${holdsIn} of ${of} seeded runs, a simulated “${kind}” event${by} occurred under ${variant.label}${clause}.`,
+        actorId === null
+          ? `At least one event of the kind “${kind}” was recorded in the run.`
+          : `An event of the kind “${kind}” by ${nameOf(actorId)} was recorded in the run.`,
         holdsIn,
         of,
         -holdsIn,
-        kind,
+        `${kind}|${actorId ?? ''}`,
       );
     }
   }
