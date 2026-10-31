@@ -1009,6 +1009,8 @@ test.describe('in every theme, on a laptop and on a phone', () => {
       page,
     }) => {
       await page.goto(`/?project=${ids.actors}`);
+      // The console is fetched when a project opens: measure the page once it is there.
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       const header = page.locator('header.app-header');
       expect((await header.boundingBox())!.height).toBeLessThan(200);
       expect(await header.evaluate((element) => getComputedStyle(element).position)).toBe('static');

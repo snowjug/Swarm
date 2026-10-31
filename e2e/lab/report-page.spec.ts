@@ -330,7 +330,8 @@ test.describe('printing the report', () => {
     expect(has('Show this as a table')).toBe(false);
     expect(has('Stakeholder map, as a table')).toBe(false);
     expect(has('Sensitivity of the simulated outcome to each assumption moved')).toBe(false);
-    expect(has('Mean number of simulated members in each response')).toBe(true);
+    expect(has('Mean share of simulated members in each response')).toBe(true);
+    expect(has('Mean number of simulated members in each response')).toBe(false);
   });
 
   test('prints the other stages as it always did', async ({ page }) => {

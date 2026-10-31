@@ -614,3 +614,13 @@ export const textsOf = (scope: Locator): Promise<string[]> =>
   scope.evaluateAll((elements) =>
     elements.map((element) => (element.textContent ?? '').replace(/\s+/gu, ' ').trim()),
   );
+
+/** What the brief says in its own words: without the passages quoted from the sources that a row rests on. */
+export const ownWordsOf = (scope: Locator): Promise<string[]> =>
+  scope.evaluateAll((elements) =>
+    elements.map((element) => {
+      const copy = element.cloneNode(true) as HTMLElement;
+      for (const quoted of copy.querySelectorAll('details')) quoted.remove();
+      return (copy.textContent ?? '').replace(/\s+/gu, ' ').trim();
+    }),
+  );

@@ -50,6 +50,7 @@ import {
   stages,
   stakeholderPanel,
   stakeholdersOf,
+  ownWordsOf,
   textsOf,
   urlPanel,
   type ApiCall,
@@ -376,7 +377,8 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     await expect(plan).toContainText('none of which has been run');
     expect(await plan.locator('tbody tr').count(), 'real-world checks').toBeGreaterThan(0);
     const cells = brief.locator('.brief-recommendations tbody td, .brief-validation tbody td');
-    expect((await textsOf(cells)).flatMap(claimsAgainst)).toEqual([]);
+    // A figure in a passage quoted from a source is the source's, so only the brief's own words are read.
+    expect((await ownWordsOf(cells)).flatMap(claimsAgainst)).toEqual([]);
   });
 
   await test.step('export: the brief can be taken away, as Markdown, as JSON and as a printable page', async () => {
