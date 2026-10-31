@@ -15,7 +15,8 @@ and can ask a what-if question at once.
   `Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.`; it
   lives in `lib/product.ts` (`POSITIONING_STATEMENT`) and unit and end-to-end tests assert its exact
   words.
-- **The question** is the first field of the form and is on the first screen at 1366×768 and larger.
+- **The question** is the first field of the form and is on the first screen at 1366×768 and larger;
+  on a phone the introduction is shorter so that the field starts on the first screen.
   The project name is optional: when it is empty, it is the start of the question
   (`nameFromQuestion` in `lib/entryValidation.ts`).
 - **Examples** (`ExamplePicker.tsx`) are read from `EXAMPLE_SCENARIOS` in
