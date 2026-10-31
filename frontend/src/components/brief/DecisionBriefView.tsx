@@ -10,6 +10,8 @@ export interface DecisionBriefViewProps {
   project: ProjectDetail;
   /** Moves to another stage, so that a person with no analysis yet can be sent to run one. */
   onNavigate?: (step: ConsoleStep) => void;
+  /** The brief is read again whenever this changes: a fresh read of the project, or a change to the review beside it. */
+  refreshToken?: string;
 }
 
 /** What the brief shows for each state it can be in, from the handle the hook returns. */
@@ -78,6 +80,7 @@ export function BriefPanel({
           view={{ ...view, brief: view.brief }}
           generating={generating}
           onGenerate={() => void generate()}
+          onNavigate={onNavigate}
         />
       </>
     );
@@ -147,7 +150,12 @@ export function BriefPanel({
 }
 
 /** The answer-first decision brief of a project, with its exports. It sits at the top of the Report stage. */
-export function DecisionBriefView({ project, onNavigate }: DecisionBriefViewProps) {
-  const handle = useBrief(project.id, project.updatedAt);
+export function DecisionBriefView({
+  project,
+  onNavigate,
+  refreshToken = '',
+}: DecisionBriefViewProps) {
+  // The project's own timestamp does not move when a critique, a stakeholder or a comparison changes.
+  const handle = useBrief(project.id, `${project.updatedAt}|${refreshToken}`);
   return <BriefPanel projectId={project.id} handle={handle} onNavigate={onNavigate} />;
 }

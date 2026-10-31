@@ -121,6 +121,8 @@ describe('a review of an earlier analysis', () => {
           critiques: [],
         }
       : null,
+    revision: reviewed ? 1 : null,
+    changedSince: [],
     analysis: newest ? { id: newest, completedAt: null } : null,
     may: { run: true, respond: true },
     model: { available: false },

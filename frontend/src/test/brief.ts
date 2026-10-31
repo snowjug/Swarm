@@ -411,6 +411,7 @@ export function viewFixture(overrides: Partial<BriefView> = {}): BriefView {
   return {
     brief: briefFixture(),
     visuals: visualsFixture(),
+    visualsFrom: 'snapshot',
     latestAnalysis: { id: 'analysis-1', completedAt: GENERATED_AT },
     changedSince: [],
     may: { generate: true, export: true },

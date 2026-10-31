@@ -20,8 +20,12 @@ statements, critique objections) is quoted inside the sentence that uses it and 
 length. It is data, not instruction, and it is never executed or followed.
 
 The brief is stored with the project as the artifact `brief`; generating it again replaces it. The
-charts and tables are not stored. They are worked out again from the analysis and the project's
-other documents every time the brief is read or exported, so they always agree with the data.
+data behind its charts and tables is worked out when the brief is made and stored with it (the
+`snapshot`), so that what the page draws and what the exports tabulate agree with the brief's own
+words even after the stakeholders, the scenario or the critiques have changed. The routes hand it
+out as `visuals`. A brief stored before that was kept has its charts worked out from the project's
+documents as they are when it is read or exported, and the page and every export say so
+(`visualsFrom: "current"`).
 
 ## The seventeen sections
 
@@ -259,8 +263,14 @@ recorded in the methodology notes of the brief. Quotations from the sources are 
   for the proposed change under these assumptions (other scenarios are read on their own). Read the
   notice before the counts.
 - Each chart has a table behind it with the same numbers.
-- "This brief may be out of date" means a scenario, stakeholders, actors, critiques or the analysis
-  changed after it was made, or a newer completed analysis exists. Generate it again.
+- "This brief may be out of date" lists what changed, and what to do depends on what it is. A comparison
+  records the revision of the scenario, the stakeholders and the actors it was run on, and the brief is
+  judged against that record, not against when it was written. If one of them changed after the
+  comparison ran, writing the brief again would describe the new decision with the old runs, so the
+  notice asks for the comparison to be run again in the Simulation stage, then the brief to be written
+  again; the brief written from such a comparison says so in its own methodology notes and keeps the
+  notice. A change to the critiques, or a newer completed analysis, is brought up to date by writing
+  the brief again.
 
 ## Charts
 
@@ -298,7 +308,15 @@ format and ids only and never a question, a statement, a name or a passage.
   `default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none';
 frame-ancestors 'none'`, together with `x-content-type-options: nosniff` and `cache-control:
 no-store`. Print it from the browser to get a paper or PDF copy.
-- **JSON** is the stored brief and the chart data, with a notice and a schema version.
+- **JSON** is the stored brief and the chart data, with a notice and a schema version. Its `changedSince`
+  (empty when the brief is current), `warning`, `provenance.inputRevisions` (what the brief was made
+  from), `provenance.currentRevisions` (what the project holds at the export) and `provenance.dataFrom`
+  (`snapshot`, or `current` for a brief stored before its data was kept) carry the freshness with it.
+- Every export says so before anything else when what the brief rests on has changed since: Markdown
+  with a quoted warning, the printable page with a boxed one, ahead of the headline, naming what changed
+  and the revisions it was made from beside the ones the project holds now. The tables are the ones
+  the brief was made with. A brief stored before they were kept says, in the same place, that its
+  tables show the project as it is at the export.
 - When the comparison cannot be read as a result, the Markdown opens with a quoted notice and the
   printable page with a boxed one, both ahead of the headline, and the caption of the table that sets
   variants side by side says that its differences are not read as effects of the change.
@@ -314,5 +332,7 @@ no-store`. Print it from the browser to get a paper or PDF copy.
   of findings; until then every sentence is built from data by rules.
 - It does not compare the simulation with past outcomes.
 - It does not produce a PDF or a Word file. The printable page is the print route.
-- It does not keep earlier versions of the brief. Generating it again replaces the stored one.
+- It does not keep earlier versions of the brief. Generating it again replaces the stored one. It
+  keeps the data behind its charts, not earlier versions of the scenario or the stakeholders, so it
+  can say that something changed and which revisions it was made from, not show what they were.
 - It is not a substitute for the checks in its own validation plan.

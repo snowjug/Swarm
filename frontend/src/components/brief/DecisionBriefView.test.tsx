@@ -43,13 +43,14 @@ const panel = (overrides: Partial<BriefHandle> = {}, onNavigate?: () => void) =>
   renderToStaticMarkup(
     <BriefPanel projectId={PROJECT} handle={handle(overrides)} onNavigate={onNavigate} />,
   );
-const document = (view = viewFixture(), generating = false) =>
+const document = (view = viewFixture(), generating = false, onNavigate?: () => void) =>
   renderToStaticMarkup(
     <BriefDocument
       projectId={PROJECT}
       view={{ ...view, brief: view.brief! }}
       generating={generating}
       onGenerate={() => undefined}
+      onNavigate={onNavigate}
     />,
   );
 const buttons = (html: string) =>
@@ -573,12 +574,60 @@ describe('exports and staleness', () => {
     expect(text).toContain(
       'Since it was made, this has changed: stakeholders, a newer analysis exists.',
     );
+    // A newer comparison exists, so writing the brief again from it is the way to a current one.
     expect(text).toContain('Generate it again to bring it up to date.');
+    expect(buttons(stale).map((entry) => entry.text)).not.toContain('Open the Simulation stage');
     const reader = visibleText(
-      document(viewFixture({ changedSince: ['actors'], may: { generate: false, export: true } })),
+      document(
+        viewFixture({ changedSince: ['critiques'], may: { generate: false, export: true } }),
+      ),
     );
     expect(reader).toContain('Ask someone who can edit the project to generate it again.');
     expect(visibleText(document())).not.toContain('may be out of date');
+  });
+
+  it('asks for the comparison to be run again when what it was run on has changed, and offers the way there', () => {
+    const view = viewFixture({ changedSince: ['scenario', 'actors'] });
+    const html = document(view, false, () => undefined);
+    const text = visibleText(html);
+    expect(text).toContain('Since it was made, this has changed: scenario, actors.');
+    expect(text).toContain(
+      'The comparison it rests on was run before the scenario and the simulated actors changed, so it describes the project as it was.',
+    );
+    expect(text).toContain(
+      'Run the comparison again in the Simulation stage, then generate the brief again.',
+    );
+    expect(text).not.toContain('Generate it again to bring it up to date.');
+    // The notice says it in a status a screen reader announces, and has the way to run again in it.
+    const notice = html.slice(html.indexOf('class="notice notice-warning"'));
+    expect(notice).toMatch(/^class="notice notice-warning" role="status"/u);
+    expect(
+      buttons(notice.slice(0, notice.indexOf('class="brief-answer"'))).map((b) => b.text),
+    ).toEqual(['Open the Simulation stage']);
+    // Without a way to move it still says what to do, and invents no button.
+    expect(buttons(document(view)).map((entry) => entry.text)).not.toContain(
+      'Open the Simulation stage',
+    );
+    const reader = visibleText(
+      document(viewFixture({ ...view, may: { generate: false, export: true } })),
+    );
+    expect(reader).toContain(
+      'Ask someone who can edit the project to run the comparison again and generate the brief again.',
+    );
+  });
+
+  it('says that its charts show the project as it is now when none was kept with the brief', () => {
+    const changed = { changedSince: ['critiques'] };
+    expect(visibleText(document(viewFixture({ ...changed, visualsFrom: 'current' })))).toContain(
+      'Its charts show the project as it is now, not as it was when the brief was made.',
+    );
+    expect(
+      visibleText(document(viewFixture({ ...changed, visualsFrom: 'snapshot' }))),
+    ).not.toContain('Its charts show the project as it is now');
+    // Nothing changed since, so the charts and the words agree and nothing is said.
+    expect(visibleText(document(viewFixture({ visualsFrom: 'current' })))).not.toContain(
+      'Its charts show',
+    );
   });
 
   it('prints the time it was made in a form a machine can read', () => {

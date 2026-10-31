@@ -41,6 +41,8 @@ export function setFixture(
 export function viewFixture(overrides: Partial<CritiquesView> = {}): CritiquesView {
   return {
     critiques: setFixture([critiqueFixture()]),
+    revision: 3,
+    changedSince: [],
     analysis: { id: 'analysis-1', completedAt: '2026-02-01T08:00:00.000Z' },
     may: { run: true, respond: true },
     model: { available: false },

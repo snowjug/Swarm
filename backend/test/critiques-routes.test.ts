@@ -1,7 +1,11 @@
 import type { z } from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Analysis, Variant } from '../../shared/analysis.js';
-import { CHANGE_CANNOT_MOVE_ID, type CritiquesView } from '../../shared/critique.js';
+import {
+  CHANGE_CANNOT_MOVE_ID,
+  type CritiqueResponseBody,
+  type CritiquesView,
+} from '../../shared/critique.js';
 import type { ContradictionRecord } from '../../shared/evidence.js';
 import {
   actorSetFixture,
@@ -135,7 +139,11 @@ async function world(
     instance.app.inject({
       method: 'PUT',
       url: `${url}/${critique}/response`,
-      payload: payload as object,
+      // What a page sends: the revision of the review it is showing, which is the one that is stored.
+      payload: {
+        expectedRevision: instance.repository.artifacts.get(project.id, 'critiques')?.revision ?? 1,
+        ...(payload as object),
+      },
     });
   const audit = () =>
     instance.repository.audit
@@ -162,6 +170,8 @@ describe('reading the review', () => {
     const empty = await get();
     expect(empty).toEqual({
       critiques: null,
+      revision: null,
+      changedSince: [],
       analysis: null,
       may: { run: true, respond: true },
       model: { available: false, reason: null },
@@ -713,11 +723,14 @@ describe('running the review again', () => {
     const abort = new AbortController().signal;
     const run = (useModel = false) => made.run(project.id, { useModel }, 'tester', abort);
     const stored = () => repository.artifacts.get(project.id, 'critiques')!;
-    return { repository, project, made, run, stored };
+    /** A response to the review as it is stored, as a page that has just read it sends one. */
+    const answer = (id: string, body: Omit<CritiqueResponseBody, 'expectedRevision'>) =>
+      made.respond(project.id, id, { ...body, expectedRevision: stored().revision }, 'tester');
+    return { repository, project, made, run, stored, answer };
   }
 
   it('keeps the response to a critique whose id is unchanged, with the date it was first raised', async () => {
-    const { run, made, project, stored } = service();
+    const { run, answer, stored } = service();
     await run();
     const first = stored();
     const target = first.data.critiques.find(
@@ -726,22 +739,12 @@ describe('running the review again', () => {
     const other = first.data.critiques.find(
       (critique) => critique.id === 'evidence-uncited-stakeholders',
     )!;
-    made.respond(
-      project.id,
-      target.id,
-      { text: 'Understood and accepted.', status: 'accepted' },
-      'tester',
-    );
-    made.respond(
-      project.id,
-      other.id,
-      {
-        text: 'The stakeholders were added on purpose.',
-        status: 'disputed',
-        remainingDisagreement: 'Whether sources are needed.',
-      },
-      'tester',
-    );
+    answer(target.id, { text: 'Understood and accepted.', status: 'accepted' });
+    answer(other.id, {
+      text: 'The stakeholders were added on purpose.',
+      status: 'disputed',
+      remainingDisagreement: 'Whether sources are needed.',
+    });
     const answered = stored();
 
     await run();
@@ -764,20 +767,10 @@ describe('running the review again', () => {
   });
 
   it('drops a critique that no longer applies, with its response, and keeps the ones that do', async () => {
-    const { run, made, project, stored, repository } = service();
+    const { run, answer, project, stored, repository } = service();
     await run();
-    made.respond(
-      project.id,
-      'evidence-uncited-stakeholders',
-      { text: 'Noted.', status: 'responded' },
-      'tester',
-    );
-    made.respond(
-      project.id,
-      'methodology-rules-only',
-      { text: 'Noted too.', status: 'responded' },
-      'tester',
-    );
+    answer('evidence-uncited-stakeholders', { text: 'Noted.', status: 'responded' });
+    answer('methodology-rules-only', { text: 'Noted too.', status: 'responded' });
 
     const set = stakeholderSetFixture();
     repository.artifacts.put(project.id, 'stakeholders', 'default', {
@@ -816,7 +809,11 @@ describe('running the review again', () => {
     made.respond(
       project.id,
       'methodology-rules-only',
-      { text: 'Answered meanwhile.', status: 'accepted' },
+      {
+        text: 'Answered meanwhile.',
+        status: 'accepted',
+        expectedRevision: repository.artifacts.get(project.id, 'critiques')!.revision,
+      },
       'tester',
     );
     release();
@@ -848,7 +845,16 @@ describe('running the review again', () => {
     const model = repository.artifacts
       .get(project.id, 'critiques')!
       .data.critiques.find((c) => c.origin === 'model')!;
-    askWith('x').respond(project.id, model.id, { text: 'Accepted.', status: 'accepted' }, 't');
+    askWith('x').respond(
+      project.id,
+      model.id,
+      {
+        text: 'Accepted.',
+        status: 'accepted',
+        expectedRevision: repository.artifacts.get(project.id, 'critiques')!.revision,
+      },
+      't',
+    );
 
     await askWith('The direction may be a property of the cast.').run(
       project.id,
@@ -995,6 +1001,7 @@ describe('who may read, run and respond', () => {
           await call(actor, 'PUT', `/${target}/response`, {
             text: `Answer from ${actor}.`,
             status: 'responded',
+            expectedRevision: repository.artifacts.get(shared, 'critiques')!.revision,
           }),
         ),
       ];
@@ -1043,7 +1050,11 @@ describe('who may read, run and respond', () => {
     const { call, repository, shared } = await secured();
     const run = await call('analyst', 'POST', '/run', {});
     const target = (run.json() as CritiquesView).critiques!.critiques[0]!.id;
-    await call('lead', 'PUT', `/${target}/response`, { text: 'Accepted.', status: 'accepted' });
+    await call('lead', 'PUT', `/${target}/response`, {
+      text: 'Accepted.',
+      status: 'accepted',
+      expectedRevision: repository.artifacts.get(shared, 'critiques')!.revision,
+    });
     const entries = repository.audit
       .list({ projectId: shared, limit: 500 })
       .filter((entry) => entry.action.startsWith('critique'));
@@ -1121,7 +1132,7 @@ async function compared(cast: ActorSet, payload: Record<string, unknown>) {
     expect(run.statusCode, run.body).toBe(200);
     return (run.json() as CritiquesView).critiques!;
   };
-  return { ...instance, base, analysis, stored, review };
+  return { ...instance, project, base, analysis, stored, review };
 }
 
 const sameFindings = (analysis: Analysis) =>
@@ -1166,11 +1177,14 @@ describe('a comparison that cannot say anything about the change', () => {
   });
 
   it('keeps the answer to it when the review is made again, and still leads with it', async () => {
-    const { app, base, review } = await compared(withoutDirection(actorSetFixture()), {
-      runsPerVariant: 12,
-      baseSeed: 31,
-      sensitivity: false,
-    });
+    const { app, base, review, repository, project } = await compared(
+      withoutDirection(actorSetFixture()),
+      {
+        runsPerVariant: 12,
+        baseSeed: 31,
+        sensitivity: false,
+      },
+    );
     await review();
     const answered = await app.inject({
       method: 'PUT',
@@ -1178,6 +1192,7 @@ describe('a comparison that cannot say anything about the change', () => {
       payload: {
         text: 'Who is helped or harmed will be said in the stakeholder review first.',
         status: 'accepted',
+        expectedRevision: repository.artifacts.get(project.id, 'critiques')!.revision,
       },
     });
     expect(answered.statusCode, answered.body).toBe(200);

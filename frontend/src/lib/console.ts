@@ -346,6 +346,24 @@ export function defaultView(project: ProjectDetail): 'split' | 'workbench' {
 }
 
 /**
+ * What the brief and the independent review read again on. It changes each time a person asks for a
+ * fresh read of the project (`reads`), and when the lab's own record changes (a comparison finished,
+ * stakeholders approved, a brief written). The project's own timestamp is no help: a change to an
+ * artifact, which is all a critique, a stakeholder or a comparison is, does not touch it.
+ */
+export function labRefreshToken(project: Pick<ProjectDetail, 'lab'>, reads: number): string {
+  const { lab } = project;
+  return [
+    reads,
+    lab
+      ? [lab.scenario, lab.stakeholders, lab.actors, lab.analysis, lab.critiques, lab.brief].join(
+          ',',
+        )
+      : 'none',
+  ].join(':');
+}
+
+/**
  * A project that came back from something the person did (a run, a branch) has no `lab`, because only
  * reading one project adds it. The last one read stays until the next read, which follows at once, so
  * that nothing the person is looking at jumps in between.

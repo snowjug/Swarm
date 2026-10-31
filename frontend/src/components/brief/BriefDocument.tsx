@@ -7,6 +7,7 @@ import {
   type BriefView,
   type DecisionBrief,
 } from '../../../../shared/brief';
+import type { ConsoleStep } from '../../../../shared/guided';
 import { briefApi } from '../../api/brief';
 import {
   RELIANCE_LABELS,
@@ -17,6 +18,7 @@ import {
 } from '../../lib/brief';
 import { dateTime } from '../../lib/format';
 import { Notice, Spinner } from '../ui';
+import { BriefFreshness } from './BriefFreshness';
 import { RecommendationsTable, ValidationTable } from './BriefTables';
 import { SectionVisuals } from './BriefVisuals';
 import { BriefStatementList, OriginBadge, RelianceBadge } from './BriefStatements';
@@ -137,11 +139,14 @@ export function BriefDocument({
   view,
   generating,
   onGenerate,
+  onNavigate,
 }: {
   projectId: string;
   view: BriefView & { brief: DecisionBrief };
   generating: boolean;
   onGenerate: () => void;
+  /** Moves to another stage, so that a brief that needs a new comparison can send the person to run one. */
+  onNavigate?: (step: ConsoleStep) => void;
 }) {
   const { brief, visuals } = view;
   const ordered = BRIEF_SECTION_IDS.flatMap((id) => {
@@ -214,14 +219,7 @@ export function BriefDocument({
           {BRIEF_SIGNAL_NOTICES[brief.signal].text}
         </Notice>
       ) : null}
-      {view.changedSince.length > 0 ? (
-        <Notice tone="warning" title="This brief may be out of date">
-          Since it was made, this has changed: {view.changedSince.join(', ')}.{' '}
-          {view.may.generate
-            ? 'Generate it again to bring it up to date.'
-            : 'Ask someone who can edit the project to generate it again.'}
-        </Notice>
-      ) : null}
+      <BriefFreshness view={view} onNavigate={onNavigate} />
       {executive ? <ExecutiveCard brief={brief} section={executive} visuals={visuals} /> : null}
       <Legend />
       <nav className="brief-nav" aria-label="Sections of the decision brief">

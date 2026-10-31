@@ -306,6 +306,42 @@ export const ANALYSIS_STATUSES = [
 ] as const;
 export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
 
+/**
+ * The documents a comparison is made from. When one of them changes after the comparison ran, the
+ * comparison, and the review and the brief made from it, describe the project as it was: only
+ * running the comparison again brings them up to date.
+ */
+export const ANALYSIS_INPUTS = ['scenario', 'stakeholders', 'actors'] as const;
+export type AnalysisInput = (typeof ANALYSIS_INPUTS)[number];
+
+export const ANALYSIS_INPUT_NAMES: Record<AnalysisInput, string> = {
+  scenario: 'the scenario',
+  stakeholders: 'the stakeholders',
+  actors: 'the simulated actors',
+};
+
+/** What a list of changes (`changedSince`) says when a comparison has finished after the one the brief or review rests on. */
+export const NEWER_ANALYSIS_EXISTS = 'a newer analysis exists';
+
+/**
+ * The documents among `changedSince` that a comparison is made from, when running the comparison
+ * again is what brings the brief or the review up to date. None when a newer comparison already
+ * exists, which making the brief or the review again uses: if that one is out of date too, it is
+ * said then.
+ */
+export const staleComparisonInputs = (changedSince: readonly string[]): AnalysisInput[] =>
+  changedSince.includes(NEWER_ANALYSIS_EXISTS)
+    ? []
+    : ANALYSIS_INPUTS.filter((input) => changedSince.includes(input));
+
+/** "the scenario", "the scenario and the stakeholders", "the scenario, the stakeholders and the simulated actors". */
+export function inputsInWords(inputs: readonly AnalysisInput[]): string {
+  const names = inputs.map((input) => ANALYSIS_INPUT_NAMES[input]);
+  return names.length < 2
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /** The artifact `analysis` (one per run set; the key is its id). */
 export const analysisSchema = z.object({
   id: idSchema,
@@ -322,6 +358,13 @@ export const analysisSchema = z.object({
   /** The cast and relations the runs used, copied so that the analysis stays reproducible. */
   actors: z.array(actorSchema).min(1).max(60),
   relations: z.array(actorRelationSchema).max(240).default([]),
+  /**
+   * The revision of each document the comparison was made from (0 when there was none): the scenario
+   * and the stakeholders it read and the actors it copied, so that a later change to any of them can
+   * be told from a comparison that still describes the project. Absent for a comparison saved before
+   * this was recorded, whose freshness cannot be told.
+   */
+  inputRevisions: z.record(z.string().max(40), z.int().min(0)).optional(),
   fidelity: fidelitySchema,
   progress: z.object({ completedRuns: z.int().min(0), totalRuns: z.int().min(0) }),
   variants: z.array(variantResultSchema).max(8).default([]),
