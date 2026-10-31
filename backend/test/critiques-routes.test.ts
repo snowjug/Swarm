@@ -18,7 +18,7 @@ import { AppError } from '../src/errors.js';
 import type { JsonOptions, ModelGateway } from '../src/models/client.js';
 import type { ModelFactory } from '../src/models/factory.js';
 import { Repository } from '../src/storage/repository.js';
-import { fixtureInput, testConfig } from './fixtures.js';
+import { fixtureInput as baseInput, testConfig } from './fixtures.js';
 import { briefFixture, ref } from './support/critic-world.js';
 import {
   TENANT_A,
@@ -31,6 +31,14 @@ import {
 
 // The routes of the independent review: who may call them, what they answer, what they store, and
 // what the audit log is told. What each rule says is in critics-rules.test.ts.
+
+// A model may be asked to add to a review only on a project that was made to use one, so the
+// projects here are of that kind; the ones that run without a model are made with `baseInput`.
+const fixtureInput = (overrides: Record<string, unknown> = {}) =>
+  baseInput({
+    settings: { mode: 'llm', agentCount: 6, rounds: 4, seed: 42, network: 'community' },
+    ...overrides,
+  });
 
 type Application = Awaited<ReturnType<typeof buildApp>>;
 const applications: Application[] = [];
@@ -156,7 +164,7 @@ describe('reading the review', () => {
       critiques: null,
       analysis: null,
       may: { run: true, respond: true },
-      model: { available: false },
+      model: { available: false, reason: null },
     });
     expect((await app.inject({ method: 'GET', url })).statusCode).toBe(200);
 
@@ -164,6 +172,42 @@ describe('reading the review', () => {
     const ready = await get();
     expect(ready.critiques).toBeNull();
     expect(ready.analysis).toMatchObject({ id: 'analysis-1' });
+  });
+
+  it('does not offer a model, or ask one, on a project that runs without a model, whatever the server has set up', async () => {
+    const calls: Call[] = [];
+    const instance = await buildApp({
+      config: testConfig({
+        LOG_LEVEL: 'silent',
+        AI_PROVIDER: 'openai',
+        AI_MODEL: 'fixture-model',
+        OPENAI_API_KEY: 'sk-test-not-a-real-key',
+      }),
+      modelFactory: scripted({ critiques: [] }, calls),
+    });
+    applications.push(instance);
+    const project = instance.repository.create(
+      baseInput({
+        workflow: 'guided',
+        settings: { mode: 'local', agentCount: 6, rounds: 4, seed: 42, network: 'community' },
+      }),
+    );
+    seed(instance.repository, project.id);
+    const url = `/api/projects/${project.id}/critiques`;
+    const view = (await instance.app.inject({ method: 'GET', url })).json() as CritiquesView;
+    expect(view.model.available).toBe(false);
+    expect(view.model.reason).toMatch(/runs without a model, so nothing is sent to one/u);
+    const asked = await instance.app.inject({
+      method: 'POST',
+      url: `${url}/run`,
+      payload: { useModel: true },
+    });
+    expect(asked.statusCode, asked.body).toBe(409);
+    expect(asked.json().error.code).toBe('MODEL_NOT_AVAILABLE');
+    expect(calls).toEqual([]);
+    const rules = await instance.app.inject({ method: 'POST', url: `${url}/run`, payload: {} });
+    expect(rules.statusCode, rules.body).toBe(200);
+    expect(calls).toEqual([]);
   });
 
   it('is not found for a project that is not there', async () => {

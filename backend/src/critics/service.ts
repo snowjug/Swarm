@@ -28,6 +28,10 @@ const notReady = (): AppError =>
     'There is no finished analysis to review yet. Compare scenarios first, then run the independent review.',
   );
 
+/** Said where a model review is offered or asked for on a project that was made to run without one. */
+const RUNS_WITHOUT_MODEL =
+  'This project runs without a model, so nothing is sent to one. Only the deterministic checks run.';
+
 function newestCompleted(analyses: readonly Analysis[]): Analysis | null {
   const done = analyses.filter((analysis) => analysis.status === 'completed');
   return (
@@ -71,11 +75,15 @@ export class CritiqueService {
   view(projectId: string, may: CritiquesView['may']): CritiquesView {
     const stored = this.repository.artifacts.get(projectId, 'critiques');
     const latest = this.newest(projectId);
+    const runsWithoutModel = this.repository.get(projectId).mode !== 'llm';
     return {
       critiques: stored?.data ?? null,
       analysis: latest ? { id: latest.id, completedAt: latest.completedAt } : null,
       may,
-      model: { available: this.options.modelAvailable },
+      model: {
+        available: this.options.modelAvailable && !runsWithoutModel,
+        reason: runsWithoutModel ? RUNS_WITHOUT_MODEL : null,
+      },
     };
   }
 
@@ -171,6 +179,9 @@ export class CritiqueService {
     actor: string,
     signal: AbortSignal,
   ): Promise<void> {
+    if (body.useModel && this.repository.get(projectId).mode !== 'llm') {
+      throw new AppError(409, 'MODEL_NOT_AVAILABLE', RUNS_WITHOUT_MODEL);
+    }
     if (this.running.has(projectId)) {
       throw new AppError(
         409,

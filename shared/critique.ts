@@ -132,5 +132,9 @@ export interface CritiquesView {
   /** The newest finished analysis, so that a review of an older one can be called out of date. */
   analysis: { id: string; completedAt: string | null } | null;
   may: { run: boolean; respond: boolean };
-  model: { available: boolean };
+  /**
+   * Whether a model can be asked to add to the review. It cannot on a project that runs without a
+   * model, whatever the server has set up; `reason` says so in words for the page to show.
+   */
+  model: { available: boolean; reason?: string | null };
 }

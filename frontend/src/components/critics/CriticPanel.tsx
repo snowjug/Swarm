@@ -396,7 +396,7 @@ function RunControls({ view, state }: { view: CritiquesView; state: CritiquesSta
       </div>
       {!view.model.available && (
         <p className="field-help">
-          No model is configured, so only the deterministic checks can run.
+          {view.model.reason ?? 'No model is configured, so only the deterministic checks can run.'}
         </p>
       )}
       <div className="stage-actions">

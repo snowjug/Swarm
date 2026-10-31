@@ -44,8 +44,11 @@ Back to the [README](../README.md). The evidence behind these statements is in [
 - Model endpoints are administrator-configured, not selected by input documents.
   HTTPS is required except for explicitly local Ollama addresses. Redirects are
   rejected. Keys stay server-side and provider bodies/request content are not logged.
-- Local mode makes no model requests even if a provider is configured. Model mode
-  sends bounded source/persona context to that provider; review its privacy policy.
+- Local mode makes no model requests even if a provider is configured. The scenario lab keeps to
+  that: scenario intake reads a question with a model only when the request says the person chose
+  one (`useModel`), and stakeholder discovery, actor generation and the model critic refuse a model
+  on a project that runs without one. Model mode sends bounded source/persona context to that
+  provider; review its privacy policy.
 - `.env`, SQLite data, node_modules, build output and caches are Git-ignored.
   Use OS access controls/disk encryption for sensitive local sources.
 

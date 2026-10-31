@@ -234,10 +234,13 @@ written, so a reader can tell it is older than the criticism's current wording.
 - The review is one artifact of kind `critiques` per project, key `default`. Running it again
   replaces the set; the history of who ran and answered is in the audit log.
 - `POST /api/projects/:id/critiques/run` takes `{ analysisId?, useModel? }`. Without `analysisId` it
-  reviews the newest finished analysis. A project with no finished analysis gets a plain 409.
+  reviews the newest finished analysis. A project with no finished analysis gets a plain 409. Asking
+  for a model (`useModel: true`) on a project that was made to run without one (mode "Local rules")
+  is refused with 409 `MODEL_NOT_AVAILABLE`: nothing is sent to a model from such a project.
 - `GET /api/projects/:id/critiques` answers 200 with `critiques: null` when there is none, the
   newest finished analysis (so that a review of an older one can be called out of date), what the
-  caller may do, and whether a model is configured.
+  caller may do, and whether a model can be asked (`model.available`; `model.reason` says in words
+  that the project runs without one, and the page says when the server has none configured).
 - Reading needs `read`, running `run`, responding `edit`. A reviewer reads and does not run or edit
   what they review.
 - The audit log records `critiques.run` (analysis id, counts, whether a model was asked for and
