@@ -356,7 +356,8 @@ as one of a project's `documents`. `provenance` is `{ "kind": "url", "url", "fin
 "contentType", "sha256", "title", "fetchedByServer": true }`, with secret-looking query values removed from
 both addresses. A failure is a 4xx with a code that starts `URL_` and a message that ends
 with "You can paste the text instead.": `400 URL_INVALID` for something that is not a web address Swarm can
-read, `403 URL_INGESTION_DISABLED` when `URL_INGESTION=off`, and `422` for the rest (`URL_BLOCKED`,
+read, `403 URL_INGESTION_DISABLED` when `URL_INGESTION=off`, `503 URL_BUSY` with a `Retry-After` when this server
+is already reading as many pages as it allows (`URL_INGEST_CONCURRENCY`), and `422` for the rest (`URL_BLOCKED`,
 `URL_PORT_NOT_ALLOWED`, `URL_UNSUPPORTED_TYPE`, `URL_TOO_LARGE`, `URL_TIMEOUT`, `URL_TOO_MANY_REDIRECTS`,
 `URL_ROBOTS_DISALLOWED`, `URL_NO_TEXT`, `URL_FETCH_FAILED`). A name that leads inside a network is answered
 exactly as a name that does not exist (`URL_FETCH_FAILED`, "could not find … on the public web"), so that the
