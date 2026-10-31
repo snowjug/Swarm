@@ -100,10 +100,14 @@ test.describe('the example picker', () => {
     page,
   }) => {
     await page.goto('/');
-    await picker(page).getByRole('button').first().click();
+    const card = picker(page).getByRole('listitem').first();
+    const documents = Number.parseInt(await card.locator('small').innerText(), 10);
+    expect(documents).toBeGreaterThanOrEqual(1);
+    await card.getByRole('button').click();
     await expect(question(page)).toBeFocused();
     expect((await question(page).inputValue()).length).toBeGreaterThanOrEqual(10);
-    await expect(page.getByText(/[1-9]\d*\/5 FILES/u)).toBeVisible();
+    // The evidence the card named is in the form, out of however many the server allows.
+    await expect(page.getByText(new RegExp(`\\b${documents}/\\d+ FILES`, 'u'))).toBeVisible();
     await expect(
       page.getByRole('status').filter({ hasText: /Example loaded|Fictional starter INPUT/u }),
     ).toBeVisible();
