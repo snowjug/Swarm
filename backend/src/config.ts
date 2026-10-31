@@ -211,7 +211,8 @@ const environmentSchema = z.object({
   URL_INGESTION: z.enum(['on', 'off', 'true', 'false', '1', '0']).default('on'),
   URL_INGEST_ALLOWED_PORTS: z.string().trim().max(100).default('80,443'),
   URL_INGEST_MAX_BYTES: z.coerce.number().int().min(10_000).max(5_000_000).default(1_500_000),
-  URL_INGEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(60_000).default(12_000),
+  // Below the 30 s the server allows a request, so the fetch's own time limit is the one that applies.
+  URL_INGEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(25_000).default(12_000),
   URL_INGEST_ALLOWED_HOSTS: z.string().trim().max(2_000).optional(),
 });
 

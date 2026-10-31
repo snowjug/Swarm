@@ -67,7 +67,7 @@ describe('configuration of reading web pages', () => {
     expect(() => loadConfig({ URL_INGEST_MAX_BYTES: value })).toThrow('URL_INGEST_MAX_BYTES');
   });
 
-  it.each(['999', '60001', 'slow', '1.5'])('refuses a time of %j', (value) => {
+  it.each(['999', '25001', 'slow', '1.5'])('refuses a time of %j', (value) => {
     expect(() => loadConfig({ URL_INGEST_TIMEOUT_MS: value })).toThrow('URL_INGEST_TIMEOUT_MS');
   });
 

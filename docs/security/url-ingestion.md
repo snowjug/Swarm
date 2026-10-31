@@ -132,7 +132,7 @@ The allowed types are `text/html`, `application/xhtml+xml`, `text/plain`, `text/
 | `URL_INGESTION`            | `on`      | `off` turns the route off; `GET /api/config` then reports `urlIngestion: false` so the page hides it |
 | `URL_INGEST_ALLOWED_PORTS` | `80,443`  | Ports a page may be read from                                                                        |
 | `URL_INGEST_MAX_BYTES`     | 1,500,000 | Most bytes read from a page, before and after decompression (10,000 to 5,000,000)                    |
-| `URL_INGEST_TIMEOUT_MS`    | 12,000    | The whole fetch: lookups, redirects, robots.txt and the page (1,000 to 60,000)                       |
+| `URL_INGEST_TIMEOUT_MS`    | 12,000    | The whole fetch: lookups, redirects, robots.txt and the page (1,000 to 25,000)                       |
 | `URL_INGEST_ALLOWED_HOSTS` | empty     | If set, only these hosts: `example.com` exactly, or `*.example.com` for its subdomains               |
 
 There is deliberately **no setting that allows private or loopback addresses**. A test can allow loopback only
