@@ -13,7 +13,10 @@ import {
   type TraitKey,
 } from '../../shared/stakeholders.js';
 import { derive, stream } from '../src/simulation/random.js';
+import { localRound } from '../src/agents/local.js';
+import { buildPopulation } from '../src/simulation/population.js';
 import { simulate, simulateValidated, SimulationInputError } from '../src/simulation/simulate.js';
+import { settingsSchema, type Agent } from '../../shared/types.js';
 import { actor, key, spec, variant } from './support/simulation-cast.js';
 
 const finalOf = (outcome: RunOutcome, id: string) => {
@@ -244,6 +247,78 @@ describe('common random numbers', () => {
     const independent = seeds(30).map((seed) => final(0.6, seed + 1_000) - final(0.5, seed));
     expect(mean(paired)).toBeLessThan(-0.02);
     expect(sd(paired)).toBeLessThan(0.3 * sd(independent));
+  });
+
+  it('give a capped cohort the first members of the full one, so that a cap only drops members', () => {
+    const cohort = [actor('a', 'other', { sampleSize: 40 })];
+    const full = buildPopulation(cohort, variant(), 9, 200);
+    const capped = buildPopulation(cohort, variant(), 9, 15);
+    expect(full.memberCount).toBe(40);
+    expect(capped.memberCount).toBe(15);
+    for (const array of ['stance', 'openness', 'landing', 'noiseAmp', 'switchingCost'] as const) {
+      expect([...capped[array]]).toEqual([...full[array].slice(0, 15)]);
+    }
+  });
+});
+
+describe('the existing opinion-dynamics engine', () => {
+  /** Twelve agents spread across the scale, run with an intervention that pushes toward `stance`. */
+  function existingMean(strength: number, stance: number): number {
+    let agents: Agent[] = Array.from({ length: 12 }, (_, at) => ({
+      id: `agent-${at + 1}`,
+      name: `Agent ${at + 1}`,
+      role: 'Synthetic observer',
+      persona: 'Fictional stakeholder proxy used to compare two engines.',
+      topicIds: ['t'],
+      initialOpinion: -0.3 + at * 0.05,
+      opinion: -0.3 + at * 0.05,
+      influence: 0.8,
+      openness: 0.4,
+      memory: [],
+      sourceIds: [],
+    }));
+    const settings = settingsSchema.parse({
+      agentCount: 12,
+      rounds: 8,
+      seed: 5,
+      intervention: strength
+        ? { round: 2, label: 'Assume that the change lands', stance, strength }
+        : null,
+    });
+    for (let round = 1; round <= settings.rounds; round += 1) {
+      agents = localRound(agents, settings, round).agents;
+    }
+    return mean(agents.map((agent) => agent.opinion));
+  }
+
+  it('moves in the same direction, and further the stronger the push, as this one does', () => {
+    const strengths = [0, 0.3, 0.6, 0.9];
+    const existing = strengths.map((strength) => existingMean(strength, -1));
+    const here = strengths.map(
+      (strength) =>
+        finalOf(
+          simulate(
+            spec([actor('a', 'cost-bearer', { traits: { impact: -0.6, sensitivity: 0.8 } })], {
+              rounds: 8,
+              variant: { round: 2, intensity: strength },
+            }),
+            5,
+          ),
+          'a',
+        ).stanceMean,
+    );
+    for (const series of [existing, here]) {
+      series.forEach((value, at) => {
+        if (at > 0) expect(value).toBeLessThan(series[at - 1]!);
+        expect(value).toBeGreaterThanOrEqual(-1);
+        expect(value).toBeLessThanOrEqual(1);
+      });
+    }
+    // And the same for a push toward the favourable end.
+    const upward = [0, 0.3, 0.6, 0.9].map((strength) => existingMean(strength, 1));
+    upward.forEach((value, at) => {
+      if (at > 0) expect(value).toBeGreaterThan(upward[at - 1]!);
+    });
   });
 });
 
