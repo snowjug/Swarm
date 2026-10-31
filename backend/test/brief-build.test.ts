@@ -656,7 +656,7 @@ describe('uncertainty', () => {
     expect(summary.text).toContain('2 of those have no cited passage');
   });
 
-  it('shows the fidelity and its caveats, and the open critiques with their status, but not the closed ones', () => {
+  it('shows the fidelity and its caveats, and the critiques not yet closed with their status, but not the closed ones', () => {
     expect(statements.some((statement) => statement.text.startsWith('Fidelity: “Rules:'))).toBe(
       true,
     );
@@ -672,7 +672,8 @@ describe('uncertainty', () => {
     );
     const open = statements.find(
       (statement) =>
-        statement.refs.critiqueIds.includes('c1') && statement.text.startsWith('Open critique'),
+        statement.refs.critiqueIds.includes('c1') &&
+        statement.text.startsWith('Critique not yet closed'),
     )!;
     expect(open.text).toContain('(major, open)');
     expect(open.refs.findingIds).toEqual(['f2']);

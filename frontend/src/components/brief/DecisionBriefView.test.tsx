@@ -164,7 +164,7 @@ describe('the answer first', () => {
     expect(cardText).toContain('Simulation aggregation');
     expect(cardText).toContain('Moderate reliance');
     expect(cardText).toContain('Produced by: Rules: outcomes follow from the declared assumptions');
-    expect(cardText).toContain('1 open critique');
+    expect(cardText).toContain('1 critique not yet closed');
   });
 
   it('carries a line that says what the answer does not tell you', () => {

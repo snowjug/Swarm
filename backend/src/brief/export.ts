@@ -291,7 +291,7 @@ function blocks(input: BriefExportInput): Block[] {
             : 'Assembled by rules, with model-worded interpretations',
         ],
         ['Fidelity', brief.fidelity.label],
-        ['Open critiques', String(brief.openCritiques)],
+        ['Critiques not yet closed', String(brief.openCritiques)],
         ['Swarm version', input.appVersion],
       ],
     },

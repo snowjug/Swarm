@@ -49,7 +49,8 @@ function ExecutiveCard({
         {answer?.reliance ? <RelianceBadge reliance={answer.reliance} /> : null}
         <span className="brief-chip">Produced by: {brief.fidelity.label}</span>
         <span className="brief-chip">
-          {brief.openCritiques} open {brief.openCritiques === 1 ? 'critique' : 'critiques'}
+          {brief.openCritiques} {brief.openCritiques === 1 ? 'critique' : 'critiques'} not yet
+          closed
         </span>
       </p>
       {notTold && notTold !== answer ? (

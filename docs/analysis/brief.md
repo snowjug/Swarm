@@ -39,7 +39,7 @@ The order is fixed. The first section is the answer.
 | 8   | Second-order and competitor effects | Second-order findings, responses by actors outside the organisation, and the chain of events in the representative run  |
 | 9   | Behavioural drivers                 | The assumptions the simulated result moved with, and those it did not                                                   |
 | 10  | Important assumptions               | The assumption register, with who set each and whether a cited passage backs it                                         |
-| 11  | Uncertainty and sensitivity         | Findings that were not repeatable, sensitivity rows, open critiques                                                     |
+| 11  | Uncertainty and sensitivity         | Findings that were not repeatable, sensitivity rows, critiques not yet closed                                           |
 | 12  | Risks and opportunities             | Groups set as harmed that ended up adverse, actions by outside actors, and groups set as benefited that went along      |
 | 13  | Prioritised recommendations         | A table of recommendations that follow from findings (see below)                                                        |
 | 14  | Validation plan                     | A table of real-world checks that would settle what the result most depends on                                          |
@@ -171,7 +171,8 @@ check it before committing. They come from a few generic rules that know nothing
 - A repeatable event from an actor outside the organisation: prepare a response.
 - An unstable finding: repeat the analysis before relying on it.
 - A favourable, repeatable finding for a benefited group: build on it.
-- Serious open critiques: resolve them first.
+- Serious critiques that are not yet closed (anything but accepted: open, responded or disputed):
+  resolve them first.
 
 At most twelve are listed. They are ordered by impact times repeatability divided by effort.
 Impact is the size of the simulated shift (at least 0.3 is high, at least 0.1 is medium, measured as

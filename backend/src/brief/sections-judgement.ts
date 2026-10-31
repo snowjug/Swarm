@@ -130,7 +130,7 @@ export function uncertainty(facts: Facts, tally: Tally): BriefSection {
         critique.target.kind === 'finding' && facts.findingById.has(critique.target.id);
       writer.add({
         origin: 'unresolved-uncertainty',
-        text: `Open critique from the ${CRITIC_ROLE_LABELS[critique.role].toLowerCase()} (${critique.severity}, ${critique.status}): ${embed(critique.objection, 260)}${critique.remainingDisagreement ? ` Still disputed: ${embed(critique.remainingDisagreement, 120)}` : ''}`,
+        text: `Critique not yet closed, from the ${CRITIC_ROLE_LABELS[critique.role].toLowerCase()} (${critique.severity}, ${critique.status}): ${embed(critique.objection, 260)}${critique.remainingDisagreement ? ` Still disputed: ${embed(critique.remainingDisagreement, 120)}` : ''}`,
         refs: { critiqueIds: [critique.id], findingIds: target ? [critique.target.id] : [] },
       });
     }
