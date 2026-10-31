@@ -20,11 +20,8 @@ const EXPECTED_IDS = [
 ];
 const ALLOWED_KEYS = ['id', 'title', 'blurb', 'question', 'documents', 'urlSuggestion'];
 
-const NOTICE = [
-  /illustrative synthetic/iu,
-  /figures invented for demonstration/iu,
-  /not information from or about any real company/iu,
-];
+const NOTICE =
+  '_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._';
 
 const ADDRESSES: [string, RegExp][] = [
   ['a web address', /\bhttps?:\/\/|\bwww\./iu],
@@ -166,7 +163,6 @@ describe('each example document', () => {
       expect(document.content.endsWith('\n'), label).toBe(true);
       expect(document.content, label).not.toMatch(/[\r\t`]|<[a-z/!]|\$\{/u);
       expect(document.content, label).not.toMatch(/["“”]/u);
-      expect(document.content, label).toMatch(/^# .+\n\n_/u);
     }
   });
 
@@ -180,11 +176,13 @@ describe('each example document', () => {
     }
   });
 
-  it('says in its own text that it is synthetic and illustrative', () => {
+  it('says in its own text, straight after the title, that it is synthetic and illustrative', () => {
     for (const { example, document } of everyDocument) {
-      for (const pattern of NOTICE) {
-        expect(document.content, `${example.id}/${document.name}`).toMatch(pattern);
-      }
+      const [title, blank, notice] = document.content.split('\n');
+      const label = `${example.id}/${document.name}`;
+      expect(title, label).toMatch(/^# \S/u);
+      expect(blank, label).toBe('');
+      expect(notice, label).toBe(NOTICE);
     }
   });
 

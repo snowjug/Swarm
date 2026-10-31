@@ -40,7 +40,7 @@ The notice, as relayed by the reseller, says one dollar more without a billing u
       'Illustrative synthetic usage and spend summary',
       `# Usage and spend summary: the managed service by region
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 All figures are invented and rounded. The billing unit is a capacity block per month. The list price in Region R is an illustrative figure of $9 per block-month, and the price in Region S is an illustrative $8.
 
@@ -71,7 +71,7 @@ Usage counts come from billing exports for the last full month. Region S include
       'Illustrative synthetic engineering migration note',
       `# Engineering note: moving workloads out of Region R
 
-_Illustrative synthetic note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## What the engineers looked at
 
@@ -95,7 +95,7 @@ They have not tried another provider's equivalent service with the company's dat
       'Illustrative synthetic sales operations note',
       `# Sales operations note: contracts, renewals and customer reactions
 
-_Illustrative synthetic note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Contracts
 
@@ -119,7 +119,7 @@ Implementation partners who resell the product keep 15% of subscription revenue.
       'Illustrative synthetic note on the relayed notice and what is missing',
       `# The notice as relayed, and what is not known
 
-_Illustrative synthetic note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## What the company has
 

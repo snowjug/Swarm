@@ -40,7 +40,7 @@ No decision has been taken. The review board meets in three weeks.
       'Illustrative synthetic poll summary',
       `# Poll summary: IT administrators and default-on assistant features
 
-_Illustrative synthetic summary of a poll; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## About the poll
 
@@ -68,7 +68,7 @@ Several administrators at smaller organisations said they have no security revie
       'Illustrative synthetic pilot and helpdesk summary',
       `# Pilot and helpdesk summary: eight weeks with assistant features switched on
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## The pilot
 
@@ -95,7 +95,7 @@ Recap quality was not compared with a human-written record. No frontline or shif
       'Illustrative synthetic security and records review note',
       `# Security and records review: points raised about default-on assistant features
 
-_Illustrative synthetic review note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Scope
 
@@ -127,7 +127,7 @@ The data protection officer expects that regulators in some regions would ask ho
       'Illustrative synthetic partner and market notes',
       `# Partner and market notes: what is known and what is not
 
-_Illustrative synthetic notes; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## A managed-service partner's view
 

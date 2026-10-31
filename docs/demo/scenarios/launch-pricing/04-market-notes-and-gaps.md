@@ -1,6 +1,6 @@
 # Market notes and open questions
 
-_Illustrative synthetic notes; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## What the team gathered about competitors
 

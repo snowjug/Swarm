@@ -1,6 +1,6 @@
 # A supplier's case study, and what is missing
 
-_Illustrative synthetic note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## A case study the team was sent
 

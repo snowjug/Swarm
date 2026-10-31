@@ -1,6 +1,6 @@
 # Ticket and handling-time summary
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 The figures cover one quarter and come from the ticketing system. Engineers assigned the categories when a case was closed.
 

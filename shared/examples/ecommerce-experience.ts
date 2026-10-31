@@ -18,7 +18,7 @@ export const ecommerceExperience: ExampleScenario = {
       'Illustrative synthetic customer survey summary',
       `# Customer survey summary: delivery and checkout
 
-_Illustrative synthetic summary of a survey; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Background
 
@@ -47,7 +47,7 @@ Nobody was asked about the options now under discussion. Replies were collected 
       'Illustrative synthetic support ticket themes and operational concerns',
       `# Support ticket themes and operational concerns
 
-_Illustrative synthetic internal note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Where this comes from
 
@@ -78,7 +78,7 @@ Regulators take an interest in charges that appear only on the final page. The o
       'Illustrative synthetic site analytics summary',
       `# Site analytics summary: funnel, order value and exit reasons
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Period and method
 
@@ -112,7 +112,7 @@ The system does not record what delivery costs the shop for each order, so margi
       'Illustrative synthetic notes on competitor delivery policies',
       `# Competitor delivery policies, noted by the shop's team
 
-_Illustrative synthetic notes; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 The shop's marketing manager collected these notes from public delivery pages over one week. All sellers and figures are invented, and some of the pages may have changed since.
 

@@ -1,6 +1,6 @@
 # Usage and spend summary: the managed service by region
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 All figures are invented and rounded. The billing unit is a capacity block per month. The list price in Region R is an illustrative figure of $9 per block-month, and the price in Region S is an illustrative $8.
 

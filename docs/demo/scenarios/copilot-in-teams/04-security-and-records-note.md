@@ -1,6 +1,6 @@
 # Security and records review: points raised about default-on assistant features
 
-_Illustrative synthetic review note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Scope
 

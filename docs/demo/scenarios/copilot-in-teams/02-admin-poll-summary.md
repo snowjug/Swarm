@@ -1,6 +1,6 @@
 # Poll summary: IT administrators and default-on assistant features
 
-_Illustrative synthetic summary of a poll; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## About the poll
 

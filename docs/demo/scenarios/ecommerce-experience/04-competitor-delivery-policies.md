@@ -1,6 +1,6 @@
 # Competitor delivery policies, noted by the shop's team
 
-_Illustrative synthetic notes; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 The shop's marketing manager collected these notes from public delivery pages over one week. All sellers and figures are invented, and some of the pages may have changed since.
 

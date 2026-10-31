@@ -12,11 +12,10 @@ Swarm explores scenarios. It does not guarantee or precisely predict real-world 
 
 ## Everything here is synthetic
 
-Every document is an invented, illustrative note. Its first lines say so ("Illustrative synthetic
-brief; figures invented for demonstration; not information from or about any real company", with
-"summary" or "note" where that fits), and its provenance is `sample` with the licence
-`Synthetic, CC0`, so the label travels with the evidence into the stakeholder list, the analysis and
-the brief.
+Every document is an invented, illustrative brief. Its first lines say so ("Illustrative synthetic
+brief; figures invented for demonstration; not information from or about any real company"), and
+its provenance is `sample` with the licence `Synthetic, CC0`, so the label travels with the evidence
+into the stakeholder list, the analysis and the brief.
 
 - Names such as Microsoft, Copilot, Teams and AWS appear only because the question names them, and
   only as well-known products. Nothing says what any real company has done or intends to do.

@@ -38,7 +38,7 @@ Success measures, escalation rules and the budget for the assistant have not bee
       'Illustrative synthetic ticket and handling-time summary',
       `# Ticket and handling-time summary
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 The figures cover one quarter and come from the ticketing system. Engineers assigned the categories when a case was closed.
 
@@ -66,7 +66,7 @@ For six weeks an assistant answered first on access and password cases for stand
       'Illustrative synthetic concerns and feedback note',
       `# Concerns and feedback note
 
-_Illustrative synthetic internal note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 This note collects points from the pilot debrief, a survey of engineers and customer comments. It reports concerns and does not weigh them.
 
@@ -88,7 +88,7 @@ The privacy lead notes that chat transcripts are personal data, that retention r
       'Illustrative synthetic note on a supplier case study and what is missing',
       `# A supplier's case study, and what is missing
 
-_Illustrative synthetic note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## A case study the team was sent
 

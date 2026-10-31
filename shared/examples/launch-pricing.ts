@@ -40,7 +40,7 @@ A launch date has been proposed for the start of next quarter. The pricing revie
       'Illustrative synthetic funnel and pricing test summary',
       `# Funnel and pricing test summary
 
-_Illustrative synthetic summary; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Funnel over the last four quarters
 
@@ -65,7 +65,7 @@ For six weeks, 8% of new visitors saw the Team plan at $34 instead of $29. That 
       'Illustrative synthetic notes from sales, support and customer success',
       `# Notes from sales, support and customer success
 
-_Illustrative synthetic internal note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Sales
 
@@ -89,7 +89,7 @@ Two reselling partners said they would resist a price rise on a product they hav
       'Illustrative synthetic market notes and open questions',
       `# Market notes and open questions
 
-_Illustrative synthetic notes; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## What the team gathered about competitors
 

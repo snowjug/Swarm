@@ -1,6 +1,6 @@
 # Notes from sales, support and customer success
 
-_Illustrative synthetic internal note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 ## Sales
 

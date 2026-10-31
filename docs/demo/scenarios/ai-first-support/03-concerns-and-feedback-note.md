@@ -1,6 +1,6 @@
 # Concerns and feedback note
 
-_Illustrative synthetic internal note; figures invented for demonstration; not information from or about any real company._
+_Illustrative synthetic brief; figures invented for demonstration; not information from or about any real company._
 
 This note collects points from the pilot debrief, a survey of engineers and customer comments. It reports concerns and does not weigh them.
 
