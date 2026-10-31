@@ -169,35 +169,7 @@ export const readPages = (calls: readonly ApiCall[]): number =>
 // What the product may not say
 // ---------------------------------------------------------------------------------------------
 
-const QUOTED = /“[^”]*”|"[^"]*"|‘[^’]*’/gu;
-const FUTURE =
-  /\b(?:will|shall|going to|(?:is|are) (?:certain|sure|bound|set|likely|expected|projected|forecast|predicted|guaranteed) to|would certainly|inevitabl[ey])\b/iu;
-const REAL_WORLD_RATE = /\d(?:[.,]\d+)?\s?(?:%|per ?cent\b)/iu;
-const REAL_WORLD_METRIC =
-  /\b(?:market share|conversion(?: rate)?|churn(?: rate)?|retention rate|adoption rate|revenue (?:growth|increase)|sales (?:growth|increase))\b/iu;
-const FROM_THE_SIMULATION =
-  /simulat|seeded|\bruns?\b|interval|assum|synthetic|stance|rules? engine|sensitiv|perturb|intensity|traits?\b/iu;
-
-/**
- * What a statement may not claim. Swarm explores scenarios and does not predict: it never says what
- * will happen, and a figure that looks like a rate in the world (a share, a conversion, a churn) is
- * only ever a count of simulated members or of seeded runs, and says so in the same sentence. What a
- * source or the person wrote is quoted, and is theirs.
- */
-export function claimsAgainst(text: string): string[] {
-  const found: string[] = [];
-  const own = text.replace(QUOTED, ' ');
-  for (const sentence of own.split(/(?<=[.!?])\s+/u)) {
-    const said = sentence.trim();
-    if (!said) continue;
-    if (FUTURE.test(said)) found.push(`a prediction: "${said}"`);
-    const rate = REAL_WORLD_RATE.test(said) || REAL_WORLD_METRIC.test(said);
-    if (rate && !FROM_THE_SIMULATION.test(said)) {
-      found.push(`a real-world rate that is not attributed to the simulation: "${said}"`);
-    }
-  }
-  return found;
-}
+export { claimsAgainst } from './claims';
 
 /** The words of a text with every kind of space and of quotation mark made alike, for comparing quotes. */
 export const squash = (text: string): string =>
