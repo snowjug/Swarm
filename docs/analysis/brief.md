@@ -36,7 +36,7 @@ The order is fixed. The first section is the answer.
 | --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | Executive answer                    | The decision and a conditional recommendation, the paired comparison, the groups moved most, the three doubts that could change it, what would settle them, and what the brief cannot tell you |
 | 2   | Decision evaluated                  | The question, decision, changes, baseline, alternatives, open points and the variants, with what each sets for whom                                                                            |
-| 3   | Evidence base and quality           | Sources by kind, cited passages, conflicts between sources, and which actors no cited passage supports                                                                                         |
+| 3   | Evidence base and quality           | Sources by kind, cited passages, conflicts between sources (and, where the search for them was cut short, how far it read), and which actors no cited passage supports                         |
 | 4   | Stakeholder landscape               | Stakeholders grouped by category, who is harmed or benefited, how much is cited for each                                                                                                       |
 | 5   | Main reaction patterns              | What the simulated groups did, as shares of each group's simulated members with every group counting equally, and the counts of sampled members beside them                                    |
 | 6   | Alternative outcomes                | How each variant compares with the baseline on the same seeds, in that share and its paired difference, ranked by share and never by counts                                                    |
@@ -487,7 +487,9 @@ no-store`. Print it from the browser to get a paper or PDF copy.
   with a quoted warning, the printable page with a boxed one, ahead of the headline, naming what changed
   and the revisions it was made from beside the ones the project holds now. The tables are the ones
   the brief was made with. A brief stored before they were kept says, in the same place, that its
-  tables show the project as it is at the export.
+  tables show the project as it is at the export. A brief that rests on a comparison saved before it
+  recorded what it was made from says in the same place that whether it is current cannot be told, and
+  asks for the comparison to be run again; making the brief again does not clear that.
 - When the comparison cannot be read as a result, the Markdown opens with a quoted notice and the
   printable page with a boxed one, both ahead of the headline, and the caption of the table that sets
   variants side by side says that its differences are not read as effects of the change.

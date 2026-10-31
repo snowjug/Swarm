@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { analysisSchema, type Analysis, type Variant } from '../../shared/analysis.js';
 import type { AnalysisList } from '../../shared/analysis-plan.js';
@@ -11,6 +11,7 @@ import {
 } from '../../shared/lab-fixtures.js';
 import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../shared/signal.js';
 import { buildApp } from '../src/app.js';
+import { AppError } from '../src/errors.js';
 import { AnalysisService, type AnalysisServiceOptions } from '../src/analysis/service.js';
 import { ROUTE_POLICY } from '../src/auth/policy.js';
 import { SimulationInputError } from '../src/simulation/simulate.js';
@@ -623,6 +624,38 @@ describe('stopping a comparison', () => {
       targetType: 'project',
       detail: { analysis: started.id, completedRuns: 3 },
     });
+  });
+
+  it('does not stop a comparison whose stop cannot be recorded, so that nothing ends without its entry', async () => {
+    const gate = gateAfter(3);
+    const { start, withActors, cancel, finished, repository, project } = await world({
+      yieldNow: gate.yieldNow,
+    });
+    withActors();
+    const started = (await start({ runsPerVariant: 10, sensitivity: false })).json()
+      .analysis as Analysis;
+    await until(
+      () => gate.reached(),
+      (reached) => reached,
+    );
+    const real = repository.audit.record.bind(repository.audit);
+    const refusing = vi.spyOn(repository.audit, 'record').mockImplementation((entry, now) => {
+      if (entry.action === 'analysis.cancelled') {
+        throw new AppError(503, 'STORAGE_UNAVAILABLE', 'The storage did not answer.');
+      }
+      return real(entry, now);
+    });
+    const refused = await cancel(started.id);
+    expect(refused.statusCode, refused.body).toBe(503);
+    refusing.mockRestore();
+
+    // The comparison was not stopped, and the same request stops it once the storage answers.
+    gate.open();
+    expect((await finished(started.id)).status).toBe('completed');
+    const entries = repository.audit
+      .list({ projectId: project.id, limit: 200 })
+      .filter((item) => item.action === 'analysis.cancelled');
+    expect(entries).toEqual([]);
   });
 
   it('can be run again after it is stopped', async () => {

@@ -43,6 +43,11 @@ export interface BriefConflict {
 export interface BriefLedgerSummary {
   conflicts: BriefConflict[];
   sufficiency: { level: 'sufficient' | 'limited' | 'insufficient'; reasons: string[] } | null;
+  /**
+   * How far the search for conflicts between the sources read: its work is bounded, so a very large or
+   * very repetitive body of evidence is not searched in full. Absent where the search was not run again.
+   */
+  scan?: { sentences: number; skippedLists: number; cappedSentences: number };
 }
 
 export interface BriefInputs {

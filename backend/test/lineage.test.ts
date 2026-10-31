@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Analysis } from '../../shared/analysis.js';
+import {
+  COMPARISON_INPUTS_UNRECORDED,
+  UNRECORDED_INPUTS_ADVICE,
+  type Analysis,
+} from '../../shared/analysis.js';
 import type { BriefView, DecisionBrief } from '../../shared/brief.js';
 import type { CritiquesView } from '../../shared/critique.js';
 import { actorSetFixture } from '../../shared/lab-fixtures.js';
@@ -251,6 +255,58 @@ describe('a brief and a review of a comparison that predates a change', () => {
       'scenario',
       'a newer analysis exists',
     ]);
+  });
+});
+
+describe('a comparison saved before it recorded what it was made from', () => {
+  const CLOSURE = 'Close the existing service entirely rather than run the proposed pilot';
+  /** The comparison as an earlier version stored it: with nothing of what it was made from. */
+  const asEarlierVersion = (instance: Awaited<ReturnType<typeof world>>, analysis: Analysis) => {
+    const stored = instance.repository.artifacts.get(instance.project.id, 'analysis', analysis.id)!;
+    const earlier: Analysis = { ...stored.data };
+    delete earlier.inputRevisions;
+    instance.repository.artifacts.put(instance.project.id, 'analysis', analysis.id, earlier);
+  };
+
+  it('is never called current, however often the brief and the review are made from it again', async () => {
+    const instance = await world();
+    const { read, post, compare, reviewAndWrite, changeScenario } = instance;
+    const first = await compare();
+    asEarlierVersion(instance, first);
+    await reviewAndWrite();
+    expect((await read<BriefView>('/brief')).changedSince).toEqual([COMPARISON_INPUTS_UNRECORDED]);
+    expect((await read<CritiquesView>('/critiques')).changedSince).toEqual([
+      COMPARISON_INPUTS_UNRECORDED,
+    ]);
+
+    // The decision was changed after the comparison; writing the brief and the review again must not clear it.
+    await changeScenario(CLOSURE);
+    expect((await read<BriefView>('/brief')).changedSince).toEqual([
+      'scenario',
+      COMPARISON_INPUTS_UNRECORDED,
+    ]);
+    const again = (await post('/brief')).json() as BriefView;
+    expect(again.changedSince).toEqual([COMPARISON_INPUTS_UNRECORDED]);
+    expect(again.brief?.methodology.notes.at(-1)).toContain(UNRECORDED_INPUTS_ADVICE);
+    const review = (await post('/critiques/run')).json() as CritiquesView;
+    expect(review.changedSince).toEqual([COMPARISON_INPUTS_UNRECORDED]);
+    expect(review.critiques?.notes?.join(' ')).toContain(
+      'saved before Swarm recorded what a comparison is made from',
+    );
+
+    // Every export says so before anything else.
+    for (const format of ['md', 'html', 'json']) {
+      const { body } = await instance.app.inject(`${instance.base}/brief/export?format=${format}`);
+      expect(body, format).toContain('may be out of date');
+      expect(body, format).toContain('saved before Swarm recorded what a comparison is made from');
+    }
+
+    // A comparison that records what it was made from, and a review and a brief of it, are current.
+    await compare();
+    expect((await post('/critiques/run')).statusCode).toBe(200);
+    const current = (await post('/brief')).json() as BriefView;
+    expect(current.changedSince).toEqual([]);
+    expect((await read<CritiquesView>('/critiques')).changedSince).toEqual([]);
   });
 });
 

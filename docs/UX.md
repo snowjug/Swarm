@@ -163,7 +163,10 @@ Simulation or Report is opened again or Refresh is pressed; the page then shows 
 says, which is that the newest comparison, if it is running, decides. The brief and the review in the
 Report stage also read again when the lab's record changes and when **Refresh project from server** is
 pressed (`briefRefreshToken` and `reviewRefreshToken` in `ReportSeam`), so that a change made in another
-tab shows up as a notice that the brief is out of date and not as a silent difference.
+tab shows up as a notice that the brief is out of date and not as a silent difference. A read that fails
+while a brief or a review is already shown leaves it on the page and says so, in a notice with a way to
+try again ("The brief could not be refreshed", "The review could not be refreshed"); only a page with
+nothing to show is replaced by the error.
 
 ### The next step
 

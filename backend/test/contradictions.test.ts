@@ -635,6 +635,55 @@ describe('a scan of a great deal of evidence', () => {
     });
   });
 
+  describe('when a document says the same sentence again, word for word', () => {
+    const SAME = 'The council recorded 100 permits during 2025 across the harbour district.';
+    const OTHER = 'The council recorded 110 permits during 2025 across the harbour district.';
+    const said = (copies: number): SourceDocument => ({
+      id: 'D1',
+      name: 'repeats.md',
+      content: Array.from({ length: copies }, () => SAME).join(' '),
+    });
+    const other: SourceDocument = { id: 'D2', name: 'register.md', content: OTHER };
+
+    it.each([500, 513, 3_000])(
+      'still finds the disagreement with a document that says it %i times',
+      (copies) => {
+        const stats = emptyStats();
+        const found = detectContradictions(chunkDocuments([said(copies), other]), NOW, stats);
+        expect(found).toHaveLength(1);
+        expect(found[0]).toMatchObject({ kind: 'numeric' });
+        expect([found[0]?.leftValue, found[0]?.rightValue].sort()).toEqual(['100', '110']);
+        // The copies are one sentence, so no list is long enough to be left unread.
+        expect(stats.skippedLists).toBe(0);
+        expect(stats.sentences).toBeLessThan(10);
+      },
+    );
+
+    it('finds the same one whatever order the passages arrive in', () => {
+      const passages = chunkDocuments([said(600), other]);
+      const sides = (found: ContradictionRecord[]) =>
+        found.map((entry) =>
+          [
+            `${entry.left.documentId}:${entry.leftValue}`,
+            `${entry.right.documentId}:${entry.rightValue}`,
+          ].sort(),
+        );
+      const forward = detectContradictions(passages, NOW);
+      const backward = detectContradictions([...passages].reverse(), NOW);
+      expect(forward).toHaveLength(1);
+      expect(sides(backward)).toEqual(sides(forward));
+      expect(sides(forward)).toEqual([['D1:100', 'D2:110']]);
+    });
+
+    it('keeps one copy for each document, so that a second source saying it is not lost', () => {
+      const agreeing: SourceDocument = { id: 'D3', name: 'press.md', content: SAME };
+      const found = detectContradictions(chunkDocuments([said(600), agreeing, other]), NOW);
+      expect(
+        new Set(found.flatMap((entry) => [entry.left.documentId, entry.right.documentId])),
+      ).toEqual(new Set(['D1', 'D2', 'D3']));
+    });
+  });
+
   describe('among thousands of sentences that share common words', () => {
     // Every filler sentence holds the same six words, and one word of its own.
     const filler = (i: number): string =>

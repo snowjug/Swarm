@@ -1,10 +1,15 @@
 import { APP_VERSION } from '../../../shared/types.js';
-import { NEWER_ANALYSIS_EXISTS, inputsInWords } from '../../../shared/analysis.js';
+import {
+  COMPARISON_INPUTS_UNRECORDED,
+  NEWER_ANALYSIS_EXISTS,
+  UNRECORDED_INPUTS_ADVICE,
+  inputsInWords,
+} from '../../../shared/analysis.js';
 import { MAX_ARTIFACT_BYTES } from '../../../shared/artifacts.js';
 import type { BriefView, DecisionBrief } from '../../../shared/brief.js';
 import { isOpenConflict } from '../../../shared/evidence.js';
 import { AppError } from '../errors.js';
-import { detectContradictions } from '../grounding/contradictions.js';
+import { detectContradictions, type ContradictionScanStats } from '../grounding/contradictions.js';
 import { assessSufficiency } from '../grounding/ledger.js';
 import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
@@ -28,9 +33,20 @@ function withoutSnapshot(brief: DecisionBrief): DecisionBrief {
 /** What the brief needs from the project, read without changing anything. */
 function ledgerSummaryOf(repository: Repository, projectId: string): BriefLedgerSummary {
   const built = repository.ledger.state(projectId) !== null;
+  const chunks = repository.chunks(projectId);
+  const stats: ContradictionScanStats = {
+    sentences: 0,
+    skippedLists: 0,
+    postingVisits: 0,
+    pairsCompared: 0,
+    cappedSentences: 0,
+  };
+  const now = new Date();
   const conflicts = built
     ? repository.ledger.contradictions(projectId)
-    : detectContradictions(repository.chunks(projectId), new Date());
+    : detectContradictions(chunks, now, stats);
+  // The ledger keeps what its search found and not how far it read, so the evidence is read again to tell.
+  if (built) detectContradictions(chunks, now, stats);
   const open = conflicts.filter((conflict) => isOpenConflict(conflict.status)).length;
   const sufficiency = built ? assessSufficiency(repository.ledger.claims(projectId), open) : null;
   return {
@@ -44,6 +60,11 @@ function ledgerSummaryOf(repository: Repository, projectId: string): BriefLedger
       rightValue,
     })),
     sufficiency: sufficiency ? { level: sufficiency.level, reasons: sufficiency.reasons } : null,
+    scan: {
+      sentences: stats.sentences,
+      skippedLists: stats.skippedLists,
+      cappedSentences: stats.cappedSentences,
+    },
   };
 }
 
@@ -144,7 +165,12 @@ export class BriefService {
             ...made.methodology.notes,
             `The comparison this brief rests on was run before ${inputsInWords(earlier)} changed, so the brief describes the project as it was. Run the comparison again, then write the brief again.`,
           ]
-        : made.methodology.notes;
+        : record.data.inputRevisions === undefined && made.methodology.notes.length < 10
+          ? [
+              ...made.methodology.notes,
+              `${UNRECORDED_INPUTS_ADVICE} Run the comparison again, then write the brief again.`,
+            ]
+          : made.methodology.notes;
     const brief: DecisionBrief = {
       ...made,
       methodology: { ...made.methodology, notes },
@@ -183,6 +209,10 @@ export class BriefService {
     if (now.critiques !== (made.critiques ?? now.critiques)) changed.push('critiques');
     if (!analysis) changed.push('analysis (no longer stored)');
     else if (analysis.revision !== (made.analysis ?? analysis.revision)) changed.push('analysis');
+    // A comparison that recorded nothing of what it was made from cannot be told from a current one: that stays said.
+    if (analysis && analysis.data.inputRevisions === undefined) {
+      changed.push(COMPARISON_INPUTS_UNRECORDED);
+    }
     if (latest && latest.key !== stored.data.analysisId) changed.push(NEWER_ANALYSIS_EXISTS);
     return changed;
   }

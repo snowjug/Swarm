@@ -458,9 +458,11 @@ server process and are marked interrupted if it stops). The wider picture is in 
   candidates it raised were false alarms. The deterministic support check accepted 3 of 8
   unsupported statements, because word overlap cannot read meaning. You confirm or dismiss every
   candidate conflict. The scan is bounded so that a project at the evidence limit cannot stall the server:
-  a word that more than 512 sentences hold is not used to find partners and a sentence is compared with at
-  most 128 of them, and a pair not reached within those limits is skipped without a message (evidence of
-  a few hundred sentences reaches neither).
+  a sentence that a document repeats word for word is kept once for that document, a word that more than 512
+  sentences hold is not used to find partners and a sentence is compared with at most 128 of them. A pair not
+  reached within those limits is skipped, and the decision brief says so (how many lists of sentences were not
+  read and how many sentences were compared with only their closest partners) rather than reporting a scan
+  that read everything (evidence of a few hundred sentences reaches neither limit).
   [Evaluation](./evaluation/README.md) has the sets and the weak spots.
 - **The engines can disagree.** The repeated runs use a simple, transparent rules engine. The deep
   dive can use a model for each actor's decisions. The analysis records whether the two agree and

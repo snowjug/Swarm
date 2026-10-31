@@ -931,6 +931,13 @@ export function evidenceBase(facts: Facts, tally: Tally): BriefSection {
       text: 'No conflict between the supplied sources was detected. That does not show that the sources agree.',
     });
   }
+  const scan = facts.ledger?.scan;
+  if (scan && (scan.skippedLists > 0 || scan.cappedSentences > 0)) {
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: `The search for conflicts between the sources is bounded, and here it was cut short: ${scan.skippedLists} ${plural(scan.skippedLists, 'list')} of sentences sharing a very common word ${plural(scan.skippedLists, 'was', 'were')} not read, and ${scan.cappedSentences} ${plural(scan.cappedSentences, 'sentence')} ${plural(scan.cappedSentences, 'was', 'were')} compared with only the closest partners, so a disagreement between the sources may have been missed.`,
+    });
+  }
   if (facts.ledger?.sufficiency && facts.ledger.sufficiency.level !== 'sufficient') {
     writer.add({
       origin: 'unresolved-uncertainty',

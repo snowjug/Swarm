@@ -316,6 +316,8 @@ written, so a reader can tell it is older than the criticism's current wording.
   review again on that comparison does not clear it: run the comparison again), and when a newer
   comparison exists. A review made from such a comparison says so in its notes, since a check that
   sets it against the scenario then reads two versions. A comparison saved before this was recorded
-  has no such record, and the review is then judged from what the review itself recorded.
+  has no such record: whether it matches the project cannot be told, so the page, the notes of a
+  review made from it and every export of a brief made from it say that, however often the review or
+  the brief is made again, until the comparison is run again.
 - Nothing here is a measure of confidence. The severities are fixed by the rules above, and the
   numbers in a basis are the checked facts.

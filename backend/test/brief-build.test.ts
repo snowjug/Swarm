@@ -433,6 +433,27 @@ describe('where each source came from', () => {
     expect(text).toContain('Conflicts between the sources were not checked');
     expect(text).toContain('No source document is attached');
   });
+
+  it('says that the search for conflicts was cut short where it was, and nothing of the kind where it read everything', () => {
+    const searched = (scan: { skippedLists: number; cappedSentences: number }) => {
+      const inputs = richInputs();
+      inputs.ledgerSummary = {
+        ...inputs.ledgerSummary!,
+        conflicts: [],
+        scan: { sentences: 900, ...scan },
+      };
+      return textOf(buildBrief(inputs), 'evidence-base');
+    };
+    const complete = searched({ skippedLists: 0, cappedSentences: 0 });
+    expect(complete).toContain('No conflict between the supplied sources was detected');
+    expect(complete).not.toContain('is bounded');
+    const cut = searched({ skippedLists: 3, cappedSentences: 1 });
+    expect(cut).toContain('No conflict between the supplied sources was detected');
+    expect(cut).toContain('is bounded, and here it was cut short');
+    expect(cut).toContain('3 lists of sentences sharing a very common word were not read');
+    expect(cut).toContain('1 sentence was compared with only the closest partners');
+    expect(cut).toContain('a disagreement between the sources may have been missed');
+  });
 });
 
 describe('the scenario', () => {

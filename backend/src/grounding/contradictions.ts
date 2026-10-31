@@ -664,6 +664,9 @@ export function detectContradictions(
   // where it sits in its document, and a conflict reported once for each copy would list the same
   // two quotations twice. The earliest passage that holds it is kept, whatever order they arrive in.
   const unique = new Map<string, Indexed>();
+  // A document that says the same sentence again, word for word, adds nothing to a comparison, and
+  // hundreds of copies would crowd out the lists the scan reads: only the earliest copy is kept.
+  const said = new Map<string, { key: string; start: number }>();
   for (const passage of passages) {
     const passageHash = passage.contentHash ?? hashText(passage.text);
     for (const { text, start } of completeSentences(
@@ -681,6 +684,13 @@ export function detectContradictions(
       }
       const words = new Set(tokenize(text));
       if (words.size < MIN_SHARED_WORDS) continue;
+      const wording = `${passage.documentId}\u0000${text.replace(/\s+/gu, ' ').toLowerCase()}`;
+      const copy = said.get(wording);
+      if (copy && copy.key !== key) {
+        if (copy.start <= start) continue;
+        unique.delete(copy.key);
+      }
+      said.set(wording, { key, start });
       const { measurements, times } = measurementsIn(text);
       unique.set(key, {
         passageId: passage.id,

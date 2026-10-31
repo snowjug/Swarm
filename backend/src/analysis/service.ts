@@ -335,7 +335,7 @@ export class AnalysisService {
           : 'This comparison has already finished.',
       );
     }
-    run.cancelled = true;
+    // The audit comes first: a stop that could not be recorded is refused, and the comparison goes on.
     this.repository.audit.record({
       actor: actorId,
       action: 'analysis.cancelled',
@@ -344,6 +344,7 @@ export class AnalysisService {
       projectId,
       detail: { analysis: analysisId, completedRuns: stored.progress.completedRuns },
     });
+    run.cancelled = true;
     return stored;
   }
 

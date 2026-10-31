@@ -1,6 +1,9 @@
 import {
+  COMPARISON_INPUTS_UNRECORDED,
   RESPONSE_CATEGORIES,
   RESPONSE_LABELS,
+  UNRECORDED_INPUTS_ADVICE,
+  comparisonInputsUnrecorded,
   inputsInWords,
   staleComparisonInputs,
 } from '../../../shared/analysis.js';
@@ -93,13 +96,24 @@ const revisionsText = (revisions: Record<string, number>): string =>
 function outOfDate({ brief, freshness }: BriefExportInput): { title: string; text: string } | null {
   if (!freshness || freshness.changedSince.length === 0) return null;
   const inputs = staleComparisonInputs(freshness.changedSince);
+  const unrecorded = comparisonInputsUnrecorded(freshness.changedSince);
+  const changed = freshness.changedSince.filter((entry) => entry !== COMPARISON_INPUTS_UNRECORDED);
+  const revisions = `It was made from these revisions: ${revisionsText(brief.inputRevisions)}. The project now holds: ${revisionsText(freshness.currentRevisions)}.`;
+  const parts = [
+    changed.length > 0 ? `Since it was made, this has changed: ${changed.join(', ')}.` : '',
+    inputs.length > 0
+      ? `The comparison it rests on was run before ${inputsInWords(inputs)} changed, so the brief describes the project as it was. Run the comparison again, then write the brief again.`
+      : changed.length > 0
+        ? 'Write the brief again to bring it up to date.'
+        : '',
+    unrecorded
+      ? `${UNRECORDED_INPUTS_ADVICE} Run the comparison again, then write the brief again.`
+      : '',
+    revisions,
+  ];
   return {
     title: 'This brief may be out of date.',
-    text: `Since it was made, this has changed: ${freshness.changedSince.join(', ')}. ${
-      inputs.length > 0
-        ? `The comparison it rests on was run before ${inputsInWords(inputs)} changed, so the brief describes the project as it was. Run the comparison again, then write the brief again.`
-        : 'Write the brief again to bring it up to date.'
-    } It was made from these revisions: ${revisionsText(brief.inputRevisions)}. The project now holds: ${revisionsText(freshness.currentRevisions)}.`,
+    text: parts.filter((part) => part !== '').join(' '),
   };
 }
 

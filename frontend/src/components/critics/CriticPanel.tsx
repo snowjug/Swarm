@@ -15,7 +15,12 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
-import { inputsInWords, staleComparisonInputs } from '../../../../shared/analysis';
+import {
+  UNRECORDED_INPUTS_ADVICE,
+  comparisonInputsUnrecorded,
+  inputsInWords,
+  staleComparisonInputs,
+} from '../../../../shared/analysis';
 import {
   CRITIQUE_SEVERITIES,
   CRITIQUE_STATUSES,
@@ -470,7 +475,8 @@ function ReviewFreshness({
   onNavigate?: (step: ConsoleStep) => void;
 }) {
   const inputs = staleComparisonInputs(view.changedSince);
-  if (view.critiques === null || inputs.length === 0) return null;
+  const unrecorded = comparisonInputsUnrecorded(view.changedSince);
+  if (view.critiques === null || (inputs.length === 0 && !unrecorded)) return null;
   return (
     <Notice
       tone="warning"
@@ -487,9 +493,11 @@ function ReviewFreshness({
         ) : undefined
       }
     >
-      The comparison it reviews was run before {inputsInWords(inputs)} changed, so it describes the
-      project as it was. Run the comparison again in the Simulation stage, then run the review
-      again.
+      {inputs.length > 0
+        ? `The comparison it reviews was run before ${inputsInWords(inputs)} changed, so it describes the project as it was. `
+        : ''}
+      {unrecorded ? `${UNRECORDED_INPUTS_ADVICE} ` : ''}
+      Run the comparison again in the Simulation stage, then run the review again.
     </Notice>
   );
 }
@@ -530,6 +538,23 @@ export function CriticReview({
     const lead = set ? leadCritique(set.critiques) : null;
     body = (
       <>
+        {error && !loading ? (
+          <Notice
+            tone="warning"
+            title="The review could not be refreshed"
+            action={
+              <button
+                className="button button-secondary button-small"
+                type="button"
+                onClick={reload}
+              >
+                Retry
+              </button>
+            }
+          >
+            {error} What is shown is the last version that could be read.
+          </Notice>
+        ) : null}
         {isOutOfDate(view) ? (
           <Notice tone="warning" title="This review is of an earlier analysis">
             A newer analysis has finished since. Run the review again to challenge it; responses to

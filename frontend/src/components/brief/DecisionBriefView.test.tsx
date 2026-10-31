@@ -9,6 +9,10 @@ import {
   STATEMENT_ORIGINS,
   type BriefSignal,
 } from '../../../../shared/brief';
+import {
+  COMPARISON_INPUTS_UNRECORDED,
+  UNRECORDED_INPUTS_ADVICE,
+} from '../../../../shared/analysis';
 import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
 import type { BriefHandle } from '../../hooks/useBrief';
 import {
@@ -79,6 +83,21 @@ describe('the states of the decision brief', () => {
     expect(visibleText(html)).toContain('The decision brief could not be loaded');
     expect(visibleText(html)).toContain('Cannot reach the local server.');
     expect(buttons(html).map((entry) => entry.text)).toEqual(['Try again']);
+  });
+
+  it('keeps a brief that is already shown when a refresh fails, and says so with a way to try again', () => {
+    const html = panel({ view: viewFixture(), error: 'Injected brief reload failure.' });
+    const text = visibleText(html);
+    expect(text).toContain('The brief could not be refreshed');
+    expect(text).toContain('Injected brief reload failure.');
+    expect(text).toContain('What is shown is the last version that could be read.');
+    expect(buttons(html).map((entry) => entry.text)).toContain('Try again');
+    // The brief itself is still there, and a brief that was read fine says nothing of the kind.
+    expect(html).toContain('id="report-brief"');
+    expect(visibleText(panel({ view: viewFixture() }))).not.toContain('could not be refreshed');
+    expect(visibleText(panel({ view: viewFixture(), error: 'x', loading: true }))).not.toContain(
+      'could not be refreshed',
+    );
   });
 
   it('explains that there is no analysis yet, and sends the person to the Simulation stage', () => {
@@ -740,6 +759,30 @@ describe('exports and staleness', () => {
     );
     expect(reader).toContain('Ask someone who can edit the project to generate it again.');
     expect(visibleText(document())).not.toContain('may be out of date');
+  });
+
+  it('says that a comparison which recorded nothing of what it was made from cannot be told from a current one', () => {
+    const html = document(
+      viewFixture({ changedSince: [COMPARISON_INPUTS_UNRECORDED] }),
+      false,
+      () => undefined,
+    );
+    const text = visibleText(html);
+    expect(text).toContain('This brief may be out of date');
+    expect(text).not.toContain('Since it was made, this has changed');
+    expect(text).toContain(UNRECORDED_INPUTS_ADVICE);
+    expect(text).toContain(
+      'Run the comparison again in the Simulation stage, then generate the brief again.',
+    );
+    expect(text).not.toContain('Generate it again to bring it up to date.');
+    expect(buttons(html).map((entry) => entry.text)).toContain('Open the Simulation stage');
+    // Beside what did change, it is said as well and not instead.
+    const both = visibleText(
+      document(viewFixture({ changedSince: ['scenario', COMPARISON_INPUTS_UNRECORDED] })),
+    );
+    expect(both).toContain('Since it was made, this has changed: scenario.');
+    expect(both).toContain(UNRECORDED_INPUTS_ADVICE);
+    expect(both).not.toContain(`scenario, ${COMPARISON_INPUTS_UNRECORDED}`);
   });
 
   it('asks for the comparison to be run again when what it was run on has changed, and offers the way there', () => {

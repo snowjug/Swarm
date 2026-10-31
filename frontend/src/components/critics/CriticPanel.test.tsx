@@ -1,5 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import {
+  COMPARISON_INPUTS_UNRECORDED,
+  UNRECORDED_INPUTS_ADVICE,
+} from '../../../../shared/analysis';
 import { CHANGE_CANNOT_MOVE_ID, CRITIC_ROLE_QUESTIONS } from '../../../../shared/critique';
 import { critiqueFixture, setFixture, stateFixture, viewFixture } from '../../test/critics';
 import { expectNoSecretLikeText, visibleText } from '../../test/provider';
@@ -197,6 +201,18 @@ describe('the independent review', () => {
       expect(text).toContain('The model review could not be completed');
     });
 
+    it('keeps a review that is already shown when a refresh fails, and says so with a way to retry', () => {
+      const html = render({ error: 'Injected review reload failure.' });
+      const text = visibleText(html);
+      expect(text).toContain('The review could not be refreshed');
+      expect(text).toContain('Injected review reload failure.');
+      expect(text).toContain('What is shown is the last version that could be read.');
+      expect(visibleText(render())).not.toContain('could not be refreshed');
+      expect(visibleText(render({ error: 'x', loading: true }))).not.toContain(
+        'could not be refreshed',
+      );
+    });
+
     it('says that the review is of an earlier analysis when a newer one has finished', () => {
       const html = render({
         view: viewFixture({
@@ -223,6 +239,25 @@ describe('the independent review', () => {
         expect(html).toContain('Open the Simulation stage');
         // Without a way to move it still says what to do, and invents no button.
         expect(render({ view: changed })).not.toContain('Open the Simulation stage');
+      });
+
+      it('says that a comparison which recorded nothing of what it was made from cannot be told from a current one', () => {
+        const html = renderToStaticMarkup(
+          <CriticReview
+            state={stateFixture({
+              view: viewFixture({ changedSince: [COMPARISON_INPUTS_UNRECORDED] }),
+            })}
+            onNavigate={() => undefined}
+          />,
+        );
+        const text = visibleText(html);
+        expect(text.match(/This review may be out of date/gu)).toHaveLength(1);
+        expect(text).toContain(UNRECORDED_INPUTS_ADVICE);
+        expect(text).toContain(
+          'Run the comparison again in the Simulation stage, then run the review again.',
+        );
+        expect(text).not.toContain('was run before');
+        expect(html).toContain('Open the Simulation stage');
       });
 
       it('leaves it to the notice about a newer analysis when one has finished', () => {

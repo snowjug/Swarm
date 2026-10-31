@@ -1,4 +1,8 @@
-import { NEWER_ANALYSIS_EXISTS, inputsInWords } from '../../../shared/analysis.js';
+import {
+  COMPARISON_INPUTS_UNRECORDED,
+  NEWER_ANALYSIS_EXISTS,
+  inputsInWords,
+} from '../../../shared/analysis.js';
 import { DEFAULT_ARTIFACT_KEY } from '../../../shared/artifacts.js';
 import type {
   CritiqueResponseBody,
@@ -93,6 +97,10 @@ export class CritiqueService {
       inputRevisionsNow(artifacts, projectId),
     );
     if (analysisId && !analysis) changed.push('analysis (no longer stored)');
+    // A comparison that recorded nothing of what it was made from cannot be told from a current one.
+    if (analysis && analysis.data.inputRevisions === undefined) {
+      changed.push(COMPARISON_INPUTS_UNRECORDED);
+    }
     if (analysisId && latest && latest.data.id !== analysisId) changed.push(NEWER_ANALYSIS_EXISTS);
     return changed;
   }
@@ -155,6 +163,11 @@ export class CritiqueService {
     if (earlier.length > 0) {
       notes.push(
         `This comparison was run before ${inputsInWords(earlier)} changed, so a check that sets it against ${earlier.length === 1 ? 'that document' : 'those documents'} reads two different versions. Run the comparison again, then this review.`,
+      );
+    }
+    if (analysis.inputRevisions === undefined) {
+      notes.push(
+        'This comparison was saved before Swarm recorded what a comparison is made from, so a check that sets it against the scenario, the stakeholders or the actors cannot tell whether it reads two different versions. Run the comparison again, then this review.',
       );
     }
     if (!scenario) {

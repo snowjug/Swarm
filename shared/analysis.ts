@@ -363,6 +363,20 @@ export const ANALYSIS_INPUT_NAMES: Record<AnalysisInput, string> = {
 export const NEWER_ANALYSIS_EXISTS = 'a newer analysis exists';
 
 /**
+ * What a list of changes says of a comparison that was saved before the documents it was made from
+ * were recorded: whether they have changed since cannot be told, so nothing that rests on it is called
+ * current, however often the brief or the review is made again.
+ */
+export const COMPARISON_INPUTS_UNRECORDED = 'what the comparison was made from was not recorded';
+
+export const comparisonInputsUnrecorded = (changedSince: readonly string[]): boolean =>
+  changedSince.includes(COMPARISON_INPUTS_UNRECORDED);
+
+/** Said of such a comparison wherever it is said that the brief or the review may be out of date. */
+export const UNRECORDED_INPUTS_ADVICE =
+  'The comparison it rests on was saved before Swarm recorded what a comparison is made from, so whether the scenario, the stakeholders and the actors it used are the ones the project holds now cannot be told.';
+
+/**
  * The documents among `changedSince` that a comparison is made from, when running the comparison
  * again is what brings the brief or the review up to date. None when a newer comparison already
  * exists, which making the brief or the review again uses: if that one is out of date too, it is

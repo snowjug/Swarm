@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { ANALYSIS_INPUTS, COMPARISON_INPUTS_UNRECORDED } from '../../shared/analysis.js';
 import {
   analysisFixture,
   actorSetFixture,
@@ -34,13 +35,29 @@ afterEach(async () => {
   await Promise.all(applications.splice(0).map(({ app }) => app.close()));
 });
 
-/** What a project holds once an analysis has run: a scenario, stakeholders, actors and the analysis. */
-function holdAnalysis(repository: Repository, projectId: string, analysisId = 'analysis-1'): void {
+/**
+ * What a project holds once an analysis has run: a scenario, stakeholders, actors and the analysis,
+ * which records what it was made from unless it is meant to be one saved before that was kept.
+ */
+function holdAnalysis(
+  repository: Repository,
+  projectId: string,
+  analysisId = 'analysis-1',
+  recorded = true,
+): void {
   const { artifacts } = repository;
   artifacts.put(projectId, 'scenario', 'default', scenarioFixture());
   artifacts.put(projectId, 'stakeholders', 'default', stakeholderSetFixture());
   artifacts.put(projectId, 'actors', 'default', actorSetFixture());
-  artifacts.put(projectId, 'analysis', analysisId, analysisFixture({ id: analysisId }));
+  const inputRevisions = Object.fromEntries(
+    ANALYSIS_INPUTS.map((kind) => [kind, artifacts.get(projectId, kind)?.revision ?? 0]),
+  );
+  artifacts.put(
+    projectId,
+    'analysis',
+    analysisId,
+    analysisFixture({ id: analysisId, ...(recorded ? { inputRevisions } : {}) }),
+  );
 }
 
 async function localWorld() {
@@ -230,14 +247,18 @@ describe('making the brief', () => {
     expect((await view()).changedSince).toEqual(['scenario']);
   });
 
-  it('judges a comparison that recorded nothing by the brief’s own record of what it was made from', async () => {
+  it('keeps saying that a comparison which recorded nothing cannot be told from a current one, and judges what changed by the brief’s own record', async () => {
     const { post, view, repository, project } = await localWorld();
-    holdAnalysis(repository, project.id);
+    holdAnalysis(repository, project.id, 'analysis-1', false);
     repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
     await post();
-    expect((await view()).changedSince).toEqual([]);
+    // Nothing is called current: the brief's own record is all there is to judge a change by.
+    expect((await view()).changedSince).toEqual([COMPARISON_INPUTS_UNRECORDED]);
     repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
-    expect((await view()).changedSince).toEqual(['scenario']);
+    expect((await view()).changedSince).toEqual(['scenario', COMPARISON_INPUTS_UNRECORDED]);
+    // Writing the brief again does not make it look current.
+    await post();
+    expect((await view()).changedSince).toEqual([COMPARISON_INPUTS_UNRECORDED]);
   });
 
   it('never reads an analysis of another project', async () => {

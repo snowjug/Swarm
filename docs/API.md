@@ -168,7 +168,10 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   `429 RATE_LIMITED` (6 starts a minute).
 - **What a comparison was made from.** It records `inputRevisions`: the revision of the scenario, the
   stakeholders and the actors it ran on (0 when there was none), kept when it finishes. The review and the
-  brief are judged against it. A comparison saved before this was recorded has none.
+  brief are judged against it. A comparison saved before this was recorded has none, and whether the
+  documents it used are the current ones cannot be told: `changedSince` then carries
+  `what the comparison was made from was not recorded` for the review and the brief that rest on it, however
+  often they are made again, until the comparison is run again.
 - **Starting is atomic.** The comparison is saved as `running` in the same transaction as the
   `analysis.started` audit record, and the run is launched only after both are committed: a start that
   cannot be recorded leaves no comparison behind.
@@ -176,7 +179,9 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   decision brief or the independent review was made from.
 - **After a restart.** A comparison still `running` when the server starts is marked `interrupted`; it
   is reproducible from its seeds and is run again, not resumed.
-- **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only.
+- **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only. Both are recorded
+  before the thing they describe takes effect, so a start or a stop that cannot be recorded is refused with
+  `503 STORAGE_UNAVAILABLE` and leaves the comparison as it was.
 
 ### Scenario intake and the stored scenario
 
@@ -326,7 +331,8 @@ needs `export`.
   it is current: `scenario`, `stakeholders` and `actors` are checked against the revisions the comparison
   recorded (`analysis.inputRevisions`), so writing the brief again from an old comparison does not clear
   them; `critiques`, `analysis`, `analysis (no longer stored)` and `a newer analysis exists` are checked
-  against the brief itself.
+  against the brief itself. A comparison saved before it recorded what it was made from adds
+  `what the comparison was made from was not recorded`, which does not clear.
 - **Writing.** `POST .../brief` takes `{ "analysisId"?: string }` (20 a minute), uses the newest finished
   comparison unless one is named, replaces any earlier brief and answers 201 with the view. A comparison that
   was run before the scenario, the stakeholders or the actors changed is still written from, and the brief

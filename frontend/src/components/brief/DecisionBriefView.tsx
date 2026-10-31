@@ -40,6 +40,21 @@ export function BriefPanel({
       document.getElementById(REPORT_BRIEF_ID)?.focus({ preventScroll: true });
     }
   }, [hasBrief]);
+  // A failed read of what is already shown leaves it on the page, and says that it may not be the latest.
+  const staleRead =
+    view && error && !loading ? (
+      <Notice
+        tone="warning"
+        title="The brief could not be refreshed"
+        action={
+          <button className="button button-secondary button-small" type="button" onClick={reload}>
+            Try again
+          </button>
+        }
+      >
+        {error} What is shown is the last version that could be read.
+      </Notice>
+    ) : null;
   const failure = generateError ? (
     <Notice
       tone="error"
@@ -94,6 +109,7 @@ export function BriefPanel({
   if (view.brief) {
     return (
       <>
+        {staleRead}
         {failure}
         <BriefDocument
           projectId={projectId}
@@ -114,6 +130,7 @@ export function BriefPanel({
         aria-label="Decision brief"
         tabIndex={-1}
       >
+        {staleRead}
         <EmptyPanel
           title="No decision brief yet"
           level={2}
@@ -145,6 +162,7 @@ export function BriefPanel({
       aria-label="Decision brief"
       tabIndex={-1}
     >
+      {staleRead}
       {failure}
       <EmptyPanel
         title="Make the decision brief"
