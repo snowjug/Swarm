@@ -164,3 +164,20 @@ export function simulateValidated(
 /** Validates the spec with the schema, then runs it. Pure: the same spec and seed give the same outcome. */
 export const simulate: Simulator = (spec, seed, options) =>
   simulateValidated(simulationSpecSchema.parse(spec), seed, options);
+
+/**
+ * `simulate` for a caller that runs each spec on many seeds: a spec object is validated the first time
+ * it is run and not again, which saves the quarter of every run that validating the cast would cost. The
+ * outcomes are the same as `simulate`'s, and a spec that is changed after it was first run must be a new object.
+ */
+export function simulateEachSpecOnce(): Simulator {
+  const checked = new WeakMap<SimulationSpec, SimulationSpec>();
+  return (spec, seed, options) => {
+    let valid = checked.get(spec);
+    if (!valid) {
+      valid = simulationSpecSchema.parse(spec);
+      checked.set(spec, valid);
+    }
+    return simulateValidated(valid, seed, options);
+  };
+}

@@ -235,6 +235,22 @@ describe('progress and cancellation', () => {
     expect(turns).toBeGreaterThanOrEqual(15);
   });
 
+  it('also gives the event loop turns while it puts the results together, so that a large one does not hold the server', async () => {
+    let finished = 0;
+    const turnsAt: number[] = [];
+    await runAnalysis(inputs({ runsPerVariant: 4 }), stubSimulator, {
+      now: clock,
+      onProgress: ({ completedRuns }) => {
+        finished = completedRuns;
+      },
+      yieldNow: async () => {
+        turnsAt.push(finished);
+      },
+    });
+    // One after the last run, then one before the findings, one for each of the 3 variants and one before the document.
+    expect(turnsAt.filter((runs) => runs === 12)).toHaveLength(1 + 1 + 3 + 1);
+  });
+
   it('stops between runs when asked, and returns what was done as cancelled, with no findings', async () => {
     const { simulator, calls } = countingSimulator();
     const analysis = await runAnalysis(inputs(), simulator, {

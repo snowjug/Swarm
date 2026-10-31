@@ -11,7 +11,7 @@ import {
 } from '../../../shared/analysis-plan.js';
 import { changeCanMoveAnyone, NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { AppError } from '../errors.js';
-import { simulate, SimulationInputError } from '../simulation/simulate.js';
+import { simulateEachSpecOnce, SimulationInputError } from '../simulation/simulate.js';
 import type { Repository } from '../storage/repository.js';
 import {
   FIDELITY_LABEL,
@@ -95,7 +95,7 @@ export class AnalysisService {
     private readonly repository: Repository,
     private readonly options: AnalysisServiceOptions = {},
   ) {
-    this.simulator = options.simulator ?? simulate;
+    this.simulator = options.simulator ?? simulateEachSpecOnce();
     this.yieldNow =
       options.yieldNow ?? (() => new Promise<void>((resolve) => setImmediate(resolve)));
     this.now = options.now ?? Date.now;
