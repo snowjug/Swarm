@@ -9,7 +9,6 @@ import type {
 import { isOpenConflict } from '../../../shared/evidence.js';
 import { AppError, publicFailure } from '../errors.js';
 import type { ModelFactory } from '../models/factory.js';
-import type { ModelUsage, ModelUsageSink } from '../models/client.js';
 import type { Repository } from '../storage/repository.js';
 import { carryResponses } from './merge.js';
 import { modelCritiques, type ModelReview } from './model.js';
@@ -21,17 +20,6 @@ import type { CriticInput } from './types.js';
 export const MAX_RULE_CRITIQUES = 100;
 /** One call, and the repairs a reply that fails its checks may be given. */
 const MODEL_CALLS = 3;
-
-/**
- * Counts a model call against the project's budget and refuses the next one once it is used up.
- * This is the same budget `Repository.modelUse` enforces, without its requirement that a run of the
- * older pipeline has already recorded execution details.
- */
-function usageOf(repository: Repository, projectId: string): ModelUsageSink {
-  const record = (usage: ModelUsage): void =>
-    repository.usage.record(projectId, usage.inputTokens, usage.outputTokens);
-  return Object.assign(record, { admit: () => repository.usage.admit(projectId) });
-}
 
 const notReady = (): AppError =>
   new AppError(
@@ -207,7 +195,7 @@ export class CritiqueService {
       let modelFailed = false;
       if (body.useModel) {
         try {
-          const gateway = this.options.createModel(usageOf(this.repository, projectId), {
+          const gateway = this.options.createModel(this.repository.modelUse(projectId), {
             maxCalls: MODEL_CALLS,
           });
           review = await modelCritiques(gateway, { ...input, now }, rules, signal);

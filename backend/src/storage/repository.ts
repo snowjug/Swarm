@@ -587,11 +587,17 @@ export class Repository {
    * recorded, and a call is refused once the project has used its budget. Every client of a project
    * is made with this, so that a budget cannot be skipped by the way a model is reached. However many
    * calls of one client are refused (a round asks for several at once), the audit log hears of it once.
+   * A project that has not run the older pipeline has no run record to copy the tokens into; the
+   * budget, which is what holds a model back, is recorded all the same.
    */
   modelUse(projectId: string, alsoRecord?: (usage: ModelUsage) => void): ModelUsageSink {
     let reported = false;
     const record = (usage: ModelUsage): void => {
-      this.recordUsage(projectId, usage.inputTokens, usage.outputTokens);
+      if (this.get(projectId).execution) {
+        this.recordUsage(projectId, usage.inputTokens, usage.outputTokens);
+      } else {
+        this.usage.record(projectId, usage.inputTokens, usage.outputTokens);
+      }
       alsoRecord?.(usage);
     };
     const admit = (): void => {
