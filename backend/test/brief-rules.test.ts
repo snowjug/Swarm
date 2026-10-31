@@ -41,6 +41,7 @@ import {
   critiquesFixture,
   richAnalysis,
   richInputs,
+  richStakeholders,
   totalsOnly,
 } from './support/brief-world.js';
 
@@ -264,13 +265,13 @@ describe('the wording guard', () => {
     expect(lintBrief(brief)).toEqual([]);
   });
 
-  // The withheld form of a recommendation keeps its horizon and its owner as the rules wrote them, so
-  // for those two only the withholding and its count are asserted; the guard reads them all the same.
+  // Every field of a recommendation that the guard reads is replaced when it is withheld, so that a
+  // wording that broke the guard is shown nowhere in the brief.
   it.each([
     ['validation', 'Check that members will certainly stay.', true],
     ['leadingIndicators', 'Over 60% of them stay.', true],
-    ['horizon', 'Within a year it is guaranteed.', false],
-    ['ownerFunction', 'the team that will own it', false],
+    ['horizon', 'Within a year it is guaranteed.', true],
+    ['ownerFunction', 'the team that will own it', true],
   ] as const)(
     'looks at the %s of a recommendation, not only at what it says',
     async (field, wording, replaced) => {
@@ -712,6 +713,40 @@ describe('the validation plan', () => {
   const plan = validationPlan(gatherFacts(inputs));
   const target = (prefix: string) =>
     plan.find((experiment) => experiment.targets.some((entry) => entry.startsWith(prefix)));
+
+  it('asks about the outcome that the evidence records for a group, and not only whether it switches', () => {
+    const quote = richStakeholders()
+      .stakeholders.find((entry) => entry.id === 'subscribers')!
+      .evidence.find((ref) => ref.role === 'supports')!.quote!;
+    const check = plan.find((experiment) =>
+      experiment.question.startsWith('Is “Subscribers” harmed'),
+    )!;
+    expect(check.measure).toContain(`“${quote.slice(0, 40)}`);
+    expect(check.measure).toContain('whether they also start using an alternative');
+    // A group that cites nothing keeps the general measure, which names no outcome of its own.
+    const bare = validationPlan(gatherFacts(baseInputs()));
+    const general = bare.find((experiment) =>
+      experiment.question.includes('harmed, helped or unaffected'),
+    );
+    expect(general?.measure ?? '').not.toContain('the evidence records');
+  });
+
+  it('plans a check for a sensitive assumption that nothing cited backs and for none that a passage backs, whatever else is in the plan', () => {
+    const analysis = richAnalysis();
+    const row = analysis.sensitivity.find((entry) => entry.id === 's2')!;
+    const targetsWith = (changed: typeof row) =>
+      validationPlan(
+        gatherFacts(richInputs({ analysis: { ...analysis, sensitivity: [changed] } })),
+      ).flatMap((experiment) => experiment.targets);
+    // Alone in the plan, so that nothing else can be what keeps it out.
+    expect(row.classification).toBe('assumption-sensitive');
+    expect(targetsWith(row).some((entry) => entry.startsWith('sensitivity s2:'))).toBe(false);
+    expect(
+      targetsWith({ ...row, assumptionOrigin: 'system-assumption' }).some((entry) =>
+        entry.startsWith('sensitivity s2:'),
+      ),
+    ).toBe(true);
+  });
 
   it('covers the premises of the answer, the assumptions the result is sensitive to, the open conflicts, what triggers a repeated responder and the actors nothing supports', () => {
     // How large the change is in practice, and the assumption the runs were sensitive to about it.

@@ -2,6 +2,7 @@ import type { Analysis, Finding } from '../../../shared/analysis.js';
 import type { Critique, CritiqueSet } from '../../../shared/critique.js';
 import type { ContradictionStatus, EvidenceRef } from '../../../shared/evidence.js';
 import type { ScenarioFrame } from '../../../shared/scenario.js';
+import { effectiveTrait } from '../../../shared/signal.js';
 import {
   TRAIT_KEYS,
   type Actor,
@@ -18,7 +19,13 @@ import {
   type Headline,
   type VariantMeasure,
 } from './measures.js';
-import { relianceOfFinding, weakestReliance, type Reliance } from './rules.js';
+import {
+  directionOfImpact,
+  relianceOfFinding,
+  weakestReliance,
+  type Direction,
+  type Reliance,
+} from './rules.js';
 import { readSignal, type SignalReading } from './signal.js';
 
 /** A conflict between two supplied sources, as the evidence ledger recorded it. */
@@ -81,8 +88,19 @@ export interface Facts {
   actorById: Map<string, Actor>;
   findingById: Map<string, Finding>;
   variantLabel(variantId: string): string;
+  /**
+   * The impact of the change on an actor as the headline comparison ran it: what the scenario sets for
+   * it (an override or an edit) where it sets one, else what the actor carries. Whatever the brief says
+   * about who is helped or harmed is read from this and never from the actor alone.
+   */
+  impactIn(actor: Actor): number;
+  directionIn(actor: Actor): Direction;
+  /** Whether the headline scenario, and not the actor, sets the impact the runs used. */
+  impactSetByScenario(actor: Actor): boolean;
   /** Evidence presence for a finding: its actor has a cited supporting passage, or most actors do. */
   evidencedFinding(finding: Finding): boolean;
+  /** Whether at least half of the actors have a cited supporting passage. */
+  evidencedOverall(): boolean;
   relianceOf(findings: readonly Finding[]): Reliance | null;
 }
 
@@ -122,18 +140,24 @@ export function gatherFacts(inputs: BriefInputs): Facts {
   const signal = readSignal(analysis, headline);
   const actorById = new Map(analysis.actors.map((actor) => [actor.id, actor]));
   const findingById = new Map(analysis.findings.map((finding) => [finding.id, finding]));
+  const evidencedOverall = (): boolean => {
+    const supported = analysis.actors.filter((actor) => evidence.supports(actor)).length;
+    return supported * 2 >= analysis.actors.length;
+  };
   const evidencedFinding = (finding: Finding): boolean => {
     if (finding.actorId !== null) {
       const actor = actorById.get(finding.actorId);
       return actor ? evidence.supports(actor) : false;
     }
-    const supported = analysis.actors.filter((actor) => evidence.supports(actor)).length;
-    return supported * 2 >= analysis.actors.length;
+    return evidencedOverall();
   };
   const current = inputs.actors?.actors ?? null;
   const actorsChanged =
     current !== null &&
     current.map(fingerprint).sort().join('|') !== analysis.actors.map(fingerprint).sort().join('|');
+  const scenario = headline?.variant.variant ?? null;
+  const impactIn = (actor: Actor): number =>
+    scenario ? effectiveTrait(actor, scenario, 'impact') : actor.traits.impact.value;
   return {
     inputs,
     analysis,
@@ -159,7 +183,16 @@ export function gatherFacts(inputs: BriefInputs): Facts {
     findingById,
     variantLabel: (variantId) =>
       analysis.config.variants.find((variant) => variant.id === variantId)?.label ?? variantId,
+    impactIn,
+    directionIn: (actor) => directionOfImpact(impactIn(actor)),
+    impactSetByScenario: (actor) =>
+      scenario !== null &&
+      (scenario.impactOverrides[actor.id] !== undefined ||
+        (scenario.traitEdits ?? []).some(
+          (edit) => edit.actorId === actor.id && edit.trait === 'impact',
+        )),
     evidencedFinding,
+    evidencedOverall,
     // When no one can be moved, every finding describes noise, however often it held.
     relianceOf: (findings) => {
       if (signal.state === 'no-direction') return findings.length > 0 ? 'low' : null;

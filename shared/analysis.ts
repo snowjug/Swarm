@@ -160,7 +160,12 @@ export const runOutcomeSchema = z.object({
    * any run that was not, where an earlier event in `causedBy` only came first.
    */
   explained: z.boolean().optional(),
-  work: z.object({ members: z.int().min(0), updates: z.int().min(0) }),
+  work: z.object({
+    members: z.int().min(0),
+    updates: z.int().min(0),
+    /** How many times the run was played again to tell which earlier events a later one needed; absent when it was not. */
+    replays: z.int().min(0).optional(),
+  }),
 });
 export type RunOutcome = z.infer<typeof runOutcomeSchema>;
 

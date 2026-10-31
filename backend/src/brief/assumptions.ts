@@ -11,6 +11,7 @@ import {
   type TraitOrigin,
 } from '../../../shared/stakeholders.js';
 import type { EvidenceIndex } from './evidence.js';
+import { ROBUST_SHIFT } from '../analysis/sensitivity.js';
 import { originOfSensitivity } from './rules.js';
 import { decimals, embed, plural, signed, traitLabel } from './text.js';
 
@@ -143,15 +144,16 @@ function sensitivityRow(
     subject = `${embed(actor.name, 60)}: ${traitLabel(row.target.trait ?? '')} is set at ${decimals(governing)}${setBy}`;
     value = decimals(governing);
   } else if (row.target.kind === 'population' && actor) {
-    subject = `${embed(actor.name, 60)} stands for a population of ${actor.size}, which is an assumption and not a count`;
-    value = String(actor.size);
+    // What is moved is how varied the members of the group are (the spread of every trait), not how many it stands for.
+    subject = `${embed(actor.name, 60)}: how varied its members are (the spread of every trait, ${row.perturbation > 0 ? 'twice' : 'half'} as wide when it was moved) is an assumption and not a measurement`;
+    value = null;
   } else {
     subject = embed(row.label, 160);
   }
   const verdict = sensitive
     ? 'The simulated result is sensitive to it.'
     : row.classification === 'robust'
-      ? 'Moving it did not change the simulated result by more than its noise.'
+      ? `Moving it changed the simulated result by less than ${ROBUST_SHIFT} (the size too small to matter for a decision), measured closely; that is not the same as no change.`
       : 'Whether moving it matters could not be settled from these runs.';
   return {
     id: `sensitivity-${row.id}`,

@@ -62,6 +62,8 @@ function guardRecommendations(recommendations: Recommendation[], tally: Tally): 
       ...recommendation,
       text: clip(WITHHELD(rules.join(', ')), 500),
       validation: 'See the findings it followed from.',
+      horizon: 'Not stated.',
+      ownerFunction: 'Not stated.',
       leadingIndicators: [],
     };
   });

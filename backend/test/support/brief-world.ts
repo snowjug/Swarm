@@ -231,7 +231,8 @@ export function richAnalysis(): Analysis {
       }),
       row('s5', {
         target: { kind: 'population', actorId: 'subscribers', trait: null },
-        label: 'Subscribers: population, twice as large',
+        label: 'Subscribers: members twice as varied (spread ×2)',
+        perturbation: 1,
         assumptionOrigin: 'system-assumption',
         shift: 0.04,
         standardError: 0.04,

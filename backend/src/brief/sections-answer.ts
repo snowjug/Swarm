@@ -8,15 +8,23 @@ import type {
 import { isSetByPerson } from '../../../shared/analysis-plan.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
 import { canonicalField, type ScenarioFrame } from '../../../shared/scenario.js';
-import { NO_DIRECTION_NOTICE, effectiveTrait } from '../../../shared/signal.js';
+import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { STAKEHOLDER_CATEGORY_LABELS } from '../../../shared/stakeholders.js';
 import { effectOf } from './assumptions.js';
+import { DIRECTION_MARGIN } from '../analysis/findings.js';
+import { ROBUST_SHIFT } from '../analysis/sensitivity.js';
+import { classifyStability } from '../analysis/stats.js';
 import { documentOrigin, provenanceLine, uniqueRefs } from './evidence.js';
 import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
-import { aboutAdverseShare, type GroupShift, type Headline } from './measures.js';
+import {
+  aboutAdverseShare,
+  type GroupShift,
+  type Headline,
+  type SharePairing,
+} from './measures.js';
 import type { Advice } from './recommend.js';
-import { relianceOfEvidence, type Reliance } from './rules.js';
+import { relianceOfEvidence, relianceOfFinding, type Reliance } from './rules.js';
 import {
   RESOLUTION_NOTE,
   clip,
@@ -145,6 +153,33 @@ export const intervalWords = (finding: Finding): string =>
 const CHOSEN_AFTER_NOTE =
   ' The statement was chosen after the runs were seen, so the interval describes these runs and does not claim long-run coverage.';
 
+/**
+ * Whether the finding about the direction against the baseline, which is read on the overall final
+ * stance, points the way that the share of simulated members looking for an alternative or resisting
+ * does: a less favourable stance with more of them, a more favourable one with fewer, no real change in
+ * either. Where it does not, it is a finding about another measure and is not used to rate the share.
+ */
+function stancePointsTheSameWay(pairing: SharePairing): boolean {
+  const share = Math.abs(pairing.delta) < ROBUST_SHIFT ? 0 : Math.sign(pairing.delta);
+  const stance =
+    Math.abs(pairing.stanceDelta) <= DIRECTION_MARGIN ? 0 : -Math.sign(pairing.stanceDelta);
+  return share === stance;
+}
+
+/** How steadily the share differed from the baseline's on the same seeds, in the classes a finding has. */
+function shareSteadiness(pairing: SharePairing): {
+  holdsIn: number;
+  of: number;
+  classification: Finding['classification'];
+} {
+  const holdsIn = pairing.delta >= 0 ? pairing.higher : pairing.lower;
+  return {
+    holdsIn,
+    of: pairing.pairs,
+    classification: classifyStability(holdsIn, pairing.pairs),
+  };
+}
+
 /** How far the finding about the direction against the baseline held across seeded runs. */
 function addStability(
   writer: SectionWriter,
@@ -153,6 +188,24 @@ function addStability(
   reading: string,
 ): void {
   const { finding } = facts.signal;
+  const { pairing } = headline;
+  if (
+    finding &&
+    pairing &&
+    pairing.pairs > 0 &&
+    facts.signal.state === 'clear' &&
+    !stancePointsTheSameWay(pairing)
+  ) {
+    // The finding is about the overall stance and the answer leads with the share: where they part, each is rated on its own.
+    const steady = shareSteadiness(pairing);
+    writer.add({
+      origin: 'simulation-aggregation',
+      text: `Stability: the share looking for an alternative or resisting was ${pairing.delta >= 0 ? 'higher' : 'lower'} under the change in ${steady.holdsIn} of ${steady.of} paired seeded simulated runs, which the analysis would class as ${classWords(steady.classification)}. The overall stance, a different measure, does not point the same way: ${embed(finding.statement, 200)} It is stated here and does not rate the share.${reading}`,
+      refs: { findingIds: [finding.id], variantIds: variantIdsOf(headline) },
+      reliance: relianceOfFinding(steady.classification, facts.evidencedOverall()),
+    });
+    return;
+  }
   if (finding) {
     writer.add({
       origin: 'simulation-aggregation',
@@ -190,6 +243,19 @@ interface Doubt {
 function doubtsOf(facts: Facts, headline: Headline): Doubt[] {
   const { analysis } = facts;
   const doubts: Doubt[] = [];
+  if (facts.signal.undirected) {
+    // Without a direction of impact, what the comparison shows comes from assumed spread: that is read first.
+    doubts.push({
+      key: 'premise:direction',
+      origin: 'system-assumption',
+      text: 'no stakeholder has an expected direction of impact, so nobody is set as helped or harmed and what the comparison shows comes from how widely the members of a group are assumed to differ, not from a direction of impact',
+      refs: {
+        assumptions: ['No stakeholder has an expected direction of impact.'],
+        findingIds: headline.finding ? [headline.finding.id] : [],
+      },
+      settle: 'asking who is helped and who is harmed',
+    });
+  }
   const row = analysis.sensitivity
     .filter(
       (entry) =>
@@ -211,11 +277,10 @@ function doubtsOf(facts: Facts, headline: Headline): Doubt[] {
   const variant = headline.variant.variant;
   // A value the scenario itself sets for a group is its author's, and is not Swarm's assumption to flag.
   const lead = impactLeads(facts, 3).find(
-    (actor) =>
-      actor.traits.impact.origin !== 'user' && variant.impactOverrides[actor.id] === undefined,
+    (actor) => actor.traits.impact.origin !== 'user' && !facts.impactSetByScenario(actor),
   );
   if (lead && !(row?.target.actorId === lead.id && row.target.trait === 'impact')) {
-    const impact = effectiveTrait(lead, variant, 'impact');
+    const impact = facts.impactIn(lead);
     const direction = impact < -0.2 ? 'harmed' : impact > 0.2 ? 'helped' : 'unaffected';
     doubts.push({
       key: `premise:impact:${lead.id}`,
@@ -303,7 +368,12 @@ function conditionalRecommendation(
   headline: Headline,
   advice: readonly Advice[],
 ): { text: string; refs: Partial<BriefRefs>; reliance: Reliance | null } {
-  const finding = headline.finding;
+  const { pairing } = headline;
+  // The finding is read on the overall stance: it rates the answer only where it points the way the share does.
+  const finding =
+    headline.finding && pairing && pairing.pairs > 0 && !stancePointsTheSameWay(pairing)
+      ? null
+      : headline.finding;
   const refs: Partial<BriefRefs> = {
     findingIds: finding ? [finding.id] : [],
     variantIds: [
@@ -311,9 +381,21 @@ function conditionalRecommendation(
       ...(headline.baseline ? [headline.baseline.variant.id] : []),
     ],
   };
-  if (!finding || finding.classification === 'unstable' || finding.classification === 'rare') {
+  if (facts.signal.undirected) {
     return {
-      text: `Recommendation: do not decide on this simulated comparison yet. ${finding ? `The finding behind it held in ${finding.holdsIn} of ${finding.of} seeded runs, which the analysis classes as ${classWords(finding.classification)}` : 'The analysis recorded no finding that states how often it holds'}; repeat the analysis with more seeded runs, then take the checks named below.`,
+      text: 'Recommendation: do not decide on this simulated comparison yet. No stakeholder has an expected direction of impact, so the differences it shows come from how widely the members of a group are assumed to differ and not from who is helped or harmed; say who is helped or harmed in the stakeholder review, run the comparison again, then take the checks named below.',
+      refs: { ...refs, assumptions: ['No stakeholder has an expected direction of impact.'] },
+      reliance: 'low',
+    };
+  }
+  const steady = finding
+    ? { holdsIn: finding.holdsIn, of: finding.of, classification: finding.classification }
+    : pairing && pairing.pairs > 0
+      ? shareSteadiness(pairing)
+      : null;
+  if (!steady || steady.classification === 'unstable' || steady.classification === 'rare') {
+    return {
+      text: `Recommendation: do not decide on this simulated comparison yet. ${steady ? `The ${finding ? 'finding' : 'paired comparison'} behind it held in ${steady.holdsIn} of ${steady.of} seeded runs, which the analysis classes as ${classWords(steady.classification)}` : 'The analysis recorded no finding that states how often it holds'}; repeat the analysis with more seeded runs, then take the checks named below.`,
       refs,
       reliance: 'low',
     };
@@ -328,9 +410,17 @@ function conditionalRecommendation(
   const bySize = (a: Advice, b: Advice): number =>
     (size.get(a.refs.stakeholderIds?.[0] ?? '') ?? Infinity) -
       (size.get(b.refs.stakeholderIds?.[0] ?? '') ?? Infinity) || 0;
+  // The advice that is about the change proposed: what only an alternative to it provokes stays with that alternative.
+  const own = advice.filter(
+    (entry) =>
+      entry.linkedFindingIds.length > 0 &&
+      entry.linkedFindingIds.every(
+        (id) => facts.findingById.get(id)?.variantId === headline.variant.variant.id,
+      ),
+  );
   const subjects = (kind: Advice['kind']): string[] => [
     ...new Set(
-      advice
+      own
         .filter((entry) => entry.kind === kind && entry.subject !== null)
         .sort(kind === 'mitigate' ? bySize : () => 0)
         .map((entry) => entry.subject ?? ''),
@@ -347,7 +437,7 @@ function conditionalRecommendation(
       ? `build on the favourable response of ${listed(subjects('build-on').slice(0, 2))}`
       : null,
   ].filter((action): action is string => action !== null);
-  const used = advice.filter((entry) =>
+  const used = own.filter((entry) =>
     ['mitigate', 'prepare-response', 'build-on'].includes(entry.kind),
   );
   const findingIds = [
@@ -398,7 +488,12 @@ function answerFirst(
   const runs = variant.runs.length;
   const here = embed(variant.variant.label, 80);
   const there = baseline ? embed(baseline.variant.label, 80) : 'no change';
-  const refs = { findingIds: finding ? [finding.id] : [], variantIds: variantIdsOf(headline) };
+  // The finding is read on the overall stance: it is cited for the share only where it points the same way.
+  const rests = finding && !(pairing && pairing.pairs > 0 && !stancePointsTheSameWay(pairing));
+  const refs = {
+    findingIds: finding && rests ? [finding.id] : [],
+    variantIds: variantIdsOf(headline),
+  };
 
   const scenario = facts.scenario;
   writer.add({
@@ -436,7 +531,12 @@ function answerFirst(
     origin: 'simulation-aggregation',
     text: comparison,
     refs,
-    reliance: finding ? facts.relianceOf([finding]) : 'low',
+    reliance:
+      finding && rests
+        ? facts.relianceOf([finding])
+        : pairing && pairing.pairs > 0 && facts.signal.state !== 'no-direction'
+          ? relianceOfFinding(shareSteadiness(pairing).classification, facts.evidencedOverall())
+          : 'low',
   });
 
   const named = headline.groups.slice(0, 3);
@@ -693,7 +793,7 @@ export function decision(facts: Facts, tally: Tally): BriefSection {
     ];
     if (changes.length === 0) return '';
     const more = changes.length > 3 ? ` and ${changes.length - 3} more` : '';
-    return `; it sets ${listed(changes.slice(0, 3))}${more}`;
+    return `sets ${listed(changes.slice(0, 3))}${more}`;
   };
   const described = (list: typeof variants): string =>
     listed(
@@ -701,7 +801,7 @@ export function decision(facts: Facts, tally: Tally): BriefSection {
         .slice(0, 6)
         .map(
           (variant) =>
-            `${embed(variant.label, 60)} (${variant.kind}${variant.kind === 'alternative' ? `, lands in round ${variant.round} at strength ${decimals(variant.intensity)} of 1` : ''}${sets(variant)})`,
+            `${embed(variant.label, 60)} (${variant.kind}${variant.kind === 'alternative' ? `, lands in round ${variant.round} at strength ${decimals(variant.intensity)} of 1` : ''})`,
         ),
     );
   // A strength or a round the person chose is theirs, and is said to be, as the sensitivity rows do.
@@ -724,6 +824,18 @@ export function decision(facts: Facts, tally: Tally): BriefSection {
       refs: {
         variantIds: byPerson.map((variant) => variant.id),
         assumptions: ['Variant settings were chosen by the person.'],
+      },
+    });
+  }
+  // Swarm proposes no value for a particular group: a scenario that sets one has been edited by a person, whatever its description says.
+  const editing = variants.filter((variant) => sets(variant) !== '');
+  if (editing.length > 0) {
+    writer.add({
+      origin: 'user-assumption',
+      text: `Settings that a scenario makes for particular groups: ${listed(editing.slice(0, 4).map((variant) => `${embed(variant.label, 60)} ${sets(variant)}`))}. Swarm proposes none of these itself: each is the person’s, and a setting that was chosen is still a setting of the simulation, not a measurement.`,
+      refs: {
+        variantIds: editing.map((variant) => variant.id),
+        assumptions: ['Settings for particular groups were chosen by the person.'],
       },
     });
   }

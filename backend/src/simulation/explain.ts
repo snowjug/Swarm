@@ -45,6 +45,7 @@ export function explainEvents(
   const byId = new Map(outcome.events.map((event) => [event.id, event]));
   let members = 0;
   let updates = 0;
+  let replays = 0;
   const events = outcome.events.map((event): SimEvent => {
     const needed: string[] = [];
     const only: string[] = [];
@@ -57,6 +58,7 @@ export function explainEvents(
       const again = replay(switchedOff(spec, earlier.actorId));
       members += again.work.members;
       updates += again.work.updates;
+      replays += 1;
       const acted = again.events.find((candidate) => candidate.actorId === event.actorId);
       (acted !== undefined && acted.round <= event.round ? only : needed).push(id);
     }
@@ -66,6 +68,10 @@ export function explainEvents(
     ...outcome,
     events,
     explained: true,
-    work: { members: outcome.work.members + members, updates: outcome.work.updates + updates },
+    work: {
+      members: outcome.work.members + members,
+      updates: outcome.work.updates + updates,
+      ...(replays > 0 ? { replays } : {}),
+    },
   };
 }

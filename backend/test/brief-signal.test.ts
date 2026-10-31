@@ -24,7 +24,7 @@ import { buildBrief } from '../src/brief/build.js';
 import { briefHtml, briefJson, briefMarkdown, type BriefExportInput } from '../src/brief/export.js';
 import { gatherFacts, type BriefInputs } from '../src/brief/facts.js';
 import { lintBrief, lintText } from '../src/brief/lint.js';
-import { SAY_DIRECTION } from '../src/brief/recommend.js';
+import { SAY_DIRECTION, SAY_DIRECTION_UNDIRECTED } from '../src/brief/recommend.js';
 import { isAboutTheSame, UNDIRECTED_READING_NOTE } from '../src/brief/signal.js';
 import { briefVisuals } from '../src/brief/visuals.js';
 import { fixtureInput, testConfig } from './fixtures.js';
@@ -1056,9 +1056,18 @@ describe('on the real engine', () => {
     expect(section(brief, 'alternative-outcomes').statements[0]?.text).toBe(
       UNDIRECTED_READING_NOTE,
     );
+    // The answer itself is not given as if a direction were set: the missing direction is the first
+    // caveat and the first thing to settle, and no go-ahead is offered on a plan that omits it.
+    const answer = section(brief, 'executive-answer').statements.map((statement) => statement.text);
+    expect(answer.find((text) => text.startsWith('Biggest open caveat'))).toContain(
+      'no stakeholder has an expected direction of impact',
+    );
+    expect(answer.find((text) => text.startsWith('Recommendation'))).toMatch(
+      /^Recommendation: do not decide on this simulated comparison yet\. No stakeholder has an expected direction of impact/u,
+    );
+    expect(brief.recommendations[0]?.text).toBe(SAY_DIRECTION_UNDIRECTED);
+    expect(brief.validationPlan[0]?.question).toContain('Who is helped and who is harmed');
     expect(lintBrief(brief)).toEqual([]);
-
-    // The page before the run says the same, in words that are true of it.
     const listed = (await app.inject(`${base}/analysis`)).json() as {
       readiness: AnalysisReadiness;
     };

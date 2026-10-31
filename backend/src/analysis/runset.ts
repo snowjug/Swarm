@@ -431,6 +431,8 @@ export async function runAnalysis(
   if (proposedSpec && typical) {
     representativeRun = simulator(proposedSpec, typical.summary.seed, { explain: true });
     counted(representativeRun.work.members);
+    // The runs played again to explain it are engine runs too, and their members are in its work.
+    simulatedRuns += representativeRun.work.replays ?? 0;
   }
 
   // The rest is put together in stretches with a turn for the event loop between them, so that the

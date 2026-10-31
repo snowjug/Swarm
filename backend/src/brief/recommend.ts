@@ -1,13 +1,14 @@
 import type { Finding } from '../../../shared/analysis.js';
 import type { BriefRefs, Recommendation, StatementOrigin } from '../../../shared/brief.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
+import { effectiveTrait } from '../../../shared/signal.js';
 import { EXTERNAL_RESPONDER_CATEGORIES, type Actor } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
 import { aboutAdverseShare, groupShifts } from './measures.js';
 import {
   LEVEL_WEIGHT,
   OWNER_BY_CATEGORY,
-  directionOf,
+  directionOfImpact,
   levelOfSize,
   type Reliance,
 } from './rules.js';
@@ -94,6 +95,10 @@ export const LEAD_EXCEPTION =
 export const SAY_DIRECTION =
   'Say who is helped or harmed by the change, in the stakeholder review, or read the evidence with a model, then run the comparison again: no stakeholder has an expected direction of impact, so the simulated comparison could not tell the change from no change.';
 
+/** The same, where the change can still move members: what the comparison shows then comes from how widely a group's members are assumed to differ. */
+export const SAY_DIRECTION_UNDIRECTED =
+  'Say who is helped or harmed by the change, in the stakeholder review, or read the evidence with a model, then run the comparison again: no stakeholder has an expected direction of impact, so any difference the simulated comparison shows comes from how widely the members of a group are assumed to differ and not from who is helped or harmed.';
+
 const lowerBound = (findings: readonly Finding[]): number =>
   findings.reduce((best, finding) => Math.max(best, finding.interval.lo), 0);
 
@@ -119,7 +124,7 @@ function mitigations(facts: Facts): Candidate[] {
   for (const shift of headline.groups) {
     if (shift.delta === null || shift.delta <= 0 || shift.members === 0) continue;
     const actor = facts.actorById.get(shift.actorId);
-    if (!actor || directionOf(actor) !== 'harmed') continue;
+    if (!actor || facts.directionIn(actor) !== 'harmed') continue;
     // Advice about a group rests on the findings that say its largest response is the adverse one, in most seeded runs.
     const supports = analysis.findings
       .filter(
@@ -435,7 +440,13 @@ function opportunities(facts: Facts): Candidate[] {
     if (!actor || !variant || variant.variant.kind !== 'alternative' || !repeatable(finding)) {
       continue;
     }
-    if (directionOf(actor) !== 'benefited' || seen.has(actor.id)) continue;
+    // Whether the group is helped is read as the scenario that the finding is about ran it.
+    if (
+      directionOfImpact(effectiveTrait(actor, variant.variant, 'impact')) !== 'benefited' ||
+      seen.has(actor.id)
+    ) {
+      continue;
+    }
     const shift = groupShifts(variant, baseline).find((entry) => entry.actorId === actor.id);
     if (!shift || shift.stanceDelta === null || shift.stanceDelta <= 0) continue;
     seen.add(actor.id);
@@ -515,7 +526,7 @@ function sayDirection(facts: Facts): Candidate | null {
   if (!linked) return null;
   return {
     kind: 'say-direction',
-    text: SAY_DIRECTION,
+    text: facts.signal.undirected ? SAY_DIRECTION_UNDIRECTED : SAY_DIRECTION,
     linkedFindingIds: [linked.id],
     impact: 'high',
     effort: 'low',
@@ -572,7 +583,7 @@ export function advise(facts: Facts): Advice[] {
       );
     })
     .map(({ candidate }) => candidate);
-  const lead = state === 'no-direction' ? sayDirection(facts) : null;
+  const lead = state === 'no-direction' || facts.signal.undirected ? sayDirection(facts) : null;
   return [...(lead ? [lead] : []), ...ordered]
     .slice(0, MAX_RECOMMENDATIONS)
     .map((candidate, index): Advice => ({

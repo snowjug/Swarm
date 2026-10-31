@@ -158,6 +158,8 @@ describe('which earlier events an event could not do without', () => {
     const first = simulate(chain, 3);
     const explained = simulate(chain, 3, { explain: true });
     expect(explained.work.members).toBe(2 * first.work.members);
+    expect(explained.work.replays).toBe(1);
+    expect(first.work.replays).toBeUndefined();
   });
 
   it('leaves a run with more links than MAX_REPLAYS as it came, and says nothing was tested', () => {

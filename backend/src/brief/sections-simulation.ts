@@ -5,7 +5,6 @@ import {
   type SimEvent,
 } from '../../../shared/analysis.js';
 import type { BriefSection } from '../../../shared/brief.js';
-import { effectiveTrait } from '../../../shared/signal.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
   STAKEHOLDER_CATEGORY_LABELS,
@@ -14,7 +13,6 @@ import {
 import { MATERIAL_SHIFT, ROBUST_SHIFT } from '../analysis/sensitivity.js';
 import type { Facts } from './facts.js';
 import { aboutAdverseShare, actorMeasure, findingsFor, pairShares } from './measures.js';
-import { directionOfImpact } from './rules.js';
 import { readingNote } from './signal.js';
 import { impactOwner, sensitivityContext } from './assumptions.js';
 import {
@@ -300,9 +298,9 @@ export function firstOrder(facts: Facts, tally: Tally): BriefSection {
     return writer.build();
   }
   // What the runs used is the value the scenario sets for the actor (an override or an edit), else the actor's own.
-  const impactIn = (actor: Actor): number => effectiveTrait(actor, variant.variant, 'impact');
+  const impactIn = (actor: Actor): number => facts.impactIn(actor);
   const affected = analysis.actors
-    .filter((actor) => directionOfImpact(impactIn(actor)) !== 'neutral')
+    .filter((actor) => facts.directionIn(actor) !== 'neutral')
     .sort((a, b) => Math.abs(impactIn(b)) - Math.abs(impactIn(a)) || (a.id < b.id ? -1 : 1))
     .slice(0, 6);
   if (affected.length === 0) {
@@ -316,13 +314,12 @@ export function firstOrder(facts: Facts, tally: Tally): BriefSection {
     if (!measure) continue;
     const base = baseline ? actorMeasure(baseline, actor.id) : null;
     const own = findingsFor(analysis, { variantId: variant.variant.id, actorId: actor.id });
-    const owner =
-      variant.variant.impactOverrides[actor.id] !== undefined
-        ? 'set by the scenario that proposes the change'
-        : impactOwner(actor, facts.evidence);
+    const owner = facts.impactSetByScenario(actor)
+      ? 'set by the scenario that proposes the change'
+      : impactOwner(actor, facts.evidence);
     writer.add({
       origin: 'actor-behavior',
-      text: `Simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}) is set as ${directionOfImpact(impactIn(actor))} by the change (impact ${signed(impactIn(actor))}, ${owner}). Under ${embed(variant.variant.label, 60)} its mean final stance was ${decimals(measure.stance)}${base && baseline ? `, against ${decimals(base.stance)} under ${embed(baseline.variant.label, 60)}` : ''}; ${groupOutcome(measure, variant.runs.length)}.`,
+      text: `Simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}) is set as ${facts.directionIn(actor)} by the change (impact ${signed(impactIn(actor))}, ${owner}). Under ${embed(variant.variant.label, 60)} its mean final stance was ${decimals(measure.stance)}${base && baseline ? `, against ${decimals(base.stance)} under ${embed(baseline.variant.label, 60)}` : ''}; ${groupOutcome(measure, variant.runs.length)}.`,
       refs: {
         stakeholderIds: [actor.stakeholderId],
         findingIds: own.map((finding) => finding.id),

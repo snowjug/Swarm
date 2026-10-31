@@ -17,8 +17,13 @@ import {
 import { MATERIAL_SHIFT } from '../analysis/sensitivity.js';
 import type { Facts } from './facts.js';
 import { actorMeasure, findingsFor } from './measures.js';
-import { LEAD_EXCEPTION, ORDERING_RULE, SAY_DIRECTION, type Advice } from './recommend.js';
-import { directionOf } from './rules.js';
+import {
+  LEAD_EXCEPTION,
+  ORDERING_RULE,
+  SAY_DIRECTION,
+  SAY_DIRECTION_UNDIRECTED,
+  type Advice,
+} from './recommend.js';
 import { intervalWords } from './sections-answer.js';
 import { approx, clip, decimals, embed, fit, groupOutcome, plural, traitLabel } from './text.js';
 import type { PlannedCheck } from './validation.js';
@@ -180,7 +185,7 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
       : [];
   });
   const risks = readings
-    .filter((entry) => directionOf(entry.actor) === 'harmed' && entry.measure.adverse > 0)
+    .filter((entry) => facts.directionIn(entry.actor) === 'harmed' && entry.measure.adverse > 0)
     .sort(
       // By each group's own share, never by member counts, which depend on how many were sampled.
       (a, b) =>
@@ -236,7 +241,9 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
     });
   }
   const opportunities = readings
-    .filter((entry) => directionOf(entry.actor) === 'benefited' && entry.measure.favourable > 0)
+    .filter(
+      (entry) => facts.directionIn(entry.actor) === 'benefited' && entry.measure.favourable > 0,
+    )
     .sort(
       (a, b) =>
         b.measure.favourableShare - a.measure.favourableShare || (a.actor.id < b.actor.id ? -1 : 1),
@@ -274,7 +281,10 @@ export function recommendationsSection(
   tally: Tally,
 ): BriefSection {
   const writer = sectionWriter('recommendations', tally);
-  const leads = recommendations.some((recommendation) => recommendation.text === SAY_DIRECTION);
+  const leads = recommendations.some(
+    (recommendation) =>
+      recommendation.text === SAY_DIRECTION || recommendation.text === SAY_DIRECTION_UNDIRECTED,
+  );
   writer.add({
     origin: 'system-assumption',
     text: leads ? `${ORDERING_RULE} ${LEAD_EXCEPTION}` : ORDERING_RULE,

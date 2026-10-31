@@ -9,7 +9,7 @@ import {
 } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
 import { aboutAdverseShare } from './measures.js';
-import { OWNER_BY_CATEGORY, directionOf, type Level } from './rules.js';
+import { OWNER_BY_CATEGORY, type Level } from './rules.js';
 import { clip, embed } from './text.js';
 
 /**
@@ -301,7 +301,7 @@ export const DIRECTION_CHECK: Check = {
   method:
     'Ask the stakeholders themselves, in interviews or a short survey, or someone who knows each group; record a direction for each group in the stakeholder review.',
   decision:
-    'Decide beforehand how many key groups need a stated direction before the comparison, run again, can tell the change from no change.',
+    'Decide beforehand how many key groups need a stated direction before the comparison, run again, is read as a result about the change.',
   effort: 'low',
   duration: '1 to 2 weeks',
   gist: 'ask who is helped and who is harmed',
@@ -496,7 +496,8 @@ export function impactLeads(facts: Facts, limit: number): Actor[] {
       (actor): actor is Actor =>
         actor !== undefined &&
         !(
-          EXTERNAL_RESPONDER_CATEGORIES.includes(actor.category) && directionOf(actor) === 'neutral'
+          EXTERNAL_RESPONDER_CATEGORIES.includes(actor.category) &&
+          facts.directionIn(actor) === 'neutral'
         ),
     )
     .slice(0, limit);
@@ -592,7 +593,10 @@ interface Made {
 function assemble({ check, slots, owner, targets, keys, refs }: Made): Omit<PlannedCheck, 'id'> {
   const say = (template: string, max: number): string => clip(fill(template, slots), max);
   return {
-    targets: targets.slice(0, MAX_TARGETS).map((target) => clip(target, 120)),
+    // A step of a perturbation is written in words: a percent sign reads as a share of people.
+    targets: targets
+      .slice(0, MAX_TARGETS)
+      .map((target) => clip(target.replace(/(\d+(?:\.\d+)?)\s*%/gu, '$1 per cent'), 120)),
     question: say(check.question, 300),
     method: say(check.method, 400),
     successSignal: say(check.decision, 300),
@@ -643,14 +647,14 @@ export function planChecks(facts: Facts): PlannedCheck[] {
   const ownerOf = (actor: Actor): string => OWNER_BY_CATEGORY[actor.category];
   const groupName = (actor: Actor): string => embed(actor.name, 60);
 
-  if (state === 'no-direction') {
+  if (state === 'no-direction' || facts.signal.undirected) {
     const { finding } = facts.signal;
     add('direction', 0, PLACE.direction, {
       check: DIRECTION_CHECK,
       slots: words,
       owner: 'research and analytics',
       targets: [
-        finding
+        finding && state === 'no-direction'
           ? `finding ${finding.id}: the comparison could not tell the change from no change`
           : 'assumption: the direction of impact of every stakeholder',
       ],
@@ -675,12 +679,23 @@ export function planChecks(facts: Facts): PlannedCheck[] {
     });
   }
   lead.forEach((actor, index) => {
+    // What the evidence records about the group is what to observe, so a group that worries about
+    // something other than leaving is asked about that and not only about whether it switches.
+    const cited = facts.evidence.has(actor.stakeholderId)
+      ? facts.evidence.forStakeholder(actor.stakeholderId)
+      : facts.evidence.forActor(actor);
+    const concern = (cited.find((ref) => ref.role === 'supports' && ref.quote) ?? cited[0])?.quote;
     add(`impact:${actor.id}`, index === 0 ? 2 : 5, PLACE.impact, {
-      check: TRAIT_CHECKS.impact,
+      check: concern
+        ? {
+            ...TRAIT_CHECKS.impact,
+            measure: `In the weeks after the change, the outcome that the evidence records for {group}, ${embed(concern, 110)}: how often it happens or how much it costs them, and whether they also start using an alternative to {system}, reduce their use of it or formally object, and what they say they lose or gain.`,
+          }
+        : TRAIT_CHECKS.impact,
       slots: { ...words, group: groupName(actor) },
       owner: ownerOf(actor),
       targets: [
-        `assumption: the effect of the change on ${actor.name}, ${DIRECTION_WORDS[directionOf(actor)]} (${impactOrigin(actor)})`,
+        `assumption: the effect of the change on ${actor.name}, ${DIRECTION_WORDS[facts.directionIn(actor)]} (${facts.impactSetByScenario(actor) ? 'set by the scenario that proposes the change' : impactOrigin(actor)})`,
       ],
       keys: [`premise:impact:${actor.id}`],
       refs: {

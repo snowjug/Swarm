@@ -189,6 +189,28 @@ describe('the executive answer', () => {
     expect(stability.text).toContain('does not claim long-run coverage');
   });
 
+  it('names as its biggest caveat the sensitive assumption that moved the result most, whatever order the rows come in', () => {
+    const analysis = richAnalysis();
+    const small = analysis.sensitivity.find((entry) => entry.id === 's1')!;
+    const large = {
+      ...small,
+      id: 'sL',
+      shift: -0.4,
+      label: 'Subscribers: trust, 0.2 lower',
+      target: { kind: 'trait' as const, actorId: 'subscribers', trait: 'trust' as const },
+    };
+    for (const order of [
+      [small, large],
+      [large, small],
+    ]) {
+      const made = buildBrief(richInputs({ analysis: { ...analysis, sensitivity: order } }));
+      const first = sectionOf(made, 'executive-answer').statements.find((statement) =>
+        statement.text.startsWith('Biggest open caveat'),
+      );
+      expect(first?.refs.sensitivityIds).toEqual(['sL']);
+    }
+  });
+
   it('carries, in order, the decision, the conditional recommendation, the comparison, the groups it moved, what could change it and what would settle it', () => {
     const starts = executive.statements.map((statement) => statement.text.slice(0, 21));
     expect(starts[0]).toBe('Decision evaluated: “');
@@ -670,6 +692,47 @@ describe('how far each statement can be relied on', () => {
 });
 
 describe('the assumptions', () => {
+  it('does not rate the share by a finding about the overall stance that points the other way', () => {
+    const base = analysisFixture();
+    const comparisonOf = (analysis: Analysis) =>
+      sectionOf(buildBrief(baseInputs({ analysis })), 'executive-answer').statements.find(
+        (statement) => statement.text.includes('counting each of the'),
+      )!;
+    // Where the stance and the share agree, the finding about the direction stands behind the answer.
+    expect(comparisonOf(base).refs.findingIds).toEqual(['f1']);
+
+    // More members look for an alternative, and yet the overall stance is more favourable.
+    const parted = analysisSchema.parse({
+      ...base,
+      variants: base.variants.map((entry) =>
+        entry.variantId === 'proposed-change'
+          ? { ...entry, runs: entry.runs.map((run) => ({ ...run, stanceMean: 0.7 })) }
+          : entry,
+      ),
+      findings: base.findings.map((finding) =>
+        finding.id === 'f1'
+          ? {
+              ...finding,
+              statement:
+                'Under the proposed change, simulated members ended up more favourable than under no change in 10 of 10 runs.',
+            }
+          : finding,
+      ),
+    });
+    expect(comparisonOf(parted).refs.findingIds).toEqual([]);
+    const stability = sectionOf(
+      buildBrief(baseInputs({ analysis: parted })),
+      'executive-answer',
+    ).statements.find((statement) => statement.text.startsWith('Stability'))!;
+    expect(stability.text).toContain(
+      'was higher under the change in 10 of 10 paired seeded simulated runs',
+    );
+    expect(stability.text).toContain(
+      'The overall stance, a different measure, does not point the same way',
+    );
+    expect(stability.refs.findingIds).toEqual(['f1']);
+  });
+
   it('says what the runs used where the scenario sets the impact of an actor itself, and not what the actor carries', () => {
     const base = analysisFixture();
     const analysis = analysisSchema.parse({
@@ -709,6 +772,17 @@ describe('the assumptions', () => {
     expect(effect.text).toContain(
       'is set as harmed by the change (impact -0.90, set by the scenario that proposes the change)',
     );
+    // The risk, and the check that settles it, read the same impact, and not the actor's own.
+    const risk = sectionOf(made, 'risks-opportunities').statements.find((statement) =>
+      statement.text.startsWith('Risk: simulated “Subscribers”'),
+    );
+    expect(risk?.text).toContain('is set as harmed by the change');
+    expect(
+      made.validationPlan.find((entry) => entry.question.startsWith('Is “Subscribers” harmed'))
+        ?.targets,
+    ).toContain(
+      'assumption: the effect of the change on Subscribers, assumed harmed (set by the scenario that proposes the change)',
+    );
   });
 
   it('puts the ones the result is sensitive to first, biggest first, and says who owns each', () => {
@@ -733,11 +807,17 @@ describe('the assumptions', () => {
     expect(evidenced.refs.evidence.length).toBeGreaterThan(0);
     const person = statements.find((statement) => statement.refs.sensitivityIds.includes('s4'))!;
     expect(person.origin).toBe('user-assumption');
-    expect(person.text).toContain('did not change the simulated result by more than its noise');
+    expect(person.text).toContain('changed the simulated result by less than 0.02');
+    expect(person.text).toContain('not the same as no change');
     const inconclusive = statements.find((statement) =>
       statement.refs.sensitivityIds.includes('s5'),
     )!;
     expect(inconclusive.text).toContain('could not be settled from these runs');
+    // What is moved is how varied the members are, and the text says so and not that a population was resized.
+    expect(inconclusive.text).toContain(
+      '“Subscribers”: how varied its members are (the spread of every trait, twice as wide when it was moved)',
+    );
+    expect(inconclusive.text).not.toContain('stands for a population');
     expect(
       statements.some((statement) => statement.text.startsWith('Population sizes are assumptions')),
     ).toBe(true);
@@ -1214,11 +1294,15 @@ describe('the limitations and the appendix', () => {
     );
     const decision = textOf(withIntervention, 'decision');
     expect(decision).toContain(
-      `lands in round 2 at strength 0.70 of 1; it sets the impact on “${subscribers!.name}” to 0.00 and the switching cost of “${other!.name}” to 0.90)`,
+      `“Proposed change” sets the impact on “${subscribers!.name}” to 0.00 and the switching cost of “${other!.name}” to 0.90`,
     );
+    const setting = sectionOf(withIntervention, 'decision').statements.find((statement) =>
+      statement.text.startsWith('Settings that a scenario makes for particular groups'),
+    );
+    expect(setting?.origin).toBe('user-assumption');
     // The baseline sets nothing, and nothing is said where nothing is set.
     expect(decision).toContain('“No change” (baseline)');
-    expect(textOf(brief, 'decision')).not.toContain('it sets');
+    expect(textOf(brief, 'decision')).not.toContain('Settings that a scenario makes');
   });
 
   it('gives the seeds, the variants with their strength, the rounds, the cost and every trait with its origin', () => {
