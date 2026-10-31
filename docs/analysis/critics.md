@@ -210,8 +210,9 @@ calls count against the project's budget like any other.
 ## Responses and status
 
 A person with the capability to edit the experiment answers a criticism with
-`PUT /api/projects/:id/critiques/:cid/response` and a body of `text` (required), `status` and
-optionally `remainingDisagreement`:
+`PUT /api/projects/:id/critiques/:cid/response` and a body of `text` (required), `status`,
+optionally `remainingDisagreement`, and `expectedRevision`: the `revision` of the review that the
+person was looking at, as `GET /api/projects/:id/critiques` gave it:
 
 | Status      | Meaning                                                                                 |
 | ----------- | --------------------------------------------------------------------------------------- |
@@ -222,6 +223,12 @@ optionally `remainingDisagreement`:
 
 A later response replaces an earlier one. Responding never changes the criticism's wording, severity
 or basis.
+
+**Two people cannot silently replace each other's answer.** The revision goes up with every response and
+every run of the review. A response that carries an older one is refused with 409 `CRITIQUES_CHANGED`
+and a sentence that says to reload the review and answer again: someone else has responded, or the
+review has been run again, since the person read it. The page reads the review again at once, shows
+the other answer, and keeps what the person had typed, so that they choose again what it means.
 
 **Running the review again keeps responses.** A criticism that comes back with the same id keeps its
 status, response, remaining disagreement and the time it was first raised, including a response
@@ -238,9 +245,12 @@ written, so a reader can tell it is older than the criticism's current wording.
   for a model (`useModel: true`) on a project that was made to run without one (mode "Local rules")
   is refused with 409 `MODEL_NOT_AVAILABLE`: nothing is sent to a model from such a project.
 - `GET /api/projects/:id/critiques` answers 200 with `critiques: null` when there is none, the
-  newest finished analysis (so that a review of an older one can be called out of date), what the
-  caller may do, and whether a model can be asked (`model.available`; `model.reason` says in words
-  that the project runs without one, and the page says when the server has none configured).
+  `revision` of the stored review (to send back with a response), `changedSince` (what has changed
+  since the comparison the review is of was run: `scenario`, `stakeholders` or `actors`, checked
+  against what that comparison recorded, and `a newer analysis exists`), the newest finished analysis
+  (so that a review of an older one can be called out of date), what the caller may do, and whether a
+  model can be asked (`model.available`; `model.reason` says in words that the project runs without
+  one, and the page says when the server has none configured).
 - Reading needs `read`, running `run`, responding `edit`. A reviewer reads and does not run or edit
   what they review.
 - The audit log records `critiques.run` (analysis id, counts, whether a model was asked for and
@@ -267,8 +277,12 @@ written, so a reader can tell it is older than the criticism's current wording.
   assumptions from a real null: a change that helps some actors and harms others by the same amount
   also ends up "about the same", and gets the same prompt to look at the intensity and the impacts.
 - A model criticism is checked against ids, not for being right.
-- The review does not run on its own when an analysis, the stakeholders or the brief change. The page
-  says when a review is of an earlier analysis; it does not say when the stakeholders have changed
-  since.
+- The review does not run on its own when an analysis, the stakeholders or the brief change. A
+  comparison records the revision of the scenario, the stakeholders and the actors it was run on, so
+  the page says when the comparison a review is of was run before one of them changed (running the
+  review again on that comparison does not clear it: run the comparison again), and when a newer
+  comparison exists. A review made from such a comparison says so in its notes, since a check that
+  sets it against the scenario then reads two versions. A comparison saved before this was recorded
+  has no such record, and the review is then judged from what the review itself recorded.
 - Nothing here is a measure of confidence. The severities are fixed by the rules above, and the
   numbers in a basis are the checked facts.
