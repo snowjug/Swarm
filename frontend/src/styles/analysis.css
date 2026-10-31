@@ -147,6 +147,14 @@
   gap: 10px;
   justify-items: start;
 }
+/* Starting a comparison brings this into view, below the page's fixed header. */
+.analysis-progress h3 {
+  margin: 0;
+  scroll-margin-top: 90px;
+}
+.analysis-outcome {
+  min-width: 0;
+}
 .analysis-progress > * {
   max-width: 100%;
 }

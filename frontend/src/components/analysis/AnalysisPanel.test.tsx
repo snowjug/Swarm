@@ -41,6 +41,7 @@ const readiness = (patch: Partial<AnalysisReadiness> = {}): AnalysisReadiness =>
 });
 
 const state = (patch: Partial<AnalysisState> = {}): AnalysisState => ({
+  trouble: null,
   readiness: readiness(),
   summaries: [],
   current: null,
@@ -453,6 +454,24 @@ describe('while it runs', () => {
     expect(html).not.toContain('<form');
   });
 
+  it('has a heading of its own that takes focus when a comparison starts, and a status that is there to announce the end', () => {
+    const html = view({ current: running });
+    expect(html).toMatch(/<h3 tabindex="-1">Comparing scenarios<\/h3>/u);
+    expect(html.match(/role="status"/gu)?.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('says so, and that it tries again, when the progress cannot be read, and says nothing otherwise', () => {
+    const lost = view({
+      current: running,
+      trouble: 'Cannot reach the local server. Check that the backend is running, then retry.',
+    });
+    expect(visibleText(lost)).toContain('The progress cannot be read just now');
+    expect(visibleText(lost)).toContain('Cannot reach the local server.');
+    expect(visibleText(lost)).toContain('It tries again by itself.');
+    expect(visibleText(lost)).toContain('shown as interrupted once it can be read');
+    expect(visibleText(view({ current: running }))).not.toContain('cannot be read just now');
+  });
+
   it('says that it is cancelling, and does not offer cancel to someone who may not run it', () => {
     const cancelling = view({ current: running, cancelling: true });
     expect(visibleText(cancelling)).toContain('Cancelling: it stops after the run in progress.');
@@ -479,6 +498,8 @@ describe('a comparison that did not finish', () => {
     expect(text).toContain('Nothing is shown from a partial comparison');
     expect(text).toContain('Run it again with the same settings');
     expect(text).toContain('Run another comparison');
+    // The notice is where focus goes when a comparison that was being watched ends.
+    expect(html).toMatch(/<div tabindex="-1" class="analysis-outcome">/u);
   });
 
   it('says that it was interrupted, that it can be reproduced from its seeds, and offers to run it again', () => {
@@ -592,7 +613,7 @@ describe('the results', () => {
     expect(text).toContain('Second-order effects in one typical run');
     expect(text).toContain('seed 104');
     expect(text).toContain(
-      'Because the “adverse-share” signal, then in round 3, a simulated “counter-move” event by Rival provider',
+      'Because the simulated “adverse-share” signal, then in round 3, a simulated “counter-move” event by Rival provider',
     );
     expect(text).toContain(
       'Because the counter-move in round 3, then in round 4, a simulated “switching-pressure” event by Subscribers',
@@ -675,6 +696,8 @@ describe('the answer first', () => {
     expect(at).toBeGreaterThan(-1);
     expect(at).toBeLessThan(own.indexOf('The spread of outcomes'));
     expect(at).toBeLessThan(own.indexOf('What held across the seeded runs'));
+    // It is the heading that takes focus when a comparison that was being watched finishes.
+    expect(own).toMatch(/<h3 id="analysis-summary-title" tabindex="-1">What this comparison says/u);
   });
 
   it('shows the first eight findings, the steadiest first, and the other six behind one disclosure', () => {

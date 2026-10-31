@@ -9,6 +9,8 @@ import { errorMessage } from '../api';
 import { analysisApi } from '../api/analysis';
 
 export interface AnalysisState {
+  /** Set while the progress of a running comparison cannot be read: the reason, in words. The comparison itself goes on. */
+  trouble: string | null;
   readiness: AnalysisReadiness | null;
   /** Saved comparisons, newest first. */
   summaries: AnalysisSummary[];
@@ -26,9 +28,55 @@ export interface AnalysisState {
   select: (id: string) => void;
 }
 
-const POLL_MS = 1_000;
+export const POLL_MS = 1_000;
+/** How long to wait before reading again after a read that failed; the last wait repeats. */
+export const RETRY_MS: readonly number[] = [2_000, 4_000, 8_000, 15_000];
 const active = (status: Analysis['status'] | undefined): boolean =>
   status === 'running' || status === 'queued';
+
+/**
+ * Reads one comparison once a second until it is no longer running. A read that fails is not the end of
+ * the watching: the server may be restarting or busy, and a comparison that was running may by then have
+ * finished or been marked interrupted, which only another read can say. So it tries again, a little later
+ * each time, and says while it does that it cannot read. Returns the function that stops the watching.
+ */
+export function watchAnalysis(options: {
+  read: () => Promise<Analysis>;
+  onUpdate: (analysis: Analysis) => void;
+  onFinished: () => void;
+  /** The reason a read failed, or null when reading works again. */
+  onTrouble: (reason: string | null) => void;
+  describe: (failure: unknown) => string;
+  timers?: { set: typeof setTimeout; clear: typeof clearTimeout };
+}): () => void {
+  const { set, clear } = options.timers ?? { set: setTimeout, clear: clearTimeout };
+  let stopped = false;
+  let failures = 0;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const poll = async (): Promise<void> => {
+    try {
+      const next = await options.read();
+      if (stopped) return;
+      if (failures > 0) {
+        failures = 0;
+        options.onTrouble(null);
+      }
+      options.onUpdate(next);
+      if (active(next.status)) timer = set(() => void poll(), POLL_MS);
+      else options.onFinished();
+    } catch (failure) {
+      if (stopped) return;
+      failures += 1;
+      options.onTrouble(options.describe(failure));
+      timer = set(() => void poll(), RETRY_MS[Math.min(failures, RETRY_MS.length) - 1]);
+    }
+  };
+  timer = set(() => void poll(), POLL_MS);
+  return () => {
+    stopped = true;
+    if (timer !== undefined) clear(timer);
+  };
+}
 
 /**
  * The comparisons of one project. It reads the list once, and then only the comparison that is
@@ -44,6 +92,7 @@ export function useAnalysis(projectId: string): AnalysisState {
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [trouble, setTrouble] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [refreshes, setRefreshes] = useState(0);
 
@@ -94,25 +143,24 @@ export function useAnalysis(projectId: string): AnalysisState {
   useEffect(() => {
     if (watching === null) return;
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async (): Promise<void> => {
-      try {
-        const next = await analysisApi.get(projectId, watching, controller.signal);
-        if (controller.signal.aborted) return;
-        setCurrent(next);
-        if (active(next.status)) timer = setTimeout(() => void poll(), POLL_MS);
-        else setRefreshes((old) => old + 1);
-      } catch (failure) {
-        if (controller.signal.aborted) return;
-        setError(errorMessage(failure));
-      }
-    };
-    timer = setTimeout(() => void poll(), POLL_MS);
+    const stop = watchAnalysis({
+      read: () => analysisApi.get(projectId, watching, controller.signal),
+      onUpdate: setCurrent,
+      onFinished: () => setRefreshes((old) => old + 1),
+      onTrouble: setTrouble,
+      describe: errorMessage,
+    });
     return () => {
       controller.abort();
-      if (timer !== undefined) clearTimeout(timer);
+      stop();
+      setTrouble(null);
     };
   }, [projectId, watching]);
+
+  // Asking to stop is answered at once, but the comparison stops at its next run: it is cancelling until it has.
+  useEffect(() => {
+    if (watching === null) setCancelling(false);
+  }, [watching]);
 
   const reload = useCallback(() => setRevision((old) => old + 1), []);
 
@@ -140,10 +188,9 @@ export function useAnalysis(projectId: string): AnalysisState {
     setCancelling(true);
     setStartError(null);
     try {
-      setCurrent(await analysisApi.cancel(projectId, currentId));
+      await analysisApi.cancel(projectId, currentId);
     } catch (failure) {
       setStartError(errorMessage(failure));
-    } finally {
       setCancelling(false);
     }
   }, [projectId, currentId]);
@@ -159,6 +206,7 @@ export function useAnalysis(projectId: string): AnalysisState {
   );
 
   return {
+    trouble,
     readiness,
     summaries,
     current,
