@@ -47,6 +47,8 @@ export interface SignalReading {
   undirected: boolean;
   /** The scenarios that read as about the same as no change, each with the finding that says so. */
   sameAs: ReadonlyMap<string, Finding>;
+  /** When the proposed change reads as about the same: the findings that say another scenario did not. */
+  differing: readonly Finding[];
 }
 
 /** The one note a section that sets scenarios side by side opens with when no stakeholder has a direction but members can still move. */
@@ -133,14 +135,20 @@ export function readSignal(analysis: Analysis, headline: Headline | null): Signa
   const { variants } = analysis.config;
   // With nothing to compare against there is no comparison to read; the brief says that elsewhere.
   if (!headline || !headline.baseline || headline.variant.variant.kind !== 'alternative') {
-    return { state: 'clear', finding, undirected: false, sameAs: new Map() };
+    return { state: 'clear', finding, undirected: false, sameAs: new Map(), differing: [] };
   }
   const canMove = changeCanMoveAnyone(actors, variants);
   const directed = actorsWithDirection(actors, variants).length > 0;
   // The notice says that no stakeholder has a direction, so it must hold for every stakeholder: a
   // change that has no strength is not a missing direction, and reads on its findings like any other.
   if (!canMove && !directed) {
-    return { state: 'no-direction', finding, undirected: false, sameAs: new Map() };
+    return {
+      state: 'no-direction',
+      finding,
+      undirected: false,
+      sameAs: new Map(),
+      differing: [],
+    };
   }
   const { baseline } = headline;
   const sameAs = new Map<string, Finding>();
@@ -149,12 +157,26 @@ export function readSignal(analysis: Analysis, headline: Headline | null): Signa
     const same = aboutTheSame(analysis, measure, baseline);
     if (same) sameAs.set(measure.variant.id, same);
   }
-  const own = sameAs.get(headline.variant.variant.id);
+  const headlineId = headline.variant.variant.id;
+  const own = sameAs.get(headlineId);
+  const alternatives = new Set(
+    variants.filter((variant) => variant.kind === 'alternative').map((variant) => variant.id),
+  );
   return {
     state: own ? 'no-difference' : 'clear',
     finding: own ?? finding,
     undirected: !directed,
     sameAs,
+    differing: own
+      ? analysis.findings.filter(
+          (candidate) =>
+            candidate.kind === 'direction-vs-baseline' &&
+            candidate.variantId !== headlineId &&
+            alternatives.has(candidate.variantId) &&
+            !isAboutTheSame(candidate) &&
+            holdsOften(candidate),
+        )
+      : [],
   };
 }
 
