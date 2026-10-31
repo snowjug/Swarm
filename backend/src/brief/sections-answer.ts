@@ -1,5 +1,10 @@
-import type { Variant } from '../../../shared/analysis.js';
-import type { BriefRefs, BriefSection, BriefSignal } from '../../../shared/brief.js';
+import type { Finding, Variant } from '../../../shared/analysis.js';
+import type {
+  BriefRefs,
+  BriefSection,
+  BriefSignal,
+  StatementOrigin,
+} from '../../../shared/brief.js';
 import { isSetByPerson } from '../../../shared/analysis-plan.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
 import { canonicalField, type ScenarioFrame } from '../../../shared/scenario.js';
@@ -9,9 +14,28 @@ import { effectOf } from './assumptions.js';
 import { documentOrigin, provenanceLine, uniqueRefs } from './evidence.js';
 import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
-import type { Headline } from './measures.js';
-import { relianceOfEvidence } from './rules.js';
-import { clip, decimals, embed, listed, plural, traitLabel, whole } from './text.js';
+import type { GroupShift, Headline } from './measures.js';
+import type { Advice } from './recommend.js';
+import { relianceOfEvidence, type Reliance } from './rules.js';
+import {
+  RESOLUTION_NOTE,
+  clip,
+  decimals,
+  embed,
+  fit,
+  listed,
+  perHundred,
+  plural,
+  traitLabel,
+} from './text.js';
+import {
+  impactLeads,
+  impactOrigin,
+  openConflicts,
+  unevidencedKeyActors,
+  unstableFindings,
+  type PlannedCheck,
+} from './validation.js';
 import { sectionWriter, type SectionWriter, type Tally } from './writer.js';
 
 const CLASS_WORDS = {
@@ -82,7 +106,7 @@ function caveatOf(facts: Facts): { text: string; refs: Partial<BriefRefs> } {
 }
 
 export const NOT_TOLD =
-  'What this does not tell you: how many real people act this way, how fast, or whether the assumptions behind the simulation hold. Simulated members are synthetic stand-ins for groups; the counts above are neither rates nor forecasts.';
+  'What this does not tell you: how many real people act this way, how fast, or whether the assumptions behind the simulation hold. Simulated members are synthetic stand-ins for groups; the figures above, counts or shares, are neither rates nor forecasts.';
 
 /** The same line when the comparison cannot be read as a result about the change, and there are no counts above it to qualify. */
 export const NOT_TOLD_BY_SIGNAL: Record<BriefSignal, string> = {
@@ -101,6 +125,24 @@ const variantIdsOf = (headline: Headline): string[] => [
 const baselineLabel = (headline: Headline): string =>
   embed(headline.baseline?.variant.label ?? 'no change', 80);
 
+/** The findings whose statement was chosen after the runs were seen: a direction, the largest response, an ordering, the most frequent event. */
+const CHOSEN_AFTER: ReadonlySet<Finding['kind']> = new Set([
+  'direction-vs-baseline',
+  'majority-response',
+  'ordering',
+  'second-order-event',
+]);
+
+/**
+ * The Wilson interval of a finding, in words. For a statement chosen after the runs were seen it
+ * describes those runs: it is not an unconditional coverage claim, since the choice used the same runs.
+ */
+export const intervalWords = (finding: Finding): string =>
+  `Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}${CHOSEN_AFTER.has(finding.kind) ? ', descriptive of these runs' : ''}`;
+
+const CHOSEN_AFTER_NOTE =
+  ' The statement was chosen after the runs were seen, so the interval describes these runs and does not claim long-run coverage.';
+
 /** How far the finding about the direction against the baseline held across seeded runs. */
 function addStability(
   writer: SectionWriter,
@@ -112,7 +154,7 @@ function addStability(
   if (finding) {
     writer.add({
       origin: 'simulation-aggregation',
-      text: `Stability: the finding ${embed(finding.statement, 200)} held in ${finding.holdsIn} of ${finding.of} seeded simulated runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}), which the analysis classes as ${classWords(finding.classification)}. There is no confidence score.${reading}`,
+      text: `Stability: the finding ${embed(finding.statement, 200)} held in ${finding.holdsIn} of ${finding.of} seeded simulated runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}), which the analysis classes as ${classWords(finding.classification)}. There is no confidence score.${CHOSEN_AFTER.has(finding.kind) ? CHOSEN_AFTER_NOTE : ''}${reading}`,
       refs: { findingIds: [finding.id] },
       reliance: facts.relianceOf([finding]),
     });
@@ -125,9 +167,347 @@ function addStability(
   }
 }
 
+/** What the answer is shown to lean on: an assumption, an evidence gap or an open objection, and what would settle it. */
+interface Doubt {
+  /** The premise it is about, in the vocabulary the validation plan's checks use. */
+  key: string;
+  origin: StatementOrigin;
+  text: string;
+  refs: Partial<BriefRefs>;
+  /** What would settle it when no check of the plan does. */
+  settle: string;
+}
+
+/**
+ * The few assumptions or evidence gaps that could change the answer, the most consequential first:
+ * what the runs were sensitive to, how hard the change lands on the groups the answer names, how large
+ * the change is in practice, then the open conflicts between sources, the open serious objections, the
+ * key actors nothing cited supports and the evidence the question names as missing. Each is a statement
+ * of what is not known, with the ids it rests on.
+ */
+function doubtsOf(facts: Facts, headline: Headline): Doubt[] {
+  const { analysis } = facts;
+  const doubts: Doubt[] = [];
+  const row = analysis.sensitivity
+    .filter(
+      (entry) =>
+        entry.classification === 'assumption-sensitive' && entry.assumptionOrigin !== 'evidence',
+    )
+    .sort((a, b) => Math.abs(b.shift) - Math.abs(a.shift) || (a.id < b.id ? -1 : 1))[0];
+  const findingIds = headline.finding ? [headline.finding.id] : [];
+  if (row) {
+    doubts.push({
+      key: `sensitivity:${row.id}`,
+      origin: 'unresolved-uncertainty',
+      text: `the simulated result is sensitive to ${embed(row.label, 120)}, which no cited passage backs: ${effectOf(row)}`,
+      refs: { sensitivityIds: [row.id], findingIds },
+      settle: 'measuring it in the world',
+    });
+  }
+  const lead = impactLeads(facts, 3).find((actor) => actor.traits.impact.origin !== 'user');
+  if (lead && !(row?.target.actorId === lead.id && row.target.trait === 'impact')) {
+    const direction =
+      lead.traits.impact.value < -0.2
+        ? 'harmed'
+        : lead.traits.impact.value > 0.2
+          ? 'helped'
+          : 'unaffected';
+    doubts.push({
+      key: `premise:impact:${lead.id}`,
+      origin: 'system-assumption',
+      text: `how the change lands on ${embed(lead.name, 60)}, the group the simulated answer moves most, is an assumption (${direction} by the change itself; ${impactOrigin(lead)}) and not a measurement`,
+      refs: {
+        stakeholderIds: [lead.stakeholderId],
+        assumptions: [`Impact of the change on ${lead.name}`],
+        findingIds,
+      },
+      settle: 'measuring how the change lands on the group',
+    });
+  }
+  const variant = headline.variant.variant;
+  if (variant.kind === 'alternative' && row?.target.kind !== 'intensity') {
+    doubts.push({
+      key: 'premise:strength',
+      origin: isSetByPerson(variant) ? 'user-assumption' : 'system-assumption',
+      text: `how large the change is in practice, and how widely and soon it reaches the groups, is a setting of the simulation (strength ${decimals(variant.intensity)} of 1 from round ${variant.round}) and not a measurement`,
+      refs: {
+        variantIds: [variant.id],
+        assumptions: ['The strength and timing of a change are settings of the simulation.'],
+      },
+      settle: 'observing what size of change reaches the groups, and when',
+    });
+  }
+  for (const conflict of openConflicts(facts).slice(0, 1)) {
+    const left = facts.evidence.documents.get(conflict.left.documentId);
+    doubts.push({
+      key: `conflict:${conflict.id}`,
+      origin: documentOrigin(left),
+      text: `the sources disagree on ${embed(conflict.topic, 100)}: ${embed(conflict.left.documentName, 60)} gives ${conflict.leftValue ? embed(conflict.leftValue, 60) : 'one position'} and ${embed(conflict.right.documentName, 60)} gives ${conflict.rightValue ? embed(conflict.rightValue, 60) : 'another'}`,
+      refs: { evidence: [conflict.left, conflict.right] },
+      settle: 'getting the underlying data from the owner of each source',
+    });
+  }
+  const critique = facts.critiques.find(
+    (entry) =>
+      entry.status !== 'accepted' && (entry.severity === 'blocking' || entry.severity === 'major'),
+  );
+  if (critique) {
+    doubts.push({
+      key: `critique:${critique.id}`,
+      origin: 'unresolved-uncertainty',
+      text: `an open ${critique.severity} objection from the ${CRITIC_ROLE_LABELS[critique.role].toLowerCase()} stands: ${embed(critique.objection, 160)}`,
+      refs: { critiqueIds: [critique.id], findingIds },
+      settle: 'answering the objection, or changing the analysis it points at',
+    });
+  }
+  const unsupported = unevidencedKeyActors(facts);
+  if (unsupported.length > 0) {
+    doubts.push({
+      key: `gap:${unsupported[0]?.stakeholderId ?? ''}`,
+      origin: 'unresolved-uncertainty',
+      text: `no cited passage supports ${listed(unsupported.slice(0, 3).map((actor) => embed(actor.name, 40)))}${unsupported.length > 3 ? ' and others' : ''}, so how ${unsupported.length === 1 ? 'it responds' : 'they respond'} in the simulation rests on declared assumptions alone`,
+      refs: { stakeholderIds: unsupported.slice(0, 8).map((actor) => actor.stakeholderId) },
+      settle: 'finding direct evidence for them',
+    });
+  }
+  const missing = facts.scenario?.evidenceMissing[0];
+  if (missing) {
+    doubts.push({
+      key: 'evidence:missing',
+      origin: 'unresolved-uncertainty',
+      text: `the question itself names evidence as missing: ${embed(missing, 140)}`,
+      refs: { assumptions: [missing] },
+      settle: 'finding or commissioning a source for it',
+    });
+  }
+  const unstable = unstableFindings(facts)[0];
+  if (unstable) {
+    doubts.push({
+      key: `finding:${unstable.id}`,
+      origin: 'simulation-aggregation',
+      text: `the simulated finding ${embed(unstable.statement, 140)} held in only ${unstable.holdsIn} of ${unstable.of} seeded runs`,
+      refs: { findingIds: [unstable.id] },
+      settle: 'repeating the analysis with more seeded runs',
+    });
+  }
+  return doubts;
+}
+
+/** The conditional recommendation, from the actions the recommendations name and the stability of the headline. */
+function conditionalRecommendation(
+  facts: Facts,
+  headline: Headline,
+  advice: readonly Advice[],
+): { text: string; refs: Partial<BriefRefs>; reliance: Reliance | null } {
+  const finding = headline.finding;
+  const refs: Partial<BriefRefs> = {
+    findingIds: finding ? [finding.id] : [],
+    variantIds: [
+      headline.variant.variant.id,
+      ...(headline.baseline ? [headline.baseline.variant.id] : []),
+    ],
+  };
+  if (!finding || finding.classification === 'unstable' || finding.classification === 'rare') {
+    return {
+      text: `Recommendation: do not decide on this simulated comparison yet. ${finding ? `The finding behind it held in ${finding.holdsIn} of ${finding.of} seeded runs, which the analysis classes as ${classWords(finding.classification)}` : 'The analysis recorded no finding that states how often it holds'}; repeat the analysis with more seeded runs, then take the checks named below.`,
+      refs,
+      reliance: 'low',
+    };
+  }
+  // The groups the answer names, biggest move first; advice about any other comes after.
+  const size = new Map(
+    headline.groups.map((group, index) => [
+      facts.actorById.get(group.actorId)?.stakeholderId ?? group.actorId,
+      index,
+    ]),
+  );
+  const bySize = (a: Advice, b: Advice): number =>
+    (size.get(a.refs.stakeholderIds?.[0] ?? '') ?? Infinity) -
+      (size.get(b.refs.stakeholderIds?.[0] ?? '') ?? Infinity) || 0;
+  const subjects = (kind: Advice['kind']): string[] => [
+    ...new Set(
+      advice
+        .filter((entry) => entry.kind === kind && entry.subject !== null)
+        .sort(kind === 'mitigate' ? bySize : () => 0)
+        .map((entry) => entry.subject ?? ''),
+    ),
+  ];
+  const actions = [
+    subjects('mitigate').length > 0
+      ? `stage the change and mitigate it for ${listed(subjects('mitigate').slice(0, 3))}`
+      : null,
+    subjects('prepare-response').length > 0
+      ? `prepare a response to ${listed(subjects('prepare-response').slice(0, 2))}`
+      : null,
+    subjects('build-on').length > 0
+      ? `build on the favourable response of ${listed(subjects('build-on').slice(0, 2))}`
+      : null,
+  ].filter((action): action is string => action !== null);
+  const used = advice.filter((entry) =>
+    ['mitigate', 'prepare-response', 'build-on'].includes(entry.kind),
+  );
+  const findingIds = [
+    ...new Set([...refs.findingIds!, ...used.flatMap((entry) => entry.linkedFindingIds)]),
+  ];
+  const stakeholderIds = [...new Set(used.flatMap((entry) => entry.refs.stakeholderIds ?? []))];
+  const linked = findingIds.flatMap((id) => {
+    const found = facts.findingById.get(id);
+    return found ? [found] : [];
+  });
+  return {
+    text:
+      actions.length > 0
+        ? `Recommendation, conditional on the premises below: if the checks in the validation plan confirm the premises behind the simulated result, ${listed(actions)}; if they do not, run the analysis again with the measured values before deciding.`
+        : 'Recommendation, conditional on the premises below: if the checks in the validation plan confirm the premises behind the simulated result, treat the comparison as a basis for the decision and not as a forecast; if they do not, run the analysis again with the measured values before deciding.',
+    refs: {
+      ...refs,
+      findingIds: findingIds.slice(0, 8),
+      stakeholderIds: stakeholderIds.slice(0, 8),
+    },
+    reliance: facts.relianceOf(linked),
+  };
+}
+
+/** A group's own movement in a few words: its share under the change against its share under the baseline. */
+function groupLine(facts: Facts, group: GroupShift, runs: number, against: string): string {
+  const name = embed(facts.actorById.get(group.actorId)?.name ?? group.actorId, 50);
+  if (group.members === 1) {
+    return `${name} (its one simulated member, in about ${Math.round(group.share * runs)} of ${runs} seeded runs, against ${Math.round((group.baselineShare ?? 0) * runs)} under ${against})`;
+  }
+  return `${name} (${perHundred(group.share)} in 100 of its simulated members, against ${perHundred(group.baselineShare ?? 0)} under ${against})`;
+}
+
+/**
+ * The answer first, in the order a client reads it in a minute: the decision and the recommendation it
+ * supports on conditions, the comparison the engine itself makes (every actor counting equally, run by
+ * run on the same seeds), the groups that moved most, the few assumptions or gaps that could change it,
+ * what would settle them, and then how steady the comparison was. Counts of sampled members are left
+ * to later sections, where they say what they are.
+ */
+function answerFirst(
+  facts: Facts,
+  writer: SectionWriter,
+  headline: Headline,
+  ahead: { advice: readonly Advice[]; plan: readonly PlannedCheck[] },
+): string {
+  const { variant, baseline, pairing, finding } = headline;
+  const runs = variant.runs.length;
+  const here = embed(variant.variant.label, 80);
+  const there = baseline ? embed(baseline.variant.label, 80) : 'no change';
+  const refs = { findingIds: finding ? [finding.id] : [], variantIds: variantIdsOf(headline) };
+
+  const scenario = facts.scenario;
+  writer.add({
+    origin: scenario?.origin === 'user' || !scenario ? 'user-assumption' : 'system-assumption',
+    text: scenario
+      ? `Decision evaluated: ${embed(scenario.decision, 300)}.`
+      : `The question asked: ${embed(facts.inputs.project.question, 300)}.`,
+    refs: { assumptions: [scenario ? scenario.decision : facts.inputs.project.question] },
+  });
+  const conditional = conditionalRecommendation(facts, headline, ahead.advice);
+  writer.add({
+    origin: 'simulation-aggregation',
+    text: conditional.text,
+    refs: conditional.refs,
+    reliance: conditional.reliance,
+  });
+
+  let comparison: string;
+  if (baseline && pairing && pairing.pairs > 0) {
+    const change =
+      Math.abs(pairing.delta) < 0.0005
+        ? 'no net difference in the mean'
+        : `${perHundred(Math.abs(pairing.delta))} in 100 ${pairing.delta > 0 ? 'more' : 'fewer'} (paired standard error ${perHundred(pairing.standardError)})`;
+    const runsClause =
+      pairing.delta >= 0
+        ? `higher under the change in ${pairing.higher} of ${pairing.pairs} paired runs`
+        : `lower under the change in ${pairing.lower} of ${pairing.pairs} paired runs`;
+    comparison = `With ${engineWords(facts)}, on the same ${pairing.pairs} seeded runs and counting each of the ${facts.analysis.actors.length} simulated actors equally, not each simulated member, the mean share of simulated members looking for an alternative or resisting was about ${perHundred(pairing.variantMean)} in 100 under ${here} against ${perHundred(pairing.baselineMean)} in 100 under ${there}: ${change}, ${runsClause}.`;
+  } else if (baseline) {
+    comparison = `With ${engineWords(facts)}, ${here} could not be paired with ${there} on the same seeded runs, so no paired comparison is stated; the mean share of simulated members ending up looking for an alternative or resisting under ${here} was about ${perHundred(variant.share.mean)} in 100, counting each simulated actor equally.`;
+  } else {
+    comparison = `With ${engineWords(facts)}, across ${runs} seeded runs and counting each simulated actor equally, the mean share of simulated members ending up looking for an alternative or resisting under ${here} was about ${perHundred(variant.share.mean)} in 100. No baseline was run, so nothing is compared.`;
+  }
+  writer.add({
+    origin: 'simulation-aggregation',
+    text: comparison,
+    refs,
+    reliance: finding ? facts.relianceOf([finding]) : 'low',
+  });
+
+  const named = headline.groups.slice(0, 3);
+  let groups = '';
+  if (baseline && pairing && pairing.pairs > 0 && !headline.groupsKnown) {
+    // Without each group's own results nothing can be said of which moved, and nothing is said.
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: 'Which groups moved most is not stated: the stored analysis kept no per-actor results for the change and for the baseline, so each group’s own share cannot be worked out.',
+      refs: { variantIds: refs.variantIds },
+    });
+  } else if (baseline && pairing && pairing.pairs > 0) {
+    const ownFindings = named.flatMap((group) =>
+      facts.analysis.findings.filter(
+        (candidate) =>
+          candidate.actorId === group.actorId && candidate.variantId === variant.variant.id,
+      ),
+    );
+    groups =
+      named.length > 0
+        ? `The groups whose own share looking for an alternative or resisting moved most were ${listed(named.map((group) => groupLine(facts, group, runs, there)))}. They are ranked by their own share and never by member counts: ${RESOLUTION_NOTE}.`
+        : `No simulated group’s own share looking for an alternative or resisting moved by as much as 1 in 100 against ${there} on the same seeds.`;
+    writer.add({
+      origin: 'actor-behavior',
+      text: groups,
+      refs: {
+        stakeholderIds: named.flatMap((group) => {
+          const actor = facts.actorById.get(group.actorId);
+          return actor ? [actor.stakeholderId] : [];
+        }),
+        findingIds: ownFindings.map((candidate) => candidate.id).slice(0, 8),
+        variantIds: refs.variantIds,
+      },
+      reliance: ownFindings.length > 0 ? facts.relianceOf(ownFindings) : null,
+    });
+  }
+
+  const doubts = doubtsOf(facts, headline).slice(0, 3);
+  doubts.forEach((doubt, index) => {
+    writer.add({
+      origin: doubt.origin,
+      text: `${index === 0 ? 'Biggest open caveat' : 'Also open'}: ${doubt.text}.`,
+      refs: doubt.refs,
+    });
+  });
+  if (doubts.length > 0) {
+    const settle = doubts.map((doubt) => {
+      const check = ahead.plan.find((entry) => entry.keys.includes(doubt.key));
+      return check ? `${check.gist} (${check.id})` : doubt.settle;
+    });
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: `What would settle ${doubts.length === 1 ? 'it' : 'them'}: ${settle.join('; ')}. None of this has been done, and the decision thresholds are left for you to set before any check starts.`,
+    });
+  }
+  addStability(writer, facts, headline, '');
+  writer.add({ origin: 'unresolved-uncertainty', text: NOT_TOLD });
+  // The headline: the comparison, the groups it moved most by name, and the biggest caveat if it fits.
+  const names = named.map((group) =>
+    embed(facts.actorById.get(group.actorId)?.name ?? group.actorId, 40),
+  );
+  return fit(
+    [
+      comparison,
+      names.length > 0 ? `The groups moved most were ${listed(names)}.` : '',
+      doubts[0] ? `Biggest open caveat: ${doubts[0].text}.` : '',
+    ].filter((part) => part !== ''),
+    700,
+  );
+}
+
 export function executiveAnswer(
   facts: Facts,
   tally: Tally,
+  ahead: { advice: readonly Advice[]; plan: readonly PlannedCheck[] } = { advice: [], plan: [] },
 ): { section: BriefSection; headline: string } {
   const writer = sectionWriter('executive-answer', tally);
   const headline = facts.headline;
@@ -166,28 +546,9 @@ export function executiveAnswer(
       ' It supports reading the two as about the same under these assumptions, not as the same in the world.',
     );
   } else {
-    const { variant, baseline, pairing } = headline;
-    const base = `With ${engineWords(facts)}, across ${variant.runs.length} seeded runs of ${variant.members} simulated members each, about ${whole(variant.adverse.mean)} simulated members ended up looking for an alternative or resisting under ${embed(variant.variant.label, 80)}`;
-    let clause: string;
-    if (baseline && pairing && pairing.pairs > 0) {
-      const direction =
-        pairing.adverseDelta > 0
-          ? `more simulated members ended up looking for an alternative or resisting under the change in ${pairing.worse} of ${pairing.pairs} paired runs`
-          : pairing.adverseDelta < 0
-            ? `fewer simulated members ended up looking for an alternative or resisting under the change in ${pairing.better} of ${pairing.pairs} paired runs`
-            : 'the paired runs showed no net difference';
-      clause = `, against about ${whole(baseline.adverse.mean)} under ${embed(baseline.variant.label, 80)}; ${direction}.`;
-    } else {
-      clause = '. No baseline was run, so nothing is compared.';
-    }
-    answer = `${base}${clause}`;
-    writer.add({
-      origin: 'simulation-aggregation',
-      text: answer,
-      refs: { findingIds: finding ? [finding.id] : [], variantIds: variantIdsOf(headline) },
-      reliance: finding ? facts.relianceOf([finding]) : 'low',
-    });
-    addStability(writer, facts, headline, '');
+    // The comparison can be read as a result: the answer comes first, in the order a client reads it.
+    const written = answerFirst(facts, writer, headline, ahead);
+    return { section: writer.build(), headline: written };
   }
   // With no one to move, the answer is itself the biggest caveat.
   const caveat = state === 'no-direction' ? null : caveatOf(facts);

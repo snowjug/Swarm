@@ -502,11 +502,11 @@ describe('when the stakeholders have directions and the two still come out about
     expect(make({ alsoLower: 'unstable' }).signal).toBe('no-difference');
   });
 
-  it('does not touch a brief that can be read: counts lead, as before', () => {
+  it('does not touch a brief that can be read: the paired comparison leads, as the answer', () => {
     const brief = make({ finding: 'lower', changeAdverse: 0.45 });
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toMatch(
-      /about \d+ simulated members ended up looking for an alternative/u,
+      /the mean share of simulated members looking for an alternative or resisting was about \d+(?:\.\d+)? in 100 under/u,
     );
     expect(brief.recommendations.map((recommendation) => recommendation.text)).not.toContain(
       SAY_DIRECTION,
@@ -673,13 +673,13 @@ describe('on the real engine', () => {
     expect(html).toContain('<p class="alert"><strong>The simulation could not tell');
   });
 
-  it('keeps the counts as the answer when the stakeholders have directions of impact', async () => {
+  it('keeps the paired comparison as the answer when the stakeholders have directions of impact', async () => {
     const { analysis, view } = await engineWorld(null);
     const brief = view.brief!;
     expect(analysis.findings.some(isAboutTheSame)).toBe(false);
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toMatch(
-      /about \d+ simulated members ended up looking for an alternative or resisting under “Proposed change”/u,
+      /the mean share of simulated members looking for an alternative or resisting was about \d+(?:\.\d+)? in 100 under “Proposed change” against \d+(?:\.\d+)? in 100 under “No change”/u,
     );
     expect(brief.recommendations.map((recommendation) => recommendation.text)).not.toContain(
       SAY_DIRECTION,

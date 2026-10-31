@@ -1,7 +1,7 @@
 import type { BriefRefs, StatementOrigin } from '../../../shared/brief.js';
 import type { EvidenceRef } from '../../../shared/evidence.js';
 import type { SensitivityRow, StabilityClass } from '../../../shared/analysis.js';
-import type { Actor } from '../../../shared/stakeholders.js';
+import type { Actor, StakeholderCategory } from '../../../shared/stakeholders.js';
 import type { EvidenceOrigin } from './evidence.js';
 
 /**
@@ -111,3 +111,21 @@ export const levelOfSize = (size: number): Level =>
   size >= IMPACT_CUTS.high ? 'high' : size >= IMPACT_CUTS.medium ? 'medium' : 'low';
 
 export const LEVEL_WEIGHT: Record<Level, number> = { low: 1, medium: 2, high: 3 };
+
+/** The function that owns the relationship with a kind of stakeholder, and so would run a check or an action about it. */
+export const OWNER_BY_CATEGORY: Record<StakeholderCategory, string> = {
+  'decision-maker': 'leadership',
+  'end-user': 'product',
+  'cost-bearer': 'finance',
+  'risk-bearer': 'operations',
+  beneficiary: 'product',
+  influencer: 'communications',
+  competitor: 'strategy',
+  substitute: 'strategy',
+  partner: 'partnerships',
+  channel: 'partnerships',
+  regulator: 'legal and compliance',
+  governance: 'legal and compliance',
+  operations: 'operations',
+  other: 'product',
+};
