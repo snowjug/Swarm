@@ -307,6 +307,8 @@ export function createBranch(
         : null,
       console: consoleState,
     });
+    // A branch asks the same question, so it keeps the scenario its parent was read into.
+    repository.artifacts.copy(parent.id, child.id, ['scenario']);
   } catch (error) {
     repository.delete(child.id);
     throw error;

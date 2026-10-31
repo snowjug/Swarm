@@ -201,6 +201,25 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   // [url-ingest audit]
 
   // [scenario audit]
+  // Recorded by the route itself, with counts and the way it was read: never the question.
+  'POST /api/scenario/parse': { kind: 'inside', action: 'scenario.parsed' },
+  'GET /api/projects/:id/scenario': reads('Reads the scenario the caller may already read.'),
+  'PUT /api/projects/:id/scenario': {
+    kind: 'request',
+    action: 'scenario.edited',
+    detail: (request) => {
+      const scenario = body(request).scenario;
+      const frame =
+        scenario && typeof scenario === 'object' ? (scenario as Record<string, unknown>) : {};
+      return {
+        changes: count(frame.changes),
+        alternatives: count(frame.alternatives),
+        assumptions: count(frame.assumptions),
+        stakeholders: count(frame.likelyStakeholders),
+        ambiguities: count(frame.ambiguities),
+      };
+    },
+  },
 
   // [stakeholders audit]
 

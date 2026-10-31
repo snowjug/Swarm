@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { GroundingReview } from './grounding.js';
 import type { GuidedConsoleState } from './guided.js';
-import { scenarioFrameSchema, sourceProvenanceSchema, type SourceProvenance } from './scenario.js';
+import { scenarioInputSchema, sourceProvenanceSchema, type SourceProvenance } from './scenario.js';
 
 export const APP_VERSION = '0.3.0';
 export const MAX_DOCUMENT_CHARS = 40_000;
@@ -77,7 +77,7 @@ export const createProjectSchema = z
     documents: z.array(documentInputSchema).min(1).max(MAX_DOCUMENTS),
     settings: settingsSchema.default(() => settingsSchema.parse({})),
     /** The structure read from the question, when the person went through scenario intake. */
-    scenario: scenarioFrameSchema.optional(),
+    scenario: scenarioInputSchema.optional(),
   })
   .superRefine((project, context) => {
     if (
