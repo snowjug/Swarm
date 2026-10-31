@@ -35,21 +35,24 @@ call it (`auth/policy.ts`). It is limited to 10 requests a minute for each calle
 7. **The text becomes a document** with provenance, and notes that a person should read
    (`ingest.ts`, `provenance.ts`).
 8. **The audit log records `evidence.url.fetched` with the host that was asked for**, and nothing else.
+   An address the server refuses to read (`URL_BLOCKED`, `URL_PORT_NOT_ALLOWED`, `URL_INVALID`) is
+   recorded as `evidence.url.refused` with the host that was asked for and the code, so that probing
+   for addresses leaves a trace. A site that merely failed to answer is not recorded.
 
 ### The address policy
 
 An address is refused, with a plain message, when it is any of these:
 
-| Refused                                   | Detail                                                                                                                                                                                   |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A scheme other than `http` or `https`     | `ftp:`, `file:`, `javascript:`, `data:`, and an address with no scheme                                                                                                                   |
-| A user name or password in the address    | `user:password@host`                                                                                                                                                                     |
-| A space, a control character, or too long | More than 2,048 characters, before or after the address is made canonical                                                                                                                |
-| A local or internal name                  | `localhost`, `*.localhost`, `*.local`, `*.internal`, `*.lan`, `*.localdomain`, `*.intranet`, `*.corp`, `*.home`, `*.private`, `*.home.arpa`, and any name with a single label            |
-| An IP address written in an unusual form  | Decimal (`2130706433`), octal (`0177.0.0.1`), hexadecimal (`0x7f.1`), short (`127.1`), padded with zeros, with a trailing dot or percent-escapes: only the usual dotted form is accepted |
-| A port that is not allowed                | Only 80 and 443 unless `URL_INGEST_ALLOWED_PORTS` says otherwise                                                                                                                         |
-| A host that is not on the allow list      | Only when `URL_INGEST_ALLOWED_HOSTS` is set                                                                                                                                              |
-| A name that **resolves** to a bad address | If any one of its addresses is refused, the whole host is refused                                                                                                                        |
+| Refused                                   | Detail                                                                                                                                                                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A scheme other than `http` or `https`     | `ftp:`, `file:`, `javascript:`, `data:`, and an address with no scheme                                                                                                                                                                                |
+| A user name or password in the address    | `user:password@host`                                                                                                                                                                                                                                  |
+| A space, a control character, or too long | More than 2,048 characters, before or after the address is made canonical                                                                                                                                                                             |
+| A local or internal name                  | `localhost`, `*.localhost`, `*.local`, `*.internal`, `*.lan`, `*.localdomain`, `*.intranet`, `*.corp`, `*.home`, `*.private`, `*.home.arpa`, and any name with a single label                                                                         |
+| An IP address written in an unusual form  | Decimal (`2130706433`), octal (`0177.0.0.1`), hexadecimal (`0x7f.1`), short (`127.1`), padded with zeros, with a trailing dot or percent-escapes: only the usual dotted form is accepted                                                              |
+| A port that is not allowed                | Only 80 and 443 unless `URL_INGEST_ALLOWED_PORTS` says otherwise                                                                                                                                                                                      |
+| A host that is not on the allow list      | Only when `URL_INGEST_ALLOWED_HOSTS` is set                                                                                                                                                                                                           |
+| A name that **resolves** to a bad address | If any one of its addresses is refused, the whole host is refused. The person is told "could not find it on the public web", exactly as for a name that does not exist, so the answer cannot be used to learn which names are in use inside a network |
 
 The addresses that are never connected to (`classifyAddress`):
 
@@ -191,7 +194,7 @@ instead."
 | Code                     | When                                                                                                                     |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `URL_INVALID`            | Not a web address Swarm can read (400)                                                                                   |
-| `URL_BLOCKED`            | Not a public web page: a private, local or internal address or name, or not allowed                                      |
+| `URL_BLOCKED`            | Not a public web page: a private, local or internal address or name as written, or not allowed                           |
 | `URL_PORT_NOT_ALLOWED`   | A port that is not allowed                                                                                               |
 | `URL_UNSUPPORTED_TYPE`   | The site sent a type of file that is not read                                                                            |
 | `URL_TOO_LARGE`          | More than `URL_INGEST_MAX_BYTES`, before or after decompression                                                          |
