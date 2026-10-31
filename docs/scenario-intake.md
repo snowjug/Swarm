@@ -146,8 +146,10 @@ seconds when a first reply had to be repaired. The page shows that it is reading
 ## In the page
 
 `frontend/src/components/intake/ScenarioIntake.tsx` takes the question, the current frame (or null),
-`onFrame`, `disabled` and, optionally, the documents attached so far. The person chooses "Understand
-my question", sees an editable form with plain labelled fields and add and remove rows, answers or
+`onFrame`, `disabled` and, optionally, the documents attached so far and `useModel` (true when the entry form's
+mode is "Model assisted"). The line under "Understand my question" says which applies: that rules on this
+server read the question and it goes nowhere else, or that it is sent to the model provider this server uses.
+The person chooses "Understand my question", sees an editable form with plain labelled fields and add and remove rows, answers or
 skips the questions back, reads the notes, and chooses "Use this scenario", which calls `onFrame`.
 Every step is optional, nothing is sent until the person asks, and nothing is kept until they say so.
 It works with the keyboard, and does not submit the form it sits in.

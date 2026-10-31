@@ -63,7 +63,7 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors); see Comparing scenarios                                                                                                                                                                                                                                         |
 | GET          | `/api/projects/:id/analysis/:aid`                                               | One comparison in full, with its progress while it runs                                                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/analysis/:aid/cancel`                                        | Ask a running comparison to stop at its next run                                                                                                                                                                                                                                                                                                                  |
-| POST         | `/api/scenario/parse`                                                           | Read a "What could happen if…?" question into an editable scenario frame, `{ frame, notes, mode, model }`; a model reads it when the server has a provider, and the rules otherwise; stores nothing. See Scenario intake                                                                                                                                          |
+| POST         | `/api/scenario/parse`                                                           | Read a "What could happen if…?" question into an editable scenario frame, `{ frame, notes, mode, model }`; the rules on the server read it, and a model only when the request says `useModel: true` and the server has a provider; stores nothing. See Scenario intake                                                                                            |
 | GET / PUT    | `/api/projects/:id/scenario`                                                    | The project's scenario frame and its revision (`scenario` is `null` until there is one) / replace it (`{ scenario, expectedRevision? }`)                                                                                                                                                                                                                          |
 | GET          | `/api/projects/:id/stakeholders`                                                | The stakeholder set, its revision, whether a model may be used, and what the caller may do (`{ stakeholders, revision, model, may }`). `stakeholders` is `null` until someone looks for them                                                                                                                                                                      |
 | POST         | `/api/projects/:id/stakeholders/discover`                                       | Find stakeholders by reading the text (`{ "mode": "rules" }`, the default) or with the project's model (`"model"`); returns 201 with the set. A reviewed list is replaced only with `{ "confirm": true }`                                                                                                                                                         |
@@ -156,25 +156,32 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   leads).
 - **Refusals the caller should expect.** `409 ACTORS_REQUIRED` (no actors have been created yet),
   `409 ANALYSIS_RUNNING` (one is already running for the project), `429 ANALYSIS_BUSY` (the server is
-  running its limit), `400 ANALYSIS_INPUT_INVALID` (a request that is not allowed, with the reason:
-  more than 2,400 simulated runs, a change that starts after the last round, and so on),
-  `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`, and `429 RATE_LIMITED` (6 starts a minute).
+  running its limit), `400 INVALID_INPUT` (a setting outside its limit: the message states the limit in a
+  sentence and does not quote what was sent), `400 ANALYSIS_INPUT_INVALID` (a request that is allowed but
+  cannot be run, with the reason: more than 2,400 simulated runs, a change that starts after the last
+  round, and so on), `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`, and `429 RATE_LIMITED` (6 starts a
+  minute).
+- **What is kept.** A project keeps its newest twelve comparisons, and never removes the one that the
+  decision brief or the independent review was made from.
 - **After a restart.** A comparison still `running` when the server starts is marked `interrupted`; it
   is reproducible from its seeds and is run again, not resumed.
 - **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only.
 
 ### Scenario intake and the stored scenario
 
-- **Reading a question.** `POST /api/scenario/parse` takes `{ "question", "documents"? }` and nothing
-  else: the question is 3 to 2,000 characters, and up to 10 documents each give `{ "name", "characters",
-"excerpt"? }`. An `excerpt` is at most the first 5,000 characters of a document. It is inspected in
-  memory for text that addresses an AI model, and is never stored, logged or sent to a model. The body
-  may be 300,000 bytes, a caller may read 10 questions a minute, and it needs the right to create a
-  project in the workspace, because no project exists yet. The answer is
-  `{ "frame", "notes", "mode": "rules" | "model", "model": "<name>" | null }`. When the server has a
-  provider configured a model reads the question, and is told the question and each document's name and
-  size, never its text, in three calls at most. If it fails, or its reply does not pass the checks, the
-  rules read it and a note says why. Nothing is stored. The audit entry `scenario.parsed` holds counts.
+- **Reading a question.** `POST /api/scenario/parse` takes `{ "question", "documents"?, "useModel"? }` and
+  nothing else: the question is 3 to 2,000 characters, up to 10 documents each give `{ "name", "characters",
+"excerpt"? }`, and `useModel` is a boolean that is `false` when left out. An `excerpt` is at most the first
+  5,000 characters of a document. It is inspected in memory for text that addresses an AI model, and is never
+  stored, logged or sent to a model. The body may be 300,000 bytes, a caller may read 10 questions a minute, and
+  it needs the right to create a project in the workspace, because no project exists yet. The answer is
+  `{ "frame", "notes", "mode": "rules" | "model", "model": "<name>" | null }`. **The rules on the server read
+  the question, and it goes nowhere else, unless `useModel` is `true`** (the page sends it for a project made
+  in **Model assisted** mode) **and the server has a provider configured**: then a model reads it, is told the
+  question and each document's name and size, never its text, and is given three calls at most and 170
+  seconds. If the model fails, its reply does not pass the checks or the time runs out, the rules read the
+  question and a note says why. `useModel` with no provider configured is read by rules too, with a note that
+  no model is configured. Nothing is stored. The audit entry `scenario.parsed` holds counts.
 - **The frame.** `ScenarioFrame` is in [shared/scenario.ts](../shared/scenario.ts) and is the same for
   any question: `decision`, `system`, `geography`, `horizon`, `changes[]` (`name`, `from`, `to`, `note`),
   `baseline`, `alternatives[]` (`id`, `label`, `description`, `changes[]`; at most 6), `requestedDecision`,
@@ -247,7 +254,10 @@ critics and what each checks are in [analysis/critics.md](./analysis/critics.md)
 analysis, the stakeholders, the actors or the brief.
 
 - **Reading.** `GET .../critiques` answers `{ "critiques": CritiqueSet | null, "analysis": { "id",
-"completedAt" } | null, "may": { "run", "respond" }, "model": { "available" } }`. `analysis` is the newest
+"completedAt" } | null, "may": { "run", "respond" }, "model": { "available", "reason"? } }`. `model.available`
+  is true only when the server has a provider **and** the project was made in **Model assisted** mode; on a
+  project that runs without a model `reason` says so in words ("This project runs without a model, so nothing
+  is sent to one. Only the deterministic checks run.") and is `null` otherwise. `analysis` is the newest
   finished comparison, so a review of an older one can be called out of date. A set holds `analysisId`,
   `generatedAt`, `mode` (`rules`, `model` or `both`), `notes[]` and `critiques[]`: each has an `id`, a `role`
   (`evidence`, `assumption`, `methodology`, `stakeholder-coverage`, `bias`, `recommendation` or
@@ -256,11 +266,12 @@ analysis, the stakeholders, the actors or the brief.
   `response`, what disagreement `remains`, `impactOnConclusion` and perhaps a `requestedAction`.
 - **Running.** `POST .../critiques/run` takes `{ "analysisId"?, "useModel"?: boolean }` (6 a minute) and answers
   with the review as it now is. It reviews the newest finished comparison unless an id is given, and refuses
-  without one (`409 ANALYSIS_NOT_READY`). The rules run every time. With `useModel` and a configured provider, a
-  digest of the analysis goes to the model for extra critiques, which are validated and dropped if they name
-  something the model was not given; a failure is said in `notes`, and the rules' critiques are kept. A review is
-  allowed three minutes, and one runs at a time for a project (`409 CRITIQUES_RUNNING`). Running again keeps a
-  person's earlier responses to critiques with the same id.
+  without one (`409 ANALYSIS_NOT_READY`). The rules run every time. With `useModel`, a digest of the analysis
+  goes to the model for extra critiques, which are validated and dropped if they name something the model was
+  not given; a failure (or no provider) is said in `notes`, and the rules' critiques are kept. `useModel` on a
+  project that was made to run without a model is refused with `409 MODEL_NOT_AVAILABLE`, and nothing is
+  sent. A review is allowed 170 seconds, and one runs at a time for a project (`409 CRITIQUES_RUNNING`).
+  Running again keeps a person's earlier responses to critiques with the same id.
 - **Responding.** `PUT .../critiques/:cid/response` takes `{ "text", "status": "responded" | "accepted" |
 "disputed", "remainingDisagreement"? }` (60 a minute) and answers with the review. `accepted` means the
   objection stands and its impact applies. An unknown critique is `404 CRITIQUE_NOT_FOUND`.
@@ -278,7 +289,9 @@ needs `export`.
 "latestAnalysis": { "id", "completedAt" } | null, "changedSince": [...], "may": { "generate", "export" } }`.
   `brief` holds `generatedAt`, `analysisId`, `question`, `headline`, the 17 `sections[]` (each `statements[]`
   with an `id`, `text`, one `origin`, the `refs` it rests on and a `reliance`), `recommendations[]`,
-  `validationPlan[]`, `limitations[]`, `fidelity`, `methodology`, `openCritiques`, `generatedBy`, `signal`
+  `validationPlan[]`, `limitations[]`, `fidelity`, `methodology`, `openCritiques` (how many critiques of this
+  comparison are not yet closed: open, responded or disputed, anything but accepted; the page and the exports
+  call them "critiques not yet closed"), `generatedBy`, `signal`
   (`clear`, `no-direction` or `no-difference`, which says whether the comparison can be read as a result about
   the change) and `inputRevisions`. `visuals` is worked out from the comparison each time, so it always agrees
   with it. `changedSince` names the inputs that changed after the brief was made and is empty when it is
@@ -345,9 +358,13 @@ both addresses. A failure is a 4xx with a code that starts `URL_` and a message 
 with "You can paste the text instead.": `400 URL_INVALID` for something that is not a web address Swarm can
 read, `403 URL_INGESTION_DISABLED` when `URL_INGESTION=off`, and `422` for the rest (`URL_BLOCKED`,
 `URL_PORT_NOT_ALLOWED`, `URL_UNSUPPORTED_TYPE`, `URL_TOO_LARGE`, `URL_TIMEOUT`, `URL_TOO_MANY_REDIRECTS`,
-`URL_ROBOTS_DISALLOWED`, `URL_NO_TEXT`, `URL_FETCH_FAILED`). The audit entry `evidence.url.fetched` holds the
-host and nothing else. What is fetched, how, and what is not promised is in
-[URL ingestion](./security/url-ingestion.md).
+`URL_ROBOTS_DISALLOWED`, `URL_NO_TEXT`, `URL_FETCH_FAILED`). A name that leads inside a network is answered
+exactly as a name that does not exist (`URL_FETCH_FAILED`, "could not find … on the public web"), so that the
+answer cannot be used to learn which names are in use there. The page's own text is what is kept: a web page's
+menus, side panels and footers are left out as a guess from how it is built, and `notes` says so. The audit entry
+`evidence.url.fetched` holds the host and nothing else, and an address that is refused (`URL_BLOCKED`,
+`URL_PORT_NOT_ALLOWED`, `URL_INVALID`) is recorded as `evidence.url.refused` with the host asked for and the code.
+What is fetched, how, and what is not promised is in [URL ingestion](./security/url-ingestion.md).
 
 Surveys take `{ "kind": "state" | "interview", "question": "...", "agentIds": [...] }`.
 Poll the project's `console.surveys` until completion. Local state snapshots have
