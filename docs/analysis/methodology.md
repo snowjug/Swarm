@@ -243,7 +243,12 @@ occurred.
   | 60 actors of 200 members             | 12,000            | 12     | 17 to 18.5 ms                                |
 
   These are timings on one shared laptop, and they move with what else it is doing: the same cast took
-  up to 4.5 ms a run when the CPU was fully busy. The estimate is a guide to the order of magnitude. A
+  up to 4.5 ms a run when the CPU was fully busy. The rows were taken when a comparison still validated
+  the whole cast again for every run; a specification is now validated once and run on all its seeds,
+  and run alternately in one process a real cast takes 2.2 to 2.4 times less a run (see
+  [engine-benchmark.md](engine-benchmark.md): the Copilot in Teams example is about 1.1 s for its 1,201
+  runs), so a comparison now takes less than these rows say and the estimate errs on the long side. The
+  estimate is a guide to the order of magnitude. A
   cast smaller than the typical one is counted at the typical speed, which overstates it (the 8-actor
   cast above took about a third of that); one that is much larger is counted in proportion, which is
   close at 12 rounds and overstates it at 36. When the actors are not known the screen gives no time.
@@ -252,6 +257,18 @@ occurred.
   that run's final mean stance lies within the 10th to 90th percentile of the proposed change's final
   round. The two use different engines, so being inside is a plausibility check and not a validation,
   and being outside means the two read the same assumptions differently.
+
+## The page
+
+The panel is in the Simulation stage, above the optional agent-by-agent run. Before anything has run it
+is the scenarios to compare (the baseline, the proposed change, a suggested alternative or two, and
+"Add an alternative"), the number of seeded runs, whether to test sensitivity, what that will cost, and
+the button that starts it. The button stays at the bottom of the screen while the form is longer than
+the screen, so that the one action of the stage is never below the fold. With no simulated actors yet it
+shrinks to a notice that points to Env Setup, so that it does not push the stage's own controls down.
+Starting a comparison takes the person to its progress and gives it focus; when it ends the outcome is
+announced to a screen reader and, if focus would otherwise be lost, takes it. Progress is announced in
+tenths and not on every run.
 
 ## Limits, storage and failure
 
