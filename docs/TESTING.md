@@ -26,6 +26,65 @@ sign-in, roles and tenant isolation against a local test identity provider (`aut
 demonstration packs (`demos.test.ts`) and a front-end guard against raw-HTML sinks
 (`markup-sinks.test.ts`). The job queue has two files: `jobs.test.ts` drives the queue rules directly (claims, leases, retries, poison, cancel, pause, the lease fence on repository writes), and `durable-jobs.test.ts` drives the orchestrator with a scripted model and a clock the test sets: a stalled worker, a crash, a stopped backend, cancel and pause from another process, retries, idempotency and branch lineage. Both run on PostgreSQL as part of `npm run test:postgres`. Report Studio has five files: `studio-model.test.ts` drives its rules as pure functions of a document, `studio.test.ts` drives the service and routes over HTTP (the memo, the exports, the audit entries, a report that has been replaced), `studio-access.test.ts` drives every studio route as every kind of caller against the test identity provider, `studio-regenerate.test.ts` runs writing a chapter again against a provider that speaks the real protocol (including hostile instructions and concurrency), and `studio-store.test.ts` covers the store, migration 7 and its backup. Security-critical rules, the queue's rules and the studio's rules are mutation-checked, as described next.
 
+Commands are written for Windows PowerShell (`npm.cmd`, which avoids the script-policy problem without
+changing it); on macOS and Linux write `npm`. Run a focused part of the unit suite with
+`npx vitest run <file or pattern>` and a focused browser run with
+`npx playwright test --project=<name> <spec file>`.
+
+## Test layers at a glance
+
+| Layer                    | Command                                | Where                                                                        | Establishes                                                                                         | Does **not** establish                              |
+| ------------------------ | -------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Types, lint, unit, build | `npm run check`                        | `backend/test`, `frontend/src`, `evaluation/test`, `scripts/**` tests        | Business rules, contracts, state machines, security boundaries, the lab pipeline on the real engine | Browser rendering, real networks, any live model    |
+| Formatting               | `npm run format:check`                 | The whole repository, documents included                                     | Prettier formatting of code and docs                                                                | Anything about behaviour                            |
+| Unit suite on PostgreSQL | `npm run test:postgres`                | The same files, with every in-memory database made a PostgreSQL one (PGlite) | The stores behave the same on both dialects                                                         | A deployed PostgreSQL server                        |
+| Browser, `local`         | `npm run test:e2e`                     | `e2e/local`                                                                  | The engine's whole journey, errors, responsive layout, axe, keyboard                                | Model behaviour                                     |
+| Browser, `model`         | `npm run test:e2e`                     | `e2e/model`, against `e2e/support/fake-provider.ts`                          | Orchestration of the model path, budget, grounding and chapter regeneration                         | The quality or safety of a live model               |
+| Browser, `journey`       | `npm run test:e2e`                     | `e2e/journey`, on a server holding the recorded Larkholm demonstration       | The 32-step presentation, Report Studio, the three themes                                           | A live model (see `npm run demo:journey`)           |
+| Browser, `signin`        | `npm run test:e2e`                     | `e2e/signin`, on `backend/test/support/signin-e2e-server.ts`                 | Browser sign-in and access management against a test identity provider                              | A real Microsoft Entra tenant                       |
+| Browser, `lab`           | `npm run test:e2e`                     | `e2e/lab`, on a rules-mode server of its own                                 | The scenario-lab shell and whatever else `e2e/lab` holds, in a real browser                         | Model behaviour                                     |
+| Live presentation        | `npm run demo:journey`                 | `e2e/journey/demo-journey.spec.ts` against a server you started              | The recorded presentation against the real model that will be shown                                 | Anything in the lab, which it does not visit        |
+| Offline evaluation       | `npm run eval`                         | `evaluation/`                                                                | The gate, retrieval, conflicts and injection warnings against labelled sets                         | Anything on real documents                          |
+| Mutation checks          | `npm run mutation:security`            | `scripts/mutation`                                                           | That the tests for security rules fail when a rule is broken                                        | That the rules are right                            |
+| Load and crash recovery  | `npm run test:load`, `test:resilience` | `scripts/`                                                                   | Latency, back-pressure, memory and recovery on this machine                                         | Capacity of any deployment                          |
+| UI audit                 | `npm run audit:ui`                     | `scripts/ui-audit.mjs`                                                       | Screenshots and layout and axe metrics at four viewports                                            | Design quality                                      |
+| Live Azure verification  | `npm run azure:verify`                 | `scripts/azure`                                                              | Fifteen checks of the whole engine journey against your own deployment                              | Quality beyond the counts it reports                |
+| Secret scan              | `npm run scan:secrets`                 | `scripts/secret-scan.mjs`                                                    | No credential shape in any reachable commit or in the working tree                                  | That none exists in a form the patterns do not know |
+
+## The scenario lab
+
+Every piece of the lab has its own unit tests, and one test walks them together. They all run on the
+rules engine with no model, and none reaches the network (a test that reads a page serves it from this
+machine).
+
+| What                                 | Files                                                                                                                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reading a question into a scenario   | `scenario-parser.test.ts`, `scenario-model.test.ts`, `scenario-routes.test.ts`, `frontend/src/components/intake/ScenarioIntake.test.tsx`, `frontend/src/lib/intake.test.ts`                                                                                               |
+| Public web evidence                  | `url-policy.test.ts`, `url-fetcher.test.ts`, `url-robots.test.ts`, `url-extract.test.ts`, `url-normalize.test.ts`, `url-provenance.test.ts`, `url-route.test.ts`, `url-config.test.ts`, `url-upload.test.ts`, `frontend/src/components/evidence/UrlEvidence.test.tsx`     |
+| Stakeholders and actors              | `stakeholders-discover.test.ts`, `-tone`, `-review`, `-actors`, `-environment`, `-routes`, `-packs`, `-neutrality` and `-docs` (all `stakeholders-*.test.ts`), `frontend/src/components/stakeholders/*.test.ts(x)`                                                        |
+| The population simulator             | `simulation-engine.test.ts`, `-calibration`, `-chain`, `-random`, `-response` and `-neutrality` (all `simulation-*.test.ts`)                                                                                                                                              |
+| Repeated runs, findings, sensitivity | `analysis-runset.test.ts`, `analysis-findings.test.ts`, `analysis-sensitivity.test.ts`, `analysis-stats.test.ts`, `analysis-routes.test.ts`, `signal.test.ts`, `frontend/src/components/analysis/AnalysisPanel.test.tsx`                                                  |
+| Independent critics                  | `critics-rules.test.ts`, `critics-model.test.ts`, `critiques-routes.test.ts`, `frontend/src/components/critics/CriticPanel.test.tsx`                                                                                                                                      |
+| The decision brief                   | `brief-build.test.ts`, `brief-rules.test.ts`, `brief-signal.test.ts`, `brief-export.test.ts`, `brief-routes.test.ts`, `brief-neutrality.test.ts`, `frontend/src/components/brief/DecisionBriefView.test.tsx`                                                              |
+| Storage and progress                 | `artifacts.test.ts` (the store, both dialects, copy and restore), `lab-progress.test.ts`, `lab-fixtures.test.ts`                                                                                                                                                          |
+| The whole path                       | `lab-pipeline.test.ts` (comparison, review and brief joined by the real engine) and `lab-journey.test.ts` (every route a person uses, from the question to the brief, for each example and for a question that no example knows, then repeated to show the same findings) |
+| The example packs                    | `example-packs.test.ts` (the readable copies match `shared/examples`; which source conflicts the ledger finds) and `frontend/src/lib/examples.test.ts` (sizes, labels, provenance, nothing predicted)                                                                     |
+
+Three tests are guards rather than checks of behaviour. `simulation-neutrality`, `stakeholders-neutrality`
+and `brief-neutrality` read the source of the simulator, the stakeholder step and the brief and fail if
+a word that belongs to one market, product or industry appears in it, so an example can only be an
+input. `readme.test.ts` fails if the README names a script, a variable, a link or an image that does
+not exist, or claims what the evidence does not support.
+
+Browser coverage of the lab is the `lab` project, which runs `e2e/lab/*.spec.ts` against a built
+rules-mode server (`AI_PROVIDER=none`) of its own; list that folder for what it holds. When this was
+written it held `shell.spec.ts`: the first screen says what Swarm answers and what it is not, the
+example picker fills the form and moves focus, Guided and Advanced keep their choice, the five stage
+names carry their plain-words help, the journey shows where the person is without acting as
+navigation, and the first screen and a project's workspace pass axe in each theme at a desktop and at
+a phone width, with reduced motion respected. The whole path from the question to the brief is also
+walked, through the routes the pages use, by `lab-journey.test.ts`.
+
 ## Mutation checks on security code
 
 A test that passes proves little unless it would fail when the rule it guards is gone. For the access
@@ -238,8 +297,9 @@ npm.cmd run test:load       # latency, queue back-pressure, memory, and the newe
 npm.cmd run test:resilience # kills a real server mid-simulation, restarts it, and checks the run finishes intact
 ```
 
-`test:e2e` drives a real browser against four isolated servers with throwaway data
-directories (never your own data):
+`test:e2e` runs five Playwright projects (`local`, `model`, `journey`, `signin` and `lab`; see
+`playwright.config.ts`), each against an application server of its own with a throwaway data
+directory (never your own data):
 
 - **`e2e/local`** — the deterministic local engine: the complete guided journey
   (input → graph → environment → simulation → branch with a declared intervention →
@@ -277,10 +337,51 @@ directories (never your own data):
   the last owner; a colleague added to one project sees that project and no other and is offered no control;
   an administrator is offered no way to touch an owner; the dialogs pass axe in each theme on a desktop and a
   phone.
+- **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), on a server of its own, so that it
+  needs no model and neither depends on nor changes what the other projects leave behind. `shell.spec.ts`
+  is the shell around the lab's features: the first screen (one `h1`, "What could happen if…?", the
+  sentence Swarm is never to be read without, the eight-step path, the question field in the first
+  viewport), the example picker (never empty; choosing fills the question and the evidence and moves
+  focus; keyboard only), Guided and Advanced (the choice is kept, an unknown stored value is ignored),
+  the workspace (five stage names with their plain-words help, the twelve-step journey that shows where
+  the person is and is not navigation, the project tools, the report stage open for the brief and the
+  critics), and the first screen and a project's workspace under axe, contrast, target-size and overflow
+  checks in each theme at 1440 and at 390 px, plus reduced motion. Add a lab spec to this folder and it
+  runs here.
 
 The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
 `backend/test/security.test.ts` (including that a genuinely rate-limited request
 returns HTTP 429 `RATE_LIMITED` with `Retry-After`).
+
+### Running one project, and the ports
+
+Playwright starts every server in `playwright.config.ts` even when you select one project, because the
+servers are listed once for the whole run. Each listens on a port that an environment variable can move,
+which is how two runs on one machine, or a run beside your own server, avoid each other:
+
+| Variable              | Default                | What listens there                                                                                                              |
+| --------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `E2E_LOCAL_PORT`      | 3111                   | The application for the `local` project (rules mode)                                                                            |
+| `E2E_MODEL_PORT`      | 3112                   | The application for the `model` project (`AI_PROVIDER=ollama`, the fake)                                                        |
+| `E2E_JOURNEY_PORT`    | 3113                   | The application for the `journey` project (rules mode, the recording)                                                           |
+| `E2E_SIGNIN_PORT`     | 3114                   | The application for the `signin` project, with sign-in switched on                                                              |
+| `E2E_SIGNIN_IDP_PORT` | 3115                   | The test identity provider that the `signin` project signs in against                                                           |
+| `E2E_LAB_PORT`        | 3116                   | The application for the `lab` project (rules mode)                                                                              |
+| `E2E_PROVIDER_PORT`   | 11999                  | The fake Ollama-protocol provider that the `model` server talks to                                                              |
+| `E2E_DATA_ROOT`       | a new temporary folder | The folder that holds one throwaway data directory for each server (created for the run, and inherited by Playwright's workers) |
+
+```powershell
+npm.cmd run build   # the servers run the built output in dist/
+$env:E2E_LOCAL_PORT = 3280; $env:E2E_MODEL_PORT = 3281; $env:E2E_JOURNEY_PORT = 3282
+$env:E2E_SIGNIN_PORT = 3283; $env:E2E_SIGNIN_IDP_PORT = 3284; $env:E2E_LAB_PORT = 3285
+$env:E2E_PROVIDER_PORT = 3286
+npx.cmd playwright test --project=lab e2e/lab/shell.spec.ts
+```
+
+Set all seven ports, not only the one for your project, when another run may be using the defaults:
+a port that is already taken stops the whole run before a test starts, because the config does not reuse
+a server that is already up. `PW_CHANNEL=msedge` reuses the installed Edge, and `CI` adds one retry and
+the HTML report.
 
 Automated checks do not replace a manual assistive-technology review (screen reader,
 200 % zoom, forced colors), which has not been done. `scripts/load-test.mjs`
@@ -324,15 +425,18 @@ Useful focused commands:
 
 ```powershell
 npm.cmd test -- backend\test\local.test.ts backend\test\knowledge.test.ts
+npx.cmd vitest run backend/test/lab-journey.test.ts backend/test/lab-pipeline.test.ts   # the lab, no model
 npm.cmd run typecheck
 npm.cmd run lint
 npm.cmd run format
 ```
 
-CI performs these checks, dependency auditing at high severity, a Playwright
-end-to-end run in Chromium (both projects above), Compose validation,
-and an actual Docker build/health/UI smoke test, including PDF parsing and the full
-staged local workflow inside the container. Local Docker image execution
+CI (`.github/workflows/ci.yml`) runs, with `AI_PROVIDER=none`: `npm run check`, `format:check`,
+`npm audit --audit-level=high`, `scan:secrets`, a Playwright install of Chromium and `npm run test:e2e`
+(all five projects), Compose validation, and an actual Docker build with a health, UI and
+`smoke:console` check inside the container (PDF parsing and the full staged local workflow included).
+A second job runs `npm run test:postgres`. It does not run the mutation checks, the load and
+resilience tests, the UI audit, `azure:verify` or the live `demo:journey`. Local Docker image execution
 requires a running engine and is separate from native validation.
 
 Run the same real HTTP smoke flow against a local **0.3.0** backend:
@@ -345,3 +449,60 @@ It creates its own fictional PDF/scenario, verifies every gated stage and both
 platforms, checks a real report/state survey, and deletes that scenario on success.
 It never selects a model or spends provider quota. On failure, a scenario may remain
 for diagnosis; the container CI removes its own container in all cases.
+
+## Capabilities and what exercises them
+
+Moved here from the README. Each row is something a person can do in the console's engine stages,
+with the tests that exercise it. A capability is listed only if a test drives it. The lab's own tests
+are in [The scenario lab](#the-scenario-lab) above, and what is not built is in
+[ARCHITECTURE.md](../ARCHITECTURE.md#known-limitations).
+
+| Capability                             | What you can do                                                                                                                                                                                                                                                                       | Exercised by                                                                                                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source-grounded graph                  | Read numbered passages, inspect every entity and relation with its verified quote, browse and search the evidence                                                                                                                                                                     | `knowledge.test.ts`, `grounding-quotes.test.ts`, `pdf.test.ts`, `e2e/local/journey.spec.ts`                                                                                           |
+| Evidence ledger                        | Filter statements by type and support class, open a statement's supporting and contradicting passages, confirm or dismiss conflicts, see the assumptions behind simulated results                                                                                                     | `ledger.test.ts`, `ledger-service.test.ts`, `contradictions.test.ts`, `e2e/local/ledger.spec.ts`, `e2e/model/ledger-ui.spec.ts`                                                       |
+| Fictional actors (engine)              | Read each proxy's profile and assumed traits; edit them before a run, or on a branch before it is resumed; records are read-only afterwards                                                                                                                                           | `actor.test.ts`, `guided.test.ts`, `e2e/local/journey.spec.ts`                                                                                                                        |
+| Multi-round simulation                 | Configure rounds and platforms, replay a run, read each decision with its stated reason, filter by proxy and round, pause and resume                                                                                                                                                  | `guided.test.ts`, `guided-model.test.ts`, `whatif.test.ts`, `e2e/local/whatif.spec.ts`                                                                                                |
+| Intervention, branches, compare        | Schedule an assumed intervention, branch from a checkpoint with declared edits, compare a branch with its parent or sibling                                                                                                                                                           | `whatif.test.ts`, `whatif-model.test.ts`, `e2e/local/whatif.spec.ts`                                                                                                                  |
+| Grounded report                        | Read a chaptered report with a grounding review: verdicts, the checks that ran, and what the server repaired or withheld                                                                                                                                                              | `grounding-*.test.ts`, `report-plan.test.ts`, `e2e/model/grounding-ui.spec.ts`                                                                                                        |
+| Report Studio                          | Open the generated report as a document and work on it: versions, locks, reviewer notes, submit, approve or send back with a reason, reopen, write a chapter again and accept or reject it, export Markdown, JSON and a printable memo. The generated report is never changed         | `studio-model.test.ts`, `studio.test.ts`, `studio-access.test.ts`, `studio-regenerate.test.ts`, `studio-store.test.ts`, `studio.test.tsx`, `e2e/journey/studio.spec.ts`, 25 mutations |
+| Analyst chat with abstention           | Ask a question the sources answer (cited, with a note when a source it cites is disputed by another) and one they do not (exact refusal sentence, no model call)                                                                                                                      | `evidence-gate.test.ts`, `model-workflow.test.ts`, `evaluation/test/evaluation.test.ts`, `e2e/model/model.spec.ts`                                                                    |
+| Actor chat and survey                  | Ask one fictional proxy a question, or survey all of them, against what that proxy was given                                                                                                                                                                                          | `model-workflow.test.ts`, `e2e/model/model.spec.ts`                                                                                                                                   |
+| Export and audit                       | Export Markdown and JSON; read and verify the append-only, hash-chained audit log                                                                                                                                                                                                     | `audit-trail.test.ts`, `storage.test.ts`, `snapshot.test.ts`, `e2e/journey/demo-journey.spec.ts`                                                                                      |
+| Themes                                 | Choose light, dark or high contrast in the header, or follow the device; the choice is kept and applied before the page is drawn                                                                                                                                                      | `theme.test.ts`, `theme-contrast.test.ts`, `accessibility.test.ts`, `scripts/ui/themes.test.ts`, `e2e/journey/themes.spec.ts`                                                         |
+| Identity and access                    | Sign in with Microsoft in the browser (PKCE, a server-side session, no token in the page) or call with an Entra bearer token; seven roles through workspace and project membership; default-deny routes; tenant isolation; People and Access screens (tested against a test provider) | `auth.test.ts`, `membership.test.ts`, `session.test.ts`, `AccessDialog.test.tsx`, `e2e/signin/signin.spec.ts`, `e2e/signin/access.spec.ts`, `security.test.ts`, 9 access mutations    |
+| Real Azure AI, no key                  | Run every engine stage against an Azure model deployment with Entra authentication                                                                                                                                                                                                    | `npm run azure:verify` (15 checks), `scripts/azure/lib/*.test.ts`                                                                                                                     |
+| PostgreSQL storage (optional)          | Run the same stores on PostgreSQL (`DATABASE_URL`), with serializable transactions retried when they lose a race; copy a database between SQLite and PostgreSQL in either direction, checked                                                                                          | `postgres.test.ts`, `postgres-driver.test.ts`, `copy.test.ts`, `npm run test:postgres`                                                                                                |
+| Durable stage jobs                     | A refresh or a restart does not lose a run: stages are queued in the database, taken under a lease, retried a bounded number of times, resumed from the last saved round, cancelled or paused from any process; the same `Idempotency-Key` is one job                                 | `jobs.test.ts`, `durable-jobs.test.ts` (each also on PostgreSQL), 19 job mutations                                                                                                    |
+| Observability                          | A correlation id on every answer; OpenTelemetry spans and metrics with a gate that keeps content, headers and credentials out; export to Application Insights signed by Entra (tested with in-memory exporters)                                                                       | `telemetry.test.ts`, `telemetry-start.test.ts`, 9 telemetry mutations                                                                                                                 |
+| Model budget per project               | A budget of model calls and tokens for each project: the deployment sets a default and only a workspace owner or administrator changes one project's limits; the next call is refused before anything is sent once it is used                                                         | `usage.test.ts`, `model-budget.test.ts`, `budget-routes.test.ts`, `membership.test.ts`, `BudgetDialog.test.tsx`, `e2e/model/budget.spec.ts`, 17 budget mutations                      |
+| Backup, rollback and restore rehearsal | A SQLite file is copied before an upgrade and a copy that is out of date is set aside, never overwritten; the release before refuses an upgraded database; `npm run db:drill` proves a restore from the backup alone                                                                  | `rollback.test.ts`, `storage-backup.test.ts`, `restore-drill.test.ts`, 12 storage mutations                                                                                           |
+| Recorded demonstration                 | Restore a real-model recording of one scenario and two branches, and walk the 32-step presentation in a real browser                                                                                                                                                                  | `scripts/demo/lib/*.test.ts`, `e2e/journey/demo-journey.spec.ts`                                                                                                                      |
+| Accessibility checks                   | Use the console by keyboard; axe-core finds no violation on the audited screens at four viewport sizes                                                                                                                                                                                | `e2e/local/a11y.spec.ts`, `e2e/local/responsive.spec.ts`, `npm run audit:ui`                                                                                                          |
+
+## Results recorded on earlier trees
+
+Moved here from the README, with their dates. These are numbers from runs on the tree **before the
+scenario lab was added**: the unit suite and the browser suite have grown since, and these figures have
+not been recorded again. Re-run the commands for today's result; none of this shows that a model's
+output is correct, that any scenario predicts the real world, that a manual screen-reader review has
+been done (it has not), that sign-in works against a real Entra tenant, or that Swarm is ready for
+production.
+
+| Check                                                    | Command                     | Result recorded then                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Types, lint, unit and integration tests, build           | `npm run check`             | Passed: 1,925 tests in 112 files (Vitest), strict typecheck of five projects, ESLint with zero warnings                                                                                                                                                                                                                             |
+| Formatting                                               | `npm run format:check`      | Passed                                                                                                                                                                                                                                                                                                                              |
+| Browser end-to-end tests                                 | `npm run test:e2e`          | 143 passed, 0 failed, 0 flaky (Edge on Windows, 23.0 minutes; CI runs Chromium on Linux): 71 against the local engine, 39 model-assisted against a protocol-faithful fake provider, 20 for the 32-step presentation, and 13 for browser sign-in and access against a test identity provider, with axe-core on every reachable state |
+| Unit tests on PostgreSQL                                 | `npm run test:postgres`     | The same 1,925 tests on PGlite: all passed. The real driver is also tested over the wire protocol; no deployed server has been used                                                                                                                                                                                                 |
+| Mutation checks on the access, sign-in, storage and more | `npm run mutation:security` | 150 of 150 mutations caught in one run (19 minutes): 15 membership, 27 sign-in, 22 storage, 19 job, 9 telemetry, 25 studio, 7 analyst, 17 budget, 9 access screens. See [Mutation checks on security code](#mutation-checks-on-security-code)                                                                                       |
+| Load on one machine                                      | `npm run test:load`         | One Windows run of 44 s: no 5xx, 3,000 health reads at p95 76 ms, 600 ledger reads at p95 177 ms, a burst of 12 workflows held back with `429 QUEUE_FULL`, peak memory 358 MB, eight simultaneous saves of one section with one accepted. Not a capacity claim. See [Load, and a killed process](#load-and-a-killed-process)        |
+| A server killed mid-simulation                           | `npm run test:resilience`   | 9 of 9 checks in two runs: the run finished by itself 22 s and 18 s after the restart, every platform had every round, 96 actions and none twice, saved rounds were not computed again, the budget counted both sides of the crash and the audit chain verified. SQLite, one machine, a stand-in provider                           |
+| Backup and restore rehearsal                             | `npm run db:drill`          | On the demonstration database (409 rows, 11 tables, 9 projects): backed up in 0.25 s, restored from the backup alone in 0.24 s, and every table, the audit chain and every project came back identical. Restoring a hosted server from a point-in-time backup has not been rehearsed                                                |
+| The presentation against a real model                    | `npm run demo:journey`      | Passed twice against the live server with the real Azure model (7.6 minutes each): once reading the recorded conversation, once asking the analyst and an actor new questions while checking that five private values appear on no page. A negative control made it fail as intended                                                |
+| Real Azure AI, Microsoft Entra only                      | `npm run azure:verify`      | 15 of 15 checks passed in 467 s with 59 round trips: every stage, per-proxy decisions, verbatim quotes, grounding, branching, both chats, an injection probe and a scan for credentials                                                                                                                                             |
+| Dependency audit                                         | `npm audit`                 | On 2026-10-31, through a corporate registry mirror: 0 high or critical and 14 moderate, all from two advisories published the day before (`minimatch`, and `glob` reached only through `@fastify/static`), neither reachable from a request. CI fails on high or above. A point-in-time result                                      |
+| Secret scan, every reachable commit                      | `npm run scan:secrets`      | 0 findings (933 history blobs and 483 working-tree files at that run); no `.env` tracked. One history blob that holds only fake credentials made up for a redaction test is accepted by its hash, because history is not rewritten                                                                                                  |
+| Offline evaluation                                       | `npm run eval`              | Every floor in `evaluation/thresholds.json` held: the analyst's gate refused no answerable question and 43% (dev) and 86% (test) of unanswerable ones, 1 of 3 labelled conflicts was found, injection warnings caught 80% of 18 labelled samples (in-sample). See [evaluation/README.md](../evaluation/README.md)                   |
+| UI audit at four viewports                               | `npm run audit:ui`          | 44 states: 0 console errors, 0 axe violations, no overflow, small text, small targets, unnamed controls or label collisions, and a visible focus indicator on every Tab stop                                                                                                                                                        |
+| Container build and health                               | CI                          | Builds, answers its health check and serves the UI, and the console smoke flow passes inside it                                                                                                                                                                                                                                     |
