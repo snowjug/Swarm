@@ -59,8 +59,10 @@ export function FindingsList({
       <p className="field-help">
         Each finding is a statement that is either true of a seeded run or not. “Repeatable”
         describes how steady it is under the simulation’s own randomness. It is not the chance of
-        anything happening in the world. The repeatable findings, and any rare outcome that a change
-        might set off, come first; then the mostly repeatable ones, then the unstable ones.
+        anything happening in the world. Each 95% interval describes these runs only: some findings
+        name the result that occurred most often, and a result chosen after the fact is steadier
+        than a fresh set of runs would promise. The repeatable findings, and any rare outcome that a
+        change might set off, come first; then the mostly repeatable ones, then the unstable ones.
       </p>
       <ol className="analysis-findings">
         {shown.map((finding) => (

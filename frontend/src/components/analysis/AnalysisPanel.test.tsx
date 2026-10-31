@@ -610,6 +610,7 @@ describe('the results', () => {
     expect(text).toContain('Unstable');
     expect(text).toContain('does not settle this');
     expect(text).toContain('not the chance of anything happening in the world');
+    expect(text).toContain('Each 95% interval describes these runs only');
     expect(text).toContain('What this means and how it was tested');
   });
 
