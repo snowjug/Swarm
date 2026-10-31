@@ -217,9 +217,9 @@ outcome with the change as without it, on every seed**: neither the scenario nor
 anyone (the strength is nothing, or the impact is 0 for every actor after the override and edits and no
 cohort's members differ in it), and the scenario sets nothing about anyone that the baseline does not.
 In every other case it is true, including when it is only unsure. It is tested against the simulator
-both ways: where it says it cannot, a run with the change and a run without it are equal in every round,
-event and member on every seed tried, and where it says it can only through a spread or an edit, they
-differ.
+both ways: where it says it cannot, a run with the change and a run without it are equal in everything
+the simulator reports (every round, the final outcome of every actor and every event) on every seed
+tried, and where it says it can only through a spread or an edit, they differ.
 
 Whether anyone has an **expected direction** is a separate fact, `actorsWithDirection`: an impact that is
 not 0 under some scenario other than the baseline, as that scenario runs it. `directionNotice` puts the

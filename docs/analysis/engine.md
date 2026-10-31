@@ -79,8 +79,8 @@ follows is relied on by the analysis, and tested against the guard `changeCanMov
 - When every member's impact is exactly 0 (the impact is 0 for every actor after the variant's override
   and edits, and no cohort has an impact spread above 0), the change lands on no one whatever its
   intensity, no actor is harmed, so no responder reads a signal and no event happens: a run with the
-  change is identical to a run without it, in every round, member and event, on every seed. This is the
-  only case in which the comparison says that the change cannot move anyone.
+  change is identical to a run without it, in every round, every actor's outcome and every event, on every
+  seed. This is the only case in which the comparison says that the change cannot move anyone.
 - With an impact of 0 and a spread, members are given impacts of both signs, so some are moved toward the
   change and some away while no actor has a direction: the runs differ from the baseline's (more members
   end adverse, while the overall stance hardly moves), and nothing may be said of them as if the change
