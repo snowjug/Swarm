@@ -154,11 +154,6 @@ export class AnalysisService {
    * found again, or edited, after the actors were made is no longer approved and the cast is out of
    * date: starting from it would simulate a group a person has since removed or never approved.
    */
-  /**
-   * The cast is simulated only while it matches the stakeholders a person approved. A set that was
-   * found again, or edited, after the actors were made is no longer approved and the cast is out of
-   * date: starting from it would simulate a group a person has since removed or never approved.
-   */
   private requireCurrentCast(
     actors: ArtifactRecord<'actors'>,
     stakeholders: ArtifactRecord<'stakeholders'> | null,

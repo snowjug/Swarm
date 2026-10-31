@@ -131,7 +131,11 @@ export class BriefService {
     const made = buildBrief(inputs);
     // The brief's words describe the scenario and the stakeholders as they are now, and its numbers
     // come from a comparison that may have been run on earlier ones: it says so, in the brief itself.
-    const earlier = changedInputs(record.data.inputRevisions, undefined, inputs.inputRevisions ?? {});
+    const earlier = changedInputs(
+      record.data.inputRevisions,
+      undefined,
+      inputs.inputRevisions ?? {},
+    );
     const notes =
       earlier.length > 0 && made.methodology.notes.length < 10
         ? [
@@ -205,7 +209,14 @@ export class BriefService {
     const latestAnalysis = latest ? { id: latest.key, completedAt: latest.data.completedAt } : null;
     const stored = artifacts.get(projectId, 'brief');
     if (!stored) {
-      return { brief: null, visuals: null, visualsFrom: null, latestAnalysis, changedSince: [], may };
+      return {
+        brief: null,
+        visuals: null,
+        visualsFrom: null,
+        latestAnalysis,
+        changedSince: [],
+        may,
+      };
     }
     const analysis = artifacts.get(projectId, 'analysis', stored.data.analysisId);
     return {
