@@ -4,6 +4,7 @@ import { RESPONSE_CATEGORIES, RESPONSE_LABELS } from '../../../../shared/analysi
 import {
   BRIEF_READING_NOTES,
   STATEMENT_ORIGIN_LABELS,
+  type BriefComparisonRow,
   type BriefSignal,
   type BriefVisuals,
   type VisualKind,
@@ -126,36 +127,55 @@ function StakeholderMap({ visuals }: { visuals: BriefVisuals }) {
   );
 }
 
+/** A share of simulated members as members in every 100: a simulated share, never a rate in a population. */
+const perHundred = (share: number): string => approx(share * 100);
+
+/** Decimal places for a shift or an error: a value under 0.01 is not shown as 0.00. */
+const places = (value: number): number => (value !== 0 && Math.abs(value) < 0.01 ? 3 : 2);
+
+const RESOLUTION =
+  'How many simulated members there are depends on how many were sampled for each group: a numerical resolution of the simulation, not a population.';
+
+/** A range over the seeded runs, when the runs were kept. */
+const spread = (mean: number, min: number | null, max: number | null): string =>
+  min === null || max === null
+    ? perHundred(mean)
+    : `${perHundred(mean)} (${perHundred(min)} to ${perHundred(max)})`;
+
 function OutcomeDistribution({ visuals }: { visuals: BriefVisuals }) {
   const rows = visuals.outcomeDistribution;
+  const counted = rows.every((row) => row.responses !== null && row.adverse !== null);
   return (
     <figure className="brief-figure">
       <figcaption>Where simulated members ended up, variant by variant</figcaption>
       <p className="field-help">
-        The mean number of simulated members in each response over the seeded runs. These are counts
-        of simulated members, not shares of a real population.
+        The mean share of simulated members in each response over the seeded runs, as members in
+        every 100, with every group counting equally. These are shares of simulated members, not
+        rates in a real population. {RESOLUTION}
       </p>
       {rows.map((row) => (
         <div className="brief-bar-row" key={row.variantId}>
           <div className="brief-bar-label">
             {row.label}{' '}
             <span className="brief-count">
-              ({row.kind}; {row.members} simulated members in each of {row.runs} runs)
+              ({row.kind}; {row.runs} seeded runs
+              {row.members === null ? '' : `; ${row.members} simulated members sampled in each run`}
+              )
             </span>
           </div>
           <div
             className="brief-bar"
             role="img"
-            aria-label={`${row.label}: ${row.responses
-              .map((entry) => `${RESPONSE_LABELS[entry.category]} ${approx(entry.mean)}`)
-              .join(', ')}`}
+            aria-label={`${row.label}: ${row.shares
+              .map((entry) => `${RESPONSE_LABELS[entry.category]} ${perHundred(entry.mean)}`)
+              .join(', ')} (in every 100 simulated members, every group counting equally)`}
           >
-            {row.responses.map((entry) => (
+            {row.shares.map((entry) => (
               <span
                 key={entry.category}
                 className={`brief-seg brief-seg-${entry.category}`}
                 style={{ flexGrow: entry.mean, flexBasis: 0 }}
-                title={`${RESPONSE_LABELS[entry.category]}: ${approx(entry.mean)}`}
+                title={`${RESPONSE_LABELS[entry.category]}: ${perHundred(entry.mean)} in 100`}
               />
             ))}
           </div>
@@ -170,20 +190,44 @@ function OutcomeDistribution({ visuals }: { visuals: BriefVisuals }) {
         ))}
       </ul>
       <TableAlternative
-        caption="Mean number of simulated members in each response"
+        caption="Mean share of simulated members in each response, in every 100"
         headers={[
           'Variant',
-          'Simulated members',
           ...RESPONSE_CATEGORIES.map((category) => RESPONSE_LABELS[category]),
           'Looking for an alternative or resisting (lowest to highest)',
         ]}
         rows={rows.map((row) => [
           row.label,
-          String(row.members),
-          ...row.responses.map((entry) => approx(entry.mean)),
-          `${approx(row.adverse.mean)} (${approx(row.adverse.min)} to ${approx(row.adverse.max)})`,
+          ...row.shares.map((entry) => perHundred(entry.mean)),
+          spread(row.adverseShare.mean, row.adverseShare.min, row.adverseShare.max),
         ])}
       />
+      {counted ? (
+        <TableAlternative
+          caption="Mean number of simulated members in each response (the count depends on how many members were sampled for each group)"
+          headers={[
+            'Variant',
+            'Simulated members sampled',
+            ...RESPONSE_CATEGORIES.map((category) => RESPONSE_LABELS[category]),
+            'Looking for an alternative or resisting (lowest to highest)',
+          ]}
+          rows={rows.map((row) => [
+            row.label,
+            String(row.members),
+            ...(row.responses ?? []).map((entry) => approx(entry.mean)),
+            row.adverse
+              ? row.perRun && row.adverse.min !== null && row.adverse.max !== null
+                ? `${approx(row.adverse.mean)} (${approx(row.adverse.min)} to ${approx(row.adverse.max)})`
+                : approx(row.adverse.mean)
+              : '',
+          ])}
+        />
+      ) : (
+        <p className="field-help">
+          Counts of simulated members are not shown: this analysis did not keep the results of each
+          group in each run, so only shares are drawn.
+        </p>
+      )}
     </figure>
   );
 }
@@ -199,8 +243,11 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
   }
   const baselineLabel =
     visuals.outcomeDistribution.find((row) => row.kind === 'baseline')?.label ?? 'the baseline';
-  const width = (value: number, members: number): string =>
-    `${members > 0 ? Math.min(100, (value / members) * 100) : 0}%`;
+  const width = (share: number): string => `${Math.min(100, Math.max(0, share * 100))}%`;
+  const counted = (row: BriefComparisonRow): string =>
+    row.adverseDelta !== null && row.members !== null
+      ? ` Counted as sampled members, that is ${approx(Math.abs(row.adverseDelta))} ${row.adverseDelta >= 0 ? 'more' : 'fewer'} of ${row.members} simulated members, a number that depends on how many members were sampled for each group.`
+      : '';
   return (
     <figure className="brief-figure">
       <figcaption>Each alternative against the baseline, on the same seeds</figcaption>
@@ -210,17 +257,17 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
       {rows.map((row) => (
         <div className="brief-compare" key={row.variantId}>
           <h4>{row.label}</h4>
-          {row.baselineAdverseMean !== null ? (
+          {row.baselineAdverseShare !== null ? (
             <div className="brief-bar-row">
               <div className="brief-bar-label">{baselineLabel}</div>
               <div
                 className="brief-track"
                 role="img"
-                aria-label={`${baselineLabel}: about ${approx(row.baselineAdverseMean)} of ${row.members} simulated members looking for an alternative or resisting`}
+                aria-label={`${baselineLabel}: about ${perHundred(row.baselineAdverseShare)} in 100 simulated members looking for an alternative or resisting`}
               >
                 <span
                   className="brief-fill brief-fill-baseline"
-                  style={{ width: width(row.baselineAdverseMean, row.members) }}
+                  style={{ width: width(row.baselineAdverseShare) }}
                 />
               </div>
             </div>
@@ -230,25 +277,25 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
             <div
               className="brief-track"
               role="img"
-              aria-label={`${row.label}: about ${approx(row.adverseMean)} of ${row.members} simulated members looking for an alternative or resisting`}
+              aria-label={`${row.label}: about ${perHundred(row.adverseShare)} in 100 simulated members looking for an alternative or resisting`}
             >
               <span
                 className="brief-fill brief-fill-change"
-                style={{ width: width(row.adverseMean, row.members) }}
+                style={{ width: width(row.adverseShare) }}
               />
             </div>
           </div>
           <p>
-            About {approx(row.adverseMean)} of {row.members} simulated members ended up looking for
-            an alternative or resisting
-            {signal === 'clear' && row.baselineAdverseMean !== null ? (
-              <> against about {approx(row.baselineAdverseMean)} under the baseline</>
+            About {perHundred(row.adverseShare)} in 100 simulated members, every group counting
+            equally, ended up looking for an alternative or resisting
+            {signal === 'clear' && row.baselineAdverseShare !== null ? (
+              <> against about {perHundred(row.baselineAdverseShare)} in 100 under the baseline</>
             ) : null}
             .{' '}
             {signal !== 'clear'
               ? 'The comparison with the baseline is not read as an effect of the change.'
-              : row.adverseDelta !== null
-                ? `On the same seeds, the change left ${approx(Math.abs(row.adverseDelta))} ${row.adverseDelta >= 0 ? 'more' : 'fewer'} simulated members adverse, with more in ${row.worseInRuns} of ${row.pairedRuns} paired runs.`
+              : row.shareDelta !== null
+                ? `On the same seeds, the change ${row.shareDelta >= 0 ? 'raised' : 'lowered'} that share by ${perHundred(Math.abs(row.shareDelta))} in 100${row.shareDeltaError === null ? '' : ` (paired standard error ${perHundred(row.shareDeltaError)})`}, with the share higher under the change in ${row.worseInRuns} of ${row.pairedRuns} paired runs.${counted(row)}`
                 : 'The runs could not be paired with the baseline.'}{' '}
             {row.findingId && row.classification
               ? `Finding ${row.findingId} holds in ${row.holdsIn} of ${row.of} seeded runs (${STABILITY_LABELS[row.classification]}).`
@@ -260,25 +307,29 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
         caption="Each alternative against the baseline"
         headers={[
           'Variant',
-          'Mean adverse simulated members',
-          'Baseline mean',
-          'Change',
+          'Looking for an alternative or resisting, in 100',
+          'Baseline, in 100',
+          'Paired difference, in 100',
           'Paired runs',
-          'More adverse in',
+          'Share higher in',
           'Mean stance change',
           'Finding',
+          'Mean adverse simulated members (a count that depends on the sampling)',
+          'Baseline mean adverse simulated members',
         ]}
         rows={rows.map((row) => [
           row.label,
-          approx(row.adverseMean),
-          row.baselineAdverseMean === null ? 'no baseline' : approx(row.baselineAdverseMean),
-          row.adverseDelta === null ? 'not paired' : signedNumber(row.adverseDelta, 1),
+          perHundred(row.adverseShare),
+          row.baselineAdverseShare === null ? 'no baseline' : perHundred(row.baselineAdverseShare),
+          row.shareDelta === null ? 'not paired' : signedNumber(row.shareDelta * 100, 1),
           String(row.pairedRuns),
           `${row.worseInRuns} of ${row.pairedRuns} runs`,
           row.stanceDelta === null ? 'not paired' : signedNumber(row.stanceDelta),
           row.findingId && row.classification
             ? `${row.findingId}: ${STABILITY_LABELS[row.classification]}`
             : 'none recorded',
+          row.adverseMean === null ? 'not stored' : approx(row.adverseMean),
+          row.baselineAdverseMean === null ? 'not stored' : approx(row.baselineAdverseMean),
         ])}
       />
     </figure>
@@ -309,7 +360,7 @@ function SensitivityBars({ visuals }: { visuals: BriefVisuals }) {
             <div
               className="brief-diverge"
               role="img"
-              aria-label={`${row.label}: shift ${signedNumber(row.shift)} in ${row.metric}`}
+              aria-label={`${row.label}: shift ${signedNumber(row.shift, places(row.shift))} in ${row.metric}`}
             >
               <span className="brief-diverge-mid" />
               <span
@@ -319,7 +370,8 @@ function SensitivityBars({ visuals }: { visuals: BriefVisuals }) {
             </div>
             <div className="brief-sensitivity-meta">
               <span>
-                {signedNumber(row.shift)} (standard error {row.standardError.toFixed(2)})
+                {signedNumber(row.shift, places(row.shift))} (standard error{' '}
+                {row.standardError.toFixed(places(row.standardError))})
               </span>
               <span className={`brief-class brief-class-${row.classification}`}>
                 {CLASSIFICATION_LABELS[row.classification]}
@@ -346,8 +398,8 @@ function SensitivityBars({ visuals }: { visuals: BriefVisuals }) {
         rows={rows.map((row) => [
           row.label,
           row.metric,
-          signedNumber(row.shift),
-          row.standardError.toFixed(2),
+          signedNumber(row.shift, places(row.shift)),
+          row.standardError.toFixed(places(row.standardError)),
           CLASSIFICATION_LABELS[row.classification],
           STATEMENT_ORIGIN_LABELS[row.origin],
           row.evidenced ? 'cited' : 'none cited',

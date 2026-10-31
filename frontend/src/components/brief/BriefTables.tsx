@@ -84,8 +84,11 @@ export function ValidationTable({ plan }: { plan: readonly ValidationExperiment[
             <th scope="col">Check</th>
             <th scope="col">Tests</th>
             <th scope="col">Question</th>
+            <th scope="col">What to observe</th>
+            <th scope="col">Compared with</th>
             <th scope="col">Method</th>
-            <th scope="col">Success signal</th>
+            <th scope="col">Decision rule</th>
+            <th scope="col">Owner</th>
             <th scope="col">Effort</th>
             <th scope="col">Duration</th>
           </tr>
@@ -102,8 +105,11 @@ export function ValidationTable({ plan }: { plan: readonly ValidationExperiment[
                 </ul>
               </td>
               <td>{experiment.question}</td>
+              <td>{experiment.measure || 'Not stated'}</td>
+              <td>{experiment.comparison || 'Not stated'}</td>
               <td>{experiment.method}</td>
               <td>{experiment.successSignal}</td>
+              <td>{experiment.ownerFunction || 'Not stated'}</td>
               <td>{sentence(experiment.effort)}</td>
               <td>{experiment.duration}</td>
             </tr>

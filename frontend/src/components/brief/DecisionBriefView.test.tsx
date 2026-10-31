@@ -380,6 +380,34 @@ describe('the sections', () => {
     expect((section.match(/How long and how costly is it/gu) ?? []).length).toBe(1);
   });
 
+  it('says what each check observes, what it is compared with, and who runs it', () => {
+    const section = html.slice(
+      html.indexOf('id="brief-validation-plan"'),
+      html.indexOf('id="brief-sources"'),
+    );
+    expect(
+      tags(section, 'th')
+        .filter((entry) => !/^val-/u.test(entry.text))
+        .map((entry) => entry.text),
+    ).toEqual([
+      'Check',
+      'Tests',
+      'Question',
+      'What to observe',
+      'Compared with',
+      'Method',
+      'Decision rule',
+      'Owner',
+      'Effort',
+      'Duration',
+    ]);
+    const text = visibleText(section);
+    expect(text).toContain('The time and the money it takes a “Subscribers” member to change');
+    expect(text).toContain('Members of “Subscribers” who changed against those who did not.');
+    expect(text).toContain('Research and analytics');
+    expect(text).toContain('A cost and time you set beforehand');
+  });
+
   it('keeps the limitations as statements of their own', () => {
     expect(visibleText(html.slice(html.indexOf('id="brief-limitations"')))).toContain(
       'A simulated statement in limitations',
@@ -413,9 +441,9 @@ describe('the charts', () => {
     ].map((match) => match[1]);
     expect(bars).toHaveLength(2);
     expect(bars[0]).toBe(
-      'No change: Go along 3.9, Accept with conditions 7.8, Wait and see 16, Adapt to limit the impact 12, Look for an alternative 2.3, Resist 1.6',
+      'No change: Go along 9, Accept with conditions 18, Wait and see 37, Adapt to limit the impact 27, Look for an alternative 5, Resist 4 (in every 100 simulated members, every group counting equally)',
     );
-    expect(bars[1]).toContain('Look for an alternative 11, Resist 7.6');
+    expect(bars[1]).toContain('Look for an alternative 26, Resist 18');
     expect((section.match(/class="brief-seg brief-seg-/gu) ?? []).length).toBe(12);
     const legend = /<ul class="brief-legend">([\s\S]*?)<\/ul>/u.exec(section)?.[1] ?? '';
     expect(tags(legend, 'li').map((entry) => entry.text)).toEqual([
@@ -427,26 +455,69 @@ describe('the charts', () => {
       'Resist',
     ]);
     expect(visibleText(section)).toContain(
-      'counts of simulated members, not shares of a real population',
+      'shares of simulated members, not rates in a real population',
     );
+    expect(visibleText(section)).toContain(
+      'depends on how many were sampled for each group: a numerical resolution of the simulation, not a population',
+    );
+    expect(visibleText(section)).toContain('Mean share of simulated members in each response');
     expect(visibleText(section)).toContain('Mean number of simulated members in each response');
     expect(visibleText(section)).toContain('19 (17 to 21)');
+    expect(visibleText(section)).toContain('44 (40 to 49)');
   });
 
   it('draws the comparison with the baseline on the same seeds, with the finding and its stability', () => {
     const section = between('id="brief-alternative-outcomes"', 'id="brief-first-order"');
     expect(section).toContain(
-      'aria-label="No change: about 3.9 of 43 simulated members looking for an alternative or resisting"',
+      'aria-label="No change: about 9 in 100 simulated members looking for an alternative or resisting"',
     );
     expect(section).toContain(
-      'aria-label="Proposed change: about 19 of 43 simulated members looking for an alternative or resisting"',
+      'aria-label="Proposed change: about 44 in 100 simulated members looking for an alternative or resisting"',
     );
     const text = visibleText(section);
     expect(text).toContain(
-      'On the same seeds, the change left 15 more simulated members adverse, with more in 10 of 10 paired runs.',
+      'About 44 in 100 simulated members, every group counting equally, ended up looking for an alternative or resisting against about 9 in 100 under the baseline.',
+    );
+    expect(text).toContain(
+      'On the same seeds, the change raised that share by 35 in 100 (paired standard error 2), with the share higher under the change in 10 of 10 paired runs.',
+    );
+    expect(text).toContain(
+      'Counted as sampled members, that is 15 more of 43 simulated members, a number that depends on how many members were sampled for each group.',
     );
     expect(text).toContain('Finding f1 holds in 10 of 10 seeded runs (mostly repeatable).');
     expect(text).toContain('Each alternative against the baseline');
+  });
+
+  it('shows shares alone when the stored analysis kept no counts of simulated members', () => {
+    const visuals = visualsFixture();
+    const html = document(
+      viewFixture({
+        visuals: {
+          ...visuals,
+          outcomeDistribution: visuals.outcomeDistribution.map((row) => ({
+            ...row,
+            members: null,
+            responses: null,
+            adverse: null,
+            perRun: false,
+          })),
+          scenarioComparison: visuals.scenarioComparison.map((row) => ({
+            ...row,
+            members: null,
+            adverseMean: null,
+            baselineAdverseMean: null,
+            adverseDelta: null,
+          })),
+        },
+      }),
+    );
+    const text = visibleText(html);
+    expect(text).toContain('Counts of simulated members are not shown');
+    expect(text).not.toContain('Mean number of simulated members in each response');
+    expect(text).toContain('About 44 in 100 simulated members');
+    expect(text).not.toMatch(/\b(?:null|NaN|undefined)\b/u);
+    expect(text).not.toContain('Counted as sampled members');
+    expect(text).toContain('not stored');
   });
 
   it('draws sensitivity bars that name the assumption, the shift, its origin and whether anything backs it', () => {
@@ -488,7 +559,7 @@ describe('the charts', () => {
   it('gives every chart a caption, an accessible name, and a table for the same data', () => {
     expect(tags(html, 'figure')).toHaveLength(4);
     expect(tags(html, 'figcaption')).toHaveLength(4);
-    expect((html.match(/<details class="brief-table-alt">/gu) ?? []).length).toBe(4);
+    expect((html.match(/<details class="brief-table-alt">/gu) ?? []).length).toBe(5);
     expect((html.match(/role="img"/gu) ?? []).length).toBe(6);
     for (const image of html.matchAll(/role="img" aria-label="([^"]*)"/gu)) {
       expect(image[1]?.length).toBeGreaterThan(10);
@@ -626,7 +697,9 @@ describe('when the comparison cannot be read as a result', () => {
     expect(html).not.toContain('brief-reading-note');
     expect(html).not.toContain('notice-warning');
     expect(html).not.toContain('notice-info');
-    expect(visibleText(comparison(html))).toContain('On the same seeds, the change left');
+    expect(visibleText(comparison(html))).toContain(
+      'On the same seeds, the change raised that share',
+    );
   });
 
   it('says first, in a notice above the executive answer, that the simulation could not tell the change from no change', () => {
@@ -669,8 +742,9 @@ describe('when the comparison cannot be read as a result', () => {
       expect(text).toContain(
         'The comparison with the baseline is not read as an effect of the change.',
       );
-      expect(text).not.toContain('On the same seeds, the change left');
-      expect(text).not.toMatch(/against about \d+(?:\.\d+)? under the baseline/u);
+      expect(text).not.toContain('On the same seeds, the change raised');
+      expect(text).not.toContain('On the same seeds, the change lowered');
+      expect(text).not.toMatch(/against about \d+(?:\.\d+)? in 100 under the baseline/u);
       // The numbers are still there, in the table, for anyone who wants them.
       expect(text).toContain('Mean adverse simulated members');
     },
