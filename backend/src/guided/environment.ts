@@ -8,6 +8,7 @@ import { validateCitations } from '../knowledge/graph.js';
 import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
 import { jsonValidated } from '../models/validated.js';
+import { agentsFromActors } from '../stakeholders/agents.js';
 import type { Repository } from '../storage/repository.js';
 import { generatedEnvironmentSchema } from './schemas.js';
 import { requireConsole, traceOperation, updateConsole } from './state.js';
@@ -23,17 +24,24 @@ export async function prepareEnvironment(
     throw new AppError(409, 'GRAPH_NOT_READY', 'Build the knowledge graph first.');
   const graph = project.graph;
   const chunks = repository.chunks(id);
+  // Actors the person approved replace the generated population; without them nothing changes.
+  const actors = repository.artifacts.get(id, 'actors');
+  const fromActors = actors ? agentsFromActors(actors.data, graph, project.settings) : null;
   const agents = await traceOperation(
     repository,
     id,
     'environment',
-    model ? 'model' : 'review',
-    'Fictional persona preparation',
-    { population: project.agentCount, mode: project.mode },
+    model && !fromActors ? 'model' : 'review',
+    fromActors
+      ? 'Fictional persona preparation from approved actors'
+      : 'Fictional persona preparation',
+    { population: fromActors?.agents.length ?? project.agentCount, mode: project.mode },
     () =>
-      model
-        ? modelPersonas(model, project, graph, chunks, signal)
-        : createLocalAgents(graph, project.settings),
+      fromActors
+        ? fromActors.agents
+        : model
+          ? modelPersonas(model, project, graph, chunks, signal)
+          : createLocalAgents(graph, project.settings),
     (result) => ({
       count: result.length,
       agentIds: result.map((agent) => agent.id),
@@ -41,7 +49,20 @@ export async function prepareEnvironment(
     }),
   );
   throwIfAborted(signal);
-  repository.update(id, { agents, progress: 32 });
+  repository.update(id, {
+    agents,
+    progress: 32,
+    ...(fromActors
+      ? { agentCount: agents.length, settings: { ...project.settings, agentCount: agents.length } }
+      : {}),
+  });
+  if (fromActors) {
+    repository.addEvent(
+      id,
+      'personas',
+      `Agents made from approved actors: ${fromActors.keyActors} key actors and ${fromActors.representatives} cohort representatives${fromActors.omitted.length > 0 ? `; ${fromActors.omitted.length} more key actors did not fit the engine's limit` : ''}. Cohorts are not simulated at their size here.`,
+    );
+  }
   const evidence = selectContext(chunks, project.question, 5_000);
   const config = await traceOperation(
     repository,
