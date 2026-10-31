@@ -52,6 +52,8 @@ export class BriefService {
   constructor(
     private readonly repository: Repository,
     private readonly clock: () => Date = () => new Date(),
+    /** The most a brief may take with the data of its charts kept in it; beyond that they are left out. */
+    private readonly keepChartsUpTo: number = MAX_ARTIFACT_BYTES,
   ) {}
 
   /** The completed analysis that finished last. */
@@ -149,7 +151,7 @@ export class BriefService {
       snapshot: briefVisuals(gatherFacts(inputs)),
     };
     // A snapshot that would not fit is left out: the page and the exports then say they draw from the project as it is.
-    if (Buffer.byteLength(JSON.stringify(brief), 'utf8') > MAX_ARTIFACT_BYTES) {
+    if (Buffer.byteLength(JSON.stringify(brief), 'utf8') > this.keepChartsUpTo) {
       delete brief.snapshot;
     }
     return this.repository.artifacts.put(projectId, 'brief', 'default', brief);

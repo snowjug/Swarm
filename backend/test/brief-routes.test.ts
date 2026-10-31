@@ -13,6 +13,7 @@ import { policyFor, ROUTE_POLICY } from '../src/auth/policy.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import type { Repository } from '../src/storage/repository.js';
 import { BRIEF_CSP } from '../src/brief/export.js';
+import { BriefService } from '../src/brief/service.js';
 import { fixtureInput, testConfig } from './fixtures.js';
 import { critiquesFixture } from './support/brief-world.js';
 import {
@@ -247,6 +248,22 @@ describe('making the brief', () => {
     expect(refused.statusCode).toBe(404);
     expect(refused.json().error.code).toBe('ANALYSIS_NOT_FOUND');
     expect(app).toBeDefined();
+  });
+});
+
+describe('a brief too large to keep the data of its charts with it', () => {
+  it('is stored without it, and the page and the exports then say they draw from the project as it is', async () => {
+    const { get, view, repository, project } = await localWorld();
+    holdAnalysis(repository, project.id);
+    new BriefService(repository, () => new Date(), 1_000).generate(project.id);
+    const stored = repository.artifacts.get(project.id, 'brief');
+    expect(stored?.data.sections).toHaveLength(17);
+    expect(stored?.data.snapshot).toBeUndefined();
+
+    const shown = await view();
+    expect(shown.visualsFrom).toBe('current');
+    expect(shown.visuals?.analysisId).toBe('analysis-1');
+    expect((await get('/export?format=json')).json().provenance.dataFrom).toBe('current');
   });
 });
 
