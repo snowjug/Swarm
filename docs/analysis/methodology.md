@@ -155,8 +155,10 @@ and `standardError` is the standard deviation of those paired differences divide
 | `inconclusive`         | otherwise                                                    |
 
 Each row records where the moved assumption came from (`assumptionOrigin`): a trait's own origin
-(evidence, user, system assumption or model), "system assumption" for a spread, and for the intensity
-"system assumption" unless the scenario says it was set by the person. A sensitive assumption that no
+(evidence, user, system assumption or model; for an impact, the origin of its number, which is the system
+default even where its direction was read from cited passages, because a passage gives no size), "system
+assumption" for a spread, and for the intensity "system assumption" unless the scenario says it was set by
+the person. A sensitive assumption that no
 evidence backs is highlighted, because it is where a result rests on a guess. The twelve most telling
 rows are kept: sensitive ones first, then by size of shift. The page shows the first 6, with the rest
 under "Show all N assumptions" on the same scale, and the table beside the chart has every row.
