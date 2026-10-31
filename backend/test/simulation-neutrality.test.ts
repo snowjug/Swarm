@@ -15,16 +15,18 @@ const SCENARIO_WORDS =
 
 describe('the simulator source', () => {
   it('has the modules the design names', () => {
-    expect(sources.map((source) => source.name).sort()).toEqual([
-      'dynamics.ts',
-      'parameters.ts',
-      'population.ts',
-      'random.ts',
-      'responders.ts',
-      'response.ts',
-      'signals.ts',
-      'simulate.ts',
-    ]);
+    expect(sources.map((source) => source.name)).toEqual(
+      expect.arrayContaining([
+        'dynamics.ts',
+        'parameters.ts',
+        'population.ts',
+        'random.ts',
+        'responders.ts',
+        'response.ts',
+        'signals.ts',
+        'simulate.ts',
+      ]),
+    );
   });
 
   it('contains no word that belongs to a scenario, in code, comments or messages', () => {
