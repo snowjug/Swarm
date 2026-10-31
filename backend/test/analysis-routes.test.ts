@@ -24,6 +24,8 @@ import {
   idp,
   type Minted,
 } from './support/entra-idp.js';
+import { briefFixture } from './support/critic-world.js';
+import { critiquesFixture } from './support/brief-world.js';
 import { stubSimulator } from './support/stub-simulator.js';
 
 type Application = Awaited<ReturnType<typeof buildApp>>;
@@ -379,6 +381,41 @@ describe('starting a comparison', () => {
     const logged = lines.join('');
     expect(logged).toContain('ANALYSIS_FAILED');
     expect(logged).not.toContain('zq-canary-9931');
+  });
+});
+
+describe('refusing a request that does not fit the limits', () => {
+  const variant = (index: number, over: Record<string, unknown> = {}) => ({
+    id: index === 0 ? 'baseline' : `alt-${index}`,
+    label: index === 0 ? 'No change' : `Alt ${index}`,
+    kind: index === 0 ? 'baseline' : 'alternative',
+    intensity: index === 0 ? 0 : 0.5,
+    ...over,
+  });
+
+  it('says the limit in a sentence, and never what the schema said or what was sent', async () => {
+    const { start, withActors, list } = await world();
+    withActors();
+    const refused: [Record<string, unknown>, RegExp][] = [
+      [{ runsPerVariant: 5000 }, /from 3 to 200/u],
+      [{ runsPerVariant: 1.5 }, /whole number of seeded runs/u],
+      [{ rounds: 99 }, /from 3 to 36/u],
+      [{ baseSeed: 0 }, /first seed/u],
+      [{ sensitivity: 'zq-canary-7710' }, /yes or no/u],
+      [{ zqCanary7710: true }, /does not use/u],
+      [{ variants: Array.from({ length: 9 }, (_, index) => variant(index)) }, /between 2 and 8/u],
+      [{ variants: [variant(0), variant(1, { intensity: 1.5 })] }, /Scenario 2.*from 0 to 1/u],
+      [{ variants: [variant(0), variant(1, { label: '' })] }, /Scenario 2.*name/u],
+    ];
+    for (const [payload, expected] of refused) {
+      const response = await start(payload);
+      expect(response.statusCode, JSON.stringify(payload)).toBe(400);
+      const { code, message } = response.json().error as { code: string; message: string };
+      expect(code).toBe('INVALID_INPUT');
+      expect(message).toMatch(expected);
+      expect(message).not.toMatch(/expected|Invalid input|Too (big|small)|zq/iu);
+    }
+    expect((await list()).analyses).toEqual([]);
   });
 });
 
@@ -805,6 +842,27 @@ describe('what a project keeps', () => {
     expect(kept).not.toContain('old-01');
     expect(kept).not.toContain('old-03');
     expect(kept).toContain('old-13');
+  });
+});
+
+describe('what a brief and a review rest on', () => {
+  it('is never removed to make room, however old it is', async () => {
+    const { start, withActors, repository, project } = await world();
+    withActors();
+    for (let index = 1; index <= 13; index += 1) {
+      const id = `old-${String(index).padStart(2, '0')}`;
+      repository.artifacts.put(project.id, 'analysis', id, analysisFixture({ id }));
+    }
+    const made = analysisFixture({ id: 'old-01' });
+    repository.artifacts.put(project.id, 'brief', 'default', briefFixture(made));
+    repository.artifacts.put(project.id, 'critiques', 'default', critiquesFixture('old-03'));
+    await start({ runsPerVariant: 3, sensitivity: false });
+    const kept = repository.artifacts.list(project.id, 'analysis').map((record) => record.key);
+    expect(kept).toContain('old-01');
+    expect(kept).toContain('old-03');
+    expect(kept).not.toContain('old-02');
+    expect(kept).toContain('old-13');
+    expect(kept).toHaveLength(12);
   });
 });
 

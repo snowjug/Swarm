@@ -261,7 +261,7 @@ export function runResponders(
       }
     }
     const description =
-      `${actor.name.slice(0, 60)} acted in round ${round}: the ${responder.rule.signal} signal it watches ` +
+      `${actor.name.slice(0, 60)} acted in round ${round}: the simulated ${responder.rule.signal} signal it watches ` +
       `stood at ${seen.toFixed(2)} in round ${seenRound}, at or above its threshold of ` +
       `${responder.threshold.toFixed(2)}. From round ${round + 1}, ${responder.rule.effect}.`;
     responders.emitted.push({

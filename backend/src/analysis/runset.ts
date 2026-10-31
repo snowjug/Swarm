@@ -181,7 +181,9 @@ function trajectoryOf(records: readonly RunRecord[]): VariantResult['trajectory'
   const byRound = new Map<number, number[]>();
   for (const record of records) {
     for (const { round, stanceMean } of record.rounds) {
-      byRound.set(round, [...(byRound.get(round) ?? []), stanceMean]);
+      const stances = byRound.get(round);
+      if (stances) stances.push(stanceMean);
+      else byRound.set(round, [stanceMean]);
     }
   }
   return [...byRound]
@@ -247,6 +249,26 @@ function nearestMedian(records: readonly RunRecord[]): RunRecord | undefined {
 }
 
 const sizeOf = (value: unknown): number => Buffer.byteLength(JSON.stringify(value), 'utf8');
+
+/**
+ * Whether the document, with the detail of every run, fits the budget. The runs are what make it large,
+ * so each is measured in turn and the count stops as soon as the budget is passed: a document that is
+ * far too large is refused after a fraction of it has been written out, and one that fits is written
+ * out once. Writing out all of an over-large document used to hold the server for a third of a second.
+ */
+function fitsBudget(analysis: Analysis): boolean {
+  let total = sizeOf({
+    ...analysis,
+    variants: analysis.variants.map((variant) => ({ ...variant, runs: [] })),
+  });
+  for (const variant of analysis.variants) {
+    for (const run of variant.runs) {
+      total += sizeOf(run) + 1;
+      if (total > SIZE_BUDGET_BYTES) return false;
+    }
+  }
+  return true;
+}
 
 export async function runAnalysis(
   inputs: AnalysisInputs,
@@ -388,6 +410,9 @@ export async function runAnalysis(
     counted(representativeRun.work.members);
   }
 
+  // The rest is put together in stretches with a turn for the event loop between them, so that the
+  // largest comparisons do not hold the server for as long as all of it takes together.
+  await yieldNow();
   const findings = generateFindings({
     actors: inputs.actors,
     variants,
@@ -395,16 +420,19 @@ export async function runAnalysis(
     ...(inputs.adverseThreshold === undefined ? {} : { adverseThreshold: inputs.adverseThreshold }),
   });
 
-  const results: VariantResult[] = variants.map((variant) => {
+  const results: VariantResult[] = [];
+  for (const variant of variants) {
+    await yieldNow();
     const runs = records.get(variant.id)!;
-    return {
+    results.push({
       variantId: variant.id,
       runs: runs.map((record) => compactSummary(record.summary)),
       trajectory: trajectoryOf(runs),
       actors: actorTotals(inputs.actors, runs),
-    };
-  });
+    });
+  }
 
+  await yieldNow();
   completedRuns = plan.totalRuns;
   let analysis = assemble('completed', {
     variants: results,
@@ -412,7 +440,7 @@ export async function runAnalysis(
     sensitivity,
     representativeRun,
   });
-  if (sizeOf(analysis) > SIZE_BUDGET_BYTES) {
+  if (!fitsBudget(analysis)) {
     caveats.push(DETAIL_DROPPED);
     analysis = assemble('completed', {
       variants: results.map((result) => ({

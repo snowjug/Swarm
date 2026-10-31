@@ -5,8 +5,13 @@
   display: grid;
   gap: 16px;
   min-width: 0;
-  margin: 0 0 16px;
+  margin: 0;
   padding: 18px 16px;
+}
+/* With no cast to compare the panel only points on: it keeps the stage's own controls on the first screen. */
+.analysis-panel-bare {
+  gap: 10px;
+  padding: 14px 16px;
 }
 .analysis-header {
   display: grid;
@@ -135,12 +140,38 @@
   font-size: 13px;
   line-height: 1.6;
 }
+/* The button that starts a comparison, and what stops it, stay on the screen while the form is longer than
+   it: the one action of the stage is never below the fold. A field that takes focus is kept clear of it. */
+.analysis-submit {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+/* What stops it, in a live region that is there even when empty, sits above the button only when it has something to say. */
+.analysis-submit > div:not(:empty) + div {
+  margin-top: 8px;
+}
+.analysis-setup :is(input, select, summary, button) {
+  scroll-margin-bottom: 84px;
+}
 
 /* While it runs */
 .analysis-progress {
   display: grid;
   gap: 10px;
   justify-items: start;
+}
+/* Starting a comparison brings this into view, below the page's fixed header. */
+.analysis-progress h3 {
+  margin: 0;
+  scroll-margin-top: 90px;
+}
+.analysis-outcome {
+  min-width: 0;
 }
 .analysis-progress > * {
   max-width: 100%;
@@ -495,6 +526,10 @@
 @media (max-width: 640px) {
   .analysis-panel {
     padding: 14px 10px;
+  }
+  .analysis-submit {
+    margin: 0 -10px;
+    padding: 10px;
   }
   .analysis-variant-fields {
     grid-template-columns: minmax(0, 1fr);

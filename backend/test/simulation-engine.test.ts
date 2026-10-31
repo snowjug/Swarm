@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   RESPONSE_CATEGORIES,
   runOutcomeSchema,
@@ -17,7 +17,12 @@ import { derive, stream } from '../src/simulation/random.js';
 import { localRound } from '../src/agents/local.js';
 import { CHANGE_GAIN, GROUP_SPREAD, RATE_MIN, SOCIAL_RATE } from '../src/simulation/parameters.js';
 import { buildPopulation, groupFactor } from '../src/simulation/population.js';
-import { simulate, simulateValidated, SimulationInputError } from '../src/simulation/simulate.js';
+import {
+  simulate,
+  simulateEachSpecOnce,
+  simulateValidated,
+  SimulationInputError,
+} from '../src/simulation/simulate.js';
 import { settingsSchema, type Agent } from '../../shared/types.js';
 import { actor, key, spec, variant } from './support/simulation-cast.js';
 
@@ -70,6 +75,20 @@ function expectWellFormed(outcome: RunOutcome, input: SimulationSpec, seed: numb
   expect(outcome.work.updates).toBe(outcome.work.members * input.rounds);
   expect(outcome.events.length).toBeLessThanOrEqual(200);
 }
+
+describe('running one spec on many seeds', () => {
+  it('validates a spec once, however many seeds it runs, and gives the outcomes of simulate', () => {
+    const input = spec(harmedAndBenefited(), { variant: { intensity: 0.6 }, rounds: 6 });
+    const parse = vi.spyOn(simulationSpecSchema, 'parse');
+    const once = simulateEachSpecOnce();
+    const outcomes = seeds(4, 30).map((seed) => once(input, seed));
+    expect(parse).toHaveBeenCalledTimes(1);
+    parse.mockRestore();
+    expect(outcomes).toEqual(seeds(4, 30).map((seed) => simulate(input, seed)));
+    // A different spec object is a different spec: it is checked, and refused, on its own.
+    expect(() => once({ ...input, rounds: 1 }, 1)).toThrow();
+  });
+});
 
 describe('a run', () => {
   it('is byte-identical for the same spec and seed, from a copy or from JSON, and has no memory', () => {

@@ -12,9 +12,10 @@ import {
   SHOWN_ASSUMPTIONS,
   VARIANT_STYLES,
   percentText,
+  noiseText,
+  pointsText,
   sensitivityView,
   signedNumber,
-  signedPoints,
   stanceAxis,
   type VariantDistribution,
 } from '../../lib/analysis';
@@ -346,7 +347,7 @@ function SensitivityItem({
       <div
         className="analysis-sens-track"
         role="img"
-        aria-label={`${row.label}: the simulated share moved by ${signedPoints(row.shift)} points, with noise of about ${Math.round(row.standardError * 100)} points. ${result.label}. ${origin.label}.`}
+        aria-label={`${row.label}: the simulated share moved by ${pointsText(row.shift)}, with ${noiseText(row.standardError)}. ${result.label}. ${origin.label}.`}
       >
         <span className="analysis-sens-zero" />
         <span
@@ -366,9 +367,8 @@ function SensitivityItem({
         />
       </div>
       <p className="analysis-sens-text">
-        {signedPoints(row.shift)} points of the simulated share (±
-        {Math.round(row.standardError * 100)} noise), from {percentText(row.baseMean)}.{' '}
-        {result.explain}
+        {pointsText(row.shift)} of the simulated share ({noiseText(row.standardError)}), from{' '}
+        {percentText(row.baseMean)}. {result.explain}
       </p>
     </li>
   );
@@ -388,7 +388,7 @@ export function SensitivityBars({
   noEffect?: boolean;
 }) {
   const reach = Math.max(0.1, ...rows.map((row) => Math.abs(row.shift) + row.standardError));
-  const metric = rows[0]?.metric ?? 'Share ending in switch or resist';
+  const metric = rows[0]?.metric ?? 'Simulated share of members ending in switch or resist';
   const shown = rows.slice(0, SHOWN_ASSUMPTIONS);
   const rest = rows.slice(SHOWN_ASSUMPTIONS);
   return (

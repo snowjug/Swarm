@@ -43,11 +43,11 @@ function LegacyRounds({
               <strong>{signed(round.meanOpinion)}</strong>
             </div>
             <div>
-              <span className="mono">SUPPORT SHARE</span>
+              <span className="mono">SIMULATED SUPPORT SHARE</span>
               <strong>{percent(round.supportShare)}</strong>
             </div>
             <div>
-              <span className="mono">OPPOSITION</span>
+              <span className="mono">SIMULATED OPPOSITION</span>
               <strong>{percent(round.oppositionShare)}</strong>
             </div>
             <div>

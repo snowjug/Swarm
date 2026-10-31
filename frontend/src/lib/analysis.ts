@@ -37,6 +37,17 @@ export const signedPoints = (value: number): string => {
   return `${points > 0 ? '+' : ''}${points}`;
 };
 
+/** A shift of the simulated share with its unit, as a person says it: "+1 point", "-2 points", "0 points". */
+export const pointsText = (value: number): string =>
+  `${signedPoints(value)} ${Math.abs(Math.round(value * 100)) === 1 ? 'point' : 'points'}`;
+
+/** The noise of a paired shift. One that rounds to nothing is said to be under a point, because it is not none. */
+export function noiseText(standardError: number): string {
+  const points = Math.round(standardError * 100);
+  if (points < 1) return 'noise under 1 point';
+  return `noise about ${points} ${points === 1 ? 'point' : 'points'}`;
+}
+
 export const signedNumber = (value: number): string => `${value > 0 ? '+' : ''}${value.toFixed(2)}`;
 
 export function durationText(milliseconds: number): string {
@@ -304,7 +315,7 @@ export function chainOf(run: RunOutcome, actors: readonly Actor[]): ChainStep[] 
         const earlier = byId.get(cause);
         return earlier
           ? { kind: 'event' as const, text: `the ${earlier.kind} in round ${earlier.round}` }
-          : { kind: 'signal' as const, text: `the “${cause}” signal` };
+          : { kind: 'signal' as const, text: `the simulated “${cause}” signal` };
       }),
     }));
 }
@@ -313,13 +324,19 @@ const ASSUMPTION_SENTENCE = /\s*Intensity [\d.]+ from round \d+ [^]*$/u;
 
 /**
  * The description of a scenario after a person has edited it. A system-made one says its intensity is a
- * system assumption; once they have set a value that is no longer true, so the sentence is replaced.
+ * system assumption; once they have set a value that is no longer true, so the sentence is replaced. A
+ * scenario the person added has no original, but says its own values in the same sentence, which they
+ * may have changed since it was added; one with no such sentence is left as it is.
  */
 export function describeEdit(
   edited: Pick<Variant, 'description' | 'intensity' | 'round'>,
   original: Pick<Variant, 'intensity' | 'round'> | undefined,
 ): string {
-  if (!original || (edited.intensity === original.intensity && edited.round === original.round)) {
+  const unchanged =
+    original !== undefined &&
+    edited.intensity === original.intensity &&
+    edited.round === original.round;
+  if (unchanged || (original === undefined && !ASSUMPTION_SENTENCE.test(edited.description))) {
     return edited.description;
   }
   const base = edited.description.replace(ASSUMPTION_SENTENCE, '').trimEnd();

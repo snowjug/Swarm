@@ -216,7 +216,7 @@ export async function runSensitivity(input: {
       target: perturbation.target,
       label: perturbation.label,
       perturbation: perturbation.perturbation,
-      metric: `Share ending in switch or resist (all actors equal), ${seeds.length} paired seeds`,
+      metric: `Simulated share of members ending in switch or resist (each actor counts equally), ${seeds.length} paired seeds`,
       baseMean: round4(baseMean),
       shift: round4(shift),
       standardError: round4(noise),

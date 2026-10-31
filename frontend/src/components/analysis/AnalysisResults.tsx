@@ -1,3 +1,4 @@
+import type { RefObject } from 'react';
 import type { Analysis, Finding, Variant } from '../../../../shared/analysis';
 import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
 import {
@@ -82,10 +83,22 @@ export function FindingsList({
 }
 
 /** Three lines first, made only of what the comparison already states, so that the answer is not buried under its evidence. */
-export function ComparisonSummary({ analysis }: { analysis: Analysis }) {
+export function ComparisonSummary({
+  analysis,
+  headingRef,
+}: {
+  analysis: Analysis;
+  headingRef?: RefObject<HTMLElement | null>;
+}) {
   return (
     <section className="analysis-section" aria-labelledby="analysis-summary-title">
-      <h3 id="analysis-summary-title">What this comparison says</h3>
+      <h3
+        id="analysis-summary-title"
+        ref={headingRef as RefObject<HTMLHeadingElement | null> | undefined}
+        tabIndex={-1}
+      >
+        What this comparison says
+      </h3>
       <ul className="analysis-says">
         {comparisonSummary(analysis).map((line) => (
           <li key={line}>{line}</li>
@@ -174,7 +187,14 @@ export function Reliability({ analysis }: { analysis: Analysis }) {
 }
 
 /** Everything a finished comparison shows, in the order a decision is made: the answer, the spread, what holds, what it rests on. */
-export function AnalysisResults({ analysis }: { analysis: Analysis }) {
+export function AnalysisResults({
+  analysis,
+  headingRef,
+}: {
+  analysis: Analysis;
+  /** The heading that takes focus when a comparison that was being watched finishes. */
+  headingRef?: RefObject<HTMLElement | null>;
+}) {
   const distributions = variantDistributions(analysis);
   const unsupported = unsupportedSensitive(analysis.sensitivity);
   const seeds = analysis.config.baseSeed;
@@ -187,7 +207,7 @@ export function AnalysisResults({ analysis }: { analysis: Analysis }) {
           {NO_DIRECTION_NOTICE}
         </Notice>
       )}
-      <ComparisonSummary analysis={analysis} />
+      <ComparisonSummary analysis={analysis} headingRef={headingRef} />
       <p className="analysis-meta">
         {analysis.completedAt ? `Finished ${dateTime(analysis.completedAt)}. ` : ''}
         {analysis.config.variants.length} scenarios × {analysis.config.runsPerVariant} seeded runs,

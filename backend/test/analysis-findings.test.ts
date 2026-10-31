@@ -422,6 +422,16 @@ function wordingProblems(text: string): string[] {
   for (const match of text.matchAll(/\d+(?:\.\d+)?%\s+(?!of simulated\b)/gu)) {
     problems.push(`a percentage that is not of simulated members: ${match[0]}`);
   }
+  const forecast =
+    /\b(?:conversions?|churn\w*|market share|sentiment|adoption|forecasts?|predict\w*|probabilit\w+|likelihood)\b/iu;
+  if (forecast.test(text)) problems.push('uses a word of a forecast or of a measurement of people');
+  // A share is a share of simulated members or of seeded runs; "shares its randomness" is not a share.
+  for (const sentence of text.split(/(?<=[.!?])\s+/u)) {
+    const share = /\bshares?\b(?!\s+(?:its|the|a|an|every|each|with|that|this)\b)/iu;
+    if (share.test(sentence) && !/simulated|seeded run/iu.test(sentence)) {
+      problems.push(`a share that is not said to be simulated: ${sentence}`);
+    }
+  }
   return problems;
 }
 
@@ -438,6 +448,14 @@ describe('the wording of findings', () => {
     expect(
       wordingProblems('In 7 of 12 seeded runs, at least 30% of simulated members were waiting.'),
     ).toEqual([]);
+    expect(
+      wordingProblems('The share leaving rose. The churn is a forecast of simulated members.'),
+    ).toEqual(
+      expect.arrayContaining([
+        'uses a word of a forecast or of a measurement of people',
+        expect.stringContaining('a share that is not said to be simulated'),
+      ]),
+    );
   });
 
   it('says simulated, never promises, and never states a rate of a real population', async () => {

@@ -348,39 +348,41 @@ export function ScenarioSetup({
           lastWallMs,
         )}
       </p>
+      <div className="analysis-submit">
+        <div id={`${id}-problems`} aria-live="polite">
+          {problems.length > 0 && (
+            <ul className="analysis-problems">
+              {problems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          )}
+          {error && (
+            <Notice tone="error" title="The comparison did not start">
+              {error}
+            </Notice>
+          )}
+          {!mayRun && (
+            <Notice tone="info" title="You can read comparisons but not start one">
+              Starting a comparison needs a role that may run the project, such as analyst or lead.
+            </Notice>
+          )}
+        </div>
+        <div className="stage-actions">
+          <button
+            className="button button-primary"
+            type="submit"
+            disabled={problems.length > 0 || !mayRun || starting}
+          >
+            {starting && <Spinner label="Starting the comparison" />} {submitLabel}
+          </button>
+        </div>
+      </div>
       {members > 0 && (
         <p id={`${id}-basis`} className="analysis-estimate">
           {ESTIMATE_BASIS}
         </p>
       )}
-      <div id={`${id}-problems`} aria-live="polite">
-        {problems.length > 0 && (
-          <ul className="analysis-problems">
-            {problems.map((problem) => (
-              <li key={problem}>{problem}</li>
-            ))}
-          </ul>
-        )}
-        {error && (
-          <Notice tone="error" title="The comparison did not start">
-            {error}
-          </Notice>
-        )}
-        {!mayRun && (
-          <Notice tone="info" title="You can read comparisons but not start one">
-            Starting a comparison needs a role that may run the project, such as analyst or lead.
-          </Notice>
-        )}
-      </div>
-      <div className="stage-actions">
-        <button
-          className="button button-primary"
-          type="submit"
-          disabled={problems.length > 0 || !mayRun || starting}
-        >
-          {starting && <Spinner label="Starting the comparison" />} {submitLabel}
-        </button>
-      </div>
     </form>
   );
 }
