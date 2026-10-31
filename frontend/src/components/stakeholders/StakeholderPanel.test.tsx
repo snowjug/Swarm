@@ -758,6 +758,17 @@ describe('the panel stays small until it is opened', () => {
     for (const id of controlled) expect(markup, id).toContain(`id="${id}"`);
   });
 
+  it('names each stakeholder’s row and each actor’s after it, so that a list of them can be moved through by name', () => {
+    const markup = html(withSet({ approvedAt: FIXTURE_TIME }, { actors: actorsView() }));
+    const named = (kind: 'row' | 'actor'): string[] =>
+      [...markup.matchAll(new RegExp(`<li class="stk-${kind}[^"]*" aria-label="([^"]+)"`, 'gu'))]
+        .map((match) => match[1]!)
+        .sort();
+    const sorted = (names: string[]): string[] => [...names].sort();
+    expect(named('row')).toEqual(sorted(stakeholderSetFixture().stakeholders.map((s) => s.name)));
+    expect(named('actor')).toEqual(sorted(actorSetFixture().actors.map((actor) => actor.name)));
+  });
+
   it('asks nothing of the server and offers a person who may only read no way to change anything', () => {
     const shown = withoutHidden(
       html(

@@ -80,7 +80,7 @@ function ActorCard({
   const [open, setOpen] = useState(false);
   const sampleProblem = actor.sampleSize > actor.size;
   return (
-    <li className="stk-actor">
+    <li className="stk-actor" aria-label={actor.name}>
       <div className="stk-row-head">
         <h5 className="stk-row-title">
           <button

@@ -115,7 +115,7 @@ export function StakeholderRow({
   };
 
   return (
-    <li className={`stk-row${removed ? ' stk-row-removed' : ''}`}>
+    <li className={`stk-row${removed ? ' stk-row-removed' : ''}`} aria-label={stakeholder.name}>
       <div className="stk-row-head">
         <h5 className="stk-row-title">
           <button
