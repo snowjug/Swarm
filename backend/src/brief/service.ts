@@ -1,9 +1,12 @@
 import { APP_VERSION } from '../../../shared/types.js';
-import type { BriefView } from '../../../shared/brief.js';
+import { NEWER_ANALYSIS_EXISTS, inputsInWords } from '../../../shared/analysis.js';
+import { MAX_ARTIFACT_BYTES } from '../../../shared/artifacts.js';
+import type { BriefView, DecisionBrief } from '../../../shared/brief.js';
 import { isOpenConflict } from '../../../shared/evidence.js';
 import { AppError } from '../errors.js';
 import { detectContradictions } from '../grounding/contradictions.js';
 import { assessSufficiency } from '../grounding/ledger.js';
+import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
 import { buildBrief } from './build.js';
@@ -14,6 +17,13 @@ import { briefVisuals } from './visuals.js';
 type AnalysisRecord = ArtifactRecord<'analysis'>;
 
 const when = (record: AnalysisRecord): string => record.data.completedAt ?? record.data.createdAt;
+
+/** The brief as the routes hand it out: the snapshot of its charts is sent as `visuals`, not twice. */
+function withoutSnapshot(brief: DecisionBrief): DecisionBrief {
+  const shown = { ...brief };
+  delete shown.snapshot;
+  return shown;
+}
 
 /** What the brief needs from the project, read without changing anything. */
 function ledgerSummaryOf(repository: Repository, projectId: string): BriefLedgerSummary {
@@ -117,8 +127,75 @@ export class BriefService {
         'That analysis recorded no runs, so there is nothing to write a brief from. Run it again.',
       );
     }
-    const brief = buildBrief(this.inputs(projectId, record, this.clock().toISOString()));
+    const inputs = this.inputs(projectId, record, this.clock().toISOString());
+    const made = buildBrief(inputs);
+    // The brief's words describe the scenario and the stakeholders as they are now, and its numbers
+    // come from a comparison that may have been run on earlier ones: it says so, in the brief itself.
+    const earlier = changedInputs(record.data.inputRevisions, undefined, inputs.inputRevisions ?? {});
+    const notes =
+      earlier.length > 0 && made.methodology.notes.length < 10
+        ? [
+            ...made.methodology.notes,
+            `The comparison this brief rests on was run before ${inputsInWords(earlier)} changed, so the brief describes the project as it was. Run the comparison again, then write the brief again.`,
+          ]
+        : made.methodology.notes;
+    const brief: DecisionBrief = {
+      ...made,
+      methodology: { ...made.methodology, notes },
+      snapshot: briefVisuals(gatherFacts(inputs)),
+    };
+    // A snapshot that would not fit is left out: the page and the exports then say they draw from the project as it is.
+    if (Buffer.byteLength(JSON.stringify(brief), 'utf8') > MAX_ARTIFACT_BYTES) {
+      delete brief.snapshot;
+    }
     return this.repository.artifacts.put(projectId, 'brief', 'default', brief);
+  }
+
+  /** What the project's documents are now, in the names a brief records them by. */
+  private revisionsNow(projectId: string, analysis: AnalysisRecord | null): Revisions {
+    const { artifacts } = this.repository;
+    return {
+      ...inputRevisionsNow(artifacts, projectId),
+      ...(analysis ? { analysis: analysis.revision } : {}),
+      critiques: artifacts.get(projectId, 'critiques')?.revision ?? 0,
+    };
+  }
+
+  /**
+   * What has changed since the brief was made. The scenario, the stakeholders and the actors are
+   * checked against what the comparison recorded, not against when the brief was written, so that
+   * writing it again from the same comparison does not make it look current.
+   */
+  private changedSince(
+    stored: ArtifactRecord<'brief'>,
+    analysis: AnalysisRecord | null,
+    latest: AnalysisRecord | null,
+    now: Revisions,
+  ): string[] {
+    const made = stored.data.inputRevisions;
+    const changed: string[] = changedInputs(analysis?.data.inputRevisions, made, now);
+    if (now.critiques !== (made.critiques ?? now.critiques)) changed.push('critiques');
+    if (!analysis) changed.push('analysis (no longer stored)');
+    else if (analysis.revision !== (made.analysis ?? analysis.revision)) changed.push('analysis');
+    if (latest && latest.key !== stored.data.analysisId) changed.push(NEWER_ANALYSIS_EXISTS);
+    return changed;
+  }
+
+  /**
+   * The charts' data: the snapshot kept with the brief, so that they agree with its words whatever has
+   * changed since, or, for a brief made before one was kept, the project's documents as they are now.
+   */
+  private visualsOf(
+    projectId: string,
+    stored: ArtifactRecord<'brief'>,
+    analysis: AnalysisRecord | null,
+  ): Pick<BriefView, 'visuals' | 'visualsFrom'> {
+    if (stored.data.snapshot) return { visuals: stored.data.snapshot, visualsFrom: 'snapshot' };
+    if (!analysis) return { visuals: null, visualsFrom: null };
+    return {
+      visuals: briefVisuals(gatherFacts(this.inputs(projectId, analysis))),
+      visualsFrom: 'current',
+    };
   }
 
   /** The stored brief, its charts' data, and whether anything it was made from has since changed. */
@@ -127,23 +204,20 @@ export class BriefService {
     const latest = this.latestAnalysis(projectId);
     const latestAnalysis = latest ? { id: latest.key, completedAt: latest.data.completedAt } : null;
     const stored = artifacts.get(projectId, 'brief');
-    if (!stored) return { brief: null, visuals: null, latestAnalysis, changedSince: [], may };
+    if (!stored) {
+      return { brief: null, visuals: null, visualsFrom: null, latestAnalysis, changedSince: [], may };
+    }
     const analysis = artifacts.get(projectId, 'analysis', stored.data.analysisId);
-    const changed: string[] = [];
-    for (const kind of ['scenario', 'stakeholders', 'actors', 'critiques'] as const) {
-      const now = artifacts.get(projectId, kind)?.revision ?? 0;
-      if (now !== (stored.data.inputRevisions[kind] ?? now)) changed.push(kind);
-    }
-    if (!analysis) changed.push('analysis (no longer stored)');
-    else if (analysis.revision !== (stored.data.inputRevisions.analysis ?? analysis.revision)) {
-      changed.push('analysis');
-    }
-    if (latest && latest.key !== stored.data.analysisId) changed.push('a newer analysis exists');
     return {
-      brief: stored.data,
-      visuals: analysis ? briefVisuals(gatherFacts(this.inputs(projectId, analysis))) : null,
+      brief: withoutSnapshot(stored.data),
+      ...this.visualsOf(projectId, stored, analysis),
       latestAnalysis,
-      changedSince: changed,
+      changedSince: this.changedSince(
+        stored,
+        analysis,
+        latest,
+        this.revisionsNow(projectId, analysis),
+      ),
       may,
     };
   }
@@ -159,11 +233,18 @@ export class BriefService {
       );
     }
     const analysis = this.repository.artifacts.get(projectId, 'analysis', stored.data.analysisId);
+    const now = this.revisionsNow(projectId, analysis);
+    const { visuals, visualsFrom } = this.visualsOf(projectId, stored, analysis);
     return {
-      brief: stored.data,
-      visuals: analysis ? briefVisuals(gatherFacts(this.inputs(projectId, analysis))) : null,
+      brief: withoutSnapshot(stored.data),
+      visuals,
       project: { id: projectId, name: projectName },
       appVersion: APP_VERSION,
+      freshness: {
+        changedSince: this.changedSince(stored, analysis, this.latestAnalysis(projectId), now),
+        currentRevisions: now,
+        visuals: visualsFrom === 'snapshot' ? 'snapshot' : 'current',
+      },
     };
   }
 }
