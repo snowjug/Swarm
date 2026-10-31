@@ -18,6 +18,7 @@ import {
   initialStep,
   isBusy,
   isGuided,
+  labRefreshToken,
   labWatch,
   nextStep,
   stepAvailable,
@@ -177,6 +178,12 @@ export function ConsoleWorkspace({
     refresh: readQuietly,
   });
   const reading = refreshing && !quiet;
+  // The brief and the review read again when the person asks for a fresh read of the project and when the
+  // lab's record changes; the brief also when the review beside it changes, which its freshness depends on.
+  const [freshReads, setFreshReads] = useState(0);
+  const [reviewChanges, setReviewChanges] = useState(0);
+  const labToken = labRefreshToken(project, freshReads);
+  const reviewChanged = useCallback(() => setReviewChanges((count) => count + 1), []);
   const move = guided && !comparing && !studioOpen ? nextStep(project, step) : null;
   // The button that moved the person is gone, or says something else, in the stage it opened: focus
   // goes to the stage itself, so that a keyboard or screen reader user starts there, not on the page.
@@ -300,6 +307,7 @@ export function ConsoleWorkspace({
             disabled={reading || busy}
             onClick={() => {
               setQuiet(false);
+              setFreshReads((count) => count + 1);
               onRefresh();
             }}
             aria-label="Refresh project from server"
@@ -419,8 +427,17 @@ export function ConsoleWorkspace({
       {guided && step === 'report' && !comparing && !studioOpen && (
         <>
           <div className="seam-stack" onClickCapture={nudge}>
-            <DecisionBriefView project={project} />
-            <CriticPanel project={project} />
+            <DecisionBriefView
+              project={project}
+              refreshToken={`${labToken}:${reviewChanges}`}
+              onNavigate={navigate}
+            />
+            <CriticPanel
+              project={project}
+              refreshToken={labToken}
+              onChanged={reviewChanged}
+              onNavigate={navigate}
+            />
           </div>
           <div className="detailed-report">
             <h2>Detailed report</h2>

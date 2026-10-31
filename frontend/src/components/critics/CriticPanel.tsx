@@ -15,6 +15,7 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
+import { inputsInWords, staleComparisonInputs } from '../../../../shared/analysis';
 import {
   CRITIQUE_SEVERITIES,
   CRITIQUE_STATUSES,
@@ -25,6 +26,7 @@ import {
   type CritiqueStatus,
   type CritiquesView,
 } from '../../../../shared/critique';
+import type { ConsoleStep } from '../../../../shared/guided';
 import type { ProjectDetail } from '../../../../shared/types';
 import { useCritiques, type CritiquesState } from '../../hooks/useCritiques';
 import {
@@ -48,6 +50,12 @@ import { EmptyPanel, Notice, Spinner } from '../ui';
 
 export interface CriticPanelProps {
   project: ProjectDetail;
+  /** The review is read again whenever this changes: a fresh read of the project, or a change to the lab's record. */
+  refreshToken?: string;
+  /** Told after the server took a change to the review, so that the brief beside it can read its freshness again. */
+  onChanged?: () => void;
+  /** Moves to another stage, so that a review of an out-of-date comparison can send the person to run a new one. */
+  onNavigate?: (step: ConsoleStep) => void;
 }
 
 const SEVERITY_ICON: Record<CritiqueSeverity, LucideIcon> = {
@@ -107,9 +115,15 @@ const StatusChip = ({ status }: { status: CritiqueStatus }) => (
 /** What a person says to one critique: the words, what is still disputed, and what the answer means. */
 function ResponseForm({ critique, state }: { critique: Critique; state: CritiquesState }) {
   const id = useId();
-  const [text, setText] = useState(critique.response?.text ?? '');
-  const [remaining, setRemaining] = useState(critique.remainingDisagreement ?? '');
+  // What the person has typed, or null while a field is untouched: an untouched field shows what the
+  // review holds, so an answer that someone else gave, once the review is read again, is not hidden
+  // behind an older copy; a field that was typed in keeps the words until they are saved.
+  const [typed, setTyped] = useState<string | null>(null);
+  const [typedRemaining, setTypedRemaining] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  const text = typed ?? critique.response?.text ?? '';
+  const remaining = typedRemaining ?? critique.remainingDisagreement ?? '';
   const busy = state.answering === critique.id;
   const failure =
     problem ?? (state.answerError?.id === critique.id ? state.answerError.message : null);
@@ -120,15 +134,24 @@ function ResponseForm({ critique, state }: { critique: Critique; state: Critique
       return;
     }
     setProblem(null);
-    await state.respond(critique.id, {
+    const saved = await state.respond(critique.id, {
       text: text.trim(),
       status,
       remainingDisagreement: remaining.trim() === '' ? null : remaining.trim(),
     });
+    if (saved) {
+      setTyped(null);
+      setTypedRemaining(null);
+      setOpen(false);
+    }
   };
 
   return (
-    <details className="critic-answer">
+    <details
+      className="critic-answer"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>{critique.response ? 'Change your response' : 'Respond to this criticism'}</summary>
       <form
         className="critic-form"
@@ -145,7 +168,7 @@ function ResponseForm({ critique, state }: { critique: Critique; state: Critique
             value={text}
             disabled={busy}
             onChange={(event) => {
-              setText(event.target.value);
+              setTyped(event.target.value);
               setProblem(null);
             }}
           />
@@ -158,7 +181,7 @@ function ResponseForm({ critique, state }: { critique: Critique; state: Critique
             maxLength={600}
             value={remaining}
             disabled={busy}
-            onChange={(event) => setRemaining(event.target.value)}
+            onChange={(event) => setTypedRemaining(event.target.value)}
           />
         </div>
         <div aria-live="polite">
@@ -281,13 +304,7 @@ function CritiqueCard({
           </div>
         )}
       </dl>
-      {canRespond && (
-        <ResponseForm
-          key={`${critique.id}:${critique.response?.at ?? ''}`}
-          critique={critique}
-          state={state}
-        />
-      )}
+      {canRespond && <ResponseForm key={critique.id} critique={critique} state={state} />}
     </article>
   );
 }
@@ -434,8 +451,51 @@ function RunControls({ view, state }: { view: CritiquesView; state: CritiquesSta
   );
 }
 
+/**
+ * One notice when the comparison this review is of was run before the scenario, the stakeholders or
+ * the actors changed: the review describes the project as it was, and running the review again on that
+ * comparison would not change that. A newer comparison is said by the notice above this one instead.
+ */
+function ReviewFreshness({
+  view,
+  onNavigate,
+}: {
+  view: CritiquesView;
+  onNavigate?: (step: ConsoleStep) => void;
+}) {
+  const inputs = staleComparisonInputs(view.changedSince);
+  if (view.critiques === null || inputs.length === 0) return null;
+  return (
+    <Notice
+      tone="warning"
+      title="This review may be out of date"
+      action={
+        onNavigate ? (
+          <button
+            className="button button-secondary button-small"
+            type="button"
+            onClick={() => onNavigate('simulation')}
+          >
+            Open the Simulation stage
+          </button>
+        ) : undefined
+      }
+    >
+      The comparison it reviews was run before {inputsInWords(inputs)} changed, so it describes the
+      project as it was. Run the comparison again in the Simulation stage, then run the review
+      again.
+    </Notice>
+  );
+}
+
 /** The independent review: criticisms by critic, each with its basis, its impact and the answer to it. */
-export function CriticReview({ state }: { state: CritiquesState }) {
+export function CriticReview({
+  state,
+  onNavigate,
+}: {
+  state: CritiquesState;
+  onNavigate?: (step: ConsoleStep) => void;
+}) {
   const headingId = useId();
   const { view, loading, error, reload } = state;
 
@@ -464,11 +524,13 @@ export function CriticReview({ state }: { state: CritiquesState }) {
     const lead = set ? leadCritique(set.critiques) : null;
     body = (
       <>
-        {isOutOfDate(view) && (
+        {isOutOfDate(view) ? (
           <Notice tone="warning" title="This review is of an earlier analysis">
             A newer analysis has finished since. Run the review again to challenge it; responses to
             criticisms that come back unchanged are kept.
           </Notice>
+        ) : (
+          <ReviewFreshness view={view} onNavigate={onNavigate} />
         )}
         {lead && <LeadCritique critique={lead} state={state} canRespond={view.may.respond} />}
         {set?.notes && set.notes.length > 0 && (
@@ -554,12 +616,17 @@ export function CriticReview({ state }: { state: CritiquesState }) {
 }
 
 /** One session of the review for one project: switching project starts it afresh. */
-function CriticSession({ projectId }: { projectId: string }) {
-  const state = useCritiques(projectId);
-  return <CriticReview state={state} />;
+function CriticSession({
+  projectId,
+  refreshToken,
+  onChanged,
+  onNavigate,
+}: { projectId: string } & Omit<CriticPanelProps, 'project'>) {
+  const state = useCritiques(projectId, { refreshOn: refreshToken, onChanged });
+  return <CriticReview state={state} onNavigate={onNavigate} />;
 }
 
 /** Independent challenges to the analysis, with responses. */
-export function CriticPanel({ project }: CriticPanelProps) {
-  return <CriticSession key={project.id} projectId={project.id} />;
+export function CriticPanel({ project, ...session }: CriticPanelProps) {
+  return <CriticSession key={project.id} projectId={project.id} {...session} />;
 }

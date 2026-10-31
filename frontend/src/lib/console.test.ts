@@ -10,6 +10,7 @@ import {
   journey,
   journeyItems,
   keepLab,
+  labRefreshToken,
   labWatch,
   needsPolling,
   nextStep,
@@ -513,6 +514,41 @@ describe('when the page reads the project again by itself', () => {
     plain.console = null;
     plain.lab = lab({ ...WITH_ACTORS, analysis: 'running' });
     expect(labWatch(plain, 'simulation')).toBeNull();
+  });
+});
+
+describe('what the brief and the review read again on', () => {
+  const tokenOf = (change: Partial<LabProgress> | undefined, reads = 0) => {
+    const project = projectFixture();
+    if (change) project.lab = lab(change);
+    return labRefreshToken(project, reads);
+  };
+  const FINISHED = { stakeholders: 'approved', actors: 5, analysis: 'completed' } as const;
+
+  it('changes each time a person asks for a fresh read of the project, though nothing in the record moved', () => {
+    const first = tokenOf(FINISHED, 0);
+    expect(tokenOf(FINISHED, 0)).toBe(first);
+    expect(tokenOf(FINISHED, 1)).not.toBe(first);
+    expect(tokenOf(FINISHED, 2)).not.toBe(tokenOf(FINISHED, 1));
+  });
+
+  it('changes when the lab’s record does: a comparison finished, a review made, a brief written', () => {
+    const tokens = [
+      tokenOf({ ...FINISHED, analysis: 'running' }),
+      tokenOf(FINISHED),
+      tokenOf({ ...FINISHED, critiques: true }),
+      tokenOf({ ...FINISHED, critiques: true, brief: true }),
+      tokenOf({ ...FINISHED, stakeholders: 'proposed' }),
+    ];
+    expect(new Set(tokens).size).toBe(tokens.length);
+  });
+
+  it('is the same for a project that carries no record, and does not depend on its timestamp', () => {
+    expect(tokenOf(undefined)).toBe(tokenOf(undefined));
+    const project = projectFixture();
+    project.lab = lab(FINISHED);
+    const later = { ...project, updatedAt: '2030-01-01T00:00:00.000Z' };
+    expect(labRefreshToken(later, 0)).toBe(labRefreshToken(project, 0));
   });
 });
 
