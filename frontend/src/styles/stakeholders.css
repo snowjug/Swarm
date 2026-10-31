@@ -467,6 +467,9 @@
 .stk-cohort {
   max-width: 520px;
 }
+.stk-traits {
+  container: stk-traits / inline-size;
+}
 .stk-traits table {
   width: 100%;
   border-collapse: collapse;
@@ -527,6 +530,19 @@
     flex: 1 1 auto;
     justify-content: center;
   }
+  .stk-priority {
+    width: 100%;
+    margin-left: 0;
+  }
+  .stk-actions .button,
+  .stk-buttons .button {
+    min-height: 44px;
+  }
+}
+
+/* The traits are a table of four columns that needs about 640px; in a narrower place, such as the split
+   view or a phone, each trait is stacked, so that the reason is never squeezed into a strip. */
+@container stk-traits (max-width: 639px) {
   .stk-traits table,
   .stk-traits tbody,
   .stk-traits tr,
@@ -550,13 +566,5 @@
   .stk-traits td {
     padding: 2px 0;
     border-top: 0;
-  }
-  .stk-priority {
-    width: 100%;
-    margin-left: 0;
-  }
-  .stk-actions .button,
-  .stk-buttons .button {
-    min-height: 44px;
   }
 }

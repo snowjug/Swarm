@@ -88,6 +88,31 @@ describe('where the workspace mounts the feature panels', () => {
     );
   });
 
+  it('frames what is left of Env Setup as an optional deep dive under the panel, with no main button of its own', () => {
+    const waiting = projectFixture();
+    waiting.status = 'ready';
+    waiting.console!.steps.knowledge = 'ready';
+    for (const project of [waiting, checkpointFixture()]) {
+      const html = render(project, 'environment');
+      const heading = html.indexOf('Deep dive (optional): fixed proxies');
+      expect(html.indexOf('data-seam="stakeholders"')).toBeLessThan(heading);
+      expect(heading).toBeLessThan(html.indexOf('Fixed proxies · '));
+      expect(heading).toBeLessThan(html.indexOf('Fictional proxies, not digital copies of people'));
+      expect(visibleText(html)).toContain('separate from the stakeholder actors above');
+      expect(visibleText(html)).toContain('the comparison does not need it');
+      expect(html).not.toContain('Env Setup · ');
+      expect(html).not.toContain('class="button button-primary"');
+    }
+    const html = render(waiting, 'environment');
+    expect(html.indexOf('Deep dive (optional): fixed proxies')).toBeLessThan(
+      html.indexOf('Prepare fictional environment'),
+    );
+    expect(html).toMatch(/class="button button-secondary"[^>]*>(?:<svg[^>]*>.*?<\/svg>)?Prepare/u);
+    expect(html.indexOf('Prepare fictional environment')).toBeLessThan(
+      html.indexOf('No prepared environment yet'),
+    );
+  });
+
   it('puts the analysis panel in the Simulation stage, above the run controls, and says what they are', () => {
     const html = render(checkpointFixture(), 'simulation');
     expect(seams(html)).toEqual(['analysis']);
@@ -275,15 +300,34 @@ describe('what the workspace does once the scenario lab has recorded something',
     expect(stageButton(html, 'Report').tag).toContain('disabled');
   });
 
-  it('opens with the workbench alone once there are simulated actors, and in the split view otherwise', () => {
-    const plain = render(checkpointFixture(), 'simulation');
-    expect(plain).toContain('class="console-grid view-split');
-    expect(plain).toContain('console-canvas');
-    expect(viewControl(plain)).toEqual({ Graph: false, Split: true, Workbench: false });
-    const actors = render(withLab({ stakeholders: 'approved', actors: 5 }), 'simulation');
-    expect(actors).toContain('class="console-grid view-workbench');
-    expect(actors).not.toContain('console-canvas');
-    expect(viewControl(actors)).toEqual({ Graph: false, Split: false, Workbench: true });
+  it('opens in the view that suits the stage: the whole width for Env Setup, the map or the report beside the stage in Graph Build and Interaction', () => {
+    const gridView = (html: string) => /class="console-grid (view-\w+)/u.exec(html)?.[1];
+    const actors = { stakeholders: 'approved', actors: 5 } as const;
+    for (const progress of [{}, actors]) {
+      const html = render(withLab(progress), 'environment');
+      expect(gridView(html)).toBe('view-workbench');
+      expect(html).not.toContain('console-canvas');
+      expect(viewControl(html)).toEqual({ Graph: false, Split: false, Workbench: true });
+    }
+    for (const step of ['knowledge', 'interaction'] as const) {
+      const html = render(withLab(actors), step);
+      expect(gridView(html), step).toBe('view-split');
+      expect(html).toContain('console-canvas');
+      expect(viewControl(html)).toEqual({
+        [step === 'knowledge' ? 'Graph' : 'Report']: false,
+        Split: true,
+        Workbench: false,
+      });
+    }
+    // The comparison and the brief have the width once there are actors and a finished comparison;
+    // a project with only the engine's own record keeps its graph and its reader beside the stage.
+    expect(gridView(render(withLab(actors), 'simulation'))).toBe('view-workbench');
+    expect(gridView(render(withLab(FINISHED), 'report'))).toBe('view-workbench');
+    for (const step of ['simulation', 'report'] as const) {
+      const plain = render(checkpointFixture(), step);
+      expect(gridView(plain), step).toBe('view-split');
+      expect(plain).toContain('console-canvas');
+    }
   });
 
   it('ticks the journey from the lab’s record', () => {

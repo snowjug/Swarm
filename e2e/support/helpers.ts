@@ -326,3 +326,38 @@ export async function expectTargetSizes(page: Page, label: string): Promise<void
   );
   expect(small, `targets under 24px: ${label}`).toEqual([]);
 }
+
+/**
+ * On a phone a finger, not a pointer, reaches a control, and docs/UX.md asks for 44x44 CSS px. A
+ * checkbox or a radio is reached by its label, which counts as its target, and a link that stands in a
+ * line of text is exempt. `scope` is where to look, for a dialog that has the page behind it.
+ */
+export async function expectTouchTargets(page: Page, label: string, scope = 'body'): Promise<void> {
+  const small = await page.evaluate((root) => {
+    const found: string[] = [];
+    const controls = document
+      .querySelector(root)!
+      .querySelectorAll(
+        'button, a, input:not([type=hidden]), select, textarea, summary, [role=tab], [role=button]',
+      );
+    for (const element of controls) {
+      if (element.closest('svg, .sr-only, [hidden], .skip-link')) continue;
+      const style = getComputedStyle(element);
+      if (style.visibility === 'hidden' || (element.tagName === 'A' && style.display === 'inline'))
+        continue;
+      const own = element.getBoundingClientRect();
+      if (!own.width || !own.height) continue;
+      const reached =
+        element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
+          ? (element.labels?.[0]?.getBoundingClientRect() ?? own)
+          : own;
+      if (reached.width < 43.5 || reached.height < 43.5) {
+        found.push(
+          `${element.tagName.toLowerCase()}.${element.className} ${Math.round(reached.width)}x${Math.round(reached.height)} "${(element.getAttribute('aria-label') ?? element.textContent ?? '').trim().slice(0, 28)}"`,
+        );
+      }
+    }
+    return found;
+  }, scope);
+  expect(small, `touch targets under 44px: ${label}`).toEqual([]);
+}

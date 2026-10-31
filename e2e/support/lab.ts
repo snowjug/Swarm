@@ -515,6 +515,30 @@ export async function seedThroughActors(
   return id;
 }
 
+/** Takes a project on from its actors to a finished comparison, an independent review and the brief, over HTTP. */
+export async function seedThroughBrief(
+  page: Page,
+  seed: Parameters<typeof seedThroughActors>[1],
+): Promise<string> {
+  const id = await seedThroughActors(page, seed);
+  const started = await page.request.post(`/api/projects/${id}/analysis`, { data: {} });
+  expect(started.status(), await started.text()).toBe(202);
+  await expect
+    .poll(
+      async () =>
+        (
+          await getJson<{ analyses: { status: string }[] }>(page, `/api/projects/${id}/analysis`)
+        ).analyses.map((analysis) => analysis.status),
+      { timeout: 90_000 },
+    )
+    .toContain('completed');
+  const reviewed = await page.request.post(`/api/projects/${id}/critiques/run`, { data: {} });
+  expect(reviewed.ok(), await reviewed.text()).toBe(true);
+  const written = await page.request.post(`/api/projects/${id}/brief`, { data: {} });
+  expect(written.status(), await written.text()).toBe(201);
+  return id;
+}
+
 /** Opens an attached document in the evidence list and replaces its text, as a person correcting a source would. */
 export async function editSource(page: Page, name: string, content: string): Promise<void> {
   const file = sourceMaterial(page).locator('details.source-file').filter({ hasText: name });

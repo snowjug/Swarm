@@ -394,13 +394,6 @@
     flex: 1;
     padding: 6px 3px;
   }
-  .project-metadata > summary {
-    min-height: 44px;
-    line-height: 1.6;
-    padding: 6px 0;
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
   .log-toolbar {
     flex-wrap: wrap;
     gap: 8px;
@@ -417,5 +410,43 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 2px;
     border-top: 1px solid var(--t-bd-353d48);
+  }
+}
+
+/* A finger needs 44px (docs/UX.md). These controls are custom, and the stylesheets that come after this
+   one give each a smaller minimum with a selector as strong as its own, so every selector here starts
+   with `body` to outrank them. A disclosure keeps its own layout and grows by padding; a checkbox is
+   reached by its label, which fills the row. */
+@media (max-width: 640px) {
+  body :is(.stk-toggle, .stk-row-toggle, .history-open, .source-chip, .brief-nav a) {
+    min-height: 44px;
+  }
+  body
+    :is(
+      .stk-assumptions,
+      .stk-again,
+      .stk-removed,
+      .intake-more,
+      .analysis-more,
+      .analysis-table-toggle,
+      .analysis-predicate,
+      .analysis-another
+    )
+    > summary,
+  body :is(.brief, .critic-answer, .critic-explain) summary {
+    min-height: 44px;
+    padding-block: 11px;
+  }
+  body .project-metadata > summary {
+    min-height: 44px;
+    line-height: 1.6;
+    padding: 6px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  body .critic-check label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
 }

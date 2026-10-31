@@ -88,7 +88,8 @@ export function summarise(
   };
 }
 
-export type NextActionId = 'review' | 'add' | 'approve' | 'make-actors' | 'review-actors';
+export type NextActionId =
+  'review' | 'approval' | 'add' | 'approve' | 'make-actors' | 'review-actors';
 
 export interface NextAction {
   id: NextActionId;
@@ -108,6 +109,8 @@ export function nextAction(input: {
   may: { edit: boolean; run: boolean };
   /** How many of the actors the person has changed: approving keeps those instead of making them again. */
   editedActors?: number;
+  /** Whether the list is open: it is being read, so the way on is the approval at the end of it. */
+  listOpen?: boolean;
 }): NextAction | null {
   const { set, actors, may } = input;
   const { found, needReview, actors: made } = summarise(set, actors);
@@ -118,6 +121,9 @@ export function nextAction(input: {
     }
     if (found < 2) return { id: 'add', label: 'Add a stakeholder', primary: true };
     if (needReview > 0) {
+      if (input.listOpen && allowed) {
+        return { id: 'approval', label: 'Go to approval', primary: false };
+      }
       return { id: 'review', label: `Review ${count(needReview, 'stakeholder')}`, primary: true };
     }
     if (!allowed) return null;

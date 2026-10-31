@@ -7,9 +7,20 @@ import {
   expectNoHorizontalOverflow,
   expectReadableText,
   expectTargetSizes,
+  expectTouchTargets,
   seed,
   watchPage,
 } from '../support/helpers';
+import {
+  CITY_BRIEFING,
+  CITY_QUESTION,
+  briefDocument,
+  comparisonPanel,
+  openStage,
+  reviewPanel,
+  seedThroughBrief,
+  stakeholderPanel,
+} from '../support/lab';
 
 // The shell around the features: the first screen, the example picker, the guided and advanced modes,
 // the journey and the help under each stage, in every theme and at the width of a desktop and a phone.
@@ -200,12 +211,27 @@ test.describe('guided and advanced', () => {
 
 test.describe('the workspace', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
-  const ids = {} as Record<'environment' | 'report', string>;
+  const ids = {} as Record<'knowledge' | 'environment' | 'report', string>;
 
   test.beforeAll(async ({ playwright }) => {
     const api = await apiContext(playwright);
+    ids.knowledge = await seed(api, 'knowledge', { name: 'Shell: graph stage' });
     ids.environment = await seed(api, 'environment', { name: 'Shell: environment stage' });
     ids.report = await seed(api, 'report', { name: 'Shell: report stage' });
+  });
+
+  test('keeps a button that stands alone as wide as its words on a desktop, and across the column on a phone', async ({
+    page,
+  }) => {
+    const alone = async (width: number, height: number) => {
+      await page.setViewportSize({ width, height });
+      await page.goto(`/?project=${ids.knowledge}`);
+      await openStage(page, /Env Setup/u);
+      const prepare = page.getByRole('button', { name: 'Prepare fictional environment' });
+      return (await prepare.boundingBox())!.width;
+    };
+    expect(await alone(1440, 900)).toBeLessThan(400);
+    expect(await alone(390, 844)).toBeGreaterThan(300);
   });
 
   test('keeps the five stage names and says in plain words what each is for', async ({ page }) => {
@@ -254,6 +280,78 @@ test.describe('the workspace', () => {
     await expect(path.getByRole('button')).toHaveCount(0);
     // Nothing in the path is claimed that the project's own record does not show.
     await expect(path.locator('.journey-step.done')).toHaveCount(5);
+  });
+
+  const STEPS = [
+    'Question',
+    'Evidence',
+    'Stakeholders',
+    'Actors',
+    'Scenarios',
+    'Run',
+    'Progress',
+    'Results',
+    'Explore',
+    'Change',
+    'Compare',
+    'Export',
+  ];
+  for (const size of [
+    { name: 'a desktop', width: 1440, height: 900 },
+    { name: 'a phone', width: 390, height: 844 },
+  ]) {
+    test(`names every step of the path to a screen reader on ${size.name}, drawn or not`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: size.width, height: size.height });
+      await page.goto(`/?project=${ids.environment}`);
+      const steps = page
+        .getByRole('group', { name: 'Your path through the scenario' })
+        .getByRole('list');
+      await expect(steps).toBeVisible();
+      // The accessibility tree is what a screen reader reads: each step by its name, then where it stands.
+      await expect(steps).toMatchAriaSnapshot(
+        [
+          '- list:',
+          ...STEPS.map((step) => `  - listitem: /^${step}\\s*, (in view, )?(done|not done yet)$/`),
+        ].join('\n'),
+      );
+    });
+  }
+
+  test('draws the stage in view and the mode chosen by their edge when the palette is forced', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.goto(`/?project=${ids.environment}`);
+    const edges = (buttons: Locator) =>
+      buttons.evaluateAll((elements) =>
+        elements.map((element) => getComputedStyle(element).borderTopStyle),
+      );
+    // The fills that told them apart are gone: the stage in view is double, one that cannot be opened is
+    // dashed, and the rest are plain.
+    const stages = page
+      .getByRole('navigation', { name: 'Guided workflow steps' })
+      .getByRole('button');
+    await expect(stages.nth(1)).toHaveAttribute('aria-current', 'step');
+    expect(await edges(stages)).toEqual(['solid', 'double', 'solid', 'dashed', 'dashed']);
+    expect(
+      await edges(page.getByRole('group', { name: 'Interface mode' }).getByRole('button')),
+    ).toEqual(['double', 'solid']);
+  });
+
+  test('says in the agent picker of Interaction that it holds the deep-dive proxies, and not every actor', async ({
+    page,
+  }) => {
+    await page.goto(`/?project=${ids.report}`);
+    await openStage(page, /Interaction/u);
+    await page.getByRole('tab', { name: /Any fictional agent/u }).click();
+    const picker = page.getByLabel('Fictional agent context');
+    await expect(picker.locator('optgroup')).toHaveAttribute(
+      'label',
+      /^Deep-dive proxies \(\d+\)$/u,
+    );
+    await expect(picker).toHaveAccessibleDescription(/not every actor approved in Env Setup/u);
   });
 
   test('puts the help away in Advanced, and keeps every stage reachable', async ({ page }) => {
@@ -333,6 +431,64 @@ for (const size of SIZES) {
     }
   });
 }
+
+test.describe('a finger on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('reaches every control of the lab at 44px: the stakeholders, the comparison, the brief and the dialogs', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const problems = watchPage(page);
+    const id = await seedThroughBrief(page, {
+      title: 'Shell: touch targets',
+      question: CITY_QUESTION,
+      documents: [CITY_BRIEFING],
+    });
+    await page.goto(`/?project=${id}`);
+    await expectTouchTargets(page, 'the first stage of a project');
+
+    await openStage(page, /Env Setup/u);
+    const panel = stakeholderPanel(page);
+    await panel.getByRole('button', { name: /^Stakeholders \d+$/u }).click();
+    await panel
+      .locator('ul[aria-label="Stakeholders, key actors first"] > li')
+      .first()
+      .locator('button.stk-row-toggle')
+      .click();
+    await expectTouchTargets(page, 'stakeholders: the list open, a row open');
+    await panel.getByRole('button', { name: /^Actors \d+$/u }).click();
+    await panel
+      .locator('ul[aria-label="Actors"] > li')
+      .first()
+      .locator('button.stk-row-toggle')
+      .click();
+    await expectTouchTargets(page, 'stakeholders: the actors open, an actor open');
+
+    await openStage(page, /Simulation/u);
+    await expect(
+      comparisonPanel(page).getByRole('heading', { name: 'What this comparison says' }),
+    ).toBeVisible();
+    await expectTouchTargets(page, 'the comparison with its results');
+
+    await openStage(page, /Report/u);
+    await expect(briefDocument(page)).toBeVisible();
+    await expect(reviewPanel(page)).toBeVisible();
+    await expectTouchTargets(page, 'the report: the decision brief and the independent review');
+
+    for (const [name, dialog] of [
+      ['History', 'the history of projects'],
+      ['Audit log', 'the audit log'],
+    ] as const) {
+      await page.getByRole('button', { name: new RegExp(`^${name}`, 'u') }).click();
+      await expect(page.locator('dialog[open]')).toBeVisible();
+      await expectTouchTargets(page, dialog, 'dialog[open]');
+      await page.keyboard.press('Escape');
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+    }
+    expect(problems).toEqual([]);
+  });
+});
 
 test.describe('reduced motion', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
