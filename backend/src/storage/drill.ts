@@ -72,7 +72,8 @@ export interface RehearsalOptions {
  * chain verifies, the application can open every project, and the next audit entry follows the last.
  *
  * It only reads `source` and writes inside `directory`. The source must be at this release's schema
- * version, because a rehearsal that upgraded a live database would be a change, not a rehearsal.
+ * version, because a rehearsal that upgraded a live database would be a change, not a rehearsal. The
+ * source is read from one snapshot, for the digests and for the backup alike (see `copyDatabase`).
  */
 export function rehearseRestore(
   source: SqlDatabase,
@@ -91,12 +92,17 @@ export function rehearseRestore(
   const restoredPath = join(directory, 'restored.sqlite');
 
   let mark = performance.now();
-  const expected = digestsOf(source);
   const backup = openDatabase(backupPath);
+  let expected: Record<string, string>;
   let rows: Record<string, number>;
   try {
     migrate(backup, { path: backupPath });
-    rows = copyDatabase(source, backup).tables;
+    // The digests and the backup are of one snapshot, so that a source that is in use is not mistaken
+    // for a backup that is wrong: what is compared later is what was backed up, not what changed since.
+    ({ expected, rows } = source.readSnapshot(() => ({
+      expected: digestsOf(source),
+      rows: copyDatabase(source, backup).tables,
+    })));
   } finally {
     backup.close();
   }
@@ -169,7 +175,8 @@ export function rehearseRestore(
 /**
  * Rehearses on whatever `target` names. A SQLite file is read through `VACUUM INTO`, which makes a
  * consistent snapshot of a database that is in use (including what is still in its write-ahead log)
- * without changing it, and the rehearsal runs on the snapshot. A PostgreSQL target is only read.
+ * without changing it, and the rehearsal runs on the snapshot. A PostgreSQL target is only read, in
+ * one read-only transaction that holds to a single snapshot, so it may be in use too.
  */
 export function rehearseRestoreOf(
   target: string,

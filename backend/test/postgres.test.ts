@@ -171,6 +171,81 @@ describe('a PostgreSQL transaction', () => {
   });
 });
 
+describe('a PostgreSQL read snapshot', () => {
+  const textsOf = (transport: { requests: BridgeRequest[] }) =>
+    transport.requests.map((request) => (request as { text?: string }).text);
+
+  it('is one read-only transaction at repeatable read around everything the operation reads', () => {
+    const transport = scripted(() => ok());
+    const database = PostgresDatabase.onTransport(transport);
+    const result = database.readSnapshot(() => {
+      database.prepare('SELECT 1').get();
+      database.prepare('SELECT 2').get();
+      return 7;
+    });
+    expect(result).toBe(7);
+    expect(textsOf(transport)).toEqual([
+      'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      'SELECT 1',
+      'SELECT 2',
+      'COMMIT',
+    ]);
+  });
+
+  it('does not run a statement again on a fresh connection, which would read another snapshot', () => {
+    const seen: boolean[] = [];
+    const transport = scripted((request) => {
+      if (request.type === 'query') seen.push(request.retry);
+      return ok();
+    });
+    const database = PostgresDatabase.onTransport(transport);
+    database.readSnapshot(() => database.prepare('SELECT 1').get());
+    database.prepare('SELECT 2').get();
+    expect(seen).toEqual([false, true]);
+  });
+
+  it('rolls back when the operation fails, and reports that failure even if the connection is gone', () => {
+    const transport = scripted((request) => {
+      if ((request as { text?: string }).text === 'ROLLBACK')
+        throw new Error('Connection terminated');
+      return ok();
+    });
+    const database = PostgresDatabase.onTransport(transport);
+    expect(() =>
+      database.readSnapshot(() => {
+        throw new Error('the operation itself failed');
+      }),
+    ).toThrow('the operation itself failed');
+    expect(textsOf(transport)).toEqual([
+      'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      'ROLLBACK',
+    ]);
+    // It is over: the next one begins afresh.
+    database.readSnapshot(() => undefined);
+    expect(textsOf(transport).filter((text) => text?.startsWith('BEGIN'))).toHaveLength(2);
+  });
+
+  it('takes part in a transaction that is open on the connection, whoever began it, and does not end it', () => {
+    const transport = scripted(() => ok());
+    const writer = PostgresDatabase.onTransport(transport);
+    // Databases made for one server in one process share its connection.
+    const reader = PostgresDatabase.onTransport(transport);
+    writer.transaction(() => reader.readSnapshot(() => reader.prepare('SELECT 1').get()));
+    expect(textsOf(transport)).toEqual([
+      'BEGIN ISOLATION LEVEL SERIALIZABLE',
+      'SELECT 1',
+      'COMMIT',
+    ]);
+
+    reader.readSnapshot(() => reader.readSnapshot(() => reader.prepare('SELECT 2').get()));
+    expect(textsOf(transport).slice(3)).toEqual([
+      'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      'SELECT 2',
+      'COMMIT',
+    ]);
+  });
+});
+
 const opened: Repository[] = [];
 function repository(target = 'pglite:memory'): Repository {
   const instance = new Repository(target);

@@ -12,7 +12,7 @@ import {
   type Migration,
 } from '../src/storage/migrations.js';
 import { Repository } from '../src/storage/repository.js';
-import { SqliteDatabase } from '../src/storage/sql.js';
+import { SqliteDatabase, type SqlDatabase } from '../src/storage/sql.js';
 import { fixtureInput } from './fixtures.js';
 
 const directories: string[] = [];
@@ -212,5 +212,70 @@ describe('the audit log', () => {
     expect(repository.ledger.state(project.id)).toBeNull();
     expect(repository.ledger.claims(project.id)).toEqual([]);
     repository.close();
+  });
+});
+
+describe('reading one snapshot of a SQLite database', () => {
+  const rawOf = (repository: Repository): SqlDatabase =>
+    (repository as unknown as { database: SqlDatabase }).database;
+  const countIn = (database: SqlDatabase): number =>
+    Number(database.prepare('SELECT COUNT(*) AS count FROM projects').get()?.count);
+
+  it('sees one moment while another connection commits, and holds that connection back not at all', () => {
+    const path = databasePath();
+    const reader = new Repository(path);
+    const writer = new Repository(path);
+    try {
+      writer.create(fixtureInput({ name: 'First' }));
+      const database = rawOf(reader);
+      database.readSnapshot(() => {
+        expect(countIn(database)).toBe(1);
+        // Committed straight away, though the snapshot is open: a reader does not make a writer wait.
+        writer.create(fixtureInput({ name: 'Second' }));
+        expect(writer.count()).toBe(2);
+        expect(countIn(database)).toBe(1);
+        database.readSnapshot(() => expect(countIn(database)).toBe(1));
+      });
+      expect(countIn(database)).toBe(2);
+    } finally {
+      reader.close();
+      writer.close();
+    }
+  });
+
+  it('ends when the operation fails, reports that failure, and leaves the connection free to write', () => {
+    const repository = new Repository(databasePath());
+    try {
+      const database = rawOf(repository);
+      expect(() =>
+        database.readSnapshot(() => {
+          countIn(database);
+          throw new Error('the operation itself failed');
+        }),
+      ).toThrow('the operation itself failed');
+      repository.create(fixtureInput({ name: 'After' }));
+      expect(repository.count()).toBe(1);
+    } finally {
+      repository.close();
+    }
+  });
+
+  it('takes part in a transaction that is open, and does not end it', () => {
+    const repository = new Repository(databasePath());
+    try {
+      const database = rawOf(repository);
+      const project = repository.create(fixtureInput({ name: 'Original' }));
+      expect(() =>
+        database.transaction(() => {
+          repository.update(project.id, { name: 'Renamed' });
+          // It sees what the transaction has written, and the transaction is still open after it.
+          database.readSnapshot(() => expect(repository.get(project.id).name).toBe('Renamed'));
+          throw new Error('stop');
+        }),
+      ).toThrow('stop');
+      expect(repository.get(project.id).name).toBe('Original');
+    } finally {
+      repository.close();
+    }
   });
 });

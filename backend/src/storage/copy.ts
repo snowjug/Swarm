@@ -37,10 +37,36 @@ export interface CopyReport {
 const countOf = (database: SqlDatabase, table: string): number =>
   Number(database.prepare(`SELECT COUNT(*) AS count FROM ${table}`).get()?.count ?? 0);
 
+/** Copies one table, and says how many rows it held. */
+function copyTable(from: SqlDatabase, to: SqlDatabase, table: (typeof TABLES)[number]): number {
+  const rows = from.prepare(`SELECT * FROM ${table.name} ORDER BY ${table.order}`).all();
+  const first = rows[0];
+  if (!first) return 0;
+  const columns = Object.keys(first).filter(
+    (column) => !(table.skip as readonly string[]).includes(column),
+  );
+  const keepIdentity = 'keepIdentity' in table && table.keepIdentity;
+  // PostgreSQL refuses an explicit value for an identity column unless told it is meant.
+  const override = keepIdentity && to.dialect === 'postgres' ? ' OVERRIDING SYSTEM VALUE' : '';
+  const insert = to.prepare(
+    `INSERT INTO ${table.name} (${columns.join(', ')})${override} VALUES (${columns
+      .map(() => '?')
+      .join(', ')})`,
+  );
+  for (const row of rows) insert.run(...columns.map((column) => row[column] as SqlValue));
+  return rows.length;
+}
+
 /**
  * Both databases must already be at the same schema version (opening a `Repository` does that). The
  * destination must be empty, so a copy can never merge two histories or overwrite one. The writes are
  * one transaction, so a failure leaves the destination as it was.
+ *
+ * Every table is read from one snapshot of the source, so a source that is being written to is copied
+ * as it was at one moment and never as half of a change: a project without the actors that were added
+ * with it, or one that was deleted after its row was read and is left without anything else. What is
+ * written to the source after that moment is not in the copy. Row counts and the audit chain cannot
+ * show the difference, since a copy can be complete in both and still be of no moment that ever was.
  */
 export function copyDatabase(from: SqlDatabase, to: SqlDatabase): CopyReport {
   for (const { name } of TABLES) {
@@ -54,24 +80,11 @@ export function copyDatabase(from: SqlDatabase, to: SqlDatabase): CopyReport {
   }
   const report: CopyReport = { tables: {}, auditChainIntact: false };
   to.transaction(() => {
-    for (const table of TABLES) {
-      const rows = from.prepare(`SELECT * FROM ${table.name} ORDER BY ${table.order}`).all();
-      report.tables[table.name] = rows.length;
-      const first = rows[0];
-      if (!first) continue;
-      const columns = Object.keys(first).filter(
-        (column) => !(table.skip as readonly string[]).includes(column),
-      );
-      const keepIdentity = 'keepIdentity' in table && table.keepIdentity;
-      // PostgreSQL refuses an explicit value for an identity column unless told it is meant.
-      const override = keepIdentity && to.dialect === 'postgres' ? ' OVERRIDING SYSTEM VALUE' : '';
-      const insert = to.prepare(
-        `INSERT INTO ${table.name} (${columns.join(', ')})${override} VALUES (${columns
-          .map(() => '?')
-          .join(', ')})`,
-      );
-      for (const row of rows) insert.run(...columns.map((column) => row[column] as SqlValue));
-    }
+    // Inside the transaction of the destination, the order that a connection shared by both (the
+    // in-process PostgreSQL of the tests) can follow. A copy that is tried again reads a new snapshot.
+    from.readSnapshot(() => {
+      for (const table of TABLES) report.tables[table.name] = copyTable(from, to, table);
+    });
     if (to.dialect === 'postgres') {
       // The next audit entry must follow the last one that was copied.
       to.prepare(

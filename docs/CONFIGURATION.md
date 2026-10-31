@@ -286,9 +286,13 @@ npm.cmd run db:copy -- --from .\data\swarm-lab.sqlite --to postgres://swarm@db.e
 npm.cmd run db:copy -- --from postgres://swarm@db.example.internal:5432/swarm --to .\backup\swarm.sqlite
 ```
 
-The destination must be empty. The copy is one transaction and is kept only if every table's row count
-matches and the audit chain verifies in the destination; sign-in state is not copied. To restore, copy
-the other way into an empty database. Targets are never printed, because a URL can hold a password.
+The destination must be empty. The source is read as one snapshot (a single read transaction), so it
+may be in use while it is copied: the copy is the database as it was when the copy began, with no half of
+a change in it, and what is written afterwards is not in it (what that guarantees and what it does not:
+the [runbook](./operations/runbook.md#restore-the-database)). The copy is one transaction and is kept
+only if every table's row count matches and the audit chain verifies in the destination; sign-in state is
+not copied. To restore, copy the other way into an empty database. Targets are never printed, because a
+URL can hold a password.
 
 **Rehearsing a restore** is one more command, and it changes nothing it is pointed at:
 
@@ -300,9 +304,10 @@ npm.cmd run db:drill -- --from postgres://swarm@db.example.internal:5432/swarm
 It backs the database up into a scratch SQLite file, makes a new database from that file alone, and
 checks that what came back is what went in: every table by digest (so a changed value is noticed, not
 only a missing row), the audit chain, every project opened as the application opens it, and the next
-audit entry following the last. A SQLite file may be in use while it runs (it is read as a snapshot). It
-exits non-zero if the restore is not exact. It rehearses this logical path; restoring a hosted server to
-a point in time is the platform's, and has to be rehearsed where it runs.
+audit entry following the last. A SQLite file or a PostgreSQL server may be in use while it runs (each is
+read as one snapshot, for the digests and for the backup alike). It exits non-zero if the restore is not
+exact. It rehearses this logical path; restoring a hosted server to a point in time is the platform's,
+and has to be rehearsed where it runs.
 
 **Before an upgrade of a SQLite file,** the application copies it to `<file>.v<N>.bak` (N is the schema
 version it was at). A copy that is out of date is never reused or overwritten: it is set aside as

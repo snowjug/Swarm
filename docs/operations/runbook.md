@@ -140,13 +140,33 @@ again), the copy is kept as it is, so a restart loop does not fill the disk. All
 
 ## Restore the database
 
+**A logical copy is one snapshot.** `npm run db:copy` and `npm run db:drill` read the database as it was at
+a single moment: in one read transaction (a SQLite file in write-ahead mode, or PostgreSQL at repeatable
+read and read-only; the drill takes a SQLite file with `VACUUM INTO`, which is a snapshot too). Every
+table is read as of that moment, so the copy is never half of a change: a project without the actors that
+were saved with it, or one that was deleted while the copy was running and restored as an empty shell. The
+application may keep running and writing, and the copy does not hold it back. Row counts and the audit
+chain are checked as well, but they cannot tell one moment from a mixture of two; the snapshot does. What
+it does not do:
+
+- It does not stop the application. What is written after the snapshot is not in the copy, so a copy is as
+  old as the moment it began (take another, or stop the application first, if that matters).
+- It is not a restore of a hosted server to a point in time, which is the platform's own.
+- It stays open for as long as the copy runs. On PostgreSQL that delays the clean-up of old rows and makes
+  a schema change wait, so do not deploy a release while a copy runs, and take a large one at a quiet
+  time; a server that ends idle transactions (`idle_in_transaction_session_timeout`) must allow it as long
+  as the copy takes, or the copy fails and keeps nothing. On SQLite the write-ahead log cannot be folded
+  back into the file until it ends, so it grows, and a release started meanwhile would copy the file for
+  its upgrade without what is still in the log: do not start one while a copy runs.
+
 **Rehearse it first.** `npm run db:drill -- --from <database>` backs a database up into a SQLite file,
 makes a new database from that file alone, and proves the two are the same: every table by digest, the
 audit chain, every project opened as the application opens it, and the next audit entry following the
-last. It only reads the database it is pointed at (a SQLite file may be in use; it is read as a
-snapshot), writes to a scratch folder that it deletes, and exits non-zero if the restore is not exact.
-On the demonstration database (409 rows, 9 projects) a backup took 0.25 s, the restore 0.24 s and the
-check 0.32 s. That is the logical path only; it says nothing about a hosted server.
+last. It only reads the database it is pointed at (a SQLite file or a PostgreSQL server may be in use;
+the digests and the backup are read from one snapshot), writes to a scratch folder that it deletes, and
+exits non-zero if the restore is not exact. On the demonstration database (409 rows, 9 projects) a backup
+took 0.25 s, the restore 0.24 s and the check 0.32 s. That is the logical path only; it says nothing about
+a hosted server.
 
 **Hosted PostgreSQL.** Azure Database for PostgreSQL keeps automated backups (seven days in the pilot).
 Restore to a new server at a point in time before the damage, copy the data back with `npm run db:copy`
