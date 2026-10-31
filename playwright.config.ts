@@ -8,6 +8,7 @@ const modelPort = Number(process.env.E2E_MODEL_PORT || 3112);
 const journeyPort = Number(process.env.E2E_JOURNEY_PORT || 3113);
 const signinPort = Number(process.env.E2E_SIGNIN_PORT || 3114);
 const signinIdpPort = Number(process.env.E2E_SIGNIN_IDP_PORT || 3115);
+const labPort = Number(process.env.E2E_LAB_PORT || 3116);
 const providerPort = Number(process.env.E2E_PROVIDER_PORT || 11999);
 // One throwaway root per run: the runner creates it and workers inherit it through the environment,
 // so re-loading this file in a worker never creates another directory.
@@ -71,10 +72,18 @@ export default defineConfig({
       testMatch: /signin\/.*\.spec\.ts/u,
       use: { baseURL: `http://127.0.0.1:${signinPort}` },
     },
+    {
+      // The scenario-lab journey in rules mode: intake, evidence, stakeholders, actors, analysis,
+      // critics and the brief, on a server of its own.
+      name: 'lab',
+      testMatch: /lab\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${labPort}` },
+    },
   ],
   webServer: [
     server(localPort, 'local', { AI_PROVIDER: 'none' }),
     server(journeyPort, 'journey', { AI_PROVIDER: 'none' }),
+    server(labPort, 'lab', { AI_PROVIDER: 'none' }),
     {
       command: 'node --import tsx backend/test/support/signin-e2e-server.ts',
       url: `http://127.0.0.1:${signinPort}/api/health`,
