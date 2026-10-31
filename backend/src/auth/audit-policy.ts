@@ -207,6 +207,12 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   // [analysis audit]
 
   // [critics audit]
+  'GET /api/projects/:id/critiques': reads(
+    'Reads the stored review; running it is recorded as critiques.run.',
+  ),
+  // Recorded by the service in the transaction of the change, with ids and counts: never text.
+  'POST /api/projects/:id/critiques/run': { kind: 'inside', action: 'critiques.run' },
+  'PUT /api/projects/:id/critiques/:cid/response': { kind: 'inside', action: 'critique.responded' },
 
   // [brief audit]
 };

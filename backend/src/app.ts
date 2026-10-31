@@ -44,6 +44,7 @@ import { guidedRoutes } from './routes/guided.js';
 // [analysis imports]
 
 // [critics imports]
+import { critiqueRoutes } from './routes/critiques.js';
 
 // [brief imports]
 import { PdfService } from './ingest/pdf.js';
@@ -351,6 +352,10 @@ export async function buildApp(options: AppOptions) {
   // [analysis routes]
 
   // [critics routes]
+  critiqueRoutes(app, repository, modelFactory, {
+    modelAvailable: config.provider.configured,
+    rateScale: config.rateLimitScale,
+  });
 
   // [brief routes]
 

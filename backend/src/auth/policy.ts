@@ -113,6 +113,11 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   // [analysis policy]
 
   // [critics policy]
+  // The independent review: reading is for anyone who can read the project, running it is a duty of
+  // those who run the analysis, and answering a critique is an edit.
+  'GET /api/projects/:id/critiques': project('read'),
+  'POST /api/projects/:id/critiques/run': project('run'),
+  'PUT /api/projects/:id/critiques/:cid/response': project('edit'),
 
   // [brief policy]
 };
