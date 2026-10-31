@@ -1,8 +1,16 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { PAGE_BACKGROUND, THEME_NAMES, colour, contrast, minimumContrast } from './palette';
+
+const read = (name: string) => ({
+  name,
+  text: readFileSync(
+    new URL(name === 'styles.css' ? '../styles.css' : `../styles/${name}`, import.meta.url),
+    'utf8',
+  ),
+});
 
 const styles = [
   'styles.css',
@@ -20,17 +28,18 @@ const styles = [
   'grounding.css',
   'statements.css',
   'transparency.css',
-].map((name) => ({
-  name,
-  text: readFileSync(
-    new URL(name === 'styles.css' ? '../styles.css' : `../styles/${name}`, import.meta.url),
-    'utf8',
-  ),
-}));
+].map(read);
+
+/** Every stylesheet there is, so that one added later is held to the type scale as well. */
+const everyStyle = [
+  'styles.css',
+  ...readdirSync(new URL('../styles/', import.meta.url)).filter((name) => name.endsWith('.css')),
+].map(read);
 
 describe('measured console accessibility CSS regressions', () => {
-  it('has no text font declaration below 12 CSS pixels', () => {
-    for (const style of styles) {
+  it('has no text font declaration below 12 CSS pixels, in any stylesheet', () => {
+    expect(everyStyle.length).toBeGreaterThan(styles.length);
+    for (const style of everyStyle) {
       for (const match of style.text.matchAll(/font(?:-size)?:\s*(?:italic\s+)?([\d.]+)px/gu))
         expect(Number(match[1]), `${style.name}: ${match[0]}`).toBeGreaterThanOrEqual(12);
     }
