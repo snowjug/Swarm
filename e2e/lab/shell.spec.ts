@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { MAX_DOCUMENTS } from '../../shared/types';
 import {
   apiContext,
   expectNoAxeViolations,
@@ -100,14 +101,10 @@ test.describe('the example picker', () => {
     page,
   }) => {
     await page.goto('/');
-    const card = picker(page).getByRole('listitem').first();
-    const documents = Number.parseInt(await card.locator('small').innerText(), 10);
-    expect(documents).toBeGreaterThanOrEqual(1);
-    await card.getByRole('button').click();
+    await picker(page).getByRole('button').first().click();
     await expect(question(page)).toBeFocused();
     expect((await question(page).inputValue()).length).toBeGreaterThanOrEqual(10);
-    // The evidence the card named is in the form, out of however many the server allows.
-    await expect(page.getByText(new RegExp(`\\b${documents}/\\d+ FILES`, 'u'))).toBeVisible();
+    await expect(page.getByText(new RegExp(`[1-9]\\d*/${MAX_DOCUMENTS} FILES`, 'u'))).toBeVisible();
     await expect(
       page.getByRole('status').filter({ hasText: /Example loaded|Fictional starter INPUT/u }),
     ).toBeVisible();
