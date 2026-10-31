@@ -672,6 +672,40 @@ describe('when the proposed change comes out about the same and another scenario
     expect(brief().limitations[0]).toBe(NO_DIFFERENCE_NOTICE);
   });
 
+  it('does not leave the scenario that moved things out of the answer: it says that no difference is said of the proposed change only', () => {
+    const answer = section(brief(), 'executive-answer').statements;
+    const other = answer.find((statement) => statement.text.startsWith('This is said of'));
+    expect(other?.text).toContain(
+      '“Proposed change” only. In the simulated runs another scenario did differ from no change:',
+    );
+    expect(other?.text).toContain('less favourable under Strong alternative than under No change');
+    expect(other?.text).not.toContain('Mild alternative');
+    expect(other?.origin).toBe('simulation-aggregation');
+    expect(other?.refs.findingIds).toEqual(['direction-strong-alternative']);
+    expect(other?.refs.variantIds).toEqual(['strong-alternative']);
+    expect(brief().headline).not.toContain('Strong alternative');
+    expect(lintBrief(brief())).toEqual([]);
+    // Nothing of the kind where the proposed change is the one that moved, or where every scenario came out the same.
+    const nothing = (analysis: Analysis) =>
+      section(buildBrief(inputsFor(analysis)), 'executive-answer').statements.some((statement) =>
+        statement.text.startsWith('This is said of'),
+      );
+    expect(nothing(analysisWith({ baselineAdverse: 0.1, changeAdverse: 0.12 }))).toBe(false);
+    expect(
+      nothing(
+        withScenarios(analysisWith({ finding: 'lower', changeAdverse: 0.45 }), [
+          {
+            id: 'mild-alternative',
+            label: 'Mild alternative',
+            adverse: 0.05,
+            stance: 0.1,
+            finding: 'same',
+          },
+        ]),
+      ),
+    ).toBe(false);
+  });
+
   it('does not word the proposed change as about the same when it is the one that moved, whatever the others did', () => {
     const moved = withScenarios(analysisWith({ finding: 'lower', changeAdverse: 0.45 }), [
       {
@@ -749,6 +783,20 @@ describe('when nobody has an expected direction but the members of a group can s
     expect(note?.origin).toBe('unresolved-uncertainty');
     expect(note?.text).toBe(`${BRIEF_READING_NOTES['no-difference']} ${UNDIRECTED_READING_NOTE}`);
     expect(lintBrief(brief)).toEqual([]);
+  });
+
+  it('keeps the limitation that nobody has a direction after the one that says what was found, and says nothing of nothing moving', () => {
+    const quiet = buildBrief(inputsFor(spread({ baselineAdverse: 0.1, changeAdverse: 0.12 })));
+    expect(quiet.limitations.slice(0, 2)).toEqual([NO_DIFFERENCE_NOTICE, UNDIRECTED_NOTICE]);
+    const clear = buildBrief(inputsFor(spread({ finding: 'lower', changeAdverse: 0.45 })));
+    expect(clear.limitations[0]).toBe(UNDIRECTED_NOTICE);
+    expect(section(clear, 'limitations').statements[0]).toMatchObject({
+      origin: 'system-assumption',
+      text: UNDIRECTED_NOTICE,
+    });
+    // Nor does a cast in which someone has a direction carry it.
+    const own = buildBrief(inputsFor(analysisWith({ finding: 'lower', changeAdverse: 0.45 })));
+    expect(own.limitations).not.toContain(UNDIRECTED_NOTICE);
   });
 
   it('leads with the counts where the comparison found a difference, under a note that nobody has a direction', () => {

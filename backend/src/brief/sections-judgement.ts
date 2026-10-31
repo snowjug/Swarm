@@ -7,6 +7,7 @@ import {
   type StatementOrigin,
   type ValidationExperiment,
 } from '../../../shared/brief.js';
+import { UNDIRECTED_NOTICE } from '../../../shared/signal.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
   STAKEHOLDER_CATEGORY_LABELS,
@@ -389,6 +390,9 @@ export function limitationItems(facts: Facts): { text: string; origin: Statement
   if (facts.critiqueNote)
     items.push({ text: facts.critiqueNote, origin: 'unresolved-uncertainty' });
   // What the comparison could not tell comes before everything else the brief cannot tell you.
+  // Where nobody has a direction but members can still move, nothing here may say that the change cannot.
+  if (facts.signal.undirected)
+    items.unshift({ text: UNDIRECTED_NOTICE, origin: 'system-assumption' });
   if (facts.signal.state !== 'clear') {
     items.unshift({
       text: BRIEF_SIGNAL_NOTICES[facts.signal.state].text,
