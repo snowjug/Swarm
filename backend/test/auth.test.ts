@@ -475,6 +475,8 @@ describe('identifiers a route accepts outside the path', () => {
       'members.ts: principalId',
       'members.ts: principalId',
       'projects.ts: id',
+      // In the path: vouched for by the guard.
+      'scenario.ts: id',
       // In the path: vouched for by the guard. A section is named by a short id and a proposal by an
       // id, and both are only ever looked up inside the studio document of that experiment.
       'studio.ts: id',

@@ -40,9 +40,18 @@ export function projectRoutes(
   });
 
   app.post('/api/projects', { config: limit(20) }, async (request, reply) => {
-    const project = repository.create(createProjectSchema.parse(request.body), {
-      owner: ownerOf(principalOf(request)),
-    });
+    const input = createProjectSchema.parse(request.body);
+    const principal = principalOf(request);
+    const project = repository.create(input, { owner: ownerOf(principal) });
+    if (input.scenario) {
+      // The scenario the person settled on in intake belongs to the project, or the project is not made.
+      try {
+        repository.artifacts.put(project.id, 'scenario', 'default', input.scenario);
+      } catch (error) {
+        repository.delete(project.id, principal.id);
+        throw error;
+      }
+    }
     return reply.code(201).send(project);
   });
 

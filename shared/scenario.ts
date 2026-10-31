@@ -96,3 +96,98 @@ export const scenarioFrameSchema = z.object({
   origin: z.enum(['rules', 'model', 'user']),
 });
 export type ScenarioFrame = z.infer<typeof scenarioFrameSchema>;
+
+// ---------------------------------------------------------------------------------------------
+// Scenario intake: reading a question into a frame, and storing what a person made of it
+// ---------------------------------------------------------------------------------------------
+
+/** The longest question intake reads: the same bound as the question of a project. */
+export const SCENARIO_QUESTION_MAX = 2_000;
+/** Intake never asks more than this many questions back: more would be a form, not an aid. */
+export const SCENARIO_QUESTIONS_MAX = 3;
+export const SCENARIO_DOCUMENTS_MAX = 10;
+/** How much of the start of a document's text may be sent to be inspected for text aimed at an AI. */
+export const SCENARIO_EXCERPT_MAX = 5_000;
+
+/**
+ * A document as intake sees it: its name and size, which become the evidence listed as available, and
+ * the start of its text, which is only inspected in memory and is never stored, logged or sent to a model.
+ */
+export const scenarioDocumentSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    characters: z.int().min(0).max(1_000_000),
+    excerpt: z.string().max(SCENARIO_EXCERPT_MAX).optional(),
+  })
+  .strict();
+export type ScenarioDocument = z.infer<typeof scenarioDocumentSchema>;
+
+export const scenarioParseRequestSchema = z
+  .object({
+    question: z.string().trim().min(3).max(SCENARIO_QUESTION_MAX),
+    documents: z.array(scenarioDocumentSchema).max(SCENARIO_DOCUMENTS_MAX).default([]),
+  })
+  .strict();
+export type ScenarioParseRequest = z.input<typeof scenarioParseRequestSchema>;
+
+export type ScenarioReadMode = 'rules' | 'model';
+
+export interface ScenarioParseResult {
+  frame: ScenarioFrame;
+  /** What the person should know about how the question was read, in plain words. */
+  notes: string[];
+  mode: ScenarioReadMode;
+  /** The model that read the question, when one did. */
+  model: string | null;
+}
+
+function repeated(values: readonly string[]): number | null {
+  const seen = new Set<string>();
+  for (const [index, value] of values.entries()) {
+    if (seen.has(value)) return index;
+    seen.add(value);
+  }
+  return null;
+}
+
+/**
+ * A frame as a person or a client submits it, with the checks a stored scenario needs on top of its
+ * shape: it names the decision or event, and later stages can tell its alternatives apart by id.
+ */
+export const scenarioInputSchema = scenarioFrameSchema.superRefine((frame, context) => {
+  if (frame.decision.length === 0) {
+    context.addIssue({
+      code: 'custom',
+      path: ['decision'],
+      message: 'Say what decision or event is being explored.',
+    });
+  }
+  for (const [path, ids] of [
+    ['alternatives', frame.alternatives.map((alternative) => alternative.id)],
+    ['assumptions', frame.assumptions.map((assumption) => assumption.id)],
+  ] as const) {
+    const index = repeated(ids);
+    if (index !== null) {
+      context.addIssue({
+        code: 'custom',
+        path: [path, index, 'id'],
+        message: `Each entry in ${path} needs an id of its own.`,
+      });
+    }
+  }
+});
+
+/** The body of a change to a stored scenario. `expectedRevision` makes a stale edit fail instead of overwriting. */
+export const scenarioWriteSchema = z
+  .object({
+    scenario: scenarioInputSchema,
+    expectedRevision: z.int().min(0).optional(),
+  })
+  .strict();
+export type ScenarioWrite = z.input<typeof scenarioWriteSchema>;
+
+/** The stored scenario of a project, or null when it has none, with the revision to edit against. */
+export interface ScenarioView {
+  scenario: ScenarioFrame | null;
+  revision: number;
+}

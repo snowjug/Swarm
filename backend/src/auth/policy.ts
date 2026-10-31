@@ -107,6 +107,11 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   // [url-ingest policy]
 
   // [scenario policy]
+  // Reading a question may call a model, so it is for someone who may create projects. A stored
+  // scenario is read like the project it belongs to, and changed by whoever may edit the project.
+  'POST /api/scenario/parse': { kind: 'workspace', capability: 'create-project' },
+  'GET /api/projects/:id/scenario': project('read'),
+  'PUT /api/projects/:id/scenario': project('edit'),
 
   // [stakeholders policy]
 

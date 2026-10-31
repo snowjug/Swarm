@@ -38,6 +38,7 @@ import { guidedRoutes } from './routes/guided.js';
 // [url-ingest imports]
 
 // [scenario imports]
+import { scenarioRoutes } from './routes/scenario.js';
 
 // [stakeholders imports]
 
@@ -345,6 +346,7 @@ export async function buildApp(options: AppOptions) {
   // [url-ingest routes]
 
   // [scenario routes]
+  scenarioRoutes(app, repository, config, modelFactory, config.rateLimitScale);
 
   // [stakeholders routes]
 
