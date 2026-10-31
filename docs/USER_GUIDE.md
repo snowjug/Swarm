@@ -1,6 +1,13 @@
 # Using the guided console
 
-This guide describes every stage of the console, the what-if loop (pause, resume, intervene, branch, compare), the grounding review and Report Studio. Back to the [README](../README.md).
+This guide describes the journey from a question to a decision brief, what opens each stage and why the
+page sometimes says a stage is locked, how to read the results, every stage of the console, the what-if loop
+(pause, resume, intervene, branch, compare), the grounding review and Report Studio. Back to the
+[README](../README.md).
+
+Swarm explores what could happen if something changes. It does not guarantee or precisely predict
+real-world behavior: everything it shows is a simulation of synthetic actors under assumptions that are
+stated, and none of it is a measurement of real people.
 
 The default UI is a technical five-stage console, not a one-click replay. It has light, dark and
 high-contrast themes (see [Themes](#themes)).
@@ -9,6 +16,128 @@ layout (on narrow screens it becomes a two-way **Graph | Workbench** pane switch
 the graph, inspectors and the collapsible, in-flow operation log show actual
 persisted data and never overlay stage content. No example results, actors
 or counters are preloaded. A fictional starter fills editable input only.
+
+## From a question to a decision brief
+
+Every question goes through the same steps. An example only fills in a question and its evidence; the
+scenario, the stakeholders and the results are made the same way as for a question of your own.
+
+1. **Ask.** On the first screen type a what-if question (one or two sentences), or choose an example. You
+   can press **Understand my question** to see how Swarm reads it into a scenario (what changes, what is
+   affected, what is expected without the change, the options to compare) and correct it. Nothing runs
+   until you start, and you can skip this.
+2. **Add evidence.** Attach TXT, MD or text-based PDF files, paste text, or add a public web page (the
+   server fetches its text; it does not run scripts, sign in or read private networks, and it does not
+   check that the page is true). Up to ten documents. Every document keeps where it came from.
+3. **Build Graph.** This saves a draft and starts Graph Build only: no environment, simulation or report
+   runs until you ask. Graph Build shows what was read from the evidence, with citations.
+4. **Stakeholders and actors** (the **Env Setup** stage, at the top). Swarm proposes who is affected,
+   with the sources it found for each: by reading the text for roles with no model, or, only in a
+   model-assisted project and only if you choose it, by asking the model. You review the list (edit, add,
+   merge, remove), then **approve** it. Swarm makes **simulated actors** from the approved list. Every
+   trait of an actor says where it came from (an assumption of the category, the evidence, a model, or
+   you) and can be changed. See [stakeholders](./stakeholders.md).
+5. **Compare scenarios** (the **Simulation** stage, at the top). Choose the scenarios (no change, the
+   proposed change and any alternatives), how many seeded runs of each (10, 30 or 100), and whether to
+   also test which assumptions the result is sensitive to. The comparison runs on the server while you
+   watch its progress, and you can cancel it. See [the method](./analysis/methodology.md).
+6. **Decision brief and independent review** (the **Report** stage, at the top). **Generate decision
+   brief** writes the answer-first document from the comparison, by rules. **Run an independent
+   review** has critics check the work; you can respond to each criticism. The brief exports as Markdown,
+   JSON and a printable page. See [the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
+7. **Interaction** is the engine's stage for asking questions of its detailed report.
+
+Below the comparison, the Simulation stage also keeps the engine's **Deep dive (optional)**: a slower,
+agent-by-agent run, followed by its own detailed report under the brief in the Report stage. It does not
+replace the comparison, and the decision brief does not wait for it.
+
+## What opens each stage
+
+A stage opens when the engine's own order allows it, or, for two of them, when the scenario lab's own
+record does. The page reads that record from the project: whether the stakeholders are proposed or
+approved, how many simulated actors there are, and whether a comparison is running, has finished or was
+stopped.
+
+| Stage       | Opens when                                                       | What it says under its name                              |
+| ----------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
+| Graph Build | Always                                                           | The state of the build                                   |
+| Env Setup   | Graph Build is ready                                             | `actors ready` once there are simulated actors           |
+| Simulation  | There are simulated actors, or the engine's Env Setup is ready   | `ready to compare`, `comparing`, `compared` or `stopped` |
+| Report      | A comparison has finished, or the engine's Simulation is ready   | `ready to write`, then `brief written`                   |
+| Interaction | The engine's Report is ready (a decision brief does not open it) | The engine's state                                       |
+
+A stage that cannot be opened yet is greyed out and says **locked**. In Guided mode a line under it says
+what it needs ("Needs actors from Env Setup", "Needs a finished comparison"), and a screen reader is told
+the same in both modes. It does not open from a click or from the keyboard. It opens by itself once the
+record allows it, with no reload: opening Simulation or Report reads the project again, and while a
+comparison runs and either is in view the page reads it again every few seconds.
+
+The **Next step** bar above the stage names the one next piece of work, with one button, whenever that work
+is in a stage other than the one you are in:
+
+- stakeholders proposed: **Review the stakeholders**, which opens Env Setup;
+- approved, no actors yet: **Make the actors**, which opens Env Setup;
+- actors made, no comparison (or only stopped ones): **Compare the scenarios**, which opens Simulation;
+- a comparison is running: **Follow the comparison**, which opens Simulation;
+- a comparison has finished: **See the decision brief**, which opens Report, and from Report **Back to the
+  comparison**.
+
+The bar only says where to go: the work is done in the stage it opens, and that is where keyboard focus
+goes. It does not appear in Interaction, and a project that the lab has not touched shows none (the stage's
+own button leads on). A project opens in the stage the engine is at, usually Graph Build, whatever the lab
+has done since, so the bar is the quickest way back to where the work has got to. A **comparison that was
+stopped or failed leaves Report locked**; a comparison that finished earlier still opens it.
+
+The journey strip above the stages (Question, Evidence, Stakeholders, Actors, Scenarios, Run, Progress,
+Results, Explore, Change, Compare, Export) ticks a step only when the project's record shows it. Proposed
+stakeholders are not ticked, and neither is a stopped comparison.
+
+## Reading the results
+
+A comparison does not say what will happen. It says what happened in a simulation of synthetic actors,
+repeated over many seeds, under assumptions that the page lists.
+
+- **Counts are simulated counts.** Every figure is a number of simulated members, or of seeded runs.
+  None is a conversion, churn, share, adoption or sentiment rate in a real population. How many people a
+  group stands for is an assumption, not a measurement.
+- **Assumptions are labelled, and some are the system's.** Each trait and each scenario says where its
+  value came from: the evidence (with a cited passage), you, the system's default for the category, a
+  model, or the scenario. How strongly a change lands is a system assumption unless it says it was set
+  by you. A result that moves with an assumption nothing supports is called out.
+- **Uncertainty is shown, not hidden.** **What held across the seeded runs** says, for each finding, "holds
+  in N of M seeded runs" with a 95% interval, and calls it **Repeatable**, **Mostly repeatable**,
+  **Unstable** or **Rare**. These describe how stable the simulated result is. They are not probabilities
+  and say nothing about the real world. **The spread of outcomes** shows how results varied across runs.
+  **Which assumptions the result is sensitive to** moves one assumption at a time and marks it
+  **Sensitive**, **Robust** or **Inconclusive**.
+- **Check what the comparison could tell.** If no stakeholder has a direction of impact (who is helped or
+  harmed), the change cannot move anyone in the simulation, every difference from no change is noise, and
+  the page says so first. Say who is helped or harmed in the stakeholder review, then compare again.
+- **How far to rely on it.** **How far to rely on this** states the fidelity of the comparison (it runs a
+  rules engine: the outcome follows mechanically from the stated assumptions, and no model decided any
+  actor's behaviour), its caveats, what it cost, and, when the optional deep-dive run exists, whether that
+  run lies inside the range of the repeated runs (a plausibility check, not a validation).
+  **Second-order effects in one typical run** reads back a chain of events from the run nearest the
+  middle; it is one run, not a forecast of the chain.
+- **The independent review is a second reader, not a verdict.** The critics check the evidence, the
+  assumptions, the method, who is missing, bias, whether each recommendation follows from a finding, and
+  what would have to be true for the conclusion to be wrong. Each criticism is **Blocking**, **Major**,
+  **Minor** or a **Note**, and stays **Open** until someone answers it. You can mark an answer
+  **responded** (not settled), **accepted** (the objection stands, so its impact applies to the
+  conclusion) or **disputed** (the disagreement stays in view); an answer does not change the analysis or
+  the criticism. The checks are rules and need no model. A deeper model review is optional, is capped at
+  Major so that it never blocks, and can only name things the review gave it; if the model is not
+  configured or fails, the rules criticisms are shown with a note that says why. Neither is a measure of
+  confidence, and neither can tell whether a source is true.
+- **The decision brief puts the answer first, then what it rests on.** Its recommendations each name the
+  findings they follow from, and its **validation plan** lists the real-world checks that would settle
+  what the result depends on most: run them before acting on any recommendation. Every statement in the
+  brief carries one of ten origins (supplied or retrieved evidence, a user or system assumption, an
+  inferred stakeholder, actor behaviour, a simulation aggregation, a model interpretation, a historical
+  comparison, or unresolved uncertainty), and the limitations section says what the analysis cannot tell
+  you.
+
+## The five stages in detail
 
 1. **Graph Build:** attach or paste source material, name the scenario and frame
    a question. Choose local rules or explicitly opt into a configured provider,
@@ -66,13 +195,19 @@ scenarios and does not guarantee or precisely predict real-world behavior, and t
 evidence to a decision. The question is the first field; examples fill in a question and its
 evidence, nothing more. In a project, a journey strip shows where you are on the twelve steps from
 Question to Export and marks a step done only when the project's own record shows it, and each stage
-button carries a line of plain help under its engine name.
+button carries a line of plain help under its engine name and, if the stage is locked, what it needs
+(see [What opens each stage](#what-opens-each-stage)).
 
 The **Interface mode** switch in the header is Guided (the default) or Advanced. Advanced opens the
 system details, the engine's stages, the project details and the operation log, and leaves the step
-help out; it removes and hides nothing, and Guided hides nothing either. The choice is kept in this
-browser (local storage, the key `swarm.mode`, holding only `guided` or `advanced`). The design,
-the seams where features add their panels and the accessibility rules are in [UX.md](./UX.md).
+help out, and with it the line that says what a locked stage needs (a screen reader is still told). The
+Next step bar is the same in both. It removes and hides nothing, and Guided hides nothing either. The
+choice is kept in this browser (local storage, the key `swarm.mode`, holding only `guided` or
+`advanced`). The design, the seams where features add their panels and the accessibility rules are in
+[UX.md](./UX.md).
+
+On a phone the header scrolls away with the page instead of staying at the top, the examples and the
+project tools are one row that scrolls sideways, and the five stages stay in one row.
 
 ## What-if loop: pause, resume, intervene, branch, compare
 
