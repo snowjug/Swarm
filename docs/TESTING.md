@@ -101,14 +101,24 @@ nonce that is no longer compared. The runner applies one edit at a time to the w
 tests that should notice, and restores the file.
 
 ```powershell
-npm.cmd run mutation:security                     # all 150; 19 minutes on a laptop when last run, longer on a busy one
-npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry, studio, analyst, budget or access
+npm.cmd run mutation:security                     # all of them; 19 minutes for the first 150 on a laptop, longer on a busy one
+npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry, studio, analyst, budget, access or lab
 npm.cmd run mutation:security -- --only=M3,S8     # named ones
-npm.cmd run mutation:security -- --list
+npm.cmd run mutation:security -- --list           # only reads: it changes nothing, anywhere
 ```
 
+A run keeps the original of the file it is changing in the scratch folder, in a folder named for the
+clone it is in and for the run, with a record of what it changed. Several clones can share one scratch
+folder and one run at a time may use a clone. If a run is killed outright, the next run in the same
+clone puts back what it left mutated, and only if the file is still as the killed run left it and the
+backup is what the killed run recorded; anything else it leaves where it is, and says so.
+
 Result of the last full run: **all 150 were caught** (15 of 15 membership, 27 of 27 sign-in, 22 of 22 storage, 19 of 19
-job, 9 of 9 telemetry, 25 of 25 studio, 7 of 7 analyst, 17 of 17 budget and 9 of 9 access mutations). One studio mutation survived the first run
+job, 9 of 9 telemetry, 25 of 25 studio, 7 of 7 analyst, 17 of 17 budget and 9 of 9 access mutations). The `lab` area
+(L1 to L16: the robots.txt redirect from https to http, the size limit of a stored document, the guards on
+recommendations and checks, a brief that predicts, the intake's choice of where a question goes and its Add,
+Remove and edit controls, the cap on a model's reply, and three subject-dependent branches in stakeholder reading,
+the simulator and the brief) was added after that run and has been run on its own: all 16 were caught. One studio mutation survived the first run
 (a memo that said APPROVED for an approval whose text had since changed, which no test had stored and
 exported), and a test was added. Two sign-in mutations survived the first run (an error reply that
 still carried a code, and a session that remembered every caller as a platform administrator); a
