@@ -275,6 +275,17 @@ describe('before anything has run', () => {
     );
     expect(visibleText(linked)).toContain('Open Env Setup');
   });
+
+  it('stays small while there is nothing to compare, so that the stage keeps its controls on the first screen', () => {
+    const empty = view({ readiness: readiness({ actors: null, suggestedVariants: [] }) });
+    expect(empty).toContain('analysis-panel-bare');
+    expect(empty).not.toContain('<h3');
+    expect(visibleText(empty)).toContain(STATEMENT);
+    expect(visibleText(empty)).not.toContain('Everything below counts simulated members');
+    const ready = view();
+    expect(ready).not.toContain('analysis-panel-bare');
+    expect(visibleText(ready)).toContain('none of it is a rate of anything real');
+  });
 });
 
 describe('the scenarios to compare', () => {

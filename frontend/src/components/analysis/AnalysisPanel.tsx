@@ -3,7 +3,7 @@ import type { Analysis } from '../../../../shared/analysis';
 import type { ProjectDetail } from '../../../../shared/types';
 import { useAnalysis, type AnalysisState } from '../../hooks/useAnalysis';
 import { dateTime } from '../../lib/format';
-import { EmptyPanel, Notice, Spinner } from '../ui';
+import { Notice, Spinner } from '../ui';
 import { AnalysisResults } from './AnalysisResults';
 import { ScenarioSetup, type SetupSettings } from './ScenarioSetup';
 
@@ -125,6 +125,9 @@ export function AnalysisView({
   const titleId = useId();
   const { readiness, current, summaries, loading, error } = state;
   const lastWallMs = summaries.find((item) => item.status === 'completed')?.cost.wallMs ?? null;
+  // What the introduction says is about the setup and the results, so it waits for a cast to compare.
+  const hasCast = current !== null || (readiness?.actors ?? null) !== null;
+  const needsCast = readiness !== null && !hasCast;
 
   let body;
   if (!readiness) {
@@ -150,13 +153,14 @@ export function AnalysisView({
       </p>
     );
   } else if (readiness.actors === null && !current) {
+    // Small on purpose: with nothing to compare this panel only points on, and it must not push the
+    // stage's own controls below the fold.
     body = (
-      <EmptyPanel
-        title="No simulated actors yet"
+      <Notice
         action={
           onOpenStep ? (
             <button
-              className="button button-secondary"
+              className="button button-secondary button-small"
               type="button"
               onClick={() => onOpenStep('environment')}
             >
@@ -165,10 +169,9 @@ export function AnalysisView({
           ) : undefined
         }
       >
-        A comparison needs the cast of simulated actors. Approve the stakeholders and create the
-        actors in the Env Setup step, then come back here to compare a baseline with the proposed
-        change and its alternatives.
-      </EmptyPanel>
+        <strong>No simulated actors yet.</strong> Approve the stakeholders and create the actors in
+        the Env Setup step; then compare a baseline with the proposed change and its alternatives.
+      </Notice>
     );
   } else if (current && running(current)) {
     body = <Progress analysis={current} state={state} />;
@@ -250,17 +253,22 @@ export function AnalysisView({
   }
 
   return (
-    <section className="analysis-panel stage-card" aria-labelledby={titleId}>
+    <section
+      className={`analysis-panel stage-card${needsCast ? ' analysis-panel-bare' : ''}`}
+      aria-labelledby={titleId}
+    >
       <header className="analysis-header">
         <h2 id={titleId}>Compare scenarios</h2>
         <p className="analysis-statement">
           Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.
         </p>
-        <p className="field-help">
-          A baseline where nothing changes, set against the proposed change and its alternatives,
-          each run many times on the same seeds. Everything below counts simulated members and
-          seeded runs; none of it is a rate of anything real.
-        </p>
+        {hasCast && (
+          <p className="field-help">
+            A baseline where nothing changes, set against the proposed change and its alternatives,
+            each run many times on the same seeds. Everything below counts simulated members and
+            seeded runs; none of it is a rate of anything real.
+          </p>
+        )}
       </header>
       {body}
     </section>
