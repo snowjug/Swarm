@@ -217,6 +217,19 @@ ul.studio-body {
   }
 }
 
+/* The buttons of a section are as wide as their words, not as the section; on a phone the whole width is
+   the better target. */
+.studio-section > .button,
+.studio-section .field > .button {
+  align-self: flex-start;
+}
+@media (max-width: 640px) {
+  .studio-section > .button,
+  .studio-section .field > .button {
+    align-self: stretch;
+  }
+}
+
 /* A disclosure's summary is a flex row with a marker at the end; with an icon before its text, the
    default spacing pushes the text to the middle. The summary reads from the left, and what is inside a
    disclosure is spaced like the disclosure. */

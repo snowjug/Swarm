@@ -211,12 +211,27 @@ test.describe('guided and advanced', () => {
 
 test.describe('the workspace', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
-  const ids = {} as Record<'environment' | 'report', string>;
+  const ids = {} as Record<'knowledge' | 'environment' | 'report', string>;
 
   test.beforeAll(async ({ playwright }) => {
     const api = await apiContext(playwright);
+    ids.knowledge = await seed(api, 'knowledge', { name: 'Shell: graph stage' });
     ids.environment = await seed(api, 'environment', { name: 'Shell: environment stage' });
     ids.report = await seed(api, 'report', { name: 'Shell: report stage' });
+  });
+
+  test('keeps a button that stands alone as wide as its words on a desktop, and across the column on a phone', async ({
+    page,
+  }) => {
+    const alone = async (width: number, height: number) => {
+      await page.setViewportSize({ width, height });
+      await page.goto(`/?project=${ids.knowledge}`);
+      await openStage(page, /Env Setup/u);
+      const prepare = page.getByRole('button', { name: 'Prepare fictional environment' });
+      return (await prepare.boundingBox())!.width;
+    };
+    expect(await alone(1440, 900)).toBeLessThan(400);
+    expect(await alone(390, 844)).toBeGreaterThan(300);
   });
 
   test('keeps the five stage names and says in plain words what each is for', async ({ page }) => {
