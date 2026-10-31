@@ -215,7 +215,7 @@ describe('the sections', () => {
 
   it('lists the seventeen sections in a navigation, in the order they are read, each a link to its section', () => {
     const nav =
-      /<nav class="brief-nav" aria-label="Sections of the decision brief">([\s\S]*?)<\/nav>/u.exec(
+      /<nav class="brief-nav" aria-label="Sections of the decision brief"[^>]*>([\s\S]*?)<\/nav>/u.exec(
         html,
       );
     expect(nav).not.toBeNull();
@@ -225,6 +225,76 @@ describe('the sections', () => {
       BRIEF_SECTION_IDS.map((id, index) => `${index + 1} ${BRIEF_SECTION_TITLES[id]}`),
     );
     for (const id of BRIEF_SECTION_IDS) expect(html).toContain(`id="brief-${id}"`);
+  });
+
+  it('can be reached from where the sections end: the contents take focus and every section links back', () => {
+    expect(html).toMatch(/<nav class="brief-nav"[^>]*id="brief-contents"[^>]*tabindex="-1"/u);
+    const back = [
+      ...html.matchAll(/<a class="brief-back" href="#brief-contents">([\s\S]*?)<\/a>/gu),
+    ];
+    expect(back).toHaveLength(BRIEF_SECTION_IDS.length - 1);
+    for (const link of back) expect(visibleText(link[1] ?? '')).toBe('Back to contents');
+  });
+
+  it('opens and closes every section from the contents, and says what it did to a screen reader', () => {
+    const controls =
+      /<div class="brief-nav-controls" role="group" aria-label="Open or close the sections">([\s\S]*?)<\/div>/u.exec(
+        html,
+      );
+    expect(buttons(controls?.[1] ?? '').map((entry) => entry.text)).toEqual([
+      'Expand all sections',
+      'Collapse all sections',
+    ]);
+    expect(html).toContain('<p class="sr-only" role="status"></p>');
+  });
+
+  it('keeps the answer open and the reference closed, by section, and the closed sections still in the page', () => {
+    const state = (id: string) => {
+      const start = html.indexOf(`id="brief-${id}"`);
+      const details = /<details class="brief-collapse"( open="")?>/u.exec(html.slice(start));
+      expect(details, id).not.toBeNull();
+      return details?.[1] === undefined ? 'closed' : 'open';
+    };
+    const OPEN = [
+      'decision',
+      'reaction-patterns',
+      'alternative-outcomes',
+      'first-order',
+      'second-order',
+      'drivers',
+      'risks-opportunities',
+      'recommendations',
+    ];
+    const CLOSED = [
+      'evidence-base',
+      'stakeholders',
+      'assumptions',
+      'uncertainty',
+      'validation-plan',
+      'sources',
+      'limitations',
+      'technical-appendix',
+    ];
+    for (const id of OPEN) expect(state(id), id).toBe('open');
+    for (const id of CLOSED) expect(state(id), id).toBe('closed');
+    expect([...OPEN, ...CLOSED, 'executive-answer'].sort()).toEqual([...BRIEF_SECTION_IDS].sort());
+    // Closed is closed on the screen only: the text is in the page, so that it is found and printed.
+    expect(visibleText(html.slice(html.indexOf('id="brief-limitations"')))).toContain(
+      'A simulated statement in limitations',
+    );
+    expect(visibleText(html)).toContain('Subscribers');
+  });
+
+  it('makes the heading of a section the control that opens it, and counts what is inside', () => {
+    const toggles = tags(html, 'summary').filter((entry) =>
+      entry.attrs.includes('brief-section-toggle'),
+    );
+    expect(toggles).toHaveLength(BRIEF_SECTION_IDS.length - 1);
+    expect(toggles[0]?.text).toMatch(/^2\. Decision evaluated \d+ statements?$/u);
+    expect(html).toMatch(
+      /<summary class="brief-section-toggle"><svg[^>]*aria-hidden="true"[^>]*>/u,
+    );
+    expect(html).toMatch(/<h3 id="brief-decision-title">/u);
   });
 
   it('numbers the sections, and gives each a heading that names it', () => {
@@ -557,7 +627,11 @@ describe('exports and staleness', () => {
     expect(buttons(reader).map((entry) => entry.text)).not.toContain('Generate again');
     const nothing = document(viewFixture({ may: { generate: false, export: false } }));
     expect(nothing).not.toContain('format=md');
-    expect(buttons(nothing)).toEqual([]);
+    // What is left is for reading, which nobody is refused: opening and closing the sections.
+    expect(buttons(nothing).map((entry) => entry.text)).toEqual([
+      'Expand all sections',
+      'Collapse all sections',
+    ]);
     expect(
       buttons(document(viewFixture(), true)).find((entry) => entry.text.includes('Generate again'))
         ?.attrs,

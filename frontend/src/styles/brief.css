@@ -61,7 +61,7 @@
   border-left: 5px solid var(--orange);
   border-radius: 4px;
   background: var(--panel);
-  scroll-margin-top: 90px;
+  scroll-margin-top: 8px;
 }
 .brief-answer h3 {
   font-size: 16px;
@@ -205,7 +205,105 @@
   overflow-wrap: anywhere;
 }
 
-/* ---- Navigation */
+/* ---- The way around the Report stage. The bar sticks under the app header, whose height the page
+   reads; the page leaves room for both when it scrolls to a heading or to a control that took focus. */
+.report-jump {
+  position: sticky;
+  top: var(--report-jump-top, 53px);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 0 0 var(--space-3);
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--t-bg-f7f7f5);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.report-jump-label {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.report-jump ul {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.report-jump li {
+  flex: none;
+}
+.report-jump a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.report-jump a:hover {
+  border-color: var(--orange);
+  color: var(--orange);
+}
+.report-jump-short {
+  display: none;
+}
+.report-jump-status {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+html:has(.report-jump) {
+  scroll-padding-top: calc(var(--report-sticky, 112px) + 8px);
+}
+#report-brief,
+#report-review,
+#report-detail {
+  scroll-margin-top: 4px;
+}
+
+/* ---- Contents */
+.brief-nav {
+  padding: 8px 16px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--panel);
+  scroll-margin-top: 8px;
+}
+.brief-nav-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 4px;
+}
+.brief-nav-title {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.brief-nav-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .brief-nav ol {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -235,20 +333,68 @@
   min-width: 0;
 }
 .brief-section {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  scroll-margin-top: 8px;
+}
+.brief-collapse {
+  min-width: 0;
+}
+/* The heading of a section is its control: the whole row opens and closes it. */
+.brief .brief-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 16px;
+  color: var(--text);
+  list-style: none;
+}
+.brief-section-toggle::-webkit-details-marker {
+  display: none;
+}
+.brief-section-toggle:hover {
+  background: var(--surface-inset);
+}
+.brief-section-toggle h3 {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 16px;
+}
+.brief-chevron {
+  flex: none;
+  color: var(--orange);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.brief-collapse[open] > .brief-section-toggle .brief-chevron {
+  transform: rotate(90deg);
+}
+.brief .brief-collapse[open] > .brief-section-toggle {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.brief-section-meta {
+  flex: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.brief-section-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-  padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--panel);
-  scroll-margin-top: 90px;
+  padding: 10px 16px 16px;
 }
-.brief-section > h3 {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-soft);
-  font-size: 16px;
+.brief-back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 4px;
+  min-height: 24px;
+  color: var(--orange);
+  font-size: 12px;
 }
 .brief-statements {
   display: flex;
@@ -539,9 +685,17 @@
 }
 
 @media (max-width: 640px) {
-  .brief-answer,
-  .brief-section {
+  .brief-answer {
     padding: 12px 10px;
+  }
+  .brief .brief-section-toggle {
+    padding: 8px 10px;
+  }
+  .brief-section-body {
+    padding: 8px 10px 12px;
+  }
+  .brief-nav {
+    padding: 8px 10px 12px;
   }
   .brief-bar-row {
     grid-template-columns: minmax(0, 1fr);
@@ -549,22 +703,60 @@
   .brief-headline {
     font-size: 16px;
   }
-  .brief-actions .button {
+  /* A finger needs 44px: the controls of the page and of the contents. */
+  .brief summary,
+  .brief-nav a,
+  .brief-back,
+  .report-jump a {
     min-height: 44px;
+  }
+  .brief-actions .button,
+  .brief-nav-controls .button {
+    min-height: 44px;
+  }
+  .report-jump {
+    top: var(--report-jump-top, 0px);
+    margin-right: -12px;
+    margin-left: -12px;
+    padding: 6px 12px;
+  }
+  .report-jump-label {
+    display: none;
+  }
+  .report-jump-full {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .report-jump-short {
+    display: inline;
   }
 }
 
-/* ---- Print: the page prints as a document, with every disclosure open and no controls. */
+/* ---- Print: the page prints as a document, with every disclosure open and no controls. A section that
+   is closed on the screen is printed in full, and its heading is the only sign that it was closed. */
 @media print {
+  .report-jump,
   .brief-actions,
   .brief-nav,
-  .brief-legend-box {
+  .brief-legend-box,
+  .brief-back,
+  .brief-chevron,
+  .brief-section-meta {
     display: none;
   }
   .brief-answer,
   .brief-section {
     border-color: var(--text);
     break-inside: auto;
+  }
+  .brief .brief-section-toggle {
+    break-after: avoid;
+    border-bottom: 1px solid var(--border-soft);
   }
   .brief-statement,
   .brief-compare,

@@ -475,6 +475,15 @@ export const analysisOf = async (page: Page, project: string): Promise<Analysis>
 export const briefOf = (page: Page, project: string): Promise<BriefView> =>
   getJson<BriefView>(page, `/api/projects/${project}/brief`);
 
+/**
+ * Opens every section of the decision brief. The answer is open when the page opens and the reference
+ * sections are closed until they are wanted, so a check that reads or clicks inside one asks for them first.
+ */
+export async function expandBrief(page: Page): Promise<void> {
+  await briefDocument(page).getByRole('button', { name: 'Expand all sections' }).click();
+  await expect(briefDocument(page).locator('details.brief-collapse:not([open])')).toHaveCount(0);
+}
+
 /** Makes a project the way the pages do, up to the approved stakeholders and their actors, over HTTP. */
 export async function seedThroughActors(
   page: Page,
@@ -512,6 +521,44 @@ export async function seedThroughActors(
   expect(approved.status(), await approved.text()).toBe(200);
   const made = await page.request.post(`/api/projects/${id}/actors/generate`, { data: {} });
   expect(made.status(), await made.text()).toBe(201);
+  return id;
+}
+
+/**
+ * Makes a project the way the pages do, up to a finished comparison and its decision brief, over HTTP,
+ * and runs the independent review when asked: the Report stage then has everything to show.
+ */
+export async function seedWithBrief(
+  page: Page,
+  seed: { title: string; question: string; documents: { name: string; content: string }[] },
+  options: { review?: boolean } = {},
+): Promise<string> {
+  const id = await seedThroughActors(page, seed);
+  const started = await page.request.post(`/api/projects/${id}/analysis`, {
+    data: { runsPerVariant: 10 },
+  });
+  expect(started.status(), await started.text()).toBe(202);
+  const { analysis } = (await started.json()) as { analysis: { id: string } };
+  await expect
+    .poll(
+      async () =>
+        (
+          await getJson<{ analysis: { status: string } }>(
+            page,
+            `/api/projects/${id}/analysis/${analysis.id}`,
+          )
+        ).analysis.status,
+      { timeout: 120_000, intervals: [100, 250, 500] },
+    )
+    .toBe('completed');
+  const brief = await page.request.post(`/api/projects/${id}/brief`, { data: {} });
+  expect(brief.ok(), await brief.text()).toBe(true);
+  if (options.review) {
+    const review = await page.request.post(`/api/projects/${id}/critiques/run`, {
+      data: { useModel: false },
+    });
+    expect(review.ok(), await review.text()).toBe(true);
+  }
   return id;
 }
 

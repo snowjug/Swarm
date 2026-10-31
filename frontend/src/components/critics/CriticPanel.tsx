@@ -44,10 +44,16 @@ import {
   targetLabel,
   withoutLead,
 } from '../../lib/critics';
+import { REPORT_REVIEW_ID } from '../brief/reportNavigation';
 import { EmptyPanel, Notice, Spinner } from '../ui';
 
 export interface CriticPanelProps {
   project: ProjectDetail;
+  /**
+   * The review as the page has already read it, when something else on the page shows part of it.
+   * Without it the panel reads the review itself.
+   */
+  state?: CritiquesState;
 }
 
 const SEVERITY_ICON: Record<CritiqueSeverity, LucideIcon> = {
@@ -538,7 +544,12 @@ export function CriticReview({ state }: { state: CritiquesState }) {
   }
 
   return (
-    <section className="critic-panel view-stack" aria-labelledby={headingId}>
+    <section
+      className="critic-panel view-stack"
+      id={REPORT_REVIEW_ID}
+      tabIndex={-1}
+      aria-labelledby={headingId}
+    >
       <header className="critic-head">
         <span className="eyebrow">Challenge</span>
         <h2 id={headingId}>Independent review</h2>
@@ -560,6 +571,10 @@ function CriticSession({ projectId }: { projectId: string }) {
 }
 
 /** Independent challenges to the analysis, with responses. */
-export function CriticPanel({ project }: CriticPanelProps) {
-  return <CriticSession key={project.id} projectId={project.id} />;
+export function CriticPanel({ project, state }: CriticPanelProps) {
+  return state ? (
+    <CriticReview state={state} />
+  ) : (
+    <CriticSession key={project.id} projectId={project.id} />
+  );
 }
