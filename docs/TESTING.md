@@ -32,23 +32,23 @@ A test that passes proves little unless it would fail when the rule it guards is
 rules (workspace and project membership, the seven roles, tenant isolation), for browser sign-in
 (PKCE, nonce, state, sessions, expiry, the anti-forgery header, cookies) for the job queue (leases,
 the fence on a worker that lost its lease, retries, cancel and pause across processes), for the
-redaction gate of telemetry (which names and values may leave the process) and for Report Studio (who may
-edit and who may approve, locks and versions, what an approval is of, what a memo may call a finding),
-each rule is listed in
+redaction gate of telemetry (which names and values may leave the process) for Report Studio (who may
+edit and who may approve, locks and versions, what an approval is of, what a memo may call a finding)
+and for the analyst's handling of disputed sources, each rule is listed in
 [`scripts/mutation/mutants.json`](../scripts/mutation/mutants.json) as one small edit that breaks it:
 a check replaced by `false`, a capability added to a role, a `DELETE` that no longer deletes, a
 nonce that is no longer compared. The runner applies one edit at a time to the working copy, runs the
 tests that should notice, and restores the file.
 
 ```powershell
-npm.cmd run mutation:security                     # all 105; about an hour and a half on a busy machine
-npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry or studio
+npm.cmd run mutation:security                     # all 124; about an hour and a half on a busy machine
+npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry, studio or analyst
 npm.cmd run mutation:security -- --only=M3,S8     # named ones
 npm.cmd run mutation:security -- --list
 ```
 
-Result when each area was last run: **15 of 15 membership, 27 of 27 sign-in, 10 of 10 storage, 19 of 19
-job, 9 of 9 telemetry and 25 of 25 studio mutations were caught.** One studio mutation survived the first run
+Result when each area was last run: **15 of 15 membership, 27 of 27 sign-in, 22 of 22 storage, 19 of 19
+job, 9 of 9 telemetry, 25 of 25 studio and 7 of 7 analyst mutations were caught.** One studio mutation survived the first run
 (a memo that said APPROVED for an approval whose text had since changed, which no test had stored and
 exported), and a test was added. Two sign-in mutations survived the first run (an error reply that
 still carried a code, and a session that remembered every caller as a platform administrator); a
@@ -76,6 +76,26 @@ loses a race, and the repository on PGlite), `postgres-driver.test.ts` (the repo
 real `pg` driver against PGlite behind the PostgreSQL wire protocol, in another process) and
 `copy.test.ts` (copying a database each way, with every table compared). None of this reaches a real
 server, so TLS, Entra authentication and two instances racing are not covered.
+
+## Backup, rollback and restore
+
+Three files, all in `npm test` (and in `npm run test:postgres`):
+
+- `storage-backup.test.ts` covers the copy taken before a SQLite file is upgraded: it is kept when the
+  file has not changed since (a restart loop does not fill the disk), set aside under a name that says
+  when it was last written when the file has (it is never overwritten), and compared block by block.
+- `rollback.test.ts` rehearses going back: the release before refuses an upgraded database untouched,
+  putting the copy back returns it with its data, and the upgrade can be tried again. It reproduced a
+  real defect before the fix: after a rollback and some work, the next upgrade reported the first,
+  stale copy as its backup.
+- `restore-drill.test.ts` covers `npm run db:drill`: a backup and a restore from the backup alone,
+  checked table by table by digest, by the audit chain and by opening every project, from SQLite and
+  from PostgreSQL. It checks that a changed cell, a missing row and a rewritten history are noticed,
+  that a database in use is read as a snapshot including its write-ahead log, and that the database
+  it is run on and its folder are not changed.
+
+Restoring a hosted PostgreSQL server to a point in time, and rolling a Container Apps revision back,
+have not been rehearsed: they need a deployment.
 
 ```powershell
 npm.cmd run eval             # the offline evaluation, printed

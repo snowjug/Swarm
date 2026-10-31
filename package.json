@@ -25,6 +25,7 @@
     "test:e2e": "playwright test",
     "audit:ui": "node scripts/ui-audit.mjs",
     "db:copy": "tsx scripts/db/copy.ts",
+    "db:drill": "tsx scripts/db/drill.ts",
     "test:postgres": "node scripts/test-postgres.mjs",
     "mutation:security": "tsx scripts/mutation/run.ts",
     "eval": "tsx evaluation/src/run.ts",

@@ -63,7 +63,7 @@ sources. Empty-query browsing is a distinct unranked operation (scores are zero)
 Creation and result shapes are defined in [shared/types.ts](../shared/types.ts).
 Chat POST takes `{ "target": "report" | "agent-1", "message": "..." }`; GET accepts
 `?target=...`. Agent IDs must belong to the selected experiment. An analyst reply carries
-`grounding` (`cited`, `caveated`, `abstained` or `uncited`, with notes) and may cite passages,
+`grounding` (`cited`, `caveated`, `abstained` or `uncited`, with notes, which name an open conflict between sources that the answer touches) and may cite passages,
 simulated memories and report statements (`claimIds`). When the project holds nothing that answers a
 question the reply is exactly `The available project evidence does not support a confident answer.`
 

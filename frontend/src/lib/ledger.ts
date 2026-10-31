@@ -184,7 +184,8 @@ export const CHAT_GROUNDING: Record<ChatGroundingStatus, ChatGroundingView> = {
   caveated: {
     label: 'Cited, with figures to check',
     tone: 'caution',
-    meaning: 'The answer cites evidence, but some figures in it were not found in what it cited.',
+    meaning:
+      'The answer cites evidence, but some figures in it were not found in what it cited, or another source gives a different figure for the same thing. Read the notes.',
   },
   abstained: {
     label: 'Not enough evidence to answer',

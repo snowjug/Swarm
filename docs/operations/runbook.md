@@ -105,19 +105,51 @@ identity's client id, and that the component's ingestion is not capped.
 
 ## Roll back
 
-Container Apps keeps revisions. Re-activate the previous revision, or `azd deploy` the previous image
-tag, and run the smoke check (`npx tsx scripts/azure/pilot-smoke.ts https://<address>`). A schema
-migration is not undone by rolling the image back: migrations only add, and an older image refuses a
-database that is newer than it knows (`STORAGE_VERSION`). If a migration is the problem, restore the
-database taken before it.
+**Hosted (Container Apps).** Container Apps keeps revisions. Re-activate the previous revision, or
+`azd deploy` the previous image tag, and run the smoke check
+(`npx tsx scripts/azure/pilot-smoke.ts https://<address>`). This has not been exercised against a
+deployed pilot. A schema migration is not undone by rolling the image back: migrations only add, and
+an older image refuses a database that is newer than it knows (`STORAGE_VERSION`, tested). If a
+migration is the problem, restore the database taken before it. PostgreSQL takes no copy of its own
+before an upgrade, so take one first (`npm run db:copy`, or note the time and use point-in-time
+restore).
+
+**A SQLite file (a laptop, the demonstration, one machine).** A release that needs a newer schema
+copies the file first, to `<file>.v<N>.bak`, N being the version the file was at. To go back:
+
+1. Stop the application.
+2. Delete `<file>-wal` and `<file>-shm`, so that a log written by the newer release is not applied to
+   the older file.
+3. Copy `<file>.v<N>.bak` over `<file>`.
+4. Start the release before.
+
+Whatever was written after the upgrade is not in the copy. The upgrade can be tried again later. If
+the file has changed since the copy was taken, the next upgrade takes a new copy as
+`<file>.v<N>.bak` and sets the older one aside as `<file>.v<N>.<time it was last written>.bak`; it
+never overwrites a copy. If the file has not changed (an upgrade that failed and rolled back, started
+again), the copy is kept as it is, so a restart loop does not fill the disk. All of this is tested
+(`backend/test/rollback.test.ts`, `backend/test/storage-backup.test.ts`).
 
 ## Restore the database
 
-Azure Database for PostgreSQL keeps automated backups (seven days in the pilot). Restore to a new
-server at a point in time before the damage, copy the data back with `npm run db:copy` if only some of it is
-needed, or point the app at the restored server (`DATABASE_URL`) after adding the identity as its
-Entra administrator. **No restore has been rehearsed**: do one before it is needed, and record how long it took
-and what was lost. Verify afterwards: `GET /api/audit/verify` (a platform administrator) must report an intact chain.
+**Rehearse it first.** `npm run db:drill -- --from <database>` backs a database up into a SQLite file,
+makes a new database from that file alone, and proves the two are the same: every table by digest, the
+audit chain, every project opened as the application opens it, and the next audit entry following the
+last. It only reads the database it is pointed at (a SQLite file may be in use; it is read as a
+snapshot), writes to a scratch folder that it deletes, and exits non-zero if the restore is not exact.
+On the demonstration database (409 rows, 9 projects) a backup took 0.25 s, the restore 0.24 s and the
+check 0.32 s. That is the logical path only; it says nothing about a hosted server.
+
+**Hosted PostgreSQL.** Azure Database for PostgreSQL keeps automated backups (seven days in the pilot).
+Restore to a new server at a point in time before the damage, copy the data back with `npm run db:copy`
+if only some of it is needed, or point the app at the restored server (`DATABASE_URL`) after adding the
+identity as its Entra administrator. **No restore of a hosted server has been rehearsed**: do one before
+it is needed, and record how long it took and what was lost. Point `npm run db:drill` at the restored
+server to check it. Verify afterwards: `GET /api/audit/verify` (a platform administrator) must report an
+intact chain.
+
+**A SQLite file.** Stop the application, delete `<file>-wal` and `<file>-shm`, and copy a backup (a
+`.bak` from an upgrade, or a file written by `npm run db:copy`) over `<file>`.
 
 ## After an incident
 

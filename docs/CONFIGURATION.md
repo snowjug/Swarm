@@ -256,6 +256,24 @@ The destination must be empty. The copy is one transaction and is kept only if e
 matches and the audit chain verifies in the destination; sign-in state is not copied. To restore, copy
 the other way into an empty database. Targets are never printed, because a URL can hold a password.
 
+**Rehearsing a restore** is one more command, and it changes nothing it is pointed at:
+
+```powershell
+npm.cmd run db:drill -- --from .\data\swarm-lab.sqlite
+npm.cmd run db:drill -- --from postgres://swarm@db.example.internal:5432/swarm
+```
+
+It backs the database up into a scratch SQLite file, makes a new database from that file alone, and
+checks that what came back is what went in: every table by digest (so a changed value is noticed, not
+only a missing row), the audit chain, every project opened as the application opens it, and the next
+audit entry following the last. A SQLite file may be in use while it runs (it is read as a snapshot). It
+exits non-zero if the restore is not exact. It rehearses this logical path; restoring a hosted server to
+a point in time is the platform's, and has to be rehearsed where it runs.
+
+**Before an upgrade of a SQLite file,** the application copies it to `<file>.v<N>.bak` (N is the schema
+version it was at). A copy that is out of date is never reused or overwritten: it is set aside as
+`<file>.v<N>.<time>.bak` and a new one is taken. See "Roll back" in the [runbook](./operations/runbook.md).
+
 ## Jobs and workers
 
 Every stage of a run (`knowledge`, `environment`, `simulation`, `report`, or a quick run) is a **job**

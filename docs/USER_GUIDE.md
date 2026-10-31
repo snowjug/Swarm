@@ -36,7 +36,10 @@ or counters are preloaded. A fictional starter fills editable input only.
    report/persona chat. Survey up to five selected proxies: **state snapshots**
    return recorded numbers with no generated answer; **model interviews** make
    actual provider requests and expose asynchronous progress, cancellation and
-   partial failures. Neither is a survey of real people.
+   partial failures. Neither is a survey of real people. The analyst's answers carry a grounding label; when the
+   passage an answer cites is one half of a conflict between sources, the answer says so, and an answer that
+   states only one side of a disputed figure is marked **Cited, with figures to check**, naming both documents
+   and both figures ([ADR 0012](./adr/0012-answers-and-disputed-sources.md)).
 
 Each execution stage stops at **ready** and waits for the next explicit action.
 Later stages cannot bypass prerequisites. Cancellation stops owned work before

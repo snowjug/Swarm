@@ -470,6 +470,114 @@
       "tests": ["backend/test/postgres.test.ts"]
     },
     {
+      "id": "P11",
+      "area": "storage",
+      "claim": "An earlier copy is reported as the backup although the database has changed since it was taken",
+      "file": "backend/src/storage/backup.ts",
+      "find": "if (sameBytes(file, backup)) return backup;",
+      "replace": "return backup;",
+      "tests": ["backend/test/rollback.test.ts", "backend/test/storage-backup.test.ts"]
+    },
+    {
+      "id": "P12",
+      "area": "storage",
+      "claim": "An out-of-date copy is overwritten by the new one instead of being set aside",
+      "file": "backend/src/storage/backup.ts",
+      "find": "renameSync(backup, setAsideName(backup));",
+      "replace": ";",
+      "tests": ["backend/test/rollback.test.ts", "backend/test/storage-backup.test.ts"]
+    },
+    {
+      "id": "P13",
+      "area": "storage",
+      "claim": "The last block of two copies is never compared, so a change at the end of a database is not noticed",
+      "file": "backend/src/storage/backup.ts",
+      "find": "if (read === 0) return true;",
+      "replace": "if (read < CHUNK) return true;",
+      "tests": ["backend/test/storage-backup.test.ts"]
+    },
+    {
+      "id": "P14",
+      "area": "storage",
+      "claim": "No copy is taken when there is none yet",
+      "file": "backend/src/storage/backup.ts",
+      "find": "copyFileSync(file, backup);",
+      "replace": ";",
+      "tests": ["backend/test/rollback.test.ts", "backend/test/storage-backup.test.ts"]
+    },
+    {
+      "id": "P15",
+      "area": "storage",
+      "claim": "Two out-of-date copies made in the same second overwrite each other",
+      "file": "backend/src/storage/backup.ts",
+      "find": "for (let n = 2; existsSync(name); n++)",
+      "replace": "for (let n = 2; false; n++)",
+      "tests": ["backend/test/storage-backup.test.ts"]
+    },
+    {
+      "id": "P16",
+      "area": "storage",
+      "claim": "A database file is upgraded without a copy being taken first",
+      "file": "backend/src/storage/migrations.ts",
+      "find": "report.backup = backupBeforeUpgrade(options.path, from);",
+      "replace": "report.backup = null;",
+      "tests": ["backend/test/storage.test.ts", "backend/test/rollback.test.ts"]
+    },
+    {
+      "id": "P17",
+      "area": "storage",
+      "claim": "The restored database is never compared with the original, so a restore that lost data is reported as exact",
+      "file": "backend/src/storage/drill.ts",
+      "find": "differing = differingTables(expected, digestsOf(inspected));",
+      "replace": "differing = [];",
+      "tests": ["backend/test/restore-drill.test.ts"]
+    },
+    {
+      "id": "P18",
+      "area": "storage",
+      "claim": "A table's digest leaves out its cells, so a value that came back changed is not noticed",
+      "file": "backend/src/storage/drill.ts",
+      "find": ".map((column) => `${column}=${cell(row[column])}`);",
+      "replace": ".map((column) => column);",
+      "tests": ["backend/test/restore-drill.test.ts"]
+    },
+    {
+      "id": "P19",
+      "area": "storage",
+      "claim": "The audit chain of the restored database is not checked",
+      "file": "backend/src/storage/drill.ts",
+      "find": "auditChainIntact = new AuditLog(inspected).verify().ok;",
+      "replace": "auditChainIntact = true;",
+      "tests": ["backend/test/restore-drill.test.ts"]
+    },
+    {
+      "id": "P20",
+      "area": "storage",
+      "claim": "A rehearsal goes ahead on a database from another release, whose data this release may not read",
+      "file": "backend/src/storage/drill.ts",
+      "find": "if (schemaVersion !== LATEST_SCHEMA_VERSION) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/restore-drill.test.ts"]
+    },
+    {
+      "id": "P21",
+      "area": "storage",
+      "claim": "A database in use is snapshotted by copying its main file, which leaves out what is still in the write-ahead log",
+      "file": "backend/src/storage/drill.ts",
+      "find": "live.prepare('VACUUM INTO ?').run(snapshotPath);",
+      "replace": "process.getBuiltinModule('node:fs').copyFileSync(target, snapshotPath);",
+      "tests": ["backend/test/restore-drill.test.ts"]
+    },
+    {
+      "id": "P22",
+      "area": "storage",
+      "claim": "A restored database is said to carry on although its audit log does not",
+      "file": "backend/src/storage/drill.ts",
+      "find": "carriesOn = next.seq === last + 1 && application.audit.verify().ok;",
+      "replace": "carriesOn = true;",
+      "tests": ["backend/test/restore-drill.test.ts"]
+    },
+    {
       "id": "J1",
       "area": "jobs",
       "claim": "A worker takes a job that another worker already holds",
@@ -949,6 +1057,69 @@
         "backend/test/studio.test.ts",
         "backend/test/studio-access.test.ts"
       ]
+    },
+    {
+      "id": "A1",
+      "area": "analyst",
+      "claim": "An answer that states only one side of a figure the sources dispute is shown as plainly cited",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "if (conflict.kind === 'numeric' && usesLeft !== usesRight) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "A2",
+      "area": "analyst",
+      "claim": "A conflict a person has dismissed or resolved is still reported against an answer",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "isOpenConflict(conflict.status) &&\n      (passages.has",
+      "replace": "(passages.has",
+      "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "A3",
+      "area": "analyst",
+      "claim": "Every conflict a cited passage is in is reported, whatever the question was about",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "return about.filter((word) => asked.has(word)).length >= Math.min(2, about.length);",
+      "replace": "return true;",
+      "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "A4",
+      "area": "analyst",
+      "claim": "A rules-mode answer, which is a quotation of passages, is held to assert every figure in it",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "const usesLeft = answer.asserts && left",
+      "replace": "const usesLeft = left",
+      "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "A5",
+      "area": "analyst",
+      "claim": "An answer that gives both sides of a disputed figure is still told it has not",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "} else if (!(usesLeft && usesRight) && aboutTheQuestion",
+      "replace": "} else if (aboutTheQuestion",
+      "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "A6",
+      "area": "analyst",
+      "claim": "A conflict that a cited report statement rests on is not reported",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "for (const ref of [...(claim?.supporting ?? []), ...(claim?.contradicting ?? [])]) {",
+      "replace": "for (const ref of []) {",
+      "tests": ["backend/test/evidence-gate.test.ts"]
+    },
+    {
+      "id": "A7",
+      "area": "analyst",
+      "claim": "Any number of conflicts are listed against one answer",
+      "file": "backend/src/orchestration/evidence-gate.ts",
+      "find": "const shown = notes.slice(0, MAX_DISPUTE_NOTES);",
+      "replace": "const shown = notes.slice(0, 99);",
+      "tests": ["backend/test/evidence-gate.test.ts"]
     }
   ]
 }

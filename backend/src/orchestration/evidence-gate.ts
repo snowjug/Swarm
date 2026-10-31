@@ -357,3 +357,88 @@ export function checkAnswer(input: AnswerCheckInput): AnswerCheck {
   if (!cited) return { status: 'uncited', notes };
   return { status: unsupported.length > 0 ? 'caveated' : 'cited', notes };
 }
+
+export interface DisputeCheck {
+  /** What to tell the reader about the open conflicts between sources that the answer touches. */
+  notes: string[];
+  /** The answer states one side of a figure the sources dispute, without the other side. */
+  oneSided: boolean;
+}
+
+const MAX_DISPUTE_NOTES = 3;
+
+/** Whether a conflict is about what the question asks: the words it is about, shared with the question. */
+function aboutTheQuestion(topic: string, question: string): boolean {
+  const asked = new Set(tokenize(question).map(stem));
+  const about = [...new Set(tokenize(topic).map(stem))];
+  if (about.length === 0) return false;
+  return about.filter((word) => asked.has(word)).length >= Math.min(2, about.length);
+}
+
+/**
+ * What an answer should say about the open conflicts between sources that it touches: a conflict is
+ * touched when the answer cites one of its passages, or a report statement that rests on one.
+ *
+ * - An answer that is the analyst's own assertion (`asserts`), and that states one side of a disputed
+ *   figure without the other, is marked `oneSided`: a figure another source disputes should not be taken
+ *   on the answer's word. One that gives both sides has handled the disagreement and is left alone.
+ * - A conflict about what the question asks is named, so that a reader who follows the citation knows
+ *   the source is not the only one. A conflict about something else in the same passage is not: a
+ *   passage that states an unrelated disputed figure is not a reason to caveat every answer drawn on it.
+ *
+ * It never changes the answer.
+ */
+export function disputeNotes(
+  ledger: Ledger,
+  answer: {
+    question: string;
+    text: string;
+    sourceIds: readonly string[];
+    claimIds: readonly string[];
+    /** The text is the analyst's claim, not a quotation of passages (a rules-mode answer is a quotation). */
+    asserts: boolean;
+  },
+): DisputeCheck {
+  const passages = new Set(answer.sourceIds);
+  const claims = new Map(ledger.claims.map((claim) => [claim.id, claim]));
+  for (const id of answer.claimIds) {
+    const claim = claims.get(id);
+    for (const ref of [...(claim?.supporting ?? []), ...(claim?.contradicting ?? [])]) {
+      passages.add(ref.passageId);
+    }
+  }
+  const touched = ledger.contradictions.filter(
+    (conflict) =>
+      isOpenConflict(conflict.status) &&
+      (passages.has(conflict.left.passageId) || passages.has(conflict.right.passageId)),
+  );
+  const stated = new Set(figuresIn(answer.text));
+  const notes: string[] = [];
+  let oneSided = false;
+  for (const conflict of touched) {
+    const left = numbersIn(conflict.leftValue ?? '');
+    const right = numbersIn(conflict.rightValue ?? '');
+    const usesLeft = answer.asserts && left.some((figure) => stated.has(figure));
+    const usesRight = answer.asserts && right.some((figure) => stated.has(figure));
+    if (conflict.kind === 'numeric' && usesLeft !== usesRight) {
+      oneSided = true;
+      notes.push(
+        `The figure ${usesLeft ? conflict.leftValue : conflict.rightValue} is disputed: ` +
+          `${conflict.left.documentName} gives ${conflict.leftValue}, ${conflict.right.documentName} gives ` +
+          `${conflict.rightValue} (open conflict ${conflict.id}). The answer does not give both.`,
+      );
+    } else if (!(usesLeft && usesRight) && aboutTheQuestion(conflict.topic, answer.question)) {
+      notes.push(
+        `Sources disagree about ${conflict.topic} (open conflict ${conflict.id}, between ` +
+          `${conflict.left.documentName} and ${conflict.right.documentName}). This answer does not settle it.`,
+      );
+    }
+  }
+  const shown = notes.slice(0, MAX_DISPUTE_NOTES);
+  if (notes.length > shown.length) {
+    shown.push(
+      `${notes.length - shown.length} more open conflicts between sources touch this answer.`,
+    );
+  }
+  return { notes: shown, oneSided };
+}

@@ -1,9 +1,11 @@
 import type { z } from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { ChatMessage, SourceDocument } from '../../shared/types.js';
+import type { ContradictionRecord, Ledger } from '../../shared/evidence.js';
 import type { GroundedClaim, GroundingReview } from '../../shared/grounding.js';
 import { buildApp } from '../src/app.js';
 import { AppError } from '../src/errors.js';
+import { LedgerService } from '../src/grounding/service.js';
 import { chunkDocuments } from '../src/knowledge/retrieval.js';
 import type { JsonOptions, ModelGateway } from '../src/models/client.js';
 import {
@@ -11,6 +13,7 @@ import {
   abstentionReply,
   assessAnswerability,
   checkAnswer,
+  disputeNotes,
   isAbstention,
   partialCoverageNotes,
   projectMaterial,
@@ -449,28 +452,29 @@ describe('analyst chat evidence gate', () => {
   it('answers a covered question with citations and marks it cited', async () => {
     const harness = await completedModelProject([
       {
-        answer: 'The council reports 412,000 passengers in 2024, citing its own count.',
+        answer: 'The electric option costs $14.2M, against $3.1M for a diesel refit.',
         sourceIds: ['S1'],
         memoryIds: [],
       },
     ]);
-    const { messages } = await chat(harness, 'How many passengers did the council report?');
+    const { messages } = await chat(harness, 'How much does the electric option cost?');
     const reply = messages.at(-1)!;
     expect(reply.sourceIds).toEqual(['S1']);
-    expect(reply.grounding).toMatchObject({ status: 'cited' });
+    // S1 also states a figure the operator disputes, but the question and the answer are about the cost.
+    expect(reply.grounding).toMatchObject({ status: 'cited', notes: [] });
     expect(harness.model.state.calls).toBe(1);
   });
 
   it('rejects an uncited factual answer and accepts the repaired, cited one', async () => {
     const harness = await completedModelProject([
-      { answer: 'The council reports 412,000 passengers.', sourceIds: [], memoryIds: [] },
+      { answer: 'The electric option costs $14.2M.', sourceIds: [], memoryIds: [] },
       {
-        answer: 'The council reports 412,000 passengers in 2024.',
+        answer: 'The electric option costs $14.2M, against $3.1M for a diesel refit.',
         sourceIds: ['S1'],
         memoryIds: [],
       },
     ]);
-    const { messages } = await chat(harness, 'How many passengers did the council report?');
+    const { messages } = await chat(harness, 'How much does the electric option cost?');
     expect(harness.model.rejected).toHaveLength(1);
     expect(harness.model.rejected[0]).toContain(ABSTENTION_MESSAGE);
     expect(messages.at(-1)!.grounding).toMatchObject({ status: 'cited' });
@@ -493,12 +497,12 @@ describe('analyst chat evidence gate', () => {
         memoryIds: [],
       },
       {
-        answer: 'The council reports 412,000 passengers in 2024.',
+        answer: 'The electric option costs $14.2M.',
         sourceIds: ['S1'],
         memoryIds: [],
       },
     ]);
-    const { messages } = await chat(harness, 'How many passengers did the council report?');
+    const { messages } = await chat(harness, 'How much does the electric option cost?');
     // The first reply was refused and the model asked again, as for any uncited answer.
     expect(harness.model.rejected).toHaveLength(1);
     const reply = messages.at(-1)!;
@@ -731,5 +735,247 @@ describe('local analyst chat', () => {
     const reply = response.json<{ messages: ChatMessage[] }>().messages.at(-1)!;
     expect(reply.sourceIds).toEqual(['S1']);
     expect(reply.grounding?.status).toBe('cited');
+  });
+});
+
+describe('answers that touch a conflict between sources', () => {
+  const QUESTION = 'How many passengers did the council report?';
+  const conflictOf = (harness: Awaited<ReturnType<typeof completedModelProject>>) =>
+    new LedgerService(harness.repository).get(harness.id).contradictions[0]!;
+
+  it('marks an answer that states only one side of a disputed figure, and names both sides', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: 'The council reports 412,000 passengers in 2024.',
+        sourceIds: ['S1'],
+        memoryIds: [],
+      },
+    ]);
+    const reply = (await chat(harness, QUESTION)).messages.at(-1)!;
+    expect(reply.grounding?.status).toBe('caveated');
+    const notes = reply.grounding!.notes.join(' ');
+    expect(notes).toContain('The figure 412,000 is disputed');
+    expect(notes).toContain(`open conflict ${conflictOf(harness).id}`);
+    expect(notes).toMatch(/council\.md gives 412,000/u);
+    expect(notes).toMatch(/operator\.md gives 365,000/u);
+    expect(notes).toContain('The answer does not give both.');
+    // What it says is not changed, only what the reader is told about it.
+    expect(reply.content).toBe('The council reports 412,000 passengers in 2024.');
+    expect(reply.sourceIds).toEqual(['S1']);
+  });
+
+  it('marks the other side in the same way', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: 'The operator reports 365,000 passengers in 2024.',
+        sourceIds: ['S2'],
+        memoryIds: [],
+      },
+    ]);
+    const reply = (await chat(harness, 'How many passengers did the operator report?')).messages.at(
+      -1,
+    )!;
+    expect(reply.grounding?.status).toBe('caveated');
+    expect(reply.grounding!.notes.join(' ')).toContain('The figure 365,000 is disputed');
+  });
+
+  it('leaves alone an answer that gives both sides of the dispute', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: 'The council reports 412,000 passengers in 2024 and the operator reports 365,000.',
+        sourceIds: ['S1', 'S2'],
+        memoryIds: [],
+      },
+    ]);
+    const reply = (await chat(harness, QUESTION)).messages.at(-1)!;
+    expect(reply.grounding).toMatchObject({ status: 'cited', notes: [] });
+  });
+
+  it('names a conflict about what was asked, though the answer states neither figure', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: 'The council and the operator give different ridership figures for 2024.',
+        sourceIds: ['S1', 'S2'],
+        memoryIds: [],
+      },
+    ]);
+    const conflict = conflictOf(harness);
+    const reply = (
+      await chat(harness, `What do the sources say about ${conflict.topic}?`)
+    ).messages.at(-1)!;
+    expect(reply.grounding?.status).toBe('cited');
+    expect(reply.grounding!.notes.join(' ')).toContain(
+      `Sources disagree about ${conflict.topic} (open conflict ${conflict.id}`,
+    );
+  });
+
+  it('ignores a conflict a person has dismissed', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: 'The council reports 412,000 passengers in 2024.',
+        sourceIds: ['S1'],
+        memoryIds: [],
+      },
+    ]);
+    const dismissed = await harness.app.inject({
+      method: 'POST',
+      url: `/api/projects/${harness.id}/conflicts/${conflictOf(harness).id}/review`,
+      payload: { status: 'dismissed', note: 'Different years.' },
+    });
+    expect(dismissed.statusCode, dismissed.body).toBe(200);
+    const reply = (await chat(harness, QUESTION)).messages.at(-1)!;
+    expect(reply.grounding).toMatchObject({ status: 'cited', notes: [] });
+  });
+
+  it('does not caveat an answer drawn from a passage whose disputed figure is not what was asked about', async () => {
+    const harness = await completedModelProject([
+      {
+        answer: 'A 40% grant is available from the regional transport fund.',
+        sourceIds: ['S1'],
+        memoryIds: [],
+      },
+    ]);
+    const reply = (
+      await chat(harness, 'What grant is available from the transport fund?')
+    ).messages.at(-1)!;
+    expect(reply.grounding).toMatchObject({ status: 'cited', notes: [] });
+  });
+
+  it('never caveats a rules-mode answer, which is a quotation of passages, but still names the conflict', async () => {
+    const harness = await buildApp({ config: testConfig() });
+    applications.push(harness);
+    const project = harness.repository.create(
+      fixtureInput({ documents: documents.map(({ name, content }) => ({ name, content })) }),
+    );
+    harness.jobs.enqueue(project.id);
+    await harness.jobs.idle();
+    const conflict = new LedgerService(harness.repository).get(project.id).contradictions[0]!;
+    const response = await harness.app.inject({
+      method: 'POST',
+      url: `/api/projects/${project.id}/chat`,
+      payload: { target: 'report', message: `What do the sources say about ${conflict.topic}?` },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    const reply = response.json<{ messages: ChatMessage[] }>().messages.at(-1)!;
+    expect(reply.grounding?.status).toBe('cited');
+    expect(reply.grounding!.notes.join(' ')).toContain(`open conflict ${conflict.id}`);
+  });
+});
+
+describe('disputeNotes', () => {
+  const record = (overrides: Partial<ContradictionRecord> = {}): ContradictionRecord => ({
+    id: 'X1',
+    kind: 'numeric',
+    topic: 'crossings one-way',
+    left: {
+      passageId: 'S1',
+      documentId: 'D1',
+      documentName: 'council.md',
+      start: 0,
+      end: 10,
+      quote: 'a',
+      contentHash: 'a'.repeat(64),
+      role: 'contradicts',
+    },
+    right: {
+      passageId: 'S2',
+      documentId: 'D2',
+      documentName: 'operator.md',
+      start: 0,
+      end: 10,
+      quote: 'b',
+      contentHash: 'b'.repeat(64),
+      role: 'contradicts',
+    },
+    leftValue: '412,000',
+    rightValue: '365,000',
+    confidence: 0.6,
+    status: 'detected',
+    note: null,
+    detectedBy: 'deterministic-v1',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  });
+  const ledgerOf = (
+    contradictions: ContradictionRecord[],
+    claims: { id: string; passages: string[] }[] = [],
+  ): Ledger =>
+    ({
+      claims: claims.map((claim) => ({
+        id: claim.id,
+        supporting: claim.passages.map((passageId) => ({ passageId })),
+        contradicting: [],
+      })),
+      contradictions,
+    }) as unknown as Ledger;
+  const answer = (overrides: Partial<Parameters<typeof disputeNotes>[1]> = {}) => ({
+    question: 'How many one-way crossings were there?',
+    text: 'There were 412,000 one-way crossings.',
+    sourceIds: ['S1'],
+    claimIds: [] as string[],
+    asserts: true,
+    ...overrides,
+  });
+
+  it('says nothing when no open conflict touches what the answer cites', () => {
+    expect(disputeNotes(ledgerOf([record()]), answer({ sourceIds: ['S9'] }))).toEqual({
+      notes: [],
+      oneSided: false,
+    });
+    expect(disputeNotes(ledgerOf([]), answer())).toEqual({ notes: [], oneSided: false });
+  });
+
+  it('reaches a conflict through a report statement the answer cites', () => {
+    const ledger = ledgerOf([record()], [{ id: 'C1', passages: ['S2'] }]);
+    const result = disputeNotes(
+      ledger,
+      answer({ sourceIds: [], claimIds: ['C1'], text: 'See C1.' }),
+    );
+    expect(result.notes.join(' ')).toContain(
+      'Sources disagree about crossings one-way (open conflict X1',
+    );
+    expect(result.oneSided).toBe(false);
+  });
+
+  it('is one-sided only for a figure the answer asserts, and not for a quotation of passages', () => {
+    const ledger = ledgerOf([record()]);
+    expect(disputeNotes(ledger, answer()).oneSided).toBe(true);
+    expect(disputeNotes(ledger, answer({ asserts: false })).oneSided).toBe(false);
+    expect(
+      disputeNotes(ledger, answer({ text: 'There were 365,000 one-way crossings.' })).notes[0],
+    ).toContain('The figure 365,000 is disputed');
+    expect(
+      disputeNotes(ledger, answer({ text: 'Either 412,000 or 365,000 one-way crossings.' })),
+    ).toEqual({ notes: [], oneSided: false });
+  });
+
+  it('gives a conflict of meaning only the plain note, and only when it is about the question', () => {
+    const ledger = ledgerOf([record({ kind: 'polarity', leftValue: null, rightValue: null })]);
+    const about = disputeNotes(ledger, answer({ text: 'Opinions differ.' }));
+    expect(about.oneSided).toBe(false);
+    expect(about.notes).toHaveLength(1);
+    expect(
+      disputeNotes(ledger, answer({ text: 'Opinions differ.', question: 'What is the weather?' }))
+        .notes,
+    ).toEqual([]);
+  });
+
+  it('ignores a conflict that is dismissed or resolved', () => {
+    for (const status of ['dismissed', 'resolved'] as const) {
+      expect(disputeNotes(ledgerOf([record({ status })]), answer())).toEqual({
+        notes: [],
+        oneSided: false,
+      });
+    }
+  });
+
+  it('names at most three conflicts and counts the rest', () => {
+    const many = Array.from({ length: 5 }, (_, index) =>
+      record({ id: `X${index + 1}`, kind: 'polarity', leftValue: null, rightValue: null }),
+    );
+    const result = disputeNotes(ledgerOf(many), answer({ text: 'Opinions differ.' }));
+    expect(result.notes).toHaveLength(4);
+    expect(result.notes.at(-1)).toBe('2 more open conflicts between sources touch this answer.');
   });
 });

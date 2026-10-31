@@ -22,6 +22,7 @@ import {
   checkAnswer,
   claimsForPrompt,
   conflictsForPrompt,
+  disputeNotes,
   isAbstention,
   partialCoverageNotes,
   projectMaterial,
@@ -173,11 +174,22 @@ export class InteractionService {
         sourceIds = evidence.map((chunk) => chunk.id);
         memoryIds = memories.map((memory) => memory.id);
         const found = sourceIds.length + memoryIds.length > 0;
+        const disputes =
+          found && target === 'report'
+            ? disputeNotes(new LedgerService(this.repository).get(id), {
+                question: message,
+                text: content,
+                sourceIds,
+                claimIds: [],
+                asserts: false,
+              })
+            : { notes: [], oneSided: false };
         grounding = {
-          status: found ? 'cited' : 'uncited',
+          status: !found ? 'uncited' : disputes.oneSided ? 'caveated' : 'cited',
           notes: [
             ...partialCoverageNotes(gate),
             ...(found ? [] : ['No passage or memory matched the question closely enough to cite.']),
+            ...disputes.notes,
           ],
           coverage: gate?.coverage ?? null,
         };
@@ -297,8 +309,18 @@ export class InteractionService {
           ].join('\n'),
           recordedFigures: recordedFigures(project, report.metrics),
         });
+        const disputes =
+          ledger && check.status !== 'abstained'
+            ? disputeNotes(ledger, {
+                question: message,
+                text: content,
+                sourceIds,
+                claimIds,
+                asserts: true,
+              })
+            : { notes: [], oneSided: false };
         grounding = {
-          status: check.status,
+          status: check.status === 'cited' && disputes.oneSided ? 'caveated' : check.status,
           notes: [
             ...partialCoverageNotes(gate),
             ...(!citable && !isAbstention(content)
@@ -307,6 +329,7 @@ export class InteractionService {
                 ]
               : []),
             ...check.notes,
+            ...disputes.notes,
           ],
           coverage: gate?.coverage ?? null,
         };

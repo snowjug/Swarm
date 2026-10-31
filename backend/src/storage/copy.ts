@@ -11,7 +11,7 @@ import type { SqlDatabase, SqlValue } from './sql.js';
  * message is only an ordering, so it is regenerated; the sequence number of an audit entry is kept
  * so that the log reads the same on both sides.
  */
-const TABLES = [
+export const TABLES = [
   { name: 'projects', order: 'created_at, id', skip: [] },
   { name: 'chunks', order: 'project_id, id', skip: [] },
   { name: 'events', order: 'id', skip: ['id'] },

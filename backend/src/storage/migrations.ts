@@ -1,6 +1,7 @@
-import { copyFileSync, existsSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { AppError } from '../errors.js';
+import { backupBeforeUpgrade } from './backup.js';
 import {
   PG_V1,
   PG_V2,
@@ -314,9 +315,7 @@ function migrateLocked(
     existsSync(options.path)
   ) {
     database.exec('PRAGMA wal_checkpoint(TRUNCATE)');
-    const backup = `${options.path}.v${from}.bak`;
-    if (!existsSync(backup)) copyFileSync(options.path, backup);
-    report.backup = backup;
+    report.backup = backupBeforeUpgrade(options.path, from);
   }
 
   for (const migration of pending) {
