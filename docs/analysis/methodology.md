@@ -215,9 +215,10 @@ to the 90th and the median line, and has a table beside it.
 
 The representative run is the run whose overall final stance is nearest the median under the proposed
 change (the lowest seed when two are as near). The engine is deterministic, so it is simulated once
-more from that seed to keep its full detail: events with what each followed from, so that a chain can
-be read as "because ..., then ...". The findings, not this one run, say how often each kind of event
-occurred.
+more from that seed to keep its full detail: events with the signal each acted on and the earlier events
+that a replay without them showed it needed (`explained`), and, apart, those that only came first, so that
+a chain is never read as "because" where only "after" is known. The findings, not this one run, say how
+often each kind of event occurred.
 
 ## Fidelity, cost and the cross-check
 

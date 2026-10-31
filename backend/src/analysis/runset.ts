@@ -406,7 +406,7 @@ export async function runAnalysis(
   let representativeRun: RunOutcome | null = null;
   const typical = proposed ? nearestMedian(records.get(proposed.id)!) : undefined;
   if (proposedSpec && typical) {
-    representativeRun = simulator(proposedSpec, typical.summary.seed);
+    representativeRun = simulator(proposedSpec, typical.summary.seed, { explain: true });
     counted(representativeRun.work.members);
   }
 
