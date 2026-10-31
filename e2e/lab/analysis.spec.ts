@@ -720,6 +720,32 @@ test.describe('comparing scenarios on the page', () => {
     expect(problems).toEqual([]);
   });
 
+  for (const [width, height] of [
+    [1366, 768],
+    [1440, 900],
+  ] as const) {
+    test(`keeps the button that starts a comparison on the screen at ${width}x${height}, however long the form is`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height });
+      await openSimulation(page, ids.fresh);
+      const start = panel(page).getByRole('button', { name: 'Compare scenarios', exact: true });
+      // Six scenarios make a form several screens long.
+      for (let more = 0; more < 2; more += 1) {
+        await panel(page).getByRole('button', { name: 'Add an alternative' }).click();
+      }
+      await expect(scenarioRows(page)).toHaveCount(6);
+      await expect(start).toBeInViewport({ ratio: 1 });
+      await page.mouse.wheel(0, 600);
+      await expect(start).toBeInViewport({ ratio: 1 });
+      // A field that takes focus is not left behind it.
+      const last = scenarioRows(page).last().getByLabel('How strongly it lands (0 to 1)');
+      await last.focus();
+      const [field, button] = await Promise.all([last.boundingBox(), start.boundingBox()]);
+      expect(field!.y + field!.height).toBeLessThanOrEqual(button!.y);
+    });
+  }
+
   test('says before and after the run that a change that cannot move anyone shows only chance', async ({
     page,
   }) => {
