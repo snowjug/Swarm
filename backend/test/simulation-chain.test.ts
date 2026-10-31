@@ -204,8 +204,8 @@ describe('what each kind of responder does', () => {
   const harmed = (switchingCost = 0.65) =>
     actor('alpha', 'cost-bearer', {
       traits: {
-        impact: -0.6,
-        sensitivity: 0.8,
+        impact: -0.9,
+        sensitivity: 0.9,
         switchingCost,
         riskTolerance: { value: 0.2, spread: 0.05 },
       },
@@ -271,7 +271,7 @@ describe('what each kind of responder does', () => {
     const input = spec(
       [
         harmed(),
-        actor('bystander', 'cost-bearer', { traits: { impact: -0.6 } }),
+        actor('bystander', 'cost-bearer', { traits: { impact: -0.9, sensitivity: 0.9 } }),
         key('rival', 'competitor', { impact: 0 }),
       ],
       {
@@ -303,7 +303,7 @@ describe('a responder with no relations, or none that reach anyone affected', ()
 
   it('reaches the actors the change harms when no category reaches anyone', () => {
     const cast = [
-      actor('alpha', 'other', { traits: { impact: -0.6, sensitivity: 0.8, switchingCost: 0.65 } }),
+      actor('alpha', 'other', { traits: { impact: -0.9, sensitivity: 0.9, switchingCost: 0.65 } }),
       key('rival', 'competitor', { impact: 0, riskTolerance: 0.4, authority: 0.8 }),
     ];
     const outcome = simulate(spec(cast, { relations: [], rounds: 12 }), 1);
@@ -313,7 +313,7 @@ describe('a responder with no relations, or none that reach anyone affected', ()
   it('reaches the harmed too when it is related only to an actor the change does not touch', () => {
     const cast = [
       actor('alpha', 'cost-bearer', {
-        traits: { impact: -0.6, sensitivity: 0.8, riskTolerance: 0.2 },
+        traits: { impact: -0.9, sensitivity: 0.9, riskTolerance: 0.2 },
       }),
       key('provider', 'decision-maker', { impact: 0 }),
       key('watchdog', 'regulator', { impact: 0, authority: 0.9 }),

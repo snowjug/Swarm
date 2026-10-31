@@ -1,6 +1,6 @@
 import { AFFECTED_MIN } from './parameters.js';
 import type { RoundStats } from './dynamics.js';
-import { ADOPT_INDEX, CATEGORY_COUNT, SWITCH_INDEX } from './response.js';
+import { ADOPT_INDEX, CATEGORY_COUNT, RESIST_INDEX, SWITCH_INDEX } from './response.js';
 
 /**
  * Aggregate signals: plain readings of the members' states that say how the change is landing. They
@@ -13,11 +13,12 @@ import { ADOPT_INDEX, CATEGORY_COUNT, SWITCH_INDEX } from './response.js';
  * (at or above +0.05). For other actors it is not defined, and it is left out of what is reported
  * and of what a responder watches.
  *
- *  adverse-share       share of members at a stance of -0.1 or lower      (about harmed actors)
+ *  adverse-share       share of members who are clearly against: stance of -0.35 or lower, that is
+ *                      who would switch or resist                          (about harmed actors)
  *  switching-pressure  share of members whose response is "switch"         (about harmed actors)
  *  adoption            share of members whose response is "adopt"          (about benefited actors)
- *  risk-concern        share of members at -0.1 or lower who tolerate
- *                      little risk (risk tolerance below 0.5)              (about harmed actors)
+ *  risk-concern        among members who tolerate little risk (risk tolerance below 0.5), the share who
+ *                      are clearly against; 0 when none is risk averse     (about harmed actors)
  */
 export const SIGNAL_NAMES = [
   'adverse-share',
@@ -70,16 +71,19 @@ export function recordSignals(
   const adverse = values[SIGNAL_INDEX['adverse-share']];
   const switching = values[SIGNAL_INDEX['switching-pressure']];
   const adoption = values[SIGNAL_INDEX.adoption];
-  const worried = values[SIGNAL_INDEX['risk-concern']];
-  if (!adverse || !switching || !adoption || !worried) return;
+  const concern = values[SIGNAL_INDEX['risk-concern']];
+  if (!adverse || !switching || !adoption || !concern) return;
   const offset = (round - 1) * actorCount;
   for (let actor = 0; actor < actorCount; actor += 1) {
     const members = (start[actor + 1] ?? 0) - (start[actor] ?? 0);
     const base = actor * CATEGORY_COUNT;
-    adverse[offset + actor] = (stats.adverse[actor] ?? 0) / members;
+    const against =
+      (stats.counts[base + SWITCH_INDEX] ?? 0) + (stats.counts[base + RESIST_INDEX] ?? 0);
+    const averse = stats.averse[actor] ?? 0;
+    adverse[offset + actor] = against / members;
     switching[offset + actor] = (stats.counts[base + SWITCH_INDEX] ?? 0) / members;
     adoption[offset + actor] = (stats.counts[base + ADOPT_INDEX] ?? 0) / members;
-    worried[offset + actor] = (stats.worried[actor] ?? 0) / members;
+    concern[offset + actor] = averse > 0 ? (stats.worried[actor] ?? 0) / averse : 0;
   }
 }
 

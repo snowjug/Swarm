@@ -12,10 +12,22 @@ export const AGAINST_AT = -0.35;
 /** Below this effective switching cost, a member who is clearly against looks for an alternative. */
 export const CHEAP_SWITCH_BELOW = 0.5;
 
-/** How far a member's stance moves toward the stance of those it listens to, per round at openness 1. */
-export const SOCIAL_RATE = 0.15;
-/** The share of the change's push that is still felt one round later (and of any event's push). */
-export const PERSISTENCE = 0.5;
+/**
+ * Each round a member closes this share of the gap between its stance and the stance it is anchored
+ * to: `RATE_MIN` at no reactivity, `RATE_MIN + RATE_SPAN` at full reactivity (0.4 at 0.5).
+ */
+export const RATE_MIN = 0.2;
+export const RATE_SPAN = 0.4;
+/** How far the change moves the stance a member is anchored to, per unit of intensity x sensitivity x impact. */
+export const CHANGE_GAIN = 1.25;
+/**
+ * Run-to-run variation, as a standard deviation around 1, in how strongly a whole group reacts to the
+ * change. Members of a group are not independent draws: they share circumstances, so a group as a
+ * whole reacts a little more or a little less strongly in one run than in another.
+ */
+export const GROUP_SPREAD = 0.15;
+/** How far a member moves toward the stance of those it listens to, per round at openness 1. */
+export const SOCIAL_RATE = 0.1;
 /** Half-width of the seeded noise on a stance, per round, for a member of average reactivity. */
 export const NOISE = 0.02;
 /** How much trust, and readiness to take up something new, scale how the change is felt. */
@@ -28,10 +40,13 @@ export const COHORT_TIE = 1;
 /** A member counts as "risk averse" in the risk-concern signal below this risk tolerance. */
 export const RISK_AVERSE_BELOW = 0.5;
 
-/** Effect of an event on the actors it lands on, per unit of event strength and tie strength. */
-export const SWITCH_PULL = 0.1;
-export const ENABLE_LIFT = 0.1;
-export const SCRUTINY_PULL = 0.08;
+/**
+ * Effect of an event on the stance the actors it lands on are anchored to, per unit of pressure
+ * (event strength times tie strength). Pressures last for the rest of the run.
+ */
+export const SWITCH_PULL = 0.5;
+export const ENABLE_LIFT = 0.5;
+export const SCRUTINY_PULL = 0.3;
 export const RELIEF_STEP = 0.4;
 export const RELIEF_CAP = 0.6;
 export const PRESSURE_CAP = 1;

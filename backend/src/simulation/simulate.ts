@@ -32,13 +32,12 @@ import {
   buildTies,
   createEffects,
   createStats,
-  fadeEffects,
   initialiseHeard,
   listenTargets,
   stepRound,
   type RoundStats,
 } from './dynamics.js';
-import { DEFAULT_SAMPLE_CAP, PERSISTENCE } from './parameters.js';
+import { CHANGE_GAIN, DEFAULT_SAMPLE_CAP } from './parameters.js';
 import { buildPopulation, SimulationInputError } from './population.js';
 import { CATEGORY_COUNT } from './response.js';
 import { buildResponders, createResponders, runResponders } from './responders.js';
@@ -115,7 +114,7 @@ export function simulateValidated(
   const stats = createStats(actors.length);
   initialiseHeard(population, stats);
   const effects = createEffects(actors.length);
-  const targets = new Float64Array(actors.length);
+  const listening = new Float64Array(actors.length);
   const withSignals = options.signals ?? true;
   const history = withSignals
     ? createHistory(
@@ -129,16 +128,14 @@ export function simulateValidated(
 
   const rounds: RoundAggregate[] = [];
   for (let round = 1; round <= spec.rounds; round += 1) {
-    const push =
-      round < variant.round ? 0 : variant.intensity * PERSISTENCE ** (round - variant.round);
-    listenTargets(ties, stats, targets);
-    stepRound(population, effects, stats, targets, round, push);
+    const push = round < variant.round ? 0 : CHANGE_GAIN * variant.intensity;
+    listenTargets(ties, stats, listening);
+    stepRound(population, effects, stats, listening, round, push);
     const aggregate = sumUp(round, ids, population.start, stats);
     rounds.push(aggregate);
     if (history && responders) {
       recordSignals(history, round, stats, population.start);
       aggregate.signals = aggregateSignals(history, round);
-      fadeEffects(effects);
       runResponders(responders, actors, history, effects, round);
     }
   }

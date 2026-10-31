@@ -5,6 +5,7 @@ import { ACCEPT_AT, ADOPT_AT, ADVERSE_AT, AGAINST_AT, CHEAP_SWITCH_BELOW } from 
 export type ResponseIndex = 0 | 1 | 2 | 3 | 4 | 5;
 export const ADOPT_INDEX = 0;
 export const SWITCH_INDEX = 4;
+export const RESIST_INDEX = 5;
 export const CATEGORY_COUNT = RESPONSE_CATEGORIES.length;
 
 /**
