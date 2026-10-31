@@ -8,7 +8,7 @@ import type {
 import { isSetByPerson } from '../../../shared/analysis-plan.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
 import { canonicalField, type ScenarioFrame } from '../../../shared/scenario.js';
-import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
+import { NO_DIRECTION_NOTICE, effectiveTrait } from '../../../shared/signal.js';
 import { STAKEHOLDER_CATEGORY_LABELS } from '../../../shared/stakeholders.js';
 import { effectOf } from './assumptions.js';
 import { documentOrigin, provenanceLine, uniqueRefs } from './evidence.js';
@@ -208,14 +208,15 @@ function doubtsOf(facts: Facts, headline: Headline): Doubt[] {
       settle: 'measuring it in the world',
     });
   }
-  const lead = impactLeads(facts, 3).find((actor) => actor.traits.impact.origin !== 'user');
+  const variant = headline.variant.variant;
+  // A value the scenario itself sets for a group is its author's, and is not Swarm's assumption to flag.
+  const lead = impactLeads(facts, 3).find(
+    (actor) =>
+      actor.traits.impact.origin !== 'user' && variant.impactOverrides[actor.id] === undefined,
+  );
   if (lead && !(row?.target.actorId === lead.id && row.target.trait === 'impact')) {
-    const direction =
-      lead.traits.impact.value < -0.2
-        ? 'harmed'
-        : lead.traits.impact.value > 0.2
-          ? 'helped'
-          : 'unaffected';
+    const impact = effectiveTrait(lead, variant, 'impact');
+    const direction = impact < -0.2 ? 'harmed' : impact > 0.2 ? 'helped' : 'unaffected';
     doubts.push({
       key: `premise:impact:${lead.id}`,
       origin: 'system-assumption',
@@ -228,7 +229,6 @@ function doubtsOf(facts: Facts, headline: Headline): Doubt[] {
       settle: 'measuring how the change lands on the group',
     });
   }
-  const variant = headline.variant.variant;
   if (variant.kind === 'alternative' && row?.target.kind !== 'intensity') {
     doubts.push({
       key: 'premise:strength',
@@ -764,13 +764,16 @@ export function evidenceBase(facts: Facts, tally: Tally): BriefSection {
   const actors = facts.analysis.actors;
   const withoutSupport = actors.filter((actor) => !evidence.supports(actor));
   if (actors.length > 0) {
+    const covered = withoutSupport.length === 0;
     writer.add({
-      origin: 'unresolved-uncertainty',
-      text:
-        withoutSupport.length === 0
-          ? `Every one of the ${actors.length} simulated ${plural(actors.length, 'actor')} has at least one cited supporting passage.`
-          : `${actors.length - withoutSupport.length} of ${actors.length} simulated actors have at least one cited supporting passage; ${withoutSupport.length} have none${withoutSupport.length <= 6 ? ` (${listed(withoutSupport.map((actor) => embed(actor.name, 40)))})` : ''}.`,
-      refs: { stakeholderIds: withoutSupport.map((actor) => actor.stakeholderId) },
+      // Every actor having cited support says where the stakeholders came from; it is not something unknown.
+      origin: covered ? 'inferred-stakeholder' : 'unresolved-uncertainty',
+      text: covered
+        ? `Every one of the ${actors.length} simulated ${plural(actors.length, 'actor')} has at least one cited supporting passage.`
+        : `${actors.length - withoutSupport.length} of ${actors.length} simulated actors have at least one cited supporting passage; ${withoutSupport.length} have none${withoutSupport.length <= 6 ? ` (${listed(withoutSupport.map((actor) => embed(actor.name, 40)))})` : ''}.`,
+      refs: {
+        stakeholderIds: (covered ? actors : withoutSupport).map((actor) => actor.stakeholderId),
+      },
     });
   }
   for (const conflict of (facts.ledger?.conflicts ?? []).slice(0, 5)) {
@@ -843,7 +846,7 @@ export function stakeholdersSection(facts: Facts, tally: Tally): BriefSection {
     const support =
       entry.supporting + entry.contradicting === 0
         ? 'No passage is cited for it'
-        : `${entry.supporting} cited ${plural(entry.supporting, 'passage')} support it${entry.contradicting > 0 ? ` and ${entry.contradicting} ${plural(entry.contradicting, 'contradicts it', 'contradict it')}` : ''}`;
+        : `${entry.supporting} cited ${plural(entry.supporting, 'passage supports', 'passages support')} it${entry.contradicting > 0 ? ` and ${entry.contradicting} ${plural(entry.contradicting, 'contradicts it', 'contradict it')}` : ''}`;
     const population =
       entry.populationSize !== null && entry.populationSize > 1
         ? ` It stands for a population assumed at ${entry.populationSize}, which is not a count.`
@@ -866,7 +869,7 @@ export function stakeholdersSection(facts: Facts, tally: Tally): BriefSection {
     const rest = entries.slice(shown.length);
     writer.add({
       origin: 'inferred-stakeholder',
-      text: `${rest.length} further ${plural(rest.length, 'stakeholder')} are not listed here (${listed(rest.slice(0, 4).map((entry) => embed(entry.name, 40)))}${rest.length > 4 ? ' and others' : ''}); the evidence map and the exports list every one.`,
+      text: `${rest.length} further ${plural(rest.length, 'stakeholder is', 'stakeholders are')} not listed here (${listed(rest.slice(0, 4).map((entry) => embed(entry.name, 40)))}${rest.length > 4 ? ' and others' : ''}); the evidence map and the exports list every one.`,
       refs: { stakeholderIds: rest.map((entry) => entry.id) },
     });
   }

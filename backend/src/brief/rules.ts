@@ -91,12 +91,14 @@ export const DIRECTION_CUT = 0.2;
 
 export type Direction = 'harmed' | 'benefited' | 'neutral';
 
-export function directionOf(actor: Actor): Direction {
-  const impact = actor.traits.impact.value;
+export function directionOfImpact(impact: number): Direction {
   if (impact <= -DIRECTION_CUT) return 'harmed';
   if (impact >= DIRECTION_CUT) return 'benefited';
   return 'neutral';
 }
+
+export const directionOf = (actor: Actor): Direction =>
+  directionOfImpact(actor.traits.impact.value);
 
 export type Level = 'low' | 'medium' | 'high';
 

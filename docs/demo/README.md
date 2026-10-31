@@ -77,8 +77,8 @@ over what period) and check that the form asks, rather than filling it in.
 
 **1:45, stakeholders and actors.** "These are roles found in the evidence, with the passage shown. They
 are not people. Rules mode reads for role words, so it finds the groups a text names that way, and
-this note says how many of them it could read a direction of impact for. Where it could not, the change
-cannot move that group, and I would set it here, with my reasons." Open one row to show its quotes, word
+this note says how many of them it could read a direction of impact for. Where it could not, nobody
+is assumed to be helped or harmed in that group, and I would set it here, with my reasons." Open one row to show its quotes, word
 for word, with the passage they come from, and what is assumed. "Every number an actor runs on says
 where it came from, and I can change it." Approve, open the actors, and move one trait's slider: its
 badge becomes yours at once, and **Save changes to the actors** keeps it.
@@ -115,7 +115,8 @@ to one". Read the message, which ends "You can paste the text instead."
 supports is what appears, and where it is thin, the gaps and the warnings say so." A page may name
 fewer than two stakeholders. **Approve stakeholders and create actors** stays disabled until there
 are two, so add the missing group yourself and label it as your assumption. If the comparison warns
-that the change cannot move anyone, say what that means: no group has a direction of impact yet.
+that nobody has a direction of impact, say what that means: no group is set as helped or harmed yet,
+so any difference it shows comes from how widely the members of a group are assumed to differ.
 
 **9:30, the close.** "Invented evidence, a repeatable method, assumptions on the table, independent
 challenge, and a plan to check it in the real world. Swarm supports a person's analysis. A person

@@ -189,6 +189,12 @@ describe('the summary and the one thing to do next', () => {
       label: 'Approve and create actors',
       primary: true,
     });
+    // With the list open the approval card holds the main button, and this one is a shortcut to it.
+    expect(nextAction({ set: reviewed, actors: null, may: MAY, listOpen: true })).toEqual({
+      id: 'approve',
+      label: 'Approve and create actors',
+      primary: false,
+    });
     // Approving keeps the actors a person changed, and says so rather than promising new ones.
     expect(nextAction({ set: reviewed, actors: cast, may: MAY, editedActors: 1 })?.label).toBe(
       'Approve stakeholders',

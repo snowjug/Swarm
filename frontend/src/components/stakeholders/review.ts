@@ -131,7 +131,8 @@ export function nextAction(input: {
     return {
       id: 'approve',
       label: keeps ? 'Approve stakeholders' : 'Approve and create actors',
-      primary: true,
+      // With the list open the approval card is on the page and holds the main button; this one is a shortcut to the same thing.
+      primary: !input.listOpen,
     };
   }
   if (made === 0) {

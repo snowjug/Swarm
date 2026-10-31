@@ -294,12 +294,12 @@ describe('saying where the directions came from', () => {
     expect(
       describeDirections({ total: 25, wording: 7, category: 2, stated: 0, unclear: 16 }, 'groups'),
     ).toBe(
-      '7 of 25 groups have a direction of impact read from the wording of their cited sentences; 2 take the default of their category; 16 remain unclear, so the change cannot move them.',
+      '7 of 25 groups have a direction of impact read from the wording of their cited sentences; 2 take the default of their category; 16 remain unclear, so none of them is assumed to be helped or harmed.',
     );
     expect(
       describeDirections({ total: 4, wording: 1, category: 0, stated: 1, unclear: 2 }, 'actors'),
     ).toBe(
-      '1 of 4 actors have a direction of impact read from the wording of their cited sentences; 1 were set by a model or a person; 2 remain unclear, so the change cannot move them.',
+      '1 of 4 actors have a direction of impact read from the wording of their cited sentences; 1 were set by a model or a person; 2 remain unclear, so none of them is assumed to be helped or harmed.',
     );
   });
 
@@ -310,7 +310,7 @@ describe('saying where the directions came from', () => {
     );
     expect(sentence).toContain('No direction of impact could be read from the wording');
     expect(sentence).toContain('all 5 groups are unclear');
-    expect(sentence).toContain('cannot move any of them');
+    expect(sentence).toContain('none of them is assumed to be helped or harmed');
     expect(
       describeDirections({ total: 0, wording: 0, category: 0, stated: 0, unclear: 0 }, 'groups'),
     ).toBe('');

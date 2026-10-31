@@ -458,6 +458,28 @@ describe('the scenario', () => {
 });
 
 describe('the stakeholders', () => {
+  it('says that one cited passage supports a stakeholder, and that more of them support it', () => {
+    const stakeholders = richStakeholders();
+    const subscribers = stakeholders.stakeholders.find((entry) => entry.id === 'subscribers')!;
+    subscribers.evidence = subscribers.evidence.slice(0, 1);
+    const text = sectionOf(buildBrief(richInputs({ stakeholders })), 'stakeholders')
+      .statements.map((statement) => statement.text)
+      .join(' ');
+    expect(text).toContain('1 cited passage supports it');
+    expect(text).not.toContain('1 cited passage support it');
+  });
+
+  it('does not call full evidence coverage an unresolved uncertainty', () => {
+    const stakeholders = richStakeholders();
+    const quoted = stakeholders.stakeholders.find((entry) => entry.id === 'subscribers')!.evidence;
+    for (const entry of stakeholders.stakeholders) entry.evidence = quoted;
+    const base = sectionOf(buildBrief(richInputs({ stakeholders })), 'evidence-base').statements;
+    const coverage = base.find((statement) => statement.text.startsWith('Every one of the'))!;
+    expect(coverage.text).toContain('has at least one cited supporting passage');
+    expect(coverage.origin).toBe('inferred-stakeholder');
+    expect(coverage.refs.stakeholderIds.length).toBeGreaterThan(1);
+  });
+
   it('lists each with its category, who proposed it, how many passages support it and what is uncertain', () => {
     const brief = buildBrief(richInputs());
     const statements = sectionOf(brief, 'stakeholders').statements;
@@ -648,6 +670,47 @@ describe('how far each statement can be relied on', () => {
 });
 
 describe('the assumptions', () => {
+  it('says what the runs used where the scenario sets the impact of an actor itself, and not what the actor carries', () => {
+    const base = analysisFixture();
+    const analysis = analysisSchema.parse({
+      ...base,
+      config: {
+        ...base.config,
+        variants: base.config.variants.map((variant) =>
+          variant.id === 'proposed-change'
+            ? { ...variant, impactOverrides: { subscribers: -0.9 } }
+            : variant,
+        ),
+      },
+      actors: base.actors.map((actor) =>
+        actor.id === 'subscribers'
+          ? { ...actor, traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } } }
+          : actor,
+      ),
+      sensitivity: base.sensitivity.map((row) => ({
+        ...row,
+        target: { kind: 'trait', actorId: 'subscribers', trait: 'impact' },
+        label: 'Subscribers: how the change lands on them (impact), 0.2 higher',
+        assumptionOrigin: 'user',
+        setting: { source: 'scenario-override', value: -0.9 },
+      })),
+    });
+    const made = buildBrief(baseInputs({ analysis }));
+    const register = sectionOf(made, 'assumptions').statements.find(
+      (statement) => statement.refs.sensitivityIds.length > 0,
+    )!;
+    expect(register.text).toContain('impact is set at -0.90, as the proposed change sets it');
+    expect(register.text).toContain('the actor itself carries 0.00, which the runs did not use');
+    expect(register.text).not.toContain('is set at 0.00');
+    expect(register.origin).toBe('user-assumption');
+    const effect = sectionOf(made, 'first-order').statements.find((statement) =>
+      statement.text.startsWith('Simulated “Subscribers”'),
+    )!;
+    expect(effect.text).toContain(
+      'is set as harmed by the change (impact -0.90, set by the scenario that proposes the change)',
+    );
+  });
+
   it('puts the ones the result is sensitive to first, biggest first, and says who owns each', () => {
     const brief = buildBrief(richInputs());
     const statements = sectionOf(brief, 'assumptions').statements;

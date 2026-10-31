@@ -135,8 +135,13 @@ function sensitivityRow(
   let subject: string;
   let value: string | null = null;
   if (row.target.kind === 'trait' && actor && trait) {
-    subject = `${embed(actor.name, 60)}: ${traitLabel(row.target.trait ?? '')} is set at ${decimals(trait.value)}`;
-    value = decimals(trait.value);
+    // A scenario can set the value itself (an override or an edit): that value is what the runs used, not the actor's own.
+    const governing = row.setting?.value ?? trait.value;
+    const setBy = row.setting
+      ? `, as the proposed change sets it (the actor itself carries ${decimals(trait.value)}, which the runs did not use)`
+      : '';
+    subject = `${embed(actor.name, 60)}: ${traitLabel(row.target.trait ?? '')} is set at ${decimals(governing)}${setBy}`;
+    value = decimals(governing);
   } else if (row.target.kind === 'population' && actor) {
     subject = `${embed(actor.name, 60)} stands for a population of ${actor.size}, which is an assumption and not a count`;
     value = String(actor.size);

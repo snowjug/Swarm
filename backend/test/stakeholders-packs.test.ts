@@ -239,7 +239,9 @@ describe.each(PACKS)('reading the $id pack for roles, with no model', (pack) => 
       model: null,
       now: () => NOW,
     });
-    expect(actors.note).toContain(`${unclear} remain unclear, so the change cannot move them`);
+    expect(actors.note).toContain(
+      `${unclear} remain unclear, so none of them is assumed to be helped or harmed`,
+    );
     expect(actors.note).toContain(`${wording} of ${here.length} actors have a direction of impact`);
   });
 
