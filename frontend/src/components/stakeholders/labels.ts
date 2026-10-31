@@ -31,6 +31,14 @@ export const IMPACT_LABELS: Record<Stakeholder['expectedImpact']['direction'], s
   unclear: 'Unclear',
 };
 
+/** What a direction of impact was taken from, in the few words a chip has room for. */
+export const IMPACT_ORIGIN_LABELS: Record<TraitOrigin, string> = {
+  evidence: 'read from the wording',
+  'system-assumption': 'assumption',
+  model: 'model’s reading',
+  user: 'set by you',
+};
+
 export const UNCERTAINTY_LABELS: Record<UncertaintyLevel, string> = {
   low: 'Uncertainty: low',
   medium: 'Uncertainty: medium',

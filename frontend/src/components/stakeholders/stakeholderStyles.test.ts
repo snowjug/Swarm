@@ -18,8 +18,8 @@ const css = readFileSync(
   'utf8',
 ).replaceAll('\r\n', '\n');
 
-/** Properties that are fonts, not colours. */
-const NOT_COLOURS = new Set(['--mono']);
+/** Properties that are fonts, sizes or timings, not colours. */
+const NOT_COLOURS = new Set(['--mono', '--radius-xs', '--radius-sm', '--dur-fast', '--ease']);
 
 describe('the stakeholder stylesheet', () => {
   it('has no text below 12 CSS pixels', () => {

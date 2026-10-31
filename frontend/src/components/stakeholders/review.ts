@@ -22,23 +22,120 @@ export function liveStakeholders(stakeholders: readonly Stakeholder[]): Stakehol
   return stakeholders.filter((stakeholder) => !isRemoved(stakeholder));
 }
 
-export interface CategoryGroup {
-  category: StakeholderCategory;
-  items: Stakeholder[];
+/**
+ * Stakeholders not removed, in the order a person reviews them: key actors, then standard cohorts,
+ * then background ones, and by category and name within each. The order never depends on the review
+ * status, so that a row does not move when it is accepted.
+ */
+export function orderForReview(stakeholders: readonly Stakeholder[]): Stakeholder[] {
+  return liveStakeholders(stakeholders).sort(
+    (a, b) =>
+      PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority) ||
+      STAKEHOLDER_CATEGORIES.indexOf(a.category) - STAKEHOLDER_CATEGORIES.indexOf(b.category) ||
+      a.name.localeCompare(b.name),
+  );
 }
 
-/** Stakeholders not removed, by category in the order the categories are listed, key actors first. */
-export function groupByCategory(stakeholders: readonly Stakeholder[]): CategoryGroup[] {
-  return STAKEHOLDER_CATEGORIES.map((category) => ({
-    category,
-    items: liveStakeholders(stakeholders)
-      .filter((stakeholder) => stakeholder.category === category)
-      .sort(
-        (a, b) =>
-          PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority) ||
-          a.name.localeCompare(b.name),
-      ),
-  })).filter((group) => group.items.length > 0);
+const count = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+const firstSentence = (text: string): string =>
+  /^[^.!?]*[.!?]?/u.exec(text.trim())?.[0].trim() ?? '';
+
+/**
+ * The one line that says why a stakeholder is on the list: what the person wrote or the model gave as
+ * the reason it matters here, or, for a group found by reading the text, where it was found. The
+ * category's generic wording is not offered as a reason, since it says nothing about this scenario.
+ */
+export function whyLine(stakeholder: Stakeholder): string {
+  const relevance = stakeholder.relevance.trim();
+  if (relevance && !/Category default/u.test(relevance)) return firstSentence(relevance);
+  const description = firstSentence(stakeholder.description);
+  if (description) return description;
+  return stakeholder.origin === 'user'
+    ? 'Added by you; no reason was given.'
+    : 'No reason was given.';
+}
+
+/**
+ * What the description says beyond the line that already opened the row, so that the opened row does
+ * not say the same thing twice.
+ */
+export function describedFurther(stakeholder: Stakeholder): string {
+  const description = stakeholder.description.trim();
+  const relevance = stakeholder.relevance.trim();
+  if (relevance && !/Category default/u.test(relevance)) return description;
+  return description.slice(firstSentence(description).length).trim();
+}
+
+/** The four counts of the summary: how many were found, how many still need a person’s eye, how many are approved, and how many actors exist. */
+export interface Summary {
+  found: number;
+  needReview: number;
+  approved: number;
+  actors: number;
+}
+
+export function summarise(
+  set: StakeholderSet | null,
+  actors: readonly Actor[] | null | undefined,
+): Summary {
+  const live = set ? liveStakeholders(set.stakeholders) : [];
+  return {
+    found: live.length,
+    needReview: live.filter((stakeholder) => stakeholder.status === 'proposed').length,
+    approved: set?.approvedAt ? live.length : 0,
+    actors: actors?.length ?? 0,
+  };
+}
+
+export type NextActionId = 'review' | 'add' | 'approve' | 'make-actors' | 'review-actors';
+
+export interface NextAction {
+  id: NextActionId;
+  label: string;
+  /** The thing to do next, as opposed to a way to look at what is already done. */
+  primary: boolean;
+}
+
+/**
+ * The one thing to do next once there is a list, from where the person has got to: look at the
+ * stakeholders no person has checked, approve the list, make the actors, then look at them. A person
+ * who may not change anything is offered only the reading.
+ */
+export function nextAction(input: {
+  set: StakeholderSet;
+  actors: readonly Actor[] | null | undefined;
+  may: { edit: boolean; run: boolean };
+  /** How many of the actors the person has changed: approving keeps those instead of making them again. */
+  editedActors?: number;
+}): NextAction | null {
+  const { set, actors, may } = input;
+  const { found, needReview, actors: made } = summarise(set, actors);
+  const allowed = may.edit && may.run;
+  if (!set.approvedAt) {
+    if (!may.edit) {
+      return { id: 'review', label: `Read the ${count(found, 'stakeholder')}`, primary: false };
+    }
+    if (found < 2) return { id: 'add', label: 'Add a stakeholder', primary: true };
+    if (needReview > 0) {
+      return { id: 'review', label: `Review ${count(needReview, 'stakeholder')}`, primary: true };
+    }
+    if (!allowed) return null;
+    const keeps = (input.editedActors ?? 0) > 0;
+    return {
+      id: 'approve',
+      label: keeps ? 'Approve stakeholders' : 'Approve and create actors',
+      primary: true,
+    };
+  }
+  if (made === 0) {
+    return allowed ? { id: 'make-actors', label: 'Make the actors', primary: true } : null;
+  }
+  return {
+    id: 'review-actors',
+    label: made === 1 ? 'Review the actor' : `Review the ${made} actors`,
+    primary: false,
+  };
 }
 
 export function statusCounts(

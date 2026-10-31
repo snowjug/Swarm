@@ -72,6 +72,7 @@ export function ApproveCard({
               className="button button-primary"
               type="button"
               disabled={working}
+              data-stk-focus="make-actors"
               onClick={() => onMakeActors({ model: useModel })}
             >
               {working ? <Spinner label="Making actors" /> : <Users size={16} aria-hidden="true" />}{' '}
@@ -99,6 +100,7 @@ export function ApproveCard({
             className="button button-primary"
             type="button"
             disabled={!enough || working}
+            data-stk-focus="approve"
             onClick={() => onApprove({ model: useModel && !keeps })}
           >
             {working ? <Spinner label="Approving" /> : <Users size={16} aria-hidden="true" />}{' '}

@@ -1,26 +1,36 @@
 /* Stakeholder and actor review. Owned by one feature; use the theme tokens, never raw colours. Every piece of
    text is 12px or more, colour is never the only cue (each chip and badge says its meaning in words), and
-   focus is the global outline. */
+   focus is the global outline. The panel is small until it is opened: a title with four counts and a row of
+   buttons, so that it never pushes the stage's own action off the screen. */
 .stk {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   min-width: 0;
-  padding: 16px;
-  margin-bottom: 15px;
+  padding: 12px 14px;
   overflow-wrap: anywhere;
 }
 .stk h3,
 .stk h4,
 .stk h5,
+.stk h6,
 .stk p {
   margin: 0;
 }
 .stk h3 {
   font-size: 16px;
 }
-.stk h4 {
+.stk h4,
+.stk h5,
+.stk h6 {
   font-size: 14px;
+}
+.stk-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
 }
 .stk-name {
   font-size: 14px;
@@ -33,6 +43,11 @@
   color: var(--text);
   font-size: 12px;
   line-height: 1.6;
+}
+.stk-truth-line {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .stk-note,
 .stk-hint,
@@ -50,6 +65,80 @@
 .stk-problem {
   color: var(--danger);
   font-size: 12px;
+}
+.stk-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+
+/* Four counts, and the buttons that open the list and the actors */
+.stk-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 13px;
+  list-style: none;
+}
+.stk-stats strong {
+  color: var(--text);
+  font-size: 15px;
+}
+.stk-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.stk-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.stk-toggle:hover,
+.stk-row-toggle:hover {
+  background: var(--surface-inset);
+}
+.stk-chevron {
+  flex: none;
+  transition: transform var(--dur-fast) var(--ease);
+}
+[aria-expanded='true'] > .stk-chevron {
+  transform: rotate(90deg);
+}
+.stk-region {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.stk-warn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--verdict-partial-line);
+  border-radius: 4px;
+  background: var(--verdict-partial-tint);
+  color: var(--verdict-partial);
+  font-size: 13px;
+}
+.stk-warn svg {
+  flex: none;
 }
 
 /* Finding */
@@ -102,17 +191,11 @@
   gap: 8px 12px;
 }
 
-/* The list */
+/* The list: one line to scan for each stakeholder, and more when it is opened */
 .stk-groups {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-}
-.stk-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 0;
+  gap: 12px;
 }
 .stk-count {
   display: inline-block;
@@ -127,7 +210,7 @@
 }
 .stk-rows {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -135,9 +218,10 @@
 .stk-row,
 .stk-actor {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
   min-width: 0;
-  padding: 12px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel);
@@ -146,18 +230,42 @@
   border-style: dashed;
   color: var(--muted);
 }
-.stk-row-head,
-.stk-actor > header {
+.stk-row-head {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4px 12px;
+  align-items: center;
+  gap: 2px 10px;
+  min-width: 0;
+}
+.stk-row-title {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.stk-row-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 32px;
+  padding: 2px 4px;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+}
+.stk-role {
+  color: var(--muted);
+  font-size: 12px;
+}
+.stk-quick {
+  margin-left: auto;
 }
 .stk-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -179,11 +287,32 @@
   background: var(--orange-light);
   color: var(--orange);
 }
+/* A direction or a stakeholder that is assumed and not found in the evidence has a dashed edge, so that it is
+   never mistaken for a finding, whatever the colour. */
+.stk-assumed .tone-chip {
+  border-style: dashed;
+}
+.stk-why {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stk-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-soft);
+}
 .stk-description,
-.stk-why,
+.stk-full-why,
 .stk-impact,
 .stk-reason,
-.stk-role,
 .stk-belief {
   font-size: 13px;
   line-height: 1.65;
@@ -197,11 +326,9 @@
 .stk-removed {
   font-size: 13px;
 }
-.stk-evidence summary,
 .stk-assumptions summary,
 .stk-again summary,
-.stk-removed summary,
-.stk-traits summary {
+.stk-removed summary {
   min-height: 24px;
   cursor: pointer;
   font-weight: 600;
@@ -210,7 +337,7 @@
 .stk-assumptions ul {
   display: grid;
   gap: 8px;
-  margin: 8px 0 0;
+  margin: 6px 0 0;
   padding: 0;
   list-style: none;
 }
@@ -230,9 +357,20 @@
   margin-top: 2px;
 }
 .stk-no-evidence {
-  color: var(--muted);
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px dashed var(--verdict-partial-line);
+  border-radius: 4px;
+  background: var(--verdict-partial-tint);
+  color: var(--verdict-partial);
   font-size: 12px;
   line-height: 1.6;
+}
+.stk-no-evidence svg {
+  flex: none;
+  margin-top: 3px;
 }
 .stk-priority {
   display: inline-flex;
@@ -290,6 +428,9 @@
   background: var(--orange-light);
   color: var(--orange);
 }
+.stk-origin-system-assumption {
+  border-style: dashed;
+}
 
 /* Approval and actors */
 .stk-approve {
@@ -313,12 +454,6 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-soft);
-}
-.stk-actor-list {
-  display: grid;
-  gap: 12px;
 }
 .stk-wants {
   display: grid;
@@ -334,8 +469,10 @@
 }
 .stk-traits table {
   width: 100%;
-  margin-top: 6px;
   border-collapse: collapse;
+}
+.stk-traits caption {
+  padding-bottom: 4px;
 }
 .stk-traits th,
 .stk-traits td {
@@ -364,6 +501,7 @@
 .stk-slider input[type='range'] {
   width: calc(100% - 52px);
   min-width: 110px;
+  height: 24px;
   vertical-align: middle;
   accent-color: var(--orange-fill);
 }
@@ -382,7 +520,12 @@
 
 @media (max-width: 720px) {
   .stk {
-    padding: 12px;
+    padding: 10px 12px;
+  }
+  .stk-controls .button,
+  .stk-controls .stk-toggle {
+    flex: 1 1 auto;
+    justify-content: center;
   }
   .stk-traits table,
   .stk-traits tbody,

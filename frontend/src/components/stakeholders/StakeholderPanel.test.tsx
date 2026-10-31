@@ -662,6 +662,237 @@ describe('the form for a stakeholder', () => {
   });
 });
 
+/** The markup without any element that is shut away (`hidden`), which is what a person sees and a screen reader reads. */
+function withoutHidden(markup: string): string {
+  const VOID = new Set(['input', 'br', 'hr', 'img', 'meta', 'link']);
+  let out = '';
+  let hiddenDepth = 0;
+  let depth = 0;
+  let cursor = 0;
+  for (const tag of markup.matchAll(/<(\/?)([a-zA-Z][a-zA-Z0-9]*)([^>]*)>/gu)) {
+    const [whole, closing, name = '', attributes = ''] = tag;
+    if (hiddenDepth === 0) out += markup.slice(cursor, tag.index);
+    cursor = tag.index + whole.length;
+    if (VOID.has(name.toLowerCase()) || attributes.endsWith('/')) {
+      if (hiddenDepth === 0) out += whole;
+      continue;
+    }
+    if (closing) {
+      if (hiddenDepth > 0 && depth === hiddenDepth) hiddenDepth = 0;
+      else if (hiddenDepth === 0) out += whole;
+      depth -= 1;
+      continue;
+    }
+    depth += 1;
+    if (hiddenDepth === 0 && /\shidden(?:=""|\s|$)/u.test(attributes)) hiddenDepth = depth;
+    else if (hiddenDepth === 0) out += whole;
+  }
+  return out + (hiddenDepth === 0 ? markup.slice(cursor) : '');
+}
+
+const headingLevels = (markup: string): number[] =>
+  [...markup.matchAll(/<h([1-6])[\s>]/gu)].map((match) => Number(match[1]));
+
+describe('the panel stays small until it is opened', () => {
+  it('shows a title with four counts and the one thing to do next, and keeps the list and the actors shut', () => {
+    const markup = html(withSet());
+    const shown = visibleText(withoutHidden(markup));
+    expect(shown).toContain('Stakeholders and actors');
+    expect(shown).toContain('5 found');
+    expect(shown).toContain('5 need review');
+    expect(shown).toContain('0 approved');
+    expect(shown).toContain('0 actors');
+    expect(shown).toContain('Review 5 stakeholders');
+    // The list is there for a person who opens it, and is not read until then.
+    expect(shown).not.toContain('Rival provider');
+    expect(shown).not.toContain('Approve stakeholders and create actors');
+    expect(markup).toMatch(/<section[^>]*class="stk-region"[^>]*hidden=""/u);
+    expect(markup).toMatch(
+      /aria-expanded="false"[^>]*aria-controls="[^"]+"[^>]*data-stk-focus="toggle-stakeholders"/u,
+    );
+  });
+
+  it('has exactly one main button, and it says what it will do', () => {
+    const markup = withoutHidden(html(withSet()));
+    expect(markup.match(/class="button button-primary"/gu)).toHaveLength(1);
+    expect(buttonNamed(markup, 'Review 5 stakeholders')).toEqual({ found: true, disabled: false });
+  });
+
+  it('asks for the review, then the approval, then the actors, and then offers a look at them as a way to read, not as the next step', () => {
+    const accepted = (status: 'accepted' | 'proposed') =>
+      stakeholderSetFixture().stakeholders.map((item) => ({ ...item, status }));
+    const open = withoutHidden(html(withSet({ stakeholders: accepted('proposed') })));
+    expect(visibleText(open)).toContain('Review 5 stakeholders');
+
+    const reviewed = withoutHidden(html(withSet({ stakeholders: accepted('accepted') })));
+    expect(visibleText(reviewed)).toContain('0 need review');
+    expect(buttonNamed(reviewed, 'Approve and create actors')).toEqual({
+      found: true,
+      disabled: false,
+    });
+
+    const approved = withoutHidden(
+      html(withSet({ stakeholders: accepted('accepted'), approvedAt: FIXTURE_TIME })),
+    );
+    expect(visibleText(approved)).toContain('5 approved');
+    expect(buttonNamed(approved, 'Make the actors').found).toBe(true);
+
+    const made = withoutHidden(
+      html(
+        withSet(
+          { stakeholders: accepted('accepted'), approvedAt: FIXTURE_TIME },
+          { actors: actorsView() },
+        ),
+      ),
+    );
+    expect(visibleText(made)).toContain('5 actors');
+    expect(buttonNamed(made, 'Review the 5 actors').found).toBe(true);
+    expect(made).not.toContain('class="button button-primary"');
+    expect(made).toMatch(/aria-expanded="false"[^>]*data-stk-focus="toggle-actors"/u);
+  });
+
+  it('names what each toggle opens, and the thing it opens is there to be found', () => {
+    const markup = html(withSet({ approvedAt: FIXTURE_TIME }, { actors: actorsView() }));
+    const controlled = [...markup.matchAll(/aria-controls="([^"]+)"/gu)].map((match) => match[1]!);
+    expect(controlled.length).toBeGreaterThanOrEqual(2 + 5);
+    for (const id of controlled) expect(markup, id).toContain(`id="${id}"`);
+  });
+
+  it('asks nothing of the server and offers a person who may only read no way to change anything', () => {
+    const shown = withoutHidden(
+      html(
+        withSet(
+          { approvedAt: FIXTURE_TIME },
+          { actors: actorsView({ may: READ_ONLY }) },
+          { may: READ_ONLY },
+        ),
+      ),
+    );
+    expect(buttonNamed(shown, 'Approve').found).toBe(false);
+    expect(buttonNamed(shown, 'Make the actors').found).toBe(false);
+    expect(buttonNamed(shown, 'Find stakeholders').found).toBe(false);
+    expect(buttonNamed(shown, 'Review the 5 actors').found).toBe(true);
+  });
+
+  it('before there is a list, says what it is for in a line, offers finding or adding, and keeps the explanation behind a toggle', () => {
+    const markup = html(state());
+    const shown = visibleText(withoutHidden(markup));
+    expect(shown).toContain('not real people');
+    expect(shown).toContain('Find stakeholders by reading the text');
+    expect(shown).toContain('Or add stakeholders yourself');
+    expect(shown).not.toContain('Reading the text for roles');
+    expect(markup).toMatch(/aria-expanded="false"[^>]*data-stk-focus="toggle-how"/u);
+    expect(visibleText(markup)).toContain('Reading the text for roles');
+    expect(markup.match(/class="button button-primary"/gu)).toHaveLength(1);
+  });
+
+  it('makes the model the main way to find them when there is one, and reading the text the other', () => {
+    const markup = withoutHidden(html(state({ view: view({ model: A_MODEL }) })));
+    expect(markup).toMatch(
+      /class="button button-primary"[^>]*data-stk-focus="primary"[^>]*>[\s\S]*?Find stakeholders with the model/u,
+    );
+    expect(markup).toMatch(
+      /class="button button-secondary"[^>]*>[\s\S]*?Find stakeholders by reading the text/u,
+    );
+  });
+
+  it('keeps heading levels in order, so that a screen reader can move through it: one level at a time under the stage’s', () => {
+    for (const markup of [
+      html(state()),
+      html(withSet()),
+      html(withSet({ approvedAt: FIXTURE_TIME }, { actors: actorsView() })),
+    ]) {
+      const levels = headingLevels(markup);
+      expect(levels[0]).toBe(3);
+      levels.forEach((level, index) => {
+        if (index > 0) expect(level - levels[index - 1]!, levels.join(',')).toBeLessThanOrEqual(1);
+      });
+    }
+  });
+});
+
+describe('what is an assumption says so', () => {
+  const direction = (
+    direction: 'harmed' | 'benefited' | 'mixed' | 'unclear',
+    origin?: 'evidence' | 'system-assumption' | 'user' | 'model',
+  ) => ({ direction, rationale: 'Because.', ...(origin ? { origin } : {}) });
+
+  it('says in words where each direction came from, and gives an assumed one a dashed edge as well', () => {
+    const list = [
+      stakeholderFixture('wording', 'other', { expectedImpact: direction('harmed', 'evidence') }),
+      stakeholderFixture('category', 'cost-bearer', {
+        expectedImpact: direction('harmed', 'system-assumption'),
+      }),
+      stakeholderFixture('person', 'other', { expectedImpact: direction('benefited', 'user') }),
+      stakeholderFixture('reading', 'other', { expectedImpact: direction('mixed', 'model') }),
+      stakeholderFixture('nothing', 'other', { expectedImpact: direction('unclear') }),
+    ];
+    const markup = html(withSet({ stakeholders: list, relations: [] }));
+    const shown = visibleText(markup);
+    expect(shown).toContain('Impact: harmed · read from the wording');
+    expect(shown).toContain('Impact: harmed · assumption');
+    expect(shown).toContain('Impact: benefited · set by you');
+    expect(shown).toContain('Impact: mixed · model’s reading');
+    expect(shown).toContain('Impact: unclear');
+    // Only the assumed direction has the dashed edge: it is the one that is not a finding.
+    const assumed = [
+      ...markup.matchAll(/<span class="stk-assumed"><span[^>]*>[\s\S]*?<\/span><\/span>/gu),
+    ];
+    expect(assumed.map((match) => visibleText(match[0]))).toContain('Impact: harmed · assumption');
+    expect(assumed.map((match) => visibleText(match[0]))).not.toContain(
+      'Impact: harmed · read from the wording',
+    );
+  });
+
+  it('labels a stakeholder with no cited evidence as an assumption, in the list and again where the reason is given', () => {
+    const list = [
+      stakeholderFixture('cited', 'other', {
+        evidence: [ref('S1', 'The cited group is named here.')],
+      }),
+      stakeholderFixture('bare', 'other', { origin: 'scenario', evidence: [] }),
+      stakeholderFixture('mine', 'other', { origin: 'user', status: 'added', evidence: [] }),
+    ];
+    const markup = html(withSet({ stakeholders: list, relations: [] }));
+    const shown = visibleText(markup);
+    expect(shown.match(/Assumption: no cited evidence/gu)).toHaveLength(2);
+    expect(shown).toContain('1 cited quote');
+    // The detail says it again, without a colour to rely on.
+    expect(visibleText(markup)).toContain('Assumption, not evidence.');
+    expect(visibleText(markup)).toContain('Named in your question. No passage');
+    expect(visibleText(markup)).toContain('Added by you. Evidence comes from your sources');
+  });
+
+  it('shows, for each stakeholder in the list, its role, its uncertainty in words, and one line on why it is listed', () => {
+    const shown = visibleText(html(withSet()));
+    expect(shown).toContain('Key actor · Decision maker');
+    expect(shown).toContain('Standard cohort · Bears cost');
+    expect(shown).toContain('Uncertainty: medium');
+    expect(shown).toContain('Why it is listed:');
+  });
+
+  it('puts the stakeholders in the order of their priority, and a restored or accepted one keeps its place', () => {
+    const names = (markup: string): string[] =>
+      [...withoutHidden(markup).matchAll(/class="stk-name">([^<]+)</gu)].map((match) => match[1]!);
+    const base = stakeholderSetFixture().stakeholders;
+    const before = names(html(withSet()));
+    const after = names(
+      html(
+        withSet({
+          stakeholders: base.map((item) => ({ ...item, status: 'accepted' as const })),
+        }),
+      ),
+    );
+    expect(after).toEqual(before);
+    const priorities = [
+      ...html(withSet()).matchAll(/(Key actor|Standard cohort|Background cohort) ·/gu),
+    ].map((match) => match[1]);
+    const rank = ['Key actor', 'Standard cohort', 'Background cohort'];
+    expect(priorities.map((priority) => rank.indexOf(priority!))).toEqual(
+      [...priorities.map((priority) => rank.indexOf(priority!))].sort((a, b) => a - b),
+    );
+  });
+});
+
 describe('the words on the page belong to no market or product', () => {
   it('names no product, platform or industry in what it says before, during and after discovery', () => {
     const everything = [

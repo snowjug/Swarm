@@ -1,4 +1,4 @@
-import { RotateCcw, Save } from 'lucide-react';
+import { ChevronRight, RotateCcw, Save } from 'lucide-react';
 import { useId, useState } from 'react';
 import {
   STAKEHOLDER_CATEGORY_LABELS,
@@ -10,6 +10,7 @@ import {
 } from '../../../../shared/stakeholders';
 import { Notice, Spinner } from '../ui';
 import { OriginBadge } from './Chips';
+import type { ReviewHooks } from './focus';
 import { TRAIT_LABELS, TRAIT_ORIGIN_LABELS, formatDate } from './labels';
 import { actorsDiffer, changedTraits, moveTrait, traitRange, traitText } from './review';
 
@@ -60,6 +61,10 @@ function TraitRow({
   );
 }
 
+/**
+ * One actor as a line: its name, what kind it is, and its role. Opening it shows what it wants and
+ * fears, and every trait on a slider with where the number came from and why.
+ */
 function ActorCard({
   actor,
   stored,
@@ -72,12 +77,25 @@ function ActorCard({
   onChange: (next: Actor) => void;
 }) {
   const id = useId();
+  const [open, setOpen] = useState(false);
   const sampleProblem = actor.sampleSize > actor.size;
   return (
-    <article className="stk-actor" aria-label={actor.name}>
-      <header>
-        <h5 className="stk-name">{actor.name}</h5>
-        <ul className="stk-chips">
+    <li className="stk-actor">
+      <div className="stk-row-head">
+        <h5 className="stk-row-title">
+          <button
+            type="button"
+            className="stk-row-toggle"
+            aria-expanded={open}
+            aria-controls={`${id}-detail`}
+            data-stk-focus={`actor:${actor.id}`}
+            onClick={() => setOpen((old) => !old)}
+          >
+            <ChevronRight className="stk-chevron" size={14} aria-hidden="true" />
+            <span className="stk-name">{actor.name}</span>
+          </button>
+        </h5>
+        <ul className="stk-chips" aria-label={`About the actor ${actor.name}`}>
           <li>
             <span className="stk-pill">{actor.kind === 'key' ? 'Key actor' : 'Cohort'}</span>
           </li>
@@ -90,109 +108,111 @@ function ActorCard({
             </li>
           )}
         </ul>
-      </header>
-      <p className="stk-role">{actor.role}</p>
-      {actor.kind === 'cohort' && (
-        <div className="stk-cohort fields-grid">
-          <div className="field">
-            <label htmlFor={`${id}-size`}>Stands for about (an assumption)</label>
-            <input
-              id={`${id}-size`}
-              type="number"
-              min={1}
-              max={1_000_000}
-              value={actor.size}
-              disabled={disabled}
-              onChange={(event) =>
-                onChange({
-                  ...actor,
-                  size: Math.max(1, Math.round(Number(event.target.value) || 1)),
-                })
-              }
-            />
-          </div>
-          <div className="field">
-            <label htmlFor={`${id}-sample`}>Simulated members</label>
-            <input
-              id={`${id}-sample`}
-              type="number"
-              min={1}
-              max={200}
-              value={actor.sampleSize}
-              disabled={disabled}
-              aria-invalid={sampleProblem ? true : undefined}
-              onChange={(event) =>
-                onChange({
-                  ...actor,
-                  sampleSize: Math.min(
-                    200,
-                    Math.max(1, Math.round(Number(event.target.value) || 1)),
-                  ),
-                })
-              }
-            />
-            {sampleProblem && (
-              <small className="stk-problem" role="alert">
-                A cohort cannot simulate more members than it stands for.
-              </small>
-            )}
-          </div>
-        </div>
-      )}
-      <ul className="stk-wants">
-        {actor.objectives.map((text, index) => (
-          <li key={`o${index}`}>
-            <strong>Wants:</strong> {text}
-          </li>
-        ))}
-        {actor.concerns.map((text, index) => (
-          <li key={`c${index}`}>
-            <strong>Concerned about:</strong> {text}
-          </li>
-        ))}
-        {actor.constraints.map((text, index) => (
-          <li key={`k${index}`}>
-            <strong>Limited by:</strong> {text}
-          </li>
-        ))}
-        {actor.dependencies.map((text, index) => (
-          <li key={`d${index}`}>
-            <strong>Relies on:</strong> {text}
-          </li>
-        ))}
-      </ul>
-      <p className="stk-belief">
-        <strong>Starting belief:</strong> {actor.priorBelief}
-      </p>
-      <details className="stk-traits" open>
-        <summary>Traits ({TRAIT_KEYS.length})</summary>
-        <table>
-          <caption className="sr-only">
-            Traits of {actor.name}, with where each came from and why
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Trait</th>
-              <th scope="col">Value</th>
-              <th scope="col">Origin</th>
-              <th scope="col">Why</th>
-            </tr>
-          </thead>
-          <tbody>
-            {TRAIT_KEYS.map((key) => (
-              <TraitRow
-                key={key}
-                actor={actor}
-                stored={stored}
-                traitKey={key}
+      </div>
+      <p className="stk-why">{actor.role}</p>
+      <div id={`${id}-detail`} className="stk-detail" hidden={!open}>
+        {actor.kind === 'cohort' && (
+          <div className="stk-cohort fields-grid">
+            <div className="field">
+              <label htmlFor={`${id}-size`}>Stands for about (an assumption)</label>
+              <input
+                id={`${id}-size`}
+                type="number"
+                min={1}
+                max={1_000_000}
+                value={actor.size}
                 disabled={disabled}
-                onMove={(value) => onChange(moveTrait(actor, key, value))}
+                onChange={(event) =>
+                  onChange({
+                    ...actor,
+                    size: Math.max(1, Math.round(Number(event.target.value) || 1)),
+                  })
+                }
               />
-            ))}
-          </tbody>
-        </table>
-      </details>
-    </article>
+            </div>
+            <div className="field">
+              <label htmlFor={`${id}-sample`}>Simulated members</label>
+              <input
+                id={`${id}-sample`}
+                type="number"
+                min={1}
+                max={200}
+                value={actor.sampleSize}
+                disabled={disabled}
+                aria-invalid={sampleProblem ? true : undefined}
+                onChange={(event) =>
+                  onChange({
+                    ...actor,
+                    sampleSize: Math.min(
+                      200,
+                      Math.max(1, Math.round(Number(event.target.value) || 1)),
+                    ),
+                  })
+                }
+              />
+              {sampleProblem && (
+                <small className="stk-problem" role="alert">
+                  A cohort cannot simulate more members than it stands for.
+                </small>
+              )}
+            </div>
+          </div>
+        )}
+        <ul className="stk-wants">
+          {actor.objectives.map((text, index) => (
+            <li key={`o${index}`}>
+              <strong>Wants:</strong> {text}
+            </li>
+          ))}
+          {actor.concerns.map((text, index) => (
+            <li key={`c${index}`}>
+              <strong>Concerned about:</strong> {text}
+            </li>
+          ))}
+          {actor.constraints.map((text, index) => (
+            <li key={`k${index}`}>
+              <strong>Limited by:</strong> {text}
+            </li>
+          ))}
+          {actor.dependencies.map((text, index) => (
+            <li key={`d${index}`}>
+              <strong>Relies on:</strong> {text}
+            </li>
+          ))}
+        </ul>
+        <p className="stk-belief">
+          <strong>Starting belief:</strong> {actor.priorBelief}
+        </p>
+        <div className="stk-traits">
+          <table>
+            <caption className="stk-label">
+              Traits ({TRAIT_KEYS.length}){' '}
+              <span className="sr-only">of {actor.name}, with where each came from and why</span>
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Trait</th>
+                <th scope="col">Value</th>
+                <th scope="col">Origin</th>
+                <th scope="col">Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TRAIT_KEYS.map((key) => (
+                <TraitRow
+                  key={key}
+                  actor={actor}
+                  stored={stored}
+                  traitKey={key}
+                  disabled={disabled}
+                  onMove={(value) => onChange(moveTrait(actor, key, value))}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -206,6 +226,7 @@ export function ActorTable({
   working,
   canEdit,
   canRun,
+  hooks,
   onSave,
   onMakeAgain,
 }: {
@@ -213,21 +234,30 @@ export function ActorTable({
   working: boolean;
   canEdit: boolean;
   canRun: boolean;
+  hooks: ReviewHooks;
   onSave: (actors: Actor[]) => Promise<boolean>;
   onMakeAgain: (confirm: boolean) => Promise<boolean>;
 }) {
   const stored = view.actors?.actors ?? [];
+  const headingId = useId();
   const [draft, setDraft] = useState<Actor[]>(stored);
   const [confirming, setConfirming] = useState(false);
   if (!view.actors) return null;
   const dirty = actorsDiffer(stored, draft);
   const invalid = draft.some((actor) => actor.sampleSize > actor.size);
   const edited = stored.filter((actor) => actor.edited).length;
+  // The button that was pressed is disabled or gone once the work is done, so focus goes to the heading.
+  const done = (message: string): void => {
+    hooks.focus(['region:actors']);
+    hooks.say(message);
+  };
 
   return (
-    <section className="stk-actors" aria-label="Actors">
+    <section className="stk-actors" aria-labelledby={headingId}>
       <div className="section-heading">
-        <h4>Actors ({stored.length})</h4>
+        <h4 id={headingId} tabIndex={-1} data-stk-focus="region:actors">
+          Actors ({stored.length})
+        </h4>
         <span className="stk-hint">Made {formatDate(view.actors.generatedAt)}</span>
       </div>
       <p className="stk-note">{view.actors.note}</p>
@@ -243,7 +273,7 @@ export function ActorTable({
           actors as they are now.
         </Notice>
       )}
-      <div className="stk-actor-list">
+      <ul className="stk-rows" aria-label="Actors">
         {draft.map((actor) => {
           const was = stored.find((candidate) => candidate.id === actor.id) ?? actor;
           return (
@@ -258,14 +288,18 @@ export function ActorTable({
             />
           );
         })}
-      </div>
+      </ul>
       {canEdit && (
         <div className="stk-buttons">
           <button
             className="button button-primary"
             type="button"
             disabled={!dirty || invalid || working}
-            onClick={() => void onSave(draft)}
+            onClick={() =>
+              void onSave(draft).then((saved) => {
+                if (saved) done('Saved your changes to the actors.');
+              })
+            }
           >
             {working ? <Spinner label="Saving" /> : <Save size={16} aria-hidden="true" />} Save
             changes to the actors
@@ -274,7 +308,10 @@ export function ActorTable({
             className="button button-secondary"
             type="button"
             disabled={!dirty || working}
-            onClick={() => setDraft(stored)}
+            onClick={() => {
+              setDraft(stored);
+              done('Discarded the changes that were not saved.');
+            }}
           >
             Discard unsaved changes
           </button>
@@ -293,7 +330,12 @@ export function ActorTable({
                   className="button button-danger button-small"
                   type="button"
                   disabled={working}
-                  onClick={() => void onMakeAgain(true).then(() => setConfirming(false))}
+                  onClick={() =>
+                    void onMakeAgain(true).then((made) => {
+                      setConfirming(false);
+                      if (made) done('Made every actor again from the approved stakeholders.');
+                    })
+                  }
                 >
                   <RotateCcw size={14} aria-hidden="true" /> Reset every actor to the category
                   priors
@@ -301,7 +343,10 @@ export function ActorTable({
                 <button
                   className="button button-secondary button-small"
                   type="button"
-                  onClick={() => setConfirming(false)}
+                  onClick={() => {
+                    setConfirming(false);
+                    hooks.focus(['reset-actors']);
+                  }}
                 >
                   Keep the actors as they are
                 </button>
@@ -312,6 +357,7 @@ export function ActorTable({
               className="button button-secondary button-small"
               type="button"
               disabled={working}
+              data-stk-focus="reset-actors"
               onClick={() => setConfirming(true)}
             >
               <RotateCcw size={14} aria-hidden="true" /> Reset all actors…

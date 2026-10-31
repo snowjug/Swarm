@@ -4,6 +4,7 @@ import type { EvidenceRef } from '../../../../shared/evidence';
 import {
   FIXTURE_TIME,
   actorFixture,
+  actorSetFixture,
   stakeholderFixture,
   stakeholderSetFixture,
 } from '../../../../shared/lab-fixtures';
@@ -24,18 +25,22 @@ import {
   draftOf,
   draftProblems,
   freshId,
-  groupByCategory,
   isReviewed,
   liveStakeholders,
   mergeStakeholders,
   mergedIntoMap,
   moveTrait,
+  nextAction,
+  orderForReview,
   replace,
   restoredStatus,
   statusCounts,
+  summarise,
   traitRange,
   traitText,
   undoMerge,
+  whyLine,
+  describedFurther,
 } from './review';
 
 const ref = (
@@ -75,20 +80,27 @@ function stored(): StakeholderSet {
 }
 
 describe('listing stakeholders for review', () => {
-  it('groups those not removed by category, key actors first, and leaves empty categories out', () => {
-    const groups = groupByCategory([
+  it('lists those not removed with key actors first, then by category and name, whatever their status', () => {
+    const list = [
       stakeholderFixture('zeta-customers', 'cost-bearer'),
-      stakeholderFixture('alpha-customers', 'cost-bearer'),
+      stakeholderFixture('alpha-customers', 'cost-bearer', { status: 'accepted' }),
       stakeholderFixture('main-customers', 'cost-bearer', { priority: 'key' }),
       stakeholderFixture('gone-customers', 'cost-bearer', { status: 'removed' }),
       stakeholderFixture('board', 'decision-maker', { priority: 'key' }),
-    ]);
-    expect(groups.map((group) => group.category)).toEqual(['decision-maker', 'cost-bearer']);
-    expect(groups[1]?.items.map((item) => item.id)).toEqual([
+      stakeholderFixture('background-one', 'decision-maker', { priority: 'background' }),
+    ];
+    expect(orderForReview(list).map((item) => item.id)).toEqual([
+      'board',
       'main-customers',
       'alpha-customers',
       'zeta-customers',
+      'background-one',
     ]);
+    // Accepting one does not move it: the order has nothing to do with the review.
+    const accepted = replace(list, 'zeta-customers', (item) => ({ ...item, status: 'accepted' }));
+    expect(orderForReview(accepted).map((item) => item.id)).toEqual(
+      orderForReview(list).map((item) => item.id),
+    );
   });
 
   it('counts each status, and does not count a removed stakeholder as live', () => {
@@ -127,6 +139,130 @@ describe('listing stakeholders for review', () => {
     expect(restoredStatus(stakeholderFixture('a', 'other', { origin: 'user' }))).toBe('added');
     expect(restoredStatus(stakeholderFixture('a', 'other', { origin: 'rules' }))).toBe('proposed');
     expect(restoredStatus(stakeholderFixture('a', 'other', { origin: 'model' }))).toBe('proposed');
+  });
+});
+
+describe('the summary and the one thing to do next', () => {
+  const live = (...statuses: Stakeholder['status'][]): Stakeholder[] =>
+    statuses.map((status, index) => stakeholderFixture(`group-${index}`, 'other', { status }));
+  const setOf = (stakeholders: Stakeholder[], approved = false): StakeholderSet => ({
+    ...stakeholderSetFixture(),
+    stakeholders,
+    relations: [],
+    approvedAt: approved ? FIXTURE_TIME : null,
+  });
+  const cast = actorSetFixture().actors;
+  const MAY = { edit: true, run: true };
+
+  it('counts what was found, what still needs review, what is approved and how many actors there are', () => {
+    const list = live('proposed', 'proposed', 'accepted', 'edited', 'removed');
+    expect(summarise(setOf(list), null)).toEqual({
+      found: 4,
+      needReview: 2,
+      approved: 0,
+      actors: 0,
+    });
+    expect(summarise(setOf(list, true), cast)).toEqual({
+      found: 4,
+      needReview: 2,
+      approved: 4,
+      actors: cast.length,
+    });
+    expect(summarise(null, undefined)).toEqual({ found: 0, needReview: 0, approved: 0, actors: 0 });
+  });
+
+  it('asks for the review first, then the approval, then the actors, then a look at them', () => {
+    const open = setOf(live('proposed', 'accepted', 'accepted'));
+    expect(nextAction({ set: open, actors: null, may: MAY })).toEqual({
+      id: 'review',
+      label: 'Review 1 stakeholder',
+      primary: true,
+    });
+    expect(
+      nextAction({ set: setOf(live('proposed', 'proposed', 'added')), actors: null, may: MAY })
+        ?.label,
+    ).toBe('Review 2 stakeholders');
+
+    const reviewed = setOf(live('accepted', 'edited', 'added'));
+    expect(nextAction({ set: reviewed, actors: null, may: MAY })).toEqual({
+      id: 'approve',
+      label: 'Approve and create actors',
+      primary: true,
+    });
+    // Approving keeps the actors a person changed, and says so rather than promising new ones.
+    expect(nextAction({ set: reviewed, actors: cast, may: MAY, editedActors: 1 })?.label).toBe(
+      'Approve stakeholders',
+    );
+
+    const approved = setOf(live('accepted', 'accepted'), true);
+    expect(nextAction({ set: approved, actors: null, may: MAY })).toEqual({
+      id: 'make-actors',
+      label: 'Make the actors',
+      primary: true,
+    });
+    expect(nextAction({ set: approved, actors: cast, may: MAY })).toEqual({
+      id: 'review-actors',
+      label: `Review the ${cast.length} actors`,
+      primary: false,
+    });
+    expect(nextAction({ set: approved, actors: cast.slice(0, 1), may: MAY })?.label).toBe(
+      'Review the actor',
+    );
+  });
+
+  it('asks for a second stakeholder before anything else, since a simulation needs more than one party', () => {
+    expect(nextAction({ set: setOf(live('proposed')), actors: null, may: MAY })?.id).toBe('add');
+    expect(
+      nextAction({ set: setOf(live('accepted', 'removed')), actors: null, may: MAY })?.id,
+    ).toBe('add');
+  });
+
+  it('offers a person who may not change anything only the reading, and nothing to approve', () => {
+    const readOnly = { edit: false, run: false };
+    expect(
+      nextAction({ set: setOf(live('proposed', 'proposed')), actors: null, may: readOnly }),
+    ).toEqual({
+      id: 'review',
+      label: 'Read the 2 stakeholders',
+      primary: false,
+    });
+    expect(
+      nextAction({ set: setOf(live('accepted', 'accepted'), true), actors: null, may: readOnly }),
+    ).toBeNull();
+    expect(
+      nextAction({
+        set: setOf(live('accepted', 'accepted')),
+        actors: null,
+        may: { edit: true, run: false },
+      }),
+    ).toBeNull();
+  });
+
+  it('gives as the reason a stakeholder is listed what a person or a model wrote, and not the category’s generic wording', () => {
+    const named = stakeholderFixture('a', 'other', {
+      relevance: 'Pays the fee. It also votes.',
+      description: 'Found by reading the text for roles: named in 3 sentences of 2 passages.',
+    });
+    expect(whyLine(named)).toBe('Pays the fee.');
+    expect(describedFurther(named)).toBe(named.description);
+
+    const generic = stakeholderFixture('b', 'other', {
+      relevance: 'Uses what changes. Category default; why it matters here has not been analysed.',
+      description:
+        'Found by reading the text for roles: named in 3 sentences of 2 passages. The sources’ graph names this as a group.',
+    });
+    expect(whyLine(generic)).toBe(
+      'Found by reading the text for roles: named in 3 sentences of 2 passages.',
+    );
+    expect(describedFurther(generic)).toBe('The sources’ graph names this as a group.');
+
+    const bare = { relevance: '', description: '' };
+    expect(whyLine(stakeholderFixture('c', 'other', { ...bare, origin: 'user' }))).toBe(
+      'Added by you; no reason was given.',
+    );
+    expect(whyLine(stakeholderFixture('d', 'other', { ...bare, origin: 'rules' }))).toBe(
+      'No reason was given.',
+    );
   });
 });
 
