@@ -37,6 +37,7 @@ import {
   COHORT_SPREAD,
   IMPACT_VALUE,
 } from './priors.js';
+import { countDirections, describeDirections } from './tone.js';
 
 /** A cohort of a standard stakeholder simulates this many members, and one of a background one this many. */
 export const SAMPLE_SIZE = { standard: 20, background: 10 } as const;
@@ -351,7 +352,7 @@ export async function generateActors(input: GenerateInput): Promise<ActorSet> {
     .map(({ from, to, type, strength }) => ({ from, to, type, strength }));
 
   let mode: ActorSet['mode'] = 'rules';
-  let note = RULES_NOTE;
+  let lead = '';
   if (input.model) {
     try {
       const refined = await refine({
@@ -364,20 +365,22 @@ export async function generateActors(input: GenerateInput): Promise<ActorSet> {
       });
       if (refined > 0) {
         mode = 'model';
-        note = `${plural(refined, 'key actor')} read again by a model against the evidence; what it set is labelled model, with the passages it cited. ${RULES_NOTE}`;
+        lead = `${plural(refined, 'key actor')} read again by a model against the evidence; what it set is labelled model, with the passages it cited.`;
       }
     } catch (error) {
       if (clientLeft(input.signal)) throw error;
-      note = `A model could not refine the key actors (${truncate(failureWords(input.signal, publicFailure(error).message), 160)}), so every trait is a category prior. ${RULES_NOTE}`;
+      lead = `A model could not refine the key actors (${truncate(failureWords(input.signal, publicFailure(error).message), 160)}), so every trait is a category prior.`;
     }
   }
+  // How many actors the change can move at all: an actor with no direction of impact stays where it is.
+  const directions = describeDirections(countDirections(live), 'actors');
   return actorSetSchema.parse({
     actors,
     relations,
     generatedAt: (input.now ?? (() => new Date()))().toISOString(),
     mode,
     stakeholderRevision: input.stakeholderRevision ?? 1,
-    note: truncate(note, 500),
+    note: truncate([lead, directions, RULES_NOTE].filter(Boolean).join(' '), 500),
   });
 }
 

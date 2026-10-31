@@ -2,10 +2,12 @@ import type { StakeholderCategory } from '../../../shared/stakeholders.js';
 import type { EvidenceChunk } from '../../../shared/types.js';
 import { inspectText } from '../models/injection.js';
 import {
+  COMPOUND_FOLLOWERS,
   CONTEXT_CUES,
   HEADS,
   MODIFIERS,
   PAIR_HEADS,
+  STATE_ONLY,
   STOPWORDS,
   singular,
   type ContextCue,
@@ -65,6 +67,8 @@ function joined(sentence: string, left: Word, right: Word): boolean {
 interface Modifier {
   /** The category this word suggests, or null when it only narrows the group. */
   cue: StakeholderCategory | null;
+  /** Whether it can make a noun like "team" into a group: a kind of group, a name, not just "new". */
+  qualifies: boolean;
 }
 
 /**
@@ -85,14 +89,19 @@ function modifierAt(
   const lower = word.raw.toLowerCase();
   // "it" is a pronoun unless it is written as the acronym.
   if (lower === 'it' && word.raw !== 'IT') return null;
-  if (MODIFIERS.has(lower)) return { cue: MODIFIERS.get(lower) ?? null };
-  if (MODIFIERS.has(word.base)) return { cue: MODIFIERS.get(word.base) ?? null };
-  if (/^\p{Lu}{2,6}$/u.test(word.raw)) return NOT_ACRONYMS.has(word.raw) ? null : { cue: null };
+  const listed = MODIFIERS.has(lower) ? lower : MODIFIERS.has(word.base) ? word.base : null;
+  if (listed !== null) {
+    const cue = MODIFIERS.get(listed) ?? null;
+    return { cue, qualifies: cue !== null || !STATE_ONLY.has(listed) };
+  }
+  if (/^\p{Lu}{2,6}$/u.test(word.raw)) {
+    return NOT_ACRONYMS.has(word.raw) ? null : { cue: null, qualifies: true };
+  }
   if (STOPWORDS.has(lower)) return null;
   if (!/^\p{Lu}\p{Ll}+$/u.test(word.raw) || word.raw.length < 3) return null;
   const opens = sentence.slice(0, word.start).trim() === '';
   if (opens && (!headIsWeak || index !== headIndex - 1 || lower.endsWith('ly'))) return null;
-  return { cue: null };
+  return { cue: null, qualifies: true };
 }
 
 export interface Phrase {
@@ -159,7 +168,14 @@ export function phrasesOf(sentence: string): Phrase[] {
   for (let index = 0; index < words.length; index += 1) {
     const at = headAt(sentence, words, index);
     if (!at) continue;
+    // A role noun that starts a compound ("customer survey", "user interface") names something else.
+    const next = words[index + 1];
+    const headWord = words[index];
+    if (next && headWord && joined(sentence, headWord, next) && COMPOUND_FOLLOWERS.has(next.base)) {
+      continue;
+    }
     const cues: (StakeholderCategory | null)[] = [];
+    let qualified = false;
     let first = at.first;
     while (first > 0 && cues.length < 2) {
       const left = words[first - 1];
@@ -168,9 +184,12 @@ export function phrasesOf(sentence: string): Phrase[] {
       const modifier = modifierAt(sentence, words, first - 1, index, at.head.weak);
       if (!modifier) break;
       cues.push(modifier.cue);
+      qualified ||= modifier.qualifies;
       first -= 1;
     }
-    if (at.head.weak && cues.length === 0) continue;
+    // "Team" and "panel" name a group only when a describing word says what kind: "new" does not.
+    if (at.head.weak && !qualified) continue;
+    if (at.head.needs && !cues.includes(at.head.needs)) continue;
     const phraseWords = words.slice(first, index + 1);
     const firstWord = phraseWords[0];
     const lastWord = phraseWords.at(-1);

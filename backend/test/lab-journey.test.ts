@@ -5,6 +5,7 @@ import { BRIEF_SECTION_IDS, type BriefView } from '../../shared/brief.js';
 import type { CritiquesView } from '../../shared/critique.js';
 import { EXAMPLE_SCENARIOS, type ExampleScenario } from '../../shared/example-scenarios.js';
 import type { ScenarioParseResult } from '../../shared/scenario.js';
+import { NO_DIRECTION_NOTICE, changeCanMoveAnyone } from '../../shared/signal.js';
 import {
   TRAIT_ORIGINS,
   type ActorsView,
@@ -213,6 +214,15 @@ function expectDecisionReady(journey: Journey, pack: Pack): void {
   expect(analysis.findings.length).toBeGreaterThan(0);
   expect(analysis.fidelity.engine).toBe('rules');
   expect(analysis.cost.modelCalls).toBe(0);
+  // The change has someone to move: some actor has a direction of impact, so that the comparison with
+  // no change is about the change and not about noise.
+  expect(
+    analysis.actors.some((actor) => actor.traits.impact.value !== 0),
+    NO_DIRECTION_NOTICE,
+  ).toBe(true);
+  expect(changeCanMoveAnyone(analysis.actors, analysis.config.variants), NO_DIRECTION_NOTICE).toBe(
+    true,
+  );
   expect(critiques.critiques?.critiques.length).toBeGreaterThan(0);
 
   const written = brief.brief;
@@ -226,9 +236,10 @@ function expectDecisionReady(journey: Journey, pack: Pack): void {
   for (const section of written?.sections ?? []) {
     for (const statement of section.statements) expect(statement.origin).toBeTruthy();
   }
-  // The brief explores; it does not forecast.
+  // The brief explores; it does not forecast. It may say that a count is pinned down only loosely
+  // ("a wide 95% interval"), which is about how sure the runs are, not a share of people.
   expect(written?.headline).not.toMatch(/\bwill\b/iu);
-  expect(written?.headline).not.toMatch(/\d\s*%/u);
+  expect(written?.headline.replace(/\b95\s*%\s+interval\b/giu, '')).not.toMatch(/\d\s*%/u);
 }
 
 describe('from a question to a decision brief', () => {

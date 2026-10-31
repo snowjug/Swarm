@@ -11,16 +11,27 @@ import {
 import type { EvidenceChunk, KnowledgeGraph } from '../../../shared/types.js';
 import { suspiciousPassageIds } from '../models/injection.js';
 import { uniqueEvidence, verifiedEvidence } from './evidence.js';
-import type { ContextCue } from './lexicon.js';
+import { GENERIC_ROLES, type ContextCue } from './lexicon.js';
 import { categoryOfName, findMentions, keyOf, occurrencesOf, type Occurrence } from './mentions.js';
 import { capitalise, plural, slugify, truncate, uniqueId } from './names.js';
 import { CATEGORY_DIRECTNESS, CATEGORY_IMPACT, CATEGORY_RELEVANCE } from './priors.js';
+import {
+  directionOf,
+  hasStakes,
+  readCited,
+  readTone,
+  toneRationale,
+  type Group,
+  type Tone,
+} from './tone.js';
 
 /** The most stakeholders the rules path proposes. */
 export const MAX_DISCOVERED = 25;
 /** The most that become individual actors; the rest are cohorts. */
 export const MAX_KEY = 8;
 const MAX_QUOTES = 4;
+/** The most excerpts kept for one group while the cited few are chosen from them. */
+const MAX_KEPT = 200;
 /** What a cohort's size is before anyone says otherwise: a placeholder, not a count. */
 export const PLACEHOLDER_SIZE = { key: 1, standard: 100, background: 25 } as const;
 
@@ -40,7 +51,12 @@ interface Candidate {
   /** Sentences of the evidence that name this group. */
   sentences: number;
   passageIds: Set<string>;
+  /** Every excerpt that names the group, in reading order; the cited few are chosen from these. */
   quotes: Occurrence[];
+  /** The sentences those excerpts come from, so that two names for one group count each once. */
+  marks: Set<string>;
+  /** Names that were folded into this one because they are certainly the same group. */
+  absorbed: Candidate[];
   cues: Record<ContextCue, number>;
   graphKind: 'person' | 'organization' | 'group' | null;
 }
@@ -58,6 +74,8 @@ const newCandidate = (
   sentences: 0,
   passageIds: new Set(),
   quotes: [],
+  marks: new Set(),
+  absorbed: [],
   cues: { cost: 0, benefit: 0, risk: 0 },
   graphKind: null,
 });
@@ -73,7 +91,7 @@ const cleanName = (text: string): string =>
 function addOccurrences(candidate: Candidate, found: Occurrence[], sentences: number): void {
   for (const occurrence of found) {
     candidate.passageIds.add(occurrence.passageId);
-    if (candidate.quotes.length < MAX_QUOTES) candidate.quotes.push(occurrence);
+    if (candidate.quotes.length < MAX_KEPT) candidate.quotes.push(occurrence);
   }
   candidate.sentences = Math.max(candidate.sentences, sentences);
 }
@@ -91,9 +109,10 @@ function fromMentions(passages: readonly EvidenceChunk[]): Map<string, Candidate
     }
     candidate.sentences += 1;
     candidate.passageIds.add(mention.passageId);
-    if (candidate.quotes.length < MAX_QUOTES) {
+    if (candidate.quotes.length < MAX_KEPT) {
       candidate.quotes.push({ passageId: mention.passageId, quote: mention.quote });
     }
+    candidate.marks.add(mention.quote.toLowerCase());
     if (mention.cue) candidate.cues[mention.cue] += 1;
     const lower = mention.surface.toLowerCase();
     const tally = tallies.get(mention.key) ?? new Map<string, number>();
@@ -138,7 +157,7 @@ function addSeeds(
       existing.origin = 'scenario';
       continue;
     }
-    const { found, sentences } = occurrencesOf(passages, name, MAX_QUOTES);
+    const { found, sentences } = occurrencesOf(passages, name, MAX_KEPT);
     // The question says "regulator" and the text says "regional regulator": one group, named by both.
     const specific =
       sentences === 0
@@ -179,7 +198,7 @@ function addGraphEntities(
       candidates.set(key, candidate);
     }
     candidate.graphKind ??= node.kind;
-    const { found, sentences } = occurrencesOf(passages, name, 2);
+    const { found, sentences } = occurrencesOf(passages, name, MAX_KEPT);
     addOccurrences(candidate, found, sentences);
     if (node.quote) {
       for (const id of node.sourceIds) {
@@ -268,9 +287,12 @@ function describe(candidate: Candidate): string {
 }
 
 export interface RulesResult {
+  /** The groups found, then any that were folded into another and are kept as removed, so that it can be undone. */
   stakeholders: Stakeholder[];
   /** What was read, for the note: passages, and role mentions found. */
   read: { passages: number; groups: number };
+  /** The names that were folded into another because they are certainly the same group. */
+  merges: { from: string; into: string }[];
   /** Plain notices, such as passages that speak to an AI system. */
   notices: string[];
 }
@@ -286,16 +308,136 @@ export function injectionNotice(passages: readonly { id: string; text: string }[
   ];
 }
 
+const groupOf = (candidate: Candidate): Group => ({
+  key: candidate.key,
+  own: new Set([
+    ...candidate.key.split(' '),
+    ...(candidate.name.toLowerCase().match(/[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu) ?? []),
+  ]),
+});
+
+/** What each sentence was read as, remembered so that no sentence is read twice in one discovery. */
+function remembered(): (sentence: string) => Tone {
+  const seen = new Map<string, Tone>();
+  return (sentence) => {
+    let tone = seen.get(sentence);
+    if (!tone) {
+      tone = readTone(sentence);
+      seen.set(sentence, tone);
+    }
+    return tone;
+  };
+}
+
+/**
+ * The few excerpts to cite for a group. Those that carry a cue come first, one of each kind before
+ * more of either, so that the direction read from them can be seen in what is cited; then the rest,
+ * with sentences that are only headings last.
+ */
+function chooseQuotes(candidate: Candidate, read: (sentence: string) => Tone): Occurrence[] {
+  const group = groupOf(candidate);
+  const readings = candidate.quotes.map((occurrence) => ({
+    occurrence,
+    ...readCited([occurrence.quote], group, read),
+  }));
+  type Reading = (typeof readings)[number];
+  const carries = (reading: Reading): boolean =>
+    reading.concern.length + reading.support.length > 0;
+  const picked: Reading[] = [];
+  const take = (reading: Reading | undefined): void => {
+    if (reading && !picked.includes(reading) && picked.length < MAX_QUOTES) picked.push(reading);
+  };
+  take(readings.find((reading) => reading.concern.length > 0));
+  take(readings.find((reading) => reading.support.length > 0));
+  readings.filter(carries).forEach(take);
+  readings.filter((reading) => !/^\s*#/u.test(reading.occurrence.quote)).forEach(take);
+  readings.forEach(take);
+  return readings
+    .filter((reading) => picked.includes(reading))
+    .map((reading) => reading.occurrence);
+}
+
+const endsWith = (words: readonly string[], tail: readonly string[]): boolean =>
+  tail.every((word, offset) => words[words.length - tail.length + offset] === word);
+
+/**
+ * Folds a group named two ways into one, but only when it is certain they are the same: one name is
+ * the other with describing words in front ("Analyst" and "Independent analyst"), both are in the
+ * same category, and there is no other longer name it could belong to. Different words for one idea
+ * ("Staff", "Workers", "Employees") stay apart: only a person can say they are one group. The name
+ * that is written in more sentences is kept, and on a tie the more specific one.
+ */
+function mergeNames(
+  candidates: Map<string, Candidate>,
+  categoryOf: (candidate: Candidate) => StakeholderCategory,
+): void {
+  const pool = [...candidates.values()].filter(
+    (candidate) =>
+      candidate.origin === 'rules' && candidate.graphKind === null && candidate.marks.size > 0,
+  );
+  const wordsOfKey = (candidate: Candidate): string[] => candidate.key.split(' ');
+  const gone = new Set<Candidate>();
+  const shortestFirst = [...pool].sort(
+    (a, b) => wordsOfKey(a).length - wordsOfKey(b).length || a.key.localeCompare(b.key),
+  );
+  for (const short of shortestFirst) {
+    if (gone.has(short)) continue;
+    const longer = pool.filter(
+      (other) =>
+        other !== short &&
+        !gone.has(other) &&
+        wordsOfKey(other).length > wordsOfKey(short).length &&
+        categoryOf(other) === categoryOf(short) &&
+        endsWith(wordsOfKey(other), wordsOfKey(short)),
+    );
+    const only = longer.length === 1 ? longer[0] : undefined;
+    if (!only) continue;
+    const keep = short.sentences > only.sentences ? short : only;
+    const drop = keep === short ? only : short;
+    for (const mark of drop.marks) keep.marks.add(mark);
+    keep.sentences = keep.marks.size;
+    for (const id of drop.passageIds) keep.passageIds.add(id);
+    const known = new Set(keep.quotes.map((item) => `${item.passageId}|${item.quote}`));
+    for (const item of drop.quotes) {
+      if (keep.quotes.length < MAX_KEPT && !known.has(`${item.passageId}|${item.quote}`)) {
+        keep.quotes.push(item);
+      }
+    }
+    for (const cue of Object.keys(keep.cues) as ContextCue[]) keep.cues[cue] += drop.cues[cue];
+    keep.absorbed.push(drop, ...drop.absorbed);
+    gone.add(drop);
+  }
+  for (const candidate of gone) candidates.delete(candidate.key);
+}
+
 /**
  * Stakeholders found by reading the text, with no model: the scenario's own words, role nouns in the
  * passages, and the people and organisations in the source graph. The same input always gives the
  * same output. It is honest about what it is: a reading for roles, with gaps.
+ *
+ * Each group's direction of impact is read from the wording of the sentences cited for it (see
+ * tone.ts), and a group that is certainly the same as another is folded into it (see mergeNames).
  */
 export function discoverByRules(context: DiscoveryContext): RulesResult {
   const { passages } = context;
   const candidates = fromMentions(passages);
   addSeeds(candidates, context.scenario, passages);
   addGraphEntities(candidates, context.graph, passages);
+  mergeNames(candidates, categoryFrom);
+  const read = remembered();
+
+  /** A role that names a position in any organisation, mentioned with nothing at stake for it. */
+  const stakes = new Map<Candidate, boolean>();
+  const genericAlone = (candidate: Candidate): boolean => {
+    if (candidate.origin !== 'rules' || candidate.graphKind !== null) return false;
+    if (!GENERIC_ROLES.has(candidate.key)) return false;
+    let found = stakes.get(candidate);
+    if (found === undefined) {
+      found = candidate.quotes.some((item) => hasStakes(item.quote, read));
+      stakes.set(candidate, found);
+    }
+    return !found;
+  };
 
   const ordered = [...candidates.values()]
     .sort(
@@ -309,17 +451,18 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
   const final = new Map(ordered.map((candidate) => [candidate, categoryFrom(candidate)]));
   const topMentioned = new Set(
     [...ordered]
-      .filter((candidate) => candidate.sentences >= 2)
+      .filter((candidate) => candidate.sentences >= 2 && !genericAlone(candidate))
       .sort((a, b) => b.sentences - a.sentences || a.name.localeCompare(b.name))
       .slice(0, 2),
   );
   const isImportant = (candidate: Candidate): boolean => {
     const category = final.get(candidate) ?? candidate.category;
     return (
-      category === 'decision-maker' ||
-      category === 'regulator' ||
-      category === 'competitor' ||
-      topMentioned.has(candidate)
+      !genericAlone(candidate) &&
+      (category === 'decision-maker' ||
+        category === 'regulator' ||
+        category === 'competitor' ||
+        topMentioned.has(candidate))
     );
   };
   const keyOnes = new Set(
@@ -331,21 +474,36 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
   const priorityOf = (candidate: Candidate): Stakeholder['priority'] =>
     keyOnes.has(candidate)
       ? 'key'
-      : candidate.sentences >= 2 || candidate.origin === 'scenario'
-        ? 'standard'
-        : 'background';
+      : genericAlone(candidate)
+        ? 'background'
+        : candidate.sentences >= 2 || candidate.origin === 'scenario'
+          ? 'standard'
+          : 'background';
 
   const byPassage = new Map(passages.map((passage) => [passage.id, passage]));
   const used = new Set<string>();
-  const stakeholders = ordered.map((candidate): Stakeholder => {
-    const category = final.get(candidate) ?? candidate.category;
+  const build = (
+    candidate: Candidate,
+    status: Stakeholder['status'],
+    folded: readonly Candidate[],
+    foldedIds: readonly string[],
+  ): Stakeholder => {
+    const category = final.get(candidate) ?? categoryFrom(candidate);
     const priority = priorityOf(candidate);
     const shifted = category === candidate.category ? null : topCue(candidate);
     const refs: EvidenceRef[] = [];
-    for (const occurrence of candidate.quotes) {
+    for (const occurrence of chooseQuotes(candidate, read)) {
       const verified = verifiedEvidence(byPassage, occurrence.passageId, occurrence.quote);
       if (verified) refs.push(verified.ref);
     }
+    const evidence = uniqueEvidence(refs, MAX_QUOTES);
+    // The direction is read only from the sentences cited, so that what is cited shows what was counted.
+    const cited = readCited(
+      evidence.map((ref) => ref.quote ?? ''),
+      groupOf(candidate),
+      read,
+    );
+    const direction = directionOf(cited.concern.length, cited.support.length);
     return stakeholderSchema.parse({
       id: uniqueId(slugify(candidate.name), used),
       name: truncate(candidate.name, 120),
@@ -355,8 +513,15 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
       directness: CATEGORY_DIRECTNESS[category],
       priority,
       populationSize: PLACEHOLDER_SIZE[priority],
-      expectedImpact: impactFor(category, shifted),
-      evidence: uniqueEvidence(refs, MAX_QUOTES),
+      expectedImpact:
+        direction === 'unclear'
+          ? impactFor(category, shifted)
+          : {
+              direction,
+              rationale: truncate(toneRationale(cited.concern, cited.support), 400),
+              origin: 'evidence' as const,
+            },
+      evidence,
       assumptions: [
         ...(priority === 'key'
           ? []
@@ -368,17 +533,39 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
               `Placed among the ${STAKEHOLDER_CATEGORY_LABELS[category].toLowerCase()} groups from wording, not from a statement in the sources.`,
             ]
           : []),
-      ],
+        ...(direction === 'unclear'
+          ? []
+          : [
+              'The direction of impact is read from the wording of the cited sentences, not stated in the sources.',
+            ]),
+        ...folded.map((other) => truncate(`Merged with “${other.name}”.`, 300)),
+      ].slice(0, 8),
       uncertainty: uncertaintyFor(
         candidate.sentences,
         candidate.passageIds.size,
         candidate.origin === 'scenario',
       ),
       origin: candidate.origin,
-      status: 'proposed',
-      mergedFrom: [],
+      status,
+      mergedFrom: foldedIds.slice(0, 10),
     });
-  });
+  };
+
+  const stakeholders: Stakeholder[] = [];
+  const folded: Stakeholder[] = [];
+  for (const candidate of ordered) {
+    // Names folded into this one are kept as removed, so that the merge can be seen and undone.
+    const gone = candidate.absorbed.map((other) => build(other, 'removed', [], []));
+    folded.push(...gone);
+    stakeholders.push(
+      build(
+        candidate,
+        'proposed',
+        candidate.absorbed,
+        gone.map((item) => item.id),
+      ),
+    );
+  }
 
   const order = (stakeholder: Stakeholder): number =>
     ['key', 'standard', 'background'].indexOf(stakeholder.priority);
@@ -388,9 +575,13 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
       STAKEHOLDER_CATEGORIES.indexOf(a.category) - STAKEHOLDER_CATEGORIES.indexOf(b.category) ||
       a.name.localeCompare(b.name),
   );
+  folded.sort((a, b) => a.name.localeCompare(b.name));
   return {
-    stakeholders,
+    stakeholders: [...stakeholders, ...folded],
     read: { passages: passages.length, groups: stakeholders.length },
+    merges: ordered.flatMap((candidate) =>
+      candidate.absorbed.map((other) => ({ from: other.name, into: candidate.name })),
+    ),
     notices: injectionNotice(passages),
   };
 }

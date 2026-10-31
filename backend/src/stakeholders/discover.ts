@@ -8,6 +8,21 @@ import { discoverByModel, modelNote } from './model.js';
 import { plural, truncate } from './names.js';
 import { categoryGaps, deriveRelations } from './relations.js';
 import { discoverByRules } from './rules.js';
+import { countDirections, describeDirections } from './tone.js';
+
+const NOTE_LIMIT = 500;
+
+/** The folds the rules made, in a sentence: all of them, or only how many when there is no room. */
+function mergeSentence(merges: readonly { from: string; into: string }[], short: boolean): string {
+  if (merges.length === 0) return '';
+  const one = merges.length === 1;
+  const folded = plural(merges.length, 'name');
+  const certain = `that ${one ? 'is' : 'are'} certainly one group`;
+  if (short) return `Folded ${folded} ${certain} into another (see Removed).`;
+  const pairs = merges.slice(0, 3).map((merge) => `“${merge.from}” into “${merge.into}”`);
+  const more = merges.length > 3 ? ` and ${merges.length - 3} more` : '';
+  return `Folded ${folded} ${certain} into another, keeping ${one ? 'it' : 'each'} under Removed: ${pairs.join(', ')}${more}.`;
+}
 
 export interface DiscoverInput {
   project: { question: string; graph: KnowledgeGraph | null };
@@ -68,6 +83,17 @@ export async function discoverStakeholders(input: DiscoverInput): Promise<Stakeh
     ? `The model could not be used (${fallback}) so stakeholders were found by reading the text for roles, not by a model; expect gaps.`
     : RULES_NOTE;
   const read = `It read ${plural(result.read.passages, 'passage')} and found ${plural(result.read.groups, 'group')}.`;
+  const directions = describeDirections(countDirections(result.stakeholders), 'groups');
+  // The counts and the notices must reach the person; the folds say less when there is no room.
+  const note =
+    [false, true]
+      .map((short) =>
+        [base, read, directions, mergeSentence(result.merges, short), ...result.notices]
+          .filter(Boolean)
+          .join(' '),
+      )
+      .find((candidate) => candidate.length <= NOTE_LIMIT) ??
+    truncate([base, read, directions, ...result.notices].filter(Boolean).join(' '), NOTE_LIMIT);
   return stakeholderSetSchema.parse({
     stakeholders: result.stakeholders,
     relations: deriveRelations(result.stakeholders),
@@ -75,7 +101,7 @@ export async function discoverStakeholders(input: DiscoverInput): Promise<Stakeh
       mode: 'rules',
       model: null,
       generatedAt,
-      note: truncate([base, read, ...result.notices].join(' '), 500),
+      note,
     },
     gaps: categoryGaps(result.stakeholders),
     approvedAt: null,
