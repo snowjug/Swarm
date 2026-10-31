@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { UrlEvidenceResult } from '../../api/evidence';
 import { visibleText } from '../../test/provider';
 import { UrlEvidence, UrlEvidenceView, type UrlEvidenceViewProps } from './UrlEvidence';
+import { fetchOnEnter } from './useUrlEvidence';
 
 const result = (patch: Partial<UrlEvidenceResult['document']> = {}): UrlEvidenceResult => ({
   document: {
@@ -69,6 +70,38 @@ describe('adding a public web page', () => {
     // The announcement region is always present, so a screen reader hears it change, but silent until ready.
     expect(html).toContain('<div class="sr-only" role="status"></div>');
     expect(html).not.toContain('was fetched');
+  });
+
+  it('is not a form of its own: it sits inside the entry form, and a form nested in a form reloads the page', () => {
+    const html = view({ address: 'https://example.com/page' });
+    expect(html).not.toContain('<form');
+    expect(tagOf(html, /<button[^>]*>Fetch page/u)).toContain('type="button"');
+  });
+
+  it('fetches on Enter, and never leaves Enter to submit the form around it', () => {
+    const press = (key: string, canFetch: boolean, isComposing = false) => {
+      const seen = { prevented: 0, fetched: 0 };
+      fetchOnEnter(
+        {
+          key,
+          isComposing,
+          preventDefault: () => {
+            seen.prevented += 1;
+          },
+        },
+        canFetch,
+        () => {
+          seen.fetched += 1;
+        },
+      );
+      return seen;
+    };
+    expect(press('Enter', true)).toEqual({ prevented: 1, fetched: 1 });
+    // Empty, busy or full: nothing is fetched, and the entry form must still not be submitted.
+    expect(press('Enter', false)).toEqual({ prevented: 1, fetched: 0 });
+    expect(press('a', true)).toEqual({ prevented: 0, fetched: 0 });
+    // Enter that only confirms an input-method composition is not a request.
+    expect(press('Enter', true, true)).toEqual({ prevented: 0, fetched: 0 });
   });
 
   it('cannot fetch until there is an address, and then can', () => {

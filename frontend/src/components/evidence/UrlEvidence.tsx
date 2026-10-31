@@ -4,7 +4,7 @@ import { Globe } from 'lucide-react';
 import type { SourceProvenance } from '../../../../shared/scenario';
 import type { UrlEvidenceResult } from '../../api/evidence';
 import { Notice, Spinner } from '../ui';
-import { useUrlEvidence, type UrlEvidenceStatus } from './useUrlEvidence';
+import { fetchOnEnter, useUrlEvidence, type UrlEvidenceStatus } from './useUrlEvidence';
 
 export interface UrlEvidenceProps {
   /** Called with a page the server fetched, ready to be one of the project's documents. */
@@ -80,13 +80,8 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
         read private networks, and it does not check that what the page says is true. If a page does
         not work, you can paste its text instead.
       </p>
-      <form
-        className="url-evidence-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (canFetch) props.onFetch();
-        }}
-      >
+      {/* Not a <form>: this sits inside the entry form, and a form nested in a form reloads the page when submitted. */}
+      <div className="url-evidence-form">
         <div className="field">
           <label htmlFor={`${id}-address`}>Web address</label>
           <input
@@ -103,12 +98,18 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
             readOnly={loading}
             aria-describedby={`${id}-help`}
             onChange={(event) => props.onAddressChange(event.target.value)}
+            onKeyDown={(event) => fetchOnEnter(event.nativeEvent, canFetch, props.onFetch)}
           />
         </div>
-        <button type="submit" className="button button-secondary" disabled={!canFetch}>
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={!canFetch}
+          onClick={() => props.onFetch()}
+        >
           Fetch page
         </button>
-      </form>
+      </div>
       {full && (
         <Notice tone="warning">
           This project already has the most documents it can hold. Remove one to add a page.
