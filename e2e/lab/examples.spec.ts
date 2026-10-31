@@ -1,7 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import { STATEMENT_ORIGINS, type DecisionBrief } from '../../shared/brief';
 import type { Stakeholder } from '../../shared/stakeholders';
-import { watchPage } from '../support/helpers';
+import {
+  expectNoAxeViolations,
+  expectNoHorizontalOverflow,
+  expectReadableText,
+  expectTargetSizes,
+  watchPage,
+} from '../support/helpers';
 import {
   CITY_BRIEFING,
   CITY_QUESTION,
@@ -127,6 +133,11 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
       success: SUCCESS,
     });
     expect(decision).toMatch(pack.about);
+    // The form the person has just filled in, with the scenario used, is usable as it stands.
+    await expectNoAxeViolations(page, `${pack.title}: the entry form with its scenario`);
+    await expectNoHorizontalOverflow(page);
+    await expectReadableText(page, `${pack.title}: the entry form`);
+    await expectTargetSizes(page, `${pack.title}: the entry form`);
   });
 
   const project =
@@ -252,6 +263,8 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     // What the page says of its results counts simulated members and seeded runs, and predicts nothing.
     const said = await textsOf(panel.locator('p, li'));
     expect(said.flatMap(claimsAgainst), 'what the comparison says').toEqual([]);
+    await expectNoAxeViolations(page, `${pack.title}: the comparison`);
+    await expectReadableText(page, `${pack.title}: the comparison`);
   });
 
   const analysed = await analysisOf(page, project);
@@ -344,6 +357,9 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
       await expect(
         statements.filter({ has: page.locator('.brief-origin-supplied-evidence') }).first(),
       ).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await expectReadableText(page, `${pack.title}: the brief`);
+      await expectTargetSizes(page, `${pack.title}: the brief`);
       return (await textsOf(brief)).join('\n');
     });
 
