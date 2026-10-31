@@ -71,6 +71,30 @@ describe('adding a public web page', () => {
     expect(html).not.toContain('was fetched');
   });
 
+  it('is not a form of its own, because it is used inside one and a form in a form reloads the page', () => {
+    const inside = renderToStaticMarkup(
+      <form>
+        <UrlEvidenceView
+          address="https://example.com/page"
+          status="idle"
+          result={null}
+          error={null}
+          disabled={false}
+          remainingDocuments={4}
+          onAddressChange={() => undefined}
+          onFetch={() => undefined}
+          onCancel={() => undefined}
+          onAdd={() => undefined}
+          onDiscard={() => undefined}
+        />
+      </form>,
+    );
+    expect(inside.match(/<form/gu)).toHaveLength(1);
+    // Nothing in it submits the form around it.
+    expect(inside).not.toMatch(/type="submit"/u);
+    expect(tagOf(inside, /<button[^>]*>Fetch page/u)).toContain('type="button"');
+  });
+
   it('cannot fetch until there is an address, and then can', () => {
     expect(tagOf(view(), /<button[^>]*>Fetch page/u)).toContain('disabled');
     expect(tagOf(view({ address: '   ' }), /<button[^>]*>Fetch page/u)).toContain('disabled');

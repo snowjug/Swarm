@@ -80,13 +80,13 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
         read private networks, and it does not check that what the page says is true. If a page does
         not work, you can paste its text instead.
       </p>
-      <form
-        className="url-evidence-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (canFetch) props.onFetch();
-        }}
-      >
+      {/*
+        Not a form of its own. It sits inside the entry form, and a form inside a form is not valid:
+        Chrome never lets the page see the inner form's submit event, so the browser submits it and
+        reloads the page, and the question, the scenario and the evidence are gone. Enter, which would
+        otherwise build the project, fetches the page instead.
+      */}
+      <div className="url-evidence-form">
         <div className="field">
           <label htmlFor={`${id}-address`}>Web address</label>
           <input
@@ -103,12 +103,22 @@ export function UrlEvidenceView(props: UrlEvidenceViewProps) {
             readOnly={loading}
             aria-describedby={`${id}-help`}
             onChange={(event) => props.onAddressChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.nativeEvent.isComposing) return;
+              event.preventDefault();
+              if (canFetch) props.onFetch();
+            }}
           />
         </div>
-        <button type="submit" className="button button-secondary" disabled={!canFetch}>
+        <button
+          type="button"
+          className="button button-secondary"
+          disabled={!canFetch}
+          onClick={props.onFetch}
+        >
           Fetch page
         </button>
-      </form>
+      </div>
       {full && (
         <Notice tone="warning">
           This project already has the most documents it can hold. Remove one to add a page.
