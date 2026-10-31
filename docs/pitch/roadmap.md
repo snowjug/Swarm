@@ -42,6 +42,7 @@ testing and a formal accessibility review (P1 for the demonstration, P2 for prod
 ## Phase 4: research and product opportunities (P3)
 
 Semantic retrieval or Azure AI Search, **only if** a real corpus shows lexical retrieval is the
-limit; larger populations; document connectors; multi-language interface; quantitative analysis of
-simulation output (sensitivity, intervals), with care that it does not suggest precision the
-simulation does not have.
+limit; larger populations; document connectors; multi-language interface; and a check of the lab's
+repeated-run analysis against what really happened (historical backtesting, which is not built). The
+analysis itself, repeated seeded runs with intervals and sensitivity that do not suggest precision the
+simulation does not have, is built: see [ADR 0014](../adr/0014-scenario-lab.md).
