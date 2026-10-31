@@ -288,11 +288,84 @@ interface Analysed extends Sentence {
   lowered: string;
   /** It speaks to an AI system, so it is data about the document and is never read as description. */
   suspicious: boolean;
+  /** It is a label, a menu entry or a list of names, which says nothing about the groups it names. */
+  label: boolean;
   words: Word[];
   phrases: Phrase[];
 }
 
 const analysed = new WeakMap<EvidenceChunk, Analysed[]>();
+
+const SENTENCE_END = /[.!?]["'”’)\]]*$/u;
+const BULLET = /^\s*(?:[-*•·]|\d+[.)])\s/u;
+const LINK = /(?:https?:\/\/|www\.)\S+/giu;
+const startsWithCapital = (word: Word): boolean => /^\p{Lu}/u.test(word.raw);
+/** Capitalised words in a row that make a list of names and not a name: "Alpha Beta Gamma Delta Epsilon". */
+const LONG_RUN = 5;
+
+/**
+ * The text with each link made of dots, as long as it was, so that a word in a path
+ * ("example.org/users/support") is not read as a word of the sentence and the places of the others
+ * do not move.
+ */
+const maskLinks = (text: string): string => text.replace(LINK, (link) => '·'.repeat(link.length));
+
+/**
+ * What a line of text is: a sentence, a fragment of up to three words with no full stop (a heading, a
+ * menu entry, a link), or a list of names (three or more words, nearly all of them capitalised, with
+ * no full stop: a row of a menu or of a table of contents). It is recognised by the shape that prose has
+ * and these lack, and it names no market, product or word: a sentence ends with a full stop, and has
+ * words that are not capitalised. Numbers do not count, so that "2 History 3 Methods" is a list.
+ */
+export type Shape = 'sentence' | 'fragment' | 'list';
+
+export function shapeOf(sentence: string, words: readonly Word[]): Shape {
+  if (SENTENCE_END.test(sentence.trimEnd())) return 'sentence';
+  const spoken = words.filter((word) => !/^\p{N}+$/u.test(word.raw));
+  const content = spoken.filter((word) => !STOPWORDS.has(word.raw.toLowerCase()));
+  const capitals = content.filter(startsWithCapital).length;
+  if (content.length >= 3 && capitals / content.length >= 0.75) return 'list';
+  // A person's own bulleted list of groups is an item each, not a menu.
+  return spoken.length <= 3 && !BULLET.test(sentence) ? 'fragment' : 'sentence';
+}
+
+/**
+ * Which lines say nothing about the groups they name. A list of names never does. A fragment is a
+ * heading when it stands between sentences, and a heading introduces what follows it, so a group named
+ * in it is found; next to another fragment or a list it is a menu, a table of contents or a row of
+ * links, and is not.
+ */
+function labels(shapes: readonly Shape[]): boolean[] {
+  return shapes.map((shape, at) => {
+    if (shape === 'list') return true;
+    if (shape === 'sentence') return false;
+    return shapes[at - 1] === 'fragment' || shapes[at - 1] === 'list'
+      ? true
+      : shapes[at + 1] === 'fragment' || shapes[at + 1] === 'list';
+  });
+}
+
+/** The words that lie in a run of five or more capitalised words, not counting the one that opens the sentence. */
+function inLongRun(sentence: string, words: readonly Word[]): Set<number> {
+  const inside = new Set<number>();
+  let start = -1;
+  const close = (end: number): void => {
+    if (start >= 0 && end - start >= LONG_RUN) {
+      for (let at = start; at < end; at += 1) inside.add(at);
+    }
+    start = -1;
+  };
+  for (let at = 1; at < words.length; at += 1) {
+    const word = words[at];
+    const before = words[at - 1];
+    if (!word || !before) continue;
+    if (start >= 0 && startsWithCapital(word) && joined(sentence, before, word)) continue;
+    close(at);
+    if (startsWithCapital(word)) start = at;
+  }
+  close(words.length);
+  return inside;
+}
 
 /**
  * The sentences of a passage, each cut into words and phrases. A passage is read many times in one
@@ -304,14 +377,29 @@ const analysed = new WeakMap<EvidenceChunk, Analysed[]>();
 function analyse(passage: EvidenceChunk): Analysed[] {
   let found = analysed.get(passage);
   if (!found) {
-    found = sentencesOf(passage.text).map((sentence) => {
-      const words = wordsOf(sentence.text);
+    const sentences = sentencesOf(passage.text);
+    const cut = sentences.map((sentence) => {
+      const readable = maskLinks(sentence.text);
+      return { sentence, readable, words: wordsOf(readable) };
+    });
+    const label = labels(cut.map(({ sentence, words }) => shapeOf(sentence.text, words)));
+    found = cut.map(({ sentence, readable, words }, at) => {
+      const isLabel = label[at] === true;
+      const listed = isLabel ? new Set<number>() : inLongRun(readable, words);
       return {
         ...sentence,
         lowered: sentence.text.toLowerCase(),
         suspicious: inspectText(sentence.text).suspicious,
+        label: isLabel,
         words,
-        phrases: phrasesOf(sentence.text, words),
+        phrases: isLabel
+          ? []
+          : phrasesOf(readable, words).filter((phrase) => {
+              for (let word = phrase.firstIndex; word <= phrase.headIndex; word += 1) {
+                if (listed.has(word)) return false;
+              }
+              return true;
+            }),
       };
     });
     analysed.set(passage, found);
@@ -334,7 +422,7 @@ export function findMentions(passages: readonly EvidenceChunk[]): Mention[] {
     previous.set(passage.documentId, passage);
     const overlap = before ? Math.max(0, before.end - passage.start) : 0;
     for (const sentence of analyse(passage)) {
-      if (sentence.suspicious) continue;
+      if (sentence.suspicious || sentence.label) continue;
       for (const phrase of sentence.phrases) {
         if (sentence.start + phrase.end <= overlap) continue;
         const mark = `${phrase.key}|${sentence.lowered}`;
@@ -403,7 +491,7 @@ export function occurrencesOf(
   if (wanted.length === 0) return { found, sentences };
   for (const passage of passages) {
     for (const sentence of analyse(passage)) {
-      if (seen.has(sentence.lowered) || sentence.suspicious) continue;
+      if (seen.has(sentence.lowered) || sentence.suspicious || sentence.label) continue;
       const { words, phrases } = sentence;
       const at = words.findIndex((_, index) => {
         const first = words[index];

@@ -41,7 +41,9 @@ export const HEADS: ReadonlyMap<string, Head> = new Map<string, Head>([
     false,
   ),
   ...nouns('competitor', 'competitor incumbent', false),
-  ...nouns('substitute', 'substitute', false),
+  // "Substitute" is as often a verb or a part of a thing as a group of people: it names a group only
+  // with a describing word before it.
+  ...nouns('substitute', 'substitute', true),
   ...nouns('partner', 'partner ally collaborator affiliate integrator supplier vendor', false),
   ...nouns(
     'channel',
