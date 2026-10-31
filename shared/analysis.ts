@@ -210,7 +210,7 @@ export type SensitivityClass = (typeof SENSITIVITY_CLASSES)[number];
  * else changed, measured on the same seeds. `shift` is the mean paired difference and `standardError`
  * its noise; `assumption-sensitive` means the shift is clearly larger than that noise and material.
  */
-export const sensitivityRowSchema = z.object({
+const sensitivityRowShape = z.object({
   id: z.string().min(1).max(80),
   target: z.object({
     kind: z.enum(['trait', 'intensity', 'population']),
@@ -227,6 +227,13 @@ export const sensitivityRowSchema = z.object({
   /** Where the perturbed assumption came from, so that a sensitive but unevidenced one stands out. */
   assumptionOrigin: z.enum(['evidence', 'user', 'system-assumption', 'model', 'scenario']),
 });
+// Rows saved while `evidence` labelled a whole impact: only its direction was ever read from passages,
+// so the number that was moved was the system's default.
+export const sensitivityRowSchema = sensitivityRowShape.transform((row) =>
+  row.target.trait === 'impact' && row.assumptionOrigin === 'evidence'
+    ? { ...row, assumptionOrigin: 'system-assumption' as const }
+    : row,
+);
 export type SensitivityRow = z.infer<typeof sensitivityRowSchema>;
 
 export const fidelitySchema = z.object({
