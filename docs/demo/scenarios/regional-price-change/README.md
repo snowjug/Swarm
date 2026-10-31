@@ -131,7 +131,7 @@ one trait on one actor with a slider and show its badge change to "you".
 
 **5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band and two findings with their intervals. If one is unstable, say what that means.
-Open the second-order chain and read it aloud ("because ... then ..."): a rival's or a partner's
+Open the second-order chain and read it aloud (what each event acted on, and what only came before it): a rival's or a partner's
 reaction follows from generic rules, not from a script written for this example.
 
 **6:30 to 7:30 Sensitivity.** Point at the assumptions the result moves with and find one with no
