@@ -76,18 +76,23 @@ export function tidy(text: string): string {
 
 /**
  * Keeps a document within the size one document may have, and says so inside the text when it had
- * to cut it, so that nobody reads a part as the whole.
+ * to cut it, so that nobody reads a part as the whole. `shortened` says the text is only the start
+ * of what there was, because it was read no further, and gets the same notice with no cut.
  */
 export function fit(
   text: string,
   limit = MAX_DOCUMENT_CHARS,
+  shortened = false,
 ): { text: string; truncated: boolean } {
-  if (text.length <= limit) return { text, truncated: false };
+  if (text.length <= limit && !shortened) return { text, truncated: false };
   const notice = `\n\n${MESSAGE.shortened}`;
-  let kept = text.slice(0, Math.max(0, limit - notice.length));
-  const lastBreak = kept.lastIndexOf('\n');
-  // Cut at a line end when one is near, and never inside a surrogate pair.
-  if (lastBreak > kept.length - 2_000) kept = kept.slice(0, lastBreak);
-  kept = wellFormed(kept).replace(/\ufffd$/u, '');
+  const room = Math.max(0, limit - notice.length);
+  let kept = text.slice(0, room);
+  if (text.length > room) {
+    const lastBreak = kept.lastIndexOf('\n');
+    // Cut at a line end when one is near, and never inside a surrogate pair.
+    if (lastBreak > kept.length - 2_000) kept = kept.slice(0, lastBreak);
+    kept = wellFormed(kept).replace(/\ufffd$/u, '');
+  }
   return { text: `${kept.trimEnd()}${notice}`, truncated: true };
 }
