@@ -1,4 +1,5 @@
 import type { BriefRefs, BriefSection, BriefSignal } from '../../../shared/brief.js';
+import { isSetByPerson } from '../../../shared/analysis-plan.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
 import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { STAKEHOLDER_CATEGORY_LABELS } from '../../../shared/stakeholders.js';
@@ -273,20 +274,38 @@ export function decision(facts: Facts, tally: Tally): BriefSection {
     }
   }
   const variants = facts.analysis.config.variants;
-  const described = variants
-    .slice(0, 6)
-    .map(
-      (variant) =>
-        `${embed(variant.label, 60)} (${variant.kind}${variant.kind === 'alternative' ? `, lands in round ${variant.round} at strength ${decimals(variant.intensity)} of 1` : ''})`,
+  const described = (list: typeof variants): string =>
+    listed(
+      list
+        .slice(0, 6)
+        .map(
+          (variant) =>
+            `${embed(variant.label, 60)} (${variant.kind}${variant.kind === 'alternative' ? `, lands in round ${variant.round} at strength ${decimals(variant.intensity)} of 1` : ''})`,
+        ),
     );
-  writer.add({
-    origin: 'system-assumption',
-    text: `Variants simulated: ${listed(described)}. The strength of a change is a setting of the simulation, not a measurement.`,
-    refs: {
-      variantIds: variants.map((variant) => variant.id),
-      assumptions: ['Variant settings are assumptions of the simulation.'],
-    },
-  });
+  // A strength or a round the person chose is theirs, and is said to be, as the sensitivity rows do.
+  const byPerson = variants.filter(isSetByPerson);
+  const bySystem = variants.filter((variant) => !isSetByPerson(variant));
+  if (bySystem.length > 0) {
+    writer.add({
+      origin: 'system-assumption',
+      text: `Variants simulated: ${described(bySystem)}. The strength of a change is a setting of the simulation, not a measurement.`,
+      refs: {
+        variantIds: bySystem.map((variant) => variant.id),
+        assumptions: ['Variant settings are assumptions of the simulation.'],
+      },
+    });
+  }
+  if (byPerson.length > 0) {
+    writer.add({
+      origin: 'user-assumption',
+      text: `Variants whose strength or timing the person set: ${described(byPerson)}. A setting that was chosen is still a setting of the simulation, not a measurement.`,
+      refs: {
+        variantIds: byPerson.map((variant) => variant.id),
+        assumptions: ['Variant settings were chosen by the person.'],
+      },
+    });
+  }
   return writer.build();
 }
 
@@ -437,6 +456,16 @@ export function stakeholdersSection(facts: Facts, tally: Tally): BriefSection {
       refs: {
         stakeholderIds: facts.removedStakeholders.map((entry) => entry.id),
         assumptions: ['Stakeholders removed by the person.'],
+      },
+    });
+  }
+  if (facts.mergedStakeholders.length > 0) {
+    const merges = facts.mergedStakeholders;
+    writer.add({
+      origin: 'inferred-stakeholder',
+      text: `${merges.length} ${plural(merges.length, 'name')} ${merges.length === 1 ? 'was' : 'were'} merged into another stakeholder because ${merges.length === 1 ? 'it was' : 'they were'} taken to be the same group: ${listed(merges.slice(0, 5).map(({ stakeholder, into }) => `${embed(stakeholder.name, 50)} into ${embed(into.name, 50)}`))}.`,
+      refs: {
+        stakeholderIds: merges.flatMap(({ stakeholder, into }) => [stakeholder.id, into.id]),
       },
     });
   }

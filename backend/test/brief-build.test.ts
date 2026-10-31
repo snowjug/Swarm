@@ -369,6 +369,57 @@ describe('the stakeholders', () => {
     expect(removed.refs.stakeholderIds).toEqual(['press']);
   });
 
+  it('does not say the person removed a name that was merged into another group', () => {
+    const set = richStakeholders();
+    const target = set.stakeholders.find((entry) => entry.id === 'resellers')!;
+    const merged = stakeholderSchema.parse({
+      ...set.stakeholders[0],
+      id: 'small-resellers',
+      name: 'Small resellers',
+      status: 'removed',
+    });
+    target.mergedFrom = [merged.id];
+    set.stakeholders.push(merged);
+    const brief = buildBrief(richInputs({ stakeholders: set }));
+    const statements = sectionOf(brief, 'stakeholders').statements;
+    expect(statements.some((statement) => statement.text.includes('The person removed'))).toBe(
+      false,
+    );
+    const merge = statements.find((statement) => statement.text.includes('merged into another'))!;
+    expect(merge.text).toContain('“Small resellers” into “Resellers”');
+    // Who merged them is not known from the record, so it is not said to be the person.
+    expect(merge.origin).toBe('inferred-stakeholder');
+    expect(merge.refs.stakeholderIds).toEqual(['small-resellers', 'resellers']);
+    expect(lintBrief(brief)).toEqual([]);
+  });
+
+  it('still says the person removed a stakeholder that nothing was merged into', () => {
+    const set = richStakeholders();
+    const merged = stakeholderSchema.parse({
+      ...set.stakeholders[0],
+      id: 'small-resellers',
+      name: 'Small resellers',
+      status: 'removed',
+    });
+    set.stakeholders.find((entry) => entry.id === 'resellers')!.mergedFrom = [merged.id];
+    set.stakeholders.push(
+      merged,
+      stakeholderSchema.parse({
+        ...set.stakeholders[0],
+        id: 'press',
+        name: 'Press',
+        status: 'removed',
+      }),
+    );
+    const statements = sectionOf(
+      buildBrief(richInputs({ stakeholders: set })),
+      'stakeholders',
+    ).statements;
+    const removed = statements.find((statement) => statement.text.includes('The person removed'))!;
+    expect(removed.text).toContain('The person removed 1 proposed stakeholder');
+    expect(removed.refs.stakeholderIds).toEqual(['press']);
+  });
+
   it('reads the landscape from the actors when no stakeholder set was recorded, and says so', () => {
     const brief = buildBrief(baseInputs({ stakeholders: null }));
     const statements = sectionOf(brief, 'stakeholders').statements;
@@ -451,6 +502,47 @@ describe('the assumptions', () => {
     expect(
       statements.some((statement) => statement.text.startsWith('Population sizes are assumptions')),
     ).toBe(true);
+  });
+
+  it('says that a strength or a round the person set is theirs, and leaves the rest to the system', () => {
+    const base = analysisFixture();
+    const analysis = analysisFixture({
+      config: {
+        ...base.config,
+        variants: base.config.variants.map((variant) =>
+          variant.id === 'proposed-change'
+            ? {
+                ...variant,
+                round: 3,
+                intensity: 0.6,
+                description: 'Intensity 0.6 from round 3 was set by you.',
+              }
+            : variant,
+        ),
+      },
+    });
+    const brief = buildBrief(baseInputs({ analysis }));
+    const statements = sectionOf(brief, 'decision').statements;
+    const theirs = statements.find((statement) =>
+      statement.text.startsWith('Variants whose strength or timing the person set'),
+    )!;
+    expect(theirs.origin).toBe('user-assumption');
+    expect(theirs.text).toContain(
+      '“Proposed change” (alternative, lands in round 3 at strength 0.60',
+    );
+    expect(theirs.refs.variantIds).toEqual(['proposed-change']);
+    const system = statements.find((statement) => statement.text.startsWith('Variants simulated'))!;
+    expect(system.origin).toBe('system-assumption');
+    expect(system.text).toContain('“No change” (baseline)');
+    expect(system.text).not.toContain('Proposed change');
+    expect(system.refs.variantIds).toEqual(['baseline']);
+    expect(lintBrief(brief)).toEqual([]);
+    // Nothing the person set means no statement that says so.
+    expect(
+      sectionOf(buildBrief(baseInputs()), 'decision').statements.some((statement) =>
+        statement.text.startsWith('Variants whose strength or timing'),
+      ),
+    ).toBe(false);
   });
 
   it('lists the scenario assumptions with their owners, then the rest of the traits by who set them', () => {
