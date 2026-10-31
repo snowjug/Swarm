@@ -262,11 +262,21 @@ export const trajectoryBandSchema = z.object({
   p90: z.number().min(-1).max(1),
 });
 
+/** One actor's end state averaged over the runs of a variant. It is kept even when the runs themselves drop their per-actor detail. */
+export const variantActorSummarySchema = z.object({
+  actorId: idSchema,
+  members: z.int().min(1),
+  stanceMean: z.number().min(-1).max(1),
+  responseShares: responseSharesSchema,
+});
+export type VariantActorSummary = z.infer<typeof variantActorSummarySchema>;
+
 export const variantResultSchema = z.object({
   variantId: idSchema,
   runs: z.array(runSummarySchema).max(200),
   /** Spread of the overall mean stance across runs, round by round. */
   trajectory: z.array(trajectoryBandSchema).max(MAX_ROUNDS),
+  actors: z.array(variantActorSummarySchema).max(60).optional(),
 });
 export type VariantResult = z.infer<typeof variantResultSchema>;
 
