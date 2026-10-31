@@ -273,6 +273,24 @@ describe.each(PACKS)('reading the $id pack for roles, with no model', (pack) => 
     ).toBe(true);
   });
 
+  it('says what is set by rule and not found in the sources, and claims no evidence for a group that only the question names', async () => {
+    const { set } = await read(pack);
+    for (const stakeholder of live(set)) {
+      expect(stakeholder.assumptions.join(' '), stakeholder.name).toContain(
+        'set by rule from its category and how often it is named, not found in the sources',
+      );
+      expect(stakeholder.relevance, stakeholder.name).toContain('Category default');
+      if (stakeholder.evidence.length === 0) {
+        // Nothing was quoted, so it must not say that the evidence names it.
+        expect(`${stakeholder.relevance} ${stakeholder.description}`, stakeholder.name).not.toMatch(
+          /named in the evidence/iu,
+        );
+        expect(stakeholder.origin, stakeholder.name).toBe('scenario');
+        expect(stakeholder.uncertainty.level, stakeholder.name).toBe('high');
+      }
+    }
+  });
+
   it('gives the same answer for the same input', async () => {
     const first = await read(pack);
     cache.delete(pack.id);

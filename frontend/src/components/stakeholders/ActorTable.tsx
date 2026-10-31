@@ -158,6 +158,12 @@ function ActorCard({
             </div>
           </div>
         )}
+        {(actor.objectives.length > 0 || actor.concerns.length > 0) && (
+          <p className="stk-hint">
+            What it wants and fears is assumed from its category, or read by a model: it is not
+            found in the sources.
+          </p>
+        )}
         <ul className="stk-wants">
           {actor.objectives.map((text, index) => (
             <li key={`o${index}`}>

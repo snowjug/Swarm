@@ -553,6 +553,7 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
           : [
               'The direction of impact is read from the wording of the cited sentences, not stated in the sources.',
             ]),
+        'Its priority, and how directly it is affected, are set by rule from its category and how often it is named, not found in the sources.',
         ...folded.map((other) => truncate(`Merged with “${other.name}”.`, 300)),
       ].slice(0, 8),
       uncertainty: uncertaintyFor(
