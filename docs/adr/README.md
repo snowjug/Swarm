@@ -19,6 +19,7 @@ not been built.
 | [0011](./0011-report-studio.md)                         | Accepted          | A person works on a copy of the generated report: versions, locks, review and approval of exact text, regenerated chapters as proposals, a printable memo |
 | [0012](./0012-answers-and-disputed-sources.md)          | Accepted          | An answer says when a source it cites is disputed by another: a figure stated from one side is marked, and a conflict about the question is named         |
 | [0013](./0013-per-project-model-budget.md)              | Accepted          | A project has a model budget (calls and tokens) held before every model call; only a workspace owner or administrator changes it                          |
+| [0014](./0014-scenario-lab.md)                          | Accepted          | One engine for any what-if question: project artifacts, stakeholders as a lens, repeated seeded runs with stated repeatability, critics that never edit   |
 
 New records take the next number and never rewrite an accepted one; a reversed decision gets a new
 record that says so.
