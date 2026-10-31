@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import type { ExampleScenario } from '../../../../shared/example-scenarios';
 import type { AppConfig, ProjectDetail, ProviderConnectivity } from '../../../../shared/types';
+import type { UiMode } from '../../lib/mode';
+import { POSITIONING_STATEMENT } from '../../lib/product';
 import { projectFixture } from '../../test/project';
 import { expectNoSecretLikeText, visibleText } from '../../test/provider';
 import { EntryConsole } from './EntryConsole';
@@ -168,5 +171,126 @@ describe('entry console execution target', () => {
     const unverified = visibleText(render(azure, undefined, 'unverified'));
     expect(unverified).toContain('Configured is not a connectivity check');
     expect(visibleText(render(configFixture(), undefined, 'ok'))).not.toContain('Connected');
+  });
+});
+
+const example = (id: string, title: string): ExampleScenario => ({
+  id,
+  title,
+  blurb: `A short line about ${title}.`,
+  question: `What could happen if ${title} changes?`,
+  documents: [
+    {
+      name: `${id}.md`,
+      content: 'Synthetic evidence text, long enough to stand for a document in this test.',
+      provenance: { kind: 'sample' },
+    },
+  ],
+});
+
+function renderLanding(
+  options: { mode?: UiMode; examples?: readonly ExampleScenario[]; config?: AppConfig | null } = {},
+): string {
+  return renderToStaticMarkup(
+    <EntryConsole
+      config={options.config === undefined ? configFixture() : options.config}
+      busy={false}
+      onSubmit={async () => {}}
+      onHistory={() => {}}
+      mode={options.mode}
+      examples={options.examples}
+      demoHistory={{ projects: [], loading: false, error: null }}
+      onOpenProject={() => {}}
+    />,
+  );
+}
+
+describe('entry console landing', () => {
+  it('leads with the question and the exact statement, under the page’s one h1', () => {
+    const html = renderLanding();
+    expect(html.match(/<h1[ >]/gu)).toHaveLength(1);
+    expect(visibleText(html)).toContain('What could happen if…?');
+    expect(visibleText(html)).toContain(POSITIONING_STATEMENT);
+    expect(html).toContain('<ol class="pipeline" aria-label="How Swarm works">');
+    expect(html.indexOf('landing-heading')).toBeLessThan(html.indexOf('entry-form'));
+  });
+
+  it('puts the question first, then the evidence, then the run settings, with the demonstration last', () => {
+    const html = renderLanding();
+    const order = [
+      'id="project-question"',
+      'aria-label="Source material"',
+      'Run settings',
+      'Build Graph',
+      'id="demo-workspace-heading"',
+    ].map((marker) => html.indexOf(marker));
+    expect(order.every((position) => position >= 0)).toBe(true);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('keeps every label and button the end-to-end specs use, once each', () => {
+    const html = renderLanding();
+    for (const label of ['Fictional proxies', 'Rounds / platform', 'Random seed']) {
+      expect(html).toContain(`>${label}</label>`);
+    }
+    expect(html).toContain('>Your what-if question</label>');
+    expect(html.match(/type="file"/gu)).toHaveLength(1);
+    expect(html.match(/>Load fictional starter input</gu)).toHaveLength(1);
+    expect(html.match(/<button[^>]*type="submit"[^>]*>[^]*?Build Graph<\/button>/gu)).toHaveLength(
+      1,
+    );
+    expect(html).toContain('Local rules');
+    expect(html).toContain('Model assisted');
+  });
+
+  it('does not ask for a project name: it defaults to the start of the question', () => {
+    const html = renderLanding();
+    expect(html).toContain('>Project name (optional)</label>');
+    expect(html).toMatch(/<input id="project-name"(?![^>]*required)/u);
+    expect(html).toContain('placeholder="Defaults to the start of your question"');
+  });
+
+  it('is safe with no examples: the picker still offers the fictional starter, and nothing is empty', () => {
+    const html = renderLanding({ examples: [] });
+    expect(visibleText(html)).toContain('Not sure what to ask? Try an example');
+    expect(html.match(/class="example-card/gu)).toHaveLength(1);
+    expect(html).not.toContain('Use this example');
+  });
+
+  it('offers each worked example by its own name, with what its evidence is', () => {
+    const html = renderLanding({
+      examples: [example('price-change', 'A price change'), example('launch', 'A launch')],
+    });
+    expect(html).toContain('aria-label="Use this example: A price change"');
+    expect(html).toContain('aria-label="Use this example: A launch"');
+    expect(visibleText(html)).toContain('A short line about A price change.');
+    expect(visibleText(html)).toContain('1 document · sample evidence');
+    expect(html.match(/class="example-card/gu)).toHaveLength(3);
+  });
+
+  it('shows the readiness and the engine stages closed in Guided, and open in Advanced', () => {
+    const guided = renderLanding({ mode: 'guided' });
+    const advanced = renderLanding({ mode: 'advanced' });
+    expect(guided).toMatch(/<details class="aside-card readiness card">/u);
+    expect(guided).toMatch(/<details class="aside-card stage-guide card">/u);
+    expect(advanced).toMatch(/<details class="aside-card readiness card" open="">/u);
+    expect(advanced).toMatch(/<details class="aside-card stage-guide card" open="">/u);
+    // Nothing is taken out of the page in Guided: the same text is there, one click away.
+    expect(visibleText(guided)).toContain('Model provider');
+    expect(visibleText(guided)).toContain('How the five console stages work');
+  });
+
+  it('keeps a cloud-sync warning out of the closed readiness details, where it would be missed', () => {
+    const html = renderLanding({ config: configFixture({ warning: 'DATA_DIR is synchronized.' }) });
+    expect(html.indexOf('Data directory is cloud-synchronized')).toBeGreaterThan(-1);
+    expect(html.indexOf('Data directory is cloud-synchronized')).toBeLessThan(
+      html.indexOf('<details class="aside-card readiness'),
+    );
+  });
+
+  it('renders the web-page evidence seam only where the server says it may fetch pages', () => {
+    const withIngestion = { ...configFixture(), urlIngestion: true } as AppConfig;
+    expect(() => renderLanding({ config: withIngestion })).not.toThrow();
+    expect(renderLanding({ config: withIngestion }).match(/type="file"/gu)).toHaveLength(1);
   });
 });

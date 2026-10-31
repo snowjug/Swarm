@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DEMO_PROJECTS } from '../../../../shared/demo';
 import type { ProjectSummary } from '../../../../shared/types';
 import { visibleText } from '../../test/provider';
-import { DemoWorkspace, POSITIONING_STATEMENT, type DemoHistory } from './DemoWorkspace';
+import { DemoWorkspace, type DemoHistory } from './DemoWorkspace';
 
 function summary(id: string, overrides: Partial<ProjectSummary> = {}): ProjectSummary {
   return {
@@ -38,22 +38,10 @@ const loaded = (ids: string[]): DemoHistory => ({
   error: null,
 });
 
-describe('product introduction', () => {
-  it('says what Swarm is, and states in the exact words that it does not predict', () => {
+describe('demonstration workspace region', () => {
+  it('has no heading of its own at page level: the introduction carries the one h1', () => {
     const html = render(loaded([]));
-    expect(POSITIONING_STATEMENT).toBe(
-      'Swarm explores possible scenarios. It does not predict the future.',
-    );
-    expect(visibleText(html)).toContain(POSITIONING_STATEMENT);
-    expect(html.match(/<h1[ >]/gu)).toHaveLength(1);
-    for (const capability of [
-      'Evidence ledger',
-      'Contradiction review',
-      'Assumption register',
-      'Audit trail',
-    ]) {
-      expect(visibleText(html)).toContain(capability);
-    }
+    expect(html).not.toMatch(/<h1[ >]/u);
   });
 
   it('names the workspace region by what it is, and the scenario beside it', () => {

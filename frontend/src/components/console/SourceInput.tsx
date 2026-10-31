@@ -172,7 +172,7 @@ export function SourceInput({
       onChangeCapture={() => setError(null)}
     >
       <div className="section-heading">
-        <h3>01 / Source material</h3>
+        <h3>Evidence</h3>
         <span className="mono muted">
           {documents.length}/{maxDocuments} FILES · {total.toLocaleString()} CHARS
         </span>
