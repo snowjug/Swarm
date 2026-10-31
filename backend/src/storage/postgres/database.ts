@@ -61,6 +61,13 @@ function acquire(
   };
 }
 
+/**
+ * Connections with a transaction open, whichever database began it. Databases made for one server in
+ * one process share its connection, and one that reads a snapshot while another's transaction is open
+ * takes part in it: beginning another would end it.
+ */
+const openTransactions = new WeakSet<Transport>();
+
 const quote = (identifier: string): string => `"${identifier.replace(/"/gu, '""')}"`;
 
 /**
@@ -73,6 +80,7 @@ const quote = (identifier: string): string => `"${identifier.replace(/"/gu, '""'
 export class PostgresDatabase implements SqlDatabase {
   readonly dialect = 'postgres' as const;
   private active = false;
+  private snapshotting = false;
   private closed = false;
 
   get inTransaction(): boolean {
@@ -180,7 +188,7 @@ export class PostgresDatabase implements SqlDatabase {
   prepare(sql: string): SqlStatement {
     const text = toPostgres(sql);
     const run = (values: SqlValue[]) =>
-      this.raw({ type: 'query', text, values, retry: !this.active });
+      this.raw({ type: 'query', text, values, retry: !this.active && !this.snapshotting });
     if (text === '') {
       return { run: () => ({ changes: 0 }), get: () => undefined, all: () => [] };
     }
@@ -195,6 +203,7 @@ export class PostgresDatabase implements SqlDatabase {
     for (let attempt = 1; ; attempt++) {
       this.raw({ type: 'exec', text: 'BEGIN ISOLATION LEVEL SERIALIZABLE' });
       this.active = true;
+      openTransactions.add(this.bridge);
       try {
         const result = operation();
         this.raw({ type: 'exec', text: 'COMMIT' });
@@ -210,7 +219,43 @@ export class PostgresDatabase implements SqlDatabase {
         sleepSync(Math.random() * 20 * 2 ** attempt);
       } finally {
         this.active = false;
+        openTransactions.delete(this.bridge);
       }
+    }
+  }
+
+  /**
+   * One read-only transaction at REPEATABLE READ, which in PostgreSQL is a single snapshot taken at
+   * its first statement: what others commit after that is not seen, and nobody waits for it. Nothing
+   * inside it is retried on a fresh connection, because that would read another snapshot: a lost
+   * connection is a failure.
+   */
+  readSnapshot<T>(operation: () => T): T {
+    const outer = this.snapshotting;
+    this.snapshotting = true;
+    try {
+      return openTransactions.has(this.bridge) ? operation() : this.inOwnSnapshot(operation);
+    } finally {
+      this.snapshotting = outer;
+    }
+  }
+
+  private inOwnSnapshot<T>(operation: () => T): T {
+    this.raw({ type: 'exec', text: 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' });
+    openTransactions.add(this.bridge);
+    try {
+      const result = operation();
+      this.raw({ type: 'exec', text: 'COMMIT' });
+      return result;
+    } catch (error) {
+      try {
+        this.raw({ type: 'exec', text: 'ROLLBACK' });
+      } catch {
+        // The connection is gone; the next call finds that out.
+      }
+      throw error;
+    } finally {
+      openTransactions.delete(this.bridge);
     }
   }
 
