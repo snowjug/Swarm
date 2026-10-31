@@ -289,6 +289,8 @@ export function createBranch(
         name: document.name,
         content: document.content,
         ...(document.pageCount ? { pageCount: document.pageCount } : {}),
+        // The passages are inherited as they were cut; so is where their document came from.
+        ...(document.provenance ? { provenance: document.provenance } : {}),
       })),
     },
     { inheritChunksFrom: parent.id, owner },
