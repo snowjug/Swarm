@@ -52,16 +52,33 @@ conflicts" into the silence.
 | `assumption-sensitive-<row>`      | A sensitivity row is `assumption-sensitive` and its value is not backed by evidence                                   | `major` for a system assumption; `minor` for a value a person set, a model proposed or the scenario states |
 | `assumption-defaults-<actor>`     | A key actor nobody edited still has traits at their system default                                                    | `minor`                                                                                                    |
 | `assumption-key-actor-defaults`   | The same, folded into one for all such key actors while the change cannot move anyone (see below)                     | `minor`                                                                                                    |
-| `assumption-unconfirmed-impact`   | An actor's impact (harmed or benefited) is a system assumption or a model's proposal, and not zero                    | `major` if a key actor is among them, else `minor`                                                         |
+| `assumption-unconfirmed-impact`   | An actor's impact direction (harmed or benefited) is a system assumption or a model's proposal, and not zero          | `major` if a key actor is among them, else `minor`                                                         |
 | `assumption-no-registered-effect` | A repeatable "about the same" finding for a scenario that could move someone, with no sensitive intensity (see below) | `major`                                                                                                    |
 
 An `assumption-sensitive` row whose origin is `evidence` is not criticised: something supports it.
+
+**What an impact rests on.** The direction of an impact (harmed or benefited) and its size are two
+assumptions. A passage can show which way a change points for a group; none gives a number, so the size
+of an impact is a system default (harmed −0.6, benefited +0.6) unless a person or a model set the number
+itself. An impact whose direction was read from cited passages therefore has the origin
+`system-assumption` for its size, and the actor says what its direction rests on apart from that
+(`direction`, see [stakeholders.md](../stakeholders.md#actors)). A sensitivity row for an impact is never
+`evidence` for that reason: when the result moves with it, the criticism is `assumption-sensitive` about
+the size, and its objection says that the direction is cited and the number is not.
+
+**Checked against what is cited now.** A label of evidence is a claim about passages, so the direction of
+an impact, and any other sensitive assumption labelled `evidence`, are checked against what the actor's
+stakeholder cites in the stakeholder set as it is now, not against the label the cast was saved with. A
+direction labelled as read from cited passages when none is cited any more counts as unconfirmed
+(`assumption-unconfirmed-impact` names those actors), and a sensitive assumption labelled `evidence` for an
+actor that cites no passage is criticised like any other that nothing supports.
 
 ### Methodology: are there enough repeated runs, and does the fidelity justify the wording?
 
 | Id                                      | Raised when                                                                         | Severity                                            |
 | --------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `methodology-change-cannot-move-anyone` | No scenario other than the baseline can move any actor (see below)                  | `major`, and it sorts before every other criticism  |
+| `methodology-change-cannot-move-anyone` | The simulator gives the same outcome with a change as without it (see below)        | `major`, and it sorts before every other criticism  |
+| `methodology-no-declared-direction`     | Nobody has an expected direction of impact, but members can still be moved (below)  | `major`                                             |
 | `methodology-few-runs`                  | Fewer than 20 runs per variant                                                      | `major` below 10, else `minor`                      |
 | `methodology-rules-only`                | The engine and the key actors are both rules                                        | `minor`                                             |
 | `methodology-model-repeats`             | A model drove part of the behaviour and it was repeated no more than once           | `major`                                             |
@@ -137,15 +154,18 @@ is not backed by evidence (`major` when it is).
 
 ## When a comparison cannot say anything about the change
 
-Two rules guard against reading a result that the assumptions could not have produced.
+Three rules guard against reading a result that the assumptions could not have produced.
 
 **The change cannot move anyone** (`methodology-change-cannot-move-anyone`, methodology, `major`).
-An actor moves under a scenario only when the scenario is not the baseline, its intensity is above
-nothing, and the actor has a direction of impact that is not zero: the actor's own `impact` trait, or
-the scenario's figure for that actor where it gives one. That test is `changeCanMoveAnyone` in
-`shared/signal.ts`, the one the page and the brief use too. Where no scenario and actor meet it, every
-difference from no change is noise, and so is a finding that the two are "about the same", however
-repeatable it looks. The review says so once:
+A change can move a member through the impact of an actor as a scenario runs it (its override and edits
+applied), through the spread of that impact among the members of a cohort, and through what a scenario
+edits. The criticism is raised only when the simulator is certain to give the same outcome with a change
+as without it, on every seed: no scenario lands on anyone (a strength of nothing, or an impact of 0 for
+every actor and no cohort whose members differ in it) and none sets anything that the baseline does
+not. That test is `changeCanMoveAnyone` in `shared/signal.ts`, the one the page, the brief and the
+readiness warning use too; where it is unsure it says that the change can, and this criticism is not
+raised. Where it holds, every difference from no change is noise, and so is a finding that the two are
+"about the same", however repeatable it looks. The review says so once:
 
 - When no actor has a direction of impact at all, the objection and the requested action are the two
   sentences of the shared notice (`NO_DIRECTION_NOTICE`), word for word: what is wrong, and then to
@@ -167,13 +187,26 @@ repeatable it looks. The review says so once:
   given to a per-actor criticism is dropped with it when the review changes over, as for any
   criticism that no longer applies.
 
+**Nobody has a direction, but members can still be moved** (`methodology-no-declared-direction`,
+methodology, `major`). No actor has an expected direction of impact under any scenario, yet the change
+can move members, because those of a cohort are assumed to differ in how it lands on them (a spread of
+the impact) or because a scenario edits a trait. What the comparison shows then follows from those
+assumptions and not from anyone being helped or harmed, and the objection says exactly that (the shared
+`UNDIRECTED_CLAIM`, with `Say who is helped or harmed in the stakeholder review, or read the evidence with
+a model` as the requested action). It does not say that the change cannot move anyone and does not call a
+difference noise. It is not pinned: it sorts by severity like the others. The basis counts the actors
+with a direction (none), names the groups whose members differ in impact with their spread and the traits
+that a scenario edits, and quotes the first finding about the direction of the change. It is not raised
+where someone has a direction, or where the criticism above is.
+
 **"No difference" that the assumptions may be too weak to show** (`assumption-no-registered-effect`,
 assumption, `major`). A finding about the direction of the change that says simulated members ended
 up "about the same" as under no change, and that holds in enough runs to be `repeatable` or
 `mostly-repeatable`, is a result about the change only if the assumptions could have produced a
-difference. When some actor does have a direction under that scenario and its intensity is above
-nothing, the review says that the assumptions may be too weak to register an effect, and asks to raise
-the intensity of the change or to check the impact each actor is given, then to compare again. It does
+difference. When some actor does have a direction under that scenario (its impact as the scenario runs
+it, override and edits applied) and its intensity is above nothing, the review says that the assumptions
+may be too weak to register an effect, and asks to raise the intensity of the change or to check the
+impact each actor is given, then to compare again. It does
 not claim that they are too weak, only that nothing shows they were not. It is raised once, however
 many scenarios came out the same, and its target is the first such finding. It is not raised:
 
@@ -181,7 +214,7 @@ many scenarios came out the same, and its target is the first such finding. It i
   `assumption-sensitive` row, with a criticism of its own;
 - for a finding that holds in only some runs (`unstable` or `rare`), that is about one actor, or that
   does not say "about the same";
-- for a scenario that cannot move anyone, or when nobody has a direction: the first rule says more.
+- for a scenario that cannot move anyone, or when nobody has a direction: the first two rules say more.
 
 The basis quotes the finding, how often it held and its interval, the intensity of the scenario and
 how many actors have a direction, and what sensitivity did to the intensity, or that it did not test
@@ -210,8 +243,9 @@ calls count against the project's budget like any other.
 ## Responses and status
 
 A person with the capability to edit the experiment answers a criticism with
-`PUT /api/projects/:id/critiques/:cid/response` and a body of `text` (required), `status` and
-optionally `remainingDisagreement`:
+`PUT /api/projects/:id/critiques/:cid/response` and a body of `text` (required), `status`,
+optionally `remainingDisagreement`, and `expectedRevision`: the `revision` of the review that the
+person was looking at, as `GET /api/projects/:id/critiques` gave it:
 
 | Status      | Meaning                                                                                 |
 | ----------- | --------------------------------------------------------------------------------------- |
@@ -222,6 +256,12 @@ optionally `remainingDisagreement`:
 
 A later response replaces an earlier one. Responding never changes the criticism's wording, severity
 or basis.
+
+**Two people cannot silently replace each other's answer.** The revision goes up with every response and
+every run of the review. A response that carries an older one is refused with 409 `CRITIQUES_CHANGED`
+and a sentence that says to reload the review and answer again: someone else has responded, or the
+review has been run again, since the person read it. The page reads the review again at once, shows
+the other answer, and keeps what the person had typed, so that they choose again what it means.
 
 **Running the review again keeps responses.** A criticism that comes back with the same id keeps its
 status, response, remaining disagreement and the time it was first raised, including a response
@@ -238,9 +278,12 @@ written, so a reader can tell it is older than the criticism's current wording.
   for a model (`useModel: true`) on a project that was made to run without one (mode "Local rules")
   is refused with 409 `MODEL_NOT_AVAILABLE`: nothing is sent to a model from such a project.
 - `GET /api/projects/:id/critiques` answers 200 with `critiques: null` when there is none, the
-  newest finished analysis (so that a review of an older one can be called out of date), what the
-  caller may do, and whether a model can be asked (`model.available`; `model.reason` says in words
-  that the project runs without one, and the page says when the server has none configured).
+  `revision` of the stored review (to send back with a response), `changedSince` (what has changed
+  since the comparison the review is of was run: `scenario`, `stakeholders` or `actors`, checked
+  against what that comparison recorded, and `a newer analysis exists`), the newest finished analysis
+  (so that a review of an older one can be called out of date), what the caller may do, and whether a
+  model can be asked (`model.available`; `model.reason` says in words that the project runs without
+  one, and the page says when the server has none configured).
 - Reading needs `read`, running `run`, responding `edit`. A reviewer reads and does not run or edit
   what they review.
 - The audit log records `critiques.run` (analysis id, counts, whether a model was asked for and
@@ -267,8 +310,12 @@ written, so a reader can tell it is older than the criticism's current wording.
   assumptions from a real null: a change that helps some actors and harms others by the same amount
   also ends up "about the same", and gets the same prompt to look at the intensity and the impacts.
 - A model criticism is checked against ids, not for being right.
-- The review does not run on its own when an analysis, the stakeholders or the brief change. The page
-  says when a review is of an earlier analysis; it does not say when the stakeholders have changed
-  since.
+- The review does not run on its own when an analysis, the stakeholders or the brief change. A
+  comparison records the revision of the scenario, the stakeholders and the actors it was run on, so
+  the page says when the comparison a review is of was run before one of them changed (running the
+  review again on that comparison does not clear it: run the comparison again), and when a newer
+  comparison exists. A review made from such a comparison says so in its notes, since a check that
+  sets it against the scenario then reads two versions. A comparison saved before this was recorded
+  has no such record, and the review is then judged from what the review itself recorded.
 - Nothing here is a measure of confidence. The severities are fixed by the rules above, and the
   numbers in a basis are the checked facts.

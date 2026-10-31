@@ -166,10 +166,11 @@
   line-height: 1.75;
 }
 .entry-form {
+  --entry-pad: var(--space-6);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: var(--space-5) var(--space-6) var(--space-6);
+  padding: var(--space-5) var(--entry-pad) var(--space-6);
   min-width: 0;
 }
 .entry-form h2 {
@@ -340,10 +341,45 @@
   color: var(--muted);
   font-size: 12px;
 }
+.entry-submit-note {
+  margin: 0;
+}
+/* The button that builds stays at the foot of the screen once a question has been written, so that it
+   is never three screens away. It is sticky inside the form, not fixed: it never covers a field that
+   takes focus, and the keyboard of a phone pushes the page, not the bar. */
+.entry-submit-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.entry-submit-bar > [aria-live]:empty {
+  display: none;
+}
+.entry-submit-bar.is-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 calc(var(--entry-pad) * -1);
+  padding: var(--space-3) var(--entry-pad);
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+/* While a scenario is being checked, its own buttons are the ones to keep in reach. */
+.entry-form:has(.intake-review) .entry-submit-bar.is-sticky {
+  position: static;
+  margin: 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}
+/* A field that takes focus is scrolled clear of the bar, not left under it. */
+.entry-form :is(input, textarea, select, summary, a[href], button):not(.entry-submit-bar *) {
+  scroll-margin-bottom: 120px;
+}
 .entry-submit {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-2) var(--space-4);
   flex-wrap: wrap;
 }
 .entry-submit .button-primary {
@@ -351,13 +387,61 @@
   padding: 10px 22px;
   font-size: var(--fs-md);
 }
-.entry-submit > small {
+.entry-status {
   flex: 1;
-  min-width: 220px;
+  min-width: 0;
+  margin: 0;
   color: var(--muted);
+  font-size: var(--fs-sm);
 }
-.entry-form > [aria-live]:empty {
-  display: none;
+.entry-status.is-ready {
+  color: var(--text);
+  font-weight: 600;
+}
+/* The example that has been loaded, said in a line where the person is looking, in place of the cards. */
+.example-loaded {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--verdict-supported-line);
+  border-radius: var(--radius-md);
+  background: var(--verdict-supported-tint);
+}
+.example-loaded-starter {
+  border-color: var(--verdict-partial-line);
+  background: var(--verdict-partial-tint);
+}
+.example-loaded-text {
+  display: flex;
+  flex: 1 1 320px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-2);
+  min-width: 0;
+  color: var(--text);
+}
+.example-loaded-text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+.example-loaded-text strong svg {
+  flex: none;
+  align-self: center;
+  color: var(--text);
+}
+.example-loaded-text small {
+  flex: 1 0 100%;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+}
+.example-keep {
+  align-self: flex-start;
 }
 .history-toolbar {
   display: flex;
@@ -437,6 +521,7 @@
     gap: var(--space-5);
   }
   .entry-form {
+    --entry-pad: var(--space-5);
     padding: var(--space-5);
   }
   .mode-options {
@@ -457,6 +542,7 @@
     display: none;
   }
   .entry-form {
+    --entry-pad: var(--space-4);
     padding: var(--space-4);
     gap: var(--space-4);
   }
@@ -467,13 +553,24 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .entry-form {
+    --entry-pad: var(--space-3);
     padding: var(--space-3);
   }
   .run-settings {
     padding: var(--space-3);
   }
-  .upload-zone > label,
-  .entry-submit > .button-primary {
+  .upload-zone > label {
     width: 100%;
+  }
+  /* The button and what it says sit side by side: a bar that stays on the screen is not three lines tall. */
+  .entry-submit {
+    flex-wrap: nowrap;
+  }
+  .entry-submit .button-primary {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+  .entry-status {
+    font-size: var(--fs-xs);
   }
 }

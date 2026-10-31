@@ -13,9 +13,11 @@ import { analysisFixture, actorFixture, scenarioFixture } from '../../shared/lab
 import { stakeholderSchema, type Actor } from '../../shared/stakeholders.js';
 import { buildBrief } from '../src/brief/build.js';
 import { lintBrief } from '../src/brief/lint.js';
+import { perHundred } from '../src/brief/text.js';
 import {
   baseInputs,
   passage,
+  resampled,
   richAnalysis,
   richInputs,
   richStakeholders,
@@ -153,55 +155,143 @@ describe('the executive answer', () => {
   const analysis = analysisFixture();
   const brief = buildBrief(baseInputs({ analysis }));
   const executive = sectionOf(brief, 'executive-answer');
+  const startingWith = (prefix: string) =>
+    executive.statements.find((statement) => statement.text.startsWith(prefix))!;
 
-  it('compares the change with the baseline in simulated members, says how stable that is and which fidelity produced it', () => {
-    const members = analysis.actors.reduce((total, actor) => total + actor.sampleSize, 0);
-    const adverse = (variantId: string) => {
+  it('leads with the engine’s own paired comparison, every actor counting equally, and says how stable it is and which fidelity produced it', () => {
+    const shareOf = (variantId: string) => {
       const runs = analysis.variants.find((variant) => variant.variantId === variantId)!.runs;
       return (
-        (runs.reduce(
+        runs.reduce(
           (total, run) => total + run.responseShares.resist + run.responseShares.switch,
           0,
-        ) /
-          runs.length) *
-        members
+        ) / runs.length
       );
     };
-    const [first] = executive.statements;
-    expect(first?.origin).toBe('simulation-aggregation');
-    expect(first?.text).toContain('the rules engine');
-    expect(first?.text).toContain(`${members} simulated members`);
-    expect(first?.text).toContain(
-      `about ${Math.round(adverse('proposed-change'))} simulated members`,
+    const comparison = startingWith('With the rules engine');
+    expect(comparison.origin).toBe('simulation-aggregation');
+    expect(comparison.text).toContain(
+      `counting each of the ${analysis.actors.length} simulated actors equally, not each simulated member`,
     );
-    expect(first?.text).toContain(`about ${Math.round(adverse('baseline'))} under “No change”`);
-    expect(first?.text).toContain('in 10 of 10 paired runs');
-    expect(first?.refs.findingIds).toEqual(['f1']);
-    expect(first?.refs.variantIds).toEqual(['proposed-change', 'baseline']);
-    expect(executive.statements[1]?.text).toContain('held in 10 of 10 seeded simulated runs');
-    expect(executive.statements[1]?.text).toContain('mostly repeatable');
-    expect(executive.statements[1]?.text).toContain('There is no confidence score');
+    expect(comparison.text).toContain(
+      `about ${perHundred(shareOf('proposed-change'))} in 100 under “Proposed change” against ${perHundred(shareOf('baseline'))} in 100 under “No change”`,
+    );
+    expect(comparison.text).toContain('higher under the change in 10 of 10 paired runs');
+    expect(comparison.text).toContain('paired standard error');
+    // No total of sampled members, which depends on how many were sampled for each group.
+    expect(comparison.text).not.toMatch(/\d+ simulated members each/u);
+    expect(comparison.refs.findingIds).toEqual(['f1']);
+    expect(comparison.refs.variantIds).toEqual(['proposed-change', 'baseline']);
+    const stability = startingWith('Stability');
+    expect(stability.text).toContain('held in 10 of 10 seeded simulated runs');
+    expect(stability.text).toContain('mostly repeatable');
+    expect(stability.text).toContain('There is no confidence score');
+    expect(stability.text).toContain('does not claim long-run coverage');
   });
 
-  it('names the biggest open caveat, and ends with what the answer does not tell you', () => {
-    expect(executive.statements[2]?.text).toContain('Biggest open caveat');
-    expect(executive.statements[2]?.text).toContain(
-      'sensitive to “Subscribers: cost of switching, 0.2 higher”',
+  it('carries, in order, the decision, the conditional recommendation, the comparison, the groups it moved, what could change it and what would settle it', () => {
+    const starts = executive.statements.map((statement) => statement.text.slice(0, 21));
+    expect(starts[0]).toBe('Decision evaluated: “');
+    expect(starts[1]).toBe('Recommendation, condi');
+    expect(starts[2]).toBe('With the rules engine');
+    expect(starts[3]).toBe('The groups whose own ');
+    const open = executive.statements.filter((statement) =>
+      /^(Biggest open caveat|Also open): /u.test(statement.text),
     );
-    expect(executive.statements[2]?.origin).toBe('unresolved-uncertainty');
+    // Three assumptions or gaps that could change the answer, the biggest first, each with what it rests on.
+    expect(open).toHaveLength(3);
+    expect(open[0]?.text).toContain('sensitive to “Subscribers: cost of switching, 0.2 higher”');
+    expect(open[0]?.refs.sensitivityIds).toEqual(['s1']);
+    expect(open.slice(1).every((statement) => statement.text.startsWith('Also open: '))).toBe(true);
+    const settle = startingWith('What would settle');
+    expect(settle.text).toMatch(/\(val-\d+\)/u);
+    expect(settle.text).toContain('left for you to set');
+    expect(executive.statements.indexOf(settle)).toBeGreaterThan(
+      executive.statements.indexOf(open[2]!),
+    );
+    expect(startingWith('Stability')).toBeDefined();
+  });
+
+  it('is a conditional recommendation that names its actions and the premises, never an unconditional order', () => {
+    const recommendation = startingWith('Recommendation, conditional');
+    expect(recommendation.text).toContain(
+      'if the checks in the validation plan confirm the premises behind the simulated result',
+    );
+    expect(recommendation.text).toContain('run the analysis again with the measured values');
+    expect(recommendation.text).not.toMatch(/\bwill\b|%/u);
+    expect(recommendation.origin).toBe('simulation-aggregation');
+    expect(recommendation.refs.findingIds).toContain('f1');
+  });
+
+  it('names the groups by their own share, ranked by it, and says why member counts are not used', () => {
+    const groups = startingWith('The groups whose own share');
+    expect(groups.origin).toBe('actor-behavior');
+    expect(groups.text).toMatch(/in 100 of its simulated members, against /u);
+    expect(groups.text).toContain('ranked by their own share and never by member counts');
+    expect(groups.text).toContain('a numerical resolution');
+    expect(groups.refs.stakeholderIds.length).toBeGreaterThan(0);
+  });
+
+  it('does not move when only the number of members sampled for a cohort changes', () => {
+    // The sampling budget is a numerical resolution: the same shares with five times the members are
+    // the same answer. The count of simulated members moves; the lead measure does not.
+    const wider = resampled(analysis, 'subscribers', 150);
+    const other = buildBrief(baseInputs({ analysis: wider }));
+    const lead = (text: DecisionBrief) =>
+      sectionOf(text, 'executive-answer')
+        .statements.slice(0, 4)
+        .map((statement) => statement.text);
+    expect(lead(other)).toEqual(lead(brief));
+    expect(other.headline).toBe(brief.headline);
+    // The count is still there, in the sections that say what it is, and it did move.
+    expect(textOf(other, 'reaction-patterns')).toContain('of 163 simulated members');
+    expect(textOf(brief, 'reaction-patterns')).toContain('of 43 simulated members');
+    expect(textOf(other, 'reaction-patterns')).toContain('a numerical resolution');
+  });
+
+  it('ranks the variants by the share of every actor and never by a count of members', () => {
+    const text = textOf(brief, 'alternative-outcomes');
+    expect(text).toContain(
+      'From the lowest to the highest mean share of simulated members looking for an alternative or resisting (each simulated actor counted equally, in every 100)',
+    );
+    expect(text).not.toContain('From fewest to most simulated members');
+  });
+
+  it('ends with what the answer does not tell you', () => {
     const last = executive.statements.at(-1);
     expect(last?.text).toMatch(/^What this does not tell you/u);
     expect(last?.text).toMatch(/neither rates nor forecasts/u);
   });
 
-  it('makes a headline of one or two sentences from the answer and the caveat, never longer than a statement', () => {
+  it('makes a headline of the comparison, the groups it moved and the biggest caveat, never longer than a statement', () => {
     expect(brief.headline.length).toBeLessThanOrEqual(700);
-    expect(brief.headline).toContain(executive.statements[0]!.text);
+    expect(brief.headline).toContain(startingWith('With the rules engine').text);
+    expect(brief.headline).toContain('The groups moved most were');
     expect(brief.headline).toContain('Biggest open caveat');
+    expect(brief.headline).toMatch(/\bsimulated members\b/u);
+    expect(brief.headline).toMatch(/\bseeded runs\b/u);
     expect(brief.headline).not.toMatch(/\bwill\b|%/u);
   });
 
-  it('chooses the next caveat when nothing sensitive is left: an unstable headline, then missing evidence', () => {
+  it('writes the size of a step in an assumption in words, so that no percent sign stands in the headline', () => {
+    const stepped = analysisSchema.parse({
+      ...analysis,
+      sensitivity: analysis.sensitivity.map((row) => ({
+        ...row,
+        label: `Intensity of Proposed change: 25% higher (${row.id})`,
+      })),
+    });
+    const made = buildBrief(baseInputs({ analysis: stepped }));
+    const caveat = sectionOf(made, 'executive-answer').statements.find((statement) =>
+      statement.text.startsWith('Biggest open caveat'),
+    );
+    expect(caveat?.text).toContain('“Intensity of Proposed change: 25 per cent higher (');
+    // The headline holds the caveat only if it fits; whatever it holds has no percent sign.
+    expect(made.headline).not.toContain('%');
+    expect(caveat?.text).not.toContain('%');
+  });
+
+  it('advises not deciding when the headline comparison is unstable, and says what is missing when nothing is cited', () => {
     const unstable = analysisSchema.parse({
       ...analysisFixture(),
       sensitivity: [],
@@ -211,10 +301,14 @@ describe('the executive answer', () => {
           : finding,
       ),
     });
-    const caveat = sectionOf(buildBrief(baseInputs({ analysis: unstable })), 'executive-answer')
-      .statements[2]!;
-    expect(caveat.text).toContain('the headline comparison was unstable');
-    expect(caveat.refs.findingIds).toEqual(['f1']);
+    const caution = sectionOf(
+      buildBrief(baseInputs({ analysis: unstable })),
+      'executive-answer',
+    ).statements.find((statement) => statement.text.startsWith('Recommendation'))!;
+    expect(caution.text).toContain('do not decide on this simulated comparison yet');
+    expect(caution.text).toContain('held in 5 of 10 seeded runs');
+    expect(caution.refs.findingIds).toEqual(['f1']);
+    expect(caution.reliance).toBe('low');
     const noFindings = analysisSchema.parse({
       ...analysisFixture(),
       sensitivity: [],
@@ -223,12 +317,15 @@ describe('the executive answer', () => {
     const evidence = sectionOf(
       buildBrief(baseInputs({ analysis: noFindings })),
       'executive-answer',
-    );
-    expect(evidence.statements[1]?.origin).toBe('unresolved-uncertainty');
-    expect(evidence.statements[1]?.text).toContain('no finding about the direction');
-    expect(evidence.statements[2]?.text).toContain(
-      'no cited passage supports any of the 5 simulated actors',
-    );
+    ).statements;
+    const stability = evidence.find((statement) => statement.text.startsWith('Stability'))!;
+    expect(stability.origin).toBe('unresolved-uncertainty');
+    expect(stability.text).toContain('no finding about the direction');
+    expect(
+      evidence.some((statement) =>
+        statement.text.includes('no cited passage supports “Provider”, “Rival provider”'),
+      ),
+    ).toBe(true);
   });
 
   it('says so, and invents no comparison, when there is no baseline or no run', () => {
@@ -361,6 +458,28 @@ describe('the scenario', () => {
 });
 
 describe('the stakeholders', () => {
+  it('says that one cited passage supports a stakeholder, and that more of them support it', () => {
+    const stakeholders = richStakeholders();
+    const subscribers = stakeholders.stakeholders.find((entry) => entry.id === 'subscribers')!;
+    subscribers.evidence = subscribers.evidence.slice(0, 1);
+    const text = sectionOf(buildBrief(richInputs({ stakeholders })), 'stakeholders')
+      .statements.map((statement) => statement.text)
+      .join(' ');
+    expect(text).toContain('1 cited passage supports it');
+    expect(text).not.toContain('1 cited passage support it');
+  });
+
+  it('does not call full evidence coverage an unresolved uncertainty', () => {
+    const stakeholders = richStakeholders();
+    const quoted = stakeholders.stakeholders.find((entry) => entry.id === 'subscribers')!.evidence;
+    for (const entry of stakeholders.stakeholders) entry.evidence = quoted;
+    const base = sectionOf(buildBrief(richInputs({ stakeholders })), 'evidence-base').statements;
+    const coverage = base.find((statement) => statement.text.startsWith('Every one of the'))!;
+    expect(coverage.text).toContain('has at least one cited supporting passage');
+    expect(coverage.origin).toBe('inferred-stakeholder');
+    expect(coverage.refs.stakeholderIds.length).toBeGreaterThan(1);
+  });
+
   it('lists each with its category, who proposed it, how many passages support it and what is uncertain', () => {
     const brief = buildBrief(richInputs());
     const statements = sectionOf(brief, 'stakeholders').statements;
@@ -496,7 +615,9 @@ describe('how far each statement can be relied on', () => {
   it('is moderate for a mostly repeatable finding and low for an unstable one, whatever the evidence', () => {
     const brief = buildBrief(richInputs());
     const executive = sectionOf(brief, 'executive-answer').statements;
-    expect(executive[0]?.reliance).toBe('moderate');
+    expect(
+      executive.find((statement) => statement.text.startsWith('With the rules engine'))?.reliance,
+    ).toBe('moderate');
     const unstable = sectionOf(brief, 'uncertainty').statements.find((statement) =>
       statement.text.startsWith('Unstable simulated result'),
     );
@@ -507,15 +628,89 @@ describe('how far each statement can be relied on', () => {
     const brief = buildBrief(richInputs());
     const recommendations = sectionOf(brief, 'recommendations').statements;
     expect(recommendations[0]?.reliance).toBeNull();
-    for (const statement of recommendations.slice(1)) expect(statement.reliance).not.toBeNull();
+    // What follows from a count over seeded runs carries the reliance of its findings; advice about
+    // evidence, assumptions or critiques rests on no finding and carries none.
+    for (const statement of recommendations.slice(1)) {
+      expect(statement.reliance === null, statement.text).toBe(
+        statement.origin !== 'simulation-aggregation' || statement.refs.findingIds.length === 0,
+      );
+    }
     const decision = sectionOf(brief, 'decision').statements;
     for (const statement of decision) expect(statement.reliance).toBeNull();
     const mitigation = recommendations.find((statement) => statement.text.startsWith('Mitigate'))!;
     expect(mitigation.reliance).toBe('high');
   });
+
+  it('does not come from a finding about something else: a distribution rests on the comparison, a group on its adverse response', () => {
+    const analysis = richAnalysis();
+    // An unstable ordering of groups and an unstable event say nothing of the mean outcome or of a group's share.
+    analysis.findings = analysis.findings.map((finding) =>
+      finding.kind === 'ordering' || finding.kind === 'second-order-event'
+        ? { ...finding, classification: 'unstable' as const }
+        : finding,
+    );
+    const brief = buildBrief(richInputs({ analysis }));
+    const patterns = sectionOf(brief, 'reaction-patterns').statements;
+    const distribution = patterns.find((statement) =>
+      statement.text.startsWith('Under “Proposed change”, counting each simulated actor equally'),
+    )!;
+    expect(
+      distribution.refs.findingIds.map(
+        (id) => analysis.findings.find((finding) => finding.id === id)?.kind,
+      ),
+    ).toEqual(['direction-vs-baseline']);
+    expect(distribution.reliance).not.toBe('low');
+    for (const statement of patterns.filter((entry) => entry.origin === 'actor-behavior')) {
+      for (const id of statement.refs.findingIds) {
+        const linked = analysis.findings.find((finding) => finding.id === id);
+        expect(linked?.kind, statement.text).toBe('majority-response');
+      }
+    }
+  });
 });
 
 describe('the assumptions', () => {
+  it('says what the runs used where the scenario sets the impact of an actor itself, and not what the actor carries', () => {
+    const base = analysisFixture();
+    const analysis = analysisSchema.parse({
+      ...base,
+      config: {
+        ...base.config,
+        variants: base.config.variants.map((variant) =>
+          variant.id === 'proposed-change'
+            ? { ...variant, impactOverrides: { subscribers: -0.9 } }
+            : variant,
+        ),
+      },
+      actors: base.actors.map((actor) =>
+        actor.id === 'subscribers'
+          ? { ...actor, traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } } }
+          : actor,
+      ),
+      sensitivity: base.sensitivity.map((row) => ({
+        ...row,
+        target: { kind: 'trait', actorId: 'subscribers', trait: 'impact' },
+        label: 'Subscribers: how the change lands on them (impact), 0.2 higher',
+        assumptionOrigin: 'user',
+        setting: { source: 'scenario-override', value: -0.9 },
+      })),
+    });
+    const made = buildBrief(baseInputs({ analysis }));
+    const register = sectionOf(made, 'assumptions').statements.find(
+      (statement) => statement.refs.sensitivityIds.length > 0,
+    )!;
+    expect(register.text).toContain('impact is set at -0.90, as the proposed change sets it');
+    expect(register.text).toContain('the actor itself carries 0.00, which the runs did not use');
+    expect(register.text).not.toContain('is set at 0.00');
+    expect(register.origin).toBe('user-assumption');
+    const effect = sectionOf(made, 'first-order').statements.find((statement) =>
+      statement.text.startsWith('Simulated “Subscribers”'),
+    )!;
+    expect(effect.text).toContain(
+      'is set as harmed by the change (impact -0.90, set by the scenario that proposes the change)',
+    );
+  });
+
   it('puts the ones the result is sensitive to first, biggest first, and says who owns each', () => {
     const brief = buildBrief(richInputs());
     const statements = sectionOf(brief, 'assumptions').statements;
@@ -546,6 +741,74 @@ describe('the assumptions', () => {
     expect(
       statements.some((statement) => statement.text.startsWith('Population sizes are assumptions')),
     ).toBe(true);
+  });
+
+  it('reads an impact that rests on a cited passage as an assumption about its size, and shows the passage for its direction only', () => {
+    const impact = (origin: 'evidence' | 'system-assumption') => ({
+      id: 's6',
+      target: { kind: 'trait' as const, actorId: 'subscribers', trait: 'impact' },
+      label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+      perturbation: -0.2,
+      metric: 'Share ending in switch or resist',
+      baseMean: 0.45,
+      shift: 0.2,
+      standardError: 0.01,
+      classification: 'assumption-sensitive' as const,
+      assumptionOrigin: origin,
+    });
+    const made = (cited: boolean) => {
+      const given = richInputs();
+      // Saved before size and direction were told apart: the whole impact labelled evidence.
+      const actors = given.analysis.actors.map((actor) =>
+        actor.id === 'subscribers'
+          ? {
+              ...actor,
+              traits: { ...actor.traits, impact: { ...actor.traits.impact, origin: 'evidence' } },
+            }
+          : actor,
+      );
+      given.analysis = analysisSchema.parse({
+        ...given.analysis,
+        actors,
+        sensitivity: [...given.analysis.sensitivity, impact('evidence')],
+      });
+      if (!cited) {
+        given.stakeholders = {
+          ...given.stakeholders!,
+          stakeholders: given.stakeholders!.stakeholders.map((stakeholder) =>
+            stakeholder.id === 'subscribers' ? { ...stakeholder, evidence: [] } : stakeholder,
+          ),
+        };
+      }
+      const brief = buildBrief(given);
+      const row = sectionOf(brief, 'assumptions').statements.find((statement) =>
+        statement.refs.sensitivityIds.includes('s6'),
+      )!;
+      const first = sectionOf(brief, 'first-order').statements.find((statement) =>
+        statement.text.startsWith('Simulated “Subscribers”'),
+      )!;
+      return { row, first };
+    };
+    const backed = made(true);
+    expect(backed.row.origin).toBe('system-assumption');
+    expect(backed.row.refs.evidence).toEqual([]);
+    expect(backed.row.text).toContain('Subscribers”: impact is set at -0.60');
+    expect(backed.row.text).toContain(
+      'only its direction rests on a cited passage, which gives no size',
+    );
+    expect(backed.first.text).toContain(
+      'impact -0.60, the direction rests on a cited passage and the size is an assumption',
+    );
+    const gone = made(false);
+    expect(gone.row.origin).toBe('system-assumption');
+    expect(gone.row.text).toContain(
+      'its direction was labelled as resting on evidence, but no passage is cited for it now',
+    );
+    expect(gone.row.text).not.toContain('rests on a cited passage');
+    expect(gone.first.text).toContain(
+      'the direction is labelled as resting on evidence but no passage is cited for it now',
+    );
+    expect(gone.first.text).not.toContain('labelled as resting on evidence,');
   });
 
   it('says that a strength or a round the person set is theirs, and leaves the rest to the system', () => {
@@ -644,7 +907,9 @@ describe('uncertainty', () => {
       statement.text.startsWith('Unstable simulated result'),
     )!;
     expect(unstable.refs.findingIds).toEqual(['f4']);
-    expect(unstable.text).toContain('held in 5 of 10 seeded runs (Wilson interval 0.24 to 0.76)');
+    expect(unstable.text).toContain(
+      'held in 5 of 10 seeded runs (Wilson interval 0.24 to 0.76, descriptive of these runs)',
+    );
     expect(unstable.text).toContain('do not rely on it');
   });
 
@@ -745,6 +1010,89 @@ describe('second-order effects and risks', () => {
     expect(finding.text).toContain('held in 9 of 10 seeded simulated runs');
     expect(finding.text).toContain('an actor outside the organisation (competitor)');
     expect(finding.reliance).toBe('moderate');
+  });
+
+  it('says that an earlier event was needed only where the run was replayed without it, and otherwise only that it came first', () => {
+    const event = (
+      id: string,
+      round: number,
+      actorId: string,
+      description: string,
+      extra = {},
+    ) => ({
+      id,
+      round,
+      kind: 'counter-move',
+      actorId,
+      description,
+      causedBy: [] as string[],
+      ...extra,
+    });
+    const events = [
+      event('e1', 2, 'provider', 'The provider announced the change.'),
+      event('e2', 3, 'rival-provider', 'The rival provider made an offer.', {
+        causedBy: ['adverse-share', 'e1'],
+      }),
+      event('e3', 4, 'regulator', 'The regulator asked for information.', {
+        causedBy: ['risk-concern'],
+        followed: ['e1'],
+      }),
+    ];
+    const made = (explained: boolean) => {
+      const given = richInputs();
+      given.analysis = analysisSchema.parse({
+        ...given.analysis,
+        representativeRun: {
+          ...given.analysis.representativeRun!,
+          events,
+          ...(explained ? { explained: true } : {}),
+        },
+      });
+      return sectionOf(buildBrief(given), 'second-order').statements.map(
+        (statement) => statement.text,
+      );
+    };
+    const replayed = made(true);
+    const needed = replayed.find((text) => text.includes('could not have happened without'))!;
+    expect(needed).toContain(
+      '“The rival provider made an offer” in round 3 could not have happened without “The provider announced the change” in round 2: a replay of the same seed without that responder had no such event by then.',
+    );
+    expect(needed).toContain('not an observation');
+    const only = replayed.find((text) => text.includes('regulator asked'))!;
+    expect(only).toContain(
+      'after “The provider announced the change” in round 2, “The regulator asked for information” followed in round 4. Nothing shows that the earlier event mattered: a replay of the same seed without the responder still had this event',
+    );
+    expect(only).not.toContain('could not have happened');
+    // A run that was not replayed says nothing was tested, and an event it names as earlier only came first.
+    const older = made(false).join('\n');
+    expect(older).not.toContain('could not have happened without');
+    expect(older).toContain('the run was not replayed without the responder');
+  });
+
+  it('says which signal an event happened after when no event followed another', () => {
+    const given = richInputs();
+    given.analysis = analysisSchema.parse({
+      ...given.analysis,
+      representativeRun: {
+        ...given.analysis.representativeRun!,
+        events: [
+          {
+            id: 'e1',
+            round: 3,
+            kind: 'counter-move',
+            actorId: 'rival-provider',
+            description: 'The rival provider made an offer.',
+            causedBy: ['adverse-share'],
+          },
+        ],
+        explained: true,
+      },
+    });
+    const text = textOf(buildBrief(given), 'second-order');
+    expect(text).toContain(
+      '“The rival provider made an offer” occurred in round 3, when the simulated “adverse-share” signal it watches reached its threshold.',
+    );
+    expect(text).not.toContain('following from');
   });
 
   it('lists the risk from a harmed group, and from an actor outside the organisation', () => {

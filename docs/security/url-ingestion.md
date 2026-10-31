@@ -77,6 +77,7 @@ The addresses that are never connected to (`classifyAddress`):
 | **DNS rebinding**: a name that answers public, then private | The name is looked up once for each request, every answer is checked, and the connection is made to those answers through a lookup that returns only them. The connection never looks the name up again. Each redirect hop is checked and pinned too                            | `url-fetcher.test.ts` (connects to the address that was checked) | Behind a transparent egress proxy the connection is to the proxy, which does its own lookup: pinning cannot see past it                                                                                             |
 | **Redirects** to an internal address or another scheme      | Followed by hand, at most five. Each target goes through the whole check again (scheme, user name, host, port, allow list, name lookup). A redirect from https to http is not followed                                                                                          | `url-fetcher.test.ts` (judges every redirect target again)       | A page can send the reader to another public site, and the notes say so                                                                                                                                             |
 | **Large or endless answers**                                | At most `URL_INGEST_MAX_BYTES` (1.5 MB) are read, a declared length above it is refused before reading, and the read stops at the limit. A total time (12 s) and a silence limit (5 s) apply, so a server that drips one byte at a time is stopped                              | `url-fetcher.test.ts` (size, slow-loris, idle)                   | Requests are limited for each caller address, not for the server as a whole: many callers can hold many fetches open at once, each for at most the time limit                                                       |
+| **Many fetches at once**                                    | One caller: 10 requests a minute. The whole server: at most `URL_INGEST_CONCURRENCY` (8) pages at once and `URL_INGEST_QUEUE` (8) waiting in order for up to `URL_INGEST_QUEUE_WAIT_MS` (5 s); the rest get `503 URL_BUSY` and a `Retry-After`, naming nothing of the address   |
 | **Decompression bombs**                                     | `Accept-Encoding: identity` is sent. If a server compresses anyway (gzip, deflate or Brotli), the output is counted and the read stops at the same limit, so a few kilobytes that expand to gigabytes are refused                                                               | `url-fetcher.test.ts` (decompression bombs)                      | A `deflate` body without a zlib header is refused as damaged                                                                                                                                                        |
 | **A page that tries to run something**                      | It is only a string, scanned once by a small tokenizer (`extract.ts`). Nothing is evaluated, rendered, fetched or followed. Scripts, styles, templates, frames, drawings, form controls and comments are dropped; links keep their text and never their address                 | `url-extract.test.ts`                                            | A page can be built to be slow to scan: the amount of work is capped (150,000 tags, 400 levels of nesting, a bounded amount of text) and tested on pages made to be slow                                            |
 | **Hidden text**                                             | Elements with `hidden`, `aria-hidden="true"`, `display:none`, `visibility:hidden`, `opacity:0` or `font-size:0` are dropped, with everything inside them. Zero-width and bidirectional controls, the Unicode tag block and other control characters are removed from every text | `url-extract.test.ts`                                            | Text hidden by a style sheet or a class (`.sr-only`, off-screen positioning, white on white) cannot be seen without rendering the page, which is not done: it is kept                                               |
@@ -99,9 +100,10 @@ the text instead**.
 
 ### What is never read
 
-Scripts, styles, `noscript`, templates, frames, objects, drawings, form controls, comments, and anything marked
-`hidden`, `aria-hidden="true"`, `display:none`, `visibility:hidden`, `opacity:0` or `font-size:0`. That has not
-changed, and it does not depend on anything below.
+Scripts, styles, templates, frames, objects, drawings, form controls, comments, and anything marked `hidden`,
+`aria-hidden="true"`, `display:none`, `visibility:hidden`, `opacity:0` or `font-size:0`. That does not depend on
+anything below. The `noscript` parts of a page are not the page's own text either; they are read only as a
+fallback, and never mixed with it (see "Text kept for readers without scripts").
 
 ### What is left out as furniture
 
@@ -143,6 +145,38 @@ If what is kept is under 200 characters while the page shows at least twice as m
 more, **the page is read whole**, as it was read before furniture was told apart, and the notes say so. A site
 that puts its content in an element called `sidebar` does not become an empty document.
 
+### Text kept for readers without scripts
+
+Swarm does not run scripts, so a page's `noscript` parts are what a reader without scripts is shown. They are
+read as **a fallback** and in no other way: only when the rest of the page has under 200 characters of text and
+the `noscript` text has at least 200, twice as much and 80 more. It then **replaces** the page's own text, and is
+never mixed with it. It is read as markup under every rule above (hidden text, furniture, scripts, styles and
+frames inside it are left out, and none of it is run), at most 100,000 characters of it are kept, and a
+`noscript` that is hidden, or inside something hidden or inside furniture, is not read at all. The notes say
+that this is the text the page keeps for readers without scripts.
+
+A `noscript` that only asks for scripts ("You need to enable JavaScript to run this app.") is too short to
+count, so such a page still gets the message that it needs JavaScript or has no readable text.
+
+### What scripts build, and frames
+
+What a script builds, or what a frame shows from another page, is not in the page that was fetched, and Swarm
+reads neither. It says so, in one note, when either holds:
+
+- most of the page is code: at least half of its characters are inside `script` elements (not counting scripts
+  that hold data, such as JSON), and what is kept is at most a tenth of the page; or
+- what was kept has a frame, an object or an embed that shows another document to a reader: not hidden, not a
+  pixel, not blank, and not inside furniture.
+
+### When a page is not read to its end
+
+A page with more than 150,000 tags, or nested more than 400 levels deep, is read no further than that point.
+Such a page is **marked**: `reading` says it was cut short, the text ends with the notice of a document that was
+cut to fit ("[Swarm shortened this page: only the beginning was kept.]"), and the notes say so. A page with
+only tags or white space after the cap is not marked, since nothing was lost. When too little had been read by
+then to make a document, the answer says that Swarm stopped before the end of the page, not that it needs
+JavaScript.
+
 ### What does not change
 
 - The title, the description and the facts for machines (JSON-LD) are read wherever they are in the page,
@@ -163,6 +197,14 @@ What a person sees in the notes:
 - The whole page read: "Swarm could not tell the page's own text from its menus and side panels, so it kept
   everything the page shows, menus included. Some of it may not be what the page is about. You can paste the
   text instead."
+- The text kept for readers without scripts: "Swarm does not run scripts, and this page shows almost no text
+  without them, so it kept the text the page holds for readers without scripts (its noscript part). A browser
+  that runs scripts may show more. You can paste the text instead."
+- Scripts or frames: "Parts of this page are built by scripts or shown from other pages (frames), and Swarm
+  reads neither, so a table or list that a browser shows there may be missing. You can paste the text instead."
+- A page not read to its end: "Swarm stopped reading this page before its end, because it has more tags, or is
+  nested more deeply, than Swarm reads, so only the beginning was kept. The text says so. You can paste the text
+  instead."
 - Nothing left out, and a file that is not a web page: no note about this.
 
 ## What the document is
@@ -173,16 +215,21 @@ The route returns `{ document: { name, content, provenance }, notes }`.
   (`-`) and table rows (cells joined with `|`), then the facts the page publishes for machines (JSON-LD),
   listed as `Type.field: value` lines under `Structured data:`. JSON is read as `path: value` lines and CSV as
   its columns and then `Row n: column: value` lines, with a limit on depth, items, rows, columns and the size of
-  a value. A document is at most 40,000 characters; when the page is longer the end is cut and the text says
-  so, and the structured facts are kept.
+  a value. A quote that comes after only spaces opens a quoted field (`"a", "b"` is read as two fields, as many
+  files are written); a quote anywhere else in a field is kept as text, and the notes say so. A document is at
+  most 40,000 characters; when the page is longer the end is cut and the text says so, and the structured facts
+  are kept.
 - **`provenance`** is `{ kind: 'url', url, finalUrl, retrievedAt, contentType, sha256, title,
 fetchedByServer: true }`. The addresses have no fragment and have the value of any query parameter named
   like a secret replaced by `[redacted]` (`token`, `key`, `api_key`, `secret`, `password`, `auth`, `sig`,
   `signature`, `session`, `code`, `access_token`, `x-amz-*` and similar). `sha256` is of the text as it is
   stored.
 - **`notes`** say that this is retrieved evidence that Swarm has not checked, whether the page's menus and the
-  like were left out (and that this is a guess), whether the page was cut, whether structured data is included,
-  whether the address sent the reader to another site, and whether the text reads like instructions to an AI.
+  like were left out (and that this is a guess), whether its text is what it keeps for readers without scripts,
+  whether parts built by scripts or shown from other pages were not read, whether the page was cut (because it
+  is longer than a document can be, or because it has more tags or is nested more deeply than is read), whether
+  structured data is included, whether a table kept quotation marks as text, whether the address sent the
+  reader to another site, and whether the text reads like instructions to an AI.
 - The **name** is made from the host and the title with only letters, digits and a few marks, so it is always a
   valid document name.
 
@@ -201,9 +248,10 @@ instead."
 | `URL_TIMEOUT`            | The whole fetch took more than `URL_INGEST_TIMEOUT_MS`, or the site went quiet                                           |
 | `URL_TOO_MANY_REDIRECTS` | More than five                                                                                                           |
 | `URL_ROBOTS_DISALLOWED`  | The site asks that the page is not fetched, or its robots.txt could not be read                                          |
-| `URL_NO_TEXT`            | Fewer than 80 characters of readable text: the page may need JavaScript                                                  |
+| `URL_NO_TEXT`            | Fewer than 80 characters of readable text: the page may need JavaScript, or was not read to its end                      |
 | `URL_FETCH_FAILED`       | The name was not found, the connection failed, the certificate could not be verified, or the site answered with an error |
 | `URL_INGESTION_DISABLED` | `URL_INGESTION=off` (403)                                                                                                |
+| `URL_BUSY`               | The server is reading as many pages as it allows, and the line to wait is full or too slow (503)                         |
 
 The allowed types are `text/html`, `application/xhtml+xml`, `text/plain`, `text/markdown`, `text/csv` and
 `application/json`. The type is taken from what the site says and is not guessed.
@@ -217,6 +265,9 @@ The allowed types are `text/html`, `application/xhtml+xml`, `text/plain`, `text/
 | `URL_INGEST_MAX_BYTES`     | 1,500,000 | Most bytes read from a page, before and after decompression (10,000 to 5,000,000)                    |
 | `URL_INGEST_TIMEOUT_MS`    | 12,000    | The whole fetch: lookups, redirects, robots.txt and the page (1,000 to 25,000)                       |
 | `URL_INGEST_ALLOWED_HOSTS` | empty     | If set, only these hosts: `example.com` exactly, or `*.example.com` for its subdomains               |
+| `URL_INGEST_CONCURRENCY`   | 8         | Pages read at the same moment by this process, for every caller together (1 to 64)                   |
+| `URL_INGEST_QUEUE`         | 8         | Requests that may wait for one of those places; beyond that, `503 URL_BUSY` (0 to 64)                |
+| `URL_INGEST_QUEUE_WAIT_MS` | 5,000     | How long a request may wait for a place before it is refused the same way (100 to 15,000)            |
 
 There is deliberately **no setting that allows private or loopback addresses**. A test can allow loopback only
 through the constructor of the fetcher, which nothing in the configuration, the environment or a request can
@@ -256,12 +307,14 @@ reach, and then only loopback: every other private range stays refused (`url-fet
   see.
 - Prompt injection is reduced, not removed. What a page says can still shape what a model writes if the model
   follows it; actors and critics have no tools to turn that into an action.
-- The number of fetches in progress is not limited for the server as a whole, only for each caller address.
+- The limit on fetches in progress is for one process. Behind several replicas each keeps its own, so the
+  site as a whole may read that many pages for each replica at once. A fetch whose client has gone is not
+  stopped: it holds its place until the page arrives or the time is up, and then gives it back.
 
 ## Checking it
 
 ```
-node node_modules/vitest/vitest.mjs run backend/test/url-policy.test.ts backend/test/url-fetcher.test.ts backend/test/url-robots.test.ts backend/test/url-extract.test.ts backend/test/url-normalize.test.ts backend/test/url-provenance.test.ts backend/test/url-route.test.ts backend/test/url-config.test.ts backend/test/url-upload.test.ts
+node node_modules/vitest/vitest.mjs run backend/test/url-policy.test.ts backend/test/url-fetcher.test.ts backend/test/url-robots.test.ts backend/test/url-extract.test.ts backend/test/url-normalize.test.ts backend/test/url-provenance.test.ts backend/test/url-route.test.ts backend/test/url-limiter.test.ts backend/test/url-config.test.ts backend/test/url-upload.test.ts
 ```
 
 The fetcher tests talk only to servers on this machine, through the constructor's test option and a stub name

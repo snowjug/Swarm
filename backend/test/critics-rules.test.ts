@@ -14,7 +14,7 @@ import {
   type CritiqueSeverity,
 } from '../../shared/critique.js';
 import { scenarioFixture } from '../../shared/lab-fixtures.js';
-import { NO_DIRECTION_NOTICE } from '../../shared/signal.js';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_CLAIM } from '../../shared/signal.js';
 import { runRuleCritics, sortCritiques } from '../src/critics/rules.js';
 import type { CriticInput } from '../src/critics/types.js';
 import {
@@ -114,17 +114,31 @@ const withoutStakeholder = (input: CriticInput, id: string): CriticInput => ({
     stakeholders: input.stakeholders.stakeholders.filter((stakeholder) => stakeholder.id !== id),
   },
 });
-const withStances = (input: CriticInput, key: 'priorStance' | 'impact', value: number) => ({
+const withStances = (
+  input: CriticInput,
+  key: 'priorStance' | 'impact',
+  value: number,
+  spread?: number,
+) => ({
   ...input,
   actors: {
     actors: input.actors.actors.map((actor) => ({
       ...actor,
-      traits: { ...actor.traits, [key]: { ...actor.traits[key], value } },
+      traits: {
+        ...actor.traits,
+        [key]: { ...actor.traits[key], value, ...(spread === undefined ? {} : { spread }) },
+      },
     })),
   },
 });
-/** Nobody is expected to be helped or harmed, which leaves the change with no way to move anyone. */
-const withNoDirection = (input: CriticInput) => withStances(input, 'impact', 0);
+/**
+ * Nobody is expected to be helped or harmed, and the members of a group do not differ in it, which
+ * leaves the change with no way to move anyone.
+ */
+const withNoDirection = (input: CriticInput) => withStances(input, 'impact', 0, 0);
+/** Nobody is expected to be helped or harmed, but the members of every group differ in how the change lands on them. */
+const withSpreadOnly = (input: CriticInput, spread = 0.5) =>
+  withStances(input, 'impact', 0, spread);
 const withVariants = (input: CriticInput, change: (variant: Variant) => Variant): CriticInput =>
   withAnalysis(input, {
     config: { ...input.analysis.config, variants: input.analysis.config.variants.map(change) },
@@ -379,6 +393,60 @@ const CASES: Case[] = [
     expected: none,
   },
   {
+    name: 'assumption: a direction read from a passage that is still cited is confirmed, whatever the size rests on',
+    edit: (i) =>
+      withTrait(i, 'subscribers', 'impact', {
+        origin: 'system-assumption',
+        direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+      }),
+    expected: none,
+  },
+  {
+    name: 'assumption: a direction labelled as read from a passage that nobody cites now is not confirmed',
+    edit: (i) =>
+      withStakeholder(
+        withTrait(i, 'subscribers', 'impact', {
+          origin: 'system-assumption',
+          direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+        }),
+        'subscribers',
+        { evidence: [] },
+      ),
+    expected: {
+      'evidence-uncited-stakeholders': ['evidence', 'minor'],
+      'assumption-unconfirmed-impact': ['assumption', 'minor'],
+    },
+  },
+  {
+    name: 'assumption: a sensitive impact whose direction rests on a cited passage is still an unevidenced number',
+    edit: (i) =>
+      withRows(
+        withTrait(i, 'subscribers', 'impact', {
+          origin: 'system-assumption',
+          direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+        }),
+        [
+          row({
+            id: 'impact-down',
+            target: { kind: 'trait', actorId: 'subscribers', trait: 'impact' },
+            label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+          }),
+        ],
+      ),
+    expected: { 'assumption-sensitive-impact-down': ['assumption', 'major'] },
+  },
+  {
+    name: 'assumption: a sensitive assumption labelled evidence is not backed once nobody cites a passage for the actor',
+    edit: (i) =>
+      withStakeholder(withRows(i, [row({ assumptionOrigin: 'evidence' })]), 'subscribers', {
+        evidence: [],
+      }),
+    expected: {
+      'evidence-uncited-stakeholders': ['evidence', 'minor'],
+      'assumption-sensitive-s1': ['assumption', 'major'],
+    },
+  },
+  {
     name: 'assumption: the change is judged about the same as no change although actors have a direction',
     edit: (i) => withNoDifference(i),
     expected: { 'assumption-no-registered-effect': ['assumption', 'major'] },
@@ -589,6 +657,21 @@ const CASES: Case[] = [
     expected: { [CHANGE_CANNOT_MOVE_ID]: ['methodology', 'major'] },
   },
   {
+    name: 'methodology: nobody has a direction but the members of a group differ in how the change lands, so it is not said that nothing can move',
+    edit: (i) => withSpreadOnly(i),
+    expected: { 'methodology-no-declared-direction': ['methodology', 'major'] },
+  },
+  {
+    name: 'methodology: a scenario that edits the impact of an actor gives the change a way to move someone',
+    edit: (i) =>
+      withVariants(withNoDirection(i), (variant) =>
+        variant.kind === 'baseline'
+          ? variant
+          : { ...variant, traitEdits: [{ actorId: 'provider', trait: 'impact', value: -1 }] },
+      ),
+    expected: none,
+  },
+  {
     name: 'methodology: every scenario other than the baseline has an intensity of nothing',
     edit: (i) => withVariants(i, (variant) => ({ ...variant, intensity: 0 })),
     expected: { [CHANGE_CANNOT_MOVE_ID]: ['methodology', 'major'] },
@@ -613,7 +696,7 @@ const CASES: Case[] = [
   {
     name: 'methodology: a scenario that sets an actor’s impact back to nothing leaves it unmoved',
     edit: (i) =>
-      withVariants(withStances(i, 'impact', 0.5), (variant) =>
+      withVariants(withStances(i, 'impact', 0.5, 0), (variant) =>
         variant.kind === 'baseline'
           ? variant
           : {
@@ -842,6 +925,9 @@ const CASES: Case[] = [
             successSignal: 'The same direction.',
             effort: 'low',
             duration: 'Two weeks',
+            measure: '',
+            comparison: '',
+            ownerFunction: '',
           },
         ],
       }),
@@ -1023,6 +1109,31 @@ describe('what the critics quote', () => {
     expect(found?.evidence.length).toBe(5);
   });
 
+  it('says that a cited passage gives an impact its direction and not its size, and names a direction whose passages are gone', () => {
+    const base = withTrait(cleanInput(), 'subscribers', 'impact', {
+      origin: 'system-assumption',
+      direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+    });
+    const moved = row({
+      id: 'impact-down',
+      target: { kind: 'trait', actorId: 'subscribers', trait: 'impact' },
+      label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+    });
+    const size = raise(withRows(base, [moved])).find(
+      (c) => c.id === 'assumption-sensitive-impact-down',
+    );
+    expect(size?.objection).toContain('the size of that impact is a system default');
+    expect(size?.basis.join(' ')).toContain(
+      'Its direction rests on a passage that is still cited; its size does not.',
+    );
+    const gone = raise(withStakeholder(base, 'subscribers', { evidence: [] })).find(
+      (c) => c.id === 'assumption-unconfirmed-impact',
+    );
+    expect(gone?.basis.join(' ')).toContain(
+      'Labelled as read from cited passages, but none is cited for them now: Subscribers.',
+    );
+  });
+
   it('names the assumption whose plausible change closes the gap, with the runner-up', () => {
     const input = cleanInput();
     const first = closing(input, 0.9, { id: 's1', label: 'First assumption' });
@@ -1098,6 +1209,46 @@ describe('a comparison in which the change cannot move anyone', () => {
     expect(found?.basis.join('\n')).toMatch(
       /Actors with an expected direction of impact: [1-5] of 5/u,
     );
+  });
+
+  it('says that nobody has a direction, and not that nothing can move, where only the members of a group differ in how the change lands', () => {
+    const input = withSpreadOnly(cleanInput());
+    expect(pinned(input)).toBeUndefined();
+    const found = raise(input).find(
+      (critique) => critique.id === 'methodology-no-declared-direction',
+    );
+    expect(found?.role).toBe('methodology');
+    expect(found?.severity).toBe('major');
+    expect(found?.objection).toBe(UNDIRECTED_CLAIM);
+    expect(found?.objection).not.toMatch(/cannot move anyone|\bnoise\b/u);
+    expect(found?.requestedAction).toMatch(/stakeholder review/u);
+    expect(found?.impactOnConclusion).not.toMatch(/noise/u);
+    const basis = found?.basis.join('\n') ?? '';
+    expect(basis).toContain('Actors with an expected direction of impact: 0 of 5.');
+    expect(basis).toContain('Subscribers (spread 0.50)');
+    expect(basis).toContain('Traits that a scenario edits: none.');
+  });
+
+  it('names the scenarios that edit a trait when that is what lets the change move members', () => {
+    const edited = withVariants(withNoDirection(cleanInput()), (variant) =>
+      variant.kind === 'baseline'
+        ? variant
+        : { ...variant, traitEdits: [{ actorId: 'provider', trait: 'switchingCost', value: 0.9 }] },
+    );
+    expect(pinned(edited)).toBeUndefined();
+    const found = raise(edited).find(
+      (critique) => critique.id === 'methodology-no-declared-direction',
+    );
+    expect(found?.basis.join('\n')).toContain('Proposed change: switchingCost');
+    expect(found?.basis.join('\n')).toContain(
+      'Groups whose members differ in how the change lands on them: none.',
+    );
+  });
+
+  it('is not raised where someone has a direction', () => {
+    const ids = raise(worst()).map((critique) => critique.id);
+    expect(ids).not.toContain('methodology-no-declared-direction');
+    expect(ids).not.toContain(CHANGE_CANNOT_MOVE_ID);
   });
 
   it('says there are no other scenarios when the comparison holds only the baseline', () => {
@@ -1275,6 +1426,26 @@ describe('a result of "no difference" that the assumptions may be too weak to re
     const input = withNoDifference(withNoDirection(cleanInput()));
     expect(raised(input)).toBeUndefined();
     expect(raise(input).map((critique) => critique.id)).toEqual([CHANGE_CANNOT_MOVE_ID]);
+  });
+
+  it('is silent, and speaks of no strength, when nobody has a direction and only the spread of a group lets the change move members', () => {
+    const input = withNoDifference(withSpreadOnly(cleanInput()));
+    expect(raised(input)).toBeUndefined();
+    const critiques = raise(input);
+    expect(critiques.map((critique) => critique.id)).toContain('methodology-no-declared-direction');
+    expect(JSON.stringify(critiques)).not.toMatch(/Infinity|NaN/u);
+  });
+
+  it('reads the impact that a scenario edits as the one the change has', () => {
+    const edited = withVariants(withNoDirection(cleanInput()), (variant) =>
+      variant.kind === 'baseline'
+        ? variant
+        : { ...variant, traitEdits: [{ actorId: 'provider', trait: 'impact', value: -0.5 }] },
+    );
+    const found = raised(withNoDifference(edited));
+    expect(found?.basis.join('\n')).toContain(
+      'actors with an expected direction of impact: 1 of 5, the strongest 0.50',
+    );
   });
 
   it('is silent when the scenario that came out the same cannot move anyone', () => {

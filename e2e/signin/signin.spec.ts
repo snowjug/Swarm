@@ -51,7 +51,7 @@ test.describe('browser sign-in with Microsoft Entra', () => {
   }) => {
     await microsoftSignsIn('owner');
     await page.goto('/');
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.getByRole('button', { name: 'Build Graph', exact: true }).click();
     await expect(page.getByRole('button', { name: /Prepare environment/ })).toBeVisible();
 
@@ -86,7 +86,7 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     const page = await second.newPage();
     await page.goto('/');
     await expect(page.getByText('SIGNED IN · MICROSOFT ENTRA')).toBeVisible();
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.getByRole('button', { name: 'Build Graph', exact: true }).click();
     await expect(
       page.getByRole('alert').getByText('You are not a member of this workspace.').first(),

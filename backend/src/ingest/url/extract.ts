@@ -12,6 +12,12 @@ import { fit, inline, sanitize, tidy } from './text.js';
 export interface PageReading {
   scope: 'main' | 'page' | 'all';
   fellBack: boolean;
+  /** The page was not read to its end: it has more tags, or is nested deeper, than are read. */
+  cutShort: boolean;
+  /** The text is what the page keeps for a reader without scripts (its `noscript` parts): the rest of it had almost none. */
+  noscript: boolean;
+  /** Parts of what a browser shows are built by scripts or are another page in a frame, and neither is read. */
+  scripted: boolean;
 }
 
 export interface ExtractedPage {
@@ -40,12 +46,19 @@ export const READING = {
   articleShare: 0.25,
   /**
    * Leaving out boilerplate may not leave less than `floorChars` characters while the page shows at
-   * least `floorRatio` times as much, and at least `gainChars` more.
+   * least `floorRatio` times as much, and at least `gainChars` more. The text a page keeps for a
+   * reader without scripts is read in place of the page by the same measure.
    */
   floorChars: 200,
   floorRatio: 2,
   gainChars: 80,
 } as const;
+
+/**
+ * When a page is mostly script: at least this share of its characters is code inside `script`
+ * elements, and what is kept of it is at most `textShare` of the page. What scripts build is not read.
+ */
+export const SCRIPTED = { scriptShare: 0.5, textShare: 0.1 } as const;
 
 const LATIN1 =
   'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'.split(
@@ -157,12 +170,12 @@ const VOID = new Set([
   'wbr',
 ]);
 
-// Nothing inside these is text on the page: code, styling, content for a browser without scripts,
-// inert templates, embedded documents and drawings, and the controls of a form.
+// Nothing inside these is text on the page: code, styling, inert templates, embedded documents and
+// drawings, and the controls of a form. (`noscript` is not here: it is content for a reader without
+// scripts, which is kept only as a fallback, never mixed with the page's own text.)
 const DROPPED = new Set([
   'script',
   'style',
-  'noscript',
   'template',
   'iframe',
   'object',
@@ -178,6 +191,12 @@ const DROPPED = new Set([
   'optgroup',
   'datalist',
 ]);
+
+// Another document shown inside the page. It is not read, and a person is told when the page has one.
+const EMBEDDED = new Set(['iframe', 'object', 'embed']);
+
+// A script that holds data for a page's own scripts, not code that builds what it shows.
+const DATA_SCRIPT = /json|importmap|speculationrules/iu;
 
 // Elements whose content a browser does not parse as markup: it runs to the matching end tag.
 const RAW_TEXT = new Set([
@@ -255,6 +274,8 @@ const MAX_STRUCTURED_CHARS = 6_000;
 const MAX_BODY_CHARS = 200_000;
 // The most main regions and articles that are followed; any more cannot be chosen as the page's text.
 const MAX_REGIONS = 2_000;
+// The most characters of `noscript` content that are kept to be read when the page has no text of its own.
+const MAX_NOSCRIPT_CHARS = 100_000;
 const SKIPPED_FACTS = new Set([
   'url',
   'image',
@@ -286,6 +307,40 @@ function hidden(attributes: Map<string, string>): boolean {
       .replace(/\s+/gu, '')
       .replace(/!important/gu, ''),
   );
+}
+
+/** A frame, object or embed that shows another document to a reader, as opposed to a tracking pixel or a blank. */
+function embedsDocument(attributes: Map<string, string>): boolean {
+  if (hidden(attributes)) return false;
+  // A frame a pixel wide or high is there to be loaded, not looked at.
+  if (Number.parseFloat(attributes.get('width') ?? '') <= 1) return false;
+  if (Number.parseFloat(attributes.get('height') ?? '') <= 1) return false;
+  const address = (
+    attributes.get('src') ??
+    attributes.get('data-src') ??
+    attributes.get('data') ??
+    ''
+  ).trim();
+  return attributes.has('srcdoc') || (address !== '' && !/^about:/iu.test(address));
+}
+
+/**
+ * Whether anything but tags and white space is left from this position. It reads the rest once and
+ * only looks for the next `<` and `>`, so that stopping a page at the cap on tags costs no more than
+ * the page is long.
+ */
+function hasTextAfter(html: string, from: number): boolean {
+  let position = from;
+  while (position < html.length) {
+    const start = html.indexOf('<', position);
+    const end = start < 0 ? html.length : start;
+    for (let at = position; at < end; at += 1) if (!isSpace(html.charCodeAt(at))) return true;
+    if (start < 0) return false;
+    const close = html.indexOf('>', start + 1);
+    if (close < 0) return false;
+    position = close + 1;
+  }
+  return false;
 }
 
 const rawTextEnds = new Map<string, RegExp>();
@@ -336,6 +391,14 @@ interface Scan {
   regions: Region[];
   /** Whether any text was left out as boilerplate. */
   leftOut: boolean;
+  /** Whether the page was read no further than its end: past the tags that are read, or below the nesting that is. */
+  cutShort: boolean;
+  /** The characters of code inside `script` elements, not counting the data that they hold for a page's own scripts. */
+  scriptChars: number;
+  /** Whether a frame, object or embed that shows another document is in what was kept; it is not read. */
+  embeds: boolean;
+  /** The inside of each `noscript` that is not hidden or left out: markup for a reader without scripts. */
+  noscript: string[];
 }
 
 /**
@@ -352,6 +415,7 @@ function scan(html: string, trim: boolean): Scan {
   const nearest = (name: string): number => places.get(name)?.at(-1) ?? -1;
   const lines: string[] = [];
   const jsonLd: string[] = [];
+  const noscript: string[] = [];
   const regions: Region[] = [];
   let current: Region | null = null;
   let title: string | null = null;
@@ -367,6 +431,11 @@ function scan(html: string, trim: boolean): Scan {
   let rowCells = 0;
   let pre = 0;
   let kept = 0;
+  let overflowed = false;
+  let cutShort = false;
+  let scriptChars = 0;
+  let embeds = false;
+  let noscriptChars = 0;
 
   const flush = (): void => {
     const text = inline(line);
@@ -384,6 +453,11 @@ function scan(html: string, trim: boolean): Scan {
     else flush();
   };
   const text = (raw: string): void => {
+    if (overflowed) {
+      // Nothing below the nesting cap is read, and whether that lost any text is what a person is told.
+      if (!cutShort) cutShort = inline(decodeEntities(raw)) !== '';
+      return;
+    }
     if (dropped > 0 || kept > MAX_BODY_CHARS) return;
     const decoded = decodeEntities(raw);
     if (skipped > 0) {
@@ -463,6 +537,7 @@ function scan(html: string, trim: boolean): Scan {
     impliedEnds(name);
     // A page nested deeper than any real one is read no further: what it hides could not be tracked.
     if (stack.length >= MAX_DEPTH) {
+      overflowed = true;
       dropped += 1;
       return;
     }
@@ -538,7 +613,12 @@ function scan(html: string, trim: boolean): Scan {
   const length = html.length;
   let position = 0;
   let tags = 0;
-  while (position < length && tags < MAX_TAGS) {
+  let capped = false;
+  while (position < length) {
+    if (tags >= MAX_TAGS) {
+      capped = true;
+      break;
+    }
     const start = html.indexOf('<', position);
     if (start < 0) {
       text(html.slice(position));
@@ -650,10 +730,16 @@ function scan(html: string, trim: boolean): Scan {
     if (!closed) break;
     tags += 1;
     position = cursor;
+    if (EMBEDDED.has(name) && dropped === 0 && skipped === 0 && embedsDocument(attributes)) {
+      embeds = true;
+    }
 
     if (RAW_TEXT.has(name)) {
       const raw = endOfRawText(html, name, position);
       position = raw.next;
+      if (name === 'script' && !DATA_SCRIPT.test(attributes.get('type') ?? '')) {
+        scriptChars += raw.content.length;
+      }
       if (dropped === 0 && !hidden(attributes)) {
         if (name === 'title' && title === null) {
           title = inline(decodeEntities(raw.content)).slice(0, 300) || null;
@@ -664,12 +750,17 @@ function scan(html: string, trim: boolean): Scan {
           raw.content.length <= MAX_JSON_LD_CHARS
         ) {
           jsonLd.push(raw.content);
+        } else if (name === 'noscript' && skipped === 0 && noscriptChars < MAX_NOSCRIPT_CHARS) {
+          const inside = raw.content.slice(0, MAX_NOSCRIPT_CHARS - noscriptChars);
+          noscript.push(inside);
+          noscriptChars += inside.length;
         }
       }
       continue;
     }
     open(name, attributes, selfClosing);
   }
+  if (capped && hasTextAfter(html, position)) cutShort = true;
   popTo(0);
   flush();
   return {
@@ -680,6 +771,10 @@ function scan(html: string, trim: boolean): Scan {
     kept,
     regions,
     leftOut,
+    cutShort,
+    scriptChars,
+    embeds,
+    noscript,
   };
 }
 
@@ -711,6 +806,44 @@ function chooseRegions(regions: readonly Region[], total: number): Region[] | nu
   return group.length > 0 && enough(chars) ? group : null;
 }
 
+interface Body {
+  lines: string[];
+  /** The characters of text in `lines`. */
+  kept: number;
+  reading: Pick<PageReading, 'scope' | 'fellBack'>;
+}
+
+/**
+ * The text of one scan: the page's main region or its articles when it has them, else the page without
+ * its boilerplate, else, when that leaves almost nothing of a page that shows much more, the page whole.
+ */
+function bodyOf(html: string, first: Scan): Body {
+  const chosen = chooseRegions(first.regions, first.kept);
+  let lines = first.lines;
+  let kept = first.kept;
+  if (chosen) {
+    lines = chosen.flatMap((region, index) => [
+      ...(index > 0 ? [''] : []),
+      ...first.lines.slice(region.start, region.end),
+    ]);
+    kept = chosen.reduce((sum, region) => sum + region.to - region.from, 0);
+  }
+  const leftOut = first.leftOut || kept < first.kept;
+  let reading: Body['reading'] = {
+    scope: !leftOut ? 'all' : chosen ? 'main' : 'page',
+    fellBack: false,
+  };
+  if (leftOut && kept < READING.floorChars) {
+    const whole = scan(html, false);
+    if (whole.kept >= READING.floorRatio * kept && whole.kept - kept >= READING.gainChars) {
+      lines = whole.lines;
+      kept = whole.kept;
+      reading = { scope: 'all', fellBack: true };
+    }
+  }
+  return { lines, kept, reading };
+}
+
 /**
  * Reads the text of an HTML page without running any of it. The page is only a string that is
  * scanned once, by a small tokenizer: no script is evaluated, no style is applied, no frame, image,
@@ -725,37 +858,42 @@ function chooseRegions(regions: readonly Region[], total: number): Region[] | nu
  * region with a substantial part of the text, everything outside it. That is a guess from how the
  * page is built. When it would leave almost nothing of a page that shows much more, the page is
  * read whole, and `reading` says so.
+ *
+ * What the page keeps for a reader without scripts (`noscript`) is read only when the rest of the
+ * page has almost no text, and then in its place: never mixed with the page's own text. A page that
+ * is read no further than its end, or that is mostly script or shows another page in a frame, says so
+ * in `reading`, so that a part is never read as the whole.
  */
 export function extractPage(html: string): ExtractedPage {
   const first = scan(html, true);
-  const chosen = chooseRegions(first.regions, first.kept);
-  let lines = first.lines;
-  let kept = first.kept;
-  if (chosen) {
-    lines = chosen.flatMap((region, index) => [
-      ...(index > 0 ? [''] : []),
-      ...first.lines.slice(region.start, region.end),
-    ]);
-    kept = chosen.reduce((sum, region) => sum + region.to - region.from, 0);
-  }
-  const leftOut = first.leftOut || kept < first.kept;
-  let reading: PageReading = {
-    scope: !leftOut ? 'all' : chosen ? 'main' : 'page',
-    fellBack: false,
-  };
-  if (leftOut && kept < READING.floorChars) {
-    const whole = scan(html, false);
-    if (whole.kept >= READING.floorRatio * kept && whole.kept - kept >= READING.gainChars) {
-      lines = whole.lines;
-      reading = { scope: 'all', fellBack: true };
+  let body = bodyOf(html, first);
+  let cutShort = first.cutShort;
+  let noscript = false;
+  if (body.kept < READING.floorChars && first.noscript.length > 0) {
+    const fragment = first.noscript.join('\n');
+    const inner = scan(fragment, true);
+    const fallback = bodyOf(fragment, inner);
+    if (
+      fallback.kept >= READING.floorChars &&
+      fallback.kept >= READING.floorRatio * body.kept &&
+      fallback.kept - body.kept >= READING.gainChars
+    ) {
+      body = fallback;
+      cutShort ||= inner.cutShort;
+      noscript = true;
     }
   }
+  const scripted =
+    first.embeds ||
+    (first.scriptChars > 0 &&
+      first.scriptChars >= SCRIPTED.scriptShare * html.length &&
+      body.kept <= SCRIPTED.textShare * html.length);
   return {
     title: first.title,
     description: first.description,
-    body: tidy(lines.join('\n')),
+    body: tidy(body.lines.join('\n')),
     structured: structuredFacts(first.jsonLd),
-    reading,
+    reading: { ...body.reading, cutShort, noscript, scripted },
   };
 }
 
@@ -808,13 +946,17 @@ export interface PageDocument {
   text: string;
   /** How much readable text and data the page had, before it was cut to fit. */
   readableChars: number;
+  /** The body was longer than the document can be, and was cut to fit. */
   truncated: boolean;
+  /** The page was not read to its end. The text says so, as it does when it is cut to fit. */
+  cutShort: boolean;
 }
 
 /**
  * The text of a page as one document: its title and description, what it says, and the facts it
  * publishes for machines, labelled. When it is too long the body is cut, with a notice in the text
- * itself, and the facts are kept: they are short, and often what the page is for.
+ * itself, and the facts are kept: they are short, and often what the page is for. A page that was
+ * not read to its end has the same notice, so that its beginning is never read as the whole page.
  */
 export function pageDocument(page: ExtractedPage, limit = MAX_DOCUMENT_CHARS): PageDocument {
   const head = [
@@ -827,11 +969,12 @@ export function pageDocument(page: ExtractedPage, limit = MAX_DOCUMENT_CHARS): P
     ? `Structured data:\n${page.structured.join('\n')}`
     : '';
   const room = Math.max(0, limit - head.length - structured.length - 4);
-  const body = fit(page.body, room);
+  const body = fit(page.body, room, page.reading.cutShort);
   const text = [head, body.text, structured].filter(Boolean).join('\n\n');
   return {
     text,
     readableChars: page.body.length + structured.length,
-    truncated: body.truncated,
+    truncated: page.body.length > room,
+    cutShort: page.reading.cutShort,
   };
 }

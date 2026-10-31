@@ -7,9 +7,10 @@ be relied on. It is built on the `Simulator` type in [shared/analysis.ts](../../
 the engine behind that type is injected, so everything here holds for any simulator that returns the
 same outcome for the same specification and seed.
 
-Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior. Every
-number below is a count of simulated members or of seeded runs. None is a rate of anything real, and
-none is a probability that something will happen.
+Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior. Outcome
+counts are synthetic; other figures are model scores, seeded-run proportions or stated assumptions;
+none is a measured population rate of anything real, and none is a probability that something will
+happen.
 
 ## What a comparison does
 
@@ -43,9 +44,15 @@ its events.
 
 A document may not exceed 2,000,000 bytes (`MAX_ARTIFACT_BYTES`). When the per-actor results of every
 run would take it past 90% of that, the per-run `byActor` lists are left empty, the per-actor totals
-over the runs of each scenario (`variants[].actors`) are kept, and a caveat says so. Every finding
-was counted from the full results before this was done. For 200 runs of 8 scenarios of 60 actors the
-document stays under the limit.
+over the runs of each scenario (`variants[].actors`: each actor's members, mean share in each
+response and mean stance) are kept, and a caveat says so. Every finding was counted from the full
+results before this was done. For 200 runs of 8 scenarios of 60 actors the document stays under the
+limit. Whatever is kept per run, the overall final response shares and stance, give every actor equal
+weight and are never dropped, so the headline comparison of the decision brief can always be paired
+run by run. The brief reads the totals where the per-run lists are empty, states no figure that
+needs each run's own per-actor result (such as how many paired runs had one group worse), and says
+why; it never reads an absent list as a group with no members (see
+[the decision brief](brief.md#when-the-analysis-kept-less-than-every-run)).
 
 ## Findings
 
@@ -56,13 +63,13 @@ simulated members and seeded runs, for example: "In 27 of 30 seeded runs, the la
 simulated members of Subscribers ended up looking for an alternative or resisting under Proposed
 change."
 
-| Kind                    | True of a run when                                                                                                                                                                                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `majority-response`     | The largest of four response groups of an actor's members is the stated one (switch or resist, adapt, wait, or adopt or accept with conditions). Ties go to the more adverse group. The stated group is the one that was largest in most runs.       |
-| `direction-vs-baseline` | The overall final stance is lower (or higher, or within 0.01) than under the baseline **on the same seed**. The direction tested is that of the mean paired difference. A difference under 0.01 on the scale from -1 to 1 is not called a direction. |
-| `threshold-crossing`    | At some round, the share of all simulated members (each actor weighted equally) in switch or resist reached 30%. The threshold is a parameter of the generator, stated in the predicate.                                                             |
-| `ordering`              | An actor had the least favourable change in stance against the baseline of the same seed (the first); and the three actors with the least favourable changes were the same three in the same order.                                                  |
-| `second-order-event`    | At least one event of a kind (for example "counter-move") occurred in the run. The statement also gives how many baseline runs had it.                                                                                                               |
+| Kind                    | True of a run when                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `majority-response`     | The largest of four response groups of an actor's members is the stated one (switch or resist, adapt, wait, or adopt or accept with conditions). Ties go to the more adverse group. The stated group is the one that was largest in most runs.                                                                                                     |
+| `direction-vs-baseline` | The overall final stance is lower (or higher, or within 0.01) than under the baseline **on the same seed**. The direction tested is that of the mean paired difference. A difference under 0.01 on the scale from -1 to 1 is not called a direction.                                                                                               |
+| `threshold-crossing`    | At some round, the share of simulated members in switch or resist, **counting each actor equally and not each member**, reached 30 in 100. The statement names this weighting with the denominator, and the predicate tests the same equal-weight mean the engine reports. The threshold is a parameter of the generator, stated in the predicate. |
+| `ordering`              | An actor had the least favourable change in stance against the baseline of the same seed (the first); and the three actors with the least favourable changes were the same three in the same order.                                                                                                                                                |
+| `second-order-event`    | At least one event of a kind (for example "counter-move") by an actor occurred in the run. There is one finding for each kind and acting actor, so the statement names who acted ("a simulated counter-move event by this actor occurred"), and it also gives how many baseline runs had it.                                                       |
 
 At most 40 findings are kept, most important first: comparisons with the baseline, then thresholds,
 orderings, events and last the response of each actor; within a kind the change before its
@@ -130,6 +137,25 @@ model is, or how well the assumptions were chosen. A finding can be repeatable a
 every run shares the same assumptions; sensitivity (below) is what shows how much the result depends
 on them.
 
+### Reading a repeatability interval
+
+The interval is a description of the share of these seeded runs in which a statement held. It is a
+95% interval for a share that was fixed before the runs only when the statement was: the threshold
+test is, because the threshold is a parameter of the generator. A direction, a largest response, an
+ordering or a most frequent event is named after the runs were seen (the generator picks the value
+that occurred most often), so its interval is **descriptive of these runs** and is not an
+unconditional 95% coverage claim; the brief says so wherever it shows one. The classes are
+conventions applied to the same share.
+
+**Rare is not unstable.** A finding in `rare` held in almost none of the seeded runs (its upper
+bound is under 0.20): the runs agree that it seldom happens in the simulation, which is a different
+thing from disagreeing. The brief gives it its own wording and advice: do not plan around it as
+likely, do not read its absence as safety, and test the assumptions that keep it from happening, for
+example the strength of the change. An `unstable` finding is one the runs disagree about, so it is
+not relied on, and the advice is to repeat the analysis with more runs or to narrow the question.
+With few runs a finding that never held (0 of 12) is still `unstable`, because twelve runs cannot
+show that it is rare; the brief says it was too few to call it rare.
+
 ## Sensitivity
 
 One declared assumption of the proposed change (the first alternative) is moved at a time and the
@@ -138,7 +164,9 @@ seed (common random numbers). What is moved:
 
 - for the four most influential actors, `impact`, `sensitivity`, `switchingCost` and `trust`, each by
   +0.2 and -0.2 and then clamped to the trait's scale (a move that clamping makes into nothing is left
-  out);
+  out). The actors are ranked, and each trait is moved from, the value that **governs the run**: the
+  value of the proposed change itself, after its own overrides and edits, which is not always the one
+  the actor carries (see below);
 - the intensity of the proposed change, by +25% and -25% of itself;
 - for the two most influential cohorts, how varied their members are (the spread of every trait,
   doubled and halved).
@@ -154,10 +182,32 @@ and `standardError` is the standard deviation of those paired differences divide
 | `robust`               | \|shift\| is under 0.02 and the standard error is under 0.01 |
 | `inconclusive`         | otherwise                                                    |
 
+**Which setting is moved.** A scenario can set a trait of an actor itself: an impact override
+(`impactOverrides`, which wins over everything else for the impact) or an edit (`traitEdits`, of which
+the last edit of a trait counts). That value then governs the run, and the actor's own value is not read,
+so moving the actor's own value would change nothing: with Leadership's impact at 0 and the scenario
+overriding it to -1, moving the actor's impact by +0.2 on every seed gave byte-identical outcomes, while
+moving the override to -0.8 changed the share by -0.083. So each move starts from the governing value
+(`effectiveTrait` in [shared/signal.ts](../../shared/signal.ts), tested to agree with the simulator's
+own resolution) and is made on the setting that holds it: the override, else the last edit, else the
+actor's own trait.
+
+`robust` means the shift is **below the chosen materiality threshold of 0.02 on this measure** (and
+measured closely). It does not mean that the shift is within noise: a shift of 0.015 with a standard
+error of 0.003 is five standard errors from zero and is still called robust, because it is too small
+to matter for a decision. The brief says that, and prints a shift or an error below 0.01 with enough
+decimals to show that it is not zero.
+
 Each row records where the moved assumption came from (`assumptionOrigin`): a trait's own origin
-(evidence, user, system assumption or model), "system assumption" for a spread, and for the intensity
-"system assumption" unless the scenario says it was set by the person. A sensitive assumption that no
-evidence backs is highlighted, because it is where a result rests on a guess. The twelve most telling
+(evidence, user, system assumption or model; for an impact, the origin of its number, which is the system
+default even where its direction was read from cited passages, because a passage gives no size), "system
+assumption" for a spread, and for the intensity "system assumption" unless the scenario says it was set by
+the person. A value that the proposed change itself sets, an override or an edit, is the scenario author's,
+so its origin is `user`; its label says what the scenario set ("Leadership: how the change lands on them
+(impact), as Proposed change sets it (-1), 0.2 higher"), and the row carries `setting` (`scenario-override`
+or `scenario-edit`, and the value set before the move) so that a register of assumptions can show the
+number a person supplied and not the one the actor carries. A sensitive assumption that no evidence backs
+is highlighted, because it is where a result rests on a guess. The twelve most telling
 rows are kept: sensitive ones first, then by size of shift. The page shows the first 6, with the rest
 under "Show all N assumptions" on the same scale, and the table beside the chart has every row.
 
@@ -179,31 +229,65 @@ give. Where no finding sets the proposed change against the baseline, the second
 the change cannot move anyone (below), there is no direction to state, and the lines say that instead
 and do not call anything repeatable.
 
-## A change that cannot move anyone
+## A change that cannot move anyone, and one that has no direction
 
-A change can move a simulated member only through an actor's `impact`: how it is expected to land on
-them. The engine reads it from the actor, or from the scenario if the scenario sets its own for that
-actor. When no stakeholder has been given an expected direction of impact, every actor's `impact` is 0, and
-a scenario with any intensity still changes nothing. Every difference from no change is then noise, and a
-comparison reports that noise faithfully: "30 of 30 runs about the same", and sensitivity rows of a few
-thousandths that look robust only because there was nothing to move. A person could read that as a
-result.
+A change moves a simulated member through that member's `impact`: how the change lands on it. A cohort's
+members do not all have the actor's impact: each is drawn around it with the trait's spread (a key actor
+is one member at the value), and a scenario can set an actor's impact itself (an override) or edit any of
+its traits. So three things decide whether a change can move anyone, and "no stakeholder has an expected
+direction" settles only the first:
 
-`changeCanMoveAnyone(actors, variants)` in [shared/signal.ts](../../shared/signal.ts) says whether the
-declared assumptions give a change any way to move anyone: some scenario other than the baseline has an
-intensity above 0, and some actor's impact (or the scenario's override of it) is not 0. The comparison
-uses it twice, and refuses nothing:
+1. the impact of each actor **as the scenario runs it**, after its override and edits, which is the
+   direction a stakeholder is given;
+2. whether the members of a cohort differ in it (a spread above 0): with an impact of 0 and a spread,
+   some members are moved each way, so there is no net direction and the members still move;
+3. what the scenario sets about anyone that no change would (an edit of a trait, or an impact that harms
+   someone, which others react to even when nothing lands).
 
-- **Before running.** The list route's `readiness.warnings` holds the shared notice
-  (`NO_DIRECTION_NOTICE`) when the suggested scenarios fail it, and is empty otherwise and before the
-  actors exist. The page shows it above the button that starts a comparison, with the way to the
-  stakeholder review where a direction is given. The comparison is still allowed: a comparison with no
-  change is a fair test of how much the simulation varies by chance.
-- **After running.** The same test on the comparison's own cast and scenarios. When it fails, the same
-  notice is the first thing in the results, the three lines above say that nothing can move, and a
-  sensitivity row that would have been called `robust` reads "No effect to test" (neutral, not green)
-  with the explanation that this is not evidence that the result is robust. Rows that did move are
-  reported as they are.
+`changeCanMoveAnyone(actors, variants)` in [shared/signal.ts](../../shared/signal.ts) is the one
+decision, and it is conservative. It is false only when the simulator is **certain to give the same
+outcome with the change as without it, on every seed**: neither the scenario nor the baseline lands on
+anyone (the strength is nothing, or the impact is 0 for every actor after the override and edits and no
+cohort's members differ in it), and the scenario sets nothing about anyone that the baseline does not.
+In every other case it is true, including when it is only unsure. It is tested against the simulator
+both ways: where it says it cannot, a run with the change and a run without it are equal in everything
+the simulator reports (every round, the final outcome of every actor and every event) on every seed
+tried, and where it says it can only through a spread or an edit, they differ.
+
+Whether anyone has an **expected direction** is a separate fact, `actorsWithDirection`: an impact that is
+not 0 under some scenario other than the baseline, as that scenario runs it. `directionNotice` puts the
+two together into the one thing a person is told before a comparison is read into, and the comparison
+refuses nothing:
+
+| The declared assumptions give                                                                       | Notice                                                                                                                                                                                                                                               |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The change provably cannot move anyone, and nobody has a direction                                  | `NO_DIRECTION_NOTICE`: the change cannot move anyone in the simulation, and every difference from no change is noise                                                                                                                                 |
+| Members can still be moved (a spread, or an edit that is not an impact), and nobody has a direction | `UNDIRECTED_NOTICE`: nobody is set as helped or harmed; a comparison can still show differences, but they come from the assumed spread or the edit and not from a direction. It never says that nothing can move, and never calls a difference noise |
+| Someone has a direction, as a person or as a scenario gives it                                      | None. A change with no strength in any scenario is not a missing direction: its comparison reads on its findings, and the review says no scenario has a strength                                                                                     |
+
+The default cast makes the second row the usual one: a cohort is given a spread of 0.15 on every
+trait, impact included, so when no group has a direction its members still differ in how the change
+lands on them, and the comparison shows the small differences that follow. They are not a result about
+anyone being helped or harmed, which the notice says; the first row is for a cast whose members do not
+differ in impact, or a key-actor-only cast.
+
+The comparison uses the decision in four places:
+
+- **Before running.** The list route's `readiness.warnings` holds the notice for the suggested scenarios
+  and the cast (empty when someone has a direction, and before the actors exist). The page shows it above
+  the button that starts a comparison, with the way to the stakeholder review. The comparison is still
+  allowed: for the first notice it is a fair test of how much the simulation varies by chance, and for the
+  second it shows how the assumed spread plays out.
+- **After running.** The same decision on the comparison's own cast and scenarios. The notice is the
+  first thing in the results. Only for the first notice do the three lines above say that nothing can
+  move, and a sensitivity row that would have been called `robust` read "No effect to test" (neutral, not
+  green) with the explanation that this is not evidence that the result is robust. Rows that did move are
+  reported as they are, and under the second notice there is something to move, so they read as measured.
+- **The review.** The methodology critic raises the first case as the one criticism that is read before
+  all others, and the second as a criticism of its own that is not pinned and does not say the change
+  cannot move anyone (see [critics.md](./critics.md)).
+- **The brief.** The first case is the brief's `no-direction` state; the second leaves the brief to read
+  on its findings, under a note that nobody has a direction (see [brief.md](./brief.md)).
 
 ## Spread over rounds, and the representative run
 
@@ -213,9 +297,10 @@ to the 90th and the median line, and has a table beside it.
 
 The representative run is the run whose overall final stance is nearest the median under the proposed
 change (the lowest seed when two are as near). The engine is deterministic, so it is simulated once
-more from that seed to keep its full detail: events with what each followed from, so that a chain can
-be read as "because ..., then ...". The findings, not this one run, say how often each kind of event
-occurred.
+more from that seed to keep its full detail: events with the signal each acted on and the earlier events
+that a replay without them showed it needed (`explained`), and, apart, those that only came first, so that
+a chain is never read as "because" where only "after" is known. The findings, not this one run, say how
+often each kind of event occurred.
 
 ## Fidelity, cost and the cross-check
 

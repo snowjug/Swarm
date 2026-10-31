@@ -1,4 +1,9 @@
-import { RESPONSE_CATEGORIES, RESPONSE_LABELS } from '../../../shared/analysis.js';
+import {
+  RESPONSE_CATEGORIES,
+  RESPONSE_LABELS,
+  inputsInWords,
+  staleComparisonInputs,
+} from '../../../shared/analysis.js';
 import {
   BRIEF_SECTION_IDS,
   BRIEF_SIGNAL_NOTICES,
@@ -11,7 +16,15 @@ import {
 } from '../../../shared/brief.js';
 import { STAKEHOLDER_CATEGORY_LABELS, TRAIT_KEYS } from '../../../shared/stakeholders.js';
 import { markdownText } from '../export.js';
-import { approx, decimals, oneLine, signed, traitLabel } from './text.js';
+import {
+  approx,
+  decimals,
+  oneLine,
+  perHundred,
+  signed,
+  signedPerHundred,
+  traitLabel,
+} from './text.js';
 
 /**
  * What leaves the brief: Markdown, JSON and a printable page. The Markdown and the page are written
@@ -21,11 +34,21 @@ import { approx, decimals, oneLine, signed, traitLabel } from './text.js';
  */
 
 export const NOTICE =
-  'Swarm explores possible scenarios. It does not predict the future. Every figure here is a count of simulated members or of seeded runs, never a rate in a real population.';
+  'Swarm explores possible scenarios. It does not predict the future. Outcome counts are synthetic; other figures are model scores, seeded-run proportions or stated assumptions; none is a measured population rate.';
 
 /** The policy the printable page is served with: nothing may load, run or frame, apart from its own inline style. */
 export const BRIEF_CSP =
   "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+/** What the brief was checked against when it was handed over. */
+export interface BriefFreshness {
+  /** What has changed since the brief was made, or since the comparison it rests on was run. Empty when it is current. */
+  changedSince: string[];
+  /** The revision of each input as the project holds it at the export, to read beside `brief.inputRevisions`. */
+  currentRevisions: Record<string, number>;
+  /** `snapshot`: the tables are the data kept with the brief. `current`: drawn from the project as it is at the export. */
+  visuals: 'snapshot' | 'current';
+}
 
 export interface BriefExportInput {
   brief: DecisionBrief;
@@ -33,6 +56,8 @@ export interface BriefExportInput {
   project: { id: string; name: string };
   exportedAt: string;
   appVersion: string;
+  /** Absent when the export was not checked against the project, and then it says nothing about freshness. */
+  freshness?: BriefFreshness;
 }
 
 type Block =
@@ -58,6 +83,44 @@ const RELIANCE_LABELS = {
 const ORIGIN_LETTERS = { 'system-assumption': 's', model: 'm', user: 'u', evidence: 'e' } as const;
 
 const cell = (value: string | number): string => oneLine(String(value));
+
+const revisionsText = (revisions: Record<string, number>): string =>
+  Object.entries(revisions)
+    .map(([name, revision]) => `${name} ${revision}`)
+    .join('; ') || 'not recorded';
+
+/** What an export says before anything else when what the brief rests on has changed since it was made. */
+function outOfDate({ brief, freshness }: BriefExportInput): { title: string; text: string } | null {
+  if (!freshness || freshness.changedSince.length === 0) return null;
+  const inputs = staleComparisonInputs(freshness.changedSince);
+  return {
+    title: 'This brief may be out of date.',
+    text: `Since it was made, this has changed: ${freshness.changedSince.join(', ')}. ${
+      inputs.length > 0
+        ? `The comparison it rests on was run before ${inputsInWords(inputs)} changed, so the brief describes the project as it was. Run the comparison again, then write the brief again.`
+        : 'Write the brief again to bring it up to date.'
+    } It was made from these revisions: ${revisionsText(brief.inputRevisions)}. The project now holds: ${revisionsText(freshness.currentRevisions)}.`,
+  };
+}
+
+/** Said when the tables cannot be the ones the brief was made with, because none was kept. */
+const CURRENT_DATA = {
+  title: 'The tables show the project as it is now.',
+  text: 'This brief was stored before the data behind its tables was kept with it, so they are drawn from the project’s documents as they are at the export, not as they were when the brief was made.',
+};
+
+/** What a table says where the stored analysis kept no per-actor results to add up. */
+const NOT_STORED = 'not stored';
+
+/** A mean with its range over the runs, or the mean alone where only that could be worked out. */
+function range(
+  spread: { mean: number; min: number | null; max: number | null },
+  show: (value: number) => string,
+): string {
+  return spread.min === null || spread.max === null
+    ? `${show(spread.mean)} (mean only)`
+    : `${show(spread.mean)} (${show(spread.min)} to ${show(spread.max)})`;
+}
 
 /** What a statement rests on, in words, with the finding or assumption looked up where it can be. */
 function restsOn(refs: BriefRefs, visuals: BriefVisuals | null): string[] {
@@ -150,20 +213,37 @@ function tablesFor(
     'reaction-patterns': [
       {
         kind: 'table',
-        caption: 'Mean number of simulated members ending in each response, over the seeded runs',
+        caption:
+          'Share of simulated members in each response, every actor counting equally, in every 100 (mean over the seeded runs)',
         headers: [
           'Variant',
           'Runs',
-          'Simulated members per run',
           ...RESPONSE_CATEGORIES.map((category) => RESPONSE_LABELS[category]),
           'Looking for an alternative or resisting (lowest to highest)',
         ],
         rows: visuals.outcomeDistribution.map((row) => [
           row.label,
           String(row.runs),
-          String(row.members),
-          ...row.responses.map((entry) => approx(entry.mean)),
-          `${approx(row.adverse.mean)} (${approx(row.adverse.min)} to ${approx(row.adverse.max)})`,
+          ...row.shares.map((entry) => perHundred(entry.mean)),
+          range(row.adverseShare, perHundred),
+        ]),
+      },
+      {
+        kind: 'table',
+        caption:
+          'Counts of simulated members in each response, a mean over the seeded runs. How many members are sampled for each group is a numerical resolution, not a population: the counts depend on it, so no variant is ranked by them',
+        headers: [
+          'Variant',
+          'Simulated members per run (sampled)',
+          ...RESPONSE_CATEGORIES.map((category) => RESPONSE_LABELS[category]),
+          'Looking for an alternative or resisting (lowest to highest)',
+        ],
+        rows: visuals.outcomeDistribution.map((row) => [
+          row.label,
+          row.members === null ? NOT_STORED : String(row.members),
+          ...(row.responses?.map((entry) => approx(entry.mean)) ??
+            RESPONSE_CATEGORIES.map(() => NOT_STORED)),
+          row.adverse === null ? NOT_STORED : range(row.adverse, approx),
         ]),
       },
     ],
@@ -173,28 +253,34 @@ function tablesFor(
         caption:
           brief.signal === 'clear'
             ? 'Each alternative against the baseline, on the same seeds'
-            : 'Each alternative against the baseline, on the same seeds (the differences are not read as effects of the change: see the notice at the top)',
+            : brief.signal === 'no-direction'
+              ? 'Each alternative against the baseline, on the same seeds (the differences are not read as effects of the change: see the notice at the top)'
+              : 'Each alternative against the baseline, on the same seeds (the first row, the proposed change, is not read as an effect of the change: see the notice at the top; every other row is read on its own)',
         headers: [
           'Variant',
-          'Mean adverse members',
-          'Baseline mean',
-          'Change',
+          'Share looking for an alternative or resisting, every 100 simulated members, each actor counting equally',
+          'Baseline share',
+          'Paired difference (standard error)',
           'Paired runs',
-          'More adverse in',
+          'Higher in',
           'Mean stance',
           'Stance change',
+          'Change in sampled members (a resolution, not a population)',
           'Finding',
           'Stability',
         ],
         rows: visuals.scenarioComparison.map((row) => [
           row.label,
-          approx(row.adverseMean),
-          row.baselineAdverseMean === null ? 'no baseline' : approx(row.baselineAdverseMean),
-          row.adverseDelta === null ? 'not paired' : signed(row.adverseDelta, 1),
+          perHundred(row.adverseShare),
+          row.baselineAdverseShare === null ? 'no baseline' : perHundred(row.baselineAdverseShare),
+          row.shareDelta === null
+            ? 'not paired'
+            : `${signedPerHundred(row.shareDelta)} (${perHundred(row.shareDeltaError ?? 0)})`,
           String(row.pairedRuns),
           `${row.worseInRuns} of ${row.pairedRuns} runs`,
           signed(row.stanceMean),
           row.stanceDelta === null ? 'not paired' : signed(row.stanceDelta),
+          row.adverseDelta === null ? NOT_STORED : signed(row.adverseDelta, 1),
           row.findingId ?? 'none recorded',
           row.classification
             ? `${row.classification}, held in ${row.holdsIn} of ${row.of} runs`
@@ -271,6 +357,12 @@ function blocks(input: BriefExportInput): Block[] {
     { kind: 'heading', level: 1, text: `Decision brief: ${input.project.name}` },
     { kind: 'paragraph', text: NOTICE, tone: 'notice' },
   ];
+  // Before anything else is read: when what the brief rests on has changed, or its tables are not its own, the page says so.
+  const stale = outOfDate(input);
+  if (stale) result.push({ kind: 'paragraph', ...stale, tone: 'alert' });
+  if (input.freshness?.visuals === 'current') {
+    result.push({ kind: 'paragraph', ...CURRENT_DATA, tone: 'alert' });
+  }
   // Before anything else is read: when the comparison cannot be read as a result, the page says so.
   if (brief.signal !== 'clear') {
     const { title, text } = BRIEF_SIGNAL_NOTICES[brief.signal];
@@ -333,7 +425,7 @@ function blocks(input: BriefExportInput): Block[] {
           'Reversibility',
           'Owner',
           'Horizon',
-          'Follows from findings',
+          'Linked findings',
           'Leading indicators',
           'How to check it first',
         ],
@@ -360,13 +452,27 @@ function blocks(input: BriefExportInput): Block[] {
       result.push({
         kind: 'table',
         caption: 'Validation plan: real-world checks, none of which has been run',
-        headers: ['Check', 'Tests', 'Question', 'Method', 'Success signal', 'Effort', 'Duration'],
+        headers: [
+          'Check',
+          'Tests',
+          'Question',
+          'Observe',
+          'Compare with',
+          'Method',
+          'Decision rule (left to you)',
+          'Owner',
+          'Effort',
+          'Duration',
+        ],
         rows: brief.validationPlan.map((experiment) => [
           experiment.id,
           experiment.targets.join('; '),
           experiment.question,
+          experiment.measure,
+          experiment.comparison,
           experiment.method,
           experiment.successSignal,
+          experiment.ownerFunction,
           experiment.effort,
           experiment.duration,
         ]),
@@ -451,11 +557,19 @@ export function briefMarkdown(input: BriefExportInput): string {
 
 /** The brief as data, with the numbers its tables are drawn from and where it came from. */
 export function briefJson(input: BriefExportInput): unknown {
-  const { brief } = input;
+  const { brief, freshness } = input;
+  const stale = outOfDate(input);
   return {
     format: 'swarm-decision-brief',
     schemaVersion: 1,
     notice: NOTICE,
+    // Present only when the brief has been checked against the project; `null` says it still describes it.
+    ...(freshness
+      ? {
+          warning: stale ? `${stale.title} ${stale.text}` : null,
+          changedSince: freshness.changedSince,
+        }
+      : {}),
     project: { id: input.project.id, name: input.project.name },
     brief,
     data: input.visuals,
@@ -466,6 +580,9 @@ export function briefJson(input: BriefExportInput): unknown {
       analysisId: brief.analysisId,
       generatedBy: brief.generatedBy,
       inputRevisions: brief.inputRevisions,
+      ...(freshness
+        ? { currentRevisions: freshness.currentRevisions, dataFrom: freshness.visuals }
+        : {}),
     },
   };
 }

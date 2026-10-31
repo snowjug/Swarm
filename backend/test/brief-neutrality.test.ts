@@ -50,7 +50,8 @@ const DOMAIN_WORDS = [
   'student',
   'parking',
   'ferry',
-  'transit',
+  // Not the CSS property `transition`.
+  'transit(?!ion)',
   'warehouse',
   'robot',
   'library',
@@ -59,6 +60,19 @@ const DOMAIN_WORDS = [
   'airline',
 ];
 const DOMAIN = new RegExp(`\\b(?:${DOMAIN_WORDS.join('|')})`, 'iu');
+
+// The wording guard has to name the measures of the real world that it refuses a figure beside, and
+// the people such a figure would count. Those words are its subject and not a domain, so the two lists
+// that hold them (and nothing else in the file) are not read as the brief's own words.
+const GUARD_VOCABULARY =
+  /^export const (REAL_WORLD_MEASURES|REAL_PEOPLE)\b[^\n]*=\s*\[\n[\s\S]*?^\];$/gmu;
+const sourceOf = (file: string): string => {
+  const source = readFileSync(join(root, file), 'utf8');
+  // Blanked, not cut out, so that a line is reported under its own number.
+  return file === 'backend/src/brief/lint.ts'
+    ? source.replace(GUARD_VOCABULARY, (list) => list.replace(/[^\n]/gu, ''))
+    : source;
+};
 
 describe('the brief belongs to no domain', () => {
   it('finds the files it is meant to guard', () => {
@@ -83,7 +97,7 @@ describe('the brief belongs to no domain', () => {
   it('uses no word that belongs to one market, product, industry or vendor', () => {
     // The standard `robots` meta name of an HTML page is markup, not a subject.
     const found = OWN_SOURCE.flatMap((file) =>
-      readFileSync(join(root, file), 'utf8')
+      sourceOf(file)
         .split('\n')
         .flatMap((line, index) =>
           DOMAIN.test(line.replaceAll('name="robots"', ''))
@@ -92,6 +106,22 @@ describe('the brief belongs to no domain', () => {
         ),
     );
     expect(found).toEqual([]);
+  });
+
+  it('lets the wording guard name the measures of the real world it refuses a figure beside, in its two lists and nowhere else', () => {
+    const file = 'backend/src/brief/lint.ts';
+    const lists = [...readFileSync(join(root, file), 'utf8').matchAll(GUARD_VOCABULARY)];
+    expect(lists.map((list) => list[1])).toEqual(['REAL_WORLD_MEASURES', 'REAL_PEOPLE']);
+    // What is left of the guard has no such word in it, and neither has the rest of the brief.
+    expect(DOMAIN.test(sourceOf(file))).toBe(false);
+    // The lists are for a measure and the people it counts: of the market words they may hold only those.
+    const inside = lists.flatMap((list) =>
+      [...list[0].matchAll(new RegExp(DOMAIN.source, 'giu'))].map((word) => word[0].toLowerCase()),
+    );
+    expect(inside.length).toBeGreaterThan(0);
+    for (const word of inside) {
+      expect(['churn', 'subscri', 'patient', 'student'], word).toContain(word);
+    }
   });
 
   it('writes its recommendations and checks from generic lenses, never from a list of answers for one case', () => {

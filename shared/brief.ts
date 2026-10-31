@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import {
+  RESPONSE_CATEGORIES,
+  SENSITIVITY_CLASSES,
+  STABILITY_CLASSES,
   fidelitySchema,
   type ResponseCategory,
   type SensitivityClass,
@@ -7,6 +10,8 @@ import {
 } from './analysis.js';
 import { NO_DIRECTION_NOTICE } from './signal.js';
 import {
+  STAKEHOLDER_CATEGORIES,
+  TRAIT_ORIGINS,
   evidenceRefSchema,
   idSchema,
   type StakeholderCategory,
@@ -155,31 +160,41 @@ export const validationExperimentSchema = z.object({
   /** The assumptions or findings the experiment would test. */
   targets: z.array(z.string().max(120)).min(1).max(6),
   question: line(300),
+  /** What is collected and how. */
   method: line(400),
+  /** The decision rule. It is left for the person to set, since the simulation supplies no value for it. */
   successSignal: line(300),
   effort: z.enum(['low', 'medium', 'high']),
   duration: line(80),
+  /** What would be observed in the world, in the scenario's own words. Empty in a brief made before it was stated. */
+  measure: line(400).default(''),
+  /** What it is compared with: a comparable group that is not exposed, or the same group before the change. */
+  comparison: line(300).default(''),
+  /** The function that would run the check. */
+  ownerFunction: line(120).default(''),
 });
 export type ValidationExperiment = z.infer<typeof validationExperimentSchema>;
 
 /**
- * Whether the comparison of the change with no change can be read as a result about the change.
- * `no-direction`: no stakeholder has an expected direction of impact, so the change cannot move anyone
- * and every difference is noise. `no-difference`: stakeholders do have directions, and the comparison
- * still found the two about the same, repeatably, with no group moving clearly on its own.
+ * Whether the comparison of the proposed change with no change can be read as a result about the change.
+ * `no-direction`: the simulator is certain to give the same outcome with the change as without it,
+ * because no stakeholder has an expected direction of impact and nothing else in the scenarios reaches
+ * anyone. `no-difference`: the change can move members, and the comparison still found the two about
+ * the same, repeatably, with no group moving clearly on its own. It is said of the proposed change
+ * only: every other scenario is read against no change on its own.
  */
 export const BRIEF_SIGNALS = ['clear', 'no-direction', 'no-difference'] as const;
 export type BriefSignal = (typeof BRIEF_SIGNALS)[number];
 
 export const NO_DIFFERENCE_NOTICE =
-  'Under the assumptions made here the simulation shows no measurable difference between the change and no change: the two ended up about the same in most paired seeded runs, and no group moved clearly on its own. That describes the assumptions, not the world. Check who is affected, and by how much, against real groups before concluding that the change makes no difference.';
+  'Under the assumptions made here the simulation shows no measurable difference between the proposed change and no change: the two ended up about the same in most paired seeded runs, and no group moved clearly on its own. Other scenarios are read against no change on their own. That describes the assumptions, not the world. Check who is affected, and by how much, against real groups before concluding that the change makes no difference.';
 
 /** What a part of the brief that sets variants side by side says first when the comparison cannot be read as a result. */
 export const BRIEF_READING_NOTES: Record<Exclude<BriefSignal, 'clear'>, string> = {
   'no-direction':
-    'Read every difference between variants in this section as noise: no stakeholder has an expected direction of impact, so the change cannot move anyone in the simulation.',
+    'Read nothing in this section as an effect of the change: no stakeholder has an expected direction of impact and nothing else in the scenarios reaches anyone, so the change cannot move anyone in the simulation.',
   'no-difference':
-    'Read the small differences between variants in this section as within noise: under these assumptions the comparison found no measurable difference between the change and no change.',
+    'The comparison found no measurable difference between the proposed change and no change under these assumptions. That is said of the proposed change only; every other scenario is read against no change on its own.',
 };
 
 /** What the page and the exports say at the top when the comparison cannot be read as a result. */
@@ -192,10 +207,183 @@ export const BRIEF_SIGNAL_NOTICES: Record<
     text: NO_DIRECTION_NOTICE,
   },
   'no-difference': {
-    title: 'No measurable difference under these assumptions',
+    title: 'No measurable difference for the proposed change under these assumptions',
     text: NO_DIFFERENCE_NOTICE,
   },
 };
+
+/**
+ * The data behind the page's charts and the exports' tables, as it is kept with a brief. It mirrors
+ * `BriefVisuals` below, which the compiler checks, and is as permissive as the text it holds is long
+ * so that nothing the brief's own builders produce is refused.
+ */
+const note = (max = 2_000) => z.string().max(max);
+const count = z.int().min(0);
+const spreadSchema = z.object({
+  mean: z.number(),
+  min: z.number().nullable(),
+  max: z.number().nullable(),
+});
+const statementOriginSchema = z.enum(STATEMENT_ORIGINS);
+const briefVisualsSchema = z.object({
+  analysisId: idSchema,
+  runsPerVariant: count,
+  stakeholderMap: z
+    .array(
+      z.object({
+        category: z.enum(STAKEHOLDER_CATEGORIES),
+        label: note(120),
+        stakeholders: z
+          .array(
+            z.object({
+              id: note(80),
+              name: note(200),
+              priority: z.enum(['key', 'standard', 'background']),
+              direction: z.enum(['harmed', 'benefited', 'mixed', 'unclear']),
+              supporting: count,
+              contradicting: count,
+              uncertainty: z.enum(['low', 'medium', 'high']),
+              origin: statementOriginSchema,
+            }),
+          )
+          .max(200),
+      }),
+    )
+    .max(40),
+  outcomeDistribution: z
+    .array(
+      z.object({
+        variantId: note(80),
+        label: note(200),
+        kind: z.enum(['baseline', 'alternative']),
+        runs: count,
+        members: count.nullable(),
+        shares: z
+          .array(spreadSchema.extend({ category: z.enum(RESPONSE_CATEGORIES) }))
+          .max(RESPONSE_CATEGORIES.length),
+        adverseShare: spreadSchema,
+        responses: z
+          .array(spreadSchema.extend({ category: z.enum(RESPONSE_CATEGORIES) }))
+          .max(RESPONSE_CATEGORIES.length)
+          .nullable(),
+        adverse: spreadSchema.nullable(),
+        perRun: z.boolean(),
+        stanceMean: z.number(),
+      }),
+    )
+    .max(16),
+  scenarioComparison: z
+    .array(
+      z.object({
+        variantId: note(80),
+        label: note(200),
+        members: count.nullable(),
+        adverseShare: z.number(),
+        baselineAdverseShare: z.number().nullable(),
+        shareDelta: z.number().nullable(),
+        shareDeltaError: z.number().nullable(),
+        adverseMean: z.number().nullable(),
+        baselineAdverseMean: z.number().nullable(),
+        adverseDelta: z.number().nullable(),
+        stanceMean: z.number(),
+        stanceDelta: z.number().nullable(),
+        pairedRuns: count,
+        worseInRuns: count,
+        findingId: note(80).nullable(),
+        classification: z.enum(STABILITY_CLASSES).nullable(),
+        holdsIn: count.nullable(),
+        of: count.nullable(),
+      }),
+    )
+    .max(16),
+  sensitivity: z
+    .array(
+      z.object({
+        id: note(80),
+        label: note(300),
+        metric: note(200),
+        shift: z.number(),
+        standardError: z.number(),
+        classification: z.enum(SENSITIVITY_CLASSES),
+        origin: statementOriginSchema,
+        evidenced: z.boolean(),
+      }),
+    )
+    .max(200),
+  assumptionRegister: z
+    .array(
+      z.object({
+        id: note(120),
+        text: note(),
+        value: note().nullable(),
+        origin: statementOriginSchema,
+        sensitive: z.boolean(),
+        evidenced: z.boolean(),
+        effect: note().nullable(),
+      }),
+    )
+    .max(500),
+  evidenceMap: z
+    .array(
+      z.object({
+        stakeholderId: note(80),
+        name: note(200),
+        category: z.enum(STAKEHOLDER_CATEGORIES),
+        supporting: count,
+        contradicting: count,
+        documents: z.array(note(300)).max(100),
+        gap: z.boolean(),
+      }),
+    )
+    .max(200),
+  traitTable: z
+    .array(
+      z.object({
+        actorId: note(80),
+        name: note(200),
+        kind: z.enum(['key', 'cohort']),
+        members: count,
+        size: count,
+        traits: z
+          .array(
+            z.object({
+              key: note(40),
+              value: z.number(),
+              spread: z.number(),
+              origin: z.enum(TRAIT_ORIGINS),
+            }),
+          )
+          .max(40),
+      }),
+    )
+    .max(100),
+  lookups: z.object({
+    findings: z
+      .array(
+        z.object({
+          id: note(80),
+          statement: note(600),
+          classification: z.enum(STABILITY_CLASSES),
+          holdsIn: count,
+          of: count,
+          interval: z.object({ lo: z.number(), hi: z.number() }),
+        }),
+      )
+      .max(200),
+    variants: z.array(z.object({ id: note(80), label: note(200) })).max(16),
+    stakeholders: z.array(z.object({ id: note(80), name: note(200) })).max(200),
+    documents: z
+      .array(
+        z.object({
+          id: note(80),
+          name: note(300),
+          origin: statementOriginSchema,
+          provenance: note(),
+        }),
+      )
+      .max(100),
+  }),
+}) satisfies z.ZodType<BriefVisuals>;
 
 /** The artifact `brief`: the answer-first decision brief for one analysis. */
 export const decisionBriefSchema = z.object({
@@ -226,6 +414,13 @@ export const decisionBriefSchema = z.object({
    * later change to any of them can be told from a brief that is still current.
    */
   inputRevisions: z.record(z.string().max(40), z.int().min(0)).default({}),
+  /**
+   * The data of the page's charts and of the exports' tables as it was when the brief was made, so
+   * that they show what the brief's own words rest on even after the stakeholders, the scenario or the
+   * critiques have changed. The routes answer with it as `visuals` and leave it out of `brief`.
+   * Absent for a brief made before it was kept: its charts are then drawn from the project as it is.
+   */
+  snapshot: briefVisualsSchema.optional(),
 });
 export type DecisionBrief = z.infer<typeof decisionBriefSchema>;
 
@@ -236,11 +431,14 @@ export type DecisionBrief = z.infer<typeof decisionBriefSchema>;
 export const BRIEF_EXPORT_FORMATS = ['md', 'json', 'html'] as const;
 export type BriefExportFormat = (typeof BRIEF_EXPORT_FORMATS)[number];
 
-/** Mean, lowest and highest number of simulated members over the seeded runs of one variant. */
+/**
+ * Mean, lowest and highest over the seeded runs of one variant. The range is null where only the mean
+ * could be worked out: a count of simulated members whose per-run results were not stored.
+ */
 export interface BriefSpread {
   mean: number;
-  min: number;
-  max: number;
+  min: number | null;
+  max: number | null;
 }
 
 export interface BriefOutcomeRow {
@@ -248,11 +446,22 @@ export interface BriefOutcomeRow {
   label: string;
   kind: 'baseline' | 'alternative';
   runs: number;
-  /** Simulated members in one run: key actors and the sampled members of each cohort. */
-  members: number;
-  responses: ({ category: ResponseCategory } & BriefSpread)[];
-  /** Members who ended up looking for an alternative or resisting. */
-  adverse: BriefSpread;
+  /**
+   * Simulated members in one run: key actors and the sampled members of each cohort. How many are
+   * sampled for a group is a numerical resolution of the simulation, not a population. Null when the
+   * stored analysis kept no per-actor results to add up.
+   */
+  members: number | null;
+  /** The share of simulated members in each response, every actor counting equally: what the brief leads with. */
+  shares: ({ category: ResponseCategory } & BriefSpread)[];
+  /** The share ending in switch or resist, every actor counting equally, over the runs. */
+  adverseShare: BriefSpread;
+  /** Simulated members in each response; null with `members`. A mean only unless `perRun`. */
+  responses: ({ category: ResponseCategory } & BriefSpread)[] | null;
+  /** Members who ended up looking for an alternative or resisting; null with `members`. */
+  adverse: BriefSpread | null;
+  /** Whether every run's own per-actor results were stored, so that a count has a range over the runs. */
+  perRun: boolean;
   /** Mean final stance of the simulated members, from -1 (against) to 1 (in favour). */
   stanceMean: number;
 }
@@ -260,8 +469,15 @@ export interface BriefOutcomeRow {
 export interface BriefComparisonRow {
   variantId: string;
   label: string;
-  members: number;
-  adverseMean: number;
+  members: number | null;
+  /** The share ending in switch or resist, every actor counting equally, under this variant and the baseline. */
+  adverseShare: number;
+  baselineAdverseShare: number | null;
+  /** The mean paired difference of that share against the baseline, on the same seeds, and its standard error. */
+  shareDelta: number | null;
+  shareDeltaError: number | null;
+  /** Mean number of simulated members ending in switch or resist; null when no per-actor results were stored. */
+  adverseMean: number | null;
   baselineAdverseMean: number | null;
   /** Change in the mean number of adverse members against the baseline, on the same seeds. */
   adverseDelta: number | null;
@@ -269,7 +485,7 @@ export interface BriefComparisonRow {
   stanceDelta: number | null;
   /** Seeds that were run under both this variant and the baseline. */
   pairedRuns: number;
-  /** Paired seeds in which more simulated members ended up adverse than under the baseline. */
+  /** Paired seeds in which the share ending in switch or resist was higher than under the baseline. */
   worseInRuns: number;
   /** The finding that states the direction against the baseline, when the analysis recorded one. */
   findingId: string | null;
@@ -354,8 +570,9 @@ export interface BriefLookups {
 }
 
 /**
- * Everything the page draws and the exports tabulate, worked out from the analysis and the project's
- * other documents when it is asked for. The stored brief carries none of these numbers.
+ * Everything the page draws and the exports tabulate. It is worked out when the brief is made and kept
+ * with it (`DecisionBrief.snapshot`), so that the charts agree with the brief's own words; a brief made
+ * before that was kept has it worked out from the project's documents as they are when it is asked for.
  */
 export interface BriefVisuals {
   analysisId: string;
@@ -373,10 +590,18 @@ export interface BriefVisuals {
 /** What `GET` and `POST /api/projects/:id/brief` answer with. */
 export interface BriefView {
   brief: DecisionBrief | null;
+  /** The data of the charts: the snapshot kept with the brief, or, for an older one, the project's documents as they are. */
   visuals: BriefVisuals | null;
+  /** Where `visuals` comes from: kept with the brief when it was made, or drawn from the project as it is now. Null with no visuals. */
+  visualsFrom: 'snapshot' | 'current' | null;
   /** The newest completed analysis, which generating would use. Null when there is none. */
   latestAnalysis: { id: string; completedAt: string | null } | null;
-  /** Which inputs have changed since the brief was made; empty when it is current. */
+  /**
+   * What has changed since the brief was made, or since the comparison it rests on was run: the
+   * scenario, the stakeholders and the actors (checked against what the comparison recorded, so
+   * writing the brief again does not clear them), the critiques, and whether a newer comparison exists.
+   * Empty when the brief is current.
+   */
   changedSince: string[];
   may: { generate: boolean; export: boolean };
 }

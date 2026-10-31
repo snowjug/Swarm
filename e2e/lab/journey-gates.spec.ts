@@ -804,7 +804,11 @@ test.describe('the next step from the keyboard', () => {
     await expect(workbench(page, 'Simulation')).toBeFocused();
     await expect(stageButton(page, 'Simulation')).toHaveAttribute('aria-current', 'step');
 
-    // Focus is on the stage, so the next Tab goes into it, not back to the top of the page.
+    // Focus is on the stage, so the next Tab goes into it, not back to the top of the page. The
+    // comparison is read as the stage opens, and until it is drawn there is nothing in it to reach.
+    await expect(
+      workbench(page, 'Simulation').getByRole('heading', { name: 'What this comparison says' }),
+    ).toBeVisible();
     await page.keyboard.press('Tab');
     expect(
       await page.evaluate(() => document.activeElement?.closest('section.console-stage') !== null),
@@ -821,6 +825,39 @@ test.describe('the next step from the keyboard', () => {
     await expect(workbench(page, 'Graph Build')).toHaveCount(0);
     await nextBar(page).getByRole('button', { name: 'Compare the scenarios' }).click();
     await expect(workbench(page, 'Simulation')).toBeFocused();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+
+test.describe('the view a stage opens in', () => {
+  test('is the stage’s own, and a narrow screen does not keep the workbench for good', async ({
+    page,
+  }) => {
+    const view = (name: string): Locator =>
+      page.getByRole('group', { name: 'Console view' }).getByRole('button', { name });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/?project=${ids.actors}`);
+    // The map is beside Graph Build, which is about it, and Env Setup has the whole width.
+    await expect(view('Split')).toHaveAttribute('aria-pressed', 'true');
+    await stageButton(page, 'Env Setup').click();
+    await expect(view('Workbench')).toHaveAttribute('aria-pressed', 'true');
+    await stageButton(page, 'Graph Build').click();
+    await expect(view('Split')).toHaveAttribute('aria-pressed', 'true');
+
+    // On a phone the map that was opened on its own gives way to the stage that is opened next...
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page
+      .getByRole('group', { name: 'Console pane' })
+      .getByRole('button', { name: 'Graph' })
+      .click();
+    await expect(workbench(page, 'Graph Build')).toHaveCount(0);
+    await stageButton(page, 'Env Setup').click();
+    await expect(workbench(page, 'Env Setup')).toBeVisible();
+    // ...and is not held to once the window is wide again.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await stageButton(page, 'Graph Build').click();
+    await expect(view('Split')).toHaveAttribute('aria-pressed', 'true');
   });
 });
 

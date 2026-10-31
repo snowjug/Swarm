@@ -53,6 +53,7 @@ describe('the independent review API', () => {
       text: 'We accept this.',
       status: 'accepted',
       remainingDisagreement: null,
+      expectedRevision: 3,
     });
     expect(sent[0]?.path).toBe('/api/projects/p-1/critiques/model-bias%2F1%20a/response');
     expect(sent[0]?.init.method).toBe('PUT');
@@ -60,6 +61,7 @@ describe('the independent review API', () => {
       text: 'We accept this.',
       status: 'accepted',
       remainingDisagreement: null,
+      expectedRevision: 3,
     });
     expect(sent[0]?.init.headers).toMatchObject({ 'X-Swarm-CSRF': '1' });
   });

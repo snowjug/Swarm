@@ -8,7 +8,7 @@ import {
   analysisFixture,
   scenarioFixture,
 } from '../../shared/lab-fixtures.js';
-import { NO_DIRECTION_NOTICE } from '../../shared/signal.js';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../shared/signal.js';
 import { buildApp } from '../src/app.js';
 import { AnalysisService, type AnalysisServiceOptions } from '../src/analysis/service.js';
 import { ROUTE_POLICY } from '../src/auth/policy.js';
@@ -464,7 +464,7 @@ describe('reading comparisons', () => {
     expect((await list()).readiness.warnings).toEqual([]);
   });
 
-  it('warns, and does not refuse, when no stakeholder has an expected direction of impact', async () => {
+  it('warns, and does not refuse, when no stakeholder has an expected direction of impact and nothing else lets the change reach anyone', async () => {
     const { list, start, finished, repository, project, withActors } = await world();
     repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
     const cast = actorSetFixture();
@@ -472,7 +472,7 @@ describe('reading comparisons', () => {
       ...cast,
       actors: cast.actors.map((actor) => ({
         ...actor,
-        traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+        traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread: 0 } },
       })),
     });
     const { readiness } = await list();
@@ -489,6 +489,23 @@ describe('reading comparisons', () => {
     // The warning goes away once the cast has a direction again.
     withActors();
     expect((await list()).readiness.warnings).toEqual([]);
+  });
+
+  it('does not say that the change cannot move anyone when the members of a group can still be moved, only that nobody has a direction', async () => {
+    const { list, repository, project } = await world();
+    repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+    const cast = actorSetFixture();
+    repository.artifacts.put(project.id, 'actors', 'default', {
+      ...cast,
+      actors: cast.actors.map((actor) => ({
+        ...actor,
+        traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread: 0.5 } },
+      })),
+    });
+    const { readiness } = await list();
+    expect(readiness.warnings).toEqual([UNDIRECTED_NOTICE]);
+    expect(readiness.warnings[0]).not.toMatch(/cannot move anyone|\bnoise\b/u);
+    expect(readiness.may.run).toBe(true);
   });
 
   it('is not found for a comparison that does not exist, or belongs to another project', async () => {

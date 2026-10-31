@@ -147,9 +147,15 @@ for (const id of PACKS) {
       expect(found.needReview).toBe(found.found);
       expect(found.approved).toBe(0);
       expect(found.actors).toBe(0);
+      // The list is open and is being read, so the way on is to the approval at the end of it: there is
+      // no second button to start reading, and there is one to approve.
+      await expect(panel(page).getByRole('button', { name: 'Go to approval' })).toBeVisible();
       await expect(
         panel(page).getByRole('button', { name: /^Review \d+ stakeholders$/u }),
-      ).toBeVisible();
+      ).toHaveCount(0);
+      await expect(
+        panel(page).getByRole('button', { name: 'Approve stakeholders and create actors' }),
+      ).toHaveCount(1);
       await expect(rows(page)).toHaveCount(found.found);
       // The panel says what it cannot do.
       await expect(panel(page)).toContainText('expect gaps');
@@ -304,6 +310,15 @@ for (const id of PACKS) {
       await expect(row.getByRole('button', { name: `Edit ${name}` })).toBeFocused();
     });
 
+    await test.step('takes a person from the top of the open list to the approval at its end, and focus goes there', async () => {
+      await panel(page).getByRole('button', { name: 'Go to approval' }).click();
+      const approve = panel(page).getByRole('button', {
+        name: 'Approve stakeholders and create actors',
+      });
+      await expect(approve).toBeFocused();
+      await expect(approve).toBeInViewport(ON_THE_SCREEN);
+    });
+
     await test.step('closing the list gives the page back to the stage: Start Simulation is on the screen', async () => {
       await stakeholdersToggle(page).click();
       await expect(stakeholdersToggle(page)).toHaveAttribute('aria-expanded', 'false');
@@ -314,6 +329,11 @@ for (const id of PACKS) {
 
     await test.step('approves and makes the actors, says so, and keeps the person where they were', async () => {
       const before = await counts(page);
+      // The review has the whole width, and approving does not move the page to another view.
+      const workbench = page
+        .getByRole('group', { name: 'Console view' })
+        .getByRole('button', { name: 'Workbench' });
+      await expect(workbench).toHaveAttribute('aria-pressed', 'true');
       await panel(page)
         .getByRole('button', { name: 'Approve stakeholders and create actors' })
         .click();
@@ -321,6 +341,11 @@ for (const id of PACKS) {
         panel(page).getByRole('button', { name: /^Review the \d+ actors$/u }),
       ).toBeFocused();
       await expect(panel(page).getByRole('status').filter({ hasText: 'Approved.' })).toBeAttached();
+      // The page reads the project again, and the next step says the actors are there.
+      await expect(page.getByRole('group', { name: 'Next step' })).toContainText(
+        'The simulated actors are ready',
+      );
+      await expect(workbench).toHaveAttribute('aria-pressed', 'true');
       const after = await counts(page);
       expect(after.approved).toBe(before.found);
       expect(after.needReview).toBe(0);

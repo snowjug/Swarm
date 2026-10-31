@@ -124,6 +124,12 @@ export interface UrlIngestionConfig {
   timeoutMs: number;
   /** Empty: any public host. Otherwise `example.com` exactly, or `*.example.com` for its subdomains. */
   allowedHosts: readonly string[];
+  /** Pages read at the same moment by this process, for every caller together. */
+  maxConcurrent: number;
+  /** Requests that may wait for one of those places; a request beyond that is refused at once. */
+  queueLength: number;
+  /** How long a request may wait for a place before it is refused. */
+  queueWaitMs: number;
 }
 
 const syncedFolders: readonly [string, RegExp][] = [
@@ -214,6 +220,10 @@ const environmentSchema = z.object({
   // Below the 30 s the server allows a request, so the fetch's own time limit is the one that applies.
   URL_INGEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(25_000).default(12_000),
   URL_INGEST_ALLOWED_HOSTS: z.string().trim().max(2_000).optional(),
+  // Each read holds a connection and up to URL_INGEST_MAX_BYTES of memory until the site answers.
+  URL_INGEST_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(8),
+  URL_INGEST_QUEUE: z.coerce.number().int().min(0).max(64).default(8),
+  URL_INGEST_QUEUE_WAIT_MS: z.coerce.number().int().min(100).max(15_000).default(5_000),
 });
 
 function buildUrlIngestion(input: z.infer<typeof environmentSchema>): UrlIngestionConfig {
@@ -243,6 +253,9 @@ function buildUrlIngestion(input: z.infer<typeof environmentSchema>): UrlIngesti
     maxBytes: input.URL_INGEST_MAX_BYTES,
     timeoutMs: input.URL_INGEST_TIMEOUT_MS,
     allowedHosts: hosts,
+    maxConcurrent: input.URL_INGEST_CONCURRENCY,
+    queueLength: input.URL_INGEST_QUEUE,
+    queueWaitMs: input.URL_INGEST_QUEUE_WAIT_MS,
   };
 }
 

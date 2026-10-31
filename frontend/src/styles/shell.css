@@ -76,17 +76,33 @@
   font-weight: 650;
 }
 /* The names of all twelve steps need a wide screen; below it the numbers are enough, and the current
-   step is named. */
+   step is named. A name that is not drawn is visually hidden, not removed, so that a screen reader
+   hears every step by its name and not a bare "done". */
 @media (max-width: 1499px) {
   .journey-steps {
     flex-wrap: nowrap;
     gap: var(--space-1);
   }
   .journey-label {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
+}
+@media (min-width: 641px) and (max-width: 1499px) {
   .journey-step.current .journey-label {
-    display: inline;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
   }
 }
 @media (max-width: 640px) {
@@ -105,9 +121,6 @@
   .journey-step:not(.current) .journey-dot {
     width: 18px;
     height: 18px;
-  }
-  .journey-step.current .journey-label {
-    display: none;
   }
 }
 

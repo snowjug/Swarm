@@ -1,6 +1,9 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import { EventEmitter } from 'node:events';
+import http, { type IncomingMessage, type ServerResponse } from 'node:http';
+import https from 'node:https';
+import { Readable } from 'node:stream';
 import { brotliCompressSync, constants, deflateSync, gzipSync } from 'node:zlib';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UrlFailure, type UrlFailureCode } from '../src/ingest/url/failure.js';
 import {
   fetchPublicPage,
@@ -804,5 +807,188 @@ describe('robots.txt (RFC 9309)', () => {
       ),
     );
     expect((await withRobots(junk, '/page')).robots).toBe('allowed');
+  });
+});
+
+describe('a redirect met while reading robots.txt is judged as strictly as one met on the page', () => {
+  interface Answer {
+    status: number;
+    headers?: Record<string, string>;
+    body?: string;
+  }
+  /** The https side of the network, in memory: each request is recorded, and nothing is connected to. */
+  const secureSite = (answer: (host: string, path: string) => Answer): string[] => {
+    const asked: string[] = [];
+    vi.spyOn(https, 'request').mockImplementation(((options: https.RequestOptions) => {
+      const request = Object.assign(new EventEmitter(), {
+        end: () => {
+          asked.push(`${String(options.host)}${String(options.path)}`);
+          const reply = answer(String(options.host), String(options.path));
+          const response = Object.assign(
+            Readable.from(reply.body === undefined ? [] : [Buffer.from(reply.body)]),
+            { statusCode: reply.status, headers: reply.headers ?? {}, complete: true },
+          );
+          setImmediate(() => request.emit('response', response));
+        },
+        destroy: () => undefined,
+      });
+      return request;
+    }) as unknown as typeof https.request);
+    return asked;
+  };
+  /** Plain http, which a test of https must never reach: asking for it fails, and is counted. */
+  const plainHttp = () =>
+    vi.spyOn(http, 'request').mockImplementation((() => {
+      throw new Error('A plain http request was made.');
+    }) as unknown as typeof http.request);
+
+  const secure = new PublicFetcher({
+    lookup: resolver({ 'secure.example.com': [v4('93.184.216.34')] }),
+  });
+  const ROBOTS_OPEN = 'User-agent: *\nAllow: /\n';
+  const asText = (body: string): Answer => ({
+    status: 200,
+    headers: { 'content-type': 'text/plain' },
+    body,
+  });
+  const site =
+    (robots: string): Handler =>
+    (request, response) =>
+      text(response, request.url === '/robots.txt' ? robots : PAGE);
+  /** A site whose robots.txt redirects to wherever `to` says for the host it was asked at, and whose pages are plain text. */
+  const redirectingRobots =
+    (to: (host: string) => string | null): Handler =>
+    (request, response) => {
+      if (request.url !== '/robots.txt') return text(response, PAGE);
+      const location = to(request.headers.host ?? '');
+      if (location === null) return text(response, ROBOTS_OPEN);
+      response.writeHead(302, { location });
+      response.end();
+    };
+  const robotsOf = (server: TestServer, path: string, options: FetchOptions = {}) =>
+    read(server, path, { respectRobots: true, ...options });
+
+  it('is read over https, so that what follows is a fair test of the redirects below', async () => {
+    const asked = secureSite((_host, path) => asText(path === '/robots.txt' ? ROBOTS_OPEN : PAGE));
+    const plain = plainHttp();
+    const page = await secure.fetchPublicPage('https://secure.example.com/page');
+    expect(page).toMatchObject({ robots: 'allowed', text: PAGE });
+    expect(asked).toEqual(['secure.example.com/robots.txt', 'secure.example.com/page']);
+    expect(plain).not.toHaveBeenCalled();
+  });
+
+  it('does not follow robots.txt from https to http: the page is refused, and nothing is asked over http', async () => {
+    const asked = secureSite((_host, path) =>
+      path === '/robots.txt'
+        ? { status: 301, headers: { location: 'http://secure.example.com/robots.txt' } }
+        : asText(PAGE),
+    );
+    const plain = plainHttp();
+    const failure = await failureOf(secure.fetchPublicPage('https://secure.example.com/page'));
+    expect(failure.code).toBe('robots-unavailable');
+    expect(plain).not.toHaveBeenCalled();
+    // The page itself is never asked for.
+    expect(asked).toEqual(['secure.example.com/robots.txt']);
+  });
+
+  it('does follow robots.txt to another place over https, and obeys what it finds there', async () => {
+    const asked = secureSite((_host, path) => {
+      if (path === '/robots.txt') {
+        return { status: 308, headers: { location: '/rules/robots.txt' } };
+      }
+      return asText(path === '/rules/robots.txt' ? 'User-agent: *\nDisallow: /page\n' : PAGE);
+    });
+    const failure = await failureOf(secure.fetchPublicPage('https://secure.example.com/page'));
+    expect(failure.code).toBe('robots');
+    expect(asked).toEqual(['secure.example.com/robots.txt', 'secure.example.com/rules/robots.txt']);
+  });
+
+  it('refuses the page when robots.txt leads to a port that may not be read, and never connects there', async () => {
+    const elsewhere = await serve(site(ROBOTS_OPEN));
+    const first = await serve(redirectingRobots(() => elsewhere.url('/robots.txt')));
+    const failure = await failureOf(robotsOf(first, '/page'));
+    expect(failure.code).toBe('robots-unavailable');
+    expect(first.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
+    expect(elsewhere.seen).toEqual([]);
+    // The same redirect is followed once the port is allowed.
+    const page = await robotsOf(first, '/page', { allowedPorts: [first.port, elsewhere.port] });
+    expect(page.robots).toBe('allowed');
+    expect(elsewhere.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
+  });
+
+  it('refuses the page when robots.txt leads to a host that is not on the list, without looking it up', async () => {
+    const calls: string[] = [];
+    const lookup = resolver(
+      { 'start.example.com': [v4('127.0.0.1')], 'other.example.net': [v4('127.0.0.1')] },
+      calls,
+    );
+    const server = await serve(
+      redirectingRobots((host) =>
+        host.startsWith('start.') ? `http://other.example.net:${server.port}/robots.txt` : null,
+      ),
+    );
+    const fetcher = new PublicFetcher({ allowPrivateForTests: true, lookup });
+    const failure = await failureOf(
+      fetcher.fetchPublicPage(`http://start.example.com:${server.port}/page`, {
+        allowedPorts: [server.port],
+        allowedHosts: ['*.example.com'],
+      }),
+    );
+    expect(failure.code).toBe('robots-unavailable');
+    expect(calls).not.toContain('other.example.net');
+    expect(server.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
+    // Without the list, the same redirect is followed.
+    const open = await new PublicFetcher({ allowPrivateForTests: true, lookup }).fetchPublicPage(
+      `http://start.example.com:${server.port}/page`,
+      { allowedPorts: [server.port] },
+    );
+    expect(open.robots).toBe('allowed');
+    expect(calls).toContain('other.example.net');
+  });
+
+  it('refuses the page when robots.txt leads to a name that has a private address, even among public ones', async () => {
+    const lookup = resolver({
+      'start.example.com': [v4('127.0.0.1')],
+      'alias.example.com': [v4('127.0.0.2')],
+      'private.example.com': [v4('10.0.0.5')],
+      'mixed.example.com': [v4('93.184.216.34'), v4('192.168.0.9')],
+      'v6.example.com': [v6('fd00::5')],
+    });
+    const fetcher = new PublicFetcher({ allowPrivateForTests: true, lookup });
+    const connected: string[] = [];
+    const connect = http.request.bind(http);
+    vi.spyOn(http, 'request').mockImplementation(((options: http.RequestOptions) => {
+      connected.push(String(options.host));
+      return connect(options);
+    }) as typeof http.request);
+    const fetchVia = async (name: string) => {
+      const server = await serve(
+        redirectingRobots((host) =>
+          host.startsWith('start.') ? `http://${name}.example.com:${server.port}/robots.txt` : null,
+        ),
+      );
+      return {
+        server,
+        outcome: fetcher.fetchPublicPage(`http://start.example.com:${server.port}/page`, {
+          allowedPorts: [server.port],
+        }),
+      };
+    };
+
+    for (const name of ['private', 'mixed', 'v6']) {
+      const { server, outcome } = await fetchVia(name);
+      expect((await failureOf(outcome)).code, name).toBe('robots-unavailable');
+      expect(
+        server.seen.map(({ url }) => url),
+        name,
+      ).toEqual(['/robots.txt']);
+    }
+    // Only the address that was typed has been connected to.
+    expect([...new Set(connected)]).toEqual(['start.example.com']);
+
+    // A name whose address is allowed is followed, so that the refusals above are about the address.
+    const { outcome } = await fetchVia('alias');
+    expect((await outcome).robots).toBe('allowed');
+    expect(connected).toContain('alias.example.com');
   });
 });

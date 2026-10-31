@@ -5,7 +5,7 @@ import { inspectText } from '../../models/injection.js';
 import { extractPage, pageDocument, type PageReading } from './extract.js';
 import { UrlFailure } from './failure.js';
 import type { FetchedPage, PublicFetcher } from './fetcher.js';
-import { csvToText, DataError, jsonToText, plainToText } from './normalize.js';
+import { csvToText, DataError, jsonToText, plainToText, STRAY_QUOTES_NOTE } from './normalize.js';
 import { validateUrl } from './policy.js';
 import { buildProvenance } from './provenance.js';
 import { fit } from './text.js';
@@ -42,11 +42,13 @@ function explain(failure: UrlFailure, host: string | null, settings: UrlIngestSe
   // A name that leads to a private address is told exactly like a name that does not exist, so that
   // the answer cannot be used to find out which names are in use inside a network.
   if (failure.code === 'blocked' && failure.detail.resolved) {
-    return explain(
+    const shown = explain(
       new UrlFailure('network', 'The name could not be found.', { reason: 'dns' }),
       host,
       settings,
     );
+    // The answer is the one for a missing name; the original refusal stays on the error for the audit log.
+    return new AppError(shown.statusCode, shown.code, shown.message, { cause: failure });
   }
   const site = host ?? 'the site';
   const { status, contentType, redirected, reason } = failure.detail;
@@ -171,7 +173,12 @@ export function documentName(title: string | null, host: string): string {
 interface Text {
   content: string;
   readableChars: number;
+  /** The text was longer than a document can be, and was cut to fit. */
   truncated: boolean;
+  /** The page was not read to its end. */
+  cutShort: boolean;
+  /** A table has quotation marks in a cell that did not open a quoted field, and they were kept. */
+  strayQuotes: boolean;
   title: string | null;
   structured: boolean;
   /** How the text of a web page was chosen from what the page shows; null for a file that is not one. */
@@ -186,22 +193,31 @@ function textOf(page: FetchedPage): Text {
       content: document.text,
       readableChars: document.readableChars,
       truncated: document.truncated,
+      cutShort: document.cutShort,
+      strayQuotes: false,
       title: extracted.title,
       structured: extracted.structured.length > 0,
       reading: extracted.reading,
     };
   }
-  const plain =
-    page.contentType === 'application/json'
-      ? jsonToText(page.text)
-      : page.contentType === 'text/csv'
-        ? csvToText(page.text)
-        : { text: plainToText(page.text), truncated: false };
+  let strayQuotes = false;
+  let plain: { text: string; truncated: boolean };
+  if (page.contentType === 'application/json') {
+    plain = jsonToText(page.text);
+  } else if (page.contentType === 'text/csv') {
+    const table = csvToText(page.text);
+    strayQuotes = table.strayQuotes;
+    plain = table;
+  } else {
+    plain = { text: plainToText(page.text), truncated: false };
+  }
   const fitted = fit(plain.text, MAX_DOCUMENT_CHARS);
   return {
     content: fitted.text,
     readableChars: plain.text.length,
     truncated: plain.truncated || fitted.truncated,
+    cutShort: false,
+    strayQuotes,
     title: null,
     structured: false,
     reading: null,
@@ -212,7 +228,9 @@ function textOf(page: FetchedPage): Text {
  * What a person should know about the text chosen from a web page. It is a guess from how the page
  * is built, so it is said whenever something was left out, and the way out is always the same.
  */
-export function readingNote(reading: PageReading | null): string | null {
+export function readingNote(
+  reading: Pick<PageReading, 'scope' | 'fellBack'> | null,
+): string | null {
   if (!reading) return null;
   if (reading.fellBack) {
     return `Swarm could not tell the page's own text from its menus and side panels, so it kept everything the page shows, menus included. Some of it may not be what the page is about. ${PASTE}`;
@@ -223,6 +241,28 @@ export function readingNote(reading: PageReading | null): string | null {
       ? 'kept the main text of the page and left out its menus, side panels, footers and similar parts'
       : 'left out the menus, side panels, footers and similar parts of the page';
   return `Swarm ${left}. It decides this from how the page is built, so it can leave out something that matters. ${PASTE}`;
+}
+
+/** What else a person should know about how much of a web page was read, each said only when it is so. */
+export function coverageNotes(reading: PageReading | null): string[] {
+  if (!reading) return [];
+  const notes: string[] = [];
+  if (reading.noscript) {
+    notes.push(
+      `Swarm does not run scripts, and this page shows almost no text without them, so it kept the text the page holds for readers without scripts (its noscript part). A browser that runs scripts may show more. ${PASTE}`,
+    );
+  }
+  if (reading.scripted) {
+    notes.push(
+      `Parts of this page are built by scripts or shown from other pages (frames), and Swarm reads neither, so a table or list that a browser shows there may be missing. ${PASTE}`,
+    );
+  }
+  if (reading.cutShort) {
+    notes.push(
+      `Swarm stopped reading this page before its end, because it has more tags, or is nested more deeply, than Swarm reads, so only the beginning was kept. The text says so. ${PASTE}`,
+    );
+  }
+  return notes;
 }
 
 /**
@@ -263,6 +303,14 @@ export async function ingestUrl(
     throw error;
   }
   if (text.readableChars < MIN_CHARS) {
+    // Too little text is not the same as a page that has none: this one was only read as far as it goes.
+    if (text.cutShort) {
+      throw new AppError(
+        422,
+        'URL_NO_TEXT',
+        `Swarm stopped reading this page before its end, because it has more tags, or is nested more deeply, than Swarm reads, and it had read too little text by then to use. ${PASTE}`,
+      );
+    }
     throw explain(new UrlFailure('no-text', 'There is too little text.'), host, settings);
   }
 
@@ -286,6 +334,7 @@ export async function ingestUrl(
   ];
   const reading = readingNote(text.reading);
   if (reading) notes.push(reading);
+  notes.push(...coverageNotes(text.reading));
   if (text.truncated) {
     notes.push(
       `The page was longer than a document can be (${MAX_DOCUMENT_CHARS.toLocaleString('en-US')} characters), so only the beginning was kept. The text says so.`,
@@ -296,6 +345,7 @@ export async function ingestUrl(
       'Facts the page publishes for machines (structured data) are listed at the end, labelled as such.',
     );
   }
+  if (text.strayQuotes) notes.push(STRAY_QUOTES_NOTE);
   const finalHost = hostOf(page.finalUrl);
   if (finalHost && finalHost !== host)
     notes.push(`The address sent the reader on to ${finalHost}.`);

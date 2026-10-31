@@ -50,9 +50,26 @@ sentence about a group and say nothing about it. They are told apart by their sh
 - a line of up to three words with no full stop is a **heading** when it stands between sentences, which
   introduces what follows, so a group it names is found; next to another such line it is a menu entry or
   an outline, and is not;
-- five or more capitalised words in a row are a list of names, never one name;
+- five or more capitalised words in a row are a list of names, never one name, except in a sentence written
+  all in capitals that reads as prose (it ends like a sentence and a third of its words are function words,
+  as in "THE CUSTOMERS WILL PAY MORE AND THE SUPPORT TEAM WILL LOSE STAFF."): there every word has a
+  capital, so a capital says nothing, and only the words the lexicon lists describe a group. A menu, a
+  footer or a row of names in capitals has too few function words and stays a list;
 - a person's own bulleted list of groups is kept, an item each;
 - a link is not read: a word in its path ("example.org/users/support") is not a word of the sentence.
+
+A role word is also **not a group** when the line only uses it to say something else:
+
+- it starts a compound that names a thing: a word the lexicon lists straight after it ("customer survey",
+  "user interface"), or, after a role word in the singular, a noun for what a group has or sets ("admin
+  controls", "admin panel", "reseller rates", "customer record"). "Customers control the rollout" stays: a
+  plural subject and a verb. A noun that is also a verb ("the admin controls access") makes a compound only
+  when no article or possessive stands before the role word;
+- a count stands straight before it ("a firm with about 4,200 employees", "more than 500 members"), which
+  says how many there are, not who they are;
+- it is only the tail of a title for a function: a position that any organisation has (a manager, an
+  employee, a member) straight after a noun that names a thing ("account manager", "records manager",
+  "customer success manager"). "Sales manager" stays, since _sales_ is a describing word the lexicon knows.
 
 What it decides, and how:
 
@@ -70,7 +87,9 @@ What it decides, and how:
 
 At most 25 stakeholders are proposed. Whatever is set by rule or taken from a category (the priority, how
 directly the group is affected, the size, a direction that is not read from the wording) is said to be so in
-the stakeholder's **assumptions**, and the review screen marks it as an assumption.
+the stakeholder's **assumptions**, and the review screen marks it as an assumption. A direction read from the
+wording is only a direction: no number is read from the words, so the actor's size of impact is a system
+default (see [Actors](#actors)).
 
 **What it cannot do.** It finds groups that the text names with a role word. It will miss a group the
 lexicon has no word for ("the city council" is missed, because _council_ counts only after a describing word
@@ -88,11 +107,17 @@ stakeholders with a passage id and a **verbatim quote** for each.
 The reply is never trusted as it arrives:
 
 - it must have the expected shape, with one repair attempt if it does not;
-- a reply that repeats text planted in the sources is refused;
+- a reply that repeats text planted in the sources is refused: a code, a quoted phrase, or the name that an
+  instruction gives ("the group named …"). The check looks for text that addresses an AI system or dictates
+  what the answer or the stakeholder list says, and it is a heuristic: an instruction worded in a way it does
+  not know is not recognised;
 - **each quote is checked, character by character, against the passage it names**. A quote that cannot be
   found, or names a passage that was not supplied, is dropped;
-- a stakeholder left with no verified quote is marked **inferred**, with high uncertainty and an
-  assumption saying so;
+- a stakeholder left with no verified quote is kept, marked **inferred**, with high uncertainty and an
+  assumption saying so, **only when the person's own question or scenario names that group**. Any other
+  stakeholder with nothing quoted is dropped, and the note says how many and why: all it would rest on is the
+  model's word, which text in a source can have dictated, so it is never put in the list as if found. When
+  nothing that the model proposed can be kept, discovery falls back to reading the text, with that reason;
 - categories outside the list become _other_, identifiers are made unique, at most 25 are kept (at most
   eight of them key), and a scenario's named stakeholders that the model left out are added back.
 
@@ -125,13 +150,13 @@ test fails if this table and the code disagree (`npx tsx backend/test/support/pr
 again). _Found_ counts the groups in the list, not those folded into another or removed. A group that cites
 no quote is one the question names and no passage does.
 
-| Example                 | Found (key / standard / background) | Cite a quote | Direction (wording / category / unclear) | Key groups, and the others whose direction was read from the wording                                                                                          |
-| ----------------------- | ----------------------------------- | ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `copilot-in-teams`      | 23 (4 / 11 / 8)                     | 23 of 23     | 5 / 0 / 18                               | Key: Clients, Competitors, Regulators, Manager (mixed). Others: Users (mixed), Finance team (harmed), Staff (harmed), Support teams (harmed).                 |
-| `regional-price-change` | 25 (5 / 7 / 13)                     | 25 of 25     | 5 / 0 / 20                               | Key: Sales director (harmed), Customers (harmed), Competitors, Regulator, Managers. Others: Vendors (harmed), Engineers (harmed), Support engineers (harmed). |
-| `ecommerce-experience`  | 17 (4 / 5 / 8)                      | 16 of 17     | 2 / 0 / 15                               | Key: Customers, Competitor, Sellers, Regulators. Others: Delivery partners (harmed), Employees (harmed).                                                      |
-| `ai-first-support`      | 20 (5 / 3 / 12)                     | 20 of 20     | 3 / 0 / 17                               | Key: Support director, Customers (harmed), Competitors, Regulators, Engineers (mixed). Others: Support engineers (harmed).                                    |
-| `launch-pricing`        | 20 (3 / 9 / 8)                      | 20 of 20     | 2 / 1 / 17                               | Key: Executives, Customers (harmed), Competitors. Others: Partners (harmed).                                                                                  |
+| Example                 | Found (key / standard / background) | Cite a quote | Direction (wording / category / unclear) | Key groups, and the others whose direction was read from the wording                                                                                           |
+| ----------------------- | ----------------------------------- | ------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `copilot-in-teams`      | 22 (4 / 11 / 7)                     | 22 of 22     | 5 / 0 / 17                               | Key: Clients, Competitors, Regulators, Administrators. Others: Users (mixed), Finance team (harmed), Managers (mixed), Staff (harmed), Support teams (harmed). |
+| `regional-price-change` | 24 (5 / 6 / 13)                     | 24 of 24     | 5 / 0 / 19                               | Key: Sales director (harmed), Customers (harmed), Competitors, Regulator, Engineers (harmed). Others: Vendors (harmed), Support engineers (harmed).            |
+| `ecommerce-experience`  | 16 (4 / 5 / 7)                      | 15 of 16     | 2 / 0 / 14                               | Key: Customers, Competitor, Sellers, Regulators. Others: Delivery partners (harmed), Employees (harmed).                                                       |
+| `ai-first-support`      | 18 (5 / 3 / 10)                     | 18 of 18     | 3 / 0 / 15                               | Key: Support director, Customers (harmed), Competitors, Regulators, Engineers (mixed). Others: Support engineers (harmed).                                     |
+| `launch-pricing`        | 19 (3 / 9 / 7)                      | 19 of 19     | 3 / 1 / 15                               | Key: Executives, Customers (harmed), Competitors. Others: Partners (harmed), Marketing managers (harmed).                                                      |
 
 What the table shows is what the rules can and cannot do. They find the roles the sources name, with a quote
 for each, and say how sure they are: most groups in these examples are named in only a few sentences, and
@@ -209,10 +234,14 @@ the light, dark and high-contrast themes, on a desktop and on a phone.
 | Prioritise | Key (one actor of its own), standard or background (a cohort).                                                                                       |
 
 The server enforces what the screen offers: a stakeholder is never deleted; who found it cannot be changed;
-**evidence can be taken away but never added**; a merge is always visible in the record; an impact is marked
-as the person's only if they changed it; relations are assumptions whoever wrote them. A change made after
-approval **takes the approval away** until it is given again, and at least two stakeholders must remain to
-approve. Finding stakeholders again over a reviewed list asks for confirmation first.
+**evidence can be taken away but never added or rewritten**, because each cited quotation is compared whole
+(its passage, its document and the document's name, where it sits, its words and fingerprint, and whether it
+supports or contradicts), so a quotation cannot be moved to another source or turned round; a merge is always
+visible in the record; an impact is marked as the person's only if they changed it, and a direction read from
+the wording is an assumption again once every quote it was read from has been taken away; relations are
+assumptions whoever wrote them. A change made after approval **takes the approval away** until it is given
+again, and at least two stakeholders must remain to approve. Finding stakeholders again over a reviewed list
+asks for confirmation first.
 
 ## Actors
 
@@ -236,6 +265,26 @@ A cohort's spread (0.15 for every trait) is the assumed difference between its m
 moves becomes theirs, and the actor is marked _edited by you_. The server refuses an edit that adds or
 removes an actor, changes a kind or a category, makes a key actor larger than one, or makes a sample larger
 than the group it stands for.
+
+**What an impact rests on.** An impact has a direction (harmed or benefited) and a size, and they do not rest
+on the same thing. A cited passage can show which way a change points for a group, by the tone of the
+sentences about it; no passage gives a number. So the size is the documented value for the direction (see
+below) and is a **system assumption**, unless the person sets the number on the slider or a model proposes it.
+An actor whose direction was read from the wording of cited sentences says so in a separate `direction` of its
+impact (`origin: "evidence"`, with the passages it was read from, and no other trait has one), and the reason
+beside the trait reads, for example, "The direction (harmed) rests on cited passages (S1, S2); the size,
+-0.60, is a system default, not read from any passage." The sentences cited are attached to the direction and
+to nothing else.
+
+- A label of evidence is a claim about passages, so it stands only while a quote is cited. When the person takes
+  every quote of a stakeholder away, the direction becomes an assumption and says so in its reason, and the
+  actors made from it claim no source. A direction is the person's once they change it.
+- A person who moves the number keeps what the direction rests on for as long as its sign stays; flipping the
+  sign makes the direction theirs. Nothing the request says about what a direction rests on is taken.
+- The critics and the brief read the same fact: a sensitive impact appears as an assumption about its size even
+  when its direction is cited, and a direction labelled as evidence is checked against what is cited now.
+- An actor saved before direction and size were told apart, with the whole impact labelled `evidence`, is read
+  as a direction from evidence with a system default size; nothing needs to be run again.
 
 ### Category priors
 
@@ -309,10 +358,12 @@ no stakeholders yet; it is not an error.
 | `PUT  /actors`                | edit        | Edited actors and the revision you saw                                |
 
 A change made against an old revision is refused with `ARTIFACT_CONFLICT` (HTTP 409) and nothing is
-overwritten. Other refusals say what to do: `STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace
-your work), `STAKEHOLDERS_NOT_APPROVED`, `MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and
-`STAKEHOLDERS_BUSY` (one discovery or generation runs at a time for a project). Finding stakeholders and
-making actors are limited to ten a minute.
+overwritten. A review that rewrites a cited quotation (its document, the document's name, its position, its
+words or whether it supports or contradicts) is refused with `EVIDENCE_ALTERED`, and one that adds a quotation
+with `EVIDENCE_NOT_VERIFIED` (both HTTP 400, nothing is stored). Other refusals say what to do:
+`STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace your work), `STAKEHOLDERS_NOT_APPROVED`,
+`MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and `STAKEHOLDERS_BUSY` (one discovery or generation runs at a
+time for a project). Finding stakeholders and making actors are limited to ten a minute.
 
 Every change is recorded in the audit trail, in the same step as the change. The record holds **counts and
 the mode only**: never the question, the sources or a stakeholder's text.

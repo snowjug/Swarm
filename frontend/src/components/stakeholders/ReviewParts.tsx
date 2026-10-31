@@ -52,9 +52,10 @@ export function FindExplanation({ model }: { model: ModelAvailability }) {
         <dt>Asking the model</dt>
         <dd>
           Sends your source text to the model, which proposes stakeholders with quotes. Swarm checks
-          every quote against your sources: one it cannot find is dropped, and a stakeholder left
-          without a quote is marked inferred. If the model fails, Swarm reads the text for roles
-          instead and says so.
+          every quote against your sources: one it cannot find is dropped. A stakeholder left
+          without a quote is kept, marked inferred, only if your question or scenario names that
+          group; otherwise it is dropped. If the model fails, Swarm reads the text for roles instead
+          and says so.
           {!model.available && model.reason && (
             <span className="stk-hint"> Not available here: {model.reason}</span>
           )}

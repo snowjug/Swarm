@@ -96,6 +96,8 @@ export function uniqueRefs(refs: readonly EvidenceRef[]): EvidenceRef[] {
 export interface EvidenceIndex {
   documents: ReadonlyMap<string, BriefDocument>;
   forStakeholder(stakeholderId: string): EvidenceRef[];
+  /** Whether the stakeholder is in the set the brief reads, so that an empty list means it cites nothing now. */
+  has(stakeholderId: string): boolean;
   /** What the actor cites itself, with what its stakeholder cites. */
   forActor(actor: Actor): EvidenceRef[];
   /** Whether at least one cited passage supports the actor. */
@@ -122,6 +124,7 @@ export function evidenceIndex(
   return {
     documents: byDocument,
     forStakeholder,
+    has: (id) => byStakeholder.has(id),
     forActor,
     supports: (actor) => forActor(actor).some((ref) => ref.role === 'supports'),
     originOf: (ref) => documentOrigin(byDocument.get(ref.documentId)),

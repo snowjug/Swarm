@@ -6,6 +6,7 @@ import {
   flattenJson,
   jsonToText,
   plainToText,
+  STRAY_QUOTES_NOTE,
 } from '../src/ingest/url/normalize.js';
 import { fit, inline, sanitize, tidy } from '../src/ingest/url/text.js';
 
@@ -129,7 +130,7 @@ describe('CSV as readable lines', () => {
   });
 
   it('reads quoted fields, doubled quotes, line breaks inside quotes, CRLF, and a byte-order mark', () => {
-    const { text } = csvToText(
+    const { text, strayQuotes } = csvToText(
       '\ufeff"Product, name","Note"\r\n"Widget, large","He said ""hi""\r\nthen left"\r\n"A",B\r\n',
     );
     expect(text.split('\n')).toEqual([
@@ -137,6 +138,36 @@ describe('CSV as readable lines', () => {
       'Row 1: Product, name: Widget, large | Note: He said "hi" then left',
       'Row 2: Product, name: A | Note: B',
     ]);
+    expect(strayQuotes).toBe(false);
+  });
+
+  it('reads a quote after the spaces that follow a delimiter as the start of a quoted field', () => {
+    const { text, strayQuotes } = csvToText(
+      '"LatD", "LatM", "City"\n41, 5, "Youngstown, OH"\n42,  52,\t"Yankton"\n',
+    );
+    expect(text.split('\n')).toEqual([
+      'Columns: LatD | LatM | City',
+      'Row 1: LatD: 41 | LatM: 5 | City: Youngstown, OH',
+      'Row 2: LatD: 42 | LatM: 52 | City: Yankton',
+    ]);
+    expect(strayQuotes).toBe(false);
+    expect(csvToText('a;b\n1; "x;y"').text).toBe('Columns: a | b\nRow 1: a: 1 | b: x;y');
+    expect(csvToText('a\tb\n1\t "x y"').text).toBe('Columns: a | b\nRow 1: a: 1 | b: x y');
+  });
+
+  it('keeps a quote that does not open a field as text, and says so', () => {
+    for (const source of [
+      'a,b\n5" pipe,2\n',
+      'a,b\n"x" "y",2\n',
+      'a,b\nab"c,2\n',
+      'a,b\n"x"y",2\n',
+    ]) {
+      const read = csvToText(source);
+      expect(read.strayQuotes, source).toBe(true);
+      expect(read.text, source).toContain('"');
+    }
+    expect(csvToText('a,b\n5" pipe,2\n').text).toBe('Columns: a | b\nRow 1: a: 5" pipe | b: 2');
+    expect(STRAY_QUOTES_NOTE).toContain('quotation marks');
   });
 
   it.each([
@@ -291,6 +322,15 @@ describe('the text helpers', () => {
     // Never cut inside a pair of surrogates.
     const emoji = fit('\u{1F600}'.repeat(200), 150);
     expect(emoji.text).not.toMatch(/\p{Surrogate}/u);
+  });
+
+  it('fit gives a text that was read only in part the same notice, with no cut when it fits', () => {
+    const notice = '[Swarm shortened this page: only the beginning was kept.]';
+    expect(fit('short', 200, true)).toEqual({ text: `short\n\n${notice}`, truncated: true });
+    const nearly = fit(`${'line\n'.repeat(190)}end`, 1_000, true);
+    expect(nearly.text.length).toBeLessThanOrEqual(1_000);
+    expect(nearly.text.endsWith(notice)).toBe(true);
+    expect(fit('x'.repeat(500), 100, true).text.length).toBeLessThanOrEqual(100);
   });
 });
 

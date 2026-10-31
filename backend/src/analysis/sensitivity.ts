@@ -6,8 +6,9 @@ import type {
   Simulator,
   Variant,
 } from '../../../shared/analysis.js';
-import type { Actor } from '../../../shared/stakeholders.js';
+import type { Actor, TraitKey } from '../../../shared/stakeholders.js';
 import { isSetByPerson } from '../../../shared/analysis-plan.js';
+import { effectiveTrait } from '../../../shared/signal.js';
 import { mean, pairedDifferences, round4, standardError } from './stats.js';
 
 /**
@@ -15,6 +16,11 @@ import { mean, pairedDifferences, round4, standardError } from './stats.js';
  * again, and compare each perturbed run with the unperturbed run of that seed. Because the seeds are
  * the same, the random draws are the same, so the difference is the effect of the assumption and the
  * remaining noise is that of the pairs, not of two unrelated runs (common random numbers).
+ *
+ * An assumption is moved where the run reads it. A scenario can set a trait of an actor itself (an
+ * impact override, or an edit of a trait), and that value then governs the run, so a move of the
+ * actor's own value would change nothing: the move starts from the value that governs the run and is
+ * made to the setting that holds it.
  */
 
 export const SENSITIVITY_TOP_ACTORS = 4;
@@ -49,11 +55,16 @@ export interface Perturbation {
   /** The change made: an amount for a trait, a share for the intensity, a factor less one for the spread. */
   perturbation: number;
   origin: SensitivityRow['assumptionOrigin'];
+  /** Where the value that was moved is set, when the proposed change sets it and not the actor. */
+  setting?: SensitivityRow['setting'];
   apply: (spec: SimulationSpec) => SimulationSpec;
 }
 
 const clamp = (value: number, low: number, high: number): number =>
   Math.min(high, Math.max(low, value));
+
+const clip = (text: string, max: number): string =>
+  text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 
 function withActor(spec: SimulationSpec, actorId: string, change: (actor: Actor) => Actor) {
   return {
@@ -86,13 +97,57 @@ function scaleSpread(actor: Actor, factor: number): Actor {
   return { ...actor, traits };
 }
 
-const byInfluence = (a: Actor, b: Actor): number =>
-  b.traits.influence.value - a.traits.influence.value || a.id.localeCompare(b.id);
+/** Which setting holds the value of a trait in a run of this scenario: its override of an impact, its edit, or the actor's own. */
+function holderOf(
+  variant: Pick<Variant, 'impactOverrides' | 'traitEdits'>,
+  actorId: string,
+  trait: TraitKey,
+): 'override' | 'edit' | 'actor' {
+  if (trait === 'impact' && variant.impactOverrides[actorId] !== undefined) return 'override';
+  return variant.traitEdits.some((edit) => edit.actorId === actorId && edit.trait === trait)
+    ? 'edit'
+    : 'actor';
+}
+
+/** The setting that holds a trait of an actor, set to `value`: the one thing that changes in the spec. */
+function withHeldValue(
+  spec: SimulationSpec,
+  actorId: string,
+  trait: PerturbedTrait,
+  value: number,
+): SimulationSpec {
+  const { variant } = spec;
+  switch (holderOf(variant, actorId, trait)) {
+    case 'override':
+      return {
+        ...spec,
+        variant: { ...variant, impactOverrides: { ...variant.impactOverrides, [actorId]: value } },
+      };
+    case 'edit': {
+      // The last edit of a trait is the one that counts, so it is the one that moves.
+      const last = variant.traitEdits.findLastIndex(
+        (edit) => edit.actorId === actorId && edit.trait === trait,
+      );
+      return {
+        ...spec,
+        variant: {
+          ...variant,
+          traitEdits: variant.traitEdits.map((edit, at) =>
+            at === last ? { ...edit, value } : edit,
+          ),
+        },
+      };
+    }
+    default:
+      return withActor(spec, actorId, (target) => withTrait(target, trait, value));
+  }
+}
 
 /**
  * The assumptions to move: four traits of the most influential actors, the intensity of the proposed
- * change, and how varied the members of the most influential cohorts are. A move that clamping
- * turns into no move at all is left out.
+ * change, and how varied the members of the most influential cohorts are. The actors are ranked and the
+ * traits moved from the values the proposed change runs with, that is, after its own overrides and
+ * edits. A move that clamping turns into no move at all is left out.
  */
 export function planPerturbations(
   actors: readonly Actor[],
@@ -100,22 +155,42 @@ export function planPerturbations(
 ): Perturbation[] {
   if (!proposed) return [];
   const planned: Perturbation[] = [];
-  const ranked = [...actors].sort(byInfluence);
+  const influence = (actor: Actor): number => effectiveTrait(actor, proposed, 'influence');
+  const ranked = [...actors].sort(
+    (a, b) => influence(b) - influence(a) || a.id.localeCompare(b.id),
+  );
 
   for (const actor of ranked.slice(0, SENSITIVITY_TOP_ACTORS)) {
     for (const trait of PERTURBED_TRAITS) {
+      const current = effectiveTrait(actor, proposed, trait);
+      const holder = holderOf(proposed, actor.id, trait);
       for (const direction of [1, -1] as const) {
-        const current = actor.traits[trait].value;
         const moved = clamp(current + direction * TRAIT_STEP, trait === 'impact' ? -1 : 0, 1);
         const change = round4(moved - current);
         if (Math.abs(change) < 1e-9) continue;
+        const size = `${Math.abs(change)} ${direction > 0 ? 'higher' : 'lower'}`;
         planned.push({
           id: `trait-${actor.id}-${trait}-${direction > 0 ? 'up' : 'down'}`,
           target: { kind: 'trait', actorId: actor.id, trait },
-          label: `${actor.name}: ${TRAIT_WORDS[trait]}, ${Math.abs(change)} ${direction > 0 ? 'higher' : 'lower'}`,
+          label:
+            holder === 'actor'
+              ? `${actor.name}: ${TRAIT_WORDS[trait]}, ${size}`
+              : clip(
+                  `${actor.name}: ${TRAIT_WORDS[trait]}, as ${proposed.label} sets it (${round4(current)}), ${size}`,
+                  200,
+                ),
           perturbation: change,
-          origin: actor.traits[trait].origin,
-          apply: (spec) => withActor(spec, actor.id, (target) => withTrait(target, trait, moved)),
+          // A value that the scenario sets is the one its author wrote, whatever the actor's own says.
+          origin: holder === 'actor' ? actor.traits[trait].origin : 'user',
+          ...(holder === 'actor'
+            ? {}
+            : {
+                setting: {
+                  source: holder === 'override' ? 'scenario-override' : 'scenario-edit',
+                  value: round4(current),
+                },
+              }),
+          apply: (spec) => withHeldValue(spec, actor.id, trait, moved),
         });
       }
     }
@@ -222,6 +297,7 @@ export async function runSensitivity(input: {
       standardError: round4(noise),
       classification: classifySensitivity(shift, noise),
       assumptionOrigin: perturbation.origin,
+      ...(perturbation.setting ? { setting: perturbation.setting } : {}),
     });
   }
   rows.sort(

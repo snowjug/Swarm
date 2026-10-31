@@ -8,7 +8,7 @@ import {
   type AnalysisReadiness,
   type StartAnalysisInput,
 } from '../../../../shared/analysis-plan';
-import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../../../shared/signal';
 import { ESTIMATE_BASIS, describeEdit, estimateText, setupProblems } from '../../lib/analysis';
 import { Notice, Spinner } from '../ui';
 
@@ -126,9 +126,9 @@ function VariantRow({
 }
 
 /**
- * What a person is told before running that does not stop them. Where nothing can move anyone, a
- * comparison is still a fair test of how much the simulation varies by chance, so it stays allowed, with
- * the way to say who is helped or harmed beside the warning.
+ * What a person is told before running that does not stop them. Where nobody has a direction of impact,
+ * a comparison still runs, and what it shows is said before it is read: either that nothing can move, or
+ * that what moves follows from an assumed spread, with the way to say who is helped or harmed beside it.
  */
 function Warnings({
   warnings,
@@ -139,12 +139,17 @@ function Warnings({
 }) {
   return (
     <>
-      {warnings.map((warning) =>
-        warning === NO_DIRECTION_NOTICE ? (
+      {warnings.map((warning) => {
+        const stuck = warning === NO_DIRECTION_NOTICE;
+        return stuck || warning === UNDIRECTED_NOTICE ? (
           <Notice
             key={warning}
             tone="warning"
-            title="Nothing in this change can move anyone yet"
+            title={
+              stuck
+                ? 'Nothing in this change can move anyone yet'
+                : 'No stakeholder has an expected direction yet'
+            }
             action={
               onOpenStep ? (
                 <button
@@ -157,15 +162,17 @@ function Warnings({
               ) : undefined
             }
           >
-            {warning} You can still run it: with nothing to move, it shows only how much the
-            simulation varies by chance.
+            {warning}{' '}
+            {stuck
+              ? 'You can still run it: with nothing to move, it shows only how much the simulation varies by chance.'
+              : 'You can still run it: what it shows follows from those assumptions, and says nothing yet about who gains or loses.'}
           </Notice>
         ) : (
           <Notice key={warning} tone="warning">
             {warning}
           </Notice>
-        ),
-      )}
+        );
+      })}
     </>
   );
 }

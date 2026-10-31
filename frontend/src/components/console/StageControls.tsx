@@ -4,7 +4,16 @@ import type { ProjectDetail } from '../../../../shared/types';
 import { canExecute, stepLabels, stepStatus } from '../../lib/console';
 import { Spinner } from '../ui';
 
-export function StageStatus({ project, step }: { project: ProjectDetail; step: ExecutionStep }) {
+export function StageStatus({
+  project,
+  step,
+  label,
+}: {
+  project: ProjectDetail;
+  step: ExecutionStep;
+  /** What the status is of, where that is only a part of the stage. */
+  label?: string;
+}) {
   const status = stepStatus(project, step);
   return (
     <div className={`stage-state state-${status ?? 'unknown'}`}>
@@ -15,7 +24,7 @@ export function StageStatus({ project, step }: { project: ProjectDetail; step: E
       )}
       <div>
         <strong>
-          {stepLabels[step]} · {status ?? 'not recorded'}
+          {label ?? stepLabels[step]} · {status ?? 'not recorded'}
         </strong>
         <p>
           {status === 'paused'
@@ -43,18 +52,21 @@ export function RunStepButton({
   busy,
   onRun,
   label,
+  variant = 'primary',
 }: {
   project: ProjectDetail;
   step: ExecutionStep;
   busy: boolean;
   onRun: (step: ExecutionStep) => void;
   label?: string;
+  /** Secondary where the stage has another action that leads, so that it has one main button. */
+  variant?: 'primary' | 'secondary';
 }) {
   if (!canExecute(project, step)) return null;
   const retry = ['failed', 'cancelled'].includes(stepStatus(project, step) ?? '');
   return (
     <button
-      className="button button-primary"
+      className={`button button-${variant}`}
       type="button"
       disabled={busy}
       onClick={() => onRun(step)}

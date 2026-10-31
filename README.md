@@ -17,73 +17,11 @@ its browser sign-in has only met a test identity provider, and it is not ready f
 [Honest limitations](#honest-limitations) and the
 [production-readiness gates](./docs/production-readiness.md) say what that means.
 
-**Judges and first-time readers:** run the [quick start](#quick-start) (rules mode, a few minutes),
-pick **Copilot in Teams** in the example picker, and follow the [demo guide](./docs/demo/README.md),
-which scripts a ten-minute walk-through of the four flagship demos.
-
-## What Swarm is, and is not
-
-| Swarm is                                                                                            | Swarm is not                                                                                                           |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| A way to **explore** what a set of stated assumptions could imply, with the evidence beside it      | A forecast. It never claims to predict, and its wording and exports say so                                             |
-| Generic: the engine, the stakeholder step and the brief contain no market, product or industry code | An e-commerce tool, a Microsoft tool or an AWS tool. Those are demo packs, and tests keep domain words out of the code |
-| Honest about numbers: results are **simulated counts under stated assumptions**                     | A source of real-world rates. A count is never a conversion, churn, share, adoption or sentiment rate                  |
-| Built on **synthetic actors** that stand in for groups, with every trait labelled by its origin     | A panel of real people. Actors are not people, and a group's size in the model is an assumption, not a measurement     |
-| Explicit about where each statement comes from: evidence, assumption, simulation or interpretation  | A black box. Nothing in a brief is unsourced, and an unsupported statement is shown as uncertainty                     |
-| Useful without a model: every step has a rules path, and a model is optional and never silent       | Dependent on a model, or on any cloud service                                                                          |
-
-## From a question to a decision
-
-Every step is a real screen, backed by a stored, validated document and covered by tests. The
-[user guide](./docs/USER_GUIDE.md) walks the screens; [ADR 0014](./docs/adr/0014-scenario-lab.md)
-records why it is built this way.
-
-| #   | Step                            | What Swarm does                                                                                                                                                                                                                          |
-| --- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Question**                    | You write a "What could happen if…?" question. **Understand my question** reads it into an editable scenario: the decision, what changes, the baseline, alternatives, assumptions, and at most three questions it needs answered         |
-| 2   | **Evidence**                    | Uploaded files (text, Markdown, CSV, JSON, text PDF), pasted notes or a **public web page** that the server fetches. Text becomes numbered passages (S1, S2, …), each document keeps its provenance, and conflicting figures are flagged |
-| 3   | **Scenario**                    | The frame you settled on is stored with the project. It defines the baseline and each alternative that the later runs compare                                                                                                            |
-| 4   | **Stakeholders**                | Found in the evidence by reading the text, or with a model. Each has cited quotes and an uncertainty level. You accept, edit, merge, remove, add and prioritise, then approve. Missing kinds of stakeholder are listed as gaps           |
-| 5   | **Synthetic actors**            | A key actor for each key stakeholder and a cohort of simulated members for the others. Every trait says where it came from (evidence, you, a system assumption or a model) and why, and you can change it                                |
-| 6   | **Interactions**                | Each simulated member's stance is pulled, round by round, by how the change lands on it, by its own traits and by the actors it listens to, through typed relations (influences, competes with, supplies, and so on)                     |
-| 7   | **Interventions**               | The change lands in a chosen round at a stated intensity, for the baseline and for each alternative. The optional deep dive adds pause, a scheduled intervention, branching from a checkpoint and run comparison                         |
-| 8   | **Second-order effects**        | Competitors, substitutes, partners and regulators react after a lag to generic signals in the run. A chain of "because … then …" events is read back from one typical run. No reaction is scripted for any example                       |
-| 9   | **Alternative outcomes**        | For every scenario, how many simulated members ended up going along, accepting with conditions, waiting, adapting, looking for an alternative or resisting, and how that spreads over the seeded runs                                    |
-| 10  | **Uncertainty and sensitivity** | Each finding is "holds in k of n seeded runs" with a 95% interval and a stability class. Sensitivity moves one assumption at a time on the same seeds and compares the shift with the noise                                              |
-| 11  | **Independent critique**        | Seven critics (evidence, assumption, methodology, stakeholder coverage, bias, recommendation, adversarial) challenge the analysis. They never edit it. You respond, accept or dispute, and the disagreement stays visible                |
-| 12  | **Decision-ready analysis**     | An answer-first brief in 17 sections, assembled from data. Every statement carries one of ten origins and the ids it rests on                                                                                                            |
-| 13  | **Recommendations**             | Each follows from at least one finding, with priority, impact, effort, reversibility, horizon, an owner function, leading indicators and how to check it                                                                                 |
-| 14  | **Real-world validation plan**  | Experiments that would test what the result depends on most: the question, the method, the success signal, the effort and the duration                                                                                                   |
-
-**Reading a result honestly.** Four rules cover most of it.
-
-1. A number is a count of simulated members or of seeded runs, never a rate in a real population.
-2. "Holds in k of n seeded runs" measures how repeatable the simulation is under its own
-   assumptions. It is not the probability that the event happens.
-3. An outcome is exactly as well founded as the assumptions it ran on. The sensitivity view shows
-   which assumptions the result moves with, and which of those have no evidence behind them.
-4. A critic that raises nothing does not show that the analysis is right. A critic checks only what
-   it can see.
-
-The ten origins a brief statement can carry are never merged: the label travels with the statement.
-
-| Origin                        | What it means                                                                    |
-| ----------------------------- | -------------------------------------------------------------------------------- |
-| **Supplied evidence**         | A passage from a document that was uploaded or pasted                            |
-| **Retrieved public evidence** | A passage from a page that this server fetched. Swarm has not checked it is true |
-| **User assumption**           | A setting a person typed, edited or added                                        |
-| **System assumption**         | A default Swarm filled in, or a property of the method. Open to edit             |
-| **Inferred stakeholder**      | A stakeholder worked out from the sources                                        |
-| **Actor behaviour**           | What a simulated actor did in the simulation                                     |
-| **Simulation aggregation**    | A count or comparison over seeded runs                                           |
-| **Model interpretation**      | A reading of a finding by a model                                                |
-| **Historical comparison**     | A document whose provenance marks it as a record of what happened before (API)   |
-| **Unresolved uncertainty**    | What is not known. It cites nothing, and names what is missing                   |
-
-![A source graph entity with the quote the server checked against its passage](./docs/assets/swarm-graph-inspector.png)
-
-_The optional deep dive on the recorded fictional Larkholm demonstration: every graph entity carries
-a quote that the server has checked, character for character, against the passage it cites._
+**Three-minute judge path:** Swarm explores scenarios; it does not predict. Run the
+[quick start](#quick-start) below (rules mode, no key, no model), choose **Copilot in Teams** in the
+example picker, and follow **The first demo**. Treat every result as a simulated count under stated
+assumptions, and read the [four rules for reading a result](#from-a-question-to-a-decision) before acting on one.
+The [demo guide](./docs/demo/README.md) scripts a ten-minute walk-through of the four flagship demos.
 
 ## Quick start
 
@@ -126,6 +64,73 @@ keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is 
    itself), then **Generate decision brief** and **Run independent review**.
 
 The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
+
+## What Swarm is, and is not
+
+| Swarm is                                                                                            | Swarm is not                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A way to **explore** what a set of stated assumptions could imply, with the evidence beside it      | A forecast. It never claims to predict, and its wording and exports say so                                             |
+| Generic: the engine, the stakeholder step and the brief contain no market, product or industry code | An e-commerce tool, a Microsoft tool or an AWS tool. Those are demo packs, and tests keep domain words out of the code |
+| Honest about numbers: results are **simulated counts under stated assumptions**                     | A source of real-world rates. A count is never a conversion, churn, share, adoption or sentiment rate                  |
+| Built on **synthetic actors** that stand in for groups, with every trait labelled by its origin     | A panel of real people. Actors are not people, and a group's size in the model is an assumption, not a measurement     |
+| Explicit about where each statement comes from: evidence, assumption, simulation or interpretation  | A black box. Nothing in a brief is unsourced, and an unsupported statement is shown as uncertainty                     |
+| Useful without a model: every step has a rules path, and a model is optional and never silent       | Dependent on a model, or on any cloud service                                                                          |
+
+## From a question to a decision
+
+Every step is a real screen, backed by a stored, validated document and covered by tests. The
+[user guide](./docs/USER_GUIDE.md) walks the screens; [ADR 0014](./docs/adr/0014-scenario-lab.md)
+records why it is built this way.
+
+| #   | Step                            | What Swarm does                                                                                                                                                                                                                          |
+| --- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Question**                    | You write a "What could happen if…?" question. **Understand my question** reads it into an editable scenario: the decision, what changes, the baseline, alternatives, assumptions, and at most three questions it needs answered         |
+| 2   | **Evidence**                    | Uploaded files (text, Markdown, CSV, JSON, text PDF), pasted notes or a **public web page** that the server fetches. Text becomes numbered passages (S1, S2, …), each document keeps its provenance, and conflicting figures are flagged |
+| 3   | **Scenario**                    | The frame you settled on is stored with the project. It defines the baseline and each alternative that the later runs compare                                                                                                            |
+| 4   | **Stakeholders**                | Found in the evidence by reading the text, or with a model. Each has cited quotes and an uncertainty level. You accept, edit, merge, remove, add and prioritise, then approve. Missing kinds of stakeholder are listed as gaps           |
+| 5   | **Synthetic actors**            | A key actor for each key stakeholder and a cohort of simulated members for the others. Every trait says where it came from (evidence, you, a system assumption or a model) and why, and you can change it                                |
+| 6   | **Interactions**                | Each simulated member's stance is pulled, round by round, by how the change lands on it, by its own traits and by the actors it listens to, through typed relations (influences, competes with, supplies, and so on)                     |
+| 7   | **Interventions**               | The change lands in a chosen round at a stated intensity, for the baseline and for each alternative. The optional deep dive adds pause, a scheduled intervention, branching from a checkpoint and run comparison                         |
+| 8   | **Second-order effects**        | Competitors, substitutes, partners and regulators react after a lag to generic signals in the run. One typical run is read back event by event, with what each acted on. No reaction is scripted for any example                         |
+| 9   | **Alternative outcomes**        | For every scenario, how many simulated members ended up going along, accepting with conditions, waiting, adapting, looking for an alternative or resisting, and how that spreads over the seeded runs                                    |
+| 10  | **Uncertainty and sensitivity** | Each finding is "holds in k of n seeded runs" with a 95% interval and a stability class. Sensitivity moves one assumption at a time on the same seeds and compares the shift with the noise                                              |
+| 11  | **Independent critique**        | Seven critics (evidence, assumption, methodology, stakeholder coverage, bias, recommendation, adversarial) challenge the analysis. They never edit it. You respond, accept or dispute, and the disagreement stays visible                |
+| 12  | **Decision-ready analysis**     | An answer-first brief in 17 sections, assembled from data. Every statement carries one of ten origins and the ids it rests on                                                                                                            |
+| 13  | **Recommendations**             | Each rests on the findings, evidence or critiques it names, with the origin it can stand behind, priority, impact, effort, reversibility, horizon, an owner function, leading indicators and how to check it                             |
+| 14  | **Real-world validation plan**  | Checks of what the headline depends on, each in the scenario's own words: what to observe, what to compare it with, the method, a decision rule left for you to set, who runs it, the effort and the duration                            |
+
+**Reading a result honestly.** Four rules cover most of it.
+
+1. Outcome counts are synthetic; other figures are model scores, seeded-run proportions or stated
+   assumptions; none is a measured population rate. The brief leads with a share of simulated members,
+   every group counting equally, because the count of simulated members depends on how many members
+   were sampled for each group: a numerical resolution, not a population.
+2. "Holds in k of n seeded runs" measures how repeatable the simulation is under its own
+   assumptions. It is not the probability that the event happens.
+3. An outcome is exactly as well founded as the assumptions it ran on. The sensitivity view shows
+   which assumptions the result moves with, and which of those have no evidence behind them.
+4. A critic that raises nothing does not show that the analysis is right. A critic checks only what
+   it can see.
+
+The ten origins a brief statement can carry are never merged: the label travels with the statement.
+
+| Origin                        | What it means                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| **Supplied evidence**         | A passage from a document that was uploaded or pasted                            |
+| **Retrieved public evidence** | A passage from a page that this server fetched. Swarm has not checked it is true |
+| **User assumption**           | A setting a person typed, edited or added                                        |
+| **System assumption**         | A default Swarm filled in, or a property of the method. Open to edit             |
+| **Inferred stakeholder**      | A stakeholder worked out from the sources                                        |
+| **Actor behaviour**           | What a simulated actor did in the simulation                                     |
+| **Simulation aggregation**    | A count or comparison over seeded runs                                           |
+| **Model interpretation**      | A reading of a finding by a model                                                |
+| **Historical comparison**     | A document whose provenance marks it as a record of what happened before (API)   |
+| **Unresolved uncertainty**    | What is not known. It cites nothing, and names what is missing                   |
+
+![A source graph entity with the quote the server checked against its passage](./docs/assets/swarm-graph-inspector.png)
+
+_The optional deep dive on the recorded fictional Larkholm demonstration: every graph entity carries
+a quote that the server has checked, character for character, against the passage it cites._
 
 ## The four flagship demos
 
@@ -240,11 +245,14 @@ document needs at least 80 characters. Then **Understand my question** and steps
   and answer or skip each question back.
 - **Check the stakeholders.** They are only as good as the text: the rules find the roles that a text
   names with a role word. Read the "Perspectives that may be missing" list against your question and
-  add the groups that matter yourself. A page that needs JavaScript is refused, with a message that
-  offers to let you paste the text.
+  add the groups that matter yourself. **Before approving, keep or add at least two stakeholders**: a
+  simulation needs more than one party, and **Approve stakeholders and create actors** stays disabled
+  until there are two. If the page names fewer, choose **Add a stakeholder** until the list has two,
+  label each added group as your assumption, and set an impact only where your evidence supports it. A
+  page that needs JavaScript is refused, with a message that offers to let you paste the text.
 - **Read it honestly.** Nothing was planted: no conflict, no gap, no direction. Where the rules find
   no wording that shows a group being helped or harmed, that group has no direction of impact, and
-  if no group has one the comparison warns that the change cannot move anyone. Say who is affected,
+  if no group has one the comparison warns that nobody has an expected direction of impact. Say who is affected,
   in the stakeholder review, only where your evidence supports it.
 
 **Optional deep dive and the recorded run.** Each project also keeps the engine's five stages:
@@ -446,6 +454,10 @@ server process and are marked interrupted if it stops). The wider picture is in 
 - **Limited scale.** A comparison is capped at 8 scenarios, 200 runs each and 2,400 runs in all. The
   deep dive takes 4 to 10 model-driven actors over 3 to 10 rounds, and only runs of up to six actors
   and six rounds were exercised live.
+- **The PostgreSQL adapter waits on every query.** Its bridge makes each statement synchronously on the
+  thread that serves requests, so a slow remote database slows every request, and a production
+  deployment needs it replaced by a pooled asynchronous client (a performance review measured project
+  creation about 20 times slower on the in-process PostgreSQL of the tests than on SQLite).
 - **A public page is what it said.** No JavaScript runs, no PDFs, images or sign-in pages are read,
   and Swarm does not know whether a page is true, current or the same for everyone.
 - **Not hosted, and unreviewed.** Sign-in has only met a test provider, PostgreSQL has not met a

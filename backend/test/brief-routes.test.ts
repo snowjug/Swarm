@@ -13,6 +13,7 @@ import { policyFor, ROUTE_POLICY } from '../src/auth/policy.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import type { Repository } from '../src/storage/repository.js';
 import { BRIEF_CSP } from '../src/brief/export.js';
+import { BriefService } from '../src/brief/service.js';
 import { fixtureInput, testConfig } from './fixtures.js';
 import { critiquesFixture } from './support/brief-world.js';
 import {
@@ -62,6 +63,7 @@ describe('reading the brief of a project that has none', () => {
     expect(empty.json()).toEqual({
       brief: null,
       visuals: null,
+      visualsFrom: null,
       latestAnalysis: null,
       changedSince: [],
       may: { generate: true, export: true },
@@ -139,11 +141,15 @@ describe('making the brief', () => {
     expect(body.brief?.sections).toHaveLength(17);
     expect(body.brief?.question).toBe(fixtureInput().question);
     expect(body.visuals?.analysisId).toBe('analysis-1');
+    // The charts are the ones the brief was made with, kept with it and handed out once.
+    expect(body.visualsFrom).toBe('snapshot');
+    expect(body.brief).not.toHaveProperty('snapshot');
     expect(body.changedSince).toEqual([]);
     expect(body.may).toEqual({ generate: true, export: true });
     const stored = repository.artifacts.get(project.id, 'brief');
     expect(stored?.revision).toBe(1);
     expect(decisionBriefSchema.safeParse(stored?.data).success).toBe(true);
+    expect(stored?.data.snapshot).toEqual(body.visuals);
     expect(stored?.data.inputRevisions).toEqual({
       scenario: 1,
       stakeholders: 1,
@@ -202,8 +208,36 @@ describe('making the brief', () => {
     repository.artifacts.delete(project.id, 'analysis', 'analysis-1');
     const gone = await view();
     expect(gone.changedSince).toContain('analysis (no longer stored)');
-    expect(gone.visuals).toBeNull();
+    // The charts were kept with the brief, so they outlast the comparison they were drawn from.
+    expect(gone.visualsFrom).toBe('snapshot');
+    expect(gone.visuals?.analysisId).toBe('analysis-1');
     expect(gone.brief).not.toBeNull();
+  });
+
+  it('judges the scenario, the stakeholders and the actors by what the comparison recorded, not by when the brief was written', async () => {
+    const { post, view, repository, project } = await localWorld();
+    holdAnalysis(repository, project.id);
+    repository.artifacts.put(
+      project.id,
+      'analysis',
+      'analysis-1',
+      analysisFixture({ inputRevisions: { scenario: 1, stakeholders: 1, actors: 1 } }),
+    );
+    // The scenario was edited after the comparison ran and before the brief was written.
+    repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+    await post();
+    expect(repository.artifacts.get(project.id, 'brief')?.data.inputRevisions.scenario).toBe(2);
+    expect((await view()).changedSince).toEqual(['scenario']);
+  });
+
+  it('judges a comparison that recorded nothing by the brief’s own record of what it was made from', async () => {
+    const { post, view, repository, project } = await localWorld();
+    holdAnalysis(repository, project.id);
+    repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+    await post();
+    expect((await view()).changedSince).toEqual([]);
+    repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+    expect((await view()).changedSince).toEqual(['scenario']);
   });
 
   it('never reads an analysis of another project', async () => {
@@ -214,6 +248,22 @@ describe('making the brief', () => {
     expect(refused.statusCode).toBe(404);
     expect(refused.json().error.code).toBe('ANALYSIS_NOT_FOUND');
     expect(app).toBeDefined();
+  });
+});
+
+describe('a brief too large to keep the data of its charts with it', () => {
+  it('is stored without it, and the page and the exports then say they draw from the project as it is', async () => {
+    const { get, view, repository, project } = await localWorld();
+    holdAnalysis(repository, project.id);
+    new BriefService(repository, () => new Date(), 1_000).generate(project.id);
+    const stored = repository.artifacts.get(project.id, 'brief');
+    expect(stored?.data.sections).toHaveLength(17);
+    expect(stored?.data.snapshot).toBeUndefined();
+
+    const shown = await view();
+    expect(shown.visualsFrom).toBe('current');
+    expect(shown.visuals?.analysisId).toBe('analysis-1');
+    expect((await get('/export?format=json')).json().provenance.dataFrom).toBe('current');
   });
 });
 
@@ -260,9 +310,13 @@ describe('handing the brief over', () => {
       repository.artifacts.get(project.id, 'brief')?.data.generatedAt,
     );
     expect(json.provenance.exportedAt).toMatch(/^\d{4}-\d\d-\d\dT/u);
-    expect(decisionBriefSchema.parse(json.brief)).toEqual(
-      repository.artifacts.get(project.id, 'brief')?.data,
-    );
+    // The brief as it is stored, with the data of its tables set beside it, not inside it.
+    const { snapshot, ...kept } = repository.artifacts.get(project.id, 'brief')!.data;
+    expect(decisionBriefSchema.parse(json.brief)).toEqual(kept);
+    expect(json.data).toEqual(snapshot);
+    expect(json.provenance.dataFrom).toBe('snapshot');
+    expect(json.changedSince).toEqual([]);
+    expect(json.warning).toBeNull();
     expect(json.data.scenarioComparison).toHaveLength(1);
   });
 

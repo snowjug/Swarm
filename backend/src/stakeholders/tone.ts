@@ -438,13 +438,13 @@ export function countDirections(
 export function describeDirections(counts: DirectionCounts, noun: string): string {
   if (counts.total === 0) return '';
   if (counts.unclear === counts.total) {
-    return `No direction of impact could be read from the wording: all ${counts.total} ${noun} are unclear, so the change cannot move any of them until a person says who is helped or harmed.`;
+    return `No direction of impact could be read from the wording: all ${counts.total} ${noun} are unclear, so none of them is assumed to be helped or harmed until a person says who is.`;
   }
   const parts = [
     `${counts.wording} of ${counts.total} ${noun} have a direction of impact read from the wording of their cited sentences`,
     ...(counts.stated > 0 ? [`${counts.stated} were set by a model or a person`] : []),
     ...(counts.category > 0 ? [`${counts.category} take the default of their category`] : []),
-    `${counts.unclear} remain unclear, so the change cannot move them`,
+    `${counts.unclear} remain unclear, so none of them is assumed to be helped or harmed`,
   ];
   return `${parts.join('; ')}.`;
 }

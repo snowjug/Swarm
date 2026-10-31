@@ -7,7 +7,7 @@ import {
 } from '../../../shared/brief.js';
 import { gatherFacts, type BriefInputs } from './facts.js';
 import { lintText, mentionsSimulated } from './lint.js';
-import { recommend } from './recommend.js';
+import { advise } from './recommend.js';
 import {
   decision,
   evidenceBase,
@@ -33,7 +33,7 @@ import {
   secondOrder,
 } from './sections-simulation.js';
 import { clip } from './text.js';
-import { validationPlan } from './validation.js';
+import { planChecks, type PlannedCheck } from './validation.js';
 import type { Tally } from './writer.js';
 
 export type { BriefConflict, BriefInputs, BriefLedgerSummary } from './facts.js';
@@ -67,9 +67,23 @@ function guardRecommendations(recommendations: Recommendation[], tally: Tally): 
   });
 }
 
+/** The checks as the stored brief holds them: without what only the brief's own sections need. */
+const experimentOf = ({
+  keys: _keys,
+  refs: _refs,
+  gist: _gist,
+  ...experiment
+}: PlannedCheck): ValidationExperiment => experiment;
+
 function guardPlan(plan: ValidationExperiment[], tally: Tally): ValidationExperiment[] {
   return plan.map((experiment) => {
-    const rules = rulesOf([experiment.question, experiment.method, experiment.successSignal]);
+    const rules = rulesOf([
+      experiment.question,
+      experiment.method,
+      experiment.successSignal,
+      experiment.measure,
+      experiment.comparison,
+    ]);
     if (rules.length === 0) return experiment;
     tally.withheld += 1;
     return {
@@ -77,6 +91,8 @@ function guardPlan(plan: ValidationExperiment[], tally: Tally): ValidationExperi
       question: `A check was withheld because its wording broke the guard (${rules.join(', ')}).`,
       method: 'See the assumption or finding it was meant to test.',
       successSignal: 'Not stated.',
+      measure: '',
+      comparison: '',
     };
   });
 }
@@ -92,9 +108,14 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
   const { analysis } = facts;
   const tally: Tally = { withheld: 0, downgraded: 0 };
 
-  const { section: executive, headline } = executiveAnswer(facts, tally);
-  const recommendations = guardRecommendations(recommend(facts), tally);
-  const plan = guardPlan(validationPlan(facts), tally);
+  const advice = advise(facts);
+  const planned = planChecks(facts);
+  const recommendations = guardRecommendations(
+    advice.map((entry) => entry.recommendation),
+    tally,
+  );
+  const plan = guardPlan(planned.map(experimentOf), tally);
+  const { section: executive, headline } = executiveAnswer(facts, tally, { advice, plan: planned });
   const limitations = limitationItems(facts);
 
   const sections = [
@@ -110,8 +131,8 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
     assumptionsSection(facts, tally),
     uncertainty(facts, tally),
     risksOpportunities(facts, tally),
-    recommendationsSection(facts, recommendations, tally),
-    validationSection(plan, tally, facts.signal.state),
+    recommendationsSection(facts, advice, recommendations, tally),
+    validationSection(planned, plan, tally, facts.signal.state),
     sources(facts, tally),
     limitationsSection(limitations, tally),
     technicalAppendix(facts, tally),
@@ -119,12 +140,18 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
 
   const notes = [
     'Every statement is assembled by rules from the stored analysis, stakeholders, scenario and sources; no model wrote any of it.',
-    'A finding is a count of the seeded runs in which a statement held, with a Wilson interval for that share. There is no confidence score.',
+    'A finding is a count of the seeded runs in which a statement held, with a Wilson interval for that share. There is no confidence score. For a statement chosen after the runs were seen (a direction, the largest response, an ordering, the most frequent event) the interval describes those runs and does not claim long-run coverage.',
+    'The headline compares options by the share of simulated members in a response, every actor counting equally. Counts of simulated members depend on how many members were sampled for each group, a numerical resolution and not a population, and never rank an option.',
     'The responses are readings of the final simulated stance of each member, not observed behaviour.',
     'Recommendations are ordered by impact times repeatability divided by effort.',
   ];
   if (tally.withheld > 0) {
     notes.push(`${tally.withheld} statements were withheld because their wording broke the guard.`);
+  }
+  if (facts.measures.some((measure) => measure.detail !== 'runs')) {
+    notes.push(
+      'The analysis did not keep every run’s own per-actor results, so counts of simulated members are means over the runs, with no range, and nothing is paired run by run for a single group.',
+    );
   }
   if (facts.signal.state === 'no-direction') {
     notes.push(
@@ -132,7 +159,7 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
     );
   } else if (facts.signal.state === 'no-difference') {
     notes.push(
-      'The comparison found no measurable difference between the change and no change under these assumptions; see the first limitation.',
+      'The comparison found no measurable difference between the proposed change and no change under these assumptions, which is said of the proposed change only; see the first limitation.',
     );
   }
   if (tally.downgraded > 0) {
@@ -156,7 +183,7 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
       variants: analysis.config.variants.map((variant) => clip(variant.label, 120)),
       baseSeed: analysis.config.baseSeed,
       rounds: analysis.config.rounds,
-      notes,
+      notes: notes.map((note) => clip(note, 400)),
     },
     openCritiques: facts.critiques.filter((critique) => critique.status !== 'accepted').length,
     generatedBy: 'rules',

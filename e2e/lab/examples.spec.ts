@@ -25,6 +25,7 @@ import {
   compareScenarios,
   editSource,
   editStakeholder,
+  expandBrief,
   fetchPage,
   findStakeholders,
   inspectPassage,
@@ -32,7 +33,9 @@ import {
   kindsOfCall,
   liveStakeholders,
   openReport,
+  openRegion,
   openStage,
+  openStakeholder,
   pasteSource,
   pipelineCalls,
   questionField,
@@ -177,8 +180,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
       // The evidence is in the page: one stakeholder's quotes are opened and read there.
       const first = cited[0]!;
-      const row = panel.getByRole('listitem', { name: first.name, exact: true });
-      await row.getByText(/^Evidence \(\d+\)/u).click();
+      const row = await openStakeholder(page, first.name);
       await expect(row.locator('blockquote').first()).toBeVisible();
 
       // What the person said in the scenario is a stakeholder of its own, and says where it came from.
@@ -213,7 +215,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     const mine = cast.find((actor) => actor.stakeholderId === edited.id);
     expect(mine?.traits.impact.origin, 'the person set this actor’s impact').toBe('user');
     expect(mine?.traits.impact.value).toBeLessThan(0);
-    await expect(panel.getByRole('article', { name: edited.name, exact: true })).toBeVisible();
+    await expect(panel.getByRole('listitem', { name: edited.name, exact: true })).toBeVisible();
   });
 
   await test.step('comparison: the baseline, the proposed change, an alternative and an intervention', async () => {
@@ -298,6 +300,8 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
       await page.getByRole('button', { name: 'Generate decision brief' }).click();
       const brief = briefDocument(page);
       await expect(brief).toBeVisible();
+      // The reference sections are closed when the page opens; these checks read all of them.
+      await expandBrief(page);
       await expect(brief.getByRole('heading', { level: 3 }).first()).toHaveText('Executive answer');
       const answer = brief.locator('.brief-answer');
       await expect(answer.locator('.brief-headline')).toContainText(/simulated members/u);
@@ -350,8 +354,12 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
           ).not.toHaveCount(0);
         }
       }
+      // The answer keeps its own statements behind "How this answer is made", so only what is on show counts.
       await expect(
-        statements.filter({ has: page.locator('.brief-origin-supplied-evidence') }).first(),
+        brief
+          .locator('li.brief-statement:visible')
+          .filter({ has: page.locator('.brief-origin-supplied-evidence') })
+          .first(),
       ).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await expectReadableText(page, `${pack.title}: the brief`);
@@ -382,7 +390,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     expect(markdown.headers()['content-disposition']).toContain('attachment');
     const text = await markdown.text();
     expect(text).toContain('It does not predict the future');
-    expect(text).toContain('never a rate in a real population');
+    expect(text).toContain('none is a measured population rate');
     expect(text).toMatch(/\*\*Simulation aggregation/u);
 
     const json = await read('JSON');
@@ -401,7 +409,8 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
   await test.step('inspect: the evidence and the assumption behind a statement', async () => {
     const brief = briefDocument(page);
-    const statements = brief.locator('li.brief-statement');
+    // The answer keeps its own statements behind "How this answer is made", so only what is on show counts.
+    const statements = brief.locator('li.brief-statement:visible');
     const evidence = statements
       .filter({ has: page.locator('.brief-origin-supplied-evidence') })
       .filter({ has: page.locator('details.brief-refs q') })
@@ -439,6 +448,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
     await openStage(page, /Env Setup/u);
     await expect(stakeholderPanel(page)).toContainText(/1 edited by you/u);
+    await openRegion(page, 'Actors');
     await expect(stakeholderPanel(page).getByRole('region', { name: 'Actors' })).toBeVisible();
     await openStage(page, /Simulation/u);
     await expect(
@@ -727,13 +737,11 @@ test.describe('a public web page as evidence', () => {
     const project = await build(page);
     await openStage(page, /Env Setup/u);
     await findStakeholders(page);
-    const panel = stakeholderPanel(page);
     const quoted = liveStakeholders(await stakeholdersOf(page, project)).find((stakeholder) =>
       stakeholder.evidence.some((reference) => (reference.quote ?? '').includes('<img')),
     );
     expect(quoted, 'a stakeholder quoted from the sentence that has markup in it').toBeDefined();
-    const row = panel.getByRole('listitem', { name: quoted?.name ?? '', exact: true });
-    await row.getByText(/^Evidence \(\d+\)/u).click();
+    const row = await openStakeholder(page, quoted?.name ?? '');
     await expect(
       row.locator('blockquote').filter({ hasText: '<img src=x onerror=' }),
     ).toBeVisible();
@@ -841,11 +849,13 @@ test.describe('what the product may not claim', () => {
     }
   });
 
-  test('lets through what the product says: simulated counts, seeded runs, and what others wrote', () => {
+  test('lets through what the product says: simulated counts and shares, seeded runs, and what others wrote', () => {
     for (const fine of [
       'About 22 simulated members ended up looking for an alternative or resisting under “Proposed change”.',
+      'The mean share of simulated members looking for an alternative or resisting was about 24 in 100 under “Proposed change” against 1 in 100 under “No change”, counting each simulated actor equally.',
+      'In 10 of 10 seeded runs, the share of simulated members looking for an alternative or resisting, counting each actor equally and not each member, reached at least 30 in 100 at some round.',
       'In 10 of 10 seeded runs, at least 30% of simulated members were looking for an alternative.',
-      'It does not predict the future, and the counts above are neither rates nor forecasts.',
+      'It does not predict the future, and the counts above are neither rates nor forecasts, and nor are the shares of simulated members.',
       'The poll gives “44%” and the partner’s notes give “16%”.',
       'Moving it by +0.25 changed the outcome measure by -0.03 on the same seeds.',
       'The finding held in 9 of 10 seeded runs (Wilson interval 0.60 to 0.98).',

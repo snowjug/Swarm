@@ -102,6 +102,34 @@ const site: Handler = (request, response) => {
       'text/html',
       '<html><head><title>Menu</title></head><body><nav>Home About Contact</nav></body></html>',
     ],
+    '/noscript': [
+      'text/html',
+      `<html><head><title>Late fees</title></head><body><div id="app"></div><noscript><article><h1>Library late fees</h1><p>NOSCRIPT-FACT: the city council will end late fees, and branch librarians worry that popular titles stay out longer. Families with children say fines keep them away from the library, while the finance office has not checked the lost income.</p></article></noscript></body></html>`,
+    ],
+    '/needs-scripts': [
+      'text/html',
+      '<html><head><title>App</title></head><body><div id="root"></div><noscript>You need to enable JavaScript to run this app.</noscript></body></html>',
+    ],
+    '/frames': [
+      'text/html',
+      `<html><head><title>Prices</title></head><body><main><h1>Instance prices</h1><p>Prices are per instance-hour, from the time an instance is launched until it is stopped, and the table below shows them for each size.</p><iframe data-src="https://prices.example/table" loading="lazy"> </iframe></main></body></html>`,
+    ],
+    '/deep': [
+      'text/html',
+      `<html><head><title>Deep</title></head><body><p>The council will decide on the late fee for library customers next month, and branch staff expect questions.</p>${'<div>'.repeat(450)}<p>BELOW-THE-CAP the finance office reports the lost income.</p></body></html>`,
+    ],
+    '/deep-and-empty': [
+      'text/html',
+      `<html><head><title>Deep</title></head><body><p>Hello.</p>${'<div>'.repeat(450)}<p>BELOW-THE-CAP the finance office reports the lost income.</p></body></html>`,
+    ],
+    '/spaced.csv': [
+      'text/csv',
+      '"name", "price", "stock"\n"Widget, large", 19.99, 4\n"Bolt", 0.5, 120\n"Nut", 0.2, 300\n"Washer", 0.1, 90\n"Screw", 0.3, 45\n',
+    ],
+    '/inches.csv': [
+      'text/csv',
+      'name,size,stock\nPipe,5" pipe,4\nElbow,3" elbow,120\nValve,2" valve,300\nCap,4" cap,90\nTee,6" tee,45\n',
+    ],
   };
   const found = pages[path];
   if (found) return send(found[0], found[1])(request, response);
@@ -277,6 +305,87 @@ describe('POST /api/evidence/url: a page as a document', () => {
     expect(document.content.length).toBeLessThanOrEqual(40_000);
     expect(document.content).toContain('[Swarm shortened this page: only the beginning was kept.]');
     expect(notes.some((note) => note.includes('only the beginning was kept'))).toBe(true);
+  });
+
+  it('says so, inside the text and in the notes, when it did not read a page to its end', async () => {
+    const { page } = await setup(site);
+    const response = await page('/deep');
+    expect(response.statusCode, response.body).toBe(200);
+    const { document, notes } = response.json<{ document: { content: string }; notes: string[] }>();
+    expect(document.content).toContain('The council will decide on the late fee');
+    expect(document.content).not.toContain('BELOW-THE-CAP');
+    expect(
+      document.content.endsWith('[Swarm shortened this page: only the beginning was kept.]'),
+    ).toBe(true);
+    expect(notes).toContain(
+      `Swarm stopped reading this page before its end, because it has more tags, or is nested more deeply, than Swarm reads, so only the beginning was kept. The text says so. ${PASTE}`,
+    );
+    expect(notes.join(' ')).not.toContain('longer than a document can be');
+  });
+
+  it('does not call a page that was read too little of a page with no text', async () => {
+    const { page } = await setup(site);
+    const response = await page('/deep-and-empty');
+    expect(response.statusCode, response.body).toBe(422);
+    expect(errorOf(response).code).toBe('URL_NO_TEXT');
+    expect(errorOf(response).message).toMatch(/^Swarm stopped reading this page before its end/u);
+    expect(errorOf(response).message).not.toContain('needs JavaScript');
+  });
+
+  it('reads what a page keeps for readers without scripts, and says so, instead of saying it needs JavaScript', async () => {
+    const { page } = await setup(site);
+    const response = await page('/noscript');
+    expect(response.statusCode, response.body).toBe(200);
+    const { document, notes } = response.json<{ document: { content: string }; notes: string[] }>();
+    expect(document.content).toContain('# Library late fees');
+    expect(document.content).toContain('NOSCRIPT-FACT');
+    expect(notes).toContain(
+      `Swarm does not run scripts, and this page shows almost no text without them, so it kept the text the page holds for readers without scripts (its noscript part). A browser that runs scripts may show more. ${PASTE}`,
+    );
+    expect(notes.join(' ')).not.toContain('needs JavaScript');
+  });
+
+  it('still says that a page needs JavaScript when its fallback only asks for it', async () => {
+    const { page } = await setup(site);
+    const response = await page('/needs-scripts');
+    expect(response.statusCode, response.body).toBe(422);
+    expect(errorOf(response).code).toBe('URL_NO_TEXT');
+    expect(errorOf(response).message).toMatch(/needs JavaScript or has no readable text/u);
+  });
+
+  it('says that what scripts build, or another page in a frame shows, was not read', async () => {
+    const { page } = await setup(site);
+    const response = await page('/frames');
+    expect(response.statusCode, response.body).toBe(200);
+    const { document, notes } = response.json<{ document: { content: string }; notes: string[] }>();
+    expect(document.content).toContain('Prices are per instance-hour');
+    expect(notes).toContain(
+      `Parts of this page are built by scripts or shown from other pages (frames), and Swarm reads neither, so a table or list that a browser shows there may be missing. ${PASTE}`,
+    );
+    for (const path of ['/product', '/service', '/injection']) {
+      const plain = await page(path);
+      expect(plain.json<{ notes: string[] }>().notes.join(' '), path).not.toContain(
+        'built by scripts',
+      );
+    }
+  });
+
+  it('reads a table whose quotes follow a space, and says so only when quotes were kept as text', async () => {
+    const { page } = await setup(site);
+    const spaced = await page('/spaced.csv');
+    expect(spaced.statusCode, spaced.body).toBe(200);
+    const read = spaced.json<{ document: { content: string }; notes: string[] }>();
+    expect(read.document.content).toContain('Columns: name | price | stock');
+    expect(read.document.content).toContain('Row 1: name: Widget, large | price: 19.99 | stock: 4');
+    expect(read.document.content).not.toContain('"');
+    expect(read.notes.join(' ')).not.toContain('quotation marks');
+    const inches = await page('/inches.csv');
+    expect(inches.statusCode, inches.body).toBe(200);
+    const kept = inches.json<{ document: { content: string }; notes: string[] }>();
+    expect(kept.document.content).toContain('size: 5" pipe');
+    expect(kept.notes).toContain(
+      'Some cells of this table hold quotation marks that do not belong to a quoted field, so Swarm kept them as written.',
+    );
   });
 });
 
@@ -526,6 +635,20 @@ describe('POST /api/evidence/url: what a refusal gives away, and what it leaves 
     const { ask } = await withResolver();
     const response = await ask('http://10.0.0.5/');
     expect(errorOf(response).code).toBe('URL_BLOCKED');
+  });
+
+  it('records a name that led inside a network as the refusal it was, while answering it like a missing name', async () => {
+    const { ask, repository } = await withResolver();
+    const answer = await ask('http://exists-inside.example.com/page?x=1');
+    expect(errorOf(answer).code).toBe('URL_FETCH_FAILED');
+    const refused = repository.audit
+      .list({ limit: 50 })
+      .filter(({ action }) => action === 'evidence.url.refused');
+    expect(refused.map(({ detail }) => detail)).toEqual([
+      { host: 'exists-inside.example.com', code: 'URL_BLOCKED' },
+    ]);
+    // What the person was told does not say that it led inside.
+    expect(answer.body).not.toContain('URL_BLOCKED');
   });
 
   it('records an address that was refused, by host and reason, and not a site that failed to answer', async () => {

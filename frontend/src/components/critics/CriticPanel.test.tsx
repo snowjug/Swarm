@@ -5,6 +5,7 @@ import { critiqueFixture, setFixture, stateFixture, viewFixture } from '../../te
 import { expectNoSecretLikeText, visibleText } from '../../test/provider';
 import { projectFixture } from '../../test/project';
 import { LEAD_EXPLANATION, LEAD_HEADING } from '../../lib/critics';
+import { REVIEW_CHANGED_WHILE_WRITING } from '../../hooks/useCritiques';
 import { CriticPanel, CriticReview } from './CriticPanel';
 
 const render = (patch: Parameters<typeof stateFixture>[0] = {}) =>
@@ -205,6 +206,45 @@ describe('the independent review', () => {
       expect(visibleText(html)).toContain('This review is of an earlier analysis');
       expect(html).toContain('notice-warning');
     });
+
+    describe('when the comparison it reviews was run before something it rests on changed', () => {
+      const changed = viewFixture({ changedSince: ['scenario', 'stakeholders'] });
+
+      it('says so once, in a status a screen reader announces, with the way to run the comparison again', () => {
+        const html = renderToStaticMarkup(
+          <CriticReview state={stateFixture({ view: changed })} onNavigate={() => undefined} />,
+        );
+        const text = visibleText(html);
+        expect(text.match(/This review may be out of date/gu)).toHaveLength(1);
+        expect(text).toContain(
+          'The comparison it reviews was run before the scenario and the stakeholders changed, so it describes the project as it was. Run the comparison again in the Simulation stage, then run the review again.',
+        );
+        expect(html).toContain('<div class="notice notice-warning" role="status">');
+        expect(html).toContain('Open the Simulation stage');
+        // Without a way to move it still says what to do, and invents no button.
+        expect(render({ view: changed })).not.toContain('Open the Simulation stage');
+      });
+
+      it('leaves it to the notice about a newer analysis when one has finished', () => {
+        const html = render({
+          view: viewFixture({
+            changedSince: ['scenario', 'a newer analysis exists'],
+            analysis: { id: 'analysis-2', completedAt: '2026-03-01T00:00:00.000Z' },
+          }),
+        });
+        expect(visibleText(html)).toContain('This review is of an earlier analysis');
+        expect(visibleText(html)).not.toContain('This review may be out of date');
+      });
+
+      it('says nothing when nothing has changed, or when there is no review', () => {
+        expect(visibleText(render())).not.toContain('may be out of date');
+        expect(
+          visibleText(
+            render({ view: viewFixture({ critiques: null, changedSince: ['scenario'] }) }),
+          ),
+        ).not.toContain('may be out of date');
+      });
+    });
   });
 
   describe('the criticisms', () => {
@@ -386,6 +426,20 @@ describe('the independent review', () => {
       expect(visibleText(html)).toContain('Your response was not saved');
       expect(visibleText(html)).toContain(
         'Your role on this experiment does not allow this action.',
+      );
+      expect(html.match(/Your response was not saved/gu)).toHaveLength(1);
+    });
+
+    it('says that a review that changed under the person was read again, and that what they wrote is kept', () => {
+      const html = render({
+        view: populated(),
+        answerError: { id: 'adversarial-gap-s1', message: REVIEW_CHANGED_WHILE_WRITING },
+      });
+      const text = visibleText(html);
+      expect(text).toContain('Your response was not saved');
+      expect(text).toContain('This review changed while you were writing');
+      expect(text).toContain(
+        'What you wrote is still here; choose again what it means to save it.',
       );
       expect(html.match(/Your response was not saved/gu)).toHaveLength(1);
     });

@@ -63,7 +63,34 @@ or have no strength are ignored.
   correlations between traits. With a spread of 0.1 to 0.15, which is what generated actors usually
   have, the members of a cohort end in different responses (see "Where a member settles").
 - The variant's `traitEdits` replace trait values (kept within range) before the draw, and
-  `impactOverrides` replace the actor's `impact` value and win over an edit. The spread stays.
+  `impactOverrides` replace the actor's `impact` value and win over an edit. The spread stays. The
+  last edit of a trait is the one that counts. The value a variant gives a trait this way is the value
+  that governs its runs: the actor's own value is not read for it (`resolveActor`, and
+  `effectiveTrait` in `shared/signal.ts`, which the analysis uses and which is tested to agree with it).
+
+### What lets the change move a member
+
+The change reaches a member only through its impact: `anchored = prior + CHANGE_GAIN x intensity x group x
+sensitivity x impact x trustAdoption`, from the round the change lands. A member's impact is drawn around
+the value the variant gives the actor (see above) with the trait's spread, and a key actor has none. What
+follows is relied on by the analysis, and tested against the guard `changeCanMoveAnyone`
+(`backend/test/signal.test.ts`):
+
+- When every member's impact is exactly 0 (the impact is 0 for every actor after the variant's override
+  and edits, and no cohort has an impact spread above 0), the change lands on no one whatever its
+  intensity, no actor is harmed, so no responder reads a signal and no event happens: a run with the
+  change is identical to a run without it, in every round, every actor's outcome and every event, on every
+  seed. This is the only case in which the comparison says that the change cannot move anyone.
+- With an impact of 0 and a spread, members are given impacts of both signs, so some are moved toward the
+  change and some away while no actor has a direction: the runs differ from the baseline's (more members
+  end adverse, while the overall stance hardly moves), and nothing may be said of them as if the change
+  could not move anyone.
+- A variant that edits any trait of an actor differs from one that does not, whatever the impact.
+- An impact that harms no one (0 or above), in a variant with no strength, changes no run: the only
+  thing it sets is the flag for the signal about benefited actors, which no responder reads. An impact
+  that harms someone does, even with no strength, because a harmed actor is what responders watch (an
+  impact at or below `-AFFECTED_MIN`; the guard takes any impact below 0 as harming, which is the
+  cautious side of that line).
 
 ## One round
 
@@ -189,7 +216,7 @@ modelling choices, and changing one changes results.
 | `RELIEF_STEP`, `RELIEF_CAP`        | 0.4, 0.6 | How much an alternative lowers switching cost, per unit of pressure, and the most.                                             |
 | `PRESSURE_CAP`                     | 1        | Most pressure an actor can carry from events.                                                                                  |
 | `DEFAULT_TIE`, `FALLBACK_TIE`      | 0.5, 0.3 | Tie strength of a responder's default and fallback reach.                                                                      |
-| `MAX_EVENTS`, `MAX_EARLIER_CAUSES` | 200, 3   | Events a run can hold; earlier events an event lists as a cause.                                                               |
+| `MAX_EVENTS`, `MAX_EARLIER_CAUSES` | 200, 3   | Events a run can hold; earlier events an event lists as ones it followed.                                                      |
 | `DEFAULT_SAMPLE_CAP`               | 200      | Default cap on members per cohort.                                                                                             |
 
 ## Responses
@@ -255,11 +282,40 @@ searches its source for such words).
   beneficiaries and channels) at a tie of 0.5. If none of the actors it reaches, by relation or by
   default, is harmed by the change, the harmed actors are added at a tie of 0.3, because there would
   otherwise be nothing to watch or act on.
-- **Chains.** Every event has `causedBy`: first the signal it saw, then up to three earlier events that
-  had already landed on an actor it was watching. The engine does not say which of those mattered;
-  running the same seeds with `signals: false` shows what they did together. Because a responder acts
-  once, there is at most one event per actor, so (kind, actor, round) is unique and a run holds at
-  most 60 events (the cap is 200).
+- **Chains.** Every event has `causedBy`, which starts with the signal it saw: that is all its trigger
+  reads, so it is what the event happened because of. The up to three earlier events that had already
+  landed on an actor it was watching are listed apart, as `followed`. The engine does not say that any of
+  them mattered: an event moves a signal only through the actors it lands on, and a signal that is high
+  enough with or without it does not need it, so calling them causes would claim more than is known.
+  Whether one mattered is asked of a run that did not happen (see _Which earlier events were needed_).
+  Because a responder acts once, there is at most one event per actor, so (kind, actor, round) is unique
+  and a run holds at most 60 events (the cap is 200).
+
+### Which earlier events were needed
+
+`simulate(spec, seed, { explain: true })` replays the seed once for each earlier event an event followed,
+with that event's responder switched off, and moves the earlier event from `followed` into `causedBy` only
+if the later event then does not occur by the round it did ([`explain.ts`](../../backend/src/simulation/explain.ts)).
+If the later event still occurs in that round, or sooner, the earlier one only came first and stays in
+`followed`. The run is then marked `explained: true`.
+
+- A responder is switched off by making its actor a non-responder (the engine decides who responds by an
+  actor's category and nothing else). Every draw is addressed by seed, actor and member, so nothing else
+  about the run changes; the outcome of an explained run is the outcome of the plain run, with the lists of
+  causes decided and the replays counted in its `work`.
+- Replays cost a run each, so the analysis explains only the one run it keeps in detail (the run nearest
+  the median under the proposed change), and a run with more than 24 links to try is left as it came and is
+  not marked `explained`, so that the mark always means that every earlier event an event only followed was
+  tried. Every other run lists only the signal in `causedBy`.
+- Only an earlier event that landed on an actor the responder watches is tried. One that could have mattered
+  only by another route, such as through what other actors listen to, is not, so a cause that the replays do
+  not find is not claimed.
+- An analysis saved before this was tested lists earlier events in `causedBy` without having tested them.
+  It carries no `explained` mark, so the screen and the brief say of those events only that they came first.
+- In the worked examples many of the links that were once listed as causes were not needed. On AI-first
+  support, seed 451, the competitor's counter-move came after the regulator's scrutiny and still happens in
+  the same round when the regulator is switched off, while on seed 449 the counter-move and two enablements
+  do not happen without it (`simulation-explain.test.ts`).
 
 ### Reading a chain
 
@@ -275,13 +331,14 @@ intensity 0.7, over 12 rounds, seed 3:
 | 3     | `adverse-share` is 0.80, above Beta's threshold of 0.31.                                                                       |
 | 5     | **e1** `counter-move` by Beta, `causedBy: ["adverse-share"]`: Beta sees the signal 2 rounds late (its reactivity is 0.5).      |
 | 6     | Alpha's effective switching cost falls below 0.5, so its members move from `resist` to `switch`: `switching-pressure` is 1.00. |
-| 7     | **e2** `substitute-offer` by Gamma, `causedBy: ["switching-pressure", "e1"]`: Gamma sees the signal 1 round late and acts.     |
+| 7     | **e2** `substitute-offer` by Gamma, `causedBy: ["switching-pressure"]`, `followed: ["e1"]`: Gamma sees it 1 round late.        |
 
 Beta acts in round 5 and Gamma in round 7 on all but one of seeds 1 to 20 (rounds 4 and 6 on the other).
 Averaged over those seeds, Alpha's final mean stance is -0.93 with the responders and -0.68 without them
 (`signals: false`); its members all end as `switch` with the responders and all but a few as `resist`
-without. Without Beta there is no pressure to switch and so no second move: Gamma's event exists only
-because of Beta's. These are consequences of the assumptions in that cast, shown to explain the
+without. Without Beta there is no pressure to switch and so no second move, which is what
+`{ explain: true }` finds for Gamma: e1 moves into its `causedBy`, giving `["switching-pressure", "e1"]`.
+These are consequences of the assumptions in that cast, shown to explain the
 mechanism; Alpha is harmed harder than any actor in the fixture cast, so that every seed shows the chain.
 
 ## Reproducibility and common random numbers
@@ -300,7 +357,10 @@ drawn from a shared sequence, so:
 - Traits are drawn through the inverse distribution function, so a changed trait moves each sample
   smoothly with its draw. Paired runs on the same seeds are therefore far steadier than independent
   runs (tested: the standard deviation of paired differences is under a third of the independent one),
-  which is what the sensitivity analysis depends on.
+  which is what the sensitivity analysis depends on. It moves the setting that holds the value the
+  variant runs with, an impact override, the last edit of a trait or the actor's own value, because
+  moving one that the variant overrides changes nothing (see
+  [methodology.md](./methodology.md#sensitivity)).
 - The group factor does not depend on the variant, so on one seed an actor's group reacts equally
   strongly under every variant (tested): a paired comparison differs by the variant, not by that draw.
   Across seeds it is part of the spread that repeated runs measure.
@@ -438,5 +498,8 @@ Focused tests under `backend/test/` (run with `npx vitest run backend/test/simul
   intensity, and the effect of those events.
 - `simulation-chain.test.ts`: lag, threshold and strength of responders, the Alpha, Beta and Gamma
   chain with and without relations, what each kind of responder does, and event bounds.
+- `simulation-explain.test.ts`: that what an event lists as needed agrees, event by event, with the same
+  seed run again without the earlier responder (on AI-first support, with seeds that need the link and
+  seeds that do not), and what replaying costs.
 - `simulation-neutrality.test.ts`: the engine source contains no scenario words and no clock, network
   or `Math.random`.

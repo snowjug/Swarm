@@ -89,7 +89,8 @@ pack: tests check for the obvious forms of it.
    `npm.cmd start`, and open <http://127.0.0.1:3001>), ideally with a fresh `DATA_DIR` so that
    rehearsal projects do not mix with real ones.
 2. Read the header chip. With no model configured it says `LOCAL / RULES MODE`. With a model it
-   says `REAL AZURE AI` and `connected` after **Verify connection**. Say which one you are in.
+   names the provider (for example `REAL AZURE AI`, `REAL MODEL · OpenAI` or `REAL MODEL · Ollama
+(local)`) and says `connected` after **Verify connection**. Say which one you are in.
 3. Choose **Use this example** on a card in **Not sure what to ask? Try an example**, on the entry page. It fills the question and the documents, with their
    provenance, and focuses the first action. Choosing an example only fills the form.
 4. Rehearse the example you will show once end to end. A run in rules mode takes seconds; a model
@@ -97,7 +98,7 @@ pack: tests check for the obvious forms of it.
 
 The scripts below name buttons and stages as the interface gives them (**Use this example**,
 **Understand my question**, **Use this scenario**, **Find stakeholders** (which is **Find stakeholders by
-reading the text** or **with the model**), **Approve stakeholders and create actors**, **Compare
+reading the text** or **Find stakeholders with the model**), **Approve stakeholders and create actors**, **Compare
 scenarios**, **Run independent review**, **Generate decision brief**). If a label has moved in the build you
 are showing, the step is the same. The [demo guide](../README.md) has the ten-minute script across the
 flagship examples. A browser test (`e2e/lab/examples.spec.ts`) takes the three flagship examples and a
@@ -117,7 +118,7 @@ The order is the order of the product. Each row is something to show, in the wor
 | Actors                | The trait table: each trait carries a badge for where it came from (evidence, assumption, you).                                                                                                                                                | Synthetic actors are not people. Every number they run on is an assumption you can edit.                           |
 | Compare scenarios     | The spread across seeded runs for the baseline and each alternative; "holds in N of 30 seeded runs" with its interval.                                                                                                                         | One run is never the answer. Repeatability is measured, not asserted.                                              |
 | Sensitivity           | The assumptions the result moves with, and which of them have no evidence behind them.                                                                                                                                                         | The result's weak points are on the screen.                                                                        |
-| Second-order effects  | The chain read from the representative run ("because ... then ...").                                                                                                                                                                           | Competitor, partner and regulator reactions come from generic rules, not a script.                                 |
+| Second-order effects  | The chain read from the representative run (what each event acted on, then what only came first).                                                                                                                                              | Competitor, partner and regulator reactions come from generic rules, not a script.                                 |
 | Independent review    | One objection, its basis, and the response form (respond, accept, dispute).                                                                                                                                                                    | Challenge stays visible. A critic never edits the analysis.                                                        |
 | Decision brief        | The executive answer with origin chips, then **Assumptions**, **Uncertainty**, **Validation plan**, **Limitations**.                                                                                                                           | Every statement names where it came from, and the brief says what to check in the real world.                      |
 

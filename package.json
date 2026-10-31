@@ -14,7 +14,7 @@
     "dev:frontend": "vite --config frontend/vite.config.ts",
     "build": "npm run build:backend && npm run build:frontend",
     "build:backend": "tsc -p backend/tsconfig.json",
-    "build:frontend": "vite build --config frontend/vite.config.ts",
+    "build:frontend": "vite build --config frontend/vite.config.ts && node scripts/precompress.mjs",
     "start": "node --env-file-if-exists=.env dist/backend/src/index.js",
     "typecheck": "tsc -p backend/tsconfig.test.json --noEmit && tsc -p frontend/tsconfig.json --noEmit && tsc -p e2e/tsconfig.json --noEmit && tsc -p scripts/tsconfig.json --noEmit && tsc -p evaluation/tsconfig.json --noEmit",
     "lint": "eslint . --max-warnings 0",

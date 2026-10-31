@@ -19,7 +19,7 @@ test.describe('guided journey on the deterministic local engine', () => {
     });
 
     await test.step('Graph Build: starter input, bounded settings, real graph', async () => {
-      await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+      await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
       await page.getByRole('spinbutton', { name: 'Fictional proxies' }).fill('8');
       await page.getByRole('spinbutton', { name: 'Rounds / platform' }).fill('4');
       await page.getByRole('button', { name: 'Build Graph', exact: true }).click();

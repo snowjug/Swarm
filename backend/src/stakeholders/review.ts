@@ -24,8 +24,48 @@ export type ReviewInput = z.output<typeof reviewInputSchema>;
 
 const refuse = (code: string, message: string): AppError => new AppError(400, code, message);
 
+/**
+ * A reference is compared whole, every field it has, so that nothing about where a quotation came from
+ * (its passage, its document and the document's name, where it sits and its fingerprint), what it says
+ * or whether it supports or contradicts can be rewritten while the rest still passes for verified.
+ */
 const evidenceMark = (ref: EvidenceRef): string =>
-  `${ref.passageId}|${ref.start}|${ref.end}|${ref.contentHash}|${ref.quote ?? ''}`;
+  JSON.stringify(
+    Object.entries(ref)
+      .filter(([, value]) => value !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  );
+
+/** The quotation itself, which is what tells a reference that was altered from one that was never there. */
+const quotation = (ref: EvidenceRef): string => `${ref.passageId}|${ref.quote ?? ''}`;
+
+/**
+ * Evidence can be taken away, never added or rewritten. Each reference a stakeholder keeps has to be,
+ * whole, one it already had or one a merged stakeholder brought, and is kept no more often than it was
+ * given. A quotation whose source or role was changed is refused as altered, not as unknown.
+ */
+function checkEvidence(kept: readonly EvidenceRef[], given: readonly EvidenceRef[]): void {
+  const left = new Map<string, number>();
+  for (const ref of given) left.set(evidenceMark(ref), (left.get(evidenceMark(ref)) ?? 0) + 1);
+  const quoted = new Set(given.map(quotation));
+  for (const ref of kept) {
+    const mark = evidenceMark(ref);
+    const count = left.get(mark);
+    if (count === undefined && quoted.has(quotation(ref))) {
+      throw refuse(
+        'EVIDENCE_ALTERED',
+        'Where a cited quotation comes from, where it sits and whether it supports or contradicts cannot be changed: that is for the sources to say.',
+      );
+    }
+    if (count === undefined || count === 0) {
+      throw refuse(
+        'EVIDENCE_NOT_VERIFIED',
+        'Evidence can be taken away, but not added: it comes from the sources.',
+      );
+    }
+    left.set(mark, count - 1);
+  }
+}
 
 /** The fields a person may change. Anything else on a stakeholder is the server's. */
 const content = (stakeholder: Stakeholder): string =>
@@ -56,6 +96,26 @@ function impactWithOrigin(
   return { direction, rationale, ...(origin ? { origin } : {}) };
 }
 
+const NO_QUOTE_LEFT = 'No quote is cited for this direction now, so it is an assumption. ';
+
+/**
+ * The expected impact after a review that left the direction and its reason as they were. A direction
+ * read from the wording of cited sentences is labelled so only while a sentence is still cited: once
+ * the person has taken every quote away, nothing supports it, so it becomes an assumption and says so.
+ */
+function impactKept(raw: Stakeholder, was: Stakeholder): Stakeholder['expectedImpact'] {
+  const { origin } = was.expectedImpact;
+  if (origin !== 'evidence' || raw.evidence.some((ref) => ref.role === 'supports')) {
+    return impactWithOrigin(raw, origin);
+  }
+  const { direction, rationale } = raw.expectedImpact;
+  return {
+    direction,
+    rationale: `${NO_QUOTE_LEFT}${rationale}`.trim().slice(0, 400),
+    origin: 'system-assumption',
+  };
+}
+
 const USER_STATUSES: readonly Stakeholder['status'][] = ['added', 'removed'];
 const REVIEW_STATUSES: readonly Stakeholder['status'][] = [
   'proposed',
@@ -82,9 +142,10 @@ function statusAfter(
  * Checks a reviewed set against the one stored and returns what to store. The person may accept, edit,
  * merge, remove (and restore), add and re-prioritise, and nothing else: a stakeholder is never deleted
  * (it is marked removed, so the review can be read back), its origin and its evidence are the
- * sources' and not the person's (evidence can be taken away, never added), a status is one the person
- * could have reached, and a merge is a removed stakeholder named by the one it went into, with the
- * evidence of both. Whatever the person changes about an approved set takes the approval away.
+ * sources' and not the person's (evidence can be taken away, never added or rewritten: each reference
+ * is compared whole), a status is one the person could have reached, and a merge is a removed
+ * stakeholder named by the one it went into, with the evidence of both. Whatever the person changes
+ * about an approved set takes the approval away.
  */
 export function applyReview(
   stored: StakeholderSet | null,
@@ -164,22 +225,16 @@ export function applyReview(
     if (!allowedStatuses.includes(raw.status)) {
       throw refuse('STATUS_INVALID', 'That is not a status this stakeholder can have.');
     }
-    const carried = new Set([
-      ...was.evidence.map(evidenceMark),
-      ...raw.mergedFrom.flatMap((source) => before.get(source)?.evidence.map(evidenceMark) ?? []),
+    checkEvidence(raw.evidence, [
+      ...was.evidence,
+      ...raw.mergedFrom.flatMap((source) => before.get(source)?.evidence ?? []),
     ]);
-    if (raw.evidence.some((ref) => !carried.has(evidenceMark(ref)))) {
-      throw refuse(
-        'EVIDENCE_NOT_VERIFIED',
-        'Evidence can be taken away, but not added: it comes from the sources.',
-      );
-    }
     const changed = content(raw) !== content(was);
     const impactChanged = impactOf(raw) !== impactOf(was);
     return {
       ...raw,
       status: statusAfter(was, raw, changed),
-      expectedImpact: impactWithOrigin(raw, impactChanged ? 'user' : was.expectedImpact.origin),
+      expectedImpact: impactChanged ? impactWithOrigin(raw, 'user') : impactKept(raw, was),
     };
   });
 

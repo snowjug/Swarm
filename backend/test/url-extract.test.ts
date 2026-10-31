@@ -10,8 +10,8 @@ import {
   NEVER_BOILERPLATE,
   SECTIONING_ELEMENTS,
 } from '../src/ingest/url/boilerplate.js';
-import { extractPage, pageDocument, READING } from '../src/ingest/url/extract.js';
-import { readingNote } from '../src/ingest/url/ingest.js';
+import { extractPage, pageDocument, READING, SCRIPTED } from '../src/ingest/url/extract.js';
+import { coverageNotes, readingNote } from '../src/ingest/url/ingest.js';
 import { inspectText } from '../src/models/injection.js';
 import { ENCYCLOPEDIA_PAGE, NEWS_PAGE, SERVICE_PAGE, SHOP_PAGE } from './support/pages.js';
 
@@ -19,6 +19,15 @@ const page = (body: string, head = '') =>
   extractPage(`<!doctype html><html><head>${head}</head><body>${body}</body></html>`);
 const text = (body: string) => page(body).body;
 const ld = (json: string) => `<script type="application/ld+json">${json}</script>`;
+
+/** What `reading` holds for a page that was read to its end, and has no script or frame to say. */
+const plainReading = (scope: 'main' | 'page' | 'all', fellBack = false) => ({
+  scope,
+  fellBack,
+  cutShort: false,
+  noscript: false,
+  scripted: false,
+});
 
 /** The processor time, in milliseconds, that a function takes: unlike the clock, a busy machine does not stretch it. */
 function cpuTime(run: () => unknown): number {
@@ -318,7 +327,7 @@ describe('the text of a page, without its menus, side panels and footers', () =>
     const extracted = page(`${markup}<h1>The report</h1>${paragraph(3)}${markup}`);
     expect(extracted.body).not.toMatch(/-TEXT/u);
     expect(extracted.body.split('\n')).toEqual(['# The report', sentences(3)]);
-    expect(extracted.reading).toEqual({ scope: 'page', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('page'));
   });
 
   // A header inside the main region is the heading of that region, so it stays (and is tested below).
@@ -399,7 +408,7 @@ describe('the main region of a page', () => {
     const extracted = page(
       `<div>OUTSIDE-BEFORE some words</div><main><h1>Title</h1>${paragraph(5)}</main><div>OUTSIDE-AFTER more words</div>`,
     );
-    expect(extracted.reading).toEqual({ scope: 'main', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('main'));
     expect(extracted.body.split('\n')).toEqual(['# Title', sentences(5)]);
   });
 
@@ -435,7 +444,7 @@ describe('the main region of a page', () => {
     const extracted = page(
       `<nav>NAV-TEXT</nav><main>Only a tiny line.</main><div>${paragraph(8, 'OUTSIDE ')}</div><footer>FOOTER-TEXT</footer>`,
     );
-    expect(extracted.reading).toEqual({ scope: 'page', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('page'));
     expect(extracted.body).toContain('Only a tiny line.');
     expect(extracted.body).toContain('OUTSIDE Drivers');
     expect(extracted.body).not.toMatch(/NAV-TEXT|FOOTER-TEXT/u);
@@ -445,7 +454,7 @@ describe('the main region of a page', () => {
     const extracted = page(
       `<main>${paragraph(5, 'MAIN ')}</main><div>${paragraph(30, 'REST ')}</div>`,
     );
-    expect(extracted.reading).toEqual({ scope: 'all', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('all'));
     expect(extracted.body).toContain('MAIN Drivers');
     expect(extracted.body).toContain('REST Drivers');
   });
@@ -550,7 +559,7 @@ describe('when leaving out boilerplate would leave almost nothing', () => {
     const extracted = page(
       `<nav>Home About Contact</nav><div class="sidebar"><h1>The whole policy</h1>${paragraph(8)}</div>`,
     );
-    expect(extracted.reading).toEqual({ scope: 'all', fellBack: true });
+    expect(extracted.reading).toEqual(plainReading('all', true));
     expect(extracted.body.split('\n')).toEqual([
       'Home About Contact',
       '',
@@ -562,7 +571,7 @@ describe('when leaving out boilerplate would leave almost nothing', () => {
   it('does the same when it is a banner, a footer or an aside that holds the content', () => {
     for (const wrapper of ['aside', 'footer', 'nav', 'header']) {
       const extracted = page(`<${wrapper}>${paragraph(8, 'ALL THE WORDS ')}</${wrapper}>`);
-      expect(extracted.reading, wrapper).toEqual({ scope: 'all', fellBack: true });
+      expect(extracted.reading, wrapper).toEqual(plainReading('all', true));
       expect(extracted.body, wrapper).toContain('ALL THE WORDS Drivers');
     }
   });
@@ -570,15 +579,15 @@ describe('when leaving out boilerplate would leave almost nothing', () => {
   it('reads the page whole when what is left is under 200 characters and the page shows twice as much and 80 more', () => {
     const little = '<p>A short page of its own, with a few lines of text and a little more.</p>';
     const fallsBack = page(`${little}<aside>${'Related story headline. '.repeat(7)}</aside>`);
-    expect(fallsBack.reading).toEqual({ scope: 'all', fellBack: true });
+    expect(fallsBack.reading).toEqual(plainReading('all', true));
     expect(fallsBack.body).toContain('Related story headline.');
     const notMuch = page(`${little}<aside>${'Related story. '.repeat(3)}</aside>`);
-    expect(notMuch.reading).toEqual({ scope: 'page', fellBack: false });
+    expect(notMuch.reading).toEqual(plainReading('page'));
     expect(notMuch.body).toBe(
       'A short page of its own, with a few lines of text and a little more.',
     );
     const enough = page(`${paragraph(3)}<aside>${'Related story headline. '.repeat(100)}</aside>`);
-    expect(enough.reading).toEqual({ scope: 'page', fellBack: false });
+    expect(enough.reading).toEqual(plainReading('page'));
   });
 
   it('does not make something of a page that is only boilerplate and a few words', () => {
@@ -588,10 +597,7 @@ describe('when leaving out boilerplate would leave almost nothing', () => {
   });
 
   it('says nothing was left out when the page has nothing to leave out', () => {
-    expect(page(`<h1>Plain</h1>${paragraph(3)}`).reading).toEqual({
-      scope: 'all',
-      fellBack: false,
-    });
+    expect(page(`<h1>Plain</h1>${paragraph(3)}`).reading).toEqual(plainReading('all'));
     expect(page(`<nav></nav><main>${paragraph(3)}</main>`).reading.scope).toBe('all');
   });
 });
@@ -643,7 +649,7 @@ describe('pages that look like the ones people read', () => {
 
   it('reads an encyclopedia article as its text, without its menus, markers, edit links and lists of sources', () => {
     const extracted = extractPage(ENCYCLOPEDIA_PAGE);
-    expect(extracted.reading).toEqual({ scope: 'main', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('main'));
     expect(extracted.body.split('\n')).toEqual([
       '# Congestion zone',
       'A congestion zone is an area of a city where drivers pay a charge to enter, or to drive within it, during busy hours. The charge is meant to cut traffic and to pay for public transport. The first scheme began in 1975.',
@@ -684,7 +690,7 @@ describe('pages that look like the ones people read', () => {
 
   it('reads a government service page as what the service is, what it needs and what it costs', () => {
     const extracted = extractPage(SERVICE_PAGE);
-    expect(extracted.reading).toEqual({ scope: 'main', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('main'));
     expect(extracted.body.split('\n')).toEqual([
       '# Renew your parking permit',
       'Use this service to renew a resident parking permit for your car. You can renew up to 28 days before your permit runs out.',
@@ -725,7 +731,7 @@ describe('pages that look like the ones people read', () => {
         '</div>',
       ),
     );
-    expect(extracted.reading).toEqual({ scope: 'page', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('page'));
     expect(extracted.body).toContain('# Renew your parking permit');
     expect(extracted.body).toContain('Over 1000cc | £120');
     expect(extracted.body).toContain('Beta This is a new service.');
@@ -742,7 +748,7 @@ describe('pages that look like the ones people read', () => {
 
   it('reads a news story as its header, its text and its quotes, without the page around it', () => {
     const extracted = extractPage(NEWS_PAGE);
-    expect(extracted.reading).toEqual({ scope: 'main', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('main'));
     expect(extracted.body.split('\n')).toEqual([
       '# Council approves charge for central zone',
       'By Jo Reporter, Transport correspondent',
@@ -774,7 +780,7 @@ describe('pages that look like the ones people read', () => {
 
   it('reads a product page as the product, its price, its description, its details and its reviews', () => {
     const extracted = extractPage(SHOP_PAGE);
-    expect(extracted.reading).toEqual({ scope: 'main', fellBack: false });
+    expect(extracted.reading).toEqual(plainReading('main'));
     expect(extracted.body.split('\n')).toEqual([
       '# Trail Runner 2 shoes',
       '£89.00',
@@ -855,6 +861,10 @@ describe('markup that is broken, hostile, or enormous', () => {
       quotes: `<p title="${'"'.repeat(1_500_000)}`,
       nestedTables: '<table><tr><td>'.repeat(5_000),
       manyScripts: '<script>a</script>'.repeat(60_000),
+      manyNoscripts: '<noscript><p>some words</p></noscript>'.repeat(40_000),
+      oneHugeNoscript: `<noscript>${'<p>word</p>'.repeat(140_000)}</noscript>`,
+      pastTheTagCap: '<i></i>'.repeat(80_000) + '<'.repeat(900_000),
+      textPastTheTagCap: `${'<i></i>'.repeat(80_000)}${'word '.repeat(200_000)}`,
     };
     for (const [name, html] of Object.entries(cases)) {
       const started = Date.now();
@@ -885,6 +895,175 @@ describe('markup that is broken, hostile, or enormous', () => {
     const body = text('<p>word </p>'.repeat(200_000));
     expect(body.length).toBeLessThan(260_000);
     expect(body.startsWith('word\nword')).toBe(true);
+  });
+});
+
+describe('a page that is not read to its end says so', () => {
+  const SHORTENED = '[Swarm shortened this page: only the beginning was kept.]';
+
+  it('is marked when text lies below a nesting that no page has, in the text and in `reading`', () => {
+    const extracted = page(
+      `<p>Visible sentence.</p>${'<div>'.repeat(450)}<p>BELOW-THE-CAP the regulator fines the company.</p>`,
+    );
+    expect(extracted.body).toBe('Visible sentence.');
+    expect(extracted.reading.cutShort).toBe(true);
+    const document = pageDocument(extracted);
+    expect(document).toMatchObject({ cutShort: true, truncated: false });
+    expect(document.text).toBe(`Visible sentence.\n\n${SHORTENED}`);
+  });
+
+  it('is marked when text lies beyond the most tags that are read', () => {
+    const extracted = page(
+      `<p>Short opening paragraph.</p>${'<span></span>'.repeat(80_000)}<p>END-OF-PAGE the regulator fines the company.</p>`,
+    );
+    expect(extracted.body).toBe('Short opening paragraph.');
+    expect(extracted.reading.cutShort).toBe(true);
+    expect(pageDocument(extracted).text).toContain(SHORTENED);
+  });
+
+  it('is not marked when nothing but tags lies beyond the cap, or below the nesting', () => {
+    const tags = page(`<p>Short opening paragraph.</p>${'<span></span>'.repeat(80_000)}\n`);
+    expect(tags.reading.cutShort).toBe(false);
+    expect(pageDocument(tags).text).toBe('Short opening paragraph.');
+    const deep = page(`<p>Visible sentence.</p>${'<div>'.repeat(450)}\n${'</div>'.repeat(450)}\n`);
+    expect(deep.reading.cutShort).toBe(false);
+    expect(pageDocument(deep).text).toBe('Visible sentence.');
+    expect(page('<p>Visible sentence.</p>').reading.cutShort).toBe(false);
+  });
+
+  it('is said once, and within the limit, when the text is also too long for a document', () => {
+    const paragraphs = Array.from(
+      { length: 2_000 },
+      (_, index) => `<p>Paragraph number ${index} of a very long page that goes on and on.</p>`,
+    ).join('');
+    const extracted = page(`${paragraphs}${'<div>'.repeat(450)}<p>BELOW-THE-CAP</p>`);
+    const document = pageDocument(extracted, 40_000);
+    expect(document).toMatchObject({ truncated: true, cutShort: true });
+    expect(document.text.split(SHORTENED)).toHaveLength(2);
+    expect(document.text.length).toBeLessThanOrEqual(40_000);
+  });
+
+  it('fits the notice into a document that is a little under the limit', () => {
+    const extracted = page(`<p>${'w'.repeat(990)}</p>${'<div>'.repeat(450)}<p>BELOW</p>`);
+    const document = pageDocument(extracted, 1_000);
+    expect(document.text.length).toBeLessThanOrEqual(1_000);
+    expect(document.text.endsWith(SHORTENED)).toBe(true);
+    expect(document.truncated).toBe(false);
+  });
+});
+
+describe('the text a page keeps for readers without scripts', () => {
+  const fallback = `<article><h1>Library late fees</h1>${paragraph(3, 'NOSCRIPT-FACT ')}</article>`;
+
+  it('is the page when the rest of it has almost no text, and `reading` says so', () => {
+    const extracted = page(`<div id="app"></div><noscript>${fallback}</noscript>`);
+    expect(extracted.body.split('\n')).toEqual([
+      '# Library late fees',
+      sentences(3, 'NOSCRIPT-FACT '),
+    ]);
+    expect(extracted.reading).toEqual({ ...plainReading('all'), noscript: true });
+    expect(pageDocument(extracted).readableChars).toBeGreaterThan(READING.floorChars);
+  });
+
+  it('is read as markup, so that what is hidden or dropped in it stays so, and none of it is run', () => {
+    const extracted = page(
+      `<noscript><script>SCRIPT-TEXT</script><style>STYLE-TEXT</style><div hidden>HIDDEN-TEXT</div><iframe src="https://x.example">FRAME-TEXT</iframe>${fallback}</noscript>`,
+    );
+    expect(extracted.body).toContain('NOSCRIPT-FACT');
+    expect(extracted.body).not.toMatch(/SCRIPT-TEXT|STYLE-TEXT|HIDDEN-TEXT|FRAME-TEXT/u);
+  });
+
+  it('is never mixed with the text of the page, which stays when it is enough and goes when it is not', () => {
+    const enough = page(`${paragraph(3, 'OWN-FACT ')}<noscript>${fallback}</noscript>`);
+    expect(enough.body).toContain('OWN-FACT');
+    expect(enough.body).not.toContain('NOSCRIPT-FACT');
+    expect(enough.reading.noscript).toBe(false);
+    const little = page(`<p>A short page of its own.</p><noscript>${fallback}</noscript>`);
+    expect(little.body).toContain('NOSCRIPT-FACT');
+    expect(little.body).not.toContain('short page of its own');
+    expect(little.reading.noscript).toBe(true);
+  });
+
+  it('is not the page when it is only a request to turn scripts on, however it is worded', () => {
+    for (const message of [
+      'You need to enable JavaScript to run this app.',
+      "We're sorry but this app doesn't work properly without JavaScript enabled. Please enable it to continue.",
+    ]) {
+      const extracted = page(`<div id="root"></div><noscript>${message}</noscript>`);
+      expect(extracted.body, message).toBe('');
+      expect(extracted.reading.noscript, message).toBe(false);
+      expect(pageDocument(extracted).readableChars, message).toBe(0);
+    }
+  });
+
+  it('is not read when it is hidden, or inside what is hidden, or inside a menu or a footer', () => {
+    for (const wrapper of [
+      `<div hidden><noscript>${fallback}</noscript></div>`,
+      `<noscript hidden>${fallback}</noscript>`,
+      `<noscript aria-hidden="true">${fallback}</noscript>`,
+      `<div style="display:none"><noscript>${fallback}</noscript></div>`,
+      `<nav><noscript>${fallback}</noscript></nav>`,
+      `<footer><noscript>${fallback}</noscript></footer>`,
+    ]) {
+      const extracted = page(`<div id="app"></div>${wrapper}`);
+      expect(extracted.body, wrapper).toBe('');
+      expect(extracted.reading.noscript, wrapper).toBe(false);
+    }
+  });
+
+  it('is read only as far as is kept for it', () => {
+    const extracted = page(`<noscript>${'<p>word</p>'.repeat(40_000)}</noscript>`);
+    expect(extracted.reading.noscript).toBe(true);
+    expect(extracted.body.length).toBeLessThan(60_000);
+  });
+});
+
+describe('what a page builds with scripts, or shows from another page', () => {
+  const code = `<script>${'var table = build(rows); '.repeat(2_000)}</script>`;
+
+  it('is flagged when most of the page is script and what is kept is a small part of it', () => {
+    const extracted = page(`${code}<main>${paragraph(2)}</main>`);
+    expect(extracted.reading.scripted).toBe(true);
+    expect(extracted.body).toBe(sentences(2));
+  });
+
+  it('is not flagged for data a page keeps for its own scripts, or for a page that is mostly text', () => {
+    const data = `<script type="application/json">${'{"a":1,"b":[1,2,3]}'.repeat(5_000)}</script>`;
+    expect(page(`${data}${paragraph(2)}`).reading.scripted).toBe(false);
+    expect(page(`<script>${'a();'.repeat(500)}</script>${paragraph(60)}`).reading.scripted).toBe(
+      false,
+    );
+    expect(page(`<script>a();</script>${paragraph(2)}`).reading.scripted).toBe(false);
+  });
+
+  it('is flagged when a frame, an object or an embed that a reader sees holds another document', () => {
+    for (const markup of [
+      '<iframe src="https://x.example/table"></iframe>',
+      '<iframe data-src="https://x.example/table" loading="lazy"> </iframe>',
+      '<iframe srcdoc="<p>table</p>"></iframe>',
+      '<object data="https://x.example/table.pdf" type="application/pdf"></object>',
+      '<embed src="https://x.example/table.pdf">',
+    ]) {
+      const extracted = page(`<main>${paragraph(2)}${markup}</main>`);
+      expect(extracted.reading.scripted, markup).toBe(true);
+      expect(extracted.body, markup).toBe(sentences(2));
+    }
+  });
+
+  it('is not flagged for a frame that nobody sees, or that is blank, or that a menu or a footer holds', () => {
+    for (const markup of [
+      '<iframe src="https://t.example/pixel" width="0" height="0"></iframe>',
+      '<iframe src="https://t.example/x" width="1" height="1"></iframe>',
+      '<iframe src="https://t.example/x" style="display:none"></iframe>',
+      '<iframe src="https://t.example/x" hidden></iframe>',
+      '<iframe src="about:blank"></iframe>',
+      '<iframe></iframe>',
+      '<footer><iframe src="https://t.example/x"></iframe></footer>',
+      '<noscript><iframe src="https://t.example/x"></iframe></noscript>',
+    ]) {
+      const extracted = page(`${paragraph(2)}${markup}`);
+      expect(extracted.reading.scripted, markup).toBe(false);
+    }
   });
 });
 
@@ -1096,6 +1275,16 @@ describe('the document that says what is kept of a web page', () => {
     );
   });
 
+  it('states when the text kept for readers without scripts is read, and when a page is mostly script', () => {
+    const prose = flat(section);
+    expect(SCRIPTED).toEqual({ scriptShare: 0.5, textShare: 0.1 });
+    expect(prose).toContain(
+      `only when the rest of the page has under ${READING.floorChars} characters of text and the \`noscript\` text has at least ${READING.floorChars}, twice as much and ${READING.gainChars} more`,
+    );
+    expect(prose).toContain('at least half of its characters are inside `script` elements');
+    expect(prose).toContain('what is kept is at most a tenth of the page');
+  });
+
   it('gives the notes that a person is shown, word for word', () => {
     const prose = flat(file);
     for (const reading of [
@@ -1107,5 +1296,10 @@ describe('the document that says what is kept of a web page', () => {
     }
     expect(readingNote({ scope: 'all', fellBack: false })).toBeNull();
     expect(readingNote(null)).toBeNull();
+    const everything = { ...plainReading('all'), cutShort: true, noscript: true, scripted: true };
+    expect(coverageNotes(everything)).toHaveLength(3);
+    for (const note of coverageNotes(everything)) expect(prose).toContain(note);
+    expect(coverageNotes(plainReading('all'))).toEqual([]);
+    expect(coverageNotes(null)).toEqual([]);
   });
 });

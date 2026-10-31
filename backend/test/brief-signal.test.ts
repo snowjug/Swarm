@@ -4,6 +4,7 @@ import {
   emptyResponseShares,
   type Analysis,
   type Finding,
+  type Variant,
 } from '../../shared/analysis.js';
 import {
   BRIEF_READING_NOTES,
@@ -14,14 +15,17 @@ import {
   type DecisionBrief,
 } from '../../shared/brief.js';
 import { actorSetFixture, analysisFixture, scenarioFixture } from '../../shared/lab-fixtures.js';
-import { NO_DIRECTION_NOTICE } from '../../shared/signal.js';
+import type { ActorSet } from '../../shared/stakeholders.js';
+import { CHANGE_CANNOT_MOVE_ID, type CritiquesView } from '../../shared/critique.js';
+import type { AnalysisReadiness } from '../../shared/analysis-plan.js';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../shared/signal.js';
 import { buildApp } from '../src/app.js';
 import { buildBrief } from '../src/brief/build.js';
 import { briefHtml, briefJson, briefMarkdown, type BriefExportInput } from '../src/brief/export.js';
 import { gatherFacts, type BriefInputs } from '../src/brief/facts.js';
 import { lintBrief, lintText } from '../src/brief/lint.js';
 import { SAY_DIRECTION } from '../src/brief/recommend.js';
-import { isAboutTheSame } from '../src/brief/signal.js';
+import { isAboutTheSame, UNDIRECTED_READING_NOTE } from '../src/brief/signal.js';
 import { briefVisuals } from '../src/brief/visuals.js';
 import { fixtureInput, testConfig } from './fixtures.js';
 import { TIME, baseInputs, richAnalysis, richInputs } from './support/brief-world.js';
@@ -45,8 +49,9 @@ const shares = (adverse: number) => {
 };
 
 interface Settings {
-  /** Every stakeholder's impact; the fixture's own directions when left out. */
+  /** Every stakeholder's impact; the fixture's own directions when left out. Members of a group do not differ in it unless `impactSpread` says so. */
   impact?: number;
+  impactSpread?: number;
   baselineAdverse?: number;
   changeAdverse?: number;
   changeStance?: number;
@@ -60,6 +65,7 @@ interface Settings {
   alsoLower?: Finding['classification'];
   intensity?: number;
   overrides?: Record<string, number>;
+  edits?: Variant['traitEdits'];
   withSensitivity?: boolean;
 }
 
@@ -98,7 +104,14 @@ function analysisWith(settings: Settings = {}): Analysis {
       ? actor
       : {
           ...actor,
-          traits: { ...actor.traits, impact: { ...actor.traits.impact, value: settings.impact } },
+          traits: {
+            ...actor.traits,
+            impact: {
+              ...actor.traits.impact,
+              value: settings.impact,
+              spread: settings.impactSpread ?? 0,
+            },
+          },
         },
   );
   const runs = (adverse: number, stance: number, moved?: Settings['moved']) =>
@@ -145,6 +158,7 @@ function analysisWith(settings: Settings = {}): Analysis {
           ...variant,
           intensity: settings.intensity ?? variant.intensity,
           impactOverrides: settings.overrides ?? variant.impactOverrides,
+          traitEdits: settings.edits ?? variant.traitEdits,
         },
   );
   return analysisSchema.parse({
@@ -385,7 +399,7 @@ describe('when no stakeholder has an expected direction of impact', () => {
       ...rich,
       actors: rich.actors.map((actor) => ({
         ...actor,
-        traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+        traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread: 0 } },
       })),
     });
     const actors = actorSetFixture();
@@ -502,11 +516,11 @@ describe('when the stakeholders have directions and the two still come out about
     expect(make({ alsoLower: 'unstable' }).signal).toBe('no-difference');
   });
 
-  it('does not touch a brief that can be read: counts lead, as before', () => {
+  it('does not touch a brief that can be read: the paired comparison leads, as the answer', () => {
     const brief = make({ finding: 'lower', changeAdverse: 0.45 });
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toMatch(
-      /about \d+ simulated members ended up looking for an alternative/u,
+      /the mean share of simulated members looking for an alternative or resisting was about \d+(?:\.\d+)? in 100 under/u,
     );
     expect(brief.recommendations.map((recommendation) => recommendation.text)).not.toContain(
       SAY_DIRECTION,
@@ -525,6 +539,304 @@ describe('when the stakeholders have directions and the two still come out about
     const brief = buildBrief(inputsFor(alone));
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toContain('No baseline was run, so nothing is compared.');
+  });
+});
+
+/** The analysis with more scenarios, each compared with no change by a finding of its own. */
+function withScenarios(
+  analysis: Analysis,
+  extra: {
+    id: string;
+    label: string;
+    adverse: number;
+    stance: number;
+    finding: 'same' | 'lower';
+  }[],
+): Analysis {
+  const proposed = analysis.config.variants.find((variant) => variant.id === 'proposed-change')!;
+  const template = analysis.variants.find((result) => result.variantId === 'proposed-change')!;
+  const runsOf = (adverse: number, stance: number) =>
+    template.runs.map((run) => ({
+      ...run,
+      stanceMean: stance,
+      responseShares: shares(adverse),
+      byActor: run.byActor.map((entry) => ({
+        ...entry,
+        stanceMean: stance,
+        responseShares: shares(adverse),
+      })),
+    }));
+  return analysisSchema.parse({
+    ...analysis,
+    config: {
+      ...analysis.config,
+      variants: [
+        ...analysis.config.variants,
+        ...extra.map((entry) => ({ ...proposed, id: entry.id, label: entry.label })),
+      ],
+    },
+    variants: [
+      ...analysis.variants,
+      ...extra.map((entry) => ({
+        variantId: entry.id,
+        runs: runsOf(entry.adverse, entry.stance),
+        trajectory: template.trajectory,
+      })),
+    ],
+    findings: [
+      ...analysis.findings,
+      ...extra.map((entry) => ({
+        ...directionFinding(
+          `direction-${entry.id}`,
+          (entry.finding === 'same' ? sameStatement(OF) : lowerStatement(OF)).replace(
+            'Proposed change',
+            entry.label,
+          ),
+          OF,
+          'mostly-repeatable',
+        ),
+        variantId: entry.id,
+      })),
+    ],
+  });
+}
+
+describe('when the proposed change comes out about the same and another scenario does not', () => {
+  const world = () =>
+    withScenarios(analysisWith({ baselineAdverse: 0.1, changeAdverse: 0.12 }), [
+      {
+        id: 'strong-alternative',
+        label: 'Strong alternative',
+        adverse: 0.45,
+        stance: -0.3,
+        finding: 'lower',
+      },
+      {
+        id: 'mild-alternative',
+        label: 'Mild alternative',
+        adverse: 0.1,
+        stance: 0.1,
+        finding: 'same',
+      },
+    ]);
+  const brief = () => buildBrief(inputsFor(world()));
+  const outcomes = () => section(brief(), 'alternative-outcomes').statements;
+
+  it('reads the state of the proposed change, and each other scenario against no change on its own findings', () => {
+    const { signal } = gatherFacts(inputsFor(world()));
+    expect(signal.state).toBe('no-difference');
+    expect(signal.finding?.variantId).toBe('proposed-change');
+    expect([...signal.sameAs.keys()]).toEqual(['proposed-change', 'mild-alternative']);
+    expect(brief().signal).toBe('no-difference');
+  });
+
+  it('words as about the same only the scenarios whose own findings say so', () => {
+    const against = (label: string) =>
+      outcomes().find((statement) => statement.text.startsWith(`Against “No change”, “${label}”`));
+    expect(against('Proposed change')?.text).toContain(
+      'which the comparison reads as about the same',
+    );
+    expect(against('Mild alternative')?.text).toContain(
+      'which the comparison reads as about the same',
+    );
+    const strong = against('Strong alternative');
+    expect(strong?.text).not.toContain('about the same');
+    expect(strong?.text).toMatch(/higher under the change in 10 of 10 paired runs/u);
+    expect(strong?.text).toMatch(/looking for an alternative or resisting/u);
+    expect(strong?.refs.findingIds).toEqual(['direction-strong-alternative']);
+    expect(strong?.refs.variantIds).toEqual(['strong-alternative', 'baseline']);
+  });
+
+  it('never says of a scenario that it is about the same, or within noise, where its own finding says it moved things', () => {
+    const statements = brief()
+      .sections.flatMap((entry) => entry.statements)
+      .filter((statement) => statement.text.includes('Strong alternative'));
+    expect(statements.length).toBeGreaterThan(0);
+    for (const statement of statements) {
+      expect(statement.text, statement.text).not.toMatch(/about the same|within noise/u);
+    }
+  });
+
+  it('says in the notice and in the note of each section that no difference is said of the proposed change only', () => {
+    expect(NO_DIFFERENCE_NOTICE).toContain('between the proposed change and no change');
+    expect(NO_DIFFERENCE_NOTICE).toContain(
+      'Other scenarios are read against no change on their own',
+    );
+    expect(BRIEF_SIGNAL_NOTICES['no-difference'].title).toContain('for the proposed change');
+    expect(BRIEF_READING_NOTES['no-difference']).toContain('said of the proposed change only');
+    for (const text of [NO_DIFFERENCE_NOTICE, BRIEF_READING_NOTES['no-difference']]) {
+      expect(text).not.toMatch(/\bnoise\b/u);
+      expect(lintText(text)).toEqual([]);
+    }
+    expect(outcomes()[0]?.text).toBe(BRIEF_READING_NOTES['no-difference']);
+    expect(brief().limitations[0]).toBe(NO_DIFFERENCE_NOTICE);
+    expect(brief().methodology.notes.join(' ')).toContain('said of the proposed change only');
+    const risks = section(brief(), 'risks-opportunities').statements;
+    expect(risks[0]?.text).toContain('attributed to the proposed change');
+    expect(section(brief(), 'first-order').statements[1]?.text).toContain(
+      'singled out for the proposed change',
+    );
+  });
+
+  it('does not leave the scenario that moved things out of the answer: it says that no difference is said of the proposed change only', () => {
+    const answer = section(brief(), 'executive-answer').statements;
+    const other = answer.find((statement) => statement.text.startsWith('This is said of'));
+    expect(other?.text).toContain(
+      '“Proposed change” only. In the simulated runs another scenario did differ from no change:',
+    );
+    expect(other?.text).toContain('less favourable under Strong alternative than under No change');
+    expect(other?.text).not.toContain('Mild alternative');
+    expect(other?.origin).toBe('simulation-aggregation');
+    expect(other?.refs.findingIds).toEqual(['direction-strong-alternative']);
+    expect(other?.refs.variantIds).toEqual(['strong-alternative']);
+    expect(brief().headline).not.toContain('Strong alternative');
+    expect(lintBrief(brief())).toEqual([]);
+    // Nothing of the kind where the proposed change is the one that moved, or where every scenario came out the same.
+    const nothing = (analysis: Analysis) =>
+      section(buildBrief(inputsFor(analysis)), 'executive-answer').statements.some((statement) =>
+        statement.text.startsWith('This is said of'),
+      );
+    expect(nothing(analysisWith({ baselineAdverse: 0.1, changeAdverse: 0.12 }))).toBe(false);
+    expect(
+      nothing(
+        withScenarios(analysisWith({ finding: 'lower', changeAdverse: 0.45 }), [
+          {
+            id: 'mild-alternative',
+            label: 'Mild alternative',
+            adverse: 0.05,
+            stance: 0.1,
+            finding: 'same',
+          },
+        ]),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not word the proposed change as about the same when it is the one that moved, whatever the others did', () => {
+    const moved = withScenarios(analysisWith({ finding: 'lower', changeAdverse: 0.45 }), [
+      {
+        id: 'mild-alternative',
+        label: 'Mild alternative',
+        adverse: 0.05,
+        stance: 0.1,
+        finding: 'same',
+      },
+    ]);
+    const { signal } = gatherFacts(inputsFor(moved));
+    expect(signal.state).toBe('clear');
+    expect([...signal.sameAs.keys()]).toEqual(['mild-alternative']);
+    const statements = section(buildBrief(inputsFor(moved)), 'alternative-outcomes').statements;
+    expect(statements.some((statement) => /reads as about the same/u.test(statement.text))).toBe(
+      false,
+    );
+  });
+});
+
+describe('what is called no difference', () => {
+  it('is not said of a shift that is small but holds the same way in every paired run', () => {
+    // Six points of the simulated members adverse more, in every one of ten paired runs, with the stance as it was.
+    const steady = analysisWith({ baselineAdverse: 0.05, changeAdverse: 0.11 });
+    expect(gatherFacts(inputsFor(steady)).signal.state).toBe('clear');
+    const faint = analysisWith({ baselineAdverse: 0.05, changeAdverse: 0.09 });
+    expect(gatherFacts(inputsFor(faint)).signal.state).toBe('no-difference');
+  });
+
+  it('compares the totals kept for each scenario where the runs kept no detail of their groups, and claims nothing without them', () => {
+    const quiet = analysisWith({ baselineAdverse: 0.1, changeAdverse: 0.12 });
+    const elided = (totals: 'same' | 'moved' | 'none') =>
+      analysisSchema.parse({
+        ...quiet,
+        variants: quiet.variants.map((result) => ({
+          ...result,
+          runs: result.runs.map((run) => ({ ...run, byActor: [] })),
+          ...(totals === 'none'
+            ? {}
+            : {
+                actors: quiet.actors.map((actor) => {
+                  const moves =
+                    totals === 'moved' &&
+                    result.variantId === 'proposed-change' &&
+                    actor.id === 'subscribers';
+                  return {
+                    actorId: actor.id,
+                    members: actor.sampleSize,
+                    stanceMean: moves ? -0.3 : 0.1,
+                    responseShares: shares(moves ? 0.4 : 0.1),
+                  };
+                }),
+              }),
+        })),
+      });
+    expect(gatherFacts(inputsFor(elided('same'))).signal.state).toBe('no-difference');
+    expect(gatherFacts(inputsFor(elided('moved'))).signal.state).toBe('clear');
+    expect(gatherFacts(inputsFor(elided('none'))).signal.state).toBe('clear');
+  });
+});
+
+describe('when nobody has an expected direction but the members of a group can still move', () => {
+  const spread = (settings: Settings = {}) =>
+    analysisWith({ impact: 0, impactSpread: 0.15, ...settings });
+
+  it('is not read as a change that cannot move anyone, and says only that nobody has a direction', () => {
+    const analysis = spread({ baselineAdverse: 0.1, changeAdverse: 0.12 });
+    const { signal } = gatherFacts(inputsFor(analysis));
+    expect(signal).toMatchObject({ state: 'no-difference', undirected: true });
+    const brief = buildBrief(inputsFor(analysis));
+    expect(brief.signal).toBe('no-difference');
+    expect(brief.headline).not.toMatch(/cannot move anyone|\bnoise\b/u);
+    expect(brief.limitations).not.toContain(NO_DIRECTION_NOTICE);
+    const note = section(brief, 'alternative-outcomes').statements[0];
+    expect(note?.origin).toBe('unresolved-uncertainty');
+    expect(note?.text).toBe(`${BRIEF_READING_NOTES['no-difference']} ${UNDIRECTED_READING_NOTE}`);
+    expect(lintBrief(brief)).toEqual([]);
+  });
+
+  it('keeps the limitation that nobody has a direction after the one that says what was found, and says nothing of nothing moving', () => {
+    const quiet = buildBrief(inputsFor(spread({ baselineAdverse: 0.1, changeAdverse: 0.12 })));
+    expect(quiet.limitations.slice(0, 2)).toEqual([NO_DIFFERENCE_NOTICE, UNDIRECTED_NOTICE]);
+    const clear = buildBrief(inputsFor(spread({ finding: 'lower', changeAdverse: 0.45 })));
+    expect(clear.limitations[0]).toBe(UNDIRECTED_NOTICE);
+    expect(section(clear, 'limitations').statements[0]).toMatchObject({
+      origin: 'system-assumption',
+      text: UNDIRECTED_NOTICE,
+    });
+    // Nor does a cast in which someone has a direction carry it.
+    const own = buildBrief(inputsFor(analysisWith({ finding: 'lower', changeAdverse: 0.45 })));
+    expect(own.limitations).not.toContain(UNDIRECTED_NOTICE);
+  });
+
+  it('leads with the counts where the comparison found a difference, under a note that nobody has a direction', () => {
+    const brief = buildBrief(inputsFor(spread({ finding: 'lower', changeAdverse: 0.45 })));
+    expect(brief.signal).toBe('clear');
+    expect(brief.headline).toMatch(COUNTS);
+    const note = section(brief, 'alternative-outcomes').statements[0];
+    expect(note).toMatchObject({ origin: 'system-assumption', text: UNDIRECTED_READING_NOTE });
+    expect(note?.refs.assumptions).toEqual(['No stakeholder has an expected direction of impact.']);
+    expect(section(brief, 'reaction-patterns').statements[0]?.text).toBe(UNDIRECTED_READING_NOTE);
+    expect(brief.recommendations[0]?.text).not.toBe(SAY_DIRECTION);
+    expect(UNDIRECTED_READING_NOTE).not.toMatch(/cannot move anyone|\bnoise\b/u);
+    expect(lintBrief(brief)).toEqual([]);
+    expect(lintText(UNDIRECTED_READING_NOTE)).toEqual([]);
+    expect(lintText(UNDIRECTED_NOTICE)).toEqual([]);
+  });
+
+  it('says nothing of it when someone has a direction, as a person or as a scenario gives it', () => {
+    const own = buildBrief(inputsFor(analysisWith({ finding: 'lower', changeAdverse: 0.45 })));
+    const edited = buildBrief(
+      inputsFor(
+        analysisWith({
+          impact: 0,
+          finding: 'lower',
+          changeAdverse: 0.45,
+          edits: [{ actorId: 'subscribers', trait: 'impact', value: -1 }],
+        }),
+      ),
+    );
+    for (const brief of [own, edited]) {
+      expect(brief.signal).toBe('clear');
+      const texts = brief.sections.flatMap((entry) => entry.statements.map((item) => item.text));
+      expect(texts).not.toContain(UNDIRECTED_READING_NOTE);
+    }
   });
 });
 
@@ -558,7 +870,9 @@ describe('the exports say so before anything else', () => {
       expect(markdown.slice(notice)).toContain(text.slice(0, 60));
       expect(notice).toBeLessThan(markdown.indexOf('- **Question:**'));
       expect(notice).toBeLessThan(markdown.indexOf('## In short'));
-      expect(markdown).toContain('not read as effects of the change');
+      expect(markdown).toMatch(/not read as (?:effects|an effect) of the change/u);
+      if (state === 'no-difference')
+        expect(markdown).toContain('every other row is read on its own');
     },
   );
 
@@ -615,8 +929,15 @@ async function until<T>(read: () => Promise<T>, done: (value: T) => boolean): Pr
   throw new Error('The condition was not reached in time.');
 }
 
+interface EngineWorldOptions {
+  /** Changes the cast after its impacts are set. */
+  cast?: (actors: ActorSet) => void;
+  /** The scenarios to compare, where the person chose their own. */
+  variants?: Variant[];
+}
+
 /** A project whose cast has the stated impact, compared by the real engine in rules mode. */
-async function engineWorld(impact: number | null) {
+async function engineWorld(impact: number | null, options: EngineWorldOptions = {}) {
   const instance = await buildApp({
     config: testConfig({ LOG_LEVEL: 'silent', RATE_LIMIT_SCALE: '50' }),
   });
@@ -629,13 +950,19 @@ async function engineWorld(impact: number | null) {
       actor.traits.impact = { ...actor.traits.impact, value: impact, spread: 0 };
     }
   }
+  options.cast?.(actors);
   repository.artifacts.put(project.id, 'actors', 'default', actors);
   repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
   const base = `/api/projects/${project.id}`;
   const started = await app.inject({
     method: 'POST',
     url: `${base}/analysis`,
-    payload: { runsPerVariant: 10, baseSeed: 4242, sensitivity: true },
+    payload: {
+      runsPerVariant: 10,
+      baseSeed: 4242,
+      sensitivity: true,
+      ...(options.variants ? { variants: options.variants } : {}),
+    },
   });
   expect(started.statusCode, started.body).toBe(202);
   const id = (started.json().analysis as Analysis).id;
@@ -648,6 +975,42 @@ async function engineWorld(impact: number | null) {
   expect(made.statusCode, made.body).toBe(201);
   return { app, base, analysis, view: made.json() as BriefView };
 }
+
+const NO_CHANGE: Variant = {
+  id: 'baseline',
+  label: 'No change',
+  kind: 'baseline',
+  description: 'Nothing changes.',
+  round: 1,
+  intensity: 0,
+  impactOverrides: {},
+  traitEdits: [],
+};
+const scenario = (change: Partial<Variant>): Variant => ({
+  ...NO_CHANGE,
+  id: 'proposed-change',
+  label: 'Proposed change',
+  kind: 'alternative',
+  description: 'The change as framed. Its intensity was set by you.',
+  round: 2,
+  intensity: 0.7,
+  ...change,
+});
+
+/** How many simulated members ended up looking for an alternative or resisting, summed over the runs of a scenario. */
+const adverseOver = (analysis: Analysis, variantId: string): number =>
+  analysis.variants
+    .find((result) => result.variantId === variantId)!
+    .runs.reduce(
+      (total, run) =>
+        total +
+        run.byActor.reduce(
+          (sum, entry) =>
+            sum + (entry.responseShares.switch + entry.responseShares.resist) * entry.members,
+          0,
+        ),
+      0,
+    );
 
 describe('on the real engine', () => {
   it('does not present noise as a result when no stakeholder has a direction of impact', async () => {
@@ -673,13 +1036,99 @@ describe('on the real engine', () => {
     expect(html).toContain('<p class="alert"><strong>The simulation could not tell');
   });
 
-  it('keeps the counts as the answer when the stakeholders have directions of impact', async () => {
+  it('does not call the change unable to move anyone when nobody has a direction but a large group differs in how it lands on its members', async () => {
+    const { app, base, analysis, view } = await engineWorld(0, {
+      cast: (set) => {
+        const group = set.actors.find((actor) => actor.id === 'subscribers')!;
+        group.sampleSize = 200;
+        group.traits.impact = { ...group.traits.impact, spread: 0.5 };
+      },
+    });
+    // The change does move members here, and nothing but chance sits on the other side of the comparison.
+    expect(adverseOver(analysis, 'proposed-change')).toBeGreaterThan(
+      adverseOver(analysis, 'baseline') + 100,
+    );
+    const brief = view.brief!;
+    expect(brief.signal).toBe('clear');
+    expect(brief.headline).toMatch(COUNTS);
+    expect(brief.headline).not.toMatch(/cannot move anyone|\bnoise\b|no measurable difference/u);
+    expect(brief.limitations[0]).not.toBe(NO_DIRECTION_NOTICE);
+    expect(section(brief, 'alternative-outcomes').statements[0]?.text).toBe(
+      UNDIRECTED_READING_NOTE,
+    );
+    expect(lintBrief(brief)).toEqual([]);
+
+    // The page before the run says the same, in words that are true of it.
+    const listed = (await app.inject(`${base}/analysis`)).json() as {
+      readiness: AnalysisReadiness;
+    };
+    expect(listed.readiness.warnings).toEqual([UNDIRECTED_NOTICE]);
+    const review = await app.inject({ method: 'POST', url: `${base}/critiques/run`, payload: {} });
+    const ids = (review.json() as CritiquesView).critiques!.critiques.map(
+      (critique) => critique.id,
+    );
+    expect(ids).toContain('methodology-no-declared-direction');
+    expect(ids).not.toContain(CHANGE_CANNOT_MOVE_ID);
+  });
+
+  it('does not call the change unable to move anyone when a scenario edits the impact of an actor', async () => {
+    const edited = scenario({
+      traitEdits: [{ actorId: 'subscribers', trait: 'impact', value: -1 }],
+    });
+    const { analysis, view } = await engineWorld(0, { variants: [NO_CHANGE, edited] });
+    expect(adverseOver(analysis, 'proposed-change')).toBeGreaterThan(
+      adverseOver(analysis, 'baseline') + 20,
+    );
+    const direction = analysis.findings.find((finding) => finding.kind === 'direction-vs-baseline');
+    expect(direction?.statement).toContain('less favourable');
+    const brief = view.brief!;
+    expect(brief.signal).toBe('clear');
+    expect(brief.headline).toMatch(COUNTS);
+    expect(brief.headline).not.toMatch(/cannot move anyone|\bnoise\b|no measurable difference/u);
+    expect(brief.limitations[0]).not.toBe(NO_DIRECTION_NOTICE);
+    expect(
+      brief.sections.flatMap((entry) => entry.statements.map((statement) => statement.text)),
+    ).not.toContain(UNDIRECTED_READING_NOTE);
+  });
+
+  it('words a scenario that moved things by its own findings when the proposed change came out about the same', async () => {
+    const weak = scenario({ impactOverrides: { provider: -0.02 } });
+    const strong = scenario({
+      id: 'strong-alternative',
+      label: 'Strong alternative',
+      intensity: 1,
+      impactOverrides: { subscribers: -1 },
+    });
+    const { analysis, view } = await engineWorld(0, { variants: [NO_CHANGE, weak, strong] });
+    const directions = (variantId: string) =>
+      analysis.findings.find(
+        (finding) => finding.kind === 'direction-vs-baseline' && finding.variantId === variantId,
+      );
+    expect(directions('proposed-change')?.statement).toContain('about the same');
+    expect(directions('strong-alternative')?.statement).toContain('less favourable');
+    const brief = view.brief!;
+    expect(brief.signal).toBe('no-difference');
+    const outcomes = section(brief, 'alternative-outcomes').statements.map(
+      (statement) => statement.text,
+    );
+    const against = (label: string) =>
+      outcomes.find((text) => text.startsWith(`Against “No change”, “${label}”`));
+    expect(against('Proposed change')).toContain('reads as about the same');
+    expect(against('Strong alternative')).toMatch(
+      /higher under the change in \d+ of 10 paired runs/u,
+    );
+    expect(against('Strong alternative')).not.toContain('about the same');
+    expect(brief.limitations[0]).toContain('between the proposed change and no change');
+    expect(lintBrief(brief)).toEqual([]);
+  });
+
+  it('keeps the paired comparison as the answer when the stakeholders have directions of impact', async () => {
     const { analysis, view } = await engineWorld(null);
     const brief = view.brief!;
     expect(analysis.findings.some(isAboutTheSame)).toBe(false);
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toMatch(
-      /about \d+ simulated members ended up looking for an alternative or resisting under “Proposed change”/u,
+      /the mean share of simulated members looking for an alternative or resisting was about \d+(?:\.\d+)? in 100 under “Proposed change” against \d+(?:\.\d+)? in 100 under “No change”/u,
     );
     expect(brief.recommendations.map((recommendation) => recommendation.text)).not.toContain(
       SAY_DIRECTION,

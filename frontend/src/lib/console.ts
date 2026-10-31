@@ -337,12 +337,43 @@ export function labWatch(project: ProjectDetail, step: ConsoleStep): LabWatch | 
 }
 
 /**
- * The view the workspace starts in. A project with simulated actors starts with the workbench alone:
- * the map beside it is drawn from the words of the evidence and says nothing about the actors. The
- * person can still open it.
+ * The view the workspace starts in, from the stage in view, so that it never changes while the person
+ * works in a stage. Graph Build keeps the map beside it and Interaction the report. Env Setup is
+ * tables of stakeholders and actors, which need the whole width, and so are the comparison and the
+ * decision brief once there are actors and a finished comparison. A guided project with only the
+ * engine's own record keeps its graph and report reader beside Simulation and Report, which is what it
+ * has to show there. Any other record keeps the split view. A view the person chose is kept.
  */
-export function defaultView(project: ProjectDetail): 'split' | 'workbench' {
-  return isGuided(project) && (project.lab?.actors ?? 0) > 0 ? 'workbench' : 'split';
+export function defaultView(project: ProjectDetail, step: ConsoleStep): 'split' | 'workbench' {
+  if (!isGuided(project)) return 'split';
+  switch (step) {
+    case 'environment':
+      return 'workbench';
+    case 'simulation':
+      return (project.lab?.actors ?? 0) > 0 ? 'workbench' : 'split';
+    case 'report':
+      return project.lab?.analysis === 'completed' ? 'workbench' : 'split';
+    default:
+      return 'split';
+  }
+}
+
+/**
+ * What the brief and the independent review read again on. It changes each time a person asks for a
+ * fresh read of the project (`reads`), and when the lab's own record changes (a comparison finished,
+ * stakeholders approved, a brief written). The project's own timestamp is no help: a change to an
+ * artifact, which is all a critique, a stakeholder or a comparison is, does not touch it.
+ */
+export function labRefreshToken(project: Pick<ProjectDetail, 'lab'>, reads: number): string {
+  const { lab } = project;
+  return [
+    reads,
+    lab
+      ? [lab.scenario, lab.stakeholders, lab.actors, lab.analysis, lab.critiques, lab.brief].join(
+          ',',
+        )
+      : 'none',
+  ].join(':');
 }
 
 /**

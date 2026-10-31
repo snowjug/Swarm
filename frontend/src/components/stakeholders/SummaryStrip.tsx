@@ -1,10 +1,11 @@
-import { Eye, ListChecks, Plus, Users } from 'lucide-react';
+import { ArrowDown, Eye, ListChecks, Plus, Users } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Spinner } from '../ui';
 import type { NextAction, NextActionId, Summary } from './review';
 
 const ICONS: Record<NextActionId, LucideIcon> = {
   review: ListChecks,
+  approval: ArrowDown,
   add: Plus,
   approve: Users,
   'make-actors': Users,

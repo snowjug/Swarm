@@ -42,7 +42,9 @@ asynchronous interface buys.
 7. **Moving data** is one tool, `npm run db:copy`: SQLite to PostgreSQL to migrate an installation,
    PostgreSQL to a SQLite file for a logical backup, and the reverse to restore. The destination must
    be empty, the copy is one transaction, and it is kept only if row counts match and the audit chain
-   verifies. Sign-in state is not copied.
+   verifies. The source is read in one snapshot (`SqlDatabase.readSnapshot`: a SQLite read transaction, or
+   a read-only repeatable-read transaction on PostgreSQL), because counts and a chain cannot show a copy
+   that mixes two moments. Sign-in state is not copied.
 8. **Authentication.** `DATABASE_AUTH=entra` uses a Microsoft Entra access token as the password,
    fetched through `DefaultAzureCredential` (a managed identity when hosted) for each connection.
    No password is then configured anywhere.

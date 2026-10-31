@@ -131,7 +131,7 @@ counts."
 **5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band, and two findings with their intervals. If one finding is unstable, open it and
 say what that means: it did not hold in enough runs to rely on. Open the second-order chain and read
-it aloud ("because ... then ..."); say that competitor, partner and regulator reactions come from
+it aloud (what each event acted on, and what only came before it); say that competitor, partner and regulator reactions come from
 generic rules and not from a script written for this example.
 
 **6:30 to 7:30 Sensitivity.** Point at the assumptions the result moves with. Find one that is

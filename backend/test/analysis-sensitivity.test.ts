@@ -15,7 +15,9 @@ import {
   type Perturbation,
 } from '../src/analysis/sensitivity.js';
 import { standardError } from '../src/analysis/stats.js';
+import { simulateEachSpecOnce } from '../src/simulation/simulate.js';
 import {
+  BASELINE,
   PROPOSED,
   clock,
   inputs as baseInputs,
@@ -152,6 +154,144 @@ describe('which assumptions are moved', () => {
     expect(planPerturbations(testCast(), undefined)).toEqual([]);
     expect(perturbations.length).toBeLessThanOrEqual(SENSITIVITY_TOP_ACTORS * 8 + 2 + 4);
     expect(new Set(perturbations.map((item) => item.id)).size).toBe(perturbations.length);
+  });
+});
+
+describe('which setting an assumption is moved on', () => {
+  /** Nobody is given an impact by the cast: the scenarios give it. */
+  const plain = (): Actor[] => {
+    const actors = plainCast();
+    for (const actor of actors) {
+      actor.traits.impact = { ...actor.traits.impact, value: 0, spread: 0 };
+    }
+    return actors;
+  };
+  const harming = (change: Partial<typeof PROPOSED> = {}) => ({
+    ...PROPOSED,
+    impactOverrides: { subscribers: -0.6 },
+    ...change,
+  });
+  const find = (planned: Perturbation[], id: string) => planned.find((item) => item.id === id)!;
+
+  it('moves an impact from the value the proposed change sets, on the override that holds it', () => {
+    const planned = planPerturbations(plain(), harming());
+    const up = find(planned, 'trait-subscribers-impact-up');
+    // The move starts at -0.6, which the scenario set, and not at the 0 that the actor carries.
+    expect(up.perturbation).toBeCloseTo(0.2, 6);
+    const moved = up.apply({ actors: plain(), relations: [], rounds: 8, variant: harming() });
+    expect(Object.keys(moved.variant.impactOverrides)).toEqual(['subscribers']);
+    expect(moved.variant.impactOverrides.subscribers).toBeCloseTo(-0.4, 9);
+    expect(moved.actors.find((actor) => actor.id === 'subscribers')!.traits.impact.value).toBe(0);
+    expect(find(planned, 'trait-subscribers-impact-down').perturbation).toBeCloseTo(-0.2, 6);
+    // The origin is that of the scenario's author, and the row says what the scenario set.
+    expect(up.origin).toBe('user');
+    expect(up.setting).toEqual({ source: 'scenario-override', value: -0.6 });
+    expect(up.label).toContain('as Proposed change sets it (-0.6)');
+    expect(up.label.length).toBeLessThanOrEqual(200);
+  });
+
+  it('keeps to the scale of the value that governs the run, so that an override at the end of it has one move only', () => {
+    const planned = planPerturbations(plain(), harming({ impactOverrides: { subscribers: -1 } }));
+    expect(planned.some((item) => item.id === 'trait-subscribers-impact-down')).toBe(false);
+    expect(find(planned, 'trait-subscribers-impact-up').perturbation).toBeCloseTo(0.2, 6);
+  });
+
+  it('moves a trait the scenario edits on its last edit, and leaves the other edits and the actor as they are', () => {
+    const edits = [
+      { actorId: 'subscribers', trait: 'trust', value: 0.3 },
+      { actorId: 'resellers', trait: 'trust', value: 0.1 },
+      { actorId: 'subscribers', trait: 'trust', value: 0.9 },
+    ];
+    const proposed = harming({ impactOverrides: {}, traitEdits: edits });
+    const planned = planPerturbations(plain(), proposed);
+    const down = find(planned, 'trait-subscribers-trust-down');
+    expect(down.perturbation).toBeCloseTo(-0.2, 6);
+    expect(find(planned, 'trait-subscribers-trust-up').perturbation).toBeCloseTo(0.1, 6);
+    const moved = down.apply({ actors: plain(), relations: [], rounds: 8, variant: proposed });
+    expect(moved.variant.traitEdits).toHaveLength(3);
+    expect(moved.variant.traitEdits.slice(0, 2)).toEqual(edits.slice(0, 2));
+    expect(moved.variant.traitEdits[2]).toMatchObject({ actorId: 'subscribers', trait: 'trust' });
+    expect(moved.variant.traitEdits[2]!.value).toBeCloseTo(0.7, 9);
+    expect(moved.actors).toEqual(plain());
+    expect(down.setting).toEqual({ source: 'scenario-edit', value: 0.9 });
+    expect(down.origin).toBe('user');
+  });
+
+  it('ranks the actors by the influence the scenario runs them with', () => {
+    const cast = plain();
+    const quiet = cast.find((actor) => actor.traits.influence.value === 0.4)!;
+    const planned = planPerturbations(cast, {
+      ...PROPOSED,
+      traitEdits: [{ actorId: quiet.id, trait: 'influence', value: 0.99 }],
+    });
+    const traitsOf = (items: Perturbation[]) =>
+      items.filter((item) => item.target.kind === 'trait' && item.target.actorId === quiet.id);
+    expect(traitsOf(planned)).toHaveLength(8);
+    expect(traitsOf(planPerturbations(cast, PROPOSED))).toHaveLength(0);
+  });
+
+  it('is unchanged where the actor holds the value: its own trait is moved, with its own origin', () => {
+    const cast = plain();
+    cast[0]!.traits.trust.origin = 'user';
+    const planned = planPerturbations(cast, PROPOSED);
+    const down = find(planned, 'trait-subscribers-trust-down');
+    expect(down.setting).toBeUndefined();
+    expect(down.origin).toBe('user');
+    expect(down.label).not.toContain('sets it');
+    expect(down.apply(spec()).variant).toEqual(PROPOSED);
+  });
+
+  it('finds on the real engine the shift that moving the actor’s own value would have missed', async () => {
+    const proposed = harming();
+    const given = { actors: plain(), relations: [], rounds: 8, variant: proposed };
+    const simulator = simulateEachSpecOnce();
+    const base = seeds.map((seed) => headlineShare(simulator(given, seed).final.responseShares));
+    const planned = planPerturbations(plain(), proposed);
+
+    // What moving the trait the actor carries does while the scenario overrides it: nothing at all.
+    const carried = plain();
+    carried.find((actor) => actor.id === 'subscribers')!.traits.impact.value = 0.2;
+    for (const seed of seeds) {
+      expect(simulator({ ...given, actors: carried }, seed)).toEqual(simulator(given, seed));
+    }
+
+    const result = await runSensitivity({
+      spec: given,
+      seeds,
+      baseValues: base,
+      simulator,
+      perturbations: [find(planned, 'trait-subscribers-impact-up')],
+    });
+    expect(result!.rows[0]).toMatchObject({
+      id: 'trait-subscribers-impact-up',
+      classification: 'assumption-sensitive',
+      assumptionOrigin: 'user',
+      setting: { source: 'scenario-override', value: -0.6 },
+    });
+    expect(result!.rows[0]!.shift).toBeLessThan(-0.05);
+  });
+
+  it('keeps the row of an override that matters among the twelve an analysis reports, with what the scenario set', async () => {
+    const analysis = await runAnalysis(
+      inputs({
+        actors: plain(),
+        variants: [BASELINE, harming()],
+        runsPerVariant: 10,
+        sensitivity: true,
+      }),
+      simulateEachSpecOnce(),
+      { now: clock },
+    );
+    expect(analysis.sensitivity).toHaveLength(12);
+    const row = analysis.sensitivity.find((entry) => entry.id === 'trait-subscribers-impact-up');
+    expect(row).toMatchObject({
+      classification: 'assumption-sensitive',
+      assumptionOrigin: 'user',
+      setting: { source: 'scenario-override', value: -0.6 },
+    });
+    expect(analysis.sensitivity.filter((entry) => entry.setting !== undefined)).toHaveLength(
+      analysis.sensitivity.filter((entry) => entry.label.includes('sets it')).length,
+    );
   });
 });
 

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { MAX_PDF_BYTES } from '../../../shared/guided.js';
 import { documentInputSchema, MAX_DOCUMENT_CHARS } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
-import { csvToText, DataError, jsonToText } from './url/normalize.js';
+import { csvToText, DataError, jsonToText, STRAY_QUOTES_NOTE } from './url/normalize.js';
 import { fit } from './url/text.js';
 
 const DATA_FILE = /\.(csv|json)$/iu;
@@ -57,7 +57,7 @@ export function extractDataFile(body: unknown): ExtractedDataFile | null {
       'This file is not valid UTF-8 text. Save it as UTF-8 and try again.',
     );
   }
-  let read: { text: string; truncated: boolean };
+  let read: { text: string; truncated: boolean; strayQuotes?: boolean };
   try {
     read = /\.json$/iu.test(name) ? jsonToText(source) : csvToText(source);
   } catch (error) {
@@ -79,12 +79,14 @@ export function extractDataFile(body: unknown): ExtractedDataFile | null {
       'This file has fewer than 80 characters of readable data. Add more, or paste its text instead.',
     );
   }
-  const notes =
-    read.truncated || fitted.truncated
+  const notes = [
+    ...(read.truncated || fitted.truncated
       ? [
           `The file is longer than a document can be (${MAX_DOCUMENT_CHARS.toLocaleString('en-US')} characters), so only the beginning was kept. The text says so.`,
         ]
-      : [];
+      : []),
+    ...(read.strayQuotes ? [STRAY_QUOTES_NOTE] : []),
+  ];
   return {
     name: document.data.name,
     content: document.data.content,

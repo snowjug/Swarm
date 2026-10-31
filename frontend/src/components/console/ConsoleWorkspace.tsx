@@ -18,6 +18,7 @@ import {
   initialStep,
   isBusy,
   isGuided,
+  labRefreshToken,
   labWatch,
   nextStep,
   stepAvailable,
@@ -57,8 +58,7 @@ import { useJsonSnapshotExport } from '../../hooks/useJsonSnapshotExport';
 import { JsonSnapshotExportButton, JsonSnapshotExportError } from './JsonSnapshotExport';
 import type { UiMode } from '../../lib/mode';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { DecisionBriefView } from '../brief/DecisionBriefView';
-import { CriticPanel } from '../critics/CriticPanel';
+import { ReportSeam } from '../brief/ReportSeam';
 import { StakeholderPanel } from '../stakeholders/StakeholderPanel';
 
 export function ConsoleWorkspace({
@@ -110,7 +110,7 @@ export function ConsoleWorkspace({
   const snapshotExport = useJsonSnapshotExport(project.id);
   // What the person chose, once they have; until then the view that suits the project.
   const [chosenView, setChosenView] = useState<ConsoleView | null>(null);
-  const view: ConsoleView = chosenView ?? defaultView(project);
+  const view: ConsoleView = chosenView ?? defaultView(project, step);
   const narrow = useMediaQuery(CONSOLE_NARROW_QUERY);
   const effectiveView = narrow && view === 'split' ? 'workbench' : view;
   const [inspection, setInspection] = useState<Inspection | null>(null);
@@ -140,17 +140,22 @@ export function ConsoleWorkspace({
     onCloseComparison();
   };
   const reportView = step === 'report' || step === 'interaction';
+  // On a narrow screen the pane that was opened on its own gives way to the stage that is opened next;
+  // any other choice is the person's and stays.
+  const leaveSidePane = () => {
+    if (narrow && chosenView === 'graph') setChosenView(null);
+  };
   const navigate = (next: ConsoleStep) => {
     if (!stepAvailable(project, next)) return;
     setStep(next);
     setComparisonOpen(false);
     setStudioOpen(false);
     onCloseComparison();
-    if (narrow) setChosenView('workbench');
+    leaveSidePane();
   };
   const run = (next: ExecutionStep) => {
     setStep(next);
-    if (narrow) setChosenView('workbench');
+    leaveSidePane();
     void onRun(next).catch(() => {
       // The operation hook displays the API error and refreshes persisted state.
     });
@@ -177,6 +182,12 @@ export function ConsoleWorkspace({
     refresh: readQuietly,
   });
   const reading = refreshing && !quiet;
+  // The brief and the review read again when the person asks for a fresh read of the project and when the
+  // lab's record changes; the brief also when the review beside it changes, which its freshness depends on.
+  const [freshReads, setFreshReads] = useState(0);
+  const [reviewChanges, setReviewChanges] = useState(0);
+  const labToken = labRefreshToken(project, freshReads);
+  const reviewChanged = useCallback(() => setReviewChanges((count) => count + 1), []);
   const move = guided && !comparing && !studioOpen ? nextStep(project, step) : null;
   // The button that moved the person is gone, or says something else, in the stage it opened: focus
   // goes to the stage itself, so that a keyboard or screen reader user starts there, not on the page.
@@ -187,7 +198,7 @@ export function ConsoleWorkspace({
   }, [handoffs]);
   const followNextStep = (next: ConsoleStep) => {
     navigate(next);
-    if (view === 'graph') setChosenView('workbench');
+    if (view === 'graph') setChosenView(null);
     setHandoffs((count) => count + 1);
   };
   const inspect = (selection: Inspection) => setInspection(selection);
@@ -300,6 +311,7 @@ export function ConsoleWorkspace({
             disabled={reading || busy}
             onClick={() => {
               setQuiet(false);
+              setFreshReads((count) => count + 1);
               onRefresh();
             }}
             aria-label="Refresh project from server"
@@ -418,11 +430,15 @@ export function ConsoleWorkspace({
       {move && <NextStepBar move={move} onNavigate={followNextStep} />}
       {guided && step === 'report' && !comparing && !studioOpen && (
         <>
-          <div className="seam-stack" onClickCapture={nudge}>
-            <DecisionBriefView project={project} />
-            <CriticPanel project={project} />
-          </div>
-          <div className="detailed-report">
+          <ReportSeam
+            project={project}
+            onClickCapture={nudge}
+            briefRefreshToken={`${labToken}:${reviewChanges}`}
+            reviewRefreshToken={labToken}
+            onReviewChanged={reviewChanged}
+            onNavigate={navigate}
+          />
+          <div className="detailed-report" id="report-detail">
             <h2>Detailed report</h2>
             <p className="field-help">
               The report and evidence trail of the optional agent-by-agent deep dive. The decision

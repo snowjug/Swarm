@@ -10,6 +10,7 @@ import {
   journey,
   journeyItems,
   keepLab,
+  labRefreshToken,
   labWatch,
   needsPolling,
   nextStep,
@@ -516,22 +517,93 @@ describe('when the page reads the project again by itself', () => {
   });
 });
 
-describe('the view a project opens in', () => {
-  it('is the workbench alone once there are simulated actors, and the split view otherwise', () => {
+describe('what the brief and the review read again on', () => {
+  const tokenOf = (change: Partial<LabProgress> | undefined, reads = 0) => {
     const project = projectFixture();
-    expect(defaultView(project)).toBe('split');
-    project.lab = lab({ stakeholders: 'approved' });
-    expect(defaultView(project)).toBe('split');
+    if (change) project.lab = lab(change);
+    return labRefreshToken(project, reads);
+  };
+  const FINISHED = { stakeholders: 'approved', actors: 5, analysis: 'completed' } as const;
+
+  it('changes each time a person asks for a fresh read of the project, though nothing in the record moved', () => {
+    const first = tokenOf(FINISHED, 0);
+    expect(tokenOf(FINISHED, 0)).toBe(first);
+    expect(tokenOf(FINISHED, 1)).not.toBe(first);
+    expect(tokenOf(FINISHED, 2)).not.toBe(tokenOf(FINISHED, 1));
+  });
+
+  it('changes when the lab’s record does: a comparison finished, a review made, a brief written', () => {
+    const tokens = [
+      tokenOf({ ...FINISHED, analysis: 'running' }),
+      tokenOf(FINISHED),
+      tokenOf({ ...FINISHED, critiques: true }),
+      tokenOf({ ...FINISHED, critiques: true, brief: true }),
+      tokenOf({ ...FINISHED, stakeholders: 'proposed' }),
+    ];
+    expect(new Set(tokens).size).toBe(tokens.length);
+  });
+
+  it('is the same for a project that carries no record, and does not depend on its timestamp', () => {
+    expect(tokenOf(undefined)).toBe(tokenOf(undefined));
+    const project = projectFixture();
+    project.lab = lab(FINISHED);
+    const later = { ...project, updatedAt: '2030-01-01T00:00:00.000Z' };
+    expect(labRefreshToken(later, 0)).toBe(labRefreshToken(project, 0));
+  });
+});
+
+describe('the view a project opens in', () => {
+  const STAGES: ConsoleStep[] = ['knowledge', 'environment', 'simulation', 'report', 'interaction'];
+  const viewsOf = (project: ReturnType<typeof projectFixture>) =>
+    Object.fromEntries(STAGES.map((step) => [step, defaultView(project, step)]));
+
+  it('is the workbench for the review of the stakeholders, whatever has been approved, so that approving never moves the page', () => {
+    const progress: Partial<LabProgress>[] = [
+      {},
+      { stakeholders: 'proposed' },
+      { stakeholders: 'approved', actors: 5 },
+    ];
+    for (const change of progress) {
+      const project = projectFixture();
+      project.lab = lab(change);
+      expect(defaultView(project, 'environment'), JSON.stringify(change)).toBe('workbench');
+    }
+  });
+
+  it('keeps the map beside Graph Build and the report beside Interaction, with or without actors', () => {
+    const project = projectFixture();
+    expect(viewsOf(project)).toMatchObject({ knowledge: 'split', interaction: 'split' });
+    project.lab = lab({ stakeholders: 'approved', actors: 5, analysis: 'completed' });
+    expect(viewsOf(project)).toMatchObject({ knowledge: 'split', interaction: 'split' });
+  });
+
+  it('gives the comparison and the brief the whole width once there are actors and a finished comparison', () => {
+    const project = projectFixture();
     project.lab = lab({ stakeholders: 'approved', actors: 5 });
-    expect(defaultView(project)).toBe('workbench');
+    expect(viewsOf(project)).toMatchObject({ simulation: 'workbench', report: 'split' });
+    project.lab = lab({ stakeholders: 'approved', actors: 5, analysis: 'completed' });
+    expect(viewsOf(project)).toMatchObject({ simulation: 'workbench', report: 'workbench' });
+  });
+
+  it('keeps the graph and the report reader beside a project that has only the engine’s own record', () => {
+    const project = projectFixture();
+    expect(viewsOf(project)).toEqual({
+      knowledge: 'split',
+      environment: 'workbench',
+      simulation: 'split',
+      report: 'split',
+      interaction: 'split',
+    });
+    project.lab = lab({ stakeholders: 'proposed' });
+    expect(viewsOf(project)).toMatchObject({ simulation: 'split', report: 'split' });
   });
 
   it('stays the split view for a record that has no guided stages', () => {
     const project = projectFixture();
     project.workflow = 'quick';
     project.console = null;
-    project.lab = lab({ actors: 5 });
-    expect(defaultView(project)).toBe('split');
+    project.lab = lab({ actors: 5, analysis: 'completed' });
+    expect(Object.values(viewsOf(project))).toEqual(STAGES.map(() => 'split'));
   });
 });
 

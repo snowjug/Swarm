@@ -169,35 +169,7 @@ export const readPages = (calls: readonly ApiCall[]): number =>
 // What the product may not say
 // ---------------------------------------------------------------------------------------------
 
-const QUOTED = /“[^”]*”|"[^"]*"|‘[^’]*’/gu;
-const FUTURE =
-  /\b(?:will|shall|going to|(?:is|are) (?:certain|sure|bound|set|likely|expected|projected|forecast|predicted|guaranteed) to|would certainly|inevitabl[ey])\b/iu;
-const REAL_WORLD_RATE = /\d(?:[.,]\d+)?\s?(?:%|per ?cent\b)/iu;
-const REAL_WORLD_METRIC =
-  /\b(?:market share|conversion(?: rate)?|churn(?: rate)?|retention rate|adoption rate|revenue (?:growth|increase)|sales (?:growth|increase))\b/iu;
-const FROM_THE_SIMULATION =
-  /simulat|seeded|\bruns?\b|interval|assum|synthetic|stance|rules? engine|sensitiv|perturb|intensity|traits?\b/iu;
-
-/**
- * What a statement may not claim. Swarm explores scenarios and does not predict: it never says what
- * will happen, and a figure that looks like a rate in the world (a share, a conversion, a churn) is
- * only ever a count of simulated members or of seeded runs, and says so in the same sentence. What a
- * source or the person wrote is quoted, and is theirs.
- */
-export function claimsAgainst(text: string): string[] {
-  const found: string[] = [];
-  const own = text.replace(QUOTED, ' ');
-  for (const sentence of own.split(/(?<=[.!?])\s+/u)) {
-    const said = sentence.trim();
-    if (!said) continue;
-    if (FUTURE.test(said)) found.push(`a prediction: "${said}"`);
-    const rate = REAL_WORLD_RATE.test(said) || REAL_WORLD_METRIC.test(said);
-    if (rate && !FROM_THE_SIMULATION.test(said)) {
-      found.push(`a real-world rate that is not attributed to the simulation: "${said}"`);
-    }
-  }
-  return found;
-}
+export { claimsAgainst } from './claims';
 
 /** The words of a text with every kind of space and of quotation mark made alike, for comparing quotes. */
 export const squash = (text: string): string =>
@@ -231,9 +203,11 @@ export const urlPanel = (page: Page): Locator =>
   page.getByRole('region', { name: 'Add a public web page' });
 
 export async function chooseExample(page: Page, example: ExampleScenario): Promise<void> {
-  await examplePicker(page)
-    .getByRole('button', { name: `Use this example: ${example.title}` })
-    .click();
+  const picker = examplePicker(page);
+  // Once an example has been loaded the cards give way to a line, and "Change example" brings them back.
+  const change = picker.getByRole('button', { name: 'Change example' });
+  if (await change.count()) await change.click();
+  await picker.getByRole('button', { name: `Use this example: ${example.title}` }).click();
   await expect(questionField(page)).toHaveValue(example.question);
   await expect(
     page.getByRole('status').filter({ hasText: `Example loaded: ${example.title}` }),
@@ -308,23 +282,51 @@ export async function readScenario(page: Page, edits: ScenarioEdits): Promise<st
   await expect(open).toHaveCount(0);
 
   await review.getByLabel('Over what period (optional)').fill(edits.period);
+
+  // An alternative is added to the ones the reading already holds: one more, the earlier ones as they
+  // were. Finding the last row and typing into it would pass just as well on a page whose Add button did
+  // nothing, by renaming a suggestion.
+  const alternatives = review.getByRole('group', { name: /^Alternative \d+$/u });
+  const alternativeNames = (): Promise<string[]> =>
+    alternatives
+      .getByLabel('Name', { exact: true })
+      .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  const alternativesBefore = await alternativeNames();
   await review.getByRole('button', { name: 'Add an alternative' }).click();
-  await review
-    .getByRole('group', { name: /^Alternative \d+$/u })
-    .last()
-    .getByLabel('Name', { exact: true })
-    .fill(edits.alternative);
+  await expect(alternatives).toHaveCount(alternativesBefore.length + 1);
+  expect(await alternativeNames(), 'the alternatives that were read are unchanged').toEqual([
+    ...alternativesBefore,
+    '',
+  ]);
+  await alternatives.last().getByLabel('Name', { exact: true }).fill(edits.alternative);
+  expect(await alternativeNames()).toEqual([...alternativesBefore, edits.alternative]);
+
+  const groups = review.getByLabel(/^Group \d+$/u);
+  const groupNames = (): Promise<string[]> =>
+    groups.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  const groupsBefore = await groupNames();
   await review.getByRole('button', { name: 'Add a group' }).click();
-  await review
-    .getByLabel(/^Group \d+$/u)
-    .last()
-    .fill(edits.group);
+  await expect(groups).toHaveCount(groupsBefore.length + 1);
+  expect(await groupNames(), 'the groups that were read are unchanged').toEqual([
+    ...groupsBefore,
+    '',
+  ]);
+  await groups.last().fill(edits.group);
+  expect(await groupNames()).toEqual([...groupsBefore, edits.group]);
   await review.getByRole('button', { name: 'Use this scenario' }).click();
 
   const summary = intake.locator('.intake-summary');
   await expect(summary.getByRole('heading', { name: 'This scenario will be used' })).toBeVisible();
   await expect(summary).toContainText('Edited by you');
   await expect(summary).toContainText(`Period: ${edits.period}`);
+  // What was added is what is counted: the summary does not hold the reading as it first came.
+  const counted = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+  await expect(summary).toContainText(
+    counted(alternativesBefore.length + 1, 'alternative', 'alternatives'),
+  );
+  await expect(summary).toContainText(
+    counted(groupsBefore.length + 1, 'group likely to be affected', 'groups likely to be affected'),
+  );
   return decision;
 }
 
@@ -379,28 +381,48 @@ export async function findStakeholders(page: Page): Promise<void> {
   await expect(panel.getByText(/\d+ stakeholders? \(\d+ key\)/u)).toBeVisible();
 }
 
+/** Opens the list of stakeholders or the list of actors, which the panel keeps shut until it is asked. */
+export async function openRegion(page: Page, region: 'Stakeholders' | 'Actors'): Promise<void> {
+  const toggle = stakeholderPanel(page).getByRole('button', {
+    name: new RegExp(`^${region} \\d+$`, 'u'),
+    expanded: false,
+  });
+  if (await toggle.count()) await toggle.click();
+}
+
+/** A stakeholder's row, opened: its evidence, its assumptions and what can be done to it are inside. */
+export async function openStakeholder(page: Page, name: string): Promise<Locator> {
+  await openRegion(page, 'Stakeholders');
+  const row = stakeholderPanel(page).getByRole('listitem', { name, exact: true });
+  const closed = row.getByRole('button', { name, exact: true, expanded: false });
+  if (await closed.count()) await closed.click();
+  return row;
+}
+
 export async function editStakeholder(
   page: Page,
   name: string,
   change: { why: string; direction: 'harmed' | 'benefited' | 'mixed'; because: string },
 ): Promise<void> {
   const panel = stakeholderPanel(page);
-  await panel.getByRole('button', { name: `Edit ${name}`, exact: true }).click();
+  const row = await openStakeholder(page, name);
+  await row.getByRole('button', { name: `Edit ${name}`, exact: true }).click();
   const form = panel.getByRole('form', { name: `Edit ${name}` });
   await form.getByLabel('Why they matter here').fill(change.why);
   await form.getByLabel('How the change lands on them').selectOption(change.direction);
   await form.getByLabel('Why you think so').fill(change.because);
   await form.getByRole('button', { name: 'Save changes' }).click();
   await expect(form).toBeHidden();
-  await expect(
-    panel.getByRole('listitem', { name, exact: true }).getByText(change.why),
-  ).toBeVisible();
+  await expect(row.getByText(change.why).first()).toBeVisible();
 }
 
 export async function approveAndMakeActors(page: Page): Promise<void> {
   const panel = stakeholderPanel(page);
   await panel.getByRole('button', { name: 'Approve stakeholders and create actors' }).click();
-  await expect(panel.getByRole('region', { name: 'Approval' })).toContainText('Approved');
+  await expect(panel.getByRole('list', { name: 'Summary of the stakeholders' })).toContainText(
+    /\d+ approved/u,
+  );
+  await panel.getByRole('button', { name: /^Review the \d+ actors$/u }).click();
   await expect(panel.getByRole('region', { name: 'Actors' })).toBeVisible();
 }
 
@@ -455,6 +477,15 @@ export const analysisOf = async (page: Page, project: string): Promise<Analysis>
 export const briefOf = (page: Page, project: string): Promise<BriefView> =>
   getJson<BriefView>(page, `/api/projects/${project}/brief`);
 
+/**
+ * Opens every section of the decision brief. The answer is open when the page opens and the reference
+ * sections are closed until they are wanted, so a check that reads or clicks inside one asks for them first.
+ */
+export async function expandBrief(page: Page): Promise<void> {
+  await briefDocument(page).getByRole('button', { name: 'Expand all sections' }).click();
+  await expect(briefDocument(page).locator('details.brief-collapse:not([open])')).toHaveCount(0);
+}
+
 /** Makes a project the way the pages do, up to the approved stakeholders and their actors, over HTTP. */
 export async function seedThroughActors(
   page: Page,
@@ -492,6 +523,68 @@ export async function seedThroughActors(
   expect(approved.status(), await approved.text()).toBe(200);
   const made = await page.request.post(`/api/projects/${id}/actors/generate`, { data: {} });
   expect(made.status(), await made.text()).toBe(201);
+  return id;
+}
+
+/** Takes a project on from its actors to a finished comparison, an independent review and the brief, over HTTP. */
+export async function seedThroughBrief(
+  page: Page,
+  seed: Parameters<typeof seedThroughActors>[1],
+): Promise<string> {
+  const id = await seedThroughActors(page, seed);
+  const started = await page.request.post(`/api/projects/${id}/analysis`, { data: {} });
+  expect(started.status(), await started.text()).toBe(202);
+  await expect
+    .poll(
+      async () =>
+        (
+          await getJson<{ analyses: { status: string }[] }>(page, `/api/projects/${id}/analysis`)
+        ).analyses.map((analysis) => analysis.status),
+      { timeout: 90_000 },
+    )
+    .toContain('completed');
+  const reviewed = await page.request.post(`/api/projects/${id}/critiques/run`, { data: {} });
+  expect(reviewed.ok(), await reviewed.text()).toBe(true);
+  const written = await page.request.post(`/api/projects/${id}/brief`, { data: {} });
+  expect(written.status(), await written.text()).toBe(201);
+  return id;
+}
+
+/**
+ * Makes a project the way the pages do, up to a finished comparison and its decision brief, over HTTP,
+ * and runs the independent review when asked: the Report stage then has everything to show.
+ */
+export async function seedWithBrief(
+  page: Page,
+  seed: { title: string; question: string; documents: { name: string; content: string }[] },
+  options: { review?: boolean } = {},
+): Promise<string> {
+  const id = await seedThroughActors(page, seed);
+  const started = await page.request.post(`/api/projects/${id}/analysis`, {
+    data: { runsPerVariant: 10 },
+  });
+  expect(started.status(), await started.text()).toBe(202);
+  const { analysis } = (await started.json()) as { analysis: { id: string } };
+  await expect
+    .poll(
+      async () =>
+        (
+          await getJson<{ analysis: { status: string } }>(
+            page,
+            `/api/projects/${id}/analysis/${analysis.id}`,
+          )
+        ).analysis.status,
+      { timeout: 120_000, intervals: [100, 250, 500] },
+    )
+    .toBe('completed');
+  const brief = await page.request.post(`/api/projects/${id}/brief`, { data: {} });
+  expect(brief.ok(), await brief.text()).toBe(true);
+  if (options.review) {
+    const review = await page.request.post(`/api/projects/${id}/critiques/run`, {
+      data: { useModel: false },
+    });
+    expect(review.ok(), await review.text()).toBe(true);
+  }
   return id;
 }
 

@@ -294,30 +294,55 @@ export interface ChainStep {
   kind: string;
   actor: string | null;
   description: string;
-  /** What it followed from: an earlier event in the run, or a named signal. */
+  /**
+   * What the event could not have happened without: the simulated signal its responder watches, which
+   * is what its trigger reads, and the earlier events that a replay of the run showed it needed.
+   */
   because: { kind: 'event' | 'signal'; text: string }[];
+  /** Earlier events that had already reached actors it watches. They came first; nothing shows they mattered. */
+  followed: string[];
+  /** Whether the run was replayed to test its earlier events; an older analysis was not. */
+  tested: boolean;
 }
 
-/** The events of one run in the order they happened, each with what it followed from, to be read as a chain. */
+/**
+ * The events of one run in the order they happened, each with what it needed and what only came before
+ * it, to be read as a chain. An earlier event counts as needed only where the run was replayed without
+ * it; in a run that was not (an analysis saved before that was done), an earlier event an event names
+ * only came first.
+ */
 export function chainOf(run: RunOutcome, actors: readonly Actor[]): ChainStep[] {
   const names = new Map(actors.map((actor) => [actor.id, actor.name]));
   const byId = new Map(run.events.map((event) => [event.id, event]));
+  const tested = run.explained === true;
+  const earlier = (ids: readonly string[]): { kind: string; round: number }[] =>
+    ids.flatMap((id) => {
+      const found = byId.get(id);
+      return found ? [found] : [];
+    });
+  const said = (event: { kind: string; round: number }): string =>
+    `the ${event.kind} in round ${event.round}`;
   return run.events
     .map((event, order) => ({ event, order }))
     .sort((a, b) => a.event.round - b.event.round || a.order - b.order)
-    .map(({ event }) => ({
-      id: event.id,
-      round: event.round,
-      kind: event.kind,
-      actor: event.actorId ? (names.get(event.actorId) ?? event.actorId) : null,
-      description: event.description,
-      because: event.causedBy.map((cause) => {
-        const earlier = byId.get(cause);
-        return earlier
-          ? { kind: 'event' as const, text: `the ${earlier.kind} in round ${earlier.round}` }
-          : { kind: 'signal' as const, text: `the simulated “${cause}” signal` };
-      }),
-    }));
+    .map(({ event }) => {
+      const before = earlier(event.causedBy);
+      return {
+        id: event.id,
+        round: event.round,
+        kind: event.kind,
+        actor: event.actorId ? (names.get(event.actorId) ?? event.actorId) : null,
+        description: event.description,
+        because: [
+          ...event.causedBy
+            .filter((cause) => !byId.has(cause))
+            .map((cause) => ({ kind: 'signal' as const, text: `the simulated “${cause}” signal` })),
+          ...(tested ? before.map((cause) => ({ kind: 'event' as const, text: said(cause) })) : []),
+        ],
+        followed: [...(tested ? [] : before), ...earlier(event.followed ?? [])].map(said),
+        tested,
+      };
+    });
 }
 
 const ASSUMPTION_SENTENCE = /\s*Intensity [\d.]+ from round \d+ [^]*$/u;

@@ -280,7 +280,7 @@ async function journey(browser, viewport) {
   await page.getByRole('button', { name: 'Build Graph', exact: true }).waitFor({ timeout: 15000 });
   await snap('01-entry');
   await step('starter input', async () => {
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.getByRole('spinbutton', { name: 'Fictional proxies' }).fill('8');
     await page.getByRole('spinbutton', { name: 'Rounds / platform' }).fill('4');
   });
@@ -459,7 +459,7 @@ async function errorConditions(browser) {
   });
   await errorCase('server 429 on project creation', async () => {
     await fresh();
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.route('**/api/projects', (route) =>
       route.request().method() === 'POST'
         ? route.fulfill({
@@ -484,7 +484,7 @@ async function errorConditions(browser) {
     const count = async () => (await (await page.request.get(`${BASE}/api/projects`)).json()).total;
     const before = await count();
     await fresh();
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.getByRole('button', { name: 'Build Graph', exact: true }).dblclick();
     // First wait until the project exists, however long that takes; then allow a second one the
     // time it would need. Proving that something did not happen needs a quiet period.

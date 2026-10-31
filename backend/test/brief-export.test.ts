@@ -18,6 +18,7 @@ import {
   richInputs,
   richStakeholders,
   TIME,
+  totalsOnly,
 } from './support/brief-world.js';
 
 const HOSTILE = `<script>alert('x')</script> & "><img src=x onerror=alert(1)> [click](javascript:alert(2)) | cell | \`code\` * _bold_ # heading`;
@@ -308,7 +309,7 @@ describe('the data behind the charts', () => {
   const visuals = briefVisuals(gatherFacts(inputs));
   const analysis = inputs.analysis;
 
-  it('counts simulated members from the recorded runs, variant by variant', () => {
+  it('counts simulated members from the recorded runs, variant by variant, and gives the actor-equal share beside them', () => {
     const members = analysis.actors.reduce((total, actor) => total + actor.sampleSize, 0);
     expect(visuals.outcomeDistribution.map((row) => row.variantId)).toEqual([
       'baseline',
@@ -317,15 +318,24 @@ describe('the data behind the charts', () => {
     for (const row of visuals.outcomeDistribution) {
       const runs = analysis.variants.find((variant) => variant.variantId === row.variantId)!.runs;
       expect(row.members).toBe(members);
+      expect(row.perRun).toBe(true);
       expect(row.runs).toBe(runs.length);
       const adverse = runs.map(
         (run) => (run.responseShares.resist + run.responseShares.switch) * members,
       );
-      expect(row.adverse.mean).toBeCloseTo(adverse.reduce((a, b) => a + b, 0) / adverse.length, 6);
-      expect(row.adverse.min).toBeCloseTo(Math.min(...adverse), 6);
-      expect(row.adverse.max).toBeCloseTo(Math.max(...adverse), 6);
-      const total = row.responses.reduce((sum, entry) => sum + entry.mean, 0);
+      expect(row.adverse!.mean).toBeCloseTo(adverse.reduce((a, b) => a + b, 0) / adverse.length, 6);
+      expect(row.adverse!.min).toBeCloseTo(Math.min(...adverse), 6);
+      expect(row.adverse!.max).toBeCloseTo(Math.max(...adverse), 6);
+      const total = row.responses!.reduce((sum, entry) => sum + entry.mean, 0);
       expect(total).toBeCloseTo(members, 6);
+      // The share the engine itself reports, every actor counting equally, whatever was sampled.
+      const shares = runs.map((run) => run.responseShares.resist + run.responseShares.switch);
+      expect(row.adverseShare.mean).toBeCloseTo(
+        shares.reduce((a, b) => a + b, 0) / shares.length,
+        6,
+      );
+      expect(row.adverseShare.min).toBeCloseTo(Math.min(...shares), 6);
+      expect(row.shares).toHaveLength(6);
     }
   });
 
@@ -340,7 +350,9 @@ describe('the data behind the charts', () => {
       holdsIn: 10,
       of: 10,
     });
-    expect(row!.adverseDelta).toBeCloseTo(row!.adverseMean - row!.baselineAdverseMean!, 6);
+    expect(row!.adverseDelta).toBeCloseTo(row!.adverseMean! - row!.baselineAdverseMean!, 6);
+    expect(row!.shareDelta).toBeCloseTo(row!.adverseShare - row!.baselineAdverseShare!, 6);
+    expect(row!.shareDeltaError).toBeGreaterThanOrEqual(0);
     expect(row!.stanceDelta).toBeLessThan(0);
   });
 
@@ -398,5 +410,147 @@ describe('the data behind the charts', () => {
       'subscribers',
     ]);
     expect(visuals.analysisId).toBe('analysis-1');
+  });
+});
+
+function exportOf(inputs: ReturnType<typeof richInputs>): BriefExportInput {
+  return {
+    brief: buildBrief(inputs),
+    visuals: briefVisuals(gatherFacts(inputs)),
+    project: { id: 'p1', name: inputs.project.name },
+    exportedAt: '2026-02-02T09:00:00.000Z',
+    appVersion: '9.9.9',
+  };
+}
+
+describe('an analysis whose per-run detail was dropped to fit the size limit', () => {
+  const full = richInputs();
+  const dropped = richInputs({ analysis: totalsOnly(richAnalysis()) });
+  const kept = exportOf(full);
+  const reduced = exportOf(dropped);
+  const everything = (input: BriefExportInput): string[] => [
+    briefMarkdown(input),
+    JSON.stringify(briefJson(input)),
+    briefHtml(input),
+  ];
+
+  it('gives the same answer as the one that kept every run, since it rests on what every run keeps', () => {
+    expect(reduced.brief.headline).toBe(kept.brief.headline);
+    const answer = (input: BriefExportInput) =>
+      input.brief.sections.find((section) => section.id === 'executive-answer')!.statements;
+    expect(answer(reduced).map((statement) => statement.text)).toEqual(
+      answer(kept).map((statement) => statement.text),
+    );
+  });
+
+  it('never reads an absent list as no members, in the brief or in any export', () => {
+    for (const input of [reduced, exportOf(richInputs({ analysis: totalsOnly(richAnalysis()) }))]) {
+      for (const page of everything(input)) {
+        expect(page).not.toMatch(/\b0 simulated members\b/u);
+        expect(page).not.toMatch(/about 0(?![.\\\d])/u);
+        expect(page).not.toMatch(/of 0 simulated/u);
+      }
+    }
+    // What the totals still hold is counted: the members per run and the mean number looking away.
+    const [baseline, proposed] = reduced.visuals!.outcomeDistribution;
+    expect(proposed?.members).toBe(43);
+    expect(proposed?.perRun).toBe(false);
+    // The totals are rounded to four decimals, as the run set stores them, so counts agree to a tenth.
+    expect(proposed?.adverse?.mean).toBeCloseTo(
+      kept.visuals!.outcomeDistribution[1]!.adverse!.mean,
+      1,
+    );
+    // A range over runs needs each run's own results: it is not made up from the means.
+    expect(proposed?.adverse?.min).toBeNull();
+    expect(proposed?.adverse?.max).toBeNull();
+    expect(baseline?.adverseShare.min).not.toBeNull();
+    const [row] = reduced.visuals!.scenarioComparison;
+    expect(row?.members).toBe(43);
+    expect(row?.adverseDelta).toBeCloseTo(kept.visuals!.scenarioComparison[0]!.adverseDelta!, 1);
+    expect(row?.shareDelta).toBeCloseTo(kept.visuals!.scenarioComparison[0]!.shareDelta!, 9);
+    expect(row?.worseInRuns).toBe(kept.visuals!.scenarioComparison[0]!.worseInRuns);
+  });
+
+  it('says in the brief and in the exports that the counts are means with no range, and why', () => {
+    const text = reduced.brief.sections
+      .find((section) => section.id === 'reaction-patterns')!
+      .statements.map((statement) => statement.text)
+      .join('\n');
+    expect(text).toContain(
+      'of 43 simulated members in a run (a mean; the per-run results were not stored',
+    );
+    expect(reduced.brief.methodology.notes.join(' ')).toContain(
+      'did not keep every run’s own per-actor results',
+    );
+    const markdown = briefMarkdown(reduced);
+    expect(markdown).toContain('mean only');
+    const parsed = briefJson(reduced) as {
+      data: { outcomeDistribution: { adverse: { min: null } }[] };
+    };
+    expect(parsed.data.outcomeDistribution[1]?.adverse.min).toBeNull();
+    // The brief that kept every run says nothing of the kind.
+    expect(kept.brief.methodology.notes.join(' ')).not.toContain('did not keep every run');
+    expect(briefMarkdown(kept)).not.toContain('mean only');
+  });
+
+  it('withholds the counts it cannot work out, and says so, when not even the totals were kept', () => {
+    const analysis = totalsOnly(richAnalysis());
+    for (const variant of analysis.variants) delete variant.actors;
+    const bare = exportOf(richInputs({ analysis }));
+    for (const page of everything(bare)) {
+      expect(page).not.toMatch(/\b0 simulated members\b/u);
+      expect(page).not.toMatch(/about 0(?![.\\\d])/u);
+    }
+    expect(bare.visuals!.outcomeDistribution.every((row) => row.members === null)).toBe(true);
+    expect(bare.visuals!.outcomeDistribution.every((row) => row.responses === null)).toBe(true);
+    expect(bare.visuals!.scenarioComparison[0]?.adverseDelta).toBeNull();
+    // The comparison rests on what every run keeps, so it stands; which groups moved is not made up.
+    expect(bare.brief.headline).toContain(kept.brief.headline.split(' The groups moved most')[0]!);
+    expect(bare.brief.headline).not.toContain('The groups moved most');
+    const executive = bare.brief.sections
+      .find((section) => section.id === 'executive-answer')!
+      .statements.map((statement) => statement.text)
+      .join('\n');
+    expect(executive).toContain('Which groups moved most is not stated');
+    expect(executive).not.toContain('No simulated group’s own share');
+    const patterns = bare.brief.sections
+      .find((section) => section.id === 'reaction-patterns')!
+      .statements.map((statement) => statement.text)
+      .join('\n');
+    expect(patterns).toContain('No count of sampled members is stated');
+    expect(briefMarkdown(bare)).toContain('not stored');
+    // A group nothing can be said about is not named as one nobody minded.
+    expect(
+      bare.brief.recommendations.some((recommendation) =>
+        recommendation.text.startsWith('Mitigate'),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('what the notice says a figure is', () => {
+  const input = exportOf(richInputs());
+
+  it('does not call every figure a count: outcome counts are synthetic and the rest are scores, proportions or assumptions', () => {
+    const notice =
+      'Outcome counts are synthetic; other figures are model scores, seeded-run proportions or stated assumptions; none is a measured population rate.';
+    for (const page of [briefMarkdown(input), briefHtml(input), JSON.stringify(briefJson(input))]) {
+      expect(page).toContain('Outcome counts are synthetic');
+      expect(page).toContain('none is a measured population rate');
+      expect(page).not.toContain('Every figure here is a count');
+    }
+    expect((briefJson(input) as { notice: string }).notice).toContain(notice);
+  });
+
+  it('says beside every table of member counts that how many were sampled is a resolution and not a population', () => {
+    const markdown = briefMarkdown(input);
+    expect(markdown).toContain(
+      'How many members are sampled for each group is a numerical resolution, not a population',
+    );
+    expect(markdown).toContain('Change in sampled members \\(a resolution, not a population\\)');
+    expect(markdown).toContain(
+      'Share looking for an alternative or resisting, every 100 simulated members, each actor counting equally',
+    );
+    expect(briefHtml(input)).toContain('numerical resolution');
   });
 });

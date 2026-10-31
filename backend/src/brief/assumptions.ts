@@ -2,7 +2,14 @@ import type { Analysis, SensitivityRow } from '../../../shared/analysis.js';
 import type { BriefRefs, StatementOrigin } from '../../../shared/brief.js';
 import type { EvidenceRef } from '../../../shared/evidence.js';
 import type { ScenarioFrame } from '../../../shared/scenario.js';
-import { TRAIT_KEYS, type Actor, type Trait, type TraitKey } from '../../../shared/stakeholders.js';
+import {
+  TRAIT_KEYS,
+  directionOrigin,
+  type Actor,
+  type Trait,
+  type TraitKey,
+  type TraitOrigin,
+} from '../../../shared/stakeholders.js';
 import type { EvidenceIndex } from './evidence.js';
 import { originOfSensitivity } from './rules.js';
 import { decimals, embed, plural, signed, traitLabel } from './text.js';
@@ -31,7 +38,49 @@ function traitOf(actor: Actor | undefined, key: string | null): Trait | null {
   return actor.traits[key as TraitKey];
 }
 
-function describeOrigin(origin: StatementOrigin, traitOrigin: Trait['origin'] | null): string {
+/** What an actor's stakeholder cites now, or what the actor itself cites when the brief has no such stakeholder. */
+const citedNow = (actor: Actor, evidence: EvidenceIndex): EvidenceRef[] =>
+  evidence.has(actor.stakeholderId)
+    ? evidence.forStakeholder(actor.stakeholderId)
+    : evidence.forActor(actor);
+
+export interface DirectionBasis {
+  origin: TraitOrigin;
+  /** The direction is labelled as resting on evidence, but no passage is cited for it now. */
+  lost: boolean;
+}
+
+/**
+ * What the direction of an actor's impact rests on today. A label of evidence is a claim about
+ * passages, so it is kept only while the actor's stakeholder still cites one that supports it; the
+ * number itself is never evidence, whatever its direction rests on.
+ */
+export function directionBasis(actor: Actor, evidence: EvidenceIndex): DirectionBasis {
+  const claimed = directionOrigin(actor.traits.impact);
+  if (claimed !== 'evidence') return { origin: claimed, lost: false };
+  return citedNow(actor, evidence).some((ref) => ref.role === 'supports')
+    ? { origin: 'evidence', lost: false }
+    : { origin: 'system-assumption', lost: true };
+}
+
+/** How a sentence about an actor's impact says where it comes from: the direction and the size are told apart. */
+export function impactOwner(actor: Actor, evidence: EvidenceIndex): string {
+  if (actor.traits.impact.origin === 'user') return 'set by a person';
+  const direction = directionBasis(actor, evidence);
+  if (direction.origin === 'evidence') {
+    return 'the direction rests on a cited passage and the size is an assumption';
+  }
+  if (direction.lost) {
+    return 'the direction is labelled as resting on evidence but no passage is cited for it now, and the size is an assumption';
+  }
+  return 'an assumption';
+}
+
+function describeOrigin(
+  origin: StatementOrigin,
+  traitOrigin: Trait['origin'] | null,
+  direction: DirectionBasis | null,
+): string {
   if (origin === 'user-assumption') return 'a person set it';
   if (origin === 'unresolved-uncertainty') {
     return 'it is labelled as resting on evidence, but no passage is cited for it';
@@ -39,22 +88,33 @@ function describeOrigin(origin: StatementOrigin, traitOrigin: Trait['origin'] | 
   if (origin === 'supplied-evidence' || origin === 'retrieved-public-evidence') {
     return 'it rests on a cited passage';
   }
-  return traitOrigin === 'model'
-    ? 'a model proposed it and no person has changed it'
-    : 'Swarm filled it in as a default and it is open to edit';
+  const own =
+    traitOrigin === 'model'
+      ? 'a model proposed it and no person has changed it'
+      : 'Swarm filled it in as a default and it is open to edit';
+  if (direction?.origin === 'evidence') {
+    return `${own}; only its direction rests on a cited passage, which gives no size`;
+  }
+  if (direction?.lost) {
+    return `${own}; its direction was labelled as resting on evidence, but no passage is cited for it now`;
+  }
+  return own;
 }
 
 export const effectOf = (row: SensitivityRow): string =>
-  `moving it by ${signed(row.perturbation)} changed ${embed(row.metric, 80)} by ${signed(row.shift)} (standard error ${decimals(row.standardError)}) on the same seeds`;
+  `moving it by ${signed(row.perturbation)} changed ${embed(row.metric, 100)} by ${signed(row.shift)} (standard error ${decimals(row.standardError)}) on the same seeds`;
 
-/** The actor an assumption belongs to, the passages cited for it, and whether the assumption is evidenced. */
+/**
+ * The actor an assumption belongs to, the passages cited for it now, and whether the assumption is
+ * evidenced. A label of evidence stands only for a passage that is cited today.
+ */
 export function sensitivityContext(
   row: SensitivityRow,
   analysis: Analysis,
   evidence: EvidenceIndex,
 ): { actor: Actor | undefined; refs: EvidenceRef[]; origin: StatementOrigin; evidenced: boolean } {
   const actor = analysis.actors.find((candidate) => candidate.id === row.target.actorId);
-  const refs = actor ? evidence.forActor(actor) : evidence.all();
+  const refs = actor ? citedNow(actor, evidence) : evidence.all();
   return {
     actor,
     refs,
@@ -70,12 +130,18 @@ function sensitivityRow(
 ): AssumptionRow {
   const { actor, refs, origin, evidenced } = sensitivityContext(row, analysis, evidence);
   const trait = row.target.kind === 'trait' ? traitOf(actor, row.target.trait) : null;
+  const direction = actor && row.target.trait === 'impact' ? directionBasis(actor, evidence) : null;
   const sensitive = row.classification === 'assumption-sensitive';
   let subject: string;
   let value: string | null = null;
   if (row.target.kind === 'trait' && actor && trait) {
-    subject = `${embed(actor.name, 60)}: ${traitLabel(row.target.trait ?? '')} is set at ${decimals(trait.value)}`;
-    value = decimals(trait.value);
+    // A scenario can set the value itself (an override or an edit): that value is what the runs used, not the actor's own.
+    const governing = row.setting?.value ?? trait.value;
+    const setBy = row.setting
+      ? `, as the proposed change sets it (the actor itself carries ${decimals(trait.value)}, which the runs did not use)`
+      : '';
+    subject = `${embed(actor.name, 60)}: ${traitLabel(row.target.trait ?? '')} is set at ${decimals(governing)}${setBy}`;
+    value = decimals(governing);
   } else if (row.target.kind === 'population' && actor) {
     subject = `${embed(actor.name, 60)} stands for a population of ${actor.size}, which is an assumption and not a count`;
     value = String(actor.size);
@@ -89,7 +155,7 @@ function sensitivityRow(
       : 'Whether moving it matters could not be settled from these runs.';
   return {
     id: `sensitivity-${row.id}`,
-    text: `${subject} (${describeOrigin(origin, trait?.origin ?? null)}). ${verdict} Moving it: ${effectOf(row)}.`,
+    text: `${subject} (${describeOrigin(origin, trait?.origin ?? null, direction)}). ${verdict} Moving it: ${effectOf(row)}.`,
     value,
     origin,
     sensitive,
@@ -199,7 +265,9 @@ export function assumptionRows(input: {
     });
   }
   if (tally.evidence > 0) {
-    const cited = analysis.actors.flatMap((actor) => evidence.forActor(actor));
+    const cited = analysis.actors
+      .filter((actor) => TRAIT_KEYS.some((key) => actor.traits[key].origin === 'evidence'))
+      .flatMap((actor) => citedNow(actor, evidence));
     const first = cited.find((ref) => ref.role === 'supports') ?? cited[0];
     rows.push({
       id: 'traits-evidence',

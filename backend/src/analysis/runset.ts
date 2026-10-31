@@ -65,8 +65,20 @@ export const RULES_CAVEATS = [
   'Run-to-run variation of a model is not measured.',
 ] as const;
 
-const DETAIL_DROPPED =
+export const DETAIL_DROPPED =
   'The per-actor results of each individual run were not stored, because the document would be too large; per-actor totals over the runs are kept, and every finding was counted from the full results while the runs were in memory.';
+
+/**
+ * What the document keeps when the per-actor results of every run would make it too large: each run
+ * keeps its overall results and loses its per-actor list, and the totals over the runs are kept. What
+ * reads an analysis has to take the totals in place of the lists, never an empty list for a zero.
+ */
+export function withoutRunDetail(variants: readonly VariantResult[]): VariantResult[] {
+  return variants.map((result) => ({
+    ...result,
+    runs: result.runs.map((run) => ({ ...run, byActor: [] })),
+  }));
+}
 
 const invalid = (message: string): AppError => new AppError(400, 'ANALYSIS_INPUT_INVALID', message);
 
@@ -135,6 +147,16 @@ export function validateInputs(inputs: AnalysisInputs): { plan: RunPlan; perturb
   return { plan, perturbations };
 }
 
+/** Each kind of event with the actor that made it, once per run: the link between a finding and who acted. */
+function distinctEvents(outcome: RunOutcome): { kind: string; actorId: string | null }[] {
+  const seen = new Map<string, { kind: string; actorId: string | null }>();
+  for (const { kind, actorId } of outcome.events)
+    seen.set(`${kind}|${actorId ?? ''}`, { kind, actorId });
+  return [...seen.values()].sort(
+    (a, b) => a.kind.localeCompare(b.kind) || (a.actorId ?? '').localeCompare(b.actorId ?? ''),
+  );
+}
+
 function recordOf(outcome: RunOutcome, seed: number): RunRecord {
   let peak = headlineShare(outcome.final.responseShares);
   for (const round of outcome.rounds) peak = Math.max(peak, headlineShare(round.responseShares));
@@ -148,6 +170,7 @@ function recordOf(outcome: RunOutcome, seed: number): RunRecord {
     actors: new Map(outcome.final.byActor.map((actor) => [actor.actorId, actor])),
     rounds: outcome.rounds.map((round) => ({ round: round.round, stanceMean: round.stanceMean })),
     eventKinds: [...new Set(outcome.events.map((event) => event.kind))].sort(),
+    events: distinctEvents(outcome),
     peakAdverse: peak,
   };
 }
@@ -406,7 +429,7 @@ export async function runAnalysis(
   let representativeRun: RunOutcome | null = null;
   const typical = proposed ? nearestMedian(records.get(proposed.id)!) : undefined;
   if (proposedSpec && typical) {
-    representativeRun = simulator(proposedSpec, typical.summary.seed);
+    representativeRun = simulator(proposedSpec, typical.summary.seed, { explain: true });
     counted(representativeRun.work.members);
   }
 
@@ -443,10 +466,7 @@ export async function runAnalysis(
   if (!fitsBudget(analysis)) {
     caveats.push(DETAIL_DROPPED);
     analysis = assemble('completed', {
-      variants: results.map((result) => ({
-        ...result,
-        runs: result.runs.map((run) => ({ ...run, byActor: [] })),
-      })),
+      variants: withoutRunDetail(results),
       findings,
       sensitivity,
       representativeRun,

@@ -14,6 +14,7 @@ import { LATEST_SCHEMA_VERSION } from '../src/storage/migrations.js';
 import { Repository } from '../src/storage/repository.js';
 import { SqliteDatabase, type SqlDatabase } from '../src/storage/sql.js';
 import { fixtureInput } from './fixtures.js';
+import { sessionsSeen, writtenDuringRead } from './support/concurrent-database.js';
 import { populated as populate, type Instance } from './support/populated-world.js';
 
 // The rehearsal of losing a database and getting it back: that it proves what it says it proves, that
@@ -240,5 +241,49 @@ describe('rehearsing on a database that is in use', () => {
     const report = rehearseRestoreOf('pglite:drilled', workDirectory());
     expect(report.differing).toEqual([]);
     expect(report.projectsRead).toBe(2);
+  });
+});
+
+describe('rehearsing on a database that is being written to', () => {
+  it('checks the backup against the moment it was taken, however the database changes meanwhile', () => {
+    const path = join(workDirectory(), 'live.sqlite');
+    const application = keep(new Repository(path));
+    // A second connection stands for the application, which does not stop for a rehearsal.
+    const other = keep(new Repository(path));
+    const project = application.create(fixtureInput({ name: 'Before the change' }));
+    const directory = workDirectory();
+
+    const report = rehearseRestore(
+      writtenDuringRead(rawOf(application), () =>
+        other.update(project.id, { name: 'After the change' }),
+      ),
+      directory,
+    );
+
+    // The digests and the backup are of one moment, so a database in use does not look damaged.
+    expect(report.differing).toEqual([]);
+    expect(report.auditChainIntact).toBe(true);
+    expect(report.carriesOn).toBe(true);
+    expect(application.get(project.id).name).toBe('After the change');
+    expect(keep(new Repository(join(directory, 'backup.sqlite'))).get(project.id).name).toBe(
+      'Before the change',
+    );
+  });
+
+  it('reads a PostgreSQL database inside one read-only snapshot, for the digests and for the backup', async () => {
+    const original = await populated();
+    const postgres = keep(new Repository('pglite:memory'));
+    copyDatabase(rawOf(original), rawOf(postgres));
+    const { database, seen } = sessionsSeen(rawOf(postgres));
+
+    const report = rehearseRestore(database, workDirectory());
+
+    expect(report.differing).toEqual([]);
+    // Every table twice: once for its digest and once for the backup.
+    expect(seen).toHaveLength(2 * TABLES.length);
+    for (const state of seen) {
+      expect(state).toMatchObject({ isolation: 'repeatable read', read_only: 'on' });
+    }
+    expect(new Set(seen.map((state) => state.snapshot)).size).toBe(1);
   });
 });

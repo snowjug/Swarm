@@ -1,6 +1,7 @@
 import {
   analysisSchema,
   emptyResponseShares,
+  RESPONSE_CATEGORIES,
   type Analysis,
   type Finding,
   type SensitivityRow,
@@ -15,10 +16,57 @@ import {
   stakeholderSetFixture,
 } from '../../../shared/lab-fixtures.js';
 import type { StakeholderSet } from '../../../shared/stakeholders.js';
+import { mean, round4 } from '../../src/analysis/stats.js';
+import { withoutRunDetail } from '../../src/analysis/runset.js';
 import type { BriefDocument } from '../../src/brief/evidence.js';
 import type { BriefInputs, BriefLedgerSummary } from '../../src/brief/facts.js';
 
 export const TIME = FIXTURE_TIME;
+
+/**
+ * The same analysis with one cohort sampled with more (or fewer) members. Every share and stance is
+ * untouched: only the numerical resolution, how many members were drawn for the group, changes.
+ */
+export function resampled(analysis: Analysis, actorId: string, sampleSize: number): Analysis {
+  const copy = structuredClone(analysis);
+  for (const actor of copy.actors) if (actor.id === actorId) actor.sampleSize = sampleSize;
+  for (const variant of copy.variants) {
+    for (const run of variant.runs) {
+      for (const entry of run.byActor) if (entry.actorId === actorId) entry.members = sampleSize;
+    }
+    for (const entry of variant.actors ?? []) {
+      if (entry.actorId === actorId) entry.members = sampleSize;
+    }
+  }
+  return analysisSchema.parse(copy);
+}
+
+/**
+ * The analysis as the size fallback stores it: the totals over the runs of each actor are kept (as
+ * the run set makes them), and every run loses its own per-actor list.
+ */
+export function totalsOnly(analysis: Analysis): Analysis {
+  const copy = structuredClone(analysis);
+  const kept = copy.variants.map((variant) => ({
+    ...variant,
+    actors: copy.actors.map((actor) => {
+      const outcomes = variant.runs.flatMap((run) =>
+        run.byActor.filter((entry) => entry.actorId === actor.id),
+      );
+      const shares = emptyResponseShares();
+      for (const category of RESPONSE_CATEGORIES) {
+        shares[category] = round4(mean(outcomes.map((entry) => entry.responseShares[category])));
+      }
+      return {
+        actorId: actor.id,
+        members: outcomes[0]?.members ?? actor.sampleSize,
+        stanceMean: round4(mean(outcomes.map((entry) => entry.stanceMean))),
+        responseShares: shares,
+      };
+    }),
+  }));
+  return analysisSchema.parse({ ...copy, variants: withoutRunDetail(kept) });
+}
 
 export function passage(overrides: Partial<EvidenceRef> = {}): EvidenceRef {
   return {

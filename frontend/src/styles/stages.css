@@ -180,6 +180,20 @@
 .stage-actions:empty {
   display: none;
 }
+/* A button that stands alone in a stack, a card or a stage is as wide as its words, not as the column;
+   on a phone the column is the better target. */
+.stage-content > .button,
+.stage-card > .button,
+.view-stack > .button {
+  align-self: flex-start;
+}
+@media (max-width: 640px) {
+  .stage-content > .button,
+  .stage-card > .button,
+  .view-stack > .button {
+    align-self: stretch;
+  }
+}
 .primary-stage-actions {
   padding: 3px 0 9px;
   border-bottom: 1px solid var(--border-soft);

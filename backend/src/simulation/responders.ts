@@ -15,12 +15,14 @@
  *      (effects are in dynamics.ts). What it adds lasts for the rest of the run: an alternative that
  *      has appeared, help that has been offered and scrutiny that has begun do not go away.
  *
- * Every event lists what it followed from: the signal it saw, and the earlier events that had already
- * landed on actors it was watching (the engine does not say which of them mattered; running the same
- * seeds with `signals: false` shows what all of them together did). Reading those links back gives a
- * chain such as discontent, then a counter-move, then more switching, then a substitute offer. Since
- * an actor has one rule and acts once, an event is unique per (kind, actor, round) by construction, and
- * a run holds at most one event per actor.
+ * Every event records what its responder's trigger read: `causedBy` names the signal it saw, which is all
+ * that the trigger evaluates. The earlier events that had already landed on actors it was watching are
+ * listed apart, as `followed`: they came first, and nothing says that any of them mattered, because a
+ * trigger reads a signal and never an event (an event can only change a signal, through the actors it
+ * lands on, and a signal that is high enough with or without it does not need it). `explain.ts` finds
+ * out which of them were needed by replaying the run without each, and only those are then listed in
+ * `causedBy`. Since an actor has one rule and acts once, an event is unique per (kind, actor, round) by
+ * construction, and a run holds at most one event per actor.
  *
  * Reach is the actors the responder is related to, in either direction, weighted by relation strength.
  * With no relations it is the actors of the categories in DEFAULT_REACH, at a tie of 0.5. If none of
@@ -271,7 +273,8 @@ export function runResponders(
         kind: responder.rule.kind,
         actorId: actor.id,
         description: description.slice(0, 300).trim(),
-        causedBy: [responder.rule.signal, ...earlier],
+        causedBy: [responder.rule.signal],
+        followed: earlier,
       },
       landedOn: responder.reach.actors,
     });

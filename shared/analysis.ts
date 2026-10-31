@@ -98,7 +98,11 @@ export type SimulationSpec = z.infer<typeof simulationSpecSchema>;
 // One run
 // ---------------------------------------------------------------------------------------------
 
-/** A thing that happened in a run, with what it followed from, so that a chain can be read back. */
+/**
+ * A thing that happened in a run, so that a chain can be read back. `causedBy` is what its responder's
+ * trigger read, and, in a run that was `explained`, the earlier events a replay showed it needed;
+ * `followed` is the earlier events that had only come first.
+ */
 export const simEventSchema = z.object({
   id: z.string().min(1).max(60),
   round: z.int().min(1).max(MAX_ROUNDS),
@@ -106,8 +110,18 @@ export const simEventSchema = z.object({
   kind: z.string().min(1).max(60),
   actorId: idSchema.nullable(),
   description: line(300),
-  /** Ids of earlier events, or names of signals, that this followed from. */
+  /**
+   * The names of the signals its responder watched, then the ids of earlier events that were shown to
+   * be needed. An event id here is a cause only in a run that was `explained`; analyses saved before
+   * that was tested list earlier events here that merely came first.
+   */
   causedBy: z.array(z.string().max(80)).max(8).default([]),
+  /**
+   * Ids of earlier events that had already landed on actors the responder watches. They came first,
+   * and nothing shows that they mattered: in an `explained` run a replay without one still had the
+   * event; in any other nothing was tried.
+   */
+  followed: z.array(z.string().max(80)).max(8).optional(),
 });
 export type SimEvent = z.infer<typeof simEventSchema>;
 
@@ -140,6 +154,12 @@ export const runOutcomeSchema = z.object({
     byActor: z.array(actorOutcomeSchema).max(60),
   }),
   events: z.array(simEventSchema).max(200).default([]),
+  /**
+   * Set when the run was replayed once for each earlier event that could have mattered to a later one,
+   * with that event's responder switched off, so that an event id in `causedBy` was tested. Absent in
+   * any run that was not, where an earlier event in `causedBy` only came first.
+   */
+  explained: z.boolean().optional(),
   work: z.object({ members: z.int().min(0), updates: z.int().min(0) }),
 });
 export type RunOutcome = z.infer<typeof runOutcomeSchema>;
@@ -153,6 +173,13 @@ export interface SimulateOptions {
    * off on the same seeds shows how much the second-order effects change an outcome.
    */
   signals?: boolean;
+  /**
+   * Replays the run for each earlier event that could have mattered to a later one, with that event's
+   * responder switched off, and lists as a cause only the events without which the later one did not
+   * happen (see `explain.ts`). Off by default, because it costs a replay for each such pair; the analysis
+   * asks for it for the one run it keeps in detail.
+   */
+  explain?: boolean;
 }
 
 /**
@@ -210,7 +237,7 @@ export type SensitivityClass = (typeof SENSITIVITY_CLASSES)[number];
  * else changed, measured on the same seeds. `shift` is the mean paired difference and `standardError`
  * its noise; `assumption-sensitive` means the shift is clearly larger than that noise and material.
  */
-export const sensitivityRowSchema = z.object({
+const sensitivityRowShape = z.object({
   id: z.string().min(1).max(80),
   target: z.object({
     kind: z.enum(['trait', 'intensity', 'population']),
@@ -226,7 +253,24 @@ export const sensitivityRowSchema = z.object({
   classification: z.enum(SENSITIVITY_CLASSES),
   /** Where the perturbed assumption came from, so that a sensitive but unevidenced one stands out. */
   assumptionOrigin: z.enum(['evidence', 'user', 'system-assumption', 'model', 'scenario']),
+  /**
+   * Present when the value that was moved is not the actor's own but one that the proposed change sets
+   * for it, an impact override or an edit of the trait: `value` is what the change set before the move.
+   */
+  setting: z
+    .object({
+      source: z.enum(['scenario-override', 'scenario-edit']),
+      value: z.number().min(-1).max(1),
+    })
+    .optional(),
 });
+// Rows saved while `evidence` labelled a whole impact: only its direction was ever read from passages,
+// so the number that was moved was the system's default.
+export const sensitivityRowSchema = sensitivityRowShape.transform((row) =>
+  row.target.trait === 'impact' && row.assumptionOrigin === 'evidence'
+    ? { ...row, assumptionOrigin: 'system-assumption' as const }
+    : row,
+);
 export type SensitivityRow = z.infer<typeof sensitivityRowSchema>;
 
 export const fidelitySchema = z.object({
@@ -296,6 +340,42 @@ export const ANALYSIS_STATUSES = [
 ] as const;
 export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
 
+/**
+ * The documents a comparison is made from. When one of them changes after the comparison ran, the
+ * comparison, and the review and the brief made from it, describe the project as it was: only
+ * running the comparison again brings them up to date.
+ */
+export const ANALYSIS_INPUTS = ['scenario', 'stakeholders', 'actors'] as const;
+export type AnalysisInput = (typeof ANALYSIS_INPUTS)[number];
+
+export const ANALYSIS_INPUT_NAMES: Record<AnalysisInput, string> = {
+  scenario: 'the scenario',
+  stakeholders: 'the stakeholders',
+  actors: 'the simulated actors',
+};
+
+/** What a list of changes (`changedSince`) says when a comparison has finished after the one the brief or review rests on. */
+export const NEWER_ANALYSIS_EXISTS = 'a newer analysis exists';
+
+/**
+ * The documents among `changedSince` that a comparison is made from, when running the comparison
+ * again is what brings the brief or the review up to date. None when a newer comparison already
+ * exists, which making the brief or the review again uses: if that one is out of date too, it is
+ * said then.
+ */
+export const staleComparisonInputs = (changedSince: readonly string[]): AnalysisInput[] =>
+  changedSince.includes(NEWER_ANALYSIS_EXISTS)
+    ? []
+    : ANALYSIS_INPUTS.filter((input) => changedSince.includes(input));
+
+/** "the scenario", "the scenario and the stakeholders", "the scenario, the stakeholders and the simulated actors". */
+export function inputsInWords(inputs: readonly AnalysisInput[]): string {
+  const names = inputs.map((input) => ANALYSIS_INPUT_NAMES[input]);
+  return names.length < 2
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 /** The artifact `analysis` (one per run set; the key is its id). */
 export const analysisSchema = z.object({
   id: idSchema,
@@ -312,6 +392,13 @@ export const analysisSchema = z.object({
   /** The cast and relations the runs used, copied so that the analysis stays reproducible. */
   actors: z.array(actorSchema).min(1).max(60),
   relations: z.array(actorRelationSchema).max(240).default([]),
+  /**
+   * The revision of each document the comparison was made from (0 when there was none): the scenario
+   * and the stakeholders it read and the actors it copied, so that a later change to any of them can
+   * be told from a comparison that still describes the project. Absent for a comparison saved before
+   * this was recorded, whose freshness cannot be told.
+   */
+  inputRevisions: z.record(z.string().max(40), z.int().min(0)).optional(),
   fidelity: fidelitySchema,
   progress: z.object({ completedRuns: z.int().min(0), totalRuns: z.int().min(0) }),
   variants: z.array(variantResultSchema).max(8).default([]),

@@ -5,6 +5,7 @@ import {
   runOutcomeSchema,
   type Analysis,
   type RunOutcome,
+  type Simulator,
   type Variant,
 } from '../../shared/analysis.js';
 import { actorFixture, scenarioFixture } from '../../shared/lab-fixtures.js';
@@ -15,6 +16,7 @@ import { runAnalysis, validateInputs, type AnalysisInputs } from '../src/analysi
 import { planPerturbations } from '../src/analysis/sensitivity.js';
 import { autoVariants } from '../src/analysis/variants.js';
 import { quantile } from '../src/analysis/stats.js';
+import { simulateEachSpecOnce } from '../src/simulation/simulate.js';
 import { BASELINE, MILD, PROPOSED, clock, inputs, testCast } from './support/analysis-world.js';
 import { countingSimulator, stubSimulator } from './support/stub-simulator.js';
 
@@ -157,6 +159,32 @@ describe('running a comparison', () => {
     expect(Math.abs(own.stanceMean - median)).toBeCloseTo(Math.min(...gaps), 3);
     expect(representative.events.length).toBeGreaterThan(0);
     expect(() => runOutcomeSchema.parse(representative)).not.toThrow();
+  });
+
+  it('asks for the one run it keeps in detail to be explained, and for no other', async () => {
+    const asked: (boolean | undefined)[] = [];
+    const simulator: Simulator = (spec, seed, options) => {
+      asked.push(options?.explain);
+      return stubSimulator(spec, seed, options);
+    };
+    const analysis = await runAnalysis(inputs({ sensitivity: true }), simulator, { now: clock });
+    expect(analysis.representativeRun).not.toBeNull();
+    expect(asked.filter(Boolean)).toHaveLength(1);
+    expect(asked.at(-1)).toBe(true);
+  });
+
+  it('keeps the run nearest the median with each earlier event tested, on the real engine', async () => {
+    const analysis = await runAnalysis(inputs(), simulateEachSpecOnce(), { now: clock });
+    const run = analysis.representativeRun!;
+    expect(run.explained).toBe(true);
+    const ids = run.events.map((event) => event.id);
+    for (const event of run.events) {
+      for (const id of [...event.causedBy.slice(1), ...(event.followed ?? [])]) {
+        expect(ids.indexOf(id)).toBeGreaterThanOrEqual(0);
+        expect(ids.indexOf(id)).toBeLessThan(ids.indexOf(event.id));
+      }
+    }
+    expect(() => analysisSchema.parse(analysis)).not.toThrow();
   });
 
   it('reports every run, and no model call, in the cost', async () => {

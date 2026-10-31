@@ -360,6 +360,31 @@ async function seedHeavy(api: APIRequestContext, name: string): Promise<string> 
   return id;
 }
 
+/**
+ * Gives the members of every group the same impact, so that a cast in which nobody has a direction has
+ * nothing for the change to land on. The cast the pages make leaves them a spread around it, which
+ * moves members in either direction while nobody is set as helped or harmed.
+ */
+async function freezeImpacts(api: APIRequestContext, id: string): Promise<void> {
+  const made = await api.get(`/api/projects/${id}/actors`);
+  const { revision, actors } = (await made.json()) as {
+    revision: number;
+    actors: { actors: { traits: { impact: { spread: number } } }[] };
+  };
+  await said(
+    await api.put(`/api/projects/${id}/actors`, {
+      data: {
+        expectedRevision: revision,
+        actors: actors.actors.map((actor) => ({
+          ...actor,
+          traits: { ...actor.traits, impact: { ...actor.traits.impact, spread: 0 } },
+        })),
+      },
+    }),
+    200,
+  );
+}
+
 async function startViaApi(
   api: APIRequestContext,
   id: string,
@@ -563,7 +588,14 @@ async function expectHonestResults(page: Page, label: string): Promise<void> {
 // ---------------------------------------------------------------------------------------------
 
 const ids = {} as Record<
-  (typeof EXAMPLES)[number] | 'bus' | 'fresh' | 'still' | 'heavy' | 'reproduce' | 'report',
+  | (typeof EXAMPLES)[number]
+  | 'bus'
+  | 'fresh'
+  | 'still'
+  | 'undirected'
+  | 'heavy'
+  | 'reproduce'
+  | 'report',
   string
 >;
 let api: APIRequestContext;
@@ -590,14 +622,25 @@ test.beforeAll(async ({ playwright }) => {
     BUS_STAKEHOLDERS,
     BUS_RELATIONS,
   );
+  const unclear = BUS_STAKEHOLDERS.map((stakeholder) => ({
+    ...stakeholder,
+    direction: 'unclear' as const,
+  }));
   ids.still = await seedByHand(
     api,
-    'Analysis: nobody has a direction',
-    BUS_STAKEHOLDERS.map((stakeholder) => ({ ...stakeholder, direction: 'unclear' as const })),
+    'Analysis: nobody has a direction, nothing to land on',
+    unclear,
+  );
+  await freezeImpacts(api, ids.still);
+  ids.undirected = await seedByHand(
+    api,
+    'Analysis: nobody has a direction, members differ',
+    unclear,
   );
   // The engine's first stage is done here, as it is for a person who came through Graph Build, so that the
   // way back to the stakeholder review is open.
   await advance(api, ids.still, 'knowledge');
+  await advance(api, ids.undirected, 'knowledge');
   ids.heavy = await seedHeavy(api, 'Analysis: a cast that takes long to compare');
 });
 
@@ -715,7 +758,7 @@ test.describe('comparing scenarios on the page', () => {
     );
     // How often each kind of event occurred is among the findings, with the runs of the baseline alongside.
     await expect(results(page)).toContainText(
-      /seeded runs, a simulated “(counter-move|scrutiny|enablement)” event occurred under Proposed change \(under No change: \d+ of 10\)/u,
+      /seeded runs, a simulated “(counter-move|scrutiny|enablement)” event by .+ occurred under Proposed change \(under No change: \d+ of 10\)/u,
     );
     expect(problems).toEqual([]);
   });
@@ -783,6 +826,37 @@ test.describe('comparing scenarios on the page', () => {
     const again = await openSetup(page);
     await again.getByRole('button', { name: 'Open the stakeholder review' }).click();
     await expect(page.getByRole('heading', { name: 'Stakeholders and actors' })).toBeVisible();
+  });
+
+  test('says before and after the run that nobody has a direction, and not that nothing can move, where members still differ in how the change lands', async ({
+    page,
+  }) => {
+    await openSimulation(page, ids.undirected);
+    const warning = panel(page)
+      .getByRole('status')
+      .filter({ hasText: 'No stakeholder has an expected direction yet' });
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText('nobody is set as helped or harmed by the change');
+    await expect(warning).toContainText('they come from those assumptions');
+    await expect(warning).toContainText('You can still run it');
+    await expect(warning).not.toContainText(/cannot move anyone|can move anyone yet|noise/u);
+    await expect(
+      warning.getByRole('button', { name: 'Open the stakeholder review' }),
+    ).toBeVisible();
+    await expect(panel(page).getByRole('button', { name: /^Compare scenarios/u })).toBeEnabled();
+    await chooseRuns(page, 10);
+    await compare(page);
+    await waitForResults(page);
+    const notice = results(page)
+      .getByRole('status')
+      .filter({ hasText: 'No stakeholder has an expected direction of impact' });
+    await expect(notice.first()).toBeVisible();
+    await expect(results(page)).not.toContainText(
+      'This comparison cannot say anything about the change',
+    );
+    await expect(results(page)).not.toContainText('Nothing in the change can move anyone');
+    await expect(results(page)).not.toContainText('No effect to test');
+    expectNoRealWorldClaims(await panel(page).innerText(), 'no direction, members differ');
   });
 
   test('repeating a comparison on the same seeds gives the same numbers, and the page says which seeds', async ({
@@ -1165,10 +1239,10 @@ test.describe('what a finished comparison feeds', () => {
       /Variants simulated: “No change” \(baseline\), “Proposed change” \(alternative, lands in round 2 at strength 0\.70 of 1\)/u,
     );
     expect(text('alternative-outcomes')).toMatch(
-      /Against “No change”, “Proposed change” left about [\d.]+ more of \d+ simulated members/u,
+      /Against “No change”, “Proposed change” (?:raised|lowered|left) the mean share of simulated members looking for an alternative or resisting/u,
     );
     expect(text('second-order')).toMatch(
-      /a simulated "(scrutiny|counter-move|enablement)" event occurred/u,
+      /a simulated "(scrutiny|counter-move|enablement)" event by .+ occurred/u,
     );
     expect(text('uncertainty')).toMatch(/Wilson interval/u);
     expect(brief.brief.recommendations.length).toBeGreaterThan(0);

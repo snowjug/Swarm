@@ -4,8 +4,9 @@ The decision brief is the answer-first document of a project. It puts the answer
 first and then shows what the answer rests on: the evidence, the stakeholders, the simulated
 outcomes, the assumptions and how much they matter, what to do and how to check it before doing it.
 
-Swarm explores possible scenarios. It does not predict the future. Every figure in the brief is a
-count of simulated members or of seeded runs. None is a rate in a real population.
+Swarm explores possible scenarios. It does not predict the future. Outcome counts are synthetic;
+other figures are model scores, seeded-run proportions or stated assumptions; none is a measured
+population rate.
 
 ## How it is made
 
@@ -20,32 +21,69 @@ statements, critique objections) is quoted inside the sentence that uses it and 
 length. It is data, not instruction, and it is never executed or followed.
 
 The brief is stored with the project as the artifact `brief`; generating it again replaces it. The
-charts and tables are not stored. They are worked out again from the analysis and the project's
-other documents every time the brief is read or exported, so they always agree with the data.
+data behind its charts and tables is worked out when the brief is made and stored with it (the
+`snapshot`), so that what the page draws and what the exports tabulate agree with the brief's own
+words even after the stakeholders, the scenario or the critiques have changed. The routes hand it
+out as `visuals`. A brief stored before that was kept has its charts worked out from the project's
+documents as they are when it is read or exported, and the page and every export say so
+(`visualsFrom: "current"`).
 
 ## The seventeen sections
 
 The order is fixed. The first section is the answer.
 
-| #   | Section                             | What it holds                                                                                                           |
-| --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 1   | Executive answer                    | One or two sentences, the main caveat in order of how much it can change the answer, and what the brief cannot tell you |
-| 2   | Decision evaluated                  | The question, decision, changes, baseline, alternatives, open points and the variants, with what each sets for whom     |
-| 3   | Evidence base and quality           | Sources by kind, cited passages, conflicts between sources, and which actors no cited passage supports                  |
-| 4   | Stakeholder landscape               | Stakeholders grouped by category, who is harmed or benefited, how much is cited for each                                |
-| 5   | Main reaction patterns              | What the simulated groups did, as counts of simulated members                                                           |
-| 6   | Alternative outcomes                | How the outcomes spread over the seeded runs of each variant                                                            |
-| 7   | First-order effects                 | The direct response of the most affected groups, against the baseline                                                   |
-| 8   | Second-order and competitor effects | Second-order findings, responses by actors outside the organisation, and the chain of events in the representative run  |
-| 9   | Behavioural drivers                 | The assumptions the simulated result moved with, and those it did not                                                   |
-| 10  | Important assumptions               | The assumption register, with who set each and whether a cited passage backs it                                         |
-| 11  | Uncertainty and sensitivity         | Findings that were not repeatable, sensitivity rows, critiques not yet closed                                           |
-| 12  | Risks and opportunities             | Groups set as harmed that ended up adverse, actions by outside actors, and groups set as benefited that went along      |
-| 13  | Prioritised recommendations         | A table of recommendations that follow from findings (see below)                                                        |
-| 14  | Validation plan                     | A table of real-world checks that would settle what the result most depends on                                          |
-| 15  | Sources and provenance              | Each source, how it was supplied, and whether the server fetched it                                                     |
-| 16  | Limitations                         | What this analysis cannot tell you                                                                                      |
-| 17  | Technical appendix                  | Seeds, runs, rounds, variants, engine, cost, and the trait values of every simulated actor                              |
+| #   | Section                             | What it holds                                                                                                                                                                                  |
+| --- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Executive answer                    | The decision and a conditional recommendation, the paired comparison, the groups moved most, the three doubts that could change it, what would settle them, and what the brief cannot tell you |
+| 2   | Decision evaluated                  | The question, decision, changes, baseline, alternatives, open points and the variants, with what each sets for whom                                                                            |
+| 3   | Evidence base and quality           | Sources by kind, cited passages, conflicts between sources, and which actors no cited passage supports                                                                                         |
+| 4   | Stakeholder landscape               | Stakeholders grouped by category, who is harmed or benefited, how much is cited for each                                                                                                       |
+| 5   | Main reaction patterns              | What the simulated groups did, as shares of each group's simulated members with every group counting equally, and the counts of sampled members beside them                                    |
+| 6   | Alternative outcomes                | How each variant compares with the baseline on the same seeds, in that share and its paired difference, ranked by share and never by counts                                                    |
+| 7   | First-order effects                 | The direct response of the most affected groups, against the baseline                                                                                                                          |
+| 8   | Second-order and competitor effects | Second-order findings, responses by actors outside the organisation, and the chain of events in the representative run                                                                         |
+| 9   | Behavioural drivers                 | The assumptions the simulated result moved with, and those it did not                                                                                                                          |
+| 10  | Important assumptions               | The assumption register, with who set each and whether a cited passage backs it                                                                                                                |
+| 11  | Uncertainty and sensitivity         | Findings that were not repeatable, sensitivity rows, critiques not yet closed                                                                                                                  |
+| 12  | Risks and opportunities             | Groups set as harmed that ended up adverse, actions by outside actors, and groups set as benefited that went along                                                                             |
+| 13  | Prioritised recommendations         | A table of recommendations that follow from findings (see below)                                                                                                                               |
+| 14  | Validation plan                     | A table of real-world checks that would settle what the result most depends on                                                                                                                 |
+| 15  | Sources and provenance              | Each source, how it was supplied, and whether the server fetched it                                                                                                                            |
+| 16  | Limitations                         | What this analysis cannot tell you                                                                                                                                                             |
+| 17  | Technical appendix                  | Seeds, runs, rounds, variants, engine, cost, and the trait values of every simulated actor                                                                                                     |
+
+## The executive answer
+
+The first section is written to be read in a minute, in this order, each statement with its own
+origin and references:
+
+1. The decision that was evaluated.
+2. A recommendation that is conditional on the premises: if the checks of the validation plan confirm
+   the premises behind the simulated result, the actions the recommendations name (mitigating for the
+   groups that moved most, preparing a response to the outside actors that answered, building on a
+   favourable response); if they do not, run the analysis again with the measured values. When the
+   headline result did not hold in most seeded runs, it says not to decide yet and to repeat the
+   analysis.
+3. The headline comparison, in the engine's own measure: the mean share of simulated members looking
+   for an alternative or resisting under the change and under the baseline, every group counting
+   equally, the paired difference with its standard error, and in how many paired runs the share was
+   higher under the change.
+4. The groups moved most, each with its own share against its share under the baseline. They are
+   ranked by that share and never by member counts.
+5. Up to three doubts that could change the answer, the biggest first, from the sensitivity rows, the
+   critiques, the conflicts between sources and the groups no cited passage supports: for example how
+   the change lands on the group the answer moves most, how large the change is in practice, or an
+   open major objection.
+6. What would settle them, by id of the checks of the validation plan, with the note that the
+   decision thresholds are left for the person to set.
+7. How steady the comparison was across seeded runs, with the Wilson interval described as
+   descriptive of these runs (see [methodology](methodology.md#reading-a-repeatability-interval)).
+8. What the brief does not tell you: how many real people act this way, how fast, or whether the
+   assumptions hold.
+
+The headline repeats the comparison, the groups moved most and the biggest doubt in one paragraph.
+When the comparison cannot be read as a result, the answer says so first instead (see below), and
+the order above applies to the `clear` state.
 
 ## Origins
 
@@ -69,8 +107,11 @@ missing, the statement is shown as unresolved uncertainty instead.
 A few rules decide the evidence origins. A document is retrieved public evidence only when its
 provenance is a web address and the server fetched it; a document marked as historical is a
 historical comparison; everything else is supplied evidence. A trait that is labelled as resting on
-evidence is shown as evidence only when a passage is cited for it; otherwise it is shown as a system
-assumption or as unresolved uncertainty. A trait proposed by a model that no one has changed is a
+evidence is shown as evidence only when a passage is cited for it now (what the stakeholder cites in the set
+as it stands, not the label the cast was saved with); otherwise it is shown as a system
+assumption or as unresolved uncertainty. The size of an impact is never shown as evidence: a passage can
+give its direction, so a statement about an impact says that the direction rests on a cited passage and
+the size is an assumption. A trait proposed by a model that no one has changed is a
 system assumption.
 
 The page and the exports show each statement's references, so a reader can open the quotation with
@@ -93,62 +134,132 @@ stakeholder is moderate if a passage supports it and nothing contradicts it, and
 Statements that do not rest on a finding carry no reliance. These levels describe how stable a
 simulated result is. They are not probabilities and say nothing about the real world. The one
 exception is a comparison that [cannot tell the change from no change](#when-the-comparison-cannot-tell-the-change-from-no-change)
-because no stakeholder has a direction of impact: every finding then describes noise, so every
-statement that rests on one is low, however often it held.
+because the simulator gives the same outcome with the change as without it: every finding then
+describes only the runs themselves, so every statement that rests on one is low, however often it held.
 
 ## Numbers
 
-Counts of simulated members are worked out from the runs: the members of each actor, times the
-share that gave each response, added up per run and then averaged over the seeded runs of a
-variant, with the lowest and highest shown. Members who ended up looking for an alternative or
-resisting are counted as adverse. A comparison with the baseline is paired by seed, so the same
-random draws sit on both sides and the difference is the change, not the noise. Population sizes
-are assumptions that weight each group. They were not measured.
+The brief leads with the engine's own measure: the share of simulated members whose final response
+is to look for an alternative or to resist, with every group counting equally. Each group's own
+share is worked out first, and the shares are averaged over the groups, so a group of 20 sampled
+members counts as much as a group of 1. It is the same measure as the engine's overall response
+shares, and it is written as members in every 100, never with a percent sign, always with the word
+"simulated" and the denominator named. The comparison with the baseline is paired by seed: the same
+random draws sit on both sides, so the difference is the change and not the noise. It is stated
+with its paired standard error and in how many of the paired runs the share was higher under the
+change. The groups most affected are the ones whose own share moved most against the baseline,
+read from each group's own share, never from how many members were sampled for it.
+
+Counts of simulated members are worked out too, and are shown beside the shares: the members of each
+actor, times the share that gave each response, added up per run and averaged over the seeded runs
+of a variant. How many members are sampled for a group is a numerical resolution set when the actors
+were made, not a population, so a count rises and falls with the sampling: sampling five times as many
+members of one group gives about five times as many of its members in each response, with its own
+share moved only as far as a finer sample can move it. For that reason options are never ranked by
+member counts. Population sizes are assumptions that weight each group where a weight is used. They
+were not measured. Shares and counts are simulated: none is a rate in a real population.
+
+A sub-0.01 shift or error is printed with enough decimals to show that it is not zero. A shift that
+sensitivity calls robust is described as below the chosen materiality threshold of 0.02 on that
+measure, which is a choice of this method, not as lying within noise: a shift can be many standard
+errors from zero and still be too small to matter.
+
+### When the analysis kept less than every run
+
+A comparison that a person may ask for in full (200 seeded runs of several variants of a large cast)
+can be larger than one stored document may be. The server then keeps what each run said overall and
+drops the per-actor result of every individual run, and keeps instead each actor's totals over the
+runs (its members, its mean share in each response and its mean stance), and says so in the
+analysis. The brief reads the totals that were kept. Where something can only be worked out from
+each run's own results, such as the number of paired runs in which one group's share was higher, the
+brief states no figure and says why, and it never reads an absent result as zero members. Where the
+analysis kept neither (an older stored analysis), the headline still states the overall comparison,
+which every run keeps, and the statements about single groups are withheld with the reason.
 
 ## When the comparison cannot tell the change from no change
 
 A comparison with no change only means something if the change can move someone. Two situations
 are named. The brief stores which one applies as `signal` (`clear` when neither does), says it first
-on the page and in the Markdown and printable exports, and changes what it writes as follows.
+on the page and in the Markdown and printable exports, and changes what it writes as follows. A third
+situation, where nobody has a direction but members can still be moved, is read on the findings under a
+note (see below).
 
-**No direction of impact (`no-direction`).** No stakeholder has an expected direction of impact: every
-simulated actor's impact is zero, and no variant sets another. The change then moves no one in the
-simulation, and every difference from no change is noise, whatever counts the runs show. The test is
-the shared rule `changeCanMoveAnyone` (in `shared/signal.ts`) together with a check that no actor has
-a direction under any change, so that a change with no strength is not mistaken for a missing
-direction. Then:
+**No direction of impact (`no-direction`).** The simulator is certain to give the same outcome with the
+change as without it, on every seed: no stakeholder has an expected direction of impact, no scenario
+sets one for anyone (after its own overrides and edits), the members of a cohort do not differ in
+impact, and no scenario sets anything else about anyone that no change would. The change then moves no
+one in the simulation, so no difference from no change is a result, whatever counts the runs show. The
+test is the shared decision `changeCanMoveAnyone` (in `shared/signal.ts`, see
+[methodology.md](./methodology.md#a-change-that-cannot-move-anyone-and-one-that-has-no-direction))
+together with a check that no actor has a direction under any change, so that a change with no
+strength is not mistaken for a missing direction. A cast whose members do differ in impact is not this
+state, even when nobody has a direction: it can move members. Then:
 
 - The headline and the executive answer say that the simulated comparison could not tell the change
   from no change, in the shared wording of the notice: say who is helped or harmed in the stakeholder
   review, or read the evidence with a model. No count of adverse members is put forward as a result,
   and the answer is itself the main caveat. The statement is unresolved uncertainty. The finding that
-  the two ended up about the same is quoted with its stability, as a description of the noise.
+  the two ended up about the same is quoted with its stability, as a description of the simulation
+  repeating itself.
 - The first recommendation is to say who is helped or harmed, in the stakeholder review, or to read
   the evidence with a model, and then to run the comparison again. It comes first whatever its score
   (its impact is high and its effort low, because nothing else can be read until it is done), links to
   the finding about the direction against the baseline, and is an assumption of the system, not a
-  result. Nothing is built on the noise: no mitigation, no building on a favourable response, and no
+  result. Nothing is built on it: no mitigation, no building on a favourable response, and no
   repeating of runs that cannot help.
 - The first check of the validation plan confirms the direction of impact with the stakeholders
   themselves.
 - The first limitation is the notice, and every statement that rests on a finding is low reliance.
-- The sections that set variants side by side begin with a note to read the differences as noise.
-  No comparison with the baseline is written as an effect, no variant is ranked, and no risk or
-  opportunity is attributed to the change.
+- The sections that set variants side by side begin with a note to read nothing in them as an effect
+  of the change. No comparison with the baseline is written as an effect, no variant is ranked, and no
+  risk or opportunity is attributed to the change.
 
-**No measurable difference (`no-difference`).** The stakeholders have directions, and the comparison
-still found the two about the same. Three things must hold. The analysis's finding that simulated
-members ended up about the same under the change as under no change, on the same seeds, is repeatable
-or mostly repeatable. No other direction finding for the same variant that is repeatable or mostly
-repeatable says otherwise. And no group moved clearly on its own: no actor's mean final stance, or
-share of simulated members looking for an alternative or resisting, differs from the baseline's by
-0.1 or more on the same seeds (the medium cut-off of an impact). The last test is there because the
-overall stance is a mean over groups, and groups moving in opposite ways could hide in it. Then the
-headline says that there is no measurable difference under these assumptions, leads with how often
-the two ended up about the same instead of with counts, and keeps the main caveat after it. It says
-that this is a result about the assumptions, not about the world. No mitigation and no
-building-on recommendation is made, the comparison is read in stance and not in counts, no first-order
-effect, risk or opportunity is singled out, and the first limitation says what the result does not show.
+**Nobody has a direction, but members can still move.** A cohort is drawn around an actor's impact with a
+spread, so with an impact of 0 and a spread some members are moved each way, and a scenario can edit a
+trait; the default cast gives every cohort a spread of 0.15. The change can move members, so this is not
+the state above, and the brief does not say that it cannot or that a difference is noise: it reads on its
+findings like any other comparison (and may be `clear` or `no-difference`), and the two sections that set
+scenarios side by side open with a note that nobody has an expected direction, that a difference
+follows from how widely members are assumed to differ in how the change lands on them or from an edit
+to a scenario and not from anyone being helped or harmed, and to say who is, in the stakeholder review,
+before reading it as an effect of the change. The note's origin is an assumption of the system when the
+brief is `clear`, and unresolved uncertainty when it is `no-difference`. The limitations list the shared
+notice for it (`UNDIRECTED_NOTICE`) after the one that says what the comparison found, as an assumption
+of the system. The review raises it as its own criticism (see [critics.md](./critics.md)).
+
+**No measurable difference (`no-difference`).** The change can move members, and the comparison still found
+the two about the same. It is said of the proposed change only (the first alternative, which the
+headline is about), and it is worked out for each alternative on its own. Three things must hold. The
+analysis's finding that simulated members ended up about the same under the scenario as under no
+change, on the same seeds, is repeatable or mostly repeatable. No other direction finding for the same
+scenario that is repeatable or mostly repeatable says otherwise. And nothing moved clearly: neither the
+members together nor any actor has a mean final stance, or a share of simulated members looking for an
+alternative or resisting, that differs from the baseline's by 0.1 or more on the same seeds (the medium
+cut-off of an impact), nor a share that differs by 0.05 or more (what sensitivity calls too small to
+matter) in the same direction in most of the paired runs. The last test is there because the overall
+stance is a mean over groups, so groups moving in opposite ways, or members moving each way at once,
+could hide in it, and because a small shift that holds in nearly every paired run is measured and is not
+no difference. Where the runs kept no per-actor detail (see the size limit in
+[methodology.md](./methodology.md#what-is-kept)), the totals kept for each scenario are compared
+instead, and with neither the brief does not claim that no group moved.
+
+When it holds for the proposed change, the headline says that there is no measurable difference under
+these assumptions between the proposed change and no change, leads with how often the two ended up
+about the same instead of with counts, and keeps the main caveat after it. It says that this is a
+result about the assumptions, not about the world. No mitigation and no building-on recommendation is
+made, no first-order effect, risk or opportunity is singled out for the proposed change, and the first
+limitation says what the result does not show. The notice, the note and the limitation say that it is
+said of the proposed change only, and none of them calls a difference noise. **Every other scenario is
+read against no change on its own findings** in "Alternative outcomes": one whose own findings say it
+ended up about the same is worded so (stance, "which the comparison reads as about the same"), and any
+other is worded by its counts and the number of paired runs in which it was worse, as in a brief that
+can be read, so a scenario whose own finding says it was less favourable in every paired run is never
+called about the same because the proposed change was. The executive answer says so too: after the
+stability of the finding it has one statement, outside the headline, for each (at most two) other scenario
+whose own finding says it differed from no change, saying that no difference is said of the proposed
+change only and quoting that finding. The chart of each alternative against the
+baseline and the caption of the same table in the exports do the same: only the first row, the proposed
+change, is not read as an effect.
 
 What this relies on, and where it stops:
 
@@ -157,28 +268,52 @@ What this relies on, and where it stops:
   stops being detected; the first does not depend on it.
 - When no baseline was run, or the headline variant is not an alternative, there is nothing to
   compare, neither state applies, and the brief says so as before.
-- Only the headline variant, the first alternative, is read for the second state.
+- The state of the brief is the headline variant's, the first alternative's; the others are only
+  worded on their own findings in "Alternative outcomes". The rest of the brief (first-order effects,
+  risks and opportunities, recommendations) is about the headline variant, so "no first-order effect
+  is singled out" does not say that a later scenario has none.
 
 ## Recommendations
 
-Every recommendation links to at least one finding and carries its impact, effort, reversibility,
-a time horizon, an owner function, leading indicators, the assumptions it depends on and how to
-check it before committing. They come from a few generic rules that know nothing about the subject:
+Every recommendation carries its impact, effort, reversibility, a time horizon, an owner function,
+leading indicators, the assumptions it depends on and how to check it before committing. They come
+from a few generic rules that know nothing about the subject:
 
-- An adverse, repeatable finding for a harmed group: mitigate, or stage the change.
+- A repeatable finding that a harmed group the answer names ended up looking for an alternative or
+  resisting as its largest response: mitigate, or stage the change. A finding about another response
+  of the group does not stand for it. Only the proposed change is mitigated, and the groups come in
+  the order the answer names them.
 - An assumption the result is sensitive to that nothing cited backs: validate it first.
 - Key actors, or evidence the question named, that nothing cited supports: collect evidence.
-- A repeatable event from an actor outside the organisation: prepare a response.
-- An unstable finding: repeat the analysis before relying on it.
+- Sources that disagree: resolve the conflicts, by getting the underlying data from the owner of each
+  source.
+- A repeatable event from an actor outside the organisation (a competitor, partner, regulator or
+  substitute): prepare a response. Event findings are made for each acting actor, so the advice names
+  that actor and quotes how often it acted in the seeded runs ("In 11 of 12 seeded runs, a simulated
+  counter-move event by this actor occurred"), one piece of advice for each actor.
+- A headline result that did not hold in most seeded runs: repeat the analysis before relying on it.
+  A headline result that seldom or never held is its own case: the runs agree that it is rare, which
+  is not the same as disagreeing, so the advice is not to plan around it and not to read its absence
+  as safety.
 - A favourable, repeatable finding for a benefited group: build on it.
 - Serious critiques that are not yet closed (anything but accepted: open, responded or disputed):
   resolve them first.
+
+Each recommendation has the origin it can stand behind and the ids it rests on. What follows from a
+count over seeded runs (mitigate, prepare a response, build on, repeat) is a simulation aggregation,
+carries the reliance of the findings it rests on and links them. Advice about the evidence (collect
+evidence, resolve conflicts) or the critiques (resolve them) is unresolved uncertainty: it rests on
+the passages, the actors, the sources or the critiques it is about, and carries no reliance, because
+how often a finding about a group held says nothing about whether two sources agree. Validating an
+assumption is a simulation aggregation on the sensitivity rows it is about. Saying who is helped or
+harmed is a system assumption. A recommendation never inherits the reliance of an unrelated finding.
 
 At most twelve are listed. They are ordered by impact times repeatability divided by effort.
 Impact is the size of the simulated shift (at least 0.3 is high, at least 0.1 is medium, measured as
 a share of a group's simulated members or a change of stance on the scale from -1 to 1).
 Repeatability is the largest lower bound of the Wilson interval among the findings the
-recommendation follows from. Effort is a planning default for the kind of action, and low, medium and
+recommendation follows from; advice that rests on no finding of its own takes that of the headline
+result it protects. Effort is a planning default for the kind of action, and low, medium and
 high weigh 1, 2 and 3. Ties go to the higher impact, then the lower effort, then the order they were
 found in. The owner function comes from the stakeholder category the recommendation is about. These
 are lenses, not a list of answers for any one case, and the effort values are not estimates. The
@@ -187,23 +322,57 @@ when the comparison could not tell the change from no change (see above).
 
 ## Validation plan
 
-The plan has at most eight checks, chosen in this order: the assumptions the runs were sensitive to
-that nothing cited backs (the five that moved the result most), the findings that were not stable
-across seeded runs (up to three), and the key actors that no cited passage supports (up to two).
-Each check names its targets, the question, the method, the signal that would count as success, the
-effort and the duration. The method is a generic real-world check (a survey, interviews, a data
-pull, an expert review or a staged rollout) adapted only by the trait and the kind of group. When no
-stakeholder has a direction of impact, the first check confirms it with the stakeholders themselves,
-and no check proposes repeating runs that cannot tell the change from no change.
+The plan tests what the headline decision depends on, not the order of groups in a table. It has at
+most eight checks, ranked by how much of the answer rests on the premise and placed in this order:
+
+1. The premises of the headline that nothing measured: how large the change is in practice and how
+   widely and soon it reaches the groups, how it lands on the groups the answer names, the
+   assumptions the runs were sensitive to that nothing cited backs, how widely members of a group
+   differ, and the population sizes that weight a group.
+2. Open conflicts between sources. Each names both sources and their figures; the method is to get
+   the underlying data and its definition from both owners and compare like with like.
+3. What triggers an outside actor (a competitor, partner, regulator or substitute) that responded
+   in most seeded runs.
+4. The key actors that no cited passage supports.
+5. Repeating the analysis with more seeded runs, only for a headline result that did not hold in
+   most seeded runs: the answer's own direction, its threshold, or the adverse response of a group it
+   names. An ordering of groups, which of two responses is the largest for a group, or a single event
+   is never a reason to repeat runs.
+
+Every check except the last names the actual group and the change in the scenario's own words, and
+says four things: what would be observed in the world, in the scenario's own words (for example "the
+proportion of this group who start using an alternative, reduce their use of it or formally object",
+the time or the money it takes, the weeks before they see the change), without stating any value for
+it, and never in the word "share", which the brief keeps for the simulated shares of simulated
+members; what it is compared with (a comparable group that is not exposed, the same group before the
+change, or the two sources against each other); how long it takes and how much effort it is; and a
+decision rule that is left for the person to set before the check starts, because nothing in the
+simulation supplies one. Each also names the function that would run it. A check never asks a pilot
+to match an internal score, a setting such as the strength of the change, or a share the simulation
+produced.
+Checks that settle the same premise are merged. The method is a generic real-world check (a survey,
+interviews, a data pull, an expert review or a staged rollout) filled in with the groups, the change
+and the sources of this analysis, so two analyses of different questions get visibly different plans.
+When no stakeholder has a direction of impact, the first check confirms it with the stakeholders
+themselves, and no check proposes repeating runs that cannot tell the change from no change.
+
+The answer-first section points at the checks that settle its three doubts, by id, and the table on
+the page and in the exports has a column each for what to observe, what to compare with, the method,
+the decision rule and the owner.
 
 ## Wording guard
 
 Every statement is checked before it is kept. The words of the statement itself, outside any
-quotation, may not predict ("will"), overclaim (certainly, definitely, guarantee, proves, proven,
-inevitable) or put a number on a real population as a percentage. A statement about the simulation
-must say that it is simulated, and so must the headline and the recommendations. A statement that
-fails is withheld and replaced by a notice, its origin is shown as unresolved, and the count is
-recorded in the methodology notes of the brief. Quotations from the sources are not rewritten.
+quotation, may not predict ("will", "shall", "is expected to", "are bound to", "is certain to" and
+other forms of "to be" with a word of forecast), overclaim (certainly, definitely, guarantee, proves,
+proven, inevitable), put a number on a real population as a percentage, or put a figure on a measure
+of the real world (a conversion, a share, a level of adoption or of sentiment, revenue) or
+on real customers, unless the figure itself says whose it is: "18 of 40 simulated members" does, and
+"conversion increased by 18 real customers" does not, however many times the sentence says
+"simulated" elsewhere. A statement about the simulation must say that it is simulated, and so must the
+headline and the recommendations. A statement that fails is withheld and replaced by a notice, its
+origin is shown as unresolved, and the count is recorded in the methodology notes of the brief.
+Quotations from the sources are not rewritten.
 
 ## Reading it
 
@@ -213,10 +382,17 @@ recorded in the methodology notes of the brief. Quotations from the sources are 
   to check, not a result. The validation plan says how.
 - A notice above the executive answer means the comparison cannot be read as a result about the
   change: either it could not tell the change from no change, or it found no measurable difference
-  under these assumptions. Read the notice before the counts.
+  for the proposed change under these assumptions (other scenarios are read on their own). Read the
+  notice before the counts.
 - Each chart has a table behind it with the same numbers.
-- "This brief may be out of date" means a scenario, stakeholders, actors, critiques or the analysis
-  changed after it was made, or a newer completed analysis exists. Generate it again.
+- "This brief may be out of date" lists what changed, and what to do depends on what it is. A comparison
+  records the revision of the scenario, the stakeholders and the actors it was run on, and the brief is
+  judged against that record, not against when it was written. If one of them changed after the
+  comparison ran, writing the brief again would describe the new decision with the old runs, so the
+  notice asks for the comparison to be run again in the Simulation stage, then the brief to be written
+  again; the brief written from such a comparison says so in its own methodology notes and keeps the
+  notice. A change to the critiques, or a newer completed analysis, is brought up to date by writing
+  the brief again.
 
 ## Charts
 
@@ -254,7 +430,15 @@ format and ids only and never a question, a statement, a name or a passage.
   `default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none';
 frame-ancestors 'none'`, together with `x-content-type-options: nosniff` and `cache-control:
 no-store`. Print it from the browser to get a paper or PDF copy.
-- **JSON** is the stored brief and the chart data, with a notice and a schema version.
+- **JSON** is the stored brief and the chart data, with a notice and a schema version. Its `changedSince`
+  (empty when the brief is current), `warning`, `provenance.inputRevisions` (what the brief was made
+  from), `provenance.currentRevisions` (what the project holds at the export) and `provenance.dataFrom`
+  (`snapshot`, or `current` for a brief stored before its data was kept) carry the freshness with it.
+- Every export says so before anything else when what the brief rests on has changed since: Markdown
+  with a quoted warning, the printable page with a boxed one, ahead of the headline, naming what changed
+  and the revisions it was made from beside the ones the project holds now. The tables are the ones
+  the brief was made with. A brief stored before they were kept says, in the same place, that its
+  tables show the project as it is at the export.
 - When the comparison cannot be read as a result, the Markdown opens with a quoted notice and the
   printable page with a boxed one, both ahead of the headline, and the caption of the table that sets
   variants side by side says that its differences are not read as effects of the change.
@@ -270,5 +454,7 @@ no-store`. Print it from the browser to get a paper or PDF copy.
   of findings; until then every sentence is built from data by rules.
 - It does not compare the simulation with past outcomes.
 - It does not produce a PDF or a Word file. The printable page is the print route.
-- It does not keep earlier versions of the brief. Generating it again replaces the stored one.
+- It does not keep earlier versions of the brief. Generating it again replaces the stored one. It
+  keeps the data behind its charts, not earlier versions of the scenario or the stakeholders, so it
+  can say that something changed and which revisions it was made from, not show what they were.
 - It is not a substitute for the checks in its own validation plan.

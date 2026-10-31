@@ -7,20 +7,24 @@
  * run fails: it means a rule could be deleted without anyone being told.
  *
  *   npm run mutation:security                     every mutation (about half an hour)
- *   npm run mutation:security -- --area=sign-in   one rule set: membership, sign-in, storage, jobs, telemetry, studio, analyst, budget or access
+ *   npm run mutation:security -- --area=sign-in   one rule set: membership, sign-in, storage, jobs, telemetry, studio, analyst, budget, access or lab
  *   npm run mutation:security -- --only=M3,S8     named mutations
- *   npm run mutation:security -- --list           what would run
+ *   npm run mutation:security -- --list           what would run; this only reads, and changes nothing anywhere
  *
  * It edits files in place and restores them afterwards, including after Ctrl+C. If the process is
- * killed outright, the next run restores whatever it left behind before doing anything else.
+ * killed outright, the next run in the same clone restores whatever it left behind before doing
+ * anything else, but only a file that is still as the killed run left it, and only from a backup that
+ * run made. What a run puts aside is kept under the scratch folder in a folder of its own for the clone
+ * (see lib/backups.ts), so that another clone sharing the scratch folder is never touched, and one run
+ * at a time may use a clone.
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
+import { MutationRun, unmatchedBackups } from './lib/backups.js';
 import { applyMutant, loadMutants, ROOT, type Mutant } from './lib/mutants.js';
 
-const BACKUPS = join(tmpdir(), 'swarm-mutation-backups');
 const TIME_LIMIT_MS = 10 * 60_000;
 
 interface Options {
@@ -40,18 +44,6 @@ function parseArguments(argv: string[]): Options {
   }
   return options;
 }
-
-/** Puts back any file a killed run left mutated. */
-function restoreStrayBackups(): void {
-  mkdirSync(BACKUPS, { recursive: true });
-  for (const name of readdirSync(BACKUPS)) {
-    const relative = decodeURIComponent(name);
-    writeFileSync(resolve(ROOT, relative), readFileSync(join(BACKUPS, name)));
-    rmSync(join(BACKUPS, name));
-    console.warn(`Restored ${relative}, which an earlier run had left mutated.`);
-  }
-}
-
 interface Outcome {
   kind: 'killed' | 'survived' | 'error';
   detail: string;
@@ -88,35 +80,31 @@ function runTests(tests: string[]): Promise<Outcome> {
   });
 }
 
-async function check(mutant: Mutant): Promise<Outcome> {
+/** What undoes the mutation that is in the working copy now, for a signal that arrives while it is. */
+let undo: (() => void) | null = null;
+
+async function check(run: MutationRun, mutant: Mutant): Promise<Outcome> {
   const path = resolve(ROOT, mutant.file);
-  const backup = join(BACKUPS, encodeURIComponent(mutant.file));
   const original = readFileSync(path);
+  const mutated = applyMutant(original.toString('utf8'), mutant);
   const restore = () => {
     writeFileSync(path, original);
-    rmSync(backup, { force: true });
+    run.forget(mutant.file);
   };
-  const mutated = applyMutant(original.toString('utf8'), mutant);
-  writeFileSync(backup, original);
-  const onSignal = () => {
-    restore();
-    process.exit(130);
-  };
-  process.once('SIGINT', onSignal);
-  process.once('SIGTERM', onSignal);
+  // What is put aside, and what it is to be changed to, is on record before the file changes.
+  run.record(mutant.file, original, mutated);
+  undo = restore;
   try {
     writeFileSync(path, mutated);
     return await runTests(mutant.tests);
   } finally {
-    process.off('SIGINT', onSignal);
-    process.off('SIGTERM', onSignal);
+    undo = null;
     restore();
   }
 }
 
 async function main(): Promise<void> {
   const options = parseArguments(process.argv.slice(2));
-  restoreStrayBackups();
   const selected = loadMutants().filter(
     (mutant) =>
       (!options.only || options.only.has(mutant.id)) &&
@@ -124,25 +112,47 @@ async function main(): Promise<void> {
   );
   if (selected.length === 0) throw new Error('No mutation matches.');
   if (options.list) {
+    // Listing only reads: it takes no lock, puts nothing back and makes nothing.
     for (const mutant of selected)
       console.log(`${mutant.id.padEnd(4)} ${mutant.area.padEnd(10)} ${mutant.claim}`);
     return;
   }
+  const scratch = tmpdir();
+  const run = MutationRun.start({ root: ROOT, scratch });
+  const older = unmatchedBackups(scratch);
+  if (older.length > 0) {
+    console.warn(
+      `Ignored ${older.length} backup(s) in ${scratch} that an older version of this script left without saying which clone they were for.`,
+    );
+  }
+  const onSignal = () => {
+    undo?.();
+    run.release();
+    process.exit(130);
+  };
+  process.once('SIGINT', onSignal);
+  process.once('SIGTERM', onSignal);
   const problems: string[] = [];
   let killed = 0;
-  for (const mutant of selected) {
-    let outcome: Outcome;
-    try {
-      outcome = await check(mutant);
-    } catch (error) {
-      outcome = { kind: 'error', detail: error instanceof Error ? error.message : String(error) };
+  try {
+    for (const mutant of selected) {
+      let outcome: Outcome;
+      try {
+        outcome = await check(run, mutant);
+      } catch (error) {
+        outcome = { kind: 'error', detail: error instanceof Error ? error.message : String(error) };
+      }
+      const label = outcome.kind.toUpperCase().padEnd(8);
+      console.log(
+        `${mutant.id.padEnd(4)} ${label} ${mutant.claim}${outcome.detail ? `\n       ${outcome.detail}` : ''}`,
+      );
+      if (outcome.kind === 'killed') killed++;
+      else problems.push(`${mutant.id} ${outcome.kind}: ${mutant.claim}`);
     }
-    const label = outcome.kind.toUpperCase().padEnd(8);
-    console.log(
-      `${mutant.id.padEnd(4)} ${label} ${mutant.claim}${outcome.detail ? `\n       ${outcome.detail}` : ''}`,
-    );
-    if (outcome.kind === 'killed') killed++;
-    else problems.push(`${mutant.id} ${outcome.kind}: ${mutant.claim}`);
+  } finally {
+    process.off('SIGINT', onSignal);
+    process.off('SIGTERM', onSignal);
+    run.release();
   }
   console.log(`\n${killed} of ${selected.length} mutations were caught by a failing test.`);
   if (problems.length > 0) {

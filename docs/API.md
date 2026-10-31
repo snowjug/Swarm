@@ -60,7 +60,7 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | PUT / DELETE | `/api/projects/:id/members/:principalId`                                        | Add or change (`{ "role": "lead" \| "analyst" \| "reviewer" \| "viewer" }`) / remove a project member (project leads)                                                                                                                                                                                                                                             |
 | GET          | `/api/projects/:id/budget`                                                      | What the project has used of its model budget (`calls`, `inputTokens`, `outputTokens`), the limits that apply (`callLimit`, `tokenLimit`; 0 is none), what the project itself sets (`own`; `null` is the deployment's default), the deployment's `defaults`, the `state` (`none`, `ok`, `warning`, `exhausted`) and whether the caller may change it (`may.edit`) |
 | PUT          | `/api/projects/:id/budget`                                                      | Set the project's own limits: `{ "callLimit": n \| null, "tokenLimit": n \| null }`, whole numbers up to 1,000,000,000; `null` is the deployment's default and `0` is no limit. Workspace owners and administrators only, not a project lead                                                                                                                      |
-| GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors); see Comparing scenarios                                                                                                                                                                                                                                         |
+| GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors, or from stakeholders that are no longer approved); see Comparing scenarios                                                                                                                                                                                       |
 | GET          | `/api/projects/:id/analysis/:aid`                                               | One comparison in full, with its progress while it runs                                                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/analysis/:aid/cancel`                                        | Ask a running comparison to stop at its next run                                                                                                                                                                                                                                                                                                                  |
 | POST         | `/api/scenario/parse`                                                           | Read a "What could happen if…?" question into an editable scenario frame, `{ frame, notes, mode, model }`; the rules on the server read it, and a model only when the request says `useModel: true` and the server has a provider; stores nothing. See Scenario intake                                                                                            |
@@ -72,10 +72,10 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET          | `/api/projects/:id/actors`                                                      | The synthetic actors made from the approved set, with `stale` (the stakeholders changed after they were made), `model` and `may`                                                                                                                                                                                                                                  |
 | POST         | `/api/projects/:id/actors/generate`                                             | Make the actors from the approved set (`{ model?, confirm? }`); returns 201. Actors the person has edited are replaced only with `confirm`                                                                                                                                                                                                                        |
 | PUT          | `/api/projects/:id/actors`                                                      | Save edited actors (`{ actors, expectedRevision }`): sizes, traits, objectives and so on. The cast cannot gain or lose an actor here                                                                                                                                                                                                                              |
-| GET          | `/api/projects/:id/critiques`                                                   | The independent review of the newest finished comparison (`{ critiques, analysis, may, model }`; `critiques` is `null` until one has been run)                                                                                                                                                                                                                    |
+| GET          | `/api/projects/:id/critiques`                                                   | The independent review of the newest finished comparison (`{ critiques, revision, changedSince, analysis, may, model }`; `critiques` is `null` until one has been run)                                                                                                                                                                                            |
 | POST         | `/api/projects/:id/critiques/run`                                               | Run the review (`{ analysisId?, useModel? }`): fixed rules always, a model's extra critiques only when asked for. Answers with the review as it now is                                                                                                                                                                                                            |
-| PUT          | `/api/projects/:id/critiques/:cid/response`                                     | Respond to one critique (`{ text, status: "responded" \| "accepted" \| "disputed", remainingDisagreement? }`)                                                                                                                                                                                                                                                     |
-| GET / POST   | `/api/projects/:id/brief`                                                       | The decision brief with the charts' data worked out from the analysis, and whether it is out of date (`{ brief, visuals, latestAnalysis, changedSince, may }`) / write it from a finished comparison (`{ analysisId? }`, 201)                                                                                                                                     |
+| PUT          | `/api/projects/:id/critiques/:cid/response`                                     | Respond to one critique (`{ text, status: "responded" \| "accepted" \| "disputed", remainingDisagreement?, expectedRevision }`; 409 when the review has changed since)                                                                                                                                                                                            |
+| GET / POST   | `/api/projects/:id/brief`                                                       | The decision brief with the data its charts were made with, and whether it is out of date (`{ brief, visuals, visualsFrom, latestAnalysis, changedSince, may }`) / write it from a finished comparison (`{ analysisId? }`, 201)                                                                                                                                   |
 | GET          | `/api/projects/:id/brief/export?format=md`, `json` or `html`                    | The brief as Markdown or JSON (attachments) or as a printable page served with a policy that lets it load and run nothing; 20 a minute                                                                                                                                                                                                                            |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
@@ -145,9 +145,10 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
 - **Routes.** `GET /api/projects/:id/analysis` lists the saved comparisons (newest first) with what the
   next one would use (`readiness`: the actors, the suggested scenarios, `warnings`, whether the caller
   may run), and answers 200 with an empty list for a project that never ran one. `readiness.warnings`
-  is a list of plain sentences, empty by default: it holds the notice that no stakeholder has an
-  expected direction of impact (so the change cannot move anyone, and every difference from no change
-  is noise) when that is so. It never stops a run. `GET .../analysis/:aid` reads one in
+  is a list of plain sentences, empty by default: when no stakeholder has an expected direction of impact it
+  holds one notice, that the change cannot move anyone (when the simulator gives the same outcome with
+  and without it) or, where members of a group can still be moved by an assumed spread, that nobody is set
+  as helped or harmed and that what a comparison shows comes from that assumption. It never stops a run. `GET .../analysis/:aid` reads one in
   full. `POST .../analysis` starts one and answers 202 with it as `running`; its body is
   `{ runsPerVariant?, baseSeed?, variants?, sensitivity?, rounds? }` (3 to 200 runs for each scenario,
   `variants` `"auto"` or up to 8 scenarios, 3 to 36 rounds). The caller polls `GET .../analysis/:aid`
@@ -155,12 +156,22 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
 - **Who may do what.** Reading needs `read`; starting and stopping need `run` (analysts and project
   leads).
 - **Refusals the caller should expect.** `409 ACTORS_REQUIRED` (no actors have been created yet),
-  `409 ANALYSIS_RUNNING` (one is already running for the project), `429 ANALYSIS_BUSY` (the server is
-  running its limit), `400 INVALID_INPUT` (a setting outside its limit: the message states the limit in a
-  sentence and does not quote what was sent), `400 ANALYSIS_INPUT_INVALID` (a request that is allowed but
-  cannot be run, with the reason: more than 2,400 simulated runs, a change that starts after the last
-  round, and so on), `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`, and `429 RATE_LIMITED` (6 starts a
-  minute).
+  `409 STAKEHOLDERS_NOT_APPROVED` (the stakeholders were found again or changed after the actors were made,
+  so they are no longer approved) and `409 ACTORS_OUT_OF_DATE` (the actors were made from an earlier revision
+  of the stakeholders): each says in a sentence what to do, which is to approve the stakeholders and make
+  the actors again, and nothing is saved. `409 ANALYSIS_RUNNING` (one is already running for the project),
+  `429 ANALYSIS_BUSY` (the server is running its limit), `400 INVALID_INPUT` (a setting outside its limit:
+  the message states the limit in a sentence and does not quote what was sent), `400 ANALYSIS_INPUT_INVALID`
+  (a request that is allowed but cannot be run, with the reason: more than 2,400 simulated runs, a change
+  that starts after the last round, and so on), `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`,
+  `503 ANALYSIS_NOT_STARTED` (it was saved but could not be launched, and is ended as `failed`), and
+  `429 RATE_LIMITED` (6 starts a minute).
+- **What a comparison was made from.** It records `inputRevisions`: the revision of the scenario, the
+  stakeholders and the actors it ran on (0 when there was none), kept when it finishes. The review and the
+  brief are judged against it. A comparison saved before this was recorded has none.
+- **Starting is atomic.** The comparison is saved as `running` in the same transaction as the
+  `analysis.started` audit record, and the run is launched only after both are committed: a start that
+  cannot be recorded leaves no comparison behind.
 - **What is kept.** A project keeps its newest twelve comparisons, and never removes the one that the
   decision brief or the independent review was made from.
 - **After a restart.** A comparison still `running` when the server starts is marked `interrupted`; it
@@ -217,7 +228,10 @@ entry holds counts, never a name or a quote.
   `uncertainty`, `origin`, `status`, `mergedFrom[]`), `relations[]`, `discovery` (`mode`, `model`, `generatedAt`,
   `note`), `gaps[]` and `approvedAt`. An actor holds `kind` (`key` or `cohort`), `size`, `sampleSize`, its
   objectives, constraints and so on, and `traits`, each trait with its `value`, `spread`, `origin` (`evidence`,
-  `user`, `system-assumption` or `model`) and `rationale`. The shapes are in
+  `user`, `system-assumption` or `model`) and `rationale`. The `impact` trait may also carry a `direction`
+  (`origin` and `passageIds`): what its sign rests on when that is not what its number rests on. A cited
+  passage gives a direction and never a size, so an impact read from the wording of cited sentences has the
+  number's `origin` `system-assumption` and `direction.origin` `evidence`. The shapes are in
   [shared/stakeholders.ts](../shared/stakeholders.ts).
 - **Finding.** `POST .../stakeholders/discover` takes `{ "mode"?: "rules" | "model", "confirm"?: boolean }`
   (rules by default; 10 a minute) and answers 201 with the set. `"model"` needs a project made in
@@ -228,8 +242,10 @@ entry holds counts, never a name or a quote.
 - **Reviewing.** `PUT .../stakeholders` takes `{ "stakeholders", "relations"?, "expectedRevision" }` (120 a
   minute): the whole set as the person now wants it, and `0` as the revision when building a set by hand. The
   server allows accepting, editing, merging, removing, adding and prioritising, and nothing else: a stakeholder
-  is never deleted (`400 STAKEHOLDER_MISSING`), who found it and its evidence are the sources' and not the
-  person's (`STAKEHOLDER_ORIGIN_LOCKED`), a merge names a removed stakeholder and the one it went into
+  is never deleted (`400 STAKEHOLDER_MISSING`), who found it is the sources' and not the person's
+  (`STAKEHOLDER_ORIGIN_LOCKED`), nor is its evidence: a quotation can be taken away but not added
+  (`EVIDENCE_NOT_VERIFIED`) and no field of it can be rewritten, whole reference by whole reference
+  (`EVIDENCE_ALTERED`), a merge names a removed stakeholder and the one it went into
   (`MERGE_INVALID`), and any change to an approved set takes the approval away. Other refusals:
   `STAKEHOLDER_ID_DUPLICATE`, `STATUS_INVALID`, `RELATION_INVALID`, and `409 STAKEHOLDERS_NOT_FOUND` for a
   review of a set that does not exist.
@@ -253,13 +269,18 @@ Anyone who can read the project reads the review. Running it needs `run` and res
 critics and what each checks are in [analysis/critics.md](./analysis/critics.md); a critic never edits the
 analysis, the stakeholders, the actors or the brief.
 
-- **Reading.** `GET .../critiques` answers `{ "critiques": CritiqueSet | null, "analysis": { "id",
-"completedAt" } | null, "may": { "run", "respond" }, "model": { "available", "reason"? } }`. `model.available`
+- **Reading.** `GET .../critiques` answers `{ "critiques": CritiqueSet | null, "revision": number | null,
+"changedSince": [...], "analysis": { "id", "completedAt" } | null, "may": { "run", "respond" }, "model": {
+"available", "reason"? } }`. `revision` is the revision of the stored review, to send back with a response.
+  `changedSince` names what changed since the comparison the review is of was run (`scenario`, `stakeholders`
+  or `actors`, checked against what that comparison recorded) and says `a newer analysis exists` when one has
+  finished; it is empty when the review still describes the project. `model.available`
   is true only when the server has a provider **and** the project was made in **Model assisted** mode; on a
   project that runs without a model `reason` says so in words ("This project runs without a model, so nothing
   is sent to one. Only the deterministic checks run.") and is `null` otherwise. `analysis` is the newest
   finished comparison, so a review of an older one can be called out of date. A set holds `analysisId`,
-  `generatedAt`, `mode` (`rules`, `model` or `both`), `notes[]` and `critiques[]`: each has an `id`, a `role`
+  `generatedAt`, `mode` (`rules`, `model` or `both`), `notes[]`, `inputRevisions` (what the review was made
+  from) and `critiques[]`: each has an `id`, a `role`
   (`evidence`, `assumption`, `methodology`, `stakeholder-coverage`, `bias`, `recommendation` or
   `adversarial`), a `target`, a `severity` (`note`, `minor`, `major` or `blocking`), an `objection`, its `basis`,
   `evidence`, `origin` (`rules` or `model`), `status` (`open`, `responded`, `accepted` or `disputed`), any
@@ -273,8 +294,12 @@ analysis, the stakeholders, the actors or the brief.
   sent. A review is allowed 170 seconds, and one runs at a time for a project (`409 CRITIQUES_RUNNING`).
   Running again keeps a person's earlier responses to critiques with the same id.
 - **Responding.** `PUT .../critiques/:cid/response` takes `{ "text", "status": "responded" | "accepted" |
-"disputed", "remainingDisagreement"? }` (60 a minute) and answers with the review. `accepted` means the
-  objection stands and its impact applies. An unknown critique is `404 CRITIQUE_NOT_FOUND`.
+"disputed", "remainingDisagreement"?, "expectedRevision" }` (60 a minute) and answers with the review.
+  `expectedRevision` is the `revision` the person was looking at: when someone else has responded, or the
+  review has been run again, since, the answer is refused with `409 CRITIQUES_CHANGED` and a sentence that
+  says to reload the review and answer again, so that two pages cannot silently replace each other's answer.
+  `accepted` means the objection stands and its impact applies. An unknown critique is
+  `404 CRITIQUE_NOT_FOUND`.
 - **Audit.** `critiques.run` (counts, and whether a model was asked for and failed) and `critique.responded`
   (the critique's id, its role and the status).
 
@@ -286,23 +311,36 @@ are in [analysis/brief.md](./analysis/brief.md). Reading needs `read`, generatin
 needs `export`.
 
 - **Reading.** `GET .../brief` answers `{ "brief": DecisionBrief | null, "visuals": BriefVisuals | null,
-"latestAnalysis": { "id", "completedAt" } | null, "changedSince": [...], "may": { "generate", "export" } }`.
+"visualsFrom": "snapshot" | "current" | null, "latestAnalysis": { "id", "completedAt" } | null,
+"changedSince": [...], "may": { "generate", "export" } }`.
   `brief` holds `generatedAt`, `analysisId`, `question`, `headline`, the 17 `sections[]` (each `statements[]`
   with an `id`, `text`, one `origin`, the `refs` it rests on and a `reliance`), `recommendations[]`,
   `validationPlan[]`, `limitations[]`, `fidelity`, `methodology`, `openCritiques` (how many critiques of this
   comparison are not yet closed: open, responded or disputed, anything but accepted; the page and the exports
   call them "critiques not yet closed"), `generatedBy`, `signal`
   (`clear`, `no-direction` or `no-difference`, which says whether the comparison can be read as a result about
-  the change) and `inputRevisions`. `visuals` is worked out from the comparison each time, so it always agrees
-  with it. `changedSince` names the inputs that changed after the brief was made and is empty when it is
-  current.
+  the change) and `inputRevisions`. `visuals` is the data of the charts as it was when the brief was made,
+  kept with it, so it agrees with the brief's own words (`visualsFrom: "snapshot"`); a brief stored before
+  that was kept has it worked out from the project's documents as they are (`"current"`). `changedSince`
+  names what changed after the brief was made or after the comparison it rests on was run, and is empty when
+  it is current: `scenario`, `stakeholders` and `actors` are checked against the revisions the comparison
+  recorded (`analysis.inputRevisions`), so writing the brief again from an old comparison does not clear
+  them; `critiques`, `analysis`, `analysis (no longer stored)` and `a newer analysis exists` are checked
+  against the brief itself.
 - **Writing.** `POST .../brief` takes `{ "analysisId"?: string }` (20 a minute), uses the newest finished
-  comparison unless one is named, replaces any earlier brief and answers 201 with the view. Refusals:
+  comparison unless one is named, replaces any earlier brief and answers 201 with the view. A comparison that
+  was run before the scenario, the stakeholders or the actors changed is still written from, and the brief
+  says so in its methodology notes. Refusals:
   `409 NO_ANALYSIS`, `409 ANALYSIS_NOT_COMPLETED`, `409 ANALYSIS_EMPTY`, `404 ANALYSIS_NOT_FOUND`.
 - **Exporting.** `GET .../brief/export?format=md|json|html` (20 a minute; `md` is the default) answers a
   Markdown or JSON attachment, or a printable page (`inline`, with a `Content-Security-Policy` of
   `default-src 'none'`, so it can load and run nothing). All three say that the brief explores scenarios and
-  does not predict. Another format is `400`, and exporting before one is written is `409 BRIEF_NOT_GENERATED`.
+  does not predict, and all three carry the freshness: when `changedSince` is not empty each leads with a
+  warning that names it and the revisions the brief was made from beside the ones the project holds now, and
+  the JSON has `changedSince`, `warning`, `provenance.currentRevisions` and `provenance.dataFrom`. The tables
+  and `data` are the snapshot kept with the brief, not the project as it is at the export (a brief stored
+  before the snapshot was kept says so). Another format is `400`, and exporting before one is written is
+  `409 BRIEF_NOT_GENERATED`.
 - **Audit.** `brief.generated` and `brief.exported`.
 
 ## Authentication
@@ -356,7 +394,8 @@ as one of a project's `documents`. `provenance` is `{ "kind": "url", "url", "fin
 "contentType", "sha256", "title", "fetchedByServer": true }`, with secret-looking query values removed from
 both addresses. A failure is a 4xx with a code that starts `URL_` and a message that ends
 with "You can paste the text instead.": `400 URL_INVALID` for something that is not a web address Swarm can
-read, `403 URL_INGESTION_DISABLED` when `URL_INGESTION=off`, and `422` for the rest (`URL_BLOCKED`,
+read, `403 URL_INGESTION_DISABLED` when `URL_INGESTION=off`, `503 URL_BUSY` with a `Retry-After` when this server
+is already reading as many pages as it allows (`URL_INGEST_CONCURRENCY`), and `422` for the rest (`URL_BLOCKED`,
 `URL_PORT_NOT_ALLOWED`, `URL_UNSUPPORTED_TYPE`, `URL_TOO_LARGE`, `URL_TIMEOUT`, `URL_TOO_MANY_REDIRECTS`,
 `URL_ROBOTS_DISALLOWED`, `URL_NO_TEXT`, `URL_FETCH_FAILED`). A name that leads inside a network is answered
 exactly as a name that does not exist (`URL_FETCH_FAILED`, "could not find … on the public web"), so that the

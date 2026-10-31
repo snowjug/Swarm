@@ -7,8 +7,12 @@
  *
  * Control surface (test-only, loopback):
  *   POST /__control {latencyMs?, failOnRound?: number|null, failKind?: string|null, hostileCitation?: boolean}
- *   GET  /__stats   -> {calls, byKind, rounds, actors}
+ *   GET  /__stats   -> {calls, requests, byKind, rounds, actors}
  *   POST /__reset
+ *
+ * `calls` counts the requests it recognised and answered; `requests` counts every request made to the
+ * chat endpoint, including one it did not recognise, so that "nothing was sent to the model" can be
+ * asserted without depending on what the prompt looked like.
  *
  * `actors` counts requests per "platform:round:agentId", which is the evidence that the simulation
  * really makes one model call per proxy per platform per round.
@@ -27,6 +31,7 @@ type Kind =
   | 'chapter'
   | 'entailment'
   | 'followup'
+  | 'scenario'
   | 'ping';
 
 const signatures: [Kind, RegExp][] = [
@@ -41,6 +46,7 @@ const signatures: [Kind, RegExp][] = [
   ['chapter', /Write the requested report chapter/u],
   ['entailment', /ENTAILMENT CHECK/u],
   ['followup', /Answer the follow-up about recorded simulation results/u],
+  ['scenario', /Read the question into a scenario frame/u],
   ['ping', /Connectivity check/u],
 ];
 
@@ -59,6 +65,7 @@ const defaults: Controls = {
 };
 let controls: Controls = { ...defaults };
 let calls = 0;
+let requests = 0;
 const byKind: Record<string, number> = {};
 const rounds = new Set<number>();
 const actors: Record<string, number> = {};
@@ -298,6 +305,25 @@ function answer(kind: Kind, instructions: string, data: Json): unknown {
     }
     case 'ping':
       return { status: 'ok' };
+    case 'scenario': {
+      // A reading may add nothing the question does not say, so this is the question and nothing else.
+      const question = asText(data.question, '').trim();
+      return {
+        decision: question.slice(0, 400),
+        system: '',
+        geography: null,
+        horizon: null,
+        changes: [],
+        baseline: 'The current situation continues without the change.',
+        alternatives: [],
+        requestedDecision: null,
+        desiredOutput: null,
+        evidenceMissing: [],
+        assumptions: [],
+        likelyStakeholders: [],
+        ambiguities: [],
+      };
+    }
   }
 }
 
@@ -325,10 +351,17 @@ createServer((request, response) => {
       const url = new URL(request.url ?? '/', 'http://127.0.0.1');
       if (url.pathname === '/__health') return send(200, { ok: true });
       if (url.pathname === '/__stats')
-        return send(200, { calls, byKind, rounds: [...rounds].sort((a, b) => a - b), actors });
+        return send(200, {
+          calls,
+          requests,
+          byKind,
+          rounds: [...rounds].sort((a, b) => a - b),
+          actors,
+        });
       if (url.pathname === '/__reset') {
         controls = { ...defaults };
         calls = 0;
+        requests = 0;
         for (const key of Object.keys(byKind)) delete byKind[key];
         for (const key of Object.keys(actors)) delete actors[key];
         rounds.clear();
@@ -340,6 +373,7 @@ createServer((request, response) => {
       }
       if (url.pathname !== '/api/chat' || request.method !== 'POST')
         return send(404, { error: 'not found' });
+      requests += 1;
 
       const body = JSON.parse(await readBody(request)) as {
         messages: { role: string; content: string }[];

@@ -7,17 +7,21 @@ import {
   type StatementOrigin,
   type ValidationExperiment,
 } from '../../../shared/brief.js';
+import { UNDIRECTED_NOTICE } from '../../../shared/signal.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
   STAKEHOLDER_CATEGORY_LABELS,
   TRAIT_KEYS,
   type TraitOrigin,
 } from '../../../shared/stakeholders.js';
+import { MATERIAL_SHIFT } from '../analysis/sensitivity.js';
 import type { Facts } from './facts.js';
 import { actorMeasure, findingsFor } from './measures.js';
-import { LEAD_EXCEPTION, ORDERING_RULE, SAY_DIRECTION } from './recommend.js';
+import { LEAD_EXCEPTION, ORDERING_RULE, SAY_DIRECTION, type Advice } from './recommend.js';
 import { directionOf } from './rules.js';
-import { approx, clip, decimals, embed, plural, traitLabel } from './text.js';
+import { intervalWords } from './sections-answer.js';
+import { approx, clip, decimals, embed, fit, groupOutcome, plural, traitLabel } from './text.js';
+import type { PlannedCheck } from './validation.js';
 import { sectionWriter, type Tally } from './writer.js';
 
 export function assumptionsSection(facts: Facts, tally: Tally): BriefSection {
@@ -50,7 +54,7 @@ export function uncertainty(facts: Facts, tally: Tally): BriefSection {
       findings.filter((finding) => finding.classification === name).length;
     writer.add({
       origin: 'simulation-aggregation',
-      text: `Across ${findings.length} ${plural(findings.length, 'finding')}, ${count('repeatable')} were repeatable, ${count('mostly-repeatable')} mostly repeatable, ${count('unstable')} unstable and ${count('rare')} rare across seeded simulated runs. Each is the share of runs in which a statement held, with a Wilson interval; there is no confidence score.`,
+      text: `Across ${findings.length} ${plural(findings.length, 'finding')}, ${count('repeatable')} were repeatable, ${count('mostly-repeatable')} mostly repeatable, ${count('unstable')} unstable and ${count('rare')} rare across seeded simulated runs. Each is the share of runs in which a statement held, with a Wilson interval; there is no confidence score. For a statement chosen after the runs were seen (a direction, the largest response, an ordering, the most frequent event) the interval describes these runs and does not claim long-run coverage; only the threshold test is fixed in advance.`,
       refs: { findingIds: findings.map((finding) => finding.id) },
     });
   } else {
@@ -64,7 +68,10 @@ export function uncertainty(facts: Facts, tally: Tally): BriefSection {
     .slice(0, 6)) {
     writer.add({
       origin: 'simulation-aggregation',
-      text: `${finding.classification === 'rare' ? 'Rare' : 'Unstable'} simulated result: ${embed(finding.statement, 200)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}); do not rely on it.`,
+      text:
+        finding.classification === 'rare'
+          ? `Rare simulated result: ${embed(finding.statement, 260)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (${intervalWords(finding)}): the runs agree that it seldom happens in the simulation, which is different from disagreeing; do not read its absence as safety, and test the assumptions that keep it from happening.`
+          : `Unstable simulated result: ${embed(finding.statement, 260)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (${intervalWords(finding)}); do not rely on it.`,
       refs: { findingIds: [finding.id], variantIds: [finding.variantId] },
       reliance: 'low',
     });
@@ -75,7 +82,7 @@ export function uncertainty(facts: Facts, tally: Tally): BriefSection {
     const unbacked = sensitive.filter((row) => row.assumptionOrigin !== 'evidence');
     writer.add({
       origin: 'simulation-aggregation',
-      text: `${sensitive.length} of ${rows.length} perturbed ${plural(rows.length, 'assumption')} moved the simulated outcome by more than its noise${sensitive.length > 0 ? `; ${unbacked.length} of those ${plural(unbacked.length, 'has', 'have')} no cited passage behind ${plural(unbacked.length, 'it', 'them')}` : ''}.`,
+      text: `${sensitive.length} of ${rows.length} perturbed ${plural(rows.length, 'assumption')} moved the simulated outcome by more than twice its noise and by at least the chosen materiality threshold of ${MATERIAL_SHIFT} on this measure${sensitive.length > 0 ? `; ${unbacked.length} of those ${plural(unbacked.length, 'has', 'have')} no cited passage behind ${plural(unbacked.length, 'it', 'them')}` : ''}.`,
       refs: {
         sensitivityIds:
           sensitive.length > 0 ? sensitive.map((row) => row.id) : rows.map((row) => row.id),
@@ -160,31 +167,35 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
       text:
         facts.signal.state === 'no-direction'
           ? 'No risk or opportunity is attributed to the change: it cannot move anyone in the simulation, so no difference between the variants is read as a risk or an opportunity.'
-          : 'No risk or opportunity is attributed to the change: under these assumptions the comparison found no measurable difference between the change and no change.',
+          : 'No risk or opportunity is attributed to the proposed change: under these assumptions the comparison found no measurable difference between it and no change.',
       refs: { findingIds: facts.signal.finding ? [facts.signal.finding.id] : [] },
     });
     return writer.build();
   }
   const { variant } = headline;
   const readings = analysis.actors.flatMap((actor) => {
-    const measure = actorMeasure(variant.runs, actor.id);
+    const measure = actorMeasure(variant, actor.id);
     return measure
-      ? [{ actor, measure, base: baseline ? actorMeasure(baseline.runs, actor.id) : null }]
+      ? [{ actor, measure, base: baseline ? actorMeasure(baseline, actor.id) : null }]
       : [];
   });
   const risks = readings
     .filter((entry) => directionOf(entry.actor) === 'harmed' && entry.measure.adverse > 0)
     .sort(
+      // By each group's own share, never by member counts, which depend on how many were sampled.
       (a, b) =>
-        b.measure.adverse - (b.base?.adverse ?? 0) - (a.measure.adverse - (a.base?.adverse ?? 0)) ||
+        b.measure.adverseShare -
+          (b.base?.adverseShare ?? 0) -
+          (a.measure.adverseShare - (a.base?.adverseShare ?? 0)) ||
         (a.actor.id < b.actor.id ? -1 : 1),
     )
     .slice(0, 4);
   for (const { actor, measure, base } of risks) {
     const own = findingsFor(analysis, { variantId: variant.variant.id, actorId: actor.id });
+    const runs = variant.runs.length;
     writer.add({
       origin: 'actor-behavior',
-      text: `Risk: simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}) is set as harmed by the change, and about ${approx(measure.adverse)} of its ${measure.members} simulated ${plural(measure.members, 'member')} ended up looking for an alternative or resisting under ${embed(variant.variant.label, 60)}${base && baseline ? `, against about ${approx(base.adverse)} under ${embed(baseline.variant.label, 60)}` : ''}.`,
+      text: `Risk: simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}) is set as harmed by the change, and ${groupOutcome(measure, runs)} under ${embed(variant.variant.label, 60)}${base && baseline ? `, against ${measure.members === 1 ? `${Math.round(base.adverseShare * runs)} of ${runs} runs` : `about ${approx(base.adverse)}`} under ${embed(baseline.variant.label, 60)}` : ''}.`,
       refs: {
         stakeholderIds: [actor.stakeholderId],
         findingIds: own.map((finding) => finding.id),
@@ -218,13 +229,17 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
   if (risks.length === 0 && external.length === 0) {
     writer.add({
       origin: 'unresolved-uncertainty',
-      text: 'No risk is listed: no simulated actor that is set as harmed ended up adverse in the runs, and no actor outside the organisation acted in the representative run. The impact settings are assumptions.',
+      text:
+        variant.detail === 'none'
+          ? 'No risk is listed for any group: the stored analysis kept no per-actor results to read one from, and no actor outside the organisation acted in the representative run.'
+          : 'No risk is listed: no simulated actor that is set as harmed ended up adverse in the runs, and no actor outside the organisation acted in the representative run. The impact settings are assumptions.',
     });
   }
   const opportunities = readings
     .filter((entry) => directionOf(entry.actor) === 'benefited' && entry.measure.favourable > 0)
     .sort(
-      (a, b) => b.measure.favourable - a.measure.favourable || (a.actor.id < b.actor.id ? -1 : 1),
+      (a, b) =>
+        b.measure.favourableShare - a.measure.favourableShare || (a.actor.id < b.actor.id ? -1 : 1),
     )
     .slice(0, 3);
   for (const { actor, measure, base } of opportunities) {
@@ -243,7 +258,10 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
   if (opportunities.length === 0) {
     writer.add({
       origin: 'unresolved-uncertainty',
-      text: 'No opportunity is listed: no simulated actor that is set as benefited ended up going along in the runs.',
+      text:
+        variant.detail === 'none'
+          ? 'No opportunity is listed for any group: the stored analysis kept no per-actor results to read one from.'
+          : 'No opportunity is listed: no simulated actor that is set as benefited ended up going along in the runs.',
     });
   }
   return writer.build();
@@ -251,6 +269,7 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
 
 export function recommendationsSection(
   facts: Facts,
+  advice: readonly Advice[],
   recommendations: readonly Recommendation[],
   tally: Tally,
 ): BriefSection {
@@ -263,22 +282,30 @@ export function recommendationsSection(
       assumptions: ['Recommendations are ordered by impact times repeatability divided by effort.'],
     },
   });
-  for (const recommendation of recommendations) {
-    const linked = recommendation.linkedFindingIds.flatMap((id) => {
-      const finding = facts.findingById.get(id);
-      return finding ? [finding] : [];
+  if (facts.headline && facts.headline.groupsKnown === false && facts.headline.baseline) {
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: 'Advice about particular groups, such as mitigating the change for one or building on a favourable response, is withheld: the stored analysis kept no per-actor results for the change and the baseline, so no group’s own movement can be worked out.',
+      refs: { variantIds: [facts.headline.variant.variant.id] },
     });
-    // Saying who is helped or harmed rests on an assumption, not on what the runs showed.
-    const advice = recommendation.text === SAY_DIRECTION;
+  }
+  for (const recommendation of recommendations) {
+    const own = advice.find((entry) => entry.recommendation.id === recommendation.id);
+    // What follows from a count over seeded runs says so, with the reliance of the findings it rests on.
+    // What is about the evidence, the assumptions or the critiques is unresolved uncertainty, resting on
+    // the ids it is about and carrying no reliance: how often a stance finding held says nothing about it.
     writer.add({
       id: recommendation.id,
-      origin: advice ? 'system-assumption' : 'simulation-aggregation',
+      origin: own?.origin ?? 'simulation-aggregation',
       text: recommendation.text,
       refs: {
-        findingIds: recommendation.linkedFindingIds,
-        assumptions: recommendation.assumptions,
+        ...own?.refs,
+        assumptions: [
+          ...new Set([...(own?.refs.assumptions ?? []), ...recommendation.assumptions]),
+        ],
+        ...(own ? {} : { findingIds: recommendation.linkedFindingIds }),
       },
-      reliance: advice ? null : facts.relianceOf(linked),
+      reliance: own?.reliance ?? null,
     });
   }
   if (recommendations.length === 0) {
@@ -290,35 +317,34 @@ export function recommendationsSection(
   return writer.build();
 }
 
-const TARGET = /^(sensitivity|finding|evidence gap) (\S+):/u;
-
 export function validationSection(
+  planned: readonly PlannedCheck[],
   plan: readonly ValidationExperiment[],
   tally: Tally,
   state: BriefSignal = 'clear',
 ): BriefSection {
   const writer = sectionWriter('validation-plan', tally);
+  const repeating = planned.some((entry) => entry.keys.some((key) => key.startsWith('finding:')));
   writer.add({
     origin: 'system-assumption',
-    text: `${state === 'no-direction' ? 'The first check below settles who is helped or harmed by the change, which the comparison needs before anything else. ' : ''}Each check below would test, against the real world, an assumption the simulated result is sensitive to, a result that was not stable across seeded runs, or an actor that nothing cited supports. None of them has been run.`,
+    text: `${state === 'no-direction' ? 'The first check below settles who is helped or harmed by the change, which the comparison needs before anything else. ' : ''}Each check below would test a premise of the simulated answer against the real world: how the change lands on the groups it moves most, how large it is in practice, an assumption the result is sensitive to, sources that disagree, what triggers an outside actor that responded, or a key actor that nothing cited supports. Each names the group, what would be observed in the scenario’s own words, what it is compared with, how long it takes, who would run it and a decision rule that is left for you to set.${repeating ? ' The one exception is repeating the analysis with more seeded runs, which tests how steady a simulated result is.' : ''} None of them has been run.`,
     refs: { assumptions: ['The validation checks are proposals and have not been run.'] },
   });
   for (const experiment of plan) {
-    const sensitivityIds: string[] = [];
-    const findingIds: string[] = [];
-    const stakeholderIds: string[] = [];
-    for (const target of experiment.targets) {
-      const match = TARGET.exec(target);
-      if (!match) continue;
-      if (match[1] === 'sensitivity') sensitivityIds.push(match[2] ?? '');
-      else if (match[1] === 'finding') findingIds.push(match[2] ?? '');
-      else stakeholderIds.push(match[2] ?? '');
-    }
+    const refs = planned.find((entry) => entry.id === experiment.id)?.refs ?? {};
     writer.add({
       id: experiment.id,
       origin: 'unresolved-uncertainty',
-      text: `${experiment.question} Method: ${experiment.method} Success signal: ${experiment.successSignal} (${experiment.effort} effort, ${experiment.duration}).`,
-      refs: { sensitivityIds, findingIds, stakeholderIds },
+      text: fit(
+        [
+          experiment.question,
+          experiment.measure ? `Observe: ${experiment.measure}` : '',
+          experiment.comparison ? `Compare with: ${experiment.comparison}` : '',
+          `(${experiment.ownerFunction ? `${experiment.ownerFunction}; ` : ''}${experiment.effort} effort, ${experiment.duration}; the decision rule is left to you.)`,
+        ].filter((part) => part !== ''),
+        700,
+      ),
+      refs,
     });
   }
   if (plan.length === 0) {
@@ -339,7 +365,11 @@ export function limitationItems(facts: Facts): { text: string; origin: Statement
       origin: 'system-assumption',
     },
     {
-      text: 'Every count is a count of simulated members or of seeded runs. None is a rate, a share of a real population, a forecast or a measurement.',
+      text: 'Outcome counts are synthetic counts of simulated members or of seeded runs; other figures are model scores, seeded-run proportions or stated assumptions. None is a rate, a share of a real population, a forecast or a measurement.',
+      origin: 'system-assumption',
+    },
+    {
+      text: 'The number of simulated members in a group depends on how many members were sampled for it, a numerical resolution set when the actors were made and not a population. This brief compares options by the share of each actor’s own members, every actor counting equally, and never ranks them by member counts.',
       origin: 'system-assumption',
     },
     {
@@ -389,6 +419,9 @@ export function limitationItems(facts: Facts): { text: string; origin: Statement
   if (facts.critiqueNote)
     items.push({ text: facts.critiqueNote, origin: 'unresolved-uncertainty' });
   // What the comparison could not tell comes before everything else the brief cannot tell you.
+  // Where nobody has a direction but members can still move, nothing here may say that the change cannot.
+  if (facts.signal.undirected)
+    items.unshift({ text: UNDIRECTED_NOTICE, origin: 'system-assumption' });
   if (facts.signal.state !== 'clear') {
     items.unshift({
       text: BRIEF_SIGNAL_NOTICES[facts.signal.state].text,

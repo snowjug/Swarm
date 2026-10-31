@@ -207,3 +207,96 @@ describe('a link', () => {
     expect(names(set)).toEqual(['Customer']);
   });
 });
+
+describe('a sentence written in capitals', () => {
+  const SHOUTED =
+    'THE CUSTOMERS WILL PAY MORE AND THE SUPPORT TEAM WILL LOSE STAFF. THE REGULATOR HAS NOT APPROVED THE CHANGE.';
+  const WRITTEN =
+    'The customers will pay more and the support team will lose staff. The regulator has not approved the change.';
+
+  it('is prose, and names the groups it names when it is written in lower case', async () => {
+    const written = names(await discover(WRITTEN)).sort();
+    expect(written).toEqual(['Customers', 'Regulator', 'Staff', 'Support team']);
+    expect(names(await discover(SHOUTED)).sort()).toEqual(written);
+  });
+
+  it('cites the sentence as it was written, and never takes "the" for a word of a name', async () => {
+    const set = await discover(SHOUTED);
+    const customers = live(set).find((stakeholder) => stakeholder.name === 'Customers');
+    expect(customers?.evidence[0]?.quote).toBe(
+      'THE CUSTOMERS WILL PAY MORE AND THE SUPPORT TEAM WILL LOSE STAFF.',
+    );
+    expect(findMentions(passagesOf(SHOUTED)).map((mention) => mention.key)).toEqual([
+      'customer',
+      'support team',
+      'staff',
+      'regulator',
+    ]);
+  });
+
+  it('reads a legal notice in capitals for the groups it names', async () => {
+    const notice =
+      'THE SOFTWARE IS PROVIDED AS IS WITHOUT WARRANTY OF ANY KIND AND THE USERS BEAR ALL RISK.';
+    expect(names(await discover(notice))).toEqual(['Users']);
+  });
+
+  it('is still no list of names when it has no more than a word or two of prose: menus, footers and rows', async () => {
+    for (const text of [
+      'HOME CUSTOMERS SUPPORT SIGN IN ADMIN.',
+      'TERMS OF USE PRIVACY POLICY CUSTOMERS PARTNERS DEVELOPERS INVESTORS.',
+      'ABOUT US TERMS OF USE AND PRIVACY POLICY SUPPORT CUSTOMERS PARTNERS.',
+      'HOME CUSTOMERS SUPPORT SIGN IN ADMIN',
+    ]) {
+      expect(names(await discover(text)), text).toEqual([]);
+    }
+  });
+});
+
+describe('a role word that does not name a group', () => {
+  it('is not taken when it is the first word of a compound that names what a group has or uses', async () => {
+    for (const text of [
+      'The plan comes with more reporting and admin controls.',
+      'The admin panel and the manager tools changed in March.',
+      'Reseller rates and customer fees will rise, and the customer record was lost.',
+      'Admin settings are shared, and the user console is new.',
+    ]) {
+      expect(names(await discover(text)), text).toEqual([]);
+    }
+  });
+
+  it('is taken when the same words are a group that does something: a verb, or a plural subject', async () => {
+    expect(names(await discover('The admin controls access to the panel.'))).toEqual(['Admin']);
+    expect(
+      names(await discover('Customers control the rollout, and resellers rate the offer.')).sort(),
+    ).toEqual(['Customers', 'Resellers']);
+    expect(names(await discover('Employees record their hours each week.'))).toEqual(['Employees']);
+  });
+
+  it('is not taken when only a count stands before it, which says how many and not who', async () => {
+    for (const text of [
+      'The organisation is a professional-services firm with about 4,200 employees.',
+      'There are 14 groups with more than 500 members that still have access.',
+      'About 3 million customers and 2 thousand partners use it.',
+    ]) {
+      expect(names(await discover(text)), text).toEqual([]);
+    }
+    expect(names(await discover('Employees were told in March.'))).toEqual(['Employees']);
+    expect(names(await discover('Many members asked what the 500 new members would pay.'))).toEqual(
+      ['Members'],
+    );
+  });
+
+  it('is not taken when it is only the tail of a title for a function: the position alone names no group', async () => {
+    for (const text of [
+      'One carrier’s account manager declined to compare quotes.',
+      'The records manager asked how long they are kept.',
+      'Customer success managers say retailers react quickly.',
+    ]) {
+      expect(names(await discover(text)), text).toEqual([]);
+    }
+    expect(names(await discover('Managers asked what to tell guests.'))).toEqual(['Managers']);
+    expect(
+      names(await discover('The support manager and the sales manager agreed.')).sort(),
+    ).toEqual(['Sales manager', 'Support manager']);
+  });
+});

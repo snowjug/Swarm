@@ -6,6 +6,7 @@ import {
   type SensitivityRow,
 } from '../../../shared/analysis';
 import { FIXTURE_VARIANTS, actorSetFixture, analysisFixture } from '../../../shared/lab-fixtures';
+import { UNDIRECTED_NOTICE, directionNotice } from '../../../shared/signal';
 import {
   ESTIMATE_BASIS,
   NO_EFFECT_TO_TEST,
@@ -222,15 +223,51 @@ describe('reading a chain of events back', () => {
     work: { members: 10, updates: 10 },
   });
 
-  it('puts the events in the order they happened and says what each followed from', () => {
+  it('puts the events in the order they happened and says what each needed, and what only came first', () => {
     const steps = chainOf(run, actorSetFixture().actors);
     expect(steps.map((step) => step.id)).toEqual(['event-1', 'event-2']);
     expect(steps[0]).toMatchObject({
       round: 3,
       actor: 'Rival provider',
       because: [{ kind: 'signal', text: 'the simulated “adverse-share” signal' }],
+      followed: [],
     });
-    expect(steps[1]!.because).toEqual([{ kind: 'event', text: 'the counter-move in round 3' }]);
+    // The run was not replayed, so an earlier event that this one names only came first.
+    expect(steps[1]).toMatchObject({ because: [], followed: ['the counter-move in round 3'] });
+    expect(steps.map((step) => step.tested)).toEqual([false, false]);
+  });
+
+  it('counts an earlier event as needed only where the run was replayed without it', () => {
+    const replayed = runOutcomeSchema.parse({
+      ...run,
+      explained: true,
+      events: [
+        { ...run.events[0]!, causedBy: ['switching-pressure', 'event-1'] },
+        { ...run.events[1]!, followed: ['event-3'] },
+        {
+          id: 'event-3',
+          round: 2,
+          kind: 'scrutiny',
+          actorId: 'regulator',
+          description: 'The regulator asked.',
+          causedBy: ['risk-concern'],
+        },
+      ],
+    });
+    const steps = chainOf(replayed, actorSetFixture().actors);
+    expect(steps.map((step) => step.id)).toEqual(['event-3', 'event-1', 'event-2']);
+    expect(steps[2]).toMatchObject({
+      tested: true,
+      because: [
+        { kind: 'signal', text: 'the simulated “switching-pressure” signal' },
+        { kind: 'event', text: 'the counter-move in round 3' },
+      ],
+      followed: [],
+    });
+    expect(steps[1]).toMatchObject({
+      because: [{ kind: 'signal', text: 'the simulated “adverse-share” signal' }],
+      followed: ['the scrutiny in round 2'],
+    });
   });
 });
 
@@ -398,12 +435,12 @@ describe('the axis of a chart of stance', () => {
   });
 });
 
-/** The comparison with no stakeholder given an expected direction of impact: nothing can move. */
-const withoutDirection = (analysis: Analysis): Analysis => ({
+/** The comparison with no stakeholder given an expected direction of impact, and no member of a group differing in it: nothing can move. */
+const withoutDirection = (analysis: Analysis, spread = 0): Analysis => ({
   ...analysis,
   actors: analysis.actors.map((actor) => ({
     ...actor,
-    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread } },
   })),
 });
 
@@ -425,6 +462,13 @@ describe('a change that cannot move anyone', () => {
       },
     };
     expect(cannotMoveAnyone(named)).toBe(false);
+  });
+
+  it('is not told where nobody has a direction but the members of a group can still be moved', () => {
+    const spread = withoutDirection(analysisFixture(), 0.4);
+    expect(cannotMoveAnyone(spread)).toBe(false);
+    expect(directionNotice(spread.actors, spread.config.variants)).toBe(UNDIRECTED_NOTICE);
+    expect(directionNotice(analysisFixture().actors, analysisFixture().config.variants)).toBeNull();
   });
 
   it('does not let “robust” read as a finding there, and leaves every other result alone', () => {

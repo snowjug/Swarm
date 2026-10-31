@@ -1,9 +1,45 @@
 /// <reference types="node" />
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import type { AuditEntry } from '../../../shared/types';
 import { actionLabel, detailText, newestFirst, shortValue } from './audit';
+
+/**
+ * Every action the server writes to the audit log, read from the code that writes it: the dotted names
+ * in the value of an `action` property (either side of a condition too), in any backend file.
+ */
+function recordedActions(): string[] {
+  const root = new URL('../../../backend/src/', import.meta.url);
+  const found = new Set<string>();
+  for (const name of readdirSync(root, { recursive: true, encoding: 'utf8' })) {
+    if (!name.endsWith('.ts') || name.endsWith('.test.ts')) continue;
+    const file = ts.createSourceFile(
+      name,
+      readFileSync(new URL(name, root), 'utf8'),
+      ts.ScriptTarget.Latest,
+    );
+    const collect = (node: ts.Node): void => {
+      if (ts.isStringLiteralLike(node) && /^[a-z]+(?:\.[a-z]+)+$/u.test(node.text)) {
+        found.add(node.text);
+      }
+      ts.forEachChild(node, collect);
+    };
+    const visit = (node: ts.Node): void => {
+      if (
+        ts.isPropertyAssignment(node) &&
+        ts.isIdentifier(node.name) &&
+        node.name.text === 'action'
+      ) {
+        collect(node.initializer);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+  }
+  return [...found].sort();
+}
 
 /** The `studio.*` actions the server can record, read from the code that records them. */
 function recordedStudioActions(): string[] {
@@ -53,6 +89,18 @@ describe('audit presentation', () => {
 
   it('shows an unknown action as it is', () => {
     expect(actionLabel('studio.something.new')).toBe('studio.something.new');
+  });
+
+  it('names every action the server records, so that none reaches the audit log as a bare code', () => {
+    const actions = recordedActions();
+    // A floor, so that a change that stops the code being read cannot pass by finding nothing.
+    expect(actions.length).toBeGreaterThanOrEqual(50);
+    expect(actions).toEqual(
+      expect.arrayContaining(['actors.generated', 'brief.generated', 'workspace.member.changed']),
+    );
+    for (const action of actions) {
+      expect(actionLabel(action), action).not.toBe(action);
+    }
   });
 
   it('names every action the report studio records, so that none reaches the audit log as a bare code', () => {

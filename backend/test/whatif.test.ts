@@ -336,6 +336,37 @@ describe('branching from a checkpoint', () => {
     expect(harness.repository.get(parent.id)).toEqual(parent);
   });
 
+  it('keeps where each source document came from, as it keeps the passages cut from it', async () => {
+    const harness = await setup();
+    const provenance = {
+      kind: 'url',
+      url: 'https://example.org/public-notice',
+      finalUrl: 'https://example.org/public-notice',
+      retrievedAt: '2026-10-01T10:00:00.000Z',
+      sha256: 'a'.repeat(64),
+      contentType: 'text/html',
+      fetchedByServer: true,
+    } as const;
+    const input = fixtureInput({ workflow: 'guided' });
+    const parent = harness.repository.create({
+      ...input,
+      documents: input.documents.map((document) => ({ ...document, provenance })),
+    });
+    for (const step of ['knowledge', 'environment'] as const) {
+      harness.jobs.enqueueStep(parent.id, step);
+      await harness.jobs.idle();
+    }
+    const created = await harness.app.inject({
+      method: 'POST',
+      url: `/api/projects/${parent.id}/branches`,
+      payload: { fromRound: 0 },
+    });
+    expect(created.statusCode, created.body).toBe(201);
+    const branch = created.json<ProjectDetail>();
+    expect(branch.documents.map((document) => document.provenance)).toEqual([provenance]);
+    expect(harness.repository.chunks(branch.id)).toEqual(harness.repository.chunks(parent.id));
+  });
+
   it('branching from round zero starts a fresh run with edited assumptions', async () => {
     const harness = await setup();
     const parent = await reference(harness);

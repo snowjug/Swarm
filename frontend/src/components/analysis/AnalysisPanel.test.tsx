@@ -9,7 +9,7 @@ import {
 } from '../../../../shared/analysis';
 import type { AnalysisReadiness, AnalysisSummary } from '../../../../shared/analysis-plan';
 import { FIXTURE_VARIANTS, analysisFixture } from '../../../../shared/lab-fixtures';
-import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../../../shared/signal';
 import type { AnalysisState } from '../../hooks/useAnalysis';
 import { projectFixture } from '../../test/project';
 import { visibleText } from '../../test/provider';
@@ -126,9 +126,19 @@ function finished(patch: Partial<Analysis> = {}): Analysis {
           kind: 'switching-pressure',
           actorId: 'subscribers',
           description: 'Switching became cheaper.',
-          causedBy: ['event-1'],
+          causedBy: ['switching-pressure', 'event-1'],
+        },
+        {
+          id: 'event-3',
+          round: 5,
+          kind: 'scrutiny',
+          actorId: 'regulator',
+          description: 'The regulator asked for information.',
+          causedBy: ['risk-concern'],
+          followed: ['event-1'],
         },
       ],
+      explained: true,
       work: { members: 10, updates: 10 },
     }),
     crossCheck: {
@@ -140,12 +150,12 @@ function finished(patch: Partial<Analysis> = {}): Analysis {
   };
 }
 
-/** The same comparison, of a cast in which no stakeholder has an expected direction of impact. */
-const withoutDirection = (analysis: Analysis): Analysis => ({
+/** The same comparison, of a cast in which no stakeholder has an expected direction of impact, and no member of a group differs in it. */
+const withoutDirection = (analysis: Analysis, spread = 0): Analysis => ({
   ...analysis,
   actors: analysis.actors.map((actor) => ({
     ...actor,
-    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread } },
   })),
 });
 
@@ -408,6 +418,17 @@ describe('before the run: the time it takes, and a warning that the change canno
     expect(html).not.toContain('Open the stakeholder review');
   });
 
+  it('says only that nobody has a direction where members of a group can still be moved, and offers the same way to the review', () => {
+    const html = view({ readiness: readiness({ warnings: [UNDIRECTED_NOTICE] }) }, () => undefined);
+    const text = visibleText(html);
+    expect(text).toContain('No stakeholder has an expected direction yet');
+    expect(text).toContain(UNDIRECTED_NOTICE);
+    expect(text).toContain('You can still run it: what it shows follows from those assumptions');
+    expect(text).not.toMatch(/cannot move anyone|can move anyone yet|\bnoise\b|by chance/u);
+    expect(html.indexOf('Open the stakeholder review')).toBeLessThan(html.indexOf('type="submit"'));
+    expect(html).toMatch(/<button[^>]*type="submit"(?![^>]*disabled)[^>]*>/u);
+  });
+
   it('says nothing of it when someone is helped or harmed, or whoever may not run it can still read it', () => {
     expect(visibleText(view())).not.toContain('Nothing in this change can move anyone yet');
     const viewer = view({
@@ -614,14 +635,38 @@ describe('the results', () => {
     expect(text).toContain('Treat conclusions that depend on them as hypotheses');
   });
 
-  it('reads one run as a chain of "because, then", from the representative run', () => {
+  it('reads one run from the representative run: what each event happened because of, what it needed, and what only came first', () => {
     expect(text).toContain('Second-order effects in one typical run');
     expect(text).toContain('seed 104');
     expect(text).toContain(
-      'Because the simulated “adverse-share” signal, then in round 3, a simulated “counter-move” event by Rival provider',
+      'Because the simulated “adverse-share” signal it watches reached its threshold, then in round 3, a simulated “counter-move” event by Rival provider',
+    );
+    // An earlier event a replay showed it needed is named as that, apart from what it happened because of.
+    expect(text).toContain(
+      'Because the simulated “switching-pressure” signal it watches reached its threshold, then in round 4, a simulated “switching-pressure” event by Subscribers',
     );
     expect(text).toContain(
-      'Because the counter-move in round 3, then in round 4, a simulated “switching-pressure” event by Subscribers',
+      'It could not have happened without the counter-move in round 3: a replay of this run without that responder had no such event by then.',
+    );
+    // One a replay showed it did not need only came first, and the page says so.
+    expect(text).toContain(
+      'It came after the counter-move in round 3, which had already reached actors it watches; a replay of this run without it still had the event, so it is not shown to have mattered.',
+    );
+  });
+
+  it('does not say that an earlier event was needed in a run that was not replayed', () => {
+    const older = finished();
+    older.representativeRun = {
+      ...older.representativeRun!,
+      explained: false,
+      events: older
+        .representativeRun!.events.slice(0, 2)
+        .map((event) => ({ ...event, followed: [] })),
+    };
+    const old = visibleText(view({ current: older }));
+    expect(old).not.toContain('It could not have happened without');
+    expect(old).toContain(
+      'It came after the counter-move in round 3, which had already reached actors it watches; nothing here shows that it mattered.',
     );
   });
 
@@ -831,6 +876,29 @@ describe('a comparison whose change could not move anyone', () => {
     const fetcher = vi.spyOn(globalThis, 'fetch');
     view({ current: flat });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe('a comparison in which nobody has a direction but the members of a group can still be moved', () => {
+  const spread = withoutDirection(finished(), 0.4);
+  const html = view({ current: spread, summaries: [summary()] });
+  const text = visibleText(html);
+
+  it('says so at the very top of the results, once, and does not say that nothing can move', () => {
+    const results = html.slice(html.indexOf('<div class="analysis-results">'));
+    expect(
+      visibleText(results).startsWith(
+        `No stakeholder has an expected direction of impact ${UNDIRECTED_NOTICE}`,
+      ),
+    ).toBe(true);
+    expect(text.split(UNDIRECTED_NOTICE)).toHaveLength(2);
+    expect(text).not.toContain('This comparison cannot say anything about the change');
+    expect(text).not.toContain('Nothing in the change can move anyone');
+  });
+
+  it('keeps the sensitivity rows as they were measured, since there was something to move', () => {
+    expect(text).not.toContain('No effect to test');
+    expect(text).toContain('Robust');
   });
 });
 

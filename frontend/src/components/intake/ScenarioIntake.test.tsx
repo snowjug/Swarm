@@ -296,6 +296,22 @@ describe('a scenario waiting to be checked', () => {
     expect(visibleText(review())).not.toContain('cannot be used yet');
   });
 
+  it('keeps the two choices, and what is wrong with the scenario, in one bar at the foot of the review', () => {
+    const html = review({ problems: ['Say what decision or event you want to explore.'] });
+    const bar = /<div class="intake-bar">([\s\S]*?)<p class="field-help">/u.exec(html)?.[1] ?? '';
+    // The refusal is next to the buttons, so that it is seen where the person pressed.
+    expect(bar.indexOf('role="alert"')).toBeGreaterThan(-1);
+    expect(bar.indexOf('role="alert"')).toBeLessThan(bar.indexOf('class="intake-actions"'));
+    const buttons = [...bar.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/gu)].map((m) =>
+      visibleText(m[1] ?? ''),
+    );
+    expect(buttons).toEqual(['Use this scenario', 'Discard']);
+    // The bar is the last thing in the review but for the line that says what keeping it means.
+    expect(html.indexOf('class="intake-bar"')).toBeGreaterThan(
+      html.indexOf('class="intake-editor"'),
+    );
+  });
+
   it('says when the question has changed since it was read', () => {
     expect(visibleText(review({ stale: true }))).toContain(
       'The question has changed since it was read',

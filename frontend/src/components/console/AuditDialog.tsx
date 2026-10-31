@@ -113,7 +113,9 @@ export function AuditLog({ state }: { state: AuditState }) {
                   </td>
                   <td>
                     <strong>{actionLabel(entry.action)}</strong>
-                    <span className="mono audit-code">{entry.action}</span>
+                    {actionLabel(entry.action) !== entry.action && (
+                      <span className="mono audit-code">{entry.action}</span>
+                    )}
                   </td>
                   <td>{detailText(entry.detail)}</td>
                   <td className="mono">#{entry.seq}</td>
