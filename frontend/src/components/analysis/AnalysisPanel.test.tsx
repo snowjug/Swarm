@@ -9,7 +9,7 @@ import {
 } from '../../../../shared/analysis';
 import type { AnalysisReadiness, AnalysisSummary } from '../../../../shared/analysis-plan';
 import { FIXTURE_VARIANTS, analysisFixture } from '../../../../shared/lab-fixtures';
-import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../../../shared/signal';
 import type { AnalysisState } from '../../hooks/useAnalysis';
 import { projectFixture } from '../../test/project';
 import { visibleText } from '../../test/provider';
@@ -140,12 +140,12 @@ function finished(patch: Partial<Analysis> = {}): Analysis {
   };
 }
 
-/** The same comparison, of a cast in which no stakeholder has an expected direction of impact. */
-const withoutDirection = (analysis: Analysis): Analysis => ({
+/** The same comparison, of a cast in which no stakeholder has an expected direction of impact, and no member of a group differs in it. */
+const withoutDirection = (analysis: Analysis, spread = 0): Analysis => ({
   ...analysis,
   actors: analysis.actors.map((actor) => ({
     ...actor,
-    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread } },
   })),
 });
 
@@ -406,6 +406,17 @@ describe('before the run: the time it takes, and a warning that the change canno
     );
     // Without a way to open another step the notice still says what to do, and offers no button.
     expect(html).not.toContain('Open the stakeholder review');
+  });
+
+  it('says only that nobody has a direction where members of a group can still be moved, and offers the same way to the review', () => {
+    const html = view({ readiness: readiness({ warnings: [UNDIRECTED_NOTICE] }) }, () => undefined);
+    const text = visibleText(html);
+    expect(text).toContain('No stakeholder has an expected direction yet');
+    expect(text).toContain(UNDIRECTED_NOTICE);
+    expect(text).toContain('You can still run it: what it shows follows from those assumptions');
+    expect(text).not.toMatch(/cannot move anyone|can move anyone yet|\bnoise\b|by chance/u);
+    expect(html.indexOf('Open the stakeholder review')).toBeLessThan(html.indexOf('type="submit"'));
+    expect(html).toMatch(/<button[^>]*type="submit"(?![^>]*disabled)[^>]*>/u);
   });
 
   it('says nothing of it when someone is helped or harmed, or whoever may not run it can still read it', () => {
@@ -831,6 +842,29 @@ describe('a comparison whose change could not move anyone', () => {
     const fetcher = vi.spyOn(globalThis, 'fetch');
     view({ current: flat });
     expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
+describe('a comparison in which nobody has a direction but the members of a group can still be moved', () => {
+  const spread = withoutDirection(finished(), 0.4);
+  const html = view({ current: spread, summaries: [summary()] });
+  const text = visibleText(html);
+
+  it('says so at the very top of the results, once, and does not say that nothing can move', () => {
+    const results = html.slice(html.indexOf('<div class="analysis-results">'));
+    expect(
+      visibleText(results).startsWith(
+        `No stakeholder has an expected direction of impact ${UNDIRECTED_NOTICE}`,
+      ),
+    ).toBe(true);
+    expect(text.split(UNDIRECTED_NOTICE)).toHaveLength(2);
+    expect(text).not.toContain('This comparison cannot say anything about the change');
+    expect(text).not.toContain('Nothing in the change can move anyone');
+  });
+
+  it('keeps the sensitivity rows as they were measured, since there was something to move', () => {
+    expect(text).not.toContain('No effect to test');
+    expect(text).toContain('Robust');
   });
 });
 

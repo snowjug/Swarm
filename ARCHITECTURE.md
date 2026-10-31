@@ -856,8 +856,8 @@ What is not built, and what has not been shown. The README keeps a short version
 - **Rules readings are shallow.** The rules read English patterns and role words. They find the groups
   that a text names with a role word and miss the others, can misread a question, and give a group a
   direction of impact only from its category (a group that bears cost, or benefits) or from the wording of
-  the sentences that name it. Where no group has one the comparison warns that the change cannot move
-  anyone.
+  the sentences that name it. Where no group has one the comparison warns that nobody has an expected
+  direction of impact.
 - **Nothing is calibrated.** Every trait is an assumption with an origin, group sizes are weights, and an
   outcome follows from them. It is not evidence about the world.
 - **The lab's documents are not in the JSON snapshot export.** `GET .../export?format=json`

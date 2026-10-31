@@ -1,10 +1,15 @@
 import { CHANGE_CANNOT_MOVE_ID, type Critique } from '../../../shared/critique.js';
-import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
+import {
+  actorsWithDirection,
+  NO_DIRECTION_NOTICE,
+  UNDIRECTED_CLAIM,
+} from '../../../shared/signal.js';
 import { draft, fixed, level, names, plural, signed, whole } from './text.js';
 import type { Resolved, RoleCritic } from './types.js';
 
 /** Are there enough repeated runs, and does the fidelity justify the wording? */
 const ROLE = 'methodology' as const;
+export const UNDIRECTED_ID = 'methodology-no-declared-direction';
 
 /** The fewest runs per variant that this check accepts without comment. */
 export const MIN_RUNS_PER_VARIANT = 20;
@@ -20,19 +25,16 @@ const NOTICE_ACTION =
   'Say who is helped or harmed in the stakeholder review, or read the evidence with a model, then compare again.';
 
 /**
- * A comparison in which no scenario can move anyone shows only noise, whatever its numbers say. This is
- * the one criticism that has to be read before the others, so it is pinned to the top of the review.
+ * A comparison in which no scenario can move anyone, because the simulator gives the same outcome with
+ * a change as without it, shows only the runs themselves, whatever its numbers say. This is the one
+ * criticism that has to be read before the others, so it is pinned to the top of the review.
  */
 function changeCannotMove(input: Resolved): Critique[] {
   if (input.facts.changeCanMove) return [];
   const { analysis } = input;
   const cast = input.actors.actors;
   const alternatives = analysis.config.variants.filter((variant) => variant.kind !== 'baseline');
-  const directed = cast.filter(
-    (actor) =>
-      actor.traits.impact.value !== 0 ||
-      alternatives.some((variant) => (variant.impactOverrides[actor.id] ?? 0) !== 0),
-  );
+  const directed = actorsWithDirection(cast, analysis.config.variants);
   const noDirection = directed.length === 0;
   const reported = analysis.findings.find((finding) => finding.kind === 'direction-vs-baseline');
   return [
@@ -61,6 +63,54 @@ function changeCannotMove(input: Resolved): Critique[] {
       action: noDirection
         ? NOTICE_ACTION
         : 'Give the change an intensity above nothing in a scenario that affects at least one actor, then compare again.',
+    }),
+  ];
+}
+
+/**
+ * Where no stakeholder has an expected direction of impact but members can still be moved, because
+ * those of a group are assumed to differ in how the change lands on them or because a scenario edits a
+ * trait, a difference from no change follows from that assumption. The change can move members, so
+ * this is not the criticism above, and what the comparison shows is not called noise: it is said to
+ * rest on an assumption that nobody has said anything about.
+ */
+function undirectedChange(input: Resolved): Critique[] {
+  const { analysis } = input;
+  const cast = input.actors.actors;
+  if (
+    !input.facts.changeCanMove ||
+    actorsWithDirection(cast, analysis.config.variants).length > 0
+  ) {
+    return [];
+  }
+  const varied = cast.filter((actor) => actor.kind !== 'key' && actor.traits.impact.spread > 0);
+  const edits = analysis.config.variants
+    .filter((variant) => variant.kind !== 'baseline')
+    .flatMap((variant) => variant.traitEdits.map((edit) => `${variant.label}: ${edit.trait}`));
+  const reported = analysis.findings.find((finding) => finding.kind === 'direction-vs-baseline');
+  return [
+    draft(input.now, {
+      id: UNDIRECTED_ID,
+      role: ROLE,
+      target: whole(analysis.id),
+      severity: 'major',
+      objection: UNDIRECTED_CLAIM,
+      basis: [
+        `Actors with an expected direction of impact: 0 of ${cast.length}.`,
+        varied.length > 0
+          ? `Groups whose members differ in how the change lands on them: ${names(
+              varied.map((actor) => `${actor.name} (spread ${fixed(actor.traits.impact.spread)})`),
+              3,
+            )}.`
+          : 'Groups whose members differ in how the change lands on them: none.',
+        edits.length > 0
+          ? `Traits that a scenario edits: ${names(edits, 3)}.`
+          : 'Traits that a scenario edits: none.',
+        ...(reported ? [`${reported.id}: ${reported.statement}`] : []),
+      ],
+      impact:
+        'If this stands, a difference between the change and no change shows how widely members are assumed to differ, not that anyone is helped or harmed, and the conclusions drawn from it hold only as far as that assumption does.',
+      action: NOTICE_ACTION,
     }),
   ];
 }
@@ -215,6 +265,7 @@ function wideIntervals(input: Resolved): Critique[] {
 
 export const methodologyCritic: RoleCritic = (input) => [
   ...changeCannotMove(input),
+  ...undirectedChange(input),
   ...fewRuns(input),
   ...rulesOnly(input),
   ...modelRepeats(input),

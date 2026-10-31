@@ -173,7 +173,9 @@ function tablesFor(
         caption:
           brief.signal === 'clear'
             ? 'Each alternative against the baseline, on the same seeds'
-            : 'Each alternative against the baseline, on the same seeds (the differences are not read as effects of the change: see the notice at the top)',
+            : brief.signal === 'no-direction'
+              ? 'Each alternative against the baseline, on the same seeds (the differences are not read as effects of the change: see the notice at the top)'
+              : 'Each alternative against the baseline, on the same seeds (the first row, the proposed change, is not read as an effect of the change: see the notice at the top; every other row is read on its own)',
         headers: [
           'Variant',
           'Mean adverse members',

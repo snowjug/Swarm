@@ -63,7 +63,34 @@ or have no strength are ignored.
   correlations between traits. With a spread of 0.1 to 0.15, which is what generated actors usually
   have, the members of a cohort end in different responses (see "Where a member settles").
 - The variant's `traitEdits` replace trait values (kept within range) before the draw, and
-  `impactOverrides` replace the actor's `impact` value and win over an edit. The spread stays.
+  `impactOverrides` replace the actor's `impact` value and win over an edit. The spread stays. The
+  last edit of a trait is the one that counts. The value a variant gives a trait this way is the value
+  that governs its runs: the actor's own value is not read for it (`resolveActor`, and
+  `effectiveTrait` in `shared/signal.ts`, which the analysis uses and which is tested to agree with it).
+
+### What lets the change move a member
+
+The change reaches a member only through its impact: `anchored = prior + CHANGE_GAIN x intensity x group x
+sensitivity x impact x trustAdoption`, from the round the change lands. A member's impact is drawn around
+the value the variant gives the actor (see above) with the trait's spread, and a key actor has none. What
+follows is relied on by the analysis, and tested against the guard `changeCanMoveAnyone`
+(`backend/test/signal.test.ts`):
+
+- When every member's impact is exactly 0 (the impact is 0 for every actor after the variant's override
+  and edits, and no cohort has an impact spread above 0), the change lands on no one whatever its
+  intensity, no actor is harmed, so no responder reads a signal and no event happens: a run with the
+  change is identical to a run without it, in every round, every actor's outcome and every event, on every
+  seed. This is the only case in which the comparison says that the change cannot move anyone.
+- With an impact of 0 and a spread, members are given impacts of both signs, so some are moved toward the
+  change and some away while no actor has a direction: the runs differ from the baseline's (more members
+  end adverse, while the overall stance hardly moves), and nothing may be said of them as if the change
+  could not move anyone.
+- A variant that edits any trait of an actor differs from one that does not, whatever the impact.
+- An impact that harms no one (0 or above), in a variant with no strength, changes no run: the only
+  thing it sets is the flag for the signal about benefited actors, which no responder reads. An impact
+  that harms someone does, even with no strength, because a harmed actor is what responders watch (an
+  impact at or below `-AFFECTED_MIN`; the guard takes any impact below 0 as harming, which is the
+  cautious side of that line).
 
 ## One round
 
@@ -300,7 +327,10 @@ drawn from a shared sequence, so:
 - Traits are drawn through the inverse distribution function, so a changed trait moves each sample
   smoothly with its draw. Paired runs on the same seeds are therefore far steadier than independent
   runs (tested: the standard deviation of paired differences is under a third of the independent one),
-  which is what the sensitivity analysis depends on.
+  which is what the sensitivity analysis depends on. It moves the setting that holds the value the
+  variant runs with, an impact override, the last edit of a trait or the actor's own value, because
+  moving one that the variant overrides changes nothing (see
+  [methodology.md](./methodology.md#sensitivity)).
 - The group factor does not depend on the variant, so on one seed an actor's group reacts equally
   strongly under every variant (tested): a paired comparison differs by the variant, not by that draw.
   Across seeds it is part of the spread that repeated runs measure.

@@ -163,23 +163,25 @@ export const validationExperimentSchema = z.object({
 export type ValidationExperiment = z.infer<typeof validationExperimentSchema>;
 
 /**
- * Whether the comparison of the change with no change can be read as a result about the change.
- * `no-direction`: no stakeholder has an expected direction of impact, so the change cannot move anyone
- * and every difference is noise. `no-difference`: stakeholders do have directions, and the comparison
- * still found the two about the same, repeatably, with no group moving clearly on its own.
+ * Whether the comparison of the proposed change with no change can be read as a result about the change.
+ * `no-direction`: the simulator is certain to give the same outcome with the change as without it,
+ * because no stakeholder has an expected direction of impact and nothing else in the scenarios reaches
+ * anyone. `no-difference`: the change can move members, and the comparison still found the two about
+ * the same, repeatably, with no group moving clearly on its own. It is said of the proposed change
+ * only: every other scenario is read against no change on its own.
  */
 export const BRIEF_SIGNALS = ['clear', 'no-direction', 'no-difference'] as const;
 export type BriefSignal = (typeof BRIEF_SIGNALS)[number];
 
 export const NO_DIFFERENCE_NOTICE =
-  'Under the assumptions made here the simulation shows no measurable difference between the change and no change: the two ended up about the same in most paired seeded runs, and no group moved clearly on its own. That describes the assumptions, not the world. Check who is affected, and by how much, against real groups before concluding that the change makes no difference.';
+  'Under the assumptions made here the simulation shows no measurable difference between the proposed change and no change: the two ended up about the same in most paired seeded runs, and no group moved clearly on its own. Other scenarios are read against no change on their own. That describes the assumptions, not the world. Check who is affected, and by how much, against real groups before concluding that the change makes no difference.';
 
 /** What a part of the brief that sets variants side by side says first when the comparison cannot be read as a result. */
 export const BRIEF_READING_NOTES: Record<Exclude<BriefSignal, 'clear'>, string> = {
   'no-direction':
-    'Read every difference between variants in this section as noise: no stakeholder has an expected direction of impact, so the change cannot move anyone in the simulation.',
+    'Read nothing in this section as an effect of the change: no stakeholder has an expected direction of impact and nothing else in the scenarios reaches anyone, so the change cannot move anyone in the simulation.',
   'no-difference':
-    'Read the small differences between variants in this section as within noise: under these assumptions the comparison found no measurable difference between the change and no change.',
+    'The comparison found no measurable difference between the proposed change and no change under these assumptions. That is said of the proposed change only; every other scenario is read against no change on its own.',
 };
 
 /** What the page and the exports say at the top when the comparison cannot be read as a result. */
@@ -192,7 +194,7 @@ export const BRIEF_SIGNAL_NOTICES: Record<
     text: NO_DIRECTION_NOTICE,
   },
   'no-difference': {
-    title: 'No measurable difference under these assumptions',
+    title: 'No measurable difference for the proposed change under these assumptions',
     text: NO_DIFFERENCE_NOTICE,
   },
 };

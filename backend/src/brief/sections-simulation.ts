@@ -123,7 +123,8 @@ export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
       variantIds: [measure.variant.id, baseline.variant.id],
     };
     const reliance = direction.length > 0 ? facts.relianceOf(direction) : null;
-    if (state === 'no-difference') {
+    // Each scenario is read on its own findings: only one that came out about the same is worded so.
+    if (state === 'no-difference' && facts.signal.sameAs.has(measure.variant.id)) {
       writer.add({
         origin: 'simulation-aggregation',
         text: `Against ${embed(baseline.variant.label, 60)}, ${embed(measure.variant.label, 60)} moved the mean final stance of simulated members by ${signed(pairing.stanceDelta)} on a scale from -1 to 1 (mean over ${pairing.pairs} paired seeds), which the comparison reads as about the same.`,
@@ -202,7 +203,7 @@ export function firstOrder(facts: Facts, tally: Tally): BriefSection {
   if (facts.signal.state === 'no-difference') {
     writer.add({
       origin: 'unresolved-uncertainty',
-      text: 'No first-order effect is singled out: under these assumptions the comparison found no measurable difference between the change and no change.',
+      text: 'No first-order effect is singled out for the proposed change: under these assumptions the comparison found no measurable difference between it and no change.',
       refs: { findingIds: facts.signal.finding ? [facts.signal.finding.id] : [] },
     });
     return writer.build();

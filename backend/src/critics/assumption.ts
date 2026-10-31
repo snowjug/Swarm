@@ -116,7 +116,10 @@ function noRegisteredEffect(input: Resolved): Critique[] {
     const variant = analysis.config.variants.find(
       (candidate) => candidate.id === finding.variantId,
     );
-    return variant && changeCanMoveAnyone(cast, [variant]) ? [{ finding, variant }] : [];
+    // Someone has to be given a direction for "no effect registered" to be said of the assumptions.
+    return variant && changeCanMoveAnyone(cast, [variant]) && affectedBy(cast, variant).length > 0
+      ? [{ finding, variant }]
+      : [];
   });
   const [first, ...others] = matches;
   if (!first) return [];

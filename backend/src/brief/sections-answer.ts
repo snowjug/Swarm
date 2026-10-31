@@ -165,6 +165,15 @@ export function executiveAnswer(
       headline,
       ' It supports reading the two as about the same under these assumptions, not as the same in the world.',
     );
+    // No difference is said of the proposed change: a scenario that moved things is not left out of the answer.
+    for (const other of facts.signal.differing.slice(0, 2)) {
+      writer.add({
+        origin: 'simulation-aggregation',
+        text: `This is said of ${embed(headline.variant.variant.label, 80)} only. In the simulated runs another scenario did differ from no change: ${embed(other.statement, 300)}`,
+        refs: { findingIds: [other.id], variantIds: [other.variantId] },
+        reliance: facts.relianceOf([other]),
+      });
+    }
   } else {
     const { variant, baseline, pairing } = headline;
     const base = `With ${engineWords(facts)}, across ${variant.runs.length} seeded runs of ${variant.members} simulated members each, about ${whole(variant.adverse.mean)} simulated members ended up looking for an alternative or resisting under ${embed(variant.variant.label, 80)}`;
