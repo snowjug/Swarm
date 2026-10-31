@@ -319,6 +319,27 @@ test.describe('the workspace', () => {
     });
   }
 
+  test('draws the stage in view and the mode chosen by their edge when the palette is forced', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await page.goto(`/?project=${ids.environment}`);
+    const edges = (buttons: Locator) =>
+      buttons.evaluateAll((elements) =>
+        elements.map((element) => getComputedStyle(element).borderTopStyle),
+      );
+    // The fills that told them apart are gone: the stage in view is double, one that cannot be opened is
+    // dashed, and the rest are plain.
+    const stages = page
+      .getByRole('navigation', { name: 'Guided workflow steps' })
+      .getByRole('button');
+    await expect(stages.nth(1)).toHaveAttribute('aria-current', 'step');
+    expect(await edges(stages)).toEqual(['solid', 'double', 'solid', 'dashed', 'dashed']);
+    expect(
+      await edges(page.getByRole('group', { name: 'Interface mode' }).getByRole('button')),
+    ).toEqual(['double', 'solid']);
+  });
+
   test('puts the help away in Advanced, and keeps every stage reachable', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('swarm.mode', 'advanced'));
     await page.goto(`/?project=${ids.environment}`);

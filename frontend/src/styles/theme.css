@@ -60,9 +60,27 @@
   .button,
   .icon-button,
   .theme-switch select,
-  .segmented button[aria-pressed='true'],
   .example-card {
     border: 1px solid ButtonText;
+  }
+
+  /* The palette's fills are dropped, so the stage in view and the choice made are drawn by their edge: a
+     plain one around each, and for the one that is current a thick double one in the selection colour,
+     which says it in its shape as well as its colour. A stage that cannot be opened has a dashed edge. */
+  .console-step,
+  .segmented button {
+    border: 2px solid ButtonText;
+  }
+
+  .console-step:disabled {
+    border-style: dashed;
+    border-color: GrayText;
+  }
+
+  .console-step.active,
+  .mode-switch button[aria-pressed='true'],
+  .segmented button[aria-pressed='true'] {
+    border: 3px double Highlight;
   }
 
   .journey-dot {
