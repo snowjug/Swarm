@@ -99,21 +99,22 @@ Graph**.
 **1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
 the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
 and the prompt about roles nobody was found for. Say: "Kinds of shopper from survey free text, not real
-individuals." **Approve stakeholders and create actors**, **Review the N actors**; point at a trait and its
-origin badge.
+individuals." **Go to approval**, **Approve stakeholders and create actors**, **Review the N actors**; point at a
+trait and its origin badge.
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change side by side, the spread across the seeded runs, one finding with "N of 30 seeded
-runs" and its stability chip, and the sensitivity view. Say: "This counts simulated runs. It is not
-a conversion rate."
+runs" and its stability chip, and the sensitivity view. Say: "These are simulated members and seeded runs.
+They are not a conversion rate."
 
 **3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips. In the evidence base, open the source conflict (31% against 41%) and say:
-"Two methods, two answers. Swarm shows both and does not pick one." Show the uncertainty about
-delivery cost per order and the untested checkout, and the validation plan.
+answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
+was built with one source conflict, so open it, find it (31% against 41%) and say: "Two methods, two
+answers. Swarm shows both and does not pick one." Then look for the uncertainty about delivery cost per
+order and the untested checkout, and at the validation plan (open, right after the recommendations).
 
-**4:30 One objection (20 s).** Run the independent review and read one objection with its basis.
-Say: "A critic challenges and never edits. I can respond, accept or dispute it."
+**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
+objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute it."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table and a plan
 to check them. It supports a person's analysis; it does not make the decision."
@@ -154,9 +155,10 @@ generic rules, not from a script written for this example.
 evidence behind it. Say: "This is what we would test first, and the validation plan says how."
 
 **8:00 to 9:30 Review and brief.** Run the independent review. Read one evidence objection and one
-assumption objection, and respond to one. In the brief, show where the retrieved page, if you added
-it, is listed under sources and how its origin differs from the supplied documents. Show the
-assumptions, uncertainty, recommendations and the validation plan.
+assumption objection, and respond to one. In the brief, open **Sources and provenance** from the contents
+and look for the retrieved page, if you added it, and how its origin differs from the supplied documents.
+Then look at the assumptions, uncertainty, recommendations and the validation plan (the recommendations and
+the plan are open, the assumptions and the uncertainty are closed until opened from the contents).
 
 **9:30 to 10:00 Exports.** Export Markdown, JSON or the printable page.
 
@@ -178,8 +180,8 @@ retrieved page enters the analysis with its own label.
 public pages and refuses private or internal addresses. If you cannot reach it, paste the text.
 
 **"Which is right, 31% or 41%?"** The pack does not say. The two figures come from different
-methods and populations, and the validation plan is where this gets settled, for example by asking
-the same question of the same people.
+methods and populations, and only a real-world check settles it, for example by asking the same question
+of the same people; see whether the validation plan proposes something like that.
 
 **"Are these shoppers real?"** No. They are kinds of shopper described, in paraphrase, in an invented
 survey. Their numbers in the simulation are assumptions with their origin shown.

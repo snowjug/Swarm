@@ -81,25 +81,26 @@ passage keeps its source. The ledger later compares sources and shows where they
 **1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
 the four counts, the note on how they were found (rules or model), one row opened to its cited quotes and
 uncertainty, and the prompt about roles nobody was found for. Say: "These are discovered from the evidence,
-with the passage shown. They are roles, not people." Then **Approve stakeholders and create actors**,
-**Review the N actors**, and point at one trait with its origin badge: "Every number the actors run on says
-where it came from."
+with the passage shown. They are roles, not people." Then **Go to approval**, **Approve stakeholders and
+create actors**, **Review the N actors**, and point at one trait with its origin badge: "Every number the
+actors run on says where it came from."
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change side by side, the spread across the seeded runs, and one finding with how often it
-held ("N of 30 seeded runs") and its stability chip. Say: "A single run is never the answer. This is
-a count of simulated runs, not a rate in the real world." Point at the sensitivity view and the
+held ("N of 30 seeded runs") and its stability chip. Say: "A single run is never the answer. These are
+simulated members and seeded runs, not a rate in the real world." Point at the sensitivity view and the
 assumption with no evidence behind it.
 
 **3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips, then the evidence base: two source conflicts. Open one (44% against 16%)
-and say: "Two sources disagree. Swarm shows both quotes and does not pick one." Then show the
-uncertainty section and the validation plan: one experiment, what to measure, what would count as a
-signal.
+answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
+was built with two source conflicts, so look for them there, open one (the poll's 44% against the partner's
+16%) and say: "Two sources disagree. Swarm shows both quotes and does not pick one." Then show the
+validation plan, which is open just after the recommendations: each check says what to observe, what to
+compare it with, how, and who runs it, and leaves the decision rule to you.
 
-**4:30 One objection (20 s).** In the independent review, run it and read one objection with its
-basis. Say: "A critic challenges; it never edits the analysis. I can respond, accept or dispute, and
-the disagreement stays visible."
+**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
+objection with its basis. Say: "A critic challenges; it never edits the analysis. I can respond, accept or
+dispute, and the disagreement stays visible."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table, and a plan to
 check them. It supports a person's analysis. It does not make the decision."
@@ -139,10 +140,13 @@ sensitive and unevidenced and say: "This is what we would test first." Change th
 actor table and run again if there is time; otherwise say what you would change and why.
 
 **7:30 to 9:00 Review and brief.** Run the independent review. Read one evidence objection and one
-assumption objection, and respond to one. Open the brief: the executive answer, the assumptions
-register, uncertainty, risks, recommendations (each linked to a finding, with an owner function and a
-validation step), the validation plan and the limitations. Point out where the licence-terms gap
-appears and say: "Nothing in the evidence answers who pays, so the brief shows it as unresolved."
+assumption objection, and respond to one. Open the brief: the executive answer first, then the sections
+that are open (the decision evaluated, the reaction patterns, the alternative outcomes, the effects, the
+risks, the recommendations, each resting on the findings it cites with an owner function and a way to check
+it, and the validation plan), then, from the contents, the closed reference sections (the assumptions,
+uncertainty and sensitivity, the sources, the limitations). Look for the licence-terms gap (this pack leaves
+it open on purpose): if your brief shows it, say "Nothing in the evidence answers who pays, so the brief
+shows it as unresolved"; if it does not, say so.
 
 **9:00 to 10:00 Exports and questions.** Export Markdown, JSON or the printable page. Ask the
 analyst one question the sources answer ("How many seats were in the pilot and how long did it

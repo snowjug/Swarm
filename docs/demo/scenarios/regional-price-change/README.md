@@ -86,23 +86,24 @@ that gap forward instead of filling it."
 
 **1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
 the four counts and the note on how they were found, one row opened to its cited quotes and uncertainty,
-and the prompt about roles nobody was found for. Say: "Roles, with the passage shown." Then **Approve
-stakeholders and create actors**, **Review the N actors**; point at a trait and its origin badge. Say:
-"Population sizes are assumptions."
+and the prompt about roles nobody was found for. Say: "Roles, with the passage shown." Then **Go to
+approval**, **Approve stakeholders and create actors**, **Review the N actors**; point at a trait and its
+origin badge. Say: "Population sizes are assumptions."
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change, the spread across the seeded runs, one finding with "N of 30 seeded runs" and
 its stability chip, and the sensitivity view with the assumption that has no evidence behind it. Say:
-"This counts simulated runs. It is not a rate in the real world."
+"These are simulated members and seeded runs. They are not a rate in the real world."
 
 **3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips. In the evidence base, open one of the two source conflicts (38% against
-55%) and say: "Same words, two definitions. Swarm does not pick one." Show the unresolved uncertainty
-about the notice and the validation plan, for example what to ask the provider and what to measure
-with customers.
+answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
+was built with two source conflicts, so open it, find one (38% against 55%) and say: "Same words, two
+definitions. Swarm does not pick one." Then look for the unresolved uncertainty about the notice, and at
+the validation plan (open, right after the recommendations): check whether its checks cover the missing
+billing unit and date, and what they ask you to observe and compare.
 
-**4:30 One objection (20 s).** Run the independent review and read one objection with its basis.
-Say: "A critic challenges and never edits. I can respond, accept or dispute it."
+**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
+objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute it."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table and a plan
 to check them. It supports a person's analysis; it does not make the decision."
@@ -139,9 +140,12 @@ evidence behind it. Say: "This is what we would test first, and the validation p
 
 **7:30 to 9:00 Review and brief.** Run the independent review. Read one evidence objection (for
 example, open source conflicts, or sources without a date) and one assumption objection, and respond
-to one. Open the brief: assumptions, uncertainty, risks, recommendations (each linked to a finding,
-with an owner function and a validation step), the validation plan and limitations. Show where the
-missing billing unit appears.
+to one. Open the brief: the executive answer first, then the sections that are open (the decision
+evaluated, the reaction patterns, the alternative outcomes, the effects, the risks, the recommendations,
+each resting on the findings it cites with an owner function and a way to check it, and the validation
+plan), then, from the contents, the closed ones (the assumptions, uncertainty and sensitivity, the sources
+and the limitations). Look for where the missing billing unit appears: if your brief shows it, point at
+it; if it does not, say so.
 
 **9:00 to 10:00 Exports and questions.** Export Markdown, JSON or the printable page. Ask the analyst
 one question the sources answer ("How long would the platform team need to move workloads out of
