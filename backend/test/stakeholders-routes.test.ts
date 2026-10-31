@@ -275,7 +275,7 @@ describe('finding stakeholders', () => {
 
   it('asks the model when asked and available, counts the call against the project’s budget, and checks its quotes', async () => {
     const model = new RouteModel([proposal()]);
-    const w = await world({ model, mode: 'llm' });
+    const w = await world({ model, mode: 'llm', scenario: ['customers'] });
     const response = await w.discover({ mode: 'model' });
     expect(response.statusCode, response.body).toBe(201);
     const set = (response.json() as StakeholdersView).stakeholders!;
@@ -291,6 +291,19 @@ describe('finding stakeholders', () => {
       inputTokens: 100,
       outputTokens: 20,
     });
+  });
+
+  it('keeps nothing of the model’s that it could not quote and the person did not name, and says so in the stored note', async () => {
+    const model = new RouteModel([proposal()]);
+    const w = await world({ model, mode: 'llm' });
+    const response = await w.discover({ mode: 'model' });
+    expect(response.statusCode, response.body).toBe(201);
+    const set = (response.json() as StakeholdersView).stakeholders!;
+    expect(set.discovery.mode).toBe('model');
+    expect(set.stakeholders.map((s) => s.name)).toEqual(['Regulators']);
+    expect(set.discovery.note).toContain(
+      '1 stakeholder the model proposed was dropped: no passage could be quoted for it and the question and scenario do not name it.',
+    );
   });
 
   it('counts the call on the project’s own record too, when it has one', async () => {
@@ -643,7 +656,7 @@ describe('actors', () => {
       proposal(),
       new AppError(502, 'MODEL_OUTPUT_INVALID', 'The provider returned invalid JSON.'),
     ]);
-    const w = await approvedWorld({ model, mode: 'llm' });
+    const w = await approvedWorld({ model, mode: 'llm', scenario: ['customers'] });
     const first = await w.discover({ mode: 'model', confirm: true });
     expect(first.statusCode, first.body).toBe(201);
     expect(

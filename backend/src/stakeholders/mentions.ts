@@ -2,9 +2,14 @@ import type { StakeholderCategory } from '../../../shared/stakeholders.js';
 import type { EvidenceChunk } from '../../../shared/types.js';
 import { inspectText } from '../models/injection.js';
 import {
+  BELONGINGS,
+  BELONGINGS_AS_VERBS,
   COMPOUND_FOLLOWERS,
   CONTEXT_CUES,
+  FUNCTION_WORDS,
+  GENERIC_ROLES,
   HEADS,
+  INTRODUCERS,
   MODIFIERS,
   PAIR_HEADS,
   STATE_ONLY,
@@ -89,6 +94,20 @@ function joined(sentence: string, left: Word, right: Word): boolean {
   return /^\s+$/u.test(sentence.slice(left.end, right.start));
 }
 
+const SENTENCE_END = /[.!?]["'”’)\]]*$/u;
+
+/**
+ * Whether a sentence is written in capitals from end to end and reads as prose: it ends like a sentence
+ * and a third of its words are function words ("THE CUSTOMERS WILL PAY MORE AND THE SUPPORT TEAM WILL
+ * LOSE STAFF."). In other text a capital tells a name from a word; here every word has one, and says nothing.
+ * A menu, a row of names or a title in capitals has few function words, and is not this.
+ */
+function isShouted(sentence: string, words: readonly Word[]): boolean {
+  if (!SENTENCE_END.test(sentence.trimEnd()) || /\p{Ll}/u.test(sentence)) return false;
+  const connecting = words.filter((word) => FUNCTION_WORDS.has(word.raw.toLowerCase())).length;
+  return connecting >= 2 && connecting * 3 >= words.length;
+}
+
 interface Modifier {
   /** The category this word suggests, or null when it only narrows the group. */
   cue: StakeholderCategory | null;
@@ -101,6 +120,8 @@ interface Modifier {
  * capitalised word (a name, such as of an organisation). A capital that only starts the sentence
  * counts only before a head that needs describing ("Neighbourhood groups"), because before any other
  * it is as likely to be an ordinary word as a name, and the bare role is already a group of its own.
+ * In a sentence written all in capitals only the words the vocabulary lists describe a head: a
+ * word that is all capitals is no more an acronym or a name than any other there.
  */
 function modifierAt(
   sentence: string,
@@ -108,17 +129,19 @@ function modifierAt(
   index: number,
   headIndex: number,
   headIsWeak: boolean,
+  shouted: boolean,
 ): Modifier | null {
   const word = words[index];
   if (!word) return null;
   const lower = word.raw.toLowerCase();
   // "it" is a pronoun unless it is written as the acronym.
-  if (lower === 'it' && word.raw !== 'IT') return null;
+  if (lower === 'it' && (word.raw !== 'IT' || shouted)) return null;
   const listed = MODIFIERS.has(lower) ? lower : MODIFIERS.has(word.base) ? word.base : null;
   if (listed !== null) {
     const cue = MODIFIERS.get(listed) ?? null;
     return { cue, qualifies: cue !== null || !STATE_ONLY.has(listed) };
   }
+  if (shouted) return null;
   if (/^\p{Lu}{2,6}$/u.test(word.raw)) {
     return NOT_ACRONYMS.has(word.raw) ? null : { cue: null, qualifies: true };
   }
@@ -186,18 +209,83 @@ const keyOfWords = (words: readonly Word[]): string =>
     .join(' ')
     .replace(/\bend user$/u, 'user');
 
-/** Every phrase in a sentence that names a group by one of the vocabulary's role nouns. */
-export function phrasesOf(sentence: string, words: Word[] = wordsOf(sentence)): Phrase[] {
+const COUNT = /^(?:\p{N}+|hundreds?|thousands?|millions?|billions?|dozens?)$/iu;
+
+/** Whether a count stands straight before the word: "500 members" says how many there are, not who they are. */
+function counted(sentence: string, words: readonly Word[], at: number): boolean {
+  const before = words[at - 1];
+  const word = words[at];
+  return (
+    before !== undefined &&
+    word !== undefined &&
+    joined(sentence, before, word) &&
+    COUNT.test(before.raw)
+  );
+}
+
+/** Whether an article, a pointer, a possessive or a quantity stands straight before the word. */
+function introduced(sentence: string, words: readonly Word[], at: number): boolean {
+  const before = words[at - 1];
+  const word = words[at];
+  return (
+    before !== undefined &&
+    word !== undefined &&
+    joined(sentence, before, word) &&
+    (INTRODUCERS.has(before.raw.toLowerCase()) || /['’]s$/iu.test(before.raw))
+  );
+}
+
+/**
+ * Whether the role noun at `at` is the first word of a compound that names something else: "customer
+ * survey" and "user interface" (nouns the vocabulary lists), "admin controls" and "customer record"
+ * (a noun for what a group has or sets, after a role noun in the singular: "customers control the
+ * rollout" is a plural subject and a verb). After a singular subject a verb ends in -s, so a noun that
+ * is also a verb ("the admin controls access") makes a compound in that form only when no article or
+ * possessive stands before the role noun.
+ */
+function startsCompound(sentence: string, words: readonly Word[], at: number): boolean {
+  const word = words[at];
+  const next = words[at + 1];
+  if (!word || !next || !joined(sentence, word, next)) return false;
+  if (COMPOUND_FOLLOWERS.has(next.base)) return true;
+  if (!BELONGINGS.has(next.base) || word.raw.toLowerCase() !== word.base) return false;
+  const verbLike = BELONGINGS_AS_VERBS.has(next.base) && next.raw.toLowerCase() !== next.base;
+  return !verbLike || !introduced(sentence, words, at);
+}
+
+/**
+ * Whether a word that names a thing stands straight before a position that any organisation has
+ * ("account manager", "records manager"): that is the title of a function, and the position alone,
+ * which is all the phrase would name, is no group of its own.
+ */
+function titled(sentence: string, words: readonly Word[], at: number): boolean {
+  const before = words[at - 1];
+  const word = words[at];
+  return (
+    before !== undefined &&
+    word !== undefined &&
+    GENERIC_ROLES.has(word.base) &&
+    /^\p{Ll}/u.test(before.raw) &&
+    joined(sentence, before, word) &&
+    (COMPOUND_FOLLOWERS.has(before.base) || BELONGINGS.has(before.base))
+  );
+}
+
+/**
+ * Every phrase in a sentence that names a group by one of the vocabulary's role nouns. A role noun is
+ * not taken when it starts a compound that names something else, when a count stands before it ("about
+ * 4,200 employees" says how big a firm is), or when it is only the tail of a title ("account manager").
+ */
+export function phrasesOf(
+  sentence: string,
+  words: Word[] = wordsOf(sentence),
+  shouted: boolean = isShouted(sentence, words),
+): Phrase[] {
   const found: Phrase[] = [];
   for (let index = 0; index < words.length; index += 1) {
     const at = headAt(sentence, words, index);
     if (!at) continue;
-    // A role noun that starts a compound ("customer survey", "user interface") names something else.
-    const next = words[index + 1];
-    const headWord = words[index];
-    if (next && headWord && joined(sentence, headWord, next) && COMPOUND_FOLLOWERS.has(next.base)) {
-      continue;
-    }
+    if (startsCompound(sentence, words, index)) continue;
     const cues: (StakeholderCategory | null)[] = [];
     let qualified = false;
     let first = at.first;
@@ -205,7 +293,7 @@ export function phrasesOf(sentence: string, words: Word[] = wordsOf(sentence)): 
       const left = words[first - 1];
       const right = words[first];
       if (!left || !right || !joined(sentence, left, right)) break;
-      const modifier = modifierAt(sentence, words, first - 1, index, at.head.weak);
+      const modifier = modifierAt(sentence, words, first - 1, index, at.head.weak, shouted);
       if (!modifier) break;
       cues.push(modifier.cue);
       qualified ||= modifier.qualifies;
@@ -214,16 +302,19 @@ export function phrasesOf(sentence: string, words: Word[] = wordsOf(sentence)): 
     // "Team" and "panel" name a group only when a describing word says what kind: "new" does not.
     if (at.head.weak && !qualified) continue;
     if (at.head.needs && !cues.includes(at.head.needs)) continue;
+    if (counted(sentence, words, first)) continue;
+    if (first === at.first && titled(sentence, words, first)) continue;
     const phraseWords = words.slice(first, index + 1);
     const firstWord = phraseWords[0];
     const lastWord = phraseWords.at(-1);
     if (!firstWord || !lastWord) continue;
+    const surface = sentence.slice(firstWord.start, lastWord.end);
     found.push({
       words: phraseWords,
       head: at.head,
       category: categoryOf(at.head, cues),
       key: keyOfWords(phraseWords),
-      surface: sentence.slice(firstWord.start, lastWord.end),
+      surface: shouted ? surface.toLowerCase() : surface,
       start: firstWord.start,
       end: lastWord.end,
       firstIndex: first,
@@ -296,7 +387,6 @@ interface Analysed extends Sentence {
 
 const analysed = new WeakMap<EvidenceChunk, Analysed[]>();
 
-const SENTENCE_END = /[.!?]["'”’)\]]*$/u;
 const BULLET = /^\s*(?:[-*•·]|\d+[.)])\s/u;
 const LINK = /(?:https?:\/\/|www\.)\S+/giu;
 const startsWithCapital = (word: Word): boolean => /^\p{Lu}/u.test(word.raw);
@@ -385,7 +475,9 @@ function analyse(passage: EvidenceChunk): Analysed[] {
     const label = labels(cut.map(({ sentence, words }) => shapeOf(sentence.text, words)));
     found = cut.map(({ sentence, readable, words }, at) => {
       const isLabel = label[at] === true;
-      const listed = isLabel ? new Set<number>() : inLongRun(readable, words);
+      // Capitals tell a name from a word, except in a sentence that is all capitals and reads as prose.
+      const shouted = !isLabel && isShouted(readable, words);
+      const listed = isLabel || shouted ? new Set<number>() : inLongRun(readable, words);
       return {
         ...sentence,
         lowered: sentence.text.toLowerCase(),
@@ -394,7 +486,7 @@ function analyse(passage: EvidenceChunk): Analysed[] {
         words,
         phrases: isLabel
           ? []
-          : phrasesOf(readable, words).filter((phrase) => {
+          : phrasesOf(readable, words, shouted).filter((phrase) => {
               for (let word = phrase.firstIndex; word <= phrase.headIndex; word += 1) {
                 if (listed.has(word)) return false;
               }

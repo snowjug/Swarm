@@ -46,6 +46,25 @@ describe('uploading a CSV or JSON file', () => {
     expect(created.statusCode, created.body).toBe(201);
   });
 
+  it('reads a quote after a space as the start of a quoted field, and says when quotes were kept as text', async () => {
+    const spaced = await upload(
+      'cities.csv',
+      '"LatD", "LatM", "City"\n41, 5, "Youngstown, OH"\n42, 52, "Yankton, SD"\n33, 46, "Columbus, GA"\n',
+    );
+    expect(spaced.response.statusCode, spaced.response.body).toBe(200);
+    expect(body(spaced.response).content).toContain('Columns: LatD | LatM | City');
+    expect(body(spaced.response).content).not.toContain('"');
+    expect(body(spaced.response).notes).toEqual([]);
+    const inches = await upload(
+      'pipes.csv',
+      'name,size,stock\nPipe,5" pipe,4\nElbow,3" elbow,120\nValve,2" valve,300\nCap,4" cap,90\n',
+    );
+    expect(body(inches.response).content).toContain('size: 5" pipe');
+    expect(body(inches.response).notes).toEqual([
+      'Some cells of this table hold quotation marks that do not belong to a quoted field, so Swarm kept them as written.',
+    ]);
+  });
+
   it('turns a JSON file into path: value lines', async () => {
     const json = JSON.stringify({
       plan: { name: 'Pro', price: 19, features: ['a', 'b'] },

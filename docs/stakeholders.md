@@ -50,9 +50,26 @@ sentence about a group and say nothing about it. They are told apart by their sh
 - a line of up to three words with no full stop is a **heading** when it stands between sentences, which
   introduces what follows, so a group it names is found; next to another such line it is a menu entry or
   an outline, and is not;
-- five or more capitalised words in a row are a list of names, never one name;
+- five or more capitalised words in a row are a list of names, never one name, except in a sentence written
+  all in capitals that reads as prose (it ends like a sentence and a third of its words are function words,
+  as in "THE CUSTOMERS WILL PAY MORE AND THE SUPPORT TEAM WILL LOSE STAFF."): there every word has a
+  capital, so a capital says nothing, and only the words the lexicon lists describe a group. A menu, a
+  footer or a row of names in capitals has too few function words and stays a list;
 - a person's own bulleted list of groups is kept, an item each;
 - a link is not read: a word in its path ("example.org/users/support") is not a word of the sentence.
+
+A role word is also **not a group** when the line only uses it to say something else:
+
+- it starts a compound that names a thing: a word the lexicon lists straight after it ("customer survey",
+  "user interface"), or, after a role word in the singular, a noun for what a group has or sets ("admin
+  controls", "admin panel", "reseller rates", "customer record"). "Customers control the rollout" stays: a
+  plural subject and a verb. A noun that is also a verb ("the admin controls access") makes a compound only
+  when no article or possessive stands before the role word;
+- a count stands straight before it ("a firm with about 4,200 employees", "more than 500 members"), which
+  says how many there are, not who they are;
+- it is only the tail of a title for a function: a position that any organisation has (a manager, an
+  employee, a member) straight after a noun that names a thing ("account manager", "records manager",
+  "customer success manager"). "Sales manager" stays, since _sales_ is a describing word the lexicon knows.
 
 What it decides, and how:
 
@@ -88,11 +105,17 @@ stakeholders with a passage id and a **verbatim quote** for each.
 The reply is never trusted as it arrives:
 
 - it must have the expected shape, with one repair attempt if it does not;
-- a reply that repeats text planted in the sources is refused;
+- a reply that repeats text planted in the sources is refused: a code, a quoted phrase, or the name that an
+  instruction gives ("the group named …"). The check looks for text that addresses an AI system or dictates
+  what the answer or the stakeholder list says, and it is a heuristic: an instruction worded in a way it does
+  not know is not recognised;
 - **each quote is checked, character by character, against the passage it names**. A quote that cannot be
   found, or names a passage that was not supplied, is dropped;
-- a stakeholder left with no verified quote is marked **inferred**, with high uncertainty and an
-  assumption saying so;
+- a stakeholder left with no verified quote is kept, marked **inferred**, with high uncertainty and an
+  assumption saying so, **only when the person's own question or scenario names that group**. Any other
+  stakeholder with nothing quoted is dropped, and the note says how many and why: all it would rest on is the
+  model's word, which text in a source can have dictated, so it is never put in the list as if found. When
+  nothing that the model proposed can be kept, discovery falls back to reading the text, with that reason;
 - categories outside the list become _other_, identifiers are made unique, at most 25 are kept (at most
   eight of them key), and a scenario's named stakeholders that the model left out are added back.
 
@@ -125,13 +148,13 @@ test fails if this table and the code disagree (`npx tsx backend/test/support/pr
 again). _Found_ counts the groups in the list, not those folded into another or removed. A group that cites
 no quote is one the question names and no passage does.
 
-| Example                 | Found (key / standard / background) | Cite a quote | Direction (wording / category / unclear) | Key groups, and the others whose direction was read from the wording                                                                                          |
-| ----------------------- | ----------------------------------- | ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `copilot-in-teams`      | 23 (4 / 11 / 8)                     | 23 of 23     | 5 / 0 / 18                               | Key: Clients, Competitors, Regulators, Manager (mixed). Others: Users (mixed), Finance team (harmed), Staff (harmed), Support teams (harmed).                 |
-| `regional-price-change` | 25 (5 / 7 / 13)                     | 25 of 25     | 5 / 0 / 20                               | Key: Sales director (harmed), Customers (harmed), Competitors, Regulator, Managers. Others: Vendors (harmed), Engineers (harmed), Support engineers (harmed). |
-| `ecommerce-experience`  | 17 (4 / 5 / 8)                      | 16 of 17     | 2 / 0 / 15                               | Key: Customers, Competitor, Sellers, Regulators. Others: Delivery partners (harmed), Employees (harmed).                                                      |
-| `ai-first-support`      | 20 (5 / 3 / 12)                     | 20 of 20     | 3 / 0 / 17                               | Key: Support director, Customers (harmed), Competitors, Regulators, Engineers (mixed). Others: Support engineers (harmed).                                    |
-| `launch-pricing`        | 20 (3 / 9 / 8)                      | 20 of 20     | 2 / 1 / 17                               | Key: Executives, Customers (harmed), Competitors. Others: Partners (harmed).                                                                                  |
+| Example                 | Found (key / standard / background) | Cite a quote | Direction (wording / category / unclear) | Key groups, and the others whose direction was read from the wording                                                                                           |
+| ----------------------- | ----------------------------------- | ------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `copilot-in-teams`      | 22 (4 / 11 / 7)                     | 22 of 22     | 5 / 0 / 17                               | Key: Clients, Competitors, Regulators, Administrators. Others: Users (mixed), Finance team (harmed), Managers (mixed), Staff (harmed), Support teams (harmed). |
+| `regional-price-change` | 24 (5 / 6 / 13)                     | 24 of 24     | 5 / 0 / 19                               | Key: Sales director (harmed), Customers (harmed), Competitors, Regulator, Engineers (harmed). Others: Vendors (harmed), Support engineers (harmed).            |
+| `ecommerce-experience`  | 16 (4 / 5 / 7)                      | 15 of 16     | 2 / 0 / 14                               | Key: Customers, Competitor, Sellers, Regulators. Others: Delivery partners (harmed), Employees (harmed).                                                       |
+| `ai-first-support`      | 18 (5 / 3 / 10)                     | 18 of 18     | 3 / 0 / 15                               | Key: Support director, Customers (harmed), Competitors, Regulators, Engineers (mixed). Others: Support engineers (harmed).                                     |
+| `launch-pricing`        | 19 (3 / 9 / 7)                      | 19 of 19     | 3 / 1 / 15                               | Key: Executives, Customers (harmed), Competitors. Others: Partners (harmed), Marketing managers (harmed).                                                      |
 
 What the table shows is what the rules can and cannot do. They find the roles the sources name, with a quote
 for each, and say how sure they are: most groups in these examples are named in only a few sentences, and

@@ -119,13 +119,48 @@ export const STATE_ONLY: ReadonlySet<string> = new Set(
 );
 
 /**
- * A role noun with one of these straight after it is the first word of a compound that names
- * something else: "customer survey", "user interface", "customer success".
+ * A role noun with one of these straight after it is the first word of a compound that names something else:
+ * "customer survey", "user interface", "customer success".
  */
 export const COMPOUND_FOLLOWERS: ReadonlySet<string> = new Set(
   (
     'survey support service success experience journey interface account portal profile relationship ' +
     'satisfaction behaviour behavior story guide manual documentation ticket analytics insight data research list'
+  ).split(' '),
+);
+
+/**
+ * Nouns for what a group has, uses or sets: a role noun written in the singular with one of these straight
+ * after it describes that thing ("admin controls", "reseller rates"), not the group. They name no industry.
+ */
+export const BELONGINGS: ReadonlySet<string> = new Set(
+  'control panel console dashboard setting tool permission fee rate record'.split(' '),
+);
+
+/**
+ * Of the nouns above, those that are also verbs: after a singular subject the verb ends in -s ("the admin
+ * controls access"), so in that form they make a compound only when no article or possessive stands
+ * before the role noun.
+ */
+export const BELONGINGS_AS_VERBS: ReadonlySet<string> = new Set(['control', 'rate', 'record']);
+
+/** Words that stand before a noun to introduce it: an article, a pointer, a possessive, a quantity. */
+export const INTRODUCERS: ReadonlySet<string> = new Set(
+  'the a an this that these those each every our their its his her your my one another some any no'.split(
+    ' ',
+  ),
+);
+
+/**
+ * Words that make a string of words a sentence and not a list of names or a menu: articles, pointers,
+ * prepositions, conjunctions and auxiliary verbs. It is what tells prose from a row of labels when every
+ * word is in capitals, so it holds no word that could name a group or describe one.
+ */
+export const FUNCTION_WORDS: ReadonlySet<string> = new Set(
+  (
+    'the a an this that these those and or but nor of to in on at by with from into than because after before ' +
+    'since until will would may might can could should must shall is are was were be been being has have had ' +
+    'do does did not for as if when while who which what how so'
   ).split(' '),
 );
 

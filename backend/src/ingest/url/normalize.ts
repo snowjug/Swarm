@@ -29,6 +29,10 @@ const MAX_FIELD_LINES = 4_000;
 
 const plainKey = /^[A-Za-z_][A-Za-z0-9_-]*$/u;
 
+/** Said of a table whose cells hold a quotation mark that did not open a quoted field. */
+export const STRAY_QUOTES_NOTE =
+  'Some cells of this table hold quotation marks that do not belong to a quoted field, so Swarm kept them as written.';
+
 function keyPath(parent: string, key: string): string {
   const clean = inline(key).slice(0, MAX_KEY_CHARS);
   if (plainKey.test(clean)) return parent ? `${parent}.${clean}` : clean;
@@ -136,16 +140,27 @@ function delimiterOf(source: string): string {
   return best;
 }
 
-/** RFC 4180 records: quoted fields, doubled quotes, line breaks inside quotes. Stops after `limit` records. */
-function csvRecords(source: string, delimiter: string, limit: number): string[][] {
+/**
+ * RFC 4180 records: quoted fields, doubled quotes, line breaks inside quotes. Stops after `limit`
+ * records. A quote opens a field also when only spaces come before it (`"a", "b"`, which is how many
+ * files are written); a quote anywhere else in a field is part of its text, and is reported.
+ */
+function csvRecords(
+  source: string,
+  delimiter: string,
+  limit: number,
+): { records: string[][]; strayQuotes: boolean } {
   const records: string[][] = [];
   let record: string[] = [];
   let field = '';
   let inQuotes = false;
   let touched = false;
+  let blank = true;
+  let strayQuotes = false;
   const endField = (): void => {
     if (record.length < MAX_COLUMNS) record.push(field.slice(0, MAX_CELL_CHARS));
     field = '';
+    blank = true;
   };
   const endRecord = (): void => {
     if (touched || record.length > 0 || field !== '') {
@@ -164,31 +179,41 @@ function csvRecords(source: string, delimiter: string, limit: number): string[][
           index += 1;
         } else inQuotes = false;
       } else if (field.length < MAX_CELL_CHARS) field += character;
-    } else if (character === '"' && field === '') {
+    } else if (character === '"' && blank) {
+      field = '';
       inQuotes = true;
       touched = true;
+      blank = false;
     } else if (character === delimiter) {
       endField();
       touched = true;
     } else if (character === '\n' || character === '\r') {
       if (character === '\r' && source[index + 1] === '\n') index += 1;
       endRecord();
-    } else if (field.length < MAX_CELL_CHARS) field += character;
+    } else {
+      if (character === '"') strayQuotes = true;
+      if (character !== ' ' && character !== '\t') blank = false;
+      if (field.length < MAX_CELL_CHARS) field += character;
+    }
   }
   if (records.length < limit) endRecord();
-  return records;
+  return { records, strayQuotes };
 }
 
 /**
  * A table as readable lines: its columns, then each row as `column: value` pairs, so a row can be
  * read, and cited, without the header above it. The number of rows, columns and the size of a cell
- * are capped.
+ * are capped. `strayQuotes` says that a cell holds a quotation mark that did not open a quoted field,
+ * which was kept as written.
  */
-export function csvToText(source: string): { text: string; truncated: boolean } {
+export function csvToText(source: string): {
+  text: string;
+  truncated: boolean;
+  strayQuotes: boolean;
+} {
   const text = source.replace(/^\ufeff/u, '');
-  const records = csvRecords(text, delimiterOf(text), MAX_ROWS + 2).filter((record) =>
-    record.some((cell) => cell.trim() !== ''),
-  );
+  const read = csvRecords(text, delimiterOf(text), MAX_ROWS + 2);
+  const records = read.records.filter((record) => record.some((cell) => cell.trim() !== ''));
   const [first, ...rows] = records;
   if (!first || rows.length === 0) throw new DataError('This table has no rows to read.');
   const seen = new Set<string>();
@@ -208,7 +233,7 @@ export function csvToText(source: string): { text: string; truncated: boolean } 
   }
   const truncated = rows.length > MAX_ROWS;
   if (truncated) lines.push(`(more rows are not shown: the first ${MAX_ROWS} are above)`);
-  return { text: lines.join('\n'), truncated };
+  return { text: lines.join('\n'), truncated, strayQuotes: read.strayQuotes };
 }
 
 /** Plain text and Markdown stay as written; only what cannot be shown, or could hide something, goes. */
