@@ -106,6 +106,39 @@ describe('accepting, editing and re-prioritising', () => {
     });
   });
 
+  it('stops calling a direction read from the wording evidence once the person has taken every quote away', () => {
+    const target = base.stakeholders.find(
+      (s) => s.expectedImpact.origin === 'evidence' && s.evidence.length > 1,
+    );
+    expect(target, 'the brief has a group whose direction is read from the wording').toBeDefined();
+    const without = (keep: number) =>
+      applyReview(
+        base,
+        review(base, (list) => {
+          const own = list.find((s) => s.id === target!.id)!;
+          own.evidence = own.evidence.slice(0, keep);
+        }),
+        LATER,
+      );
+    // While a quote is still cited, the direction is still read from the wording of the cited sentences.
+    expect(find(without(1), target!.name).expectedImpact.origin).toBe('evidence');
+    const none = find(without(0), target!.name);
+    expect(none.expectedImpact).toMatchObject({
+      direction: target!.expectedImpact.direction,
+      origin: 'system-assumption',
+    });
+    expect(none.expectedImpact.rationale).toContain(
+      'No quote is cited for this direction now, so it is an assumption.',
+    );
+    // Saved again as it is, the note is not said twice.
+    const again = applyReview(
+      without(0),
+      review(without(0), () => undefined, 2),
+      LATER,
+    );
+    expect(find(again, target!.name).expectedImpact).toEqual(none.expectedImpact);
+  });
+
   it('takes the impact as the person’s own when they change it, and only then', () => {
     const next = applyReview(
       base,

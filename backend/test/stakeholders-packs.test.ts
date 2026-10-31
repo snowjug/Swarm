@@ -3,7 +3,11 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios.js';
 import { changeCanMoveAnyone } from '../../shared/signal.js';
-import { type Stakeholder, type StakeholderSet } from '../../shared/stakeholders.js';
+import {
+  directionOrigin,
+  type Stakeholder,
+  type StakeholderSet,
+} from '../../shared/stakeholders.js';
 import { findQuote } from '../src/grounding/text.js';
 import { chunkDocuments } from '../src/knowledge/retrieval.js';
 import { parseScenario } from '../src/scenario/parse.js';
@@ -239,7 +243,7 @@ describe.each(PACKS)('reading the $id pack for roles, with no model', (pack) => 
     expect(actors.note).toContain(`${wording} of ${here.length} actors have a direction of impact`);
   });
 
-  it('gives the actors the same impact for a direction as every other path does, and labels where it came from', async () => {
+  it('gives the actors the same impact for a direction as every other path does, and says what the direction and the size each rest on', async () => {
     const { set, passages, frame } = await read(pack);
     const approved = approveSet(set, NOW);
     const actors = await generateActors({
@@ -257,12 +261,19 @@ describe.each(PACKS)('reading the $id pack for roles, with no model', (pack) => 
       const stakeholder = byId.get(actor.stakeholderId);
       expect(stakeholder, actor.name).toBeDefined();
       if (!stakeholder) continue;
-      expect(actor.traits.impact.value, actor.name).toBe(
-        IMPACT_VALUE[stakeholder.expectedImpact.direction],
-      );
-      expect(actor.traits.impact.origin, actor.name).toBe(
-        stakeholder.expectedImpact.origin ?? 'system-assumption',
-      );
+      const { impact } = actor.traits;
+      const given = stakeholder.expectedImpact.origin ?? 'system-assumption';
+      expect(impact.value, actor.name).toBe(IMPACT_VALUE[stakeholder.expectedImpact.direction]);
+      // A cited sentence can show which way a change points, never how far: the number stays a default.
+      expect(impact.origin, actor.name).toBe(given === 'evidence' ? 'system-assumption' : given);
+      expect(directionOrigin(impact), actor.name).toBe(given);
+      if (given === 'evidence') {
+        expect(impact.direction?.passageIds, actor.name).toEqual([
+          ...new Set(stakeholder.evidence.map((ref) => ref.passageId)),
+        ]);
+        expect(impact.rationale, actor.name).toContain('rests on cited passages');
+        expect(impact.rationale, actor.name).toContain('is a system default');
+      }
     }
     // The change has someone to move, so that a comparison with no change is about the change.
     expect(actors.actors.some((actor) => actor.traits.impact.value !== 0)).toBe(true);

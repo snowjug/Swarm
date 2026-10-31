@@ -8,11 +8,14 @@ import {
   UNSIGNED_TRAIT_KEYS,
   actorSchema,
   actorSetSchema,
+  sizeIsDefault,
   type Actor,
   type ActorRelation,
   type ActorSet,
+  type ImpactTrait,
   type Stakeholder,
   type StakeholderRelation,
+  type Trait,
   type TraitKey,
   type TraitOrigin,
   type UncertaintyLevel,
@@ -53,6 +56,49 @@ const trait = (value: number, spread: number, origin: TraitOrigin, rationale: st
   rationale: truncate(rationale, 300),
 });
 
+/**
+ * The impact of an actor. Its number is always the documented value for its direction, so a passage can
+ * never be what the number rests on: a direction read from cited wording is recorded as what the
+ * direction rests on, with the passages it was read from, and the size stays a system default. That
+ * label is trusted only while a passage is still cited for it; one that is not says so and is an
+ * assumption. A person or a model who gave the direction is named as before.
+ */
+function impactOf(stakeholder: Stakeholder, spread: number): ImpactTrait {
+  const { direction, rationale, origin } = stakeholder.expectedImpact;
+  const value = IMPACT_VALUE[direction];
+  const reason = rationale || 'no reason was given';
+  if (origin !== 'evidence') {
+    return trait(
+      value,
+      spread,
+      origin ?? 'system-assumption',
+      `From the expected impact (${direction}): ${reason}`,
+    );
+  }
+  const passageIds = [
+    ...new Set(
+      stakeholder.evidence.filter((ref) => ref.role === 'supports').map((ref) => ref.passageId),
+    ),
+  ].slice(0, 8);
+  if (passageIds.length === 0) {
+    return trait(
+      value,
+      spread,
+      'system-assumption',
+      `The direction (${direction}) was read from passages that are no longer cited, so nothing supports it now; ${sizeIsDefault(value)}. ${reason}`,
+    );
+  }
+  return {
+    ...trait(
+      value,
+      spread,
+      'system-assumption',
+      `The direction (${direction}) rests on cited passages (${passageIds.join(', ')}); ${sizeIsDefault(value)}. ${reason}`,
+    ),
+    direction: { origin: 'evidence', passageIds },
+  };
+}
+
 function actorOf(
   stakeholder: Stakeholder,
   relations: readonly StakeholderRelation[],
@@ -64,7 +110,7 @@ function actorOf(
   const label = STAKEHOLDER_CATEGORY_LABELS[category];
   const prior = CATEGORY_PRIORS[category];
   const priorWhy = `Category prior for ${label.toLowerCase()}: ${prior.rationale}`;
-  const { direction, rationale, origin } = stakeholder.expectedImpact;
+  const { direction, rationale } = stakeholder.expectedImpact;
   const size = key ? 1 : stakeholder.populationSize;
 
   const unsigned = Object.fromEntries(
@@ -81,12 +127,7 @@ function actorOf(
       'system-assumption',
       'No passage or scenario statement gives a starting position, so it starts undecided (0).',
     ),
-    impact: trait(
-      IMPACT_VALUE[direction],
-      spread,
-      origin ?? 'system-assumption',
-      `From the expected impact (${direction}): ${rationale || 'no reason was given'}`,
-    ),
+    impact: impactOf(stakeholder, spread),
   };
 
   const relevance = firstSentence(
@@ -418,11 +459,12 @@ const editable = (actor: Actor): string =>
   ]);
 
 /** A trait the person changed is theirs, whatever the request says; one they did not touch is as it was. */
-function adopt<T extends Actor['traits'][TraitKey]>(was: T, raw: T): T {
+function adopt(was: Trait, raw: Trait): Trait {
   if (raw.value === was.value && raw.spread === was.spread) return was;
   const said = raw.rationale.trim();
   return {
-    ...raw,
+    value: raw.value,
+    spread: raw.spread,
     origin: 'user',
     rationale: truncate(
       said && said !== was.rationale
@@ -431,6 +473,17 @@ function adopt<T extends Actor['traits'][TraitKey]>(was: T, raw: T): T {
       300,
     ),
   };
+}
+
+/**
+ * A person who moves the size of an impact has set that number, but what its sign rests on has not
+ * changed while the sign has not: a direction read from cited passages stays so. Nothing the request
+ * says about what the direction rests on is taken.
+ */
+function keepDirection(was: ImpactTrait, now: ImpactTrait): ImpactTrait {
+  const { direction } = was;
+  if (now === was || !direction || now.value === 0) return now;
+  return Math.sign(now.value) === Math.sign(was.value) ? { ...now, direction } : now;
 }
 
 /**
@@ -474,6 +527,7 @@ export function applyActorEdit(stored: ActorSet, incoming: readonly Actor[]): Ac
     const traits = Object.fromEntries(
       TRAIT_KEYS.map((name) => [name, adopt(was.traits[name], raw.traits[name])]),
     ) as Traits;
+    traits.impact = keepDirection(was.traits.impact, traits.impact);
     const next: Actor = { ...raw, traits, evidence: was.evidence, uncertainty: was.uncertainty };
     return { ...next, edited: was.edited || editable(next) !== editable(was) };
   });

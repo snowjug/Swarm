@@ -96,6 +96,26 @@ function impactWithOrigin(
   return { direction, rationale, ...(origin ? { origin } : {}) };
 }
 
+const NO_QUOTE_LEFT = 'No quote is cited for this direction now, so it is an assumption. ';
+
+/**
+ * The expected impact after a review that left the direction and its reason as they were. A direction
+ * read from the wording of cited sentences is labelled so only while a sentence is still cited: once
+ * the person has taken every quote away, nothing supports it, so it becomes an assumption and says so.
+ */
+function impactKept(raw: Stakeholder, was: Stakeholder): Stakeholder['expectedImpact'] {
+  const { origin } = was.expectedImpact;
+  if (origin !== 'evidence' || raw.evidence.some((ref) => ref.role === 'supports')) {
+    return impactWithOrigin(raw, origin);
+  }
+  const { direction, rationale } = raw.expectedImpact;
+  return {
+    direction,
+    rationale: `${NO_QUOTE_LEFT}${rationale}`.trim().slice(0, 400),
+    origin: 'system-assumption',
+  };
+}
+
 const USER_STATUSES: readonly Stakeholder['status'][] = ['added', 'removed'];
 const REVIEW_STATUSES: readonly Stakeholder['status'][] = [
   'proposed',
@@ -214,7 +234,7 @@ export function applyReview(
     return {
       ...raw,
       status: statusAfter(was, raw, changed),
-      expectedImpact: impactWithOrigin(raw, impactChanged ? 'user' : was.expectedImpact.origin),
+      expectedImpact: impactChanged ? impactWithOrigin(raw, 'user') : impactKept(raw, was),
     };
   });
 

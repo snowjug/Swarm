@@ -176,6 +176,51 @@ export type Trait = z.infer<typeof traitSchema>;
 export const signedTraitSchema = traitSchema.extend({ value: z.number().min(-1).max(1) });
 export type SignedTrait = z.infer<typeof signedTraitSchema>;
 
+/**
+ * What the sign of an impact rests on, when that is not what its size rests on. A passage can show
+ * which way a change points for a group, but none gives a number, so the size of an impact is the
+ * system's default for its direction unless a person or a model set the number itself. An absent
+ * direction means the sign rests on whatever the trait's own `origin` says.
+ */
+export const impactDirectionSchema = z.object({
+  origin: z.enum(TRAIT_ORIGINS),
+  /** For `evidence`: the passages the direction was read from, as they were cited when the actors were made. */
+  passageIds: z.array(z.string().min(1).max(40)).max(8).default([]),
+});
+export type ImpactDirection = z.infer<typeof impactDirectionSchema>;
+
+/** Said beside an impact whose direction is read from cited passages: the sign is theirs, the size is not. */
+export const sizeIsDefault = (value: number): string =>
+  `the size, ${value > 0 ? '+' : ''}${value.toFixed(2)}, is a system default, not read from any passage`;
+
+const clip = (text: string, max: number): string =>
+  text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+
+/**
+ * An impact saved while `evidence` labelled the whole number. Only its direction was ever read from
+ * passages and its size was always the default for that direction, so it reads as that now.
+ */
+export const impactTraitSchema = signedTraitSchema
+  .extend({ direction: impactDirectionSchema.optional() })
+  .transform((trait) =>
+    trait.origin === 'evidence'
+      ? {
+          ...trait,
+          origin: 'system-assumption' as const,
+          direction: trait.direction ?? { origin: 'evidence' as const, passageIds: [] },
+          rationale: clip(
+            `The direction rests on cited passages; ${sizeIsDefault(trait.value)}. ${trait.rationale}`.trim(),
+            300,
+          ),
+        }
+      : trait,
+  );
+export type ImpactTrait = z.output<typeof impactTraitSchema>;
+
+/** What the sign of an actor's impact rests on, which is its own origin unless it says otherwise. */
+export const directionOrigin = (trait: Pick<ImpactTrait, 'origin' | 'direction'>): TraitOrigin =>
+  trait.direction?.origin ?? trait.origin;
+
 /** The traits that are on a 0 to 1 scale. `priorStance` and `impact` are signed and listed apart. */
 export const UNSIGNED_TRAIT_KEYS = [
   'influence',
@@ -232,7 +277,7 @@ export const actorSchema = z.object({
   priorBelief: line(300).default(''),
   traits: z.object({
     priorStance: signedTraitSchema,
-    impact: signedTraitSchema,
+    impact: impactTraitSchema,
     influence: traitSchema,
     openness: traitSchema,
     sensitivity: traitSchema,

@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { stakeholderFixture, stakeholderSetFixture } from '../../shared/lab-fixtures.js';
+import {
+  actorFixture,
+  stakeholderFixture,
+  stakeholderSetFixture,
+} from '../../shared/lab-fixtures.js';
 import {
   STAKEHOLDER_CATEGORIES,
   TRAIT_KEYS,
   UNSIGNED_TRAIT_KEYS,
+  actorSchema,
   actorSetSchema,
   type Actor,
   type ActorSet,
@@ -181,6 +186,125 @@ describe('making actors from an approved set', () => {
     expect(set.actors[0]?.traits.impact.rationale).toContain('Pays more.');
     expect(set.actors[0]?.concerns[0]).toContain('Pays more');
     expect(set.actors[1]?.concerns).toEqual([]);
+  });
+
+  it('keeps what an impact’s direction rests on apart from its size, because a passage gives a direction and never a number', async () => {
+    const cite = (passageId: string) => ({
+      passageId,
+      documentId: 'D1',
+      documentName: 'notes.md',
+      start: 0,
+      end: 80,
+      quote: 'Customers pay more.',
+      contentHash: `hash-${passageId}`,
+      role: 'supports' as const,
+    });
+    const reading = {
+      direction: 'harmed' as const,
+      rationale: 'Concern cues in the cited passage: “pay more”.',
+      origin: 'evidence' as const,
+    };
+    const stakeholders = [
+      stakeholderFixture('read-group', 'cost-bearer', {
+        expectedImpact: reading,
+        evidence: [cite('P1'), cite('P1'), cite('P2')],
+      }),
+      stakeholderFixture('lost-group', 'cost-bearer', { expectedImpact: reading, evidence: [] }),
+    ];
+    const [read, lost] = (await generate({ stakeholders, relations: [] })).actors.map(
+      (actor) => actor.traits.impact,
+    );
+    expect(read).toMatchObject({
+      value: -0.6,
+      origin: 'system-assumption',
+      direction: { origin: 'evidence', passageIds: ['P1', 'P2'] },
+    });
+    expect(read?.rationale).toContain(
+      'The direction (harmed) rests on cited passages (P1, P2); the size, -0.60, is a system default, not read from any passage.',
+    );
+    // The label is a claim about passages, and none is cited, so the direction is an assumption now.
+    expect(lost).toMatchObject({ value: -0.6, origin: 'system-assumption' });
+    expect(lost?.direction).toBeUndefined();
+    expect(lost?.rationale).toContain('no longer cited');
+  });
+
+  it('reads an impact saved while evidence labelled the whole number as a direction from evidence with a default size', () => {
+    const saved = actorFixture('saved', 'cost-bearer');
+    const old = {
+      ...saved,
+      traits: {
+        ...saved.traits,
+        impact: {
+          value: -0.6,
+          spread: 0.1,
+          origin: 'evidence',
+          rationale: 'From the expected impact (harmed): Concern cues in the cited passage.',
+        },
+        trust: { ...saved.traits.trust, origin: 'evidence' },
+      },
+    };
+    const read = actorSchema.parse(old);
+    expect(read.traits.impact).toMatchObject({
+      value: -0.6,
+      origin: 'system-assumption',
+      direction: { origin: 'evidence', passageIds: [] },
+    });
+    expect(read.traits.impact.rationale).toBe(
+      'The direction rests on cited passages; the size, -0.60, is a system default, not read from any passage. From the expected impact (harmed): Concern cues in the cited passage.',
+    );
+    expect(actorSchema.parse(read)).toEqual(read);
+    // Only an impact is read this way: another trait keeps the label it was saved with.
+    expect(read.traits.trust.origin).toBe('evidence');
+  });
+
+  it('lets a person set the size of an impact while the sign keeps what it rests on, and takes no claim about that from the request', async () => {
+    const stakeholders = [
+      stakeholderFixture('a-group', 'cost-bearer', {
+        expectedImpact: { direction: 'harmed', rationale: 'Pays more.', origin: 'evidence' },
+        evidence: [
+          {
+            passageId: 'P1',
+            documentId: 'D1',
+            documentName: 'notes.md',
+            start: 0,
+            end: 80,
+            quote: 'Pays more.',
+            contentHash: 'h',
+            role: 'supports',
+          },
+        ],
+      }),
+      stakeholderFixture('b-group', 'beneficiary'),
+    ];
+    const stored = await generate({ stakeholders, relations: [] });
+    const move = (value: number, claim?: Actor['traits']['impact']['direction']) =>
+      applyActorEdit(
+        stored,
+        stored.actors.map((actor) =>
+          actor.id === 'a-group'
+            ? {
+                ...actor,
+                traits: {
+                  ...actor.traits,
+                  impact: { ...actor.traits.impact, value, ...(claim ? { direction: claim } : {}) },
+                },
+              }
+            : actor,
+        ),
+      ).actors[0]!.traits.impact;
+    expect(move(-0.3)).toMatchObject({
+      value: -0.3,
+      origin: 'user',
+      direction: { origin: 'evidence', passageIds: ['P1'] },
+    });
+    expect(move(-0.3, { origin: 'user', passageIds: [] }).direction).toEqual({
+      origin: 'evidence',
+      passageIds: ['P1'],
+    });
+    // The sign is the person's now: nothing cited says it.
+    expect(move(0.4).origin).toBe('user');
+    expect(move(0.4).direction).toBeUndefined();
+    expect(move(0.4, { origin: 'evidence', passageIds: ['P1'] }).direction).toBeUndefined();
   });
 
   it('writes objectives from the category and the stakeholder’s own words, and never from nothing', async () => {

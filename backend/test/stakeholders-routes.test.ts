@@ -594,6 +594,47 @@ describe('actors', () => {
     expect(await w.actors()).toEqual(view);
   });
 
+  it('say that a direction rests on cited passages only while one is cited, and never that the number does', async () => {
+    const w = await approvedWorld();
+    await w.call('POST', '/actors/generate', {});
+    const read = (await w.stakeholders()).stakeholders!.stakeholders.find(
+      (s) => s.expectedImpact.origin === 'evidence' && s.evidence.length > 0,
+    )!;
+    const impactOf = async () =>
+      (await w.actors()).actors!.actors.find((actor) => actor.id === read.id)!.traits.impact;
+    const before = await impactOf();
+    expect(before).toMatchObject({
+      value: -0.6,
+      origin: 'system-assumption',
+      direction: { origin: 'evidence' },
+    });
+    expect(before.direction!.passageIds.length).toBeGreaterThan(0);
+    expect(before.rationale).toContain('is a system default, not read from any passage');
+
+    // The person takes every citation away and leaves the direction as it was.
+    const reviewed = await w.call(
+      'PUT',
+      '/stakeholders',
+      await edited(w, (set) => {
+        set.stakeholders.find((s) => s.id === read.id)!.evidence = [];
+      }),
+    );
+    expect(reviewed.statusCode, reviewed.body).toBe(200);
+    const view = reviewed.json() as StakeholdersView;
+    expect(
+      view.stakeholders!.stakeholders.find((s) => s.id === read.id)!.expectedImpact,
+    ).toMatchObject({ direction: 'harmed', origin: 'system-assumption' });
+    const approved = await w.call('POST', '/stakeholders/approve', {
+      expectedRevision: view.revision,
+    });
+    expect(approved.statusCode, approved.body).toBe(200);
+    expect((await w.call('POST', '/actors/generate', { confirm: true })).statusCode).toBe(201);
+    const after = await impactOf();
+    expect(after).toMatchObject({ value: -0.6, origin: 'system-assumption' });
+    expect(after.direction).toBeUndefined();
+    expect(after.rationale).toContain('No quote is cited for this direction now');
+  });
+
   it('are said to be out of date when the stakeholders change after they were made', async () => {
     const w = await approvedWorld();
     await w.call('POST', '/actors/generate', {});
