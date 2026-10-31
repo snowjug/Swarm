@@ -8,6 +8,7 @@ import {
   analysisFixture,
   scenarioFixture,
 } from '../../shared/lab-fixtures.js';
+import { NO_DIRECTION_NOTICE } from '../../shared/signal.js';
 import { buildApp } from '../src/app.js';
 import { AnalysisService, type AnalysisServiceOptions } from '../src/analysis/service.js';
 import { ROUTE_POLICY } from '../src/auth/policy.js';
@@ -417,6 +418,40 @@ describe('reading comparisons', () => {
       'baseline',
       'proposed-change',
     ]);
+  });
+
+  it('has no warning before the actors exist, or while someone is helped or harmed by the change', async () => {
+    const { list, withActors } = await world();
+    expect((await list()).readiness.warnings).toEqual([]);
+    withActors();
+    expect((await list()).readiness.warnings).toEqual([]);
+  });
+
+  it('warns, and does not refuse, when no stakeholder has an expected direction of impact', async () => {
+    const { list, start, finished, repository, project, withActors } = await world();
+    repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+    const cast = actorSetFixture();
+    repository.artifacts.put(project.id, 'actors', 'default', {
+      ...cast,
+      actors: cast.actors.map((actor) => ({
+        ...actor,
+        traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+      })),
+    });
+    const { readiness } = await list();
+    expect(readiness.warnings).toEqual([NO_DIRECTION_NOTICE]);
+    expect(readiness.may.run).toBe(true);
+    expect(readiness.suggestedVariants.length).toBeGreaterThan(1);
+
+    // A comparison where nothing can move is a fair test of chance, so it still runs.
+    const response = await start({ runsPerVariant: 3, sensitivity: false });
+    expect(response.statusCode, response.body).toBe(202);
+    const done = await finished((response.json().analysis as Analysis).id);
+    expect(done.status).toBe('completed');
+
+    // The warning goes away once the cast has a direction again.
+    withActors();
+    expect((await list()).readiness.warnings).toEqual([]);
   });
 
   it('is not found for a comparison that does not exist, or belongs to another project', async () => {
