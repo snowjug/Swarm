@@ -21,7 +21,8 @@ export interface DiscoverInput {
   now?: () => Date;
 }
 
-const RULES_NOTE = 'Found by reading the text for roles, not by a model; expect gaps.';
+const RULES_NOTE =
+  'Stakeholders were found by reading the text for roles, not by a model; expect gaps.';
 
 /**
  * Finds the stakeholders of a scenario. With a model it asks for them and checks the reply; if that

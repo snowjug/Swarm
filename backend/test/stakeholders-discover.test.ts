@@ -92,7 +92,7 @@ describe.each(BRIEFS)('reading $id for roles, with no model', (brief) => {
       generatedAt: NOW.toISOString(),
     });
     expect(set.discovery.note).toContain(
-      'Found by reading the text for roles, not by a model; expect gaps.',
+      'found by reading the text for roles, not by a model; expect gaps.',
     );
     expect(set.approvedAt).toBeNull();
     for (const stakeholder of set.stakeholders) {

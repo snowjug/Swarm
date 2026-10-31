@@ -315,8 +315,8 @@ export interface GenerateInput {
   stakeholders: readonly Stakeholder[];
   relations: readonly StakeholderRelation[];
   scenario: ScenarioFrame | null;
-  /** The revision of the approved set these are made from. */
-  stakeholderRevision: number;
+  /** The revision of the approved set these are made from; 1 when the caller has none to name. */
+  stakeholderRevision?: number;
   question?: string;
   passages?: readonly EvidenceChunk[];
   /** A model to refine the key actors, or none: the traits are then the category priors. */
@@ -376,7 +376,7 @@ export async function generateActors(input: GenerateInput): Promise<ActorSet> {
     relations,
     generatedAt: (input.now ?? (() => new Date()))().toISOString(),
     mode,
-    stakeholderRevision: input.stakeholderRevision,
+    stakeholderRevision: input.stakeholderRevision ?? 1,
     note: truncate(note, 500),
   });
 }
