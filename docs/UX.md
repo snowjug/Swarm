@@ -29,10 +29,16 @@ and can ask a what-if question at once.
   one row that scrolls sideways, so that six of them do not push the evidence far down the page.
 - **The scenario** is read by `ScenarioIntake`, mounted between the question and the evidence. The
   frame it returns is held in the entry form and sent as `scenario` in the create request when
-  present; the request is validated with the same schema as any other.
+  present; the request is validated with the same schema as any other. Rules on the server read the
+  question and it goes nowhere else, unless the form's mode is **Model assisted**: then the page asks
+  for a model (`useModel`) and the question goes to the provider. The line under the button says which
+  of the two applies, and a model that fails or takes more than 170 seconds ends in a reading by rules
+  with a note.
 - **Evidence** is `SourceInput` (files and pasted text) and, when the server reports
-  `urlIngestion: true`, the `UrlEvidence` panel. A fetched page is added to the same list of documents
-  with its provenance. There is exactly one file input on the page.
+  `urlIngestion: true`, the `UrlEvidence` panel (a plain `div`, not a form: it sits inside the entry
+  form, and Enter in its address field fetches the page and never submits the form around it). A
+  fetched page is added to the same list of documents with its provenance. There is exactly one file
+  input on the page.
 - **Run settings** (mode, fictional proxies, rounds, random seed) stay visible under the evidence, in
   a quiet group. They were not put behind a disclosure because the end-to-end specs fill them in
   directly.
@@ -169,19 +175,58 @@ stopped comparison or a review with no brief: nothing is ticked that a person or
 done. Exactly one step is current: the first of the stage's own steps that is not done, or the last
 of them when all are.
 
+### The stakeholder review
+
+`StakeholderPanel` mounts `StakeholderWorkspace` (`components/stakeholders/`). The panel is a view of one
+`StakeholderState` (`hooks/useStakeholders.ts`) and asks for nothing itself, so that a project that never
+used the feature makes no call that can fail. It is compact on purpose: the lab's work in Env Setup must not
+push the engine's own **Start Simulation** button off the screen, and the browser specs hold that at
+1366×768 and 1440×900.
+
+- **Small until opened.** Before anything is found the panel is a title, one line saying that actors are
+  synthetic stand-ins, **Find stakeholders by reading the text** (with its twin **Find stakeholders with the
+  model** when the project has one), **Or add stakeholders yourself** and a toggle, **How stakeholders are
+  found**. After finding it is a title with four counts as text (**found**, **need review**, **approved**,
+  **actors**), one button for the next step and two toggles, **Stakeholders** and **Actors**, that open the
+  list and the actors. Finding opens the list and moves focus to its heading; approving shuts it and moves
+  focus to the next step's button.
+- **One next step.** The button says what it will do (`nextAction` in `review.ts`): **Review N
+  stakeholders**, **Add a stakeholder** when there are fewer than two, **Approve and create actors**, **Make
+  the actors**, **Review the N actors** (a way to look, not the next step) or **Read the N stakeholders**
+  for a person who may only read. It is one element from step to step, so focus stays on it as its label
+  changes.
+- **Rows to scan.** A stakeholder is one line, key actors first and then the cohorts, in an order that never
+  depends on the review status, so a row does not move when it is accepted: the name and role, the direction
+  of impact in words with where it came from, the uncertainty in words, whether it cites a quote or is an
+  assumption with no cited evidence, and whether it needs review. Opening a row shows the quotes, word for
+  word with the passage they are from, what is assumed, and the means to act on it (accept, edit, merge,
+  remove, priority). What is an assumption and not evidence says so in words, and an assumed direction or a
+  stakeholder with no cited evidence also has a dashed edge, so that colour is never the only signal. The
+  actors are rows too, with a slider for each trait and where its value came from.
+- **What a change takes away.** An accepted row loses **Accept**, a removed one leaves the list for
+  **Removed**, from which it is restored, an added one appears, and approving replaces the button that was
+  pressed. Each change is said to a screen reader and focus goes to the row, its neighbour or the next step
+  (`focus.ts`), never back to the top of the page.
+- **Headings and targets.** The panel's title is a third-level heading, its parts the fourth and the rows the
+  fifth. Every control has a name, and on a phone the counts come before the buttons.
+
+`e2e/lab/stakeholders.spec.ts` holds this at desktop, laptop and phone size, from the keyboard alone and in
+all three themes. The method is in [stakeholders.md](./stakeholders.md#reviewing) and the steps are in the
+[user guide](./USER_GUIDE.md#reviewing-the-stakeholders-and-the-actors).
+
 ## Seams: where a feature adds a panel
 
 A seam is a place in the shell where a feature's component is mounted. The layout reserves no room
 for one that has nothing to show.
 
-| Component           | Where                                                 | Props                               | Only for             |
-| ------------------- | ----------------------------------------------------- | ----------------------------------- | -------------------- |
-| `ScenarioIntake`    | Entry form, between the question and the evidence     | question, frame, onFrame, disabled  | New projects         |
-| `UrlEvidence`       | Entry form, under the evidence                        | onAdd, disabled, remainingDocuments | `urlIngestion: true` |
-| `StakeholderPanel`  | Env Setup, under the stage heading                    | project, onChanged                  | Guided projects      |
-| `AnalysisPanel`     | Simulation, under the heading, above the run controls | project                             | Guided projects      |
-| `DecisionBriefView` | Report, above the report, full width                  | project                             | Guided projects      |
-| `CriticPanel`       | Report, after the brief                               | project                             | Guided projects      |
+| Component           | Where                                                 | Props                                                   | Only for             |
+| ------------------- | ----------------------------------------------------- | ------------------------------------------------------- | -------------------- |
+| `ScenarioIntake`    | Entry form, between the question and the evidence     | question, frame, onFrame, disabled, documents, useModel | New projects         |
+| `UrlEvidence`       | Entry form, under the evidence                        | onAdd, disabled, remainingDocuments                     | `urlIngestion: true` |
+| `StakeholderPanel`  | Env Setup, under the stage heading                    | project, onChanged                                      | Guided projects      |
+| `AnalysisPanel`     | Simulation, under the heading, above the run controls | project                                                 | Guided projects      |
+| `DecisionBriefView` | Report, above the report, full width                  | project                                                 | Guided projects      |
+| `CriticPanel`       | Report, after the brief                               | project                                                 | Guided projects      |
 
 The Report seams sit in a stack (`.seam-stack`) above the existing report. When the stack has
 content, the heading "Detailed report" appears between it and the report; when it is empty, neither
@@ -308,8 +353,14 @@ and 44px on a phone.
   it leads, a comparison started, stopped and finished in the page, and the brief written there,
   each without a reload or a press of Refresh (these fail if the workspace stops looking for the
   change), Guided and Advanced, the keyboard and focus, a reload, three themes on a laptop and a
-  phone, and the phone's header and stage names. `e2e/lab/shell.spec.ts` covers the first screen, the examples, the modes and the
-  workspace in every theme.
+  phone, and the phone's header and stage names. `e2e/lab/shell.spec.ts` covers the first screen, the
+  examples, the modes and the workspace in every theme.
+- `e2e/lab/stakeholders.spec.ts`: the stakeholder review through the real screens, for three examples, with
+  the stage's own button on the screen at laptop size, on a phone, from the keyboard, and in every theme.
+- `e2e/lab/analysis.spec.ts`: the Simulation stage, its progress, its refusals and what it says and must
+  not say. `e2e/lab/examples.spec.ts`: the flagship demonstrations and a question of the person's own, from
+  the first screen to the exported brief, in the page. `e2e/lab/deep-dive.spec.ts`: the engine's own stages
+  on the approved actors, with the report below the brief.
 
 ## Not done
 

@@ -45,17 +45,17 @@ below). Every route is in [docs/API.md](./docs/API.md); `backend/src/auth/policy
 each one, and `auth/audit-policy.ts` what it records (counts and identifiers, never a question, a
 quote or a name).
 
-| Step                 | Code (`backend/src/`)                                                                                   | Contract (`shared/`)                           | Kept as artifact                  | Rules path                                                                                                                                      | Model path (optional)                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Question to scenario | `scenario/` (`parse`, `rules`, `model`), `routes/scenario.ts`                                           | `scenario.ts`                                  | `scenario`                        | Patterns: an if or when clause, verbs of change, amounts, places, spans of time, named groups                                                   | One validated reading, at most two repairs; if it fails the rules read it and a note says why    |
-| Evidence             | `ingest/url/`, `ingest/pdf.ts`, `knowledge/`, `routes/evidence.ts`                                      | `scenario.ts` (provenance), `types.ts`         | none (the project)                | Files, pasted text, text PDFs, and one public page fetched by the server; numbered passages                                                     | None of its own. Fetched text is untrusted data wherever a model sees it                         |
-| Stakeholders         | `stakeholders/` (`discover`, `rules`, `tone`, `review`), `routes/stakeholders.ts`                       | `stakeholders.ts`                              | `stakeholders`                    | A generic role lexicon read over the passages, cited verbatim quotes, a tone reading for direction of impact                                    | One validated call, every quote checked against its passage; on failure the text is read instead |
-| Actors               | `stakeholders/actors.ts`, `priors.ts`                                                                   | `stakeholders.ts`                              | `actors`                          | A key actor for each key stakeholder, a cohort for the rest, every trait from a documented category prior                                       | Optional reading of each key actor against the evidence; failures leave the priors               |
-| One simulated run    | `simulation/` (`simulate`, `dynamics`, `responders`, `signals`, `response`)                             | `analysis.ts`                                  | none (pure)                       | The only engine here: a seeded, deterministic update of every member's stance each round, with generic responders reacting to aggregate signals | None. A model never decides an actor's behaviour in the repeated runs                            |
-| Comparison           | `analysis/` (`service`, `runset`, `variants`, `findings`, `sensitivity`, `stats`), `routes/analysis.ts` | `analysis.ts`, `analysis-plan.ts`, `signal.ts` | `analysis` (one for each run set) | Baseline, proposed change and each alternative, on the same seeds; findings with Wilson intervals; one-at-a-time sensitivity                    | None                                                                                             |
-| Independent review   | `critics/` (seven critics), `routes/critiques.ts`                                                       | `critique.ts`                                  | `critiques`                       | Fixed rules over the scenario, stakeholders, actors, analysis and brief                                                                         | An optional digest sent to a model for extra objections, validated; it can add and never edit    |
-| Decision brief       | `brief/` (`build`, `sections-*`, `recommend`, `export`), `routes/brief.ts`                              | `brief.ts`                                     | `brief`                           | Assembled from the other artifacts: 17 sections, every statement with one of ten origins and its references                                     | None. `generatedBy` is `rules`                                                                   |
-| Progress             | `lab/progress.ts`                                                                                       | `lab.ts`                                       | read, not kept                    | A summary of which artifacts exist, added to `GET /api/projects/:id` as `lab`                                                                   | None                                                                                             |
+| Step                 | Code (`backend/src/`)                                                                                   | Contract (`shared/`)                           | Kept as artifact                  | Rules path                                                                                                                                                                         | Model path (optional)                                                                                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question to scenario | `scenario/` (`parse`, `rules`, `model`), `routes/scenario.ts`                                           | `scenario.ts`                                  | `scenario`                        | Patterns: an if or when clause, verbs of change, amounts, places, spans of time, named groups                                                                                      | Only when the person chose a model (`useModel`: a Model assisted project) and the server has one: one validated reading, at most two repairs, 170 seconds; if it fails or runs out of time the rules read it and a note says why |
+| Evidence             | `ingest/url/` (`extract`, `boilerplate`), `ingest/pdf.ts`, `knowledge/`, `routes/evidence.ts`           | `scenario.ts` (provenance), `types.ts`         | none (the project)                | Files, pasted text, text PDFs, and one public page fetched by the server (its own text, without its menus and footers); numbered passages                                          | None of its own. Fetched text is untrusted data wherever a model sees it                                                                                                                                                         |
+| Stakeholders         | `stakeholders/` (`discover`, `rules`, `mentions`, `tone`, `review`), `routes/stakeholders.ts`           | `stakeholders.ts`                              | `stakeholders`                    | A generic role lexicon read over the passages (a menu, a list of names or a row of links is not read as a sentence), cited verbatim quotes, a tone reading for direction of impact | Only for a Model assisted project: one validated call (170 seconds), every quote checked against its passage; on failure the text is read instead                                                                                |
+| Actors               | `stakeholders/actors.ts`, `priors.ts`                                                                   | `stakeholders.ts`                              | `actors`                          | A key actor for each key stakeholder, a cohort for the rest, every trait from a documented category prior                                                                          | Only for a Model assisted project: optional reading of each key actor against the evidence; failures leave the priors                                                                                                            |
+| One simulated run    | `simulation/` (`simulate`, `dynamics`, `responders`, `signals`, `response`)                             | `analysis.ts`                                  | none (pure)                       | The only engine here: a seeded, deterministic update of every member's stance each round, with generic responders reacting to aggregate signals                                    | None. A model never decides an actor's behaviour in the repeated runs                                                                                                                                                            |
+| Comparison           | `analysis/` (`service`, `runset`, `variants`, `findings`, `sensitivity`, `stats`), `routes/analysis.ts` | `analysis.ts`, `analysis-plan.ts`, `signal.ts` | `analysis` (one for each run set) | Baseline, proposed change and each alternative, on the same seeds; findings with Wilson intervals; one-at-a-time sensitivity                                                       | None                                                                                                                                                                                                                             |
+| Independent review   | `critics/` (seven critics), `routes/critiques.ts`                                                       | `critique.ts`                                  | `critiques`                       | Fixed rules over the scenario, stakeholders, actors, analysis and brief                                                                                                            | Only for a Model assisted project (`409 MODEL_NOT_AVAILABLE` otherwise): an optional digest sent to a model for extra objections, validated, 170 seconds; it can add and never edit                                              |
+| Decision brief       | `brief/` (`build`, `sections-*`, `recommend`, `export`), `routes/brief.ts`                              | `brief.ts`                                     | `brief`                           | Assembled from the other artifacts: 17 sections, every statement with one of ten origins and its references                                                                        | None. `generatedBy` is `rules`                                                                                                                                                                                                   |
+| Progress             | `lab/progress.ts`                                                                                       | `lab.ts`                                       | read, not kept                    | A summary of which artifacts exist, added to `GET /api/projects/:id` as `lab`                                                                                                      | None                                                                                                                                                                                                                             |
 
 ### The artifact store
 
@@ -64,7 +64,8 @@ revision, payload, created and updated times), made by migration 9 on both diale
 schema in `shared/artifacts.ts`; the code that owns the kind writes it and every read and write is
 checked against the schema, so a new kind needs a schema and no new table. `scenario`, `stakeholders`,
 `actors`, `critiques` and `brief` have one document, under the key `default`; `analysis` has one for each
-run set, keyed by its id, and a project keeps the newest twelve. A write may carry the revision it was
+run set, keyed by its id, and a project keeps the newest twelve (never the one that the brief or the review
+was made from). A write may carry the revision it was
 made from, and a stale writer is refused with `409 ARTIFACT_CONFLICT` instead of overwriting. A
 document may not exceed 2,000,000 bytes. Artifacts go when their project does (a foreign key with
 cascade), a branch copies the `scenario`, and `project_artifacts` is one of the tables that
@@ -102,11 +103,15 @@ numbers do not mean are in [docs/analysis/methodology.md](./docs/analysis/method
 The lab sits in the existing five-stage console for projects made in the guided workflow: the entry form
 has the example picker, **Understand my question** (`components/intake/`) and the public page form
 (`components/evidence/`); **Env Setup** is led by the stakeholder and actor panel
-(`components/stakeholders/`); **Simulation** by the comparison (`components/analysis/`); and
+(`components/stakeholders/`), which is compact (four counts, the one next step, and the list and the
+actors shut until opened, so that the stage's own **Start Simulation** stays on the screen);
+**Simulation** by the comparison (`components/analysis/`) above the engine's **Deep dive (optional)**; and
 **Report** by the decision brief and the critics' panel (`components/brief/`, `components/critics/`)
 above the deep dive's own report. `lab` on the project (from `lab/progress.ts`) decides what can be
 opened: Simulation once there are actors, Report once a comparison has finished, and the next-step bar
-and the twelve-step journey strip read it too. `frontend/src/lib/console.ts` holds those rules.
+and the twelve-step journey strip read it too. `frontend/src/lib/console.ts` holds those rules. The
+workspace reads the project again by itself while a comparison runs and until the brief is written
+(`hooks/useLabRefresh.ts`), so a stage opens when the record allows it, without a reload.
 
 ### Two engines, one cast
 
@@ -788,17 +793,17 @@ Deployment must not infer production readiness from local test success.
 
 What each layer of testing can and cannot establish:
 
-| Layer                      | Where                                                      | Establishes                                                                                                                       | Does **not** establish                         |
-| -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                   | Browser rendering, real network behaviour      |
-| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                     | Anything about model behaviour                 |
-| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling | Quality or safety of a **live** model's output |
-| Browser end-to-end (lab)   | `e2e/lab`                                                  | The scenario-lab shell and whatever else the folder holds, on a rules-mode server of its own                                      | Model behaviour                                |
-| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded 32-step presentation, Report Studio and themes; browser sign-in and access screens against a test identity provider  | A live model; a real Entra tenant              |
-| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows               | The browser, or any model                      |
-| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)    | Quality beyond the counts it reports; scale    |
-| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout/axe metrics at four viewports for design review                                                            | Subjective design quality                      |
-| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                 | Capacity planning                              |
+| Layer                      | Where                                                      | Establishes                                                                                                                                                                                                    | Does **not** establish                            |
+| -------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                                                                                                | Browser rendering, real network behaviour         |
+| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                  | Anything about model behaviour                    |
+| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                              | Quality or safety of a **live** model's output    |
+| Browser end-to-end (lab)   | `e2e/lab`                                                  | The lab through its pages: the shell, the flagship and custom journeys from the question to the brief, the stakeholder review, the comparison, what opens each stage, the deep dive; public pages are fixtures | Model behaviour, or any page on the real internet |
+| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded 32-step presentation, Report Studio and themes; browser sign-in and access screens against a test identity provider                                                                               | A live model; a real Entra tenant                 |
+| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                            | The browser, or any model                         |
+| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                 | Quality beyond the counts it reports; scale       |
+| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout/axe metrics at four viewports for design review                                                                                                                                         | Subjective design quality                         |
+| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                              | Capacity planning                                 |
 
 **The fake provider** (`e2e/support/fake-provider.ts`) implements the Ollama `/api/chat` protocol so the real
 `ModelClient`, orchestrator, persistence and UI run end to end with no credential. It derives each answer from
@@ -809,8 +814,10 @@ any live model; live evidence comes only from `npm run azure:verify` against a r
 
 **Isolation.** Playwright starts an application server of its own for each of the `local`, `model`,
 `journey`, `signin` and `lab` projects (the sign-in one beside a test identity provider, the model one
-beside the fake provider), each with a throwaway data directory, so the suite can never touch a
-developer's own scenarios. The ports and how to move them are in [docs/TESTING.md](./docs/TESTING.md).
+beside the fake provider, and a second lab server for the examples beside a fixture web server whose pages
+the real public page reader fetches, so that no test reaches the internet), each with throwaway data (a
+directory, or memory for the examples server), so the suite can never touch a developer's own scenarios. The
+ports and how to move them are in [docs/TESTING.md](./docs/TESTING.md).
 
 **`RATE_LIMIT_SCALE`.** Production limits are per IP and deliberately tight (for example 8 guided-stage requests
 per minute). The browser suite and the load test multiply them through this validated setting (integer 1–1000,
@@ -845,10 +852,11 @@ What is not built, and what has not been shown. The README keeps a short version
 
 **The lab, as built:**
 
-- **Rules readings are shallow.** The rules read English patterns and role words. They find fewer and
-  plainer stakeholders than a model, can misread a question, and give a group a direction of impact only
-  from its category (a group that bears cost, or benefits) or from the wording of the sentences that name
-  it. Where no group has one the comparison warns that the change cannot move anyone.
+- **Rules readings are shallow.** The rules read English patterns and role words. They find the groups
+  that a text names with a role word and miss the others, can misread a question, and give a group a
+  direction of impact only from its category (a group that bears cost, or benefits) or from the wording of
+  the sentences that name it. Where no group has one the comparison warns that the change cannot move
+  anyone.
 - **Nothing is calibrated.** Every trait is an assumption with an origin, group sizes are weights, and an
   outcome follows from them. It is not evidence about the world.
 - **The lab's documents are not in the JSON snapshot export.** `GET .../export?format=json`
@@ -856,8 +864,10 @@ What is not built, and what has not been shown. The README keeps a short version
   comparisons, critiques and brief are separate documents. A brief is exported on its own
   (`GET .../brief/export`), and `npm run db:copy` carries all of them between databases. A branch copies
   only the scenario.
-- **Retrieved pages are the page.** No JavaScript runs and no PDF, image or sign-in page is read. The
-  record of which pages the server fetched is in the memory of one process for an hour.
+- **Retrieved pages are the page.** No JavaScript runs and no PDF, image or sign-in page is read. Which
+  part of a web page is its own text (its menus, side panels and footers are left out) is a guess from how
+  the page is built, and a note says so. The record of which pages the server fetched is in the memory of
+  one process for an hour.
 - **The two engines can disagree**, and the cross-check says that it compares different engines.
 
 **The deep dive and the platform**, as they stood when they were last measured:

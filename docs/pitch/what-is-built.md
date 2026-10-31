@@ -33,8 +33,10 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   findings, 95% intervals and one-at-a-time sensitivity, seven independent critics that never edit,
   and an answer-first decision brief whose statements carry one of ten origins, with recommendations
   and a validation plan. One public web page can be read as evidence, under an address policy. It runs
-  in rules mode with no model, five worked examples go through it end to end in a test, and none of it
-  has been compared with what really happened.
+  in rules mode with no model; all five worked examples and a question that none of them knows go
+  through it end to end in a test, and the three flagship examples and a question of its own go through
+  the pages in a real browser, with the public pages served from fixtures. None of it has been compared
+  with what really happened.
 - Light, dark and high-contrast themes that follow the device until a choice is made; the contrast of
   every declared text colour is computed in each theme, and axe-core is run on the demonstration in each.
 - Report Studio: a person opens the generated report as a copy and edits it section by section, every

@@ -100,26 +100,26 @@ The scripts below name buttons and stages as the interface gives them (**Use thi
 reading the text** or **with the model**), **Approve stakeholders and create actors**, **Compare
 scenarios**, **Run independent review**, **Generate decision brief**). If a label has moved in the build you
 are showing, the step is the same. The [demo guide](../README.md) has the ten-minute script across the
-flagship examples. A journey test that runs every example through the real interface
-(`e2e/lab/examples.spec.ts`) does not exist, so rehearse the example you will show before you rely on a
-script.
+flagship examples. A browser test (`e2e/lab/examples.spec.ts`) takes the three flagship examples and a
+question of its own through the real pages, with the public pages served from fixtures; rehearse the
+example you will show before you rely on a script.
 
 ## Screens and what to point at
 
 The order is the order of the product. Each row is something to show, in the words you can use.
 
-| Step                  | Point at                                                                                                                 | What it proves                                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| Question and evidence | The question, then the document list: each document is labelled as a sample with the licence `Synthetic, CC0`.           | Evidence has a provenance, and invented evidence says so.                                                          |
-| Scenario understood   | The structured form read from the question: decision, changes, baseline, alternatives, assumptions, ambiguities.         | The question is made explicit and editable before anything runs. Assumptions say who made them: you or the system. |
-| Evidence ledger       | **Conflicts between sources**: two quotes side by side, marked **Different figures**.                                    | Swarm does not choose a side. A person confirms the conflict or dismisses it.                                      |
-| Stakeholders          | The list grouped by kind, each with a cited quote and an uncertainty level; the prompt about roles nobody was found for. | Stakeholders are discovered from the evidence, with the passage shown, not asserted.                               |
-| Actors                | The trait table: each trait carries a badge for where it came from (evidence, assumption, you).                          | Synthetic actors are not people. Every number they run on is an assumption you can edit.                           |
-| Compare scenarios     | The spread across seeded runs for the baseline and each alternative; "holds in N of 30 seeded runs" with its interval.   | One run is never the answer. Repeatability is measured, not asserted.                                              |
-| Sensitivity           | The assumptions the result moves with, and which of them have no evidence behind them.                                   | The result's weak points are on the screen.                                                                        |
-| Second-order effects  | The chain read from the representative run ("because ... then ...").                                                     | Competitor, partner and regulator reactions come from generic rules, not a script.                                 |
-| Independent review    | One objection, its basis, and the response form (respond, accept, dispute).                                              | Challenge stays visible. A critic never edits the analysis.                                                        |
-| Decision brief        | The executive answer with origin chips, then **Assumptions**, **Uncertainty**, **Validation plan**, **Limitations**.     | Every statement names where it came from, and the brief says what to check in the real world.                      |
+| Step                  | Point at                                                                                                                                                                                                                                       | What it proves                                                                                                     |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Question and evidence | The question, then the document list: each document is labelled as a sample with the licence `Synthetic, CC0`.                                                                                                                                 | Evidence has a provenance, and invented evidence says so.                                                          |
+| Scenario understood   | The structured form read from the question: decision, changes, baseline, alternatives, assumptions, ambiguities.                                                                                                                               | The question is made explicit and editable before anything runs. Assumptions say who made them: you or the system. |
+| Evidence ledger       | Once the deep dive's report exists, the **Evidence ledger** in the Report stage: **Conflicts between sources**, two quotes side by side, marked **Different figures**. The brief lists the same conflicts under **Evidence base and quality**. | Swarm does not choose a side. A person confirms the conflict or dismisses it.                                      |
+| Stakeholders          | The four counts, one row opened to its cited quote and uncertainty level; the prompt about roles nobody was found for.                                                                                                                         | Stakeholders are discovered from the evidence, with the passage shown, not asserted.                               |
+| Actors                | The trait table: each trait carries a badge for where it came from (evidence, assumption, you).                                                                                                                                                | Synthetic actors are not people. Every number they run on is an assumption you can edit.                           |
+| Compare scenarios     | The spread across seeded runs for the baseline and each alternative; "holds in N of 30 seeded runs" with its interval.                                                                                                                         | One run is never the answer. Repeatability is measured, not asserted.                                              |
+| Sensitivity           | The assumptions the result moves with, and which of them have no evidence behind them.                                                                                                                                                         | The result's weak points are on the screen.                                                                        |
+| Second-order effects  | The chain read from the representative run ("because ... then ...").                                                                                                                                                                           | Competitor, partner and regulator reactions come from generic rules, not a script.                                 |
+| Independent review    | One objection, its basis, and the response form (respond, accept, dispute).                                                                                                                                                                    | Challenge stays visible. A critic never edits the analysis.                                                        |
+| Decision brief        | The executive answer with origin chips, then **Assumptions**, **Uncertainty**, **Validation plan**, **Limitations**.                                                                                                                           | Every statement names where it came from, and the brief says what to check in the real world.                      |
 
 In rules mode the interface says so at each step (for example, that stakeholders were found by
 reading the text for roles, and that outcomes are a mechanical consequence of declared
@@ -192,14 +192,15 @@ What has been checked, and what has not: the packs pass their tests, and `backen
 walks every example, and a question that no example knows, from the question to the brief through the
 routes the pages use, in rules mode with no model, checking that it completes and that the brief carries
 its origins, recommendations and validation plan. The scenario, stakeholder, analysis, critic and brief
-steps each have a rules path. No browser test walks the examples through the pages, so rehearse the one
-you will show.
+steps each have a rules path. `e2e/lab/examples.spec.ts` walks the three flagship examples and a question of
+its own through the pages in a real browser, with fixtures for the public pages, so rehearse the example you
+will show.
 
 - Leave `AI_PROVIDER` as `none` (the default), or choose local rules when you create the project.
   The header chip reads `LOCAL / RULES MODE`.
 - Intake, stakeholders, actors, runs, review and the brief all have a rules path. Each says it was
-  produced by rules. Expect fewer and plainer stakeholders, a mechanical simulation and a brief
-  assembled from data, not worded by a model.
+  produced by rules. Expect the groups that a text names with a role word, a mechanical simulation and a
+  brief assembled from data, not worded by a model.
 - In the detailed report, the existing evidence ledger's sufficiency banner can read "insufficient"
   in rules mode, because rules mode classifies no statements. Say that it is informative only with a
   model; see the [known limits of the demonstration packs](../README.md#known-limits-of-these-demos).

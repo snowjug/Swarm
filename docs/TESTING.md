@@ -33,23 +33,23 @@ changing it); on macOS and Linux write `npm`. Run a focused part of the unit sui
 
 ## Test layers at a glance
 
-| Layer                    | Command                                | Where                                                                        | Establishes                                                                                         | Does **not** establish                              |
-| ------------------------ | -------------------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Types, lint, unit, build | `npm run check`                        | `backend/test`, `frontend/src`, `evaluation/test`, `scripts/**` tests        | Business rules, contracts, state machines, security boundaries, the lab pipeline on the real engine | Browser rendering, real networks, any live model    |
-| Formatting               | `npm run format:check`                 | The whole repository, documents included                                     | Prettier formatting of code and docs                                                                | Anything about behaviour                            |
-| Unit suite on PostgreSQL | `npm run test:postgres`                | The same files, with every in-memory database made a PostgreSQL one (PGlite) | The stores behave the same on both dialects                                                         | A deployed PostgreSQL server                        |
-| Browser, `local`         | `npm run test:e2e`                     | `e2e/local`                                                                  | The engine's whole journey, errors, responsive layout, axe, keyboard                                | Model behaviour                                     |
-| Browser, `model`         | `npm run test:e2e`                     | `e2e/model`, against `e2e/support/fake-provider.ts`                          | Orchestration of the model path, budget, grounding and chapter regeneration                         | The quality or safety of a live model               |
-| Browser, `journey`       | `npm run test:e2e`                     | `e2e/journey`, on a server holding the recorded Larkholm demonstration       | The 32-step presentation, Report Studio, the three themes                                           | A live model (see `npm run demo:journey`)           |
-| Browser, `signin`        | `npm run test:e2e`                     | `e2e/signin`, on `backend/test/support/signin-e2e-server.ts`                 | Browser sign-in and access management against a test identity provider                              | A real Microsoft Entra tenant                       |
-| Browser, `lab`           | `npm run test:e2e`                     | `e2e/lab`, on a rules-mode server of its own                                 | The scenario-lab shell and whatever else `e2e/lab` holds, in a real browser                         | Model behaviour                                     |
-| Live presentation        | `npm run demo:journey`                 | `e2e/journey/demo-journey.spec.ts` against a server you started              | The recorded presentation against the real model that will be shown                                 | Anything in the lab, which it does not visit        |
-| Offline evaluation       | `npm run eval`                         | `evaluation/`                                                                | The gate, retrieval, conflicts and injection warnings against labelled sets                         | Anything on real documents                          |
-| Mutation checks          | `npm run mutation:security`            | `scripts/mutation`                                                           | That the tests for security rules fail when a rule is broken                                        | That the rules are right                            |
-| Load and crash recovery  | `npm run test:load`, `test:resilience` | `scripts/`                                                                   | Latency, back-pressure, memory and recovery on this machine                                         | Capacity of any deployment                          |
-| UI audit                 | `npm run audit:ui`                     | `scripts/ui-audit.mjs`                                                       | Screenshots and layout and axe metrics at four viewports                                            | Design quality                                      |
-| Live Azure verification  | `npm run azure:verify`                 | `scripts/azure`                                                              | Fifteen checks of the whole engine journey against your own deployment                              | Quality beyond the counts it reports                |
-| Secret scan              | `npm run scan:secrets`                 | `scripts/secret-scan.mjs`                                                    | No credential shape in any reachable commit or in the working tree                                  | That none exists in a form the patterns do not know |
+| Layer                    | Command                                | Where                                                                          | Establishes                                                                                                                                                                         | Does **not** establish                              |
+| ------------------------ | -------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Types, lint, unit, build | `npm run check`                        | `backend/test`, `frontend/src`, `evaluation/test`, `scripts/**` tests          | Business rules, contracts, state machines, security boundaries, the lab pipeline on the real engine                                                                                 | Browser rendering, real networks, any live model    |
+| Formatting               | `npm run format:check`                 | The whole repository, documents included                                       | Prettier formatting of code and docs                                                                                                                                                | Anything about behaviour                            |
+| Unit suite on PostgreSQL | `npm run test:postgres`                | The same files, with every in-memory database made a PostgreSQL one (PGlite)   | The stores behave the same on both dialects                                                                                                                                         | A deployed PostgreSQL server                        |
+| Browser, `local`         | `npm run test:e2e`                     | `e2e/local`                                                                    | The engine's whole journey, errors, responsive layout, axe, keyboard                                                                                                                | Model behaviour                                     |
+| Browser, `model`         | `npm run test:e2e`                     | `e2e/model`, against `e2e/support/fake-provider.ts`                            | Orchestration of the model path, budget, grounding and chapter regeneration                                                                                                         | The quality or safety of a live model               |
+| Browser, `journey`       | `npm run test:e2e`                     | `e2e/journey`, on a server holding the recorded Larkholm demonstration         | The 32-step presentation, Report Studio, the three themes                                                                                                                           | A live model (see `npm run demo:journey`)           |
+| Browser, `signin`        | `npm run test:e2e`                     | `e2e/signin`, on `backend/test/support/signin-e2e-server.ts`                   | Browser sign-in and access management against a test identity provider                                                                                                              | A real Microsoft Entra tenant                       |
+| Browser, `lab`           | `npm run test:e2e`                     | `e2e/lab`, on rules-mode servers of their own, one with a web of fixture pages | The lab through its pages: the shell, the flagship and custom journeys from the question to the brief, the stakeholder review, the comparison, what opens each stage, the deep dive | Model behaviour, or any page on the real internet   |
+| Live presentation        | `npm run demo:journey`                 | `e2e/journey/demo-journey.spec.ts` against a server you started                | The recorded presentation against the real model that will be shown                                                                                                                 | Anything in the lab, which it does not visit        |
+| Offline evaluation       | `npm run eval`                         | `evaluation/`                                                                  | The gate, retrieval, conflicts and injection warnings against labelled sets                                                                                                         | Anything on real documents                          |
+| Mutation checks          | `npm run mutation:security`            | `scripts/mutation`                                                             | That the tests for security rules fail when a rule is broken                                                                                                                        | That the rules are right                            |
+| Load and crash recovery  | `npm run test:load`, `test:resilience` | `scripts/`                                                                     | Latency, back-pressure, memory and recovery on this machine                                                                                                                         | Capacity of any deployment                          |
+| UI audit                 | `npm run audit:ui`                     | `scripts/ui-audit.mjs`                                                         | Screenshots and layout and axe metrics at four viewports                                                                                                                            | Design quality                                      |
+| Live Azure verification  | `npm run azure:verify`                 | `scripts/azure`                                                                | Fifteen checks of the whole engine journey against your own deployment                                                                                                              | Quality beyond the counts it reports                |
+| Secret scan              | `npm run scan:secrets`                 | `scripts/secret-scan.mjs`                                                      | No credential shape in any reachable commit or in the working tree                                                                                                                  | That none exists in a form the patterns do not know |
 
 ## The scenario lab
 
@@ -57,18 +57,19 @@ Every piece of the lab has its own unit tests, and one test walks them together.
 rules engine with no model, and none reaches the network (a test that reads a page serves it from this
 machine).
 
-| What                                 | Files                                                                                                                                                                                                                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reading a question into a scenario   | `scenario-parser.test.ts`, `scenario-model.test.ts`, `scenario-routes.test.ts`, `frontend/src/components/intake/ScenarioIntake.test.tsx`, `frontend/src/lib/intake.test.ts`                                                                                               |
-| Public web evidence                  | `url-policy.test.ts`, `url-fetcher.test.ts`, `url-robots.test.ts`, `url-extract.test.ts`, `url-normalize.test.ts`, `url-provenance.test.ts`, `url-route.test.ts`, `url-config.test.ts`, `url-upload.test.ts`, `frontend/src/components/evidence/UrlEvidence.test.tsx`     |
-| Stakeholders and actors              | `stakeholders-discover.test.ts`, `-tone`, `-review`, `-actors`, `-environment`, `-routes`, `-packs`, `-neutrality` and `-docs` (all `stakeholders-*.test.ts`), `frontend/src/components/stakeholders/*.test.ts(x)`                                                        |
-| The population simulator             | `simulation-engine.test.ts`, `-calibration`, `-chain`, `-random`, `-response` and `-neutrality` (all `simulation-*.test.ts`)                                                                                                                                              |
-| Repeated runs, findings, sensitivity | `analysis-runset.test.ts`, `analysis-findings.test.ts`, `analysis-sensitivity.test.ts`, `analysis-stats.test.ts`, `analysis-routes.test.ts`, `signal.test.ts`, `frontend/src/components/analysis/AnalysisPanel.test.tsx`                                                  |
-| Independent critics                  | `critics-rules.test.ts`, `critics-model.test.ts`, `critiques-routes.test.ts`, `frontend/src/components/critics/CriticPanel.test.tsx`                                                                                                                                      |
-| The decision brief                   | `brief-build.test.ts`, `brief-rules.test.ts`, `brief-signal.test.ts`, `brief-export.test.ts`, `brief-routes.test.ts`, `brief-neutrality.test.ts`, `frontend/src/components/brief/DecisionBriefView.test.tsx`                                                              |
-| Storage and progress                 | `artifacts.test.ts` (the store, both dialects, copy and restore), `lab-progress.test.ts`, `lab-fixtures.test.ts`                                                                                                                                                          |
-| The whole path                       | `lab-pipeline.test.ts` (comparison, review and brief joined by the real engine) and `lab-journey.test.ts` (every route a person uses, from the question to the brief, for each example and for a question that no example knows, then repeated to show the same findings) |
-| The example packs                    | `example-packs.test.ts` (the readable copies match `shared/examples`; which source conflicts the ledger finds) and `frontend/src/lib/examples.test.ts` (sizes, labels, provenance, nothing predicted)                                                                     |
+| What                                 | Files                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reading a question into a scenario   | `scenario-parser.test.ts`, `scenario-model.test.ts`, `scenario-routes.test.ts`, `frontend/src/components/intake/ScenarioIntake.test.tsx`, `frontend/src/lib/intake.test.ts`                                                                                                                                     |
+| Public web evidence                  | `url-policy.test.ts`, `url-fetcher.test.ts`, `url-robots.test.ts`, `url-extract.test.ts`, `url-normalize.test.ts`, `url-provenance.test.ts`, `url-route.test.ts`, `url-config.test.ts`, `url-upload.test.ts`, `frontend/src/components/evidence/UrlEvidence.test.tsx`                                           |
+| Stakeholders and actors              | `stakeholders-discover.test.ts`, `-tone`, `-review`, `-actors`, `-environment`, `-routes`, `-packs`, `-neutrality`, `-noise`, `-speed` and `-docs` (all `stakeholders-*.test.ts`), `frontend/src/components/stakeholders/*.test.ts(x)`                                                                          |
+| The population simulator             | `simulation-engine.test.ts`, `-calibration`, `-chain`, `-random`, `-response` and `-neutrality` (all `simulation-*.test.ts`)                                                                                                                                                                                    |
+| Repeated runs, findings, sensitivity | `analysis-runset.test.ts`, `analysis-findings.test.ts`, `analysis-sensitivity.test.ts`, `analysis-stats.test.ts`, `analysis-routes.test.ts`, `signal.test.ts`, `frontend/src/components/analysis/AnalysisPanel.test.tsx`                                                                                        |
+| Independent critics                  | `critics-rules.test.ts`, `critics-model.test.ts`, `critiques-routes.test.ts`, `frontend/src/components/critics/CriticPanel.test.tsx`                                                                                                                                                                            |
+| The decision brief                   | `brief-build.test.ts`, `brief-rules.test.ts`, `brief-text.test.ts`, `brief-signal.test.ts`, `brief-export.test.ts`, `brief-routes.test.ts`, `brief-neutrality.test.ts`, `frontend/src/components/brief/DecisionBriefView.test.tsx`                                                                              |
+| Storage and progress                 | `artifacts.test.ts` (the store, both dialects, copy and restore), `lab-progress.test.ts`, `lab-fixtures.test.ts`                                                                                                                                                                                                |
+| The workspace around the lab         | `frontend/src/lib/console.test.ts` (what opens each stage, what it says when locked, the journey, the next step), `ConsoleWorkspace.test.tsx`, `ConsoleAccessibility.test.tsx`, and `frontend/src/hooks/useLabRefresh.test.ts` and `useAnalysis.test.ts` (the page reads what the server did, without a reload) |
+| The whole path                       | `lab-pipeline.test.ts` (comparison, review and brief joined by the real engine) and `lab-journey.test.ts` (every route a person uses, from the question to the brief, for each example and for a question that no example knows, then repeated to show the same findings)                                       |
+| The example packs                    | `example-packs.test.ts` (the readable copies match `shared/examples`; which source conflicts the ledger finds) and `frontend/src/lib/examples.test.ts` (sizes, labels, provenance, nothing predicted)                                                                                                           |
 
 Three tests are guards rather than checks of behaviour. `simulation-neutrality`, `stakeholders-neutrality`
 and `brief-neutrality` read the source of the simulator, the stakeholder step and the brief and fail if
@@ -76,16 +77,13 @@ a word that belongs to one market, product or industry appears in it, so an exam
 input. `readme.test.ts` fails if the README names a script, a variable, a link or an image that does
 not exist, or claims what the evidence does not support.
 
-Browser coverage of the lab is the `lab` project, which runs `e2e/lab/*.spec.ts` against a built
-rules-mode server (`AI_PROVIDER=none`) of its own; list that folder for what it holds. When this was
-written it held `shell.spec.ts`: the first screen says what Swarm answers and what it is not, the
-example picker fills the form and moves focus, Guided and Advanced keep their choice, the five stage
-names carry their plain-words help, the journey shows where the person is without acting as
-navigation, and the first screen and a project's workspace pass axe in each theme at a desktop and at
-a phone width, with reduced motion respected; and `public-page.spec.ts`: **Fetch page** answers in
-place, by the button and by Enter, without submitting or emptying the entry form around it. The whole
-path from the question to the brief is also walked, through the routes the pages use, by
-`lab-journey.test.ts`; no browser test walks all of it yet.
+Browser coverage of the lab is the `lab` project, which runs `e2e/lab/*.spec.ts` against built,
+rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its seven
+specs are described under [End-to-end, accessibility, security and load
+evidence](#end-to-end-accessibility-security-and-load-evidence). `examples.spec.ts` walks the flagship
+demonstrations and a question that no example knows, from the first screen to the exported brief, through
+the pages; `lab-journey.test.ts` walks the same path through the routes the pages use, on the real engine
+and with no browser.
 
 ## Mutation checks on security code
 
@@ -339,21 +337,62 @@ directory (never your own data):
   the last owner; a colleague added to one project sees that project and no other and is offered no control;
   an administrator is offered no way to touch an owner; the dialogs pass axe in each theme on a desktop and a
   phone.
-- **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), on a server of its own, so that it
-  needs no model and neither depends on nor changes what the other projects leave behind. `shell.spec.ts`
-  is the shell around the lab's features: the first screen (one `h1`, "What could happen if…?", the
-  sentence Swarm is never to be read without, the eight-step path, the question field in the first
-  viewport), the example picker (never empty; choosing fills the question and the evidence and moves
-  focus; keyboard only), Guided and Advanced (the choice is kept, an unknown stored value is ignored),
-  the workspace (five stage names with their plain-words help, the twelve-step journey that shows where
-  the person is and is not navigation, the project tools, the report stage open for the brief and the
-  critics), and the first screen and a project's workspace under axe, contrast, target-size and overflow
-  checks in each theme at 1440 and at 390 px, plus reduced motion. `public-page.spec.ts` fetches two
-  refused addresses (so it needs no network), by the button and by Enter, because **Fetch page** sits
-  inside the entry form and a form nested in a form is not submitted by a real browser the way a
-  page's handlers expect: the answer must appear in place, the entry form must keep its question,
-  nothing else may be posted and the page must not navigate. Add a lab spec to this folder and it
-  runs here.
+- **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), through its pages, so that it needs no
+  model. The servers are the real application with throwaway data, so the project neither depends on nor
+  changes what the others leave behind, and no test in it reaches a page on the real internet. Seven specs:
+  - `shell.spec.ts` — the shell around the lab's features: the first screen (one `h1`, "What could happen
+    if…?", the sentence Swarm is never to be read without, the eight-step path, the question field in the
+    first viewport), the example picker (never empty; choosing fills the question and the evidence and moves
+    focus; keyboard only), Guided and Advanced (the choice is kept, an unknown stored value is ignored), the
+    workspace (five stage names with their plain-words help, the twelve-step journey that shows where the
+    person is and is not navigation, the project tools, the report stage open for the brief and the critics),
+    and the first screen and a project's workspace under axe, contrast, target-size and overflow checks in
+    each theme at 1440 and at 390 px, plus reduced motion.
+  - `public-page.spec.ts` — **Fetch page** answers in place. It fetches two refused addresses (so it needs no
+    network), by the button and by Enter, because the control sits inside the entry form and a form nested in
+    a form is not submitted by a real browser the way a page's handlers expect: the answer must appear in
+    place, the entry form must keep its question, nothing else may be posted and the page must not navigate.
+  - `journey-gates.spec.ts` — what opens each stage. Projects are made through the routes at each point of the
+    way (nothing, graph built, stakeholders proposed, approved, actors, a comparison stopped, finished,
+    reviewed, brief written) and read in the browser: what is locked and why, the path, the next step and
+    where it leads, a comparison started, stopped and finished in the page, and the brief written there, each
+    without a reload or a press of Refresh (these fail if the workspace stops looking for the change), Guided
+    and Advanced, the keyboard and focus, a reload, and three themes on a laptop and a phone.
+  - `stakeholders.spec.ts` — the compact stakeholder review through the real screens, for three examples, from
+    the first page to the actors: stakeholders found with the passage each came from (every quote is checked
+    to be in the example's own text), a row opened, edited, added, removed and restored, merged and unmerged,
+    the list shut so that **Start Simulation** stays on the screen, approval, the actors with every trait
+    labelled by its origin, one changed from the keyboard and kept after a reload. It also runs on a phone and
+    a laptop, from the keyboard alone, and in each theme, with axe, overflow, text and target checks in every
+    state.
+  - `analysis.spec.ts` — the Simulation stage as a person meets it, on seeded projects: the comparison for
+    three examples and for a question of the person's own, what it says and must not say (a change that
+    cannot move anyone shows only chance), the same numbers when it is repeated on the same seeds, progress,
+    cancelling and no partial result, a second or an oversized request refused in a sentence, a comparison that
+    the server did not finish (the spec starts a server of its own on a free port, ends it mid-run and starts
+    it again, and checks that the page says it cannot read the progress and then that the run was
+    interrupted), and the brief and the review made from the newest comparison and called out of date by a
+    newer one, at desktop and phone width in each theme.
+  - `examples.spec.ts` — the completion test. The same pipeline, through the pages, serves the three
+    flagship examples and a question that none of them knows (a congestion charge, with pasted notes and a
+    public page), each from the first screen to the exported brief. It checks that the four journeys make the
+    same calls and find different stakeholders from different evidence, that a question and its evidence reach
+    a labelled brief without a scenario read, what **Add a public web page** says to twelve addresses it will
+    not or cannot read (a loopback or private address, the cloud metadata service, a file, a password in the
+    address, names that lead inside a network, a page that robots.txt forbids, a page that is not there, a
+    site that does not exist) in words, without ever connecting to a private address, with a page that tries
+    to run something or to instruct the analysis, and with a page the person then edits (no longer called a
+    retrieved page), that editing a source changes the groups found, that the sentences of the comparison and
+    the brief say nothing about what will happen and give no rate that is not the simulation's, and that the
+    workspace opens **Report** by itself when the comparison finishes. It runs on its own server,
+    `backend/test/support/lab-e2e-server.ts`: the real application in rules mode with its data in memory, and
+    the real public page reader with every check it has. Only two things around the reader are replaced, as a
+    network lab replaces them: the lookup of a name is a table, and the connection goes to a fixture web
+    server on this machine. Any other host, and every https request, fails, so the process cannot reach the
+    network whatever the checks let through.
+  - `deep-dive.spec.ts` — the engine's own stages (**Prepare environment**, **Start Simulation**, **Generate
+    Report**) run on the key actors a person approved, with no model, and the report they write sits below the
+    decision brief.
 
 The suite sets `RATE_LIMIT_SCALE=100`; the production limiter itself is tested in
 `backend/test/security.test.ts` (including that a genuinely rate-limited request
@@ -365,26 +404,31 @@ Playwright starts every server in `playwright.config.ts` even when you select on
 servers are listed once for the whole run. Each listens on a port that an environment variable can move,
 which is how two runs on one machine, or a run beside your own server, avoid each other:
 
-| Variable              | Default                | What listens there                                                                                                              |
-| --------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `E2E_LOCAL_PORT`      | 3111                   | The application for the `local` project (rules mode)                                                                            |
-| `E2E_MODEL_PORT`      | 3112                   | The application for the `model` project (`AI_PROVIDER=ollama`, the fake)                                                        |
-| `E2E_JOURNEY_PORT`    | 3113                   | The application for the `journey` project (rules mode, the recording)                                                           |
-| `E2E_SIGNIN_PORT`     | 3114                   | The application for the `signin` project, with sign-in switched on                                                              |
-| `E2E_SIGNIN_IDP_PORT` | 3115                   | The test identity provider that the `signin` project signs in against                                                           |
-| `E2E_LAB_PORT`        | 3116                   | The application for the `lab` project (rules mode)                                                                              |
-| `E2E_PROVIDER_PORT`   | 11999                  | The fake Ollama-protocol provider that the `model` server talks to                                                              |
-| `E2E_DATA_ROOT`       | a new temporary folder | The folder that holds one throwaway data directory for each server (created for the run, and inherited by Playwright's workers) |
+| Variable                   | Default                | What listens there                                                                                                              |
+| -------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `E2E_LOCAL_PORT`           | 3111                   | The application for the `local` project (rules mode)                                                                            |
+| `E2E_MODEL_PORT`           | 3112                   | The application for the `model` project (`AI_PROVIDER=ollama`, the fake)                                                        |
+| `E2E_JOURNEY_PORT`         | 3113                   | The application for the `journey` project (rules mode, the recording)                                                           |
+| `E2E_SIGNIN_PORT`          | 3114                   | The application for the `signin` project, with sign-in switched on                                                              |
+| `E2E_SIGNIN_IDP_PORT`      | 3115                   | The test identity provider that the `signin` project signs in against                                                           |
+| `E2E_LAB_PORT`             | 3116                   | The application for the `lab` project (rules mode)                                                                              |
+| `E2E_LAB_WEB_PORT`         | 3117                   | The application for `e2e/lab/examples.spec.ts`: rules mode, data in memory, and a web of fixture pages to fetch                 |
+| `E2E_LAB_WEB_FIXTURE_PORT` | 3118                   | The fixture web server on this machine that the connections to those pages end on                                               |
+| `E2E_PROVIDER_PORT`        | 11999                  | The fake Ollama-protocol provider that the `model` server talks to                                                              |
+| `E2E_DATA_ROOT`            | a new temporary folder | The folder that holds one throwaway data directory for each server (created for the run, and inherited by Playwright's workers) |
+
+`E2E_LAB_WEB_URL` and `E2E_LAB_WEB_FIXTURE_URL` are worked out from the two ports above for the workers (the
+examples spec reads them), and you do not set them.
 
 ```powershell
 npm.cmd run build   # the servers run the built output in dist/
 $env:E2E_LOCAL_PORT = 3280; $env:E2E_MODEL_PORT = 3281; $env:E2E_JOURNEY_PORT = 3282
 $env:E2E_SIGNIN_PORT = 3283; $env:E2E_SIGNIN_IDP_PORT = 3284; $env:E2E_LAB_PORT = 3285
-$env:E2E_PROVIDER_PORT = 3286
+$env:E2E_LAB_WEB_PORT = 3286; $env:E2E_LAB_WEB_FIXTURE_PORT = 3287; $env:E2E_PROVIDER_PORT = 3288
 npx.cmd playwright test --project=lab e2e/lab/shell.spec.ts
 ```
 
-Set all seven ports, not only the one for your project, when another run may be using the defaults:
+Set all nine ports, not only the one for your project, when another run may be using the defaults:
 a port that is already taken stops the whole run before a test starts, because the config does not reuse
 a server that is already up. `PW_CHANNEL=msedge` reuses the installed Edge, and `CI` adds one retry and
 the HTML report.
@@ -494,6 +538,8 @@ not been recorded again. Re-run the commands for today's result; none of this sh
 output is correct, that any scenario predicts the real world, that a manual screen-reader review has
 been done (it has not), that sign-in works against a real Entra tenant, or that Swarm is ready for
 production.
+
+<!-- TEST COUNTS: the next three rows (npm run check, npm run test:e2e, npm run test:postgres) hold the recorded counts. Replace them after a full run on the integrated tree, and say which tree and date. -->
 
 | Check                                                    | Command                     | Result recorded then                                                                                                                                                                                                                                                                                                                |
 | -------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

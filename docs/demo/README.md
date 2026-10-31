@@ -31,7 +31,9 @@ Allow ten minutes.
 2. **Say which mode you are in.** With no provider configured the header chip reads
    `LOCAL / RULES MODE`: nothing leaves the machine and every step is deterministic. With a provider, the
    chip names it and reads `connected` only after a real request has succeeded (**Verify connection**
-   makes one). Rules mode is the one this script is written for.
+   makes one). Rules mode is the one this script is written for: leave **Local rules** selected under **Run
+   settings**, so that **Understand my question** is read by rules on this server and the question goes
+   nowhere else. With **Model assisted** the question is sent to the provider.
 3. **Rehearse each demo once end to end.** In rules mode every step takes seconds. The script contains
    no result, because results depend on the run: read the real screen and quote that.
 4. **Decide about the network.** Only fetching a public page needs it, and the Swarm server does the
@@ -49,17 +51,17 @@ not. The labels are the ones in the interface (**Use this example**, **Understan
 this scenario**, **Build Graph**, **Find stakeholders by reading the text**, **Approve stakeholders
 and create actors**, **Compare scenarios**, **Generate decision brief**, **Run independent review**).
 
-| Time          | Where                                 | Click                                                                                                                              | Point at                                                                                                                                                                                    |
-| ------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0:00 to 0:45  | First screen                          | Nothing                                                                                                                            | The one-line question, the sentence about not predicting, the eight-step path                                                                                                               |
-| 0:45 to 1:45  | Demo 1: the question and the evidence | **Use this example** on **Copilot in Teams**, then **Understand my question**, **Use this scenario**                               | The five documents and their provenance (**provenance**); the scenario form: baseline, alternatives, who made each assumption (**assumptions**)                                             |
-| 1:45 to 3:15  | Demo 1: stakeholders and actors       | **Build Graph**, then **Env Setup**, **Find stakeholders by reading the text**, then **Approve stakeholders and create actors**    | How they were found, the cited quotes, the uncertainty, the kinds nobody was found for (**uncertainty**); each trait's origin badge                                                         |
-| 3:15 to 4:45  | Demo 1: the comparison                | **Simulation**, **Compare scenarios**                                                                                              | Baseline against change; what held across the seeded runs, with its interval and class; the assumptions the result moves with; one chain of second-order effects (**second-order effects**) |
-| 4:45 to 6:15  | Demo 1: the brief and the review      | **Report**, **Generate decision brief**, then **Run independent review**                                                           | The executive answer and its caveat; the origin chip on each statement; the validation plan (**validation plan**); one objection and its basis (**the independent critic**)                 |
-| 6:15 to 7:15  | Demo 2: a different subject           | **History**, open the prepared project; or **Use this example** on **Regional cloud price change** and **Understand my question**  | The open points the question leaves ($1 with no unit, date or scope); the different stakeholders; "nothing in the engine knows AWS"                                                         |
-| 7:15 to 8:45  | Demo 3: a public page                 | **Use this example** on **Online store: delivery and checkout**; in **Add a public web page**, **Fetch page**, **Add as evidence** | The title, site, size and retrieval time; the document's own label as a retrieved page; then type a private address and read the refusal                                                    |
-| 8:45 to 9:30  | Demo 4: the audience's question       | Type it; add a public page; **Understand my question**                                                                             | What the reading made of it; how thin evidence shows as gaps and a warning, not as confident output                                                                                         |
-| 9:30 to 10:00 | Close                                 | **Markdown**, **JSON** or **Printable** on the brief                                                                               | The limitations section; "It supports a person's analysis. It does not make the decision."                                                                                                  |
+| Time          | Where                                 | Click                                                                                                                                                                     | Point at                                                                                                                                                                                    |
+| ------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0:00 to 0:45  | First screen                          | Nothing                                                                                                                                                                   | The one-line question, the sentence about not predicting, the eight-step path                                                                                                               |
+| 0:45 to 1:45  | Demo 1: the question and the evidence | **Use this example** on **Copilot in Teams**, then **Understand my question**, **Use this scenario**                                                                      | The five documents and their provenance (**provenance**); the scenario form: baseline, alternatives, who made each assumption (**assumptions**)                                             |
+| 1:45 to 3:15  | Demo 1: stakeholders and actors       | **Build Graph**, then **Env Setup**, **Find stakeholders by reading the text**, open one row, then **Approve stakeholders and create actors** and **Review the N actors** | The four counts and the note on how they were found; a row opened to its cited quotes; the uncertainty; the kinds nobody was found for (**uncertainty**); each trait's origin badge         |
+| 3:15 to 4:45  | Demo 1: the comparison                | **Simulation**, **Compare scenarios**                                                                                                                                     | Baseline against change; what held across the seeded runs, with its interval and class; the assumptions the result moves with; one chain of second-order effects (**second-order effects**) |
+| 4:45 to 6:15  | Demo 1: the brief and the review      | **See the decision brief** (the Report stage unlocks by itself), **Generate decision brief**, then **Run independent review**                                             | The executive answer and its caveat; the origin chip on each statement; the validation plan (**validation plan**); one objection and its basis (**the independent critic**)                 |
+| 6:15 to 7:15  | Demo 2: a different subject           | **History**, open the prepared project; or **Use this example** on **Regional cloud price change** and **Understand my question**                                         | The open points the question leaves ($1 with no unit, date or scope); the different stakeholders; "nothing in the engine knows AWS"                                                         |
+| 7:15 to 8:45  | Demo 3: a public page                 | **Use this example** on **Online store: delivery and checkout**; in **Add a public web page**, **Fetch page**, **Add as evidence**                                        | The title, site, size and retrieval time; the document's own label as a retrieved page; then type a private address and read the refusal                                                    |
+| 8:45 to 9:30  | Demo 4: the audience's question       | Type it; add a public page; **Understand my question**                                                                                                                    | What the reading made of it; how thin evidence shows as gaps and a warning, not as confident output                                                                                         |
+| 9:30 to 10:00 | Close                                 | **Markdown**, **JSON** or **Printable** on the brief                                                                                                                      | The limitations section; "It supports a person's analysis. It does not make the decision."                                                                                                  |
 
 ### What to say, segment by segment
 
@@ -74,10 +76,12 @@ did." Point at what the question leaves open (for this one: for whom 'by default
 over what period) and check that the form asks, rather than filling it in.
 
 **1:45, stakeholders and actors.** "These are roles found in the evidence, with the passage shown. They
-are not people. Rules mode reads for role words, so it finds fewer and plainer groups than a model, and
+are not people. Rules mode reads for role words, so it finds the groups a text names that way, and
 this note says how many of them it could read a direction of impact for. Where it could not, the change
-cannot move that group, and I would set it here, with my reasons. Every number an actor runs on says
-where it came from, and I can change it." Edit one trait and show its badge become yours.
+cannot move that group, and I would set it here, with my reasons." Open one row to show its quotes, word
+for word, with the passage they come from, and what is assumed. "Every number an actor runs on says
+where it came from, and I can change it." Approve, open the actors, and move one trait's slider: its
+badge becomes yours at once, and **Save changes to the actors** keeps it.
 
 **3:15, the comparison.** "A single run is never the answer. The baseline and each alternative run many
 times on the same seeds. 'Holds in k of n runs' measures how repeatable this simulation is under its own
@@ -156,8 +160,9 @@ you paste instead of a page.
   before the server looks anything up ("This address is not one that Swarm reads. Swarm reads only
   public web pages ..."), so the safety point can be shown with no network.
 - **A model is unavailable.** Rules mode needs none. If you configured one and it fails, the error is
-  shown with the rules result that was used instead, or you are asked to choose it. The model is never
-  replaced silently.
+  shown with the rules result that was used instead, or you are asked to choose it. In the lab, a step
+  that asks a model (reading the question, finding stakeholders, the review) is given 170 seconds; then
+  the rules carry on and a note says so. The model is never replaced silently.
 
 ## Resetting
 
@@ -289,7 +294,9 @@ they do not.
   the report's statements are classified. With a real model the same sources can produce different
   statements and different support classes; the live Azure run on the Larkholm pack is the only
   model evidence.
-- **The lab's examples have been run through the real routes, not yet through the interface by a
-  test.** `backend/test/lab-journey.test.ts` walks every example, and a question that no example knows,
-  from the question to the brief on the real engine with no model. A browser test that does the same
-  through the pages does not exist yet, so rehearse the demo you will show before you rely on a script.
+- **The lab's examples are tested through the pages, but on fixtures.** `e2e/lab/examples.spec.ts` takes
+  the three flagship examples and a question that no example knows from the first screen to the
+  exported brief in a real browser, and `backend/test/lab-journey.test.ts` does the same through the
+  routes. Both run the rules engine with no model, and the public pages in them are served from this
+  machine, so they say nothing about a real page or a real model. Rehearse the demo you will show
+  before you rely on a script.

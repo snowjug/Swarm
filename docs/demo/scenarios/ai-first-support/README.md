@@ -55,7 +55,8 @@ tier-two team, team leads, the support director, the head of product, customer s
 administrators at larger customers, customers on standard, premium and enterprise plans, the legal
 and privacy team, security reviewers, the compliance team, knowledge-base authors, a reseller partner,
 competitors, regulators, an employee representative and accessibility reviewers. Rules mode reads
-for generic role words and will find fewer and plainer ones than a model.
+for generic role words, so it finds the groups the text names that way and misses the others; the
+review is where you add them.
 
 Roles are not individuals. The example involves employees' work, so use it to show that actors stand
 for roles and rest on declared assumptions, and never to say anything about a person.
@@ -82,10 +83,10 @@ scenario**.
 **1:10 The evidence (30 s).** **Build Graph**. Open the ticket summary. Say: "Every passage keeps its
 source. The ledger later compares sources and shows where they disagree."
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders**. Point at the support
-engineers, the customers by plan, the privacy reviewers and the competitors, each with a cited quote,
-the uncertainty chips and the prompt about roles nobody was found for. Say: "Roles, with the passage
-shown. They are not real people." **Approve stakeholders and create actors**; point at a trait and its
+**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
+the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
+and the prompt about roles nobody was found for. Say: "Roles, with the passage shown. They are not real
+people." **Approve stakeholders and create actors**, **Review the N actors**; point at a trait and its
 origin badge.
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
@@ -121,10 +122,10 @@ define."
 evidence for "resolved" and open two passages. Say: "The pilot covered only access cases on standard
 plans. The case study does not say what it covered."
 
-**3:30 to 5:00 Stakeholders and actors.** Open three stakeholders and read their cited quotes. Edit
-one stakeholder's priority and remove or merge one. Read the prompt about roles nobody was found for
-and say what you would do. Approve, then change one trait on one actor and show its badge change to
-"you".
+**3:30 to 5:00 Stakeholders and actors.** Open three rows and read their cited quotes. Edit one
+stakeholder (**Edit**, or the **Priority** menu) and **Merge** or **Remove** one. Read the prompt about
+roles nobody was found for and say what you would do. Approve, choose **Review the N actors**, then change
+one trait on one actor and show its badge change to "you".
 
 **5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band and two findings with their intervals. If one is unstable, say what that means.

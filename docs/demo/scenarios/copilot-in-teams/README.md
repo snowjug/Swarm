@@ -52,7 +52,8 @@ Roles you can expect discovery to find and cite, depending on the mode: administ
 team and reviewers, the records manager, the helpdesk and support teams, department managers, power
 users, employee representatives, the finance team, clients and external guests, the managed-service
 partner, rival suites, internal auditors, the data protection officer, regulators and analysts.
-Rules mode reads for generic role words and will find fewer and plainer ones than a model.
+Rules mode reads for generic role words, so it finds the groups the text names that way and misses the
+others; the review is where you add them.
 
 Alternatives worth adding by hand if the form has none: switched on only for people who already have
 the assistant; a staged rollout that starts with volunteers; per-feature switches with a notice
@@ -77,11 +78,12 @@ applies and over what period. Answer one, then **Use this scenario**.
 **1:10 The evidence (30 s).** **Build Graph**. Open the poll document and its chip. Say: "Every
 passage keeps its source. The ledger later compares sources and shows where they disagree."
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders**. Point at the note on
-how they were found (rules or model), a few cited quotes, the uncertainty chips, and the prompt about
-roles nobody was found for. Say: "These are discovered from the evidence, with the passage shown.
-They are roles, not people." Then **Approve stakeholders and create actors** and point at one trait
-with its origin badge: "Every number the actors run on says where it came from."
+**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
+the four counts, the note on how they were found (rules or model), one row opened to its cited quotes and
+uncertainty, and the prompt about roles nobody was found for. Say: "These are discovered from the evidence,
+with the passage shown. They are roles, not people." Then **Approve stakeholders and create actors**,
+**Review the N actors**, and point at one trait with its origin badge: "Every number the actors run on says
+where it came from."
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change side by side, the spread across the seeded runs, and one finding with how often it
@@ -119,12 +121,12 @@ are what we compare against the baseline, so they are mine to define."
 evidence for "default" and open two passages. Say: "A paraphrase is never shown as a quote. Quotes
 are checked against the passage."
 
-**3:30 to 5:00 Stakeholders and actors.** Open three stakeholders and read their cited quotes
-(for example administrators, the security reviewers, a partner). Edit one stakeholder (change its
-priority) and merge or remove one. Read the prompt about roles nobody was found for and say what
-you would do: add them by hand, or collect evidence. Approve, then open the actor table: change one
-trait with a slider and show the badge change to "you". Say: "Population sizes are assumptions used
-as weights. They are not measured counts."
+**3:30 to 5:00 Stakeholders and actors.** Open three rows and read their cited quotes. Edit one
+stakeholder (**Edit**, or the **Priority** menu) and **Merge** or **Remove** one; restore it from
+**Removed**. Read the prompt about roles nobody was found for and say what you would do: add them by hand,
+or collect evidence. Approve, choose **Review the N actors**, move one trait with a slider and show the
+badge change to "you". Say: "Population sizes are assumptions used as weights. They are not measured
+counts."
 
 **5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band, and two findings with their intervals. If one finding is unstable, open it and
