@@ -4,7 +4,7 @@ _Illustrative synthetic summary; figures invented for demonstration; not informa
 
 ## Period and method
 
-The figures cover the last full quarter and come from the shop's web analytics and order system (invented). Visits from staff and known bots are excluded. An exit pop-up appears at checkout when someone moves to leave, and 6% of those shown it answered.
+The figures cover the last full quarter and come from the shop's web analytics and order system. Visits from staff and known bots are excluded. An exit pop-up appears at checkout when someone moves to leave, and 6% of those shown it answered.
 
 ## Funnel
 
