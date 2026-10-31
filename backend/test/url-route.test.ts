@@ -528,6 +528,20 @@ describe('POST /api/evidence/url: what a refusal gives away, and what it leaves 
     expect(errorOf(response).code).toBe('URL_BLOCKED');
   });
 
+  it('records a name that led inside a network as the refusal it was, while answering it like a missing name', async () => {
+    const { ask, repository } = await withResolver();
+    const answer = await ask('http://exists-inside.example.com/page?x=1');
+    expect(errorOf(answer).code).toBe('URL_FETCH_FAILED');
+    const refused = repository.audit
+      .list({ limit: 50 })
+      .filter(({ action }) => action === 'evidence.url.refused');
+    expect(refused.map(({ detail }) => detail)).toEqual([
+      { host: 'exists-inside.example.com', code: 'URL_BLOCKED' },
+    ]);
+    // What the person was told does not say that it led inside.
+    expect(answer.body).not.toContain('URL_BLOCKED');
+  });
+
   it('records an address that was refused, by host and reason, and not a site that failed to answer', async () => {
     const { ask, repository } = await withResolver();
     await ask('http://10.0.0.5/secret/path?token=zq-canary-7421');

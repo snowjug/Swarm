@@ -4,6 +4,7 @@ import type { Principal } from '../auth/principal.js';
 import type { ServerConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import { PublicFetcher } from '../ingest/url/fetcher.js';
+import { UrlFailure } from '../ingest/url/failure.js';
 import { ingestUrl } from '../ingest/url/ingest.js';
 import { FetchRegistry } from '../ingest/url/provenance.js';
 import type { AuditInput } from '../storage/audit.js';
@@ -81,16 +82,21 @@ export function evidenceRoutes(
       } catch (error) {
         // A refusal is the trace of someone probing which addresses the server will reach, so it is
         // kept (the host asked for and the reason, never the path or query); a site that merely
-        // failed to answer is not.
-        if (error instanceof AppError && REFUSALS.has(error.code)) {
-          record({
-            actor: principalOf(request).id,
-            action: 'evidence.url.refused',
-            targetType: 'service',
-            targetId: 'evidence.url.refused',
-            projectId: null,
-            detail: { host: hostOf(address), code: error.code },
-          });
+        // failed to answer is not. A name that led inside a network is answered like a missing one,
+        // and is kept here as the refusal it was.
+        if (error instanceof AppError) {
+          const refused = error.cause instanceof UrlFailure && error.cause.code === 'blocked';
+          const code = refused ? 'URL_BLOCKED' : error.code;
+          if (REFUSALS.has(code)) {
+            record({
+              actor: principalOf(request).id,
+              action: 'evidence.url.refused',
+              targetType: 'service',
+              targetId: 'evidence.url.refused',
+              projectId: null,
+              detail: { host: hostOf(address), code },
+            });
+          }
         }
         throw error;
       }

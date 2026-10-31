@@ -42,11 +42,13 @@ function explain(failure: UrlFailure, host: string | null, settings: UrlIngestSe
   // A name that leads to a private address is told exactly like a name that does not exist, so that
   // the answer cannot be used to find out which names are in use inside a network.
   if (failure.code === 'blocked' && failure.detail.resolved) {
-    return explain(
+    const shown = explain(
       new UrlFailure('network', 'The name could not be found.', { reason: 'dns' }),
       host,
       settings,
     );
+    // The answer is the one for a missing name; the original refusal stays on the error for the audit log.
+    return new AppError(shown.statusCode, shown.code, shown.message, { cause: failure });
   }
   const site = host ?? 'the site';
   const { status, contentType, redirected, reason } = failure.detail;
