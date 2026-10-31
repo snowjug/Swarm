@@ -10,11 +10,13 @@ import {
   RELATION_TYPES,
   STAKEHOLDER_CATEGORIES,
   TRAIT_KEYS,
+  type Actor,
   type TraitKey,
 } from '../../shared/stakeholders.js';
 import { derive, stream } from '../src/simulation/random.js';
 import { localRound } from '../src/agents/local.js';
-import { buildPopulation } from '../src/simulation/population.js';
+import { CHANGE_GAIN, GROUP_SPREAD, RATE_MIN, SOCIAL_RATE } from '../src/simulation/parameters.js';
+import { buildPopulation, groupFactor } from '../src/simulation/population.js';
 import { simulate, simulateValidated, SimulationInputError } from '../src/simulation/simulate.js';
 import { settingsSchema, type Agent } from '../../shared/types.js';
 import { actor, key, spec, variant } from './support/simulation-cast.js';
@@ -24,9 +26,15 @@ const finalOf = (outcome: RunOutcome, id: string) => {
   if (!found) throw new Error(`No actor ${id} in the outcome.`);
   return found;
 };
+/** Members who end at a stance of -0.1 or lower: adapting defensively, switching or resisting. */
 const adverseShare = (outcome: RunOutcome, id: string): number => {
   const shares = finalOf(outcome, id).responseShares;
   return shares['adapt-defensively'] + shares.switch + shares.resist;
+};
+/** Members who end clearly against the change: switching or resisting. */
+const againstShare = (outcome: RunOutcome, id: string): number => {
+  const shares = finalOf(outcome, id).responseShares;
+  return shares.switch + shares.resist;
 };
 const sum = (values: number[]): number => values.reduce((total, value) => total + value, 0);
 const mean = (values: number[]): number => sum(values) / values.length;
@@ -374,21 +382,108 @@ describe('what the change does', () => {
     expect(means[5]!).toBeGreaterThan(0.95);
   });
 
-  it('lands only from its round and fades by half each round after', () => {
+  it('relaxes toward the stance the change leaves a member at, from the round it lands', () => {
     const lone = () => [key('solo', 'other', { impact: -1, sensitivity: 1, reactivity: 0 })];
-    const outcome = simulate(spec(lone(), { rounds: 9, variant: { round: 4, intensity: 0.4 } }), 3);
+    const seed = 3;
+    const outcome = simulate(
+      spec(lone(), { rounds: 14, variant: { round: 4, intensity: 0.4 } }),
+      seed,
+    );
     const stances = outcome.rounds.map((round) => round.stanceMean);
-    // Nothing happens before round 4; from then on each round adds 0.4 * 0.5^(round - 4) of a push.
+    // Anchored to its prior, 0, until round 4; then to the prior plus the change, scaled by the gain,
+    // the intensity and how strongly the group reacts in this run. It closes RATE_MIN of the gap a round.
+    const target = -CHANGE_GAIN * 0.4 * groupFactor(seed, 'solo');
     for (const stance of stances.slice(0, 3)) expect(Math.abs(stance)).toBeLessThan(0.05);
-    let expected = 0;
     stances.slice(3).forEach((stance, after) => {
-      expected -= 0.4 * 0.5 ** after;
-      expect(Math.abs(stance - expected), `round ${after + 4}`).toBeLessThan(0.07);
+      const expected = target * (1 - (1 - RATE_MIN) ** (after + 1));
+      expect(Math.abs(stance - expected), `round ${after + 4}`).toBeLessThan(0.05);
     });
-    const quiet = simulate(spec(lone(), { rounds: 9, variant: { round: 4, intensity: 0 } }), 3);
+    const quiet = simulate(spec(lone(), { rounds: 14, variant: { round: 4, intensity: 0 } }), seed);
     expect(quiet.rounds.every((round) => Math.abs(round.stanceMean) < 0.1)).toBe(true);
-    const never = simulate(spec(lone(), { rounds: 9, variant: { round: 10, intensity: 1 } }), 3);
+    const never = simulate(
+      spec(lone(), { rounds: 14, variant: { round: 15, intensity: 1 } }),
+      seed,
+    );
     expect(never.rounds.every((round) => Math.abs(round.stanceMean) < 0.1)).toBe(true);
+  });
+
+  it('rests where a moderate change leaves it, and only a strong one reaches the end of the scale', () => {
+    const lone = (intensity: number) =>
+      spec([key('solo', 'other', { impact: -0.6, sensitivity: 0.7, reactivity: 0.5 })], {
+        rounds: 20,
+        variant: { round: 2, intensity },
+      });
+    for (const seed of [1, 2, 3, 4, 5]) {
+      for (const intensity of [0.2, 0.5, 0.8]) {
+        const expected = -CHANGE_GAIN * intensity * groupFactor(seed, 'solo') * 0.7 * 0.6;
+        const stance = simulate(lone(intensity), seed).final.stanceMean;
+        expect(Math.abs(stance - expected), `seed ${seed}, intensity ${intensity}`).toBeLessThan(
+          0.05,
+        );
+      }
+    }
+    expect(simulate(lone(1), 1).final.stanceMean).toBeGreaterThan(-0.75);
+  });
+
+  it('rests between its own stance and what it listens to, in proportion to the rates', () => {
+    const input = spec(
+      [
+        key('a', 'influencer', { priorStance: 0.5, impact: 0, reactivity: 0 }),
+        key('b', 'end-user', { priorStance: -0.5, impact: 0, openness: 1, reactivity: 0 }),
+      ],
+      {
+        rounds: 30,
+        relations: [{ from: 'a', to: 'b', type: 'influences', strength: 1 }],
+        variant: { intensity: 0 },
+      },
+    );
+    const outcome = simulate(input, 7);
+    const rate = RATE_MIN;
+    const listening = SOCIAL_RATE * 1;
+    const expected = (rate * -0.5 + listening * 0.5) / (rate + listening);
+    expect(Math.abs(finalOf(outcome, 'b').stanceMean - expected)).toBeLessThan(0.05);
+    expect(Math.abs(finalOf(outcome, 'a').stanceMean - 0.5)).toBeLessThan(0.05);
+  });
+
+  it('draws how strongly a group reacts from the seed and the actor alone', () => {
+    const factors = seeds(2_000).map((seed) => groupFactor(seed, 'solo'));
+    expect(Math.min(...factors)).toBeGreaterThanOrEqual(0.5);
+    expect(Math.max(...factors)).toBeLessThanOrEqual(1.5);
+    expect(Math.abs(mean(factors) - 1)).toBeLessThan(0.01);
+    expect(Math.abs(sd(factors) - GROUP_SPREAD)).toBeLessThan(0.01);
+    expect(groupFactor(9, 'solo')).toBe(groupFactor(9, 'solo'));
+    expect(groupFactor(9, 'solo')).not.toBe(groupFactor(9, 'other'));
+    expect(groupFactor(9, 'solo')).not.toBe(groupFactor(10, 'solo'));
+    const population = (actors: Actor[]) => buildPopulation(actors, variant(), 9, 200);
+    const alone = population([actor('solo', 'other')]);
+    const among = population([actor('first', 'other'), actor('solo', 'other')]);
+    expect(among.group[1]).toBe(alone.group[0]);
+    expect(population([actor('solo', 'other')]).group[0]).toBe(
+      buildPopulation([actor('solo', 'other')], variant({ intensity: 0.2 }), 9, 200).group[0],
+    );
+  });
+
+  it('gives members of a cohort different responses, because their traits differ', () => {
+    const cohort = (spread: number) => {
+      const members = actor('subscribers', 'cost-bearer', { sampleSize: 30 });
+      for (const trait of TRAIT_KEYS) members.traits[trait].spread = spread;
+      members.traits.impact.value = -0.6;
+      members.traits.sensitivity.value = 0.7;
+      members.traits.switchingCost.value = 0.4;
+      return spec([members], { rounds: 12, variant: { intensity: 0.7 } });
+    };
+    const interior = (spread: number): number =>
+      seeds(30).filter((seed) => {
+        const shares = finalOf(simulate(cohort(spread), seed), 'subscribers').responseShares;
+        const against = shares.switch + shares.resist;
+        return against > 0.05 && against < 0.95;
+      }).length;
+    // With a spread of 0.1 or 0.15 almost every run has some members clearly against and some not.
+    // With none, a group whose members share every trait is on one side of a threshold or the other;
+    // only the seeded noise separates its members, and only close to the threshold.
+    expect(interior(0.1)).toBeGreaterThanOrEqual(22);
+    expect(interior(0.15)).toBeGreaterThanOrEqual(22);
+    expect(interior(0)).toBeLessThanOrEqual(12);
   });
 
   it('applies an impact override instead of the trait, and edits to traits in range', () => {
@@ -405,8 +500,11 @@ describe('what the change does', () => {
     expect(finalOf(worse, 'alpha').stanceMean).toBeLessThan(finalOf(base, 'alpha').stanceMean);
     expect(finalOf(none, 'delta')).toEqual(finalOf(base, 'delta'));
 
+    // Harmed hard enough that every member ends clearly against, so that the cost of switching decides.
     const costly = [
-      actor('alpha', 'cost-bearer', { traits: { impact: -0.6, switchingCost: 0.9 } }),
+      actor('alpha', 'cost-bearer', {
+        traits: { impact: -0.9, sensitivity: 0.9, switchingCost: 0.9 },
+      }),
     ];
     const stuck = simulate(spec(costly, { rounds: 12 }), 4);
     const free = simulate(
@@ -596,7 +694,7 @@ describe('what is reported', () => {
       expect(value).toBeLessThanOrEqual(1);
     }
     // Omega is against the change but not harmed by it, so it is not part of what is measured.
-    expect(last['adverse-share']).toBeCloseTo(adverseShare(outcome, 'alpha'), 12);
+    expect(last['adverse-share']).toBeCloseTo(againstShare(outcome, 'alpha'), 12);
     expect(last['switching-pressure']).toBeCloseTo(
       finalOf(outcome, 'alpha').responseShares.switch,
       12,
@@ -610,6 +708,24 @@ describe('what is reported', () => {
       adoption: 0,
       'risk-concern': 0,
     });
+  });
+
+  it('measures risk concern among the members who tolerate little risk, and is silent without them', () => {
+    const cohort = (riskTolerance: number) => [
+      actor('alpha', 'cost-bearer', {
+        traits: {
+          impact: -0.9,
+          sensitivity: 0.9,
+          riskTolerance: { value: riskTolerance, spread: 0.05 },
+        },
+      }),
+    ];
+    const averse = simulate(spec(cohort(0.2), { rounds: 12 }), 4).rounds[11]!.signals;
+    const bold = simulate(spec(cohort(0.9), { rounds: 12 }), 4).rounds[11]!.signals;
+    expect(averse['adverse-share']).toBeGreaterThan(0.9);
+    expect(averse['risk-concern']).toBeGreaterThan(0.9);
+    expect(bold['adverse-share']).toBeGreaterThan(0.9);
+    expect(bold['risk-concern']).toBe(0);
   });
 
   it('leaves signals and events out when asked, and nothing else changes without responders', () => {

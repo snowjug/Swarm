@@ -74,8 +74,11 @@ export function spec(
 }
 
 /**
- * The abstract cast of the second-order tests: Alpha is harmed by the change, Beta is a competitor
- * and Gamma a substitute, both watching Alpha. None of the names means anything outside the test.
+ * The abstract cast of the second-order tests: Alpha is harmed hard enough by the change that every one
+ * of its members ends clearly against it, and its members stop short of switching only by a little
+ * (switching cost just above the line), so that the tests are about the chain and not about where a
+ * threshold happens to fall. Beta is a competitor and Gamma a substitute, both watching Alpha. None of
+ * the names means anything outside the test.
  */
 export function chainCast(): Actor[] {
   return [
@@ -84,9 +87,9 @@ export function chainCast(): Actor[] {
       sampleSize: 40,
       traits: {
         priorStance: { value: 0, spread: 0.05 },
-        impact: { value: -0.6, spread: 0.05 },
-        sensitivity: { value: 0.8, spread: 0.05 },
-        switchingCost: { value: 0.65, spread: 0.05 },
+        impact: { value: -0.9, spread: 0.05 },
+        sensitivity: { value: 0.9, spread: 0.05 },
+        switchingCost: { value: 0.56, spread: 0.03 },
         riskTolerance: { value: 0.4, spread: 0.05 },
       },
     }),
@@ -94,7 +97,7 @@ export function chainCast(): Actor[] {
       impact: 0,
       reactivity: 0.5,
       riskTolerance: 0.4,
-      authority: 0.8,
+      authority: 0.9,
     }),
     key('gamma', 'substitute', {
       impact: 0,
@@ -106,6 +109,6 @@ export function chainCast(): Actor[] {
 }
 
 export const CHAIN_RELATIONS: SimulationSpec['relations'] = [
-  { from: 'beta', to: 'alpha', type: 'competes-with', strength: 0.8 },
+  { from: 'beta', to: 'alpha', type: 'competes-with', strength: 0.9 },
   { from: 'gamma', to: 'alpha', type: 'substitutes-for', strength: 0.7 },
 ];

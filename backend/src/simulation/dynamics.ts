@@ -1,47 +1,57 @@
 /**
  * Stance dynamics. Each member of each actor holds a stance x in [-1, 1] (-1 against the change, 0
- * undecided, 1 in favour) and every round all members are updated at once from the state of the round
- * before. For a member i of actor A in round t:
+ * undecided, 1 in favour) and is anchored to a stance of its own. Every round all members are updated
+ * at once from the state of the round before: each closes a share of the gap to its anchored stance,
+ * is drawn toward what it listens to, and is nudged by noise. For a member i of actor A in round t:
  *
- *   x_i(t) = clamp( x_i(t-1) + social + change + events + noise )
+ *   x_i(t) = clamp( x_i(t-1) + rate_i x (target_i - x_i(t-1)) + social_i + noise_i )
  *
- *   social = SOCIAL_RATE * openness_i * (T_A - x_i)
- *            T_A is the influence-weighted stance of what A listens to: its own cohort (when it has more
- *            than one member) and the actors related to it, each weighted by relation strength,
- *            influence and (log-scaled) population. Rivalry (`competes-with`, `substitutes-for`) is not
- *            a channel of influence. This is the pull of the existing opinion-dynamics engine,
- *            openness * (peerMean - x), with the rate scaled down so that a cohort does not collapse
- *            to a single view within a run.
- *   change = intensity * PERSISTENCE^(t - r) * sensitivity_i * impact_i * trustAdoption_i,   for t >= r
- *            r is the round in which the variant's change lands. It is felt in full that round and the
- *            push fades by PERSISTENCE each round after; what it moved stays moved (no reversion).
- *            impact comes from the actor's trait unless the variant overrides it; trust and readiness to
- *            take something new scale a harm down (or a benefit up) when high:
- *            trustAdoption = 1 + sign(impact) * (0.8 * (trust - 0.5) + 0.4 * (adoptionTendency - 0.5)).
- *   events = (ENABLE_LIFT * lift_A - SWITCH_PULL * pullSwitch_A) * max(0, -x_i)
- *            - SCRUTINY_PULL * scrutiny_A * (1 - riskTolerance_i)
- *            The pressures are what external responders' events have added to A; they fade by
- *            PERSISTENCE each round (see responders.ts). Discontented members are drawn toward leaving by
- *            an alternative that has appeared, or lifted back toward neutral by help; scrutiny weighs
- *            on members in proportion to how little risk they will accept.
- *   noise  = NOISE * (0.5 + reactivity_i) * (2u - 1),   u a seeded uniform draw for (actor, member, round)
+ *   rate_i     = RATE_MIN + RATE_SPAN x reactivity_i              (0.2 to 0.6; 0.4 at reactivity 0.5)
+ *   target_i   = clamp( anchored_i - amplify_A x max(0, -anchored_i)
+ *                                  - concern_A x (1 - riskTolerance_i) )
+ *   anchored_i = prior_i + CHANGE_GAIN x intensity x group_A x sensitivity_i x impact_i x trustAdoption_i
+ *                from round r, the round in which the variant's change lands; prior_i before it
+ *   social_i   = SOCIAL_RATE x openness_i x (T_A - x_i(t-1))
+ *   noise_i    = NOISE x (0.5 + reactivity_i) x (2u - 1),  u a seeded uniform draw for (actor, member, round)
  *
- * All coefficients are in parameters.ts. Every term is bounded and every division is guarded, so a
- * stance can neither leave [-1, 1] nor become NaN. Without events the update is monotone: raising any
- * stance never lowers a stance in the next round, because the coefficient on every stance is
- * non-negative. So when the change harms every member it touches, or leaves them alone, a stronger
- * change never leaves anyone more favourable on the same seed. Responders act on thresholds, so with
- * them present that holds for the average over seeds and not for each seed.
+ * The member does not drift with every push: it relaxes toward where the change leaves it. With nothing
+ * to listen to and no events, its stance settles at `target_i`, which is its prior plus the change
+ * scaled by intensity, its own sensitivity and impact; so a moderate change gives a moderate resting
+ * stance and only a strong one reaches the end of the scale. Closing 0.4 of the gap each round, a member
+ * is within 5% of it after six rounds. Listening moves the resting stance to
+ * (rate x target + SOCIAL_RATE x openness x T) / (rate + SOCIAL_RATE x openness).
+ *
+ *  - impact comes from the actor's trait unless the variant overrides it; trust and readiness to take
+ *    something new scale a harm down (or a benefit up) when high:
+ *    trustAdoption = 1 + sign(impact) x (0.8 x (trust - 0.5) + 0.4 x (adoptionTendency - 0.5)).
+ *  - group_A is how strongly the actor as a whole reacts in this run, 1 plus a draw with a standard
+ *    deviation of GROUP_SPREAD: members of a group share circumstances, so they are not independent.
+ *  - T_A is the influence-weighted stance of what A listens to: its own cohort (when it has more than
+ *    one member) and the actors related to it, weighted by relation strength, influence and
+ *    (log-scaled) population. Rivalry (`competes-with`, `substitutes-for`) is not a channel of
+ *    influence. This is the pull of the existing opinion-dynamics engine, openness x (peer mean - x),
+ *    at a lower rate so that a cohort does not collapse to one view.
+ *  - amplify_A and concern_A are what external responders' events have added to A (responders.ts), and
+ *    last for the rest of the run: alternatives (SWITCH_PULL) deepen the discontent of members whose
+ *    anchored stance is below 0 and help (ENABLE_LIFT) eases it; scrutiny (SCRUTINY_PULL) weighs on
+ *    members in proportion to how little risk they accept.
+ *
+ * All coefficients are in parameters.ts. A stance is a weighted mean of its old value, its target and
+ * what it listens to (the weights are non-negative and sum to one) plus bounded noise, clamped, so it
+ * can neither leave [-1, 1] nor become NaN; every division is guarded. Without events the update is
+ * monotone: raising any stance never lowers a stance in the next round, and a stronger change moves
+ * every anchored stance in the direction of its impact. So when the change harms every member it
+ * touches, a stronger change never leaves anyone more favourable on the same seed. Responders act on
+ * thresholds, so with them present that holds for the average over seeds and not for each seed.
  *
  * The response of a member in each round is read from its stance by `classifyIndex`; its switching
  * cost is its own cost less the relief that alternatives have brought to its actor.
  */
 import type { Actor, ActorRelation } from '../../../shared/stakeholders.js';
 import {
-  ADVERSE_AT,
+  AGAINST_AT,
   COHORT_TIE,
   ENABLE_LIFT,
-  PERSISTENCE,
   RISK_AVERSE_BELOW,
   SCRUTINY_PULL,
   SOCIAL_RATE,
@@ -56,9 +66,9 @@ import { uniformAt } from './random.js';
 export interface RoundStats {
   /** `counts[actor * CATEGORY_COUNT + category]` members whose response is that category. */
   counts: Int32Array;
-  /** Members at a stance of -0.1 or lower. */
-  adverse: Int32Array;
-  /** Adverse members who tolerate little risk. */
+  /** Members who tolerate little risk (risk tolerance below 0.5). */
+  averse: Int32Array;
+  /** Risk-averse members at a stance of -0.35 or lower. */
   worried: Int32Array;
   /** Plain mean stance of the actor's members: what is reported. */
   mean: Float64Array;
@@ -69,7 +79,7 @@ export interface RoundStats {
 export function createStats(actorCount: number): RoundStats {
   return {
     counts: new Int32Array(actorCount * CATEGORY_COUNT),
-    adverse: new Int32Array(actorCount),
+    averse: new Int32Array(actorCount),
     worried: new Int32Array(actorCount),
     mean: new Float64Array(actorCount),
     heard: new Float64Array(actorCount),
@@ -158,9 +168,9 @@ export function buildTies(
   return ties;
 }
 
-/** The stance each actor is pulled toward this round, from what was heard at the end of the last. */
-export function listenTargets(ties: Ties, stats: RoundStats, targets: Float64Array): void {
-  for (let actor = 0; actor < targets.length; actor += 1) {
+/** The stance each actor listens to this round, from what was heard at the end of the last. */
+export function listenTargets(ties: Ties, stats: RoundStats, listening: Float64Array): void {
+  for (let actor = 0; actor < listening.length; actor += 1) {
     const own = stats.heard[actor] ?? 0;
     const weightOwn = ties.own[actor] ?? 0;
     let total = weightOwn * own;
@@ -171,15 +181,15 @@ export function listenTargets(ties: Ties, stats: RoundStats, targets: Float64Arr
       total += w * (stats.heard[ties.source[at] ?? 0] ?? 0);
       weight += w;
     }
-    targets[actor] = weight > 0 ? total / weight : own;
+    listening[actor] = weight > 0 ? total / weight : own;
   }
 }
 
-/** What external responders' events have added to each actor so far. */
+/** What external responders' events have added to each actor so far. None of it fades. */
 export interface Effects {
-  /** How far alternatives have lowered the cost of switching. Does not fade. */
+  /** How far alternatives have lowered the cost of switching. */
   relief: Float64Array;
-  /** Pressures that fade by PERSISTENCE each round. */
+  /** Pressure from alternatives that have appeared, from help, and from scrutiny. */
   pullSwitch: Float64Array;
   lift: Float64Array;
   scrutiny: Float64Array;
@@ -194,54 +204,60 @@ export function createEffects(actorCount: number): Effects {
   };
 }
 
-export function fadeEffects(effects: Effects): void {
-  for (const pressure of [effects.pullSwitch, effects.lift, effects.scrutiny]) {
-    for (let actor = 0; actor < pressure.length; actor += 1) {
-      pressure[actor] = (pressure[actor] ?? 0) * PERSISTENCE;
-    }
-  }
-}
-
 /**
- * One round for every member of every actor. `push` is the change's strength this round,
- * `intensity * PERSISTENCE^(t - r)`, or 0 before it lands.
+ * One round for every member of every actor. `push` is the change's gain times its intensity from the
+ * round it lands, and 0 before it; `listening` is what each actor listens to this round.
  */
 export function stepRound(
   population: Population,
   effects: Effects,
   stats: RoundStats,
-  targets: Float64Array,
+  listening: Float64Array,
   round: number,
   push: number,
 ): void {
-  const { start, stance, influence, openness, landing, noiseAmp, riskTolerance, switchingCost } =
-    population;
+  const {
+    start,
+    stance,
+    prior,
+    influence,
+    openness,
+    landing,
+    rate,
+    noiseAmp,
+    riskTolerance,
+    switchingCost,
+    group,
+  } = population;
   stats.counts.fill(0);
   for (let actor = 0; actor < population.actorCount; actor += 1) {
     const first = start[actor] ?? 0;
     const end = start[actor + 1] ?? first;
-    const target = targets[actor] ?? 0;
+    const listenedTo = listening[actor] ?? 0;
     const relief = effects.relief[actor] ?? 0;
-    const discontent =
-      ENABLE_LIFT * (effects.lift[actor] ?? 0) - SWITCH_PULL * (effects.pullSwitch[actor] ?? 0);
-    const scrutiny = SCRUTINY_PULL * (effects.scrutiny[actor] ?? 0);
+    const amplify =
+      SWITCH_PULL * (effects.pullSwitch[actor] ?? 0) - ENABLE_LIFT * (effects.lift[actor] ?? 0);
+    const concern = SCRUTINY_PULL * (effects.scrutiny[actor] ?? 0);
+    const pushed = push * (group[actor] ?? 1);
     const noise = population.noiseStream[actor] ?? 0;
     const base = actor * CATEGORY_COUNT;
     let sum = 0;
     let weighted = 0;
     let weight = 0;
-    let adverse = 0;
+    let averse = 0;
     let worried = 0;
     for (let at = first; at < end; at += 1) {
       const x = stance[at] ?? 0;
       const tolerance = riskTolerance[at] ?? 0;
+      const anchored = (prior[at] ?? 0) + pushed * (landing[at] ?? 0);
+      const shifted =
+        anchored - (anchored < 0 ? -anchored * amplify : 0) - concern * (1 - tolerance);
+      const target = shifted > 1 ? 1 : shifted < -1 ? -1 : shifted;
       const draw = uniformAt(noise, (at - first) * 64 + round);
       const moved =
         x +
-        SOCIAL_RATE * (openness[at] ?? 0) * (target - x) +
-        push * (landing[at] ?? 0) +
-        (x < 0 ? -x * discontent : 0) -
-        scrutiny * (1 - tolerance) +
+        (rate[at] ?? 0) * (target - x) +
+        SOCIAL_RATE * (openness[at] ?? 0) * (listenedTo - x) +
         (noiseAmp[at] ?? 0) * (2 * draw - 1);
       const next = moved > 1 ? 1 : moved < -1 ? -1 : moved;
       stance[at] = next;
@@ -251,16 +267,16 @@ export function stepRound(
       sum += next;
       weighted += influenceHere * next;
       weight += influenceHere;
-      if (next <= ADVERSE_AT) {
-        adverse += 1;
-        if (tolerance < RISK_AVERSE_BELOW) worried += 1;
+      if (tolerance < RISK_AVERSE_BELOW) {
+        averse += 1;
+        if (next <= AGAINST_AT) worried += 1;
       }
     }
     const members = end - first;
     const mean = sum / members;
     stats.mean[actor] = mean;
     stats.heard[actor] = weight > 0 ? weighted / weight : mean;
-    stats.adverse[actor] = adverse;
+    stats.averse[actor] = averse;
     stats.worried[actor] = worried;
   }
 }

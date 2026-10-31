@@ -12,8 +12,8 @@
  *      has.
  *   3. The event lands on every actor in the responder's reach from the next round, with a strength
  *      that grows with how far the signal was past the threshold and with the responder's authority
- *      (effects are in dynamics.ts). Pressures fade by PERSISTENCE per round; the lowering of
- *      switching costs stays.
+ *      (effects are in dynamics.ts). What it adds lasts for the rest of the run: an alternative that
+ *      has appeared, help that has been offered and scrutiny that has begun do not go away.
  *
  * Every event lists what it followed from: the signal it saw, and the earlier events that had already
  * landed on actors it was watching (the engine does not say which of them mattered; running the same
@@ -67,23 +67,23 @@ export const RESPONDER_RULES: Readonly<Partial<Record<StakeholderCategory, Respo
     signal: 'adverse-share',
     kind: 'counter-move',
     effect:
-      'an alternative becomes more attractive: switching gets cheaper and discontented members are drawn toward it',
+      'an alternative becomes more attractive: switching gets cheaper and discontented members settle further from the change',
   },
   substitute: {
     signal: 'switching-pressure',
     kind: 'substitute-offer',
     effect:
-      'an alternative becomes available: switching gets cheaper and discontented members are drawn toward it',
+      'an alternative becomes available: switching gets cheaper and discontented members settle further from the change',
   },
   partner: {
     signal: 'adverse-share',
     kind: 'enablement',
-    effect: 'help eases the burden: discontented members are lifted back toward neutral',
+    effect: 'help eases the burden: discontented members settle closer to neutral',
   },
   regulator: {
     signal: 'risk-concern',
     kind: 'scrutiny',
-    effect: 'attention raises risk concern: members who tolerate little risk are pulled down',
+    effect: 'attention raises risk concern: members who tolerate little risk settle lower',
   },
 };
 

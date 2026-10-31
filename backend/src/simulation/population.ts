@@ -1,7 +1,14 @@
 import type { Variant } from '../../../shared/analysis.js';
 import type { Actor, TraitKey } from '../../../shared/stakeholders.js';
-import { ADOPTION_WEIGHT, NOISE, TRUST_WEIGHT } from './parameters.js';
-import { derive, truncatedNormalSampler, uniformAt } from './random.js';
+import {
+  ADOPTION_WEIGHT,
+  GROUP_SPREAD,
+  NOISE,
+  RATE_MIN,
+  RATE_SPAN,
+  TRUST_WEIGHT,
+} from './parameters.js';
+import { derive, normalQuantile, truncatedNormalSampler, uniformAt } from './random.js';
 
 /** Raised when a spec is well formed but names things that are not in it, so no run can honour it. */
 export class SimulationInputError extends Error {
@@ -105,23 +112,40 @@ export interface Population {
   memberCount: number;
   /** `start[a]` is the first member of actor a and `start[a + 1]` one past its last. */
   start: Int32Array;
+  /** The stance of each member now. */
   stance: Float64Array;
+  /** The stance each member starts at and is anchored to when nothing is pushing on it. */
+  prior: Float64Array;
   influence: Float64Array;
   openness: Float64Array;
   /** `sensitivity x impact x` how trust and readiness to take something new scale it, per member. */
   landing: Float64Array;
+  /** The share of the gap to its anchored stance that a member closes each round. */
+  rate: Float64Array;
   /** Half-width of the member's seeded noise on a stance, per round. */
   noiseAmp: Float64Array;
   riskTolerance: Float64Array;
   switchingCost: Float64Array;
   /** The stream of noise draws of each actor. */
   noiseStream: Uint32Array;
+  /** How strongly each actor, as a group, reacts to the change in this run (about 1). */
+  group: Float64Array;
   resolved: ResolvedActor[];
 }
 
 /** How many members an actor simulates: one for a key actor, otherwise its sample size up to the cap. */
 export function memberCountOf(actor: Actor, cap: number): number {
   return actor.kind === 'key' ? 1 : Math.min(actor.sampleSize, cap);
+}
+
+/**
+ * How strongly an actor as a whole reacts to the change in this run: 1 plus a draw from a normal
+ * distribution with the standard deviation `GROUP_SPREAD`, kept between 0.5 and 1.5. It depends only on
+ * the seed and the actor's id, so it is the same in every variant run on the seed.
+ */
+export function groupFactor(seed: number, actorId: string): number {
+  const draw = uniformAt(derive(seed, 'group', actorId), 0);
+  return Math.min(1.5, Math.max(0.5, 1 + GROUP_SPREAD * normalQuantile(draw)));
 }
 
 /**
@@ -145,13 +169,16 @@ export function buildPopulation(
     memberCount,
     start,
     stance: new Float64Array(memberCount),
+    prior: new Float64Array(memberCount),
     influence: new Float64Array(memberCount),
     openness: new Float64Array(memberCount),
     landing: new Float64Array(memberCount),
+    rate: new Float64Array(memberCount),
     noiseAmp: new Float64Array(memberCount),
     riskTolerance: new Float64Array(memberCount),
     switchingCost: new Float64Array(memberCount),
     noiseStream: new Uint32Array(actors.length),
+    group: new Float64Array(actors.length),
     resolved: [],
   };
   const drawn = new Float64Array(SAMPLED.length);
@@ -160,6 +187,7 @@ export function buildPopulation(
     const resolved = resolveActor(actor, variant, edits);
     population.resolved.push(resolved);
     population.noiseStream[index] = derive(seed, 'noise', actor.id);
+    population.group[index] = groupFactor(seed, actor.id);
     const count = counts[index] ?? 1;
     const first = next;
     start[index] = first;
@@ -182,12 +210,15 @@ export function buildPopulation(
       const impact = drawn[IMPACT] ?? 0;
       const trust = drawn[TRUST] ?? 0.5;
       const adoption = drawn[ADOPTION] ?? 0.5;
+      const reactivity = drawn[REACTIVITY] ?? 0;
       population.stance[at] = drawn[PRIOR] ?? 0;
+      population.prior[at] = drawn[PRIOR] ?? 0;
       population.influence[at] = drawn[INFLUENCE] ?? 0;
       population.openness[at] = drawn[OPENNESS] ?? 0;
       population.riskTolerance[at] = drawn[RISK_TOLERANCE] ?? 0;
       population.switchingCost[at] = drawn[SWITCHING_COST] ?? 0;
-      population.noiseAmp[at] = NOISE * (0.5 + (drawn[REACTIVITY] ?? 0));
+      population.rate[at] = RATE_MIN + RATE_SPAN * reactivity;
+      population.noiseAmp[at] = NOISE * (0.5 + reactivity);
       population.landing[at] =
         (drawn[SENSITIVITY] ?? 0) *
         impact *
