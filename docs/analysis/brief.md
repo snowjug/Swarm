@@ -289,13 +289,15 @@ most eight checks, ranked by how much of the answer rests on the premise and pla
 
 Every check except the last names the actual group and the change in the scenario's own words, and
 says four things: what would be observed in the world, in the scenario's own words (for example "the
-share of this group who start using an alternative, reduce their use of it or formally object", the
-time or the money it takes, the weeks before they see the change), without stating any value for it;
-what it is compared with (a comparable group that is not exposed, the same group before the change,
-or the two sources against each other); how long it takes and how much effort it is; and a decision
-rule that is left for the person to set before the check starts, because nothing in the simulation
-supplies one. Each also names the function that would run it. A check never asks a pilot to match an
-internal score, a setting such as the strength of the change, or a share the simulation produced.
+proportion of this group who start using an alternative, reduce their use of it or formally object",
+the time or the money it takes, the weeks before they see the change), without stating any value for
+it, and never in the word "share", which the brief keeps for the simulated shares of simulated
+members; what it is compared with (a comparable group that is not exposed, the same group before the
+change, or the two sources against each other); how long it takes and how much effort it is; and a
+decision rule that is left for the person to set before the check starts, because nothing in the
+simulation supplies one. Each also names the function that would run it. A check never asks a pilot
+to match an internal score, a setting such as the strength of the change, or a share the simulation
+produced.
 Checks that settle the same premise are merged. The method is a generic real-world check (a survey,
 interviews, a data pull, an expert review or a staged rollout) filled in with the groups, the change
 and the sources of this analysis, so two analyses of different questions get visibly different plans.
