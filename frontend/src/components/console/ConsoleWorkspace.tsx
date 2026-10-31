@@ -212,7 +212,7 @@ export function ConsoleWorkspace({
           onIntervention={onIntervention}
           onBranch={() => setBranchOpen(true)}
           onCompare={() => compare()}
-          lead={guided ? <AnalysisPanel project={project} /> : null}
+          lead={guided ? <AnalysisPanel project={project} onOpenStep={navigate} /> : null}
         />
       );
       break;
