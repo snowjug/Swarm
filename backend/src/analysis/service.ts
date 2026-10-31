@@ -14,7 +14,9 @@ import {
 } from '../../../shared/analysis-plan.js';
 import { changeCanMoveAnyone, NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { AppError } from '../errors.js';
+import type { Revisions } from '../lab/lineage.js';
 import { simulateEachSpecOnce, SimulationInputError } from '../simulation/simulate.js';
+import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
 import {
   FIDELITY_LABEL,
@@ -147,6 +149,37 @@ export class AnalysisService {
     return this.repository.artifacts.get(projectId, 'actors')?.data ?? null;
   }
 
+  /**
+   * The cast is simulated only while it matches the stakeholders a person approved. A set that was
+   * found again, or edited, after the actors were made is no longer approved and the cast is out of
+   * date: starting from it would simulate a group a person has since removed or never approved.
+   */
+  /**
+   * The cast is simulated only while it matches the stakeholders a person approved. A set that was
+   * found again, or edited, after the actors were made is no longer approved and the cast is out of
+   * date: starting from it would simulate a group a person has since removed or never approved.
+   */
+  private requireCurrentCast(
+    actors: ArtifactRecord<'actors'>,
+    stakeholders: ArtifactRecord<'stakeholders'> | null,
+  ): void {
+    if (!stakeholders) return;
+    if (stakeholders.data.approvedAt === null) {
+      throw new AppError(
+        409,
+        'STAKEHOLDERS_NOT_APPROVED',
+        'The stakeholders are not approved: they were found again or changed after the simulated actors were made. Approve them and make the actors again (the Env Setup step), then compare scenarios.',
+      );
+    }
+    if (actors.data.stakeholderRevision !== stakeholders.revision) {
+      throw new AppError(
+        409,
+        'ACTORS_OUT_OF_DATE',
+        'The stakeholders changed after the simulated actors were made, so the comparison would simulate a cast that no longer matches them. Make the actors again from the approved stakeholders (the Env Setup step), then compare scenarios.',
+      );
+    }
+  }
+
   readiness(projectId: string, mayRun: boolean): AnalysisReadiness {
     const cast = this.cast(projectId);
     if (!cast) {
@@ -201,61 +234,91 @@ export class AnalysisService {
     return parsed.data;
   }
 
-  /** Checks the request, saves the comparison as running, and starts it without waiting for it. */
+  /**
+   * Checks the request, saves the comparison as running together with the record that it started, and
+   * only then starts it without waiting for it. The two are saved in one transaction, so that a
+   * comparison that could not be recorded is not left behind as one that is running.
+   */
   start(projectId: string, body: unknown, actorId: string): Analysis {
     const input = this.accepted(body);
-    const cast = this.cast(projectId);
-    if (!cast) {
-      throw new AppError(
-        409,
-        'ACTORS_REQUIRED',
-        'There are no simulated actors yet. Approve the stakeholders and create the actors (the Env Setup step), then compare scenarios.',
+    const { saved, inputs } = this.repository.atomic(() => {
+      const { artifacts } = this.repository;
+      const actors = artifacts.get(projectId, 'actors');
+      if (!actors) {
+        throw new AppError(
+          409,
+          'ACTORS_REQUIRED',
+          'There are no simulated actors yet. Approve the stakeholders and create the actors (the Env Setup step), then compare scenarios.',
+        );
+      }
+      const stakeholders = artifacts.get(projectId, 'stakeholders');
+      this.requireCurrentCast(actors, stakeholders);
+      if ([...this.active.values()].some((run) => run.projectId === projectId)) {
+        throw new AppError(
+          409,
+          'ANALYSIS_RUNNING',
+          'A comparison of scenarios is already running for this project. Wait for it to finish, or cancel it.',
+        );
+      }
+      if (this.active.size >= this.maxConcurrent) {
+        throw new AppError(
+          429,
+          'ANALYSIS_BUSY',
+          'This server is already comparing scenarios for other projects. Try again in a minute.',
+        );
+      }
+      const scenario = artifacts.get(projectId, 'scenario');
+      const planned: AnalysisInputs = {
+        id: randomUUID(),
+        createdAt: new Date(this.now()).toISOString(),
+        actors: actors.data.actors,
+        relations: actors.data.relations,
+        variants: input.variants === 'auto' ? autoVariants(scenario?.data ?? null) : input.variants,
+        runsPerVariant: input.runsPerVariant,
+        baseSeed: input.baseSeed ?? this.repository.get(projectId).settings.seed,
+        rounds: input.rounds ?? DEFAULT_ROUNDS,
+        sensitivity: input.sensitivity,
+      };
+      const { plan } = validateInputs(planned);
+      const record = artifacts.put(
+        projectId,
+        'analysis',
+        planned.id,
+        this.pending(planned, plan.totalRuns, {
+          scenario: scenario?.revision ?? 0,
+          stakeholders: stakeholders?.revision ?? 0,
+          actors: actors.revision,
+        }),
       );
-    }
-    if ([...this.active.values()].some((run) => run.projectId === projectId)) {
-      throw new AppError(
-        409,
-        'ANALYSIS_RUNNING',
-        'A comparison of scenarios is already running for this project. Wait for it to finish, or cancel it.',
-      );
-    }
-    if (this.active.size >= this.maxConcurrent) {
-      throw new AppError(
-        429,
-        'ANALYSIS_BUSY',
-        'This server is already comparing scenarios for other projects. Try again in a minute.',
-      );
-    }
-    const scenario = this.repository.artifacts.get(projectId, 'scenario')?.data ?? null;
-    const inputs: AnalysisInputs = {
-      id: randomUUID(),
-      createdAt: new Date(this.now()).toISOString(),
-      actors: cast.actors,
-      relations: cast.relations,
-      variants: input.variants === 'auto' ? autoVariants(scenario) : input.variants,
-      runsPerVariant: input.runsPerVariant,
-      baseSeed: input.baseSeed ?? this.repository.get(projectId).settings.seed,
-      rounds: input.rounds ?? DEFAULT_ROUNDS,
-      sensitivity: input.sensitivity,
-    };
-    const { plan } = validateInputs(inputs);
-    const pending = this.pending(inputs, plan.totalRuns);
-    const saved = this.repository.artifacts.put(projectId, 'analysis', inputs.id, pending);
-    this.repository.audit.record({
-      actor: actorId,
-      action: 'analysis.started',
-      targetType: 'project',
-      targetId: projectId,
-      projectId,
-      detail: {
-        analysis: inputs.id,
-        scenarios: inputs.variants.length,
-        runsPerVariant: inputs.runsPerVariant,
-        plannedRuns: plan.totalRuns,
-        sensitivity: inputs.sensitivity,
-      },
+      this.repository.audit.record({
+        actor: actorId,
+        action: 'analysis.started',
+        targetType: 'project',
+        targetId: projectId,
+        projectId,
+        detail: {
+          analysis: planned.id,
+          scenarios: planned.variants.length,
+          runsPerVariant: planned.runsPerVariant,
+          plannedRuns: plan.totalRuns,
+          sensitivity: planned.sensitivity,
+        },
+      });
+      return { saved: record, inputs: planned };
     });
-    this.launch(projectId, saved.data, inputs);
+    try {
+      this.launch(projectId, saved.data, inputs);
+    } catch {
+      // Nothing is running, so the saved comparison is ended here rather than left to look as if it were.
+      this.active.delete(keyOf(projectId, inputs.id));
+      const refusal = new AppError(
+        503,
+        'ANALYSIS_NOT_STARTED',
+        'The comparison could not be started, and nothing was run. Start it again.',
+      );
+      this.save(projectId, this.failed(saved.data, saved.data.progress, refusal));
+      throw refusal;
+    }
     this.prune(projectId, inputs.id);
     return saved.data;
   }
@@ -316,7 +379,7 @@ export class AnalysisService {
     await Promise.all(runs.map((run) => run.done));
   }
 
-  private pending(inputs: AnalysisInputs, totalRuns: number): Analysis {
+  private pending(inputs: AnalysisInputs, totalRuns: number, inputRevisions: Revisions): Analysis {
     return {
       id: inputs.id,
       status: 'running',
@@ -331,6 +394,7 @@ export class AnalysisService {
       },
       actors: inputs.actors,
       relations: inputs.relations,
+      inputRevisions,
       fidelity: {
         engine: 'rules',
         keyActors: 'rules',
@@ -443,13 +507,15 @@ export class AnalysisService {
 
   /** Saves the end state; one that cannot be saved (too large, say) is saved as a failure that says why. */
   private finish(projectId: string, base: Analysis, document: Analysis): void {
-    if (this.save(projectId, document)) return;
-    if (document.status === 'failed') return;
+    // The engine knows nothing of the project's other documents: what the comparison was made from is kept.
+    const ended: Analysis = { ...document, inputRevisions: base.inputRevisions };
+    if (this.save(projectId, ended)) return;
+    if (ended.status === 'failed') return;
     this.save(
       projectId,
       this.failed(
         base,
-        document.progress,
+        ended.progress,
         new AppError(
           500,
           'ANALYSIS_NOT_SAVED',
