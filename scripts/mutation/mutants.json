@@ -1354,6 +1354,123 @@
       "find": "view={WORKSPACE_ROLE_VIEW}\n            assignable={assignable}\n            initial=\"member\"",
       "replace": "view={WORKSPACE_ROLE_VIEW}\n            assignable={WORKSPACE_ROLES}\n            initial=\"member\"",
       "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
+    },
+    {
+      "id": "L1",
+      "area": "lab",
+      "claim": "The robots.txt of a site read over https may redirect to plain http, so the check can be answered over an unprotected connection",
+      "file": "backend/src/ingest/url/fetcher.ts",
+      "find": "          current = redirectTarget(current, reply.location, policy);",
+      "replace": "          current = validateUrl(new URL(reply.location, current.href).href, policy);",
+      "tests": ["backend/test/url-fetcher.test.ts"]
+    },
+    {
+      "id": "L2",
+      "area": "lab",
+      "claim": "A stored document may be of any size",
+      "file": "backend/src/storage/artifacts.ts",
+      "find": "if (Buffer.byteLength(payload, 'utf8') > MAX_ARTIFACT_BYTES) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/artifacts.test.ts"]
+    },
+    {
+      "id": "L3",
+      "area": "lab",
+      "claim": "The size limit of a stored document counts characters, so text of wide characters can pass it",
+      "file": "backend/src/storage/artifacts.ts",
+      "find": "if (Buffer.byteLength(payload, 'utf8') > MAX_ARTIFACT_BYTES) {",
+      "replace": "if (payload.length > MAX_ARTIFACT_BYTES) {",
+      "tests": ["backend/test/artifacts.test.ts"]
+    },
+    {
+      "id": "L4",
+      "area": "lab",
+      "claim": "A recommendation that predicts an outcome is shown as written",
+      "file": "backend/src/brief/build.ts",
+      "find": "const recommendations = guardRecommendations(recommend(facts), tally);",
+      "replace": "const recommendations = recommend(facts);",
+      "tests": ["backend/test/brief-rules.test.ts"]
+    },
+    {
+      "id": "L5",
+      "area": "lab",
+      "claim": "A check in the validation plan that asks about a real-world outcome in a forecast's words is shown as written",
+      "file": "backend/src/brief/build.ts",
+      "find": "const plan = guardPlan(validationPlan(facts), tally);",
+      "replace": "const plan = validationPlan(facts);",
+      "tests": ["backend/test/brief-rules.test.ts"]
+    },
+    {
+      "id": "L6",
+      "area": "lab",
+      "claim": "The guard looks only at what a check asks, not at its method or the signal that would count as success",
+      "file": "backend/src/brief/build.ts",
+      "find": "const rules = rulesOf([experiment.question, experiment.method, experiment.successSignal]);",
+      "replace": "const rules = rulesOf([experiment.question]);",
+      "tests": ["backend/test/brief-rules.test.ts"]
+    },
+    {
+      "id": "L7",
+      "area": "lab",
+      "claim": "A limitation of the brief says that real-world adoption is certain to rise",
+      "file": "backend/src/brief/sections-judgement.ts",
+      "find": "text: 'Population sizes are assumptions used to weight each group. They were not measured.',",
+      "replace": "text: 'Population sizes are assumptions used to weight each group. They were not measured. Real-world adoption is certain to rise.',",
+      "tests": ["backend/test/brief-build.test.ts", "backend/test/wording-guards.test.ts"]
+    },
+    {
+      "id": "L8",
+      "area": "lab",
+      "claim": "A limitation of the brief puts a figure on real customers and calls it a simulated count",
+      "file": "backend/src/brief/sections-judgement.ts",
+      "find": "text: 'Population sizes are assumptions used to weight each group. They were not measured.',",
+      "replace": "text: 'Population sizes are assumptions used to weight each group. Simulated counts show conversion increased by 18 real customers.',",
+      "tests": ["backend/test/brief-build.test.ts", "backend/test/wording-guards.test.ts"]
+    },
+    {
+      "id": "L9",
+      "area": "lab",
+      "claim": "A question read from the intake page is sent to a model although the project is in Local rules mode",
+      "file": "frontend/src/components/intake/ScenarioIntake.tsx",
+      "find": "const result = await reading.read(asked, documentSummaries(documents), useModel);",
+      "replace": "const result = await reading.read(asked, documentSummaries(documents), true);",
+      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+    },
+    {
+      "id": "L10",
+      "area": "lab",
+      "claim": "Add an alternative does nothing",
+      "file": "frontend/src/components/intake/IntakeEditor.tsx",
+      "find": "          onClick={addAlternative}",
+      "replace": "          onClick={() => undefined}",
+      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+    },
+    {
+      "id": "L11",
+      "area": "lab",
+      "claim": "Remove a change does not remove it",
+      "file": "frontend/src/components/intake/IntakeRows.tsx",
+      "find": "                onClick={() => {\n                  onChange(rows.filter((_, position) => position !== index));\n                  focusAdd();\n                }}\n              >\n                <Trash2 size={16} aria-hidden=\"true\" />\n              </button>\n            </li>\n          );",
+      "replace": "                onClick={() => {\n                  focusAdd();\n                }}\n              >\n                <Trash2 size={16} aria-hidden=\"true\" />\n              </button>\n            </li>\n          );",
+      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+    },
+    {
+      "id": "L12",
+      "area": "lab",
+      "claim": "Editing the decision of a scenario changes nothing",
+      "file": "frontend/src/components/intake/IntakeEditor.tsx",
+      "find": "onChange={(value) => set({ decision: value })}",
+      "replace": "onChange={() => undefined}",
+      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+    },
+    {
+      "id": "L13",
+      "area": "lab",
+      "claim": "The reply a model may give for the stakeholders may hold ten times as many proposals as it is meant to",
+      "file": "backend/src/stakeholders/model.ts",
+      "find": "    .min(1)\n    .max(60),",
+      "replace": "    .min(1)\n    .max(600),",
+      "tests": ["backend/test/stakeholders-discover.test.ts"]
     }
   ]
 }

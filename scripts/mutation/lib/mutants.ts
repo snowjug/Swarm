@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 export const mutantSchema = z.object({
-  id: z.string().regex(/^[MSPJTRABU][0-9]{1,3}$/u),
+  id: z.string().regex(/^[MSPJTRABUL][0-9]{1,3}$/u),
   area: z.enum([
     'membership',
     'sign-in',
@@ -17,6 +17,7 @@ export const mutantSchema = z.object({
     'analyst',
     'budget',
     'access',
+    'lab',
   ]),
   /** What would be wrong if the rule were not there, in one sentence. */
   claim: z.string().min(10).max(200),
