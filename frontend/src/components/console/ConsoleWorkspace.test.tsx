@@ -1,7 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { ConsoleStep } from '../../../../shared/guided';
-import { checkpointFixture, projectFixture } from '../../test/project';
+import type { LabProgress } from '../../../../shared/lab';
+import { checkpointFixture, projectFixture, roundFixture } from '../../test/project';
 import { visibleText } from '../../test/provider';
 import { ConsoleWorkspace } from './ConsoleWorkspace';
 import type { UiMode } from '../../lib/mode';
@@ -83,15 +84,18 @@ describe('where the workspace mounts the feature panels', () => {
     );
   });
 
-  it('puts the analysis panel in the Simulation stage, above the run controls', () => {
+  it('puts the analysis panel in the Simulation stage, above the run controls, and says what they are', () => {
     const html = render(checkpointFixture(), 'simulation');
     expect(seams(html)).toEqual(['analysis']);
-    expect(html.indexOf('Observe recorded behavior')).toBeLessThan(
-      html.indexOf('data-seam="analysis"'),
-    );
+    expect(html.indexOf('03 / SIMULATION')).toBeLessThan(html.indexOf('data-seam="analysis"'));
     expect(html.indexOf('data-seam="analysis"')).toBeLessThan(
+      html.indexOf('Deep dive (optional): agent-by-agent simulation'),
+    );
+    expect(html.indexOf('Deep dive (optional): agent-by-agent simulation')).toBeLessThan(
       html.indexOf('primary-stage-actions'),
     );
+    expect(visibleText(html)).toContain('does not replace the comparison above');
+    expect(html).not.toContain('Observe recorded behavior');
   });
 
   it('puts the brief, then the critics, at the top of Report, and the existing report below its own heading', () => {
@@ -106,6 +110,7 @@ describe('where the workspace mounts the feature panels', () => {
     expect(critics).toBeLessThan(heading);
     expect(heading).toBeLessThan(grid);
     expect(html).toContain('<div class="seam-stack">');
+    expect(visibleText(html)).toContain('does not depend on it');
   });
 
   it('mounts nothing in the other stages', () => {
@@ -143,6 +148,121 @@ describe('where the workspace mounts the feature panels', () => {
       expect(html).not.toContain('Detailed report');
       expect(html).not.toContain('class="journey"');
     }
+  });
+  it('keeps the recorded-behavior heading, and has no deep dive, for a record that is not a guided project', () => {
+    const project = projectFixture();
+    project.workflow = 'quick';
+    project.console = null;
+    project.rounds = [roundFixture()];
+    const html = render(project);
+    expect(html).toContain('Observe recorded behavior');
+    expect(html).not.toContain('Deep dive');
+  });
+});
+
+const NO_PROGRESS: LabProgress = {
+  scenario: false,
+  stakeholders: 'none',
+  actors: 0,
+  analysis: 'none',
+  critiques: false,
+  brief: false,
+};
+const FINISHED: Partial<LabProgress> = {
+  stakeholders: 'approved',
+  actors: 5,
+  analysis: 'completed',
+};
+
+/** A project as the page reads it once the lab has recorded something. */
+function withLab(change: Partial<LabProgress>, project = checkpointFixture()) {
+  project.lab = { ...NO_PROGRESS, ...change };
+  return project;
+}
+
+/** The opening tag and the content of one button of the stage navigation. */
+function stageButton(html: string, name: string) {
+  const nav = /<nav class="console-stepper"[^>]*>([^]*?)<\/nav>/u.exec(html)![1]!;
+  const found = [...nav.matchAll(/<button\b([^>]*)>([^]*?)<\/button>/gu)].find((match) =>
+    match[2]!.includes(`<strong>${name}</strong>`),
+  )!;
+  return { tag: found[1]!, text: visibleText(found[2]!) };
+}
+
+/** Which of the view buttons is pressed. */
+function viewControl(html: string) {
+  const group = /role="group" aria-label="Console view">([^]*?)<\/div>/u.exec(html)![1]!;
+  return Object.fromEntries(
+    [...group.matchAll(/<button\b([^>]*)>([^]*?)<\/button>/gu)].map((match) => [
+      visibleText(match[2]!).trim(),
+      match[1]!.includes('aria-pressed="true"'),
+    ]),
+  );
+}
+
+describe('what the workspace does once the scenario lab has recorded something', () => {
+  it('offers the brief from a finished comparison, and the comparison from the brief', () => {
+    const simulation = render(withLab(FINISHED), 'simulation');
+    expect(simulation).toContain('role="group" aria-label="Next step"');
+    expect(visibleText(simulation)).toContain('See the decision brief');
+    expect(simulation.indexOf('aria-label="Next step"')).toBeLessThan(
+      simulation.indexOf('class="console-grid'),
+    );
+
+    const report = render(withLab(FINISHED), 'report');
+    expect(visibleText(report)).toContain('Back to the comparison');
+    expect(report.indexOf('aria-label="Next step"')).toBeLessThan(
+      report.indexOf('<div class="seam-stack">'),
+    );
+  });
+
+  it('offers nothing before a comparison has finished, or in the other stages', () => {
+    for (const analysis of ['none', 'running', 'failed'] as const) {
+      const html = render(withLab({ ...FINISHED, analysis }), 'simulation');
+      expect(html, analysis).not.toContain('aria-label="Next step"');
+    }
+    expect(render(checkpointFixture(), 'simulation')).not.toContain('aria-label="Next step"');
+    for (const step of ['knowledge', 'environment', 'interaction'] as const) {
+      expect(render(withLab(FINISHED), step), step).not.toContain('aria-label="Next step"');
+    }
+  });
+
+  it('opens Report from a finished comparison without the engine’s simulation, and says what is there', () => {
+    const before = render(checkpointFixture(), 'simulation');
+    expect(stageButton(before, 'Report').tag).toContain('disabled');
+    expect(stageButton(before, 'Report').text).toContain('pending');
+
+    const after = render(withLab(FINISHED), 'simulation');
+    expect(stageButton(after, 'Report').tag).not.toContain('disabled');
+    expect(stageButton(after, 'Report').text).toContain('ready to write');
+    expect(stageButton(after, 'Simulation').text).toContain('paused');
+  });
+
+  it('opens Simulation from the actors alone, in a project whose environment was never prepared', () => {
+    const project = withLab({ stakeholders: 'approved', actors: 5 }, projectFixture());
+    project.console!.steps.knowledge = 'ready';
+    project.console!.activeStep = 'environment';
+    const html = render(project);
+    expect(stageButton(html, 'Simulation').tag).not.toContain('disabled');
+    expect(stageButton(html, 'Env Setup').text).toContain('actors ready');
+    expect(stageButton(html, 'Report').tag).toContain('disabled');
+  });
+
+  it('opens with the workbench alone once there are simulated actors, and in the split view otherwise', () => {
+    const plain = render(checkpointFixture(), 'simulation');
+    expect(plain).toContain('class="console-grid view-split');
+    expect(plain).toContain('console-canvas');
+    expect(viewControl(plain)).toEqual({ Graph: false, Split: true, Workbench: false });
+    const actors = render(withLab({ stakeholders: 'approved', actors: 5 }), 'simulation');
+    expect(actors).toContain('class="console-grid view-workbench');
+    expect(actors).not.toContain('console-canvas');
+    expect(viewControl(actors)).toEqual({ Graph: false, Split: false, Workbench: true });
+  });
+
+  it('ticks the journey from the lab’s record', () => {
+    const html = render(withLab(FINISHED), 'report');
+    expect(visibleText(html)).toContain('STEP 8 OF 12 Results · in the Report stage');
+    expect(html.match(/journey-step done/gu)?.length).toBeGreaterThanOrEqual(6);
   });
 });
 
