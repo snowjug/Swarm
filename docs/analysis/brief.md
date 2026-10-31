@@ -249,11 +249,16 @@ and no check proposes repeating runs that cannot tell the change from no change.
 ## Wording guard
 
 Every statement is checked before it is kept. The words of the statement itself, outside any
-quotation, may not predict ("will"), overclaim (certainly, definitely, guarantee, proves, proven,
-inevitable) or put a number on a real population as a percentage. A statement about the simulation
-must say that it is simulated, and so must the headline and the recommendations. A statement that
-fails is withheld and replaced by a notice, its origin is shown as unresolved, and the count is
-recorded in the methodology notes of the brief. Quotations from the sources are not rewritten.
+quotation, may not predict ("will", "shall", "is expected to", "are bound to", "is certain to" and
+other forms of "to be" with a word of forecast), overclaim (certainly, definitely, guarantee, proves,
+proven, inevitable), put a number on a real population as a percentage, or put a figure on a measure
+of the real world (a conversion, a share, a level of adoption or of sentiment, revenue) or
+on real customers, unless the figure itself says whose it is: "18 of 40 simulated members" does, and
+"conversion increased by 18 real customers" does not, however many times the sentence says
+"simulated" elsewhere. A statement about the simulation must say that it is simulated, and so must the
+headline and the recommendations. A statement that fails is withheld and replaced by a notice, its
+origin is shown as unresolved, and the count is recorded in the methodology notes of the brief.
+Quotations from the sources are not rewritten.
 
 ## Reading it
 

@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Analysis, Variant } from '../../shared/analysis.js';
 import {
   CHANGE_CANNOT_MOVE_ID,
@@ -416,16 +416,18 @@ describe('running the review', () => {
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
+    const calls: Call[] = [];
     const {
       app,
       url,
       seed: plant,
     } = await world({
-      modelFactory: scripted({ critiques: [] }, [], gate),
+      modelFactory: scripted({ critiques: [] }, calls, gate),
     });
     plant();
     const first = app.inject({ method: 'POST', url: `${url}/run`, payload: { useModel: true } });
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // The first run is working once it is waiting on the model, however busy the machine is.
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
     const second = await app.inject({ method: 'POST', url: `${url}/run`, payload: {} });
     expect(second.statusCode).toBe(409);
     expect(second.json().error.code).toBe('CRITIQUES_RUNNING');

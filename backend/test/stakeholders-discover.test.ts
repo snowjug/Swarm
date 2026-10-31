@@ -629,6 +629,33 @@ describe('asking a model for stakeholders', () => {
     expect(set.discovery.note).toContain('Only the first 25 of 30 were kept');
   });
 
+  it('accepts a reply of 60 proposals and keeps 25, and does not accept 61: that reply is repaired, once, and only the repair is used', async () => {
+    const groups = (count: number) =>
+      Array.from({ length: count }, (_, index) =>
+        proposed({ id: `group-${index}`, name: `Group number ${index}`, evidence: [] }),
+      );
+    const sixty = await asModel([{ stakeholders: groups(60) }]);
+    expect(sixty.model.attempts).toBe(1);
+    expect(sixty.set.discovery.mode).toBe('model');
+    expect(sixty.set.stakeholders).toHaveLength(25);
+    expect(sixty.set.discovery.note).toContain('Only the first 25 of 60 were kept');
+
+    const only = proposed({ id: 'only-group', name: 'The only group', evidence: [] });
+    const repaired = await asModel([{ stakeholders: groups(61) }, { stakeholders: [only] }]);
+    expect(repaired.model.attempts).toBe(2);
+    expect(repaired.set.discovery.mode).toBe('model');
+    expect(repaired.set.stakeholders.map((stakeholder) => stakeholder.id)).toEqual(['only-group']);
+    expect(repaired.set.discovery.note).not.toContain('Group number');
+
+    // A second reply that is too long as well is not used: the rules read the text instead.
+    const twice = await asModel([{ stakeholders: groups(61) }, { stakeholders: groups(61) }]);
+    expect(twice.model.attempts).toBe(2);
+    expect(twice.set.discovery.mode).toBe('rules');
+    expect(twice.set.stakeholders.map((stakeholder) => stakeholder.name)).not.toContain(
+      'Group number 0',
+    );
+  });
+
   it('keeps at most 8 key stakeholders however many the model calls key', async () => {
     const many = Array.from({ length: 12 }, (_, index) =>
       proposed({ id: `k${index}`, name: `Key group ${index}`, priority: 'key' }),

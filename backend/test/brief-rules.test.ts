@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { analysisSchema } from '../../shared/analysis.js';
 import type { DecisionBrief } from '../../shared/brief.js';
 import { analysisFixture } from '../../shared/lab-fixtures.js';
@@ -34,10 +34,26 @@ import { baseInputs, critiquesFixture, richAnalysis, richInputs } from './suppor
 
 const clone = <T>(value: T): T => structuredClone(value);
 
+// The builder runs what the rules recommend and propose through the guard. These pass the real
+// functions through, so that a test can put one wording of its own in front of the guard.
+vi.mock('../src/brief/recommend.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/brief/recommend.js')>();
+  return { ...actual, recommend: vi.fn(actual.recommend) };
+});
+vi.mock('../src/brief/validation.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/brief/validation.js')>();
+  return { ...actual, validationPlan: vi.fn(actual.validationPlan) };
+});
+
 describe('the wording guard', () => {
   it.each([
     ['It will rise.', 'prediction'],
     ['They WILL leave.', 'prediction'],
+    ['Real-world adoption is certain to rise.', 'prediction'],
+    ['The fee is expected to rise.', 'prediction'],
+    ['Members shall leave.', 'prediction'],
+    ['Providers are bound to follow.', 'prediction'],
+    ['Simulated members are likely to leave.', 'prediction'],
     ['This is certainly true.', 'overclaim'],
     ['We guarantee it.', 'overclaim'],
     ['A guaranteed result.', 'overclaim'],
@@ -48,6 +64,7 @@ describe('the wording guard', () => {
     ['58 percent of users left.', 'percentage'],
     ['About 12.5 per cent of them.', 'percentage'],
     ['A share of 0,5 % of people.', 'percentage'],
+    ['Simulated counts show conversion increased by 18 real customers.', 'real-world-claim'],
   ])('flags “%s” as %s', (text, rule) => {
     expect(lintText(text).map((issue) => issue.rule)).toContain(rule);
   });
@@ -58,6 +75,9 @@ describe('the wording guard', () => {
     'About 12 of 43 simulated members.',
     'The percentage sign is not used here.',
     'A proof of concept is a different thing.',
+    'Expected effect on it: unclear.',
+    'Intensity is set to 0.7 for the change.',
+    'The group was not certain of the date.',
   ])('allows “%s”', (text) => {
     expect(lintText(text)).toEqual([]);
   });
@@ -180,12 +200,122 @@ describe('the wording guard', () => {
     expect(tally).toEqual({ withheld: 2, downgraded: 0 });
   });
 
-  it('is applied to recommendations and checks too, and says in the brief how many statements it withheld', () => {
-    const inputs = richInputs();
-    inputs.analysis = richAnalysis();
+  it('says nothing was withheld when every recommendation and check is worded cleanly', () => {
     // A name that is not quoted by the builder would break the guard; quoting is what keeps it clean.
-    const brief = buildBrief(inputs);
+    const brief = buildBrief(richInputs({ analysis: richAnalysis() }));
     expect(brief.methodology.notes.join(' ')).not.toContain('withheld');
+    expect(brief.recommendations.length).toBeGreaterThan(1);
+    expect(brief.validationPlan.length).toBeGreaterThan(1);
+  });
+
+  it('is applied to recommendations and checks too: a claim in either is withheld, in the fields the tables and exports read, and counted', async () => {
+    const claim = 'Simulated members will certainly improve.';
+    const question = 'Will real-world conversion rise?';
+    const [{ recommend: wording }, { validationPlan: checks }] = await Promise.all([
+      vi.importActual<typeof import('../src/brief/recommend.js')>('../src/brief/recommend.js'),
+      vi.importActual<typeof import('../src/brief/validation.js')>('../src/brief/validation.js'),
+    ]);
+    const inputs = richInputs();
+    const clean = buildBrief(inputs);
+
+    vi.mocked(recommend).mockImplementationOnce((facts) => {
+      const [first, ...rest] = wording(facts);
+      return [{ ...first!, text: claim }, ...rest];
+    });
+    vi.mocked(validationPlan).mockImplementationOnce((facts) => {
+      const [first, ...rest] = checks(facts);
+      return [{ ...first!, question }, ...rest];
+    });
+    const brief = buildBrief(inputs);
+
+    expect(brief.recommendations[0]!.text).toMatch(
+      /^A recommendation was withheld because its wording broke the guard \(prediction, overclaim\)/u,
+    );
+    expect(brief.recommendations[0]).toMatchObject({
+      validation: 'See the findings it followed from.',
+      leadingIndicators: [],
+    });
+    expect(brief.validationPlan[0]).toMatchObject({
+      question: 'A check was withheld because its wording broke the guard (prediction).',
+      method: 'See the assumption or finding it was meant to test.',
+      successSignal: 'Not stated.',
+    });
+    // Neither claim is shown anywhere in the brief, and nothing else was touched.
+    const shown = JSON.stringify(brief);
+    expect(shown).not.toContain(claim);
+    expect(shown).not.toContain(question);
+    expect(brief.recommendations.slice(1)).toEqual(clean.recommendations.slice(1));
+    expect(brief.validationPlan.slice(1)).toEqual(clean.validationPlan.slice(1));
+    expect(brief.methodology.notes).toContain(
+      '2 statements were withheld because their wording broke the guard.',
+    );
+    expect(lintBrief(brief)).toEqual([]);
+  });
+
+  // The withheld form of a recommendation keeps its horizon and its owner as the rules wrote them, so
+  // for those two only the withholding and its count are asserted; the guard reads them all the same.
+  it.each([
+    ['validation', 'Check that members will certainly stay.', true],
+    ['leadingIndicators', 'Over 60% of them stay.', true],
+    ['horizon', 'Within a year it is guaranteed.', false],
+    ['ownerFunction', 'the team that will own it', false],
+  ] as const)(
+    'looks at the %s of a recommendation, not only at what it says',
+    async (field, wording, replaced) => {
+      const { recommend: rules } = await vi.importActual<
+        typeof import('../src/brief/recommend.js')
+      >('../src/brief/recommend.js');
+      vi.mocked(recommend).mockImplementationOnce((facts) => {
+        const [first, ...rest] = rules(facts);
+        const changed = { ...first!, [field]: field === 'leadingIndicators' ? [wording] : wording };
+        return [changed, ...rest];
+      });
+      const brief = buildBrief(richInputs());
+      if (replaced) expect(JSON.stringify(brief)).not.toContain(wording);
+      expect(brief.recommendations[0]!.text).toMatch(/^A recommendation was withheld/u);
+      expect(brief.methodology.notes).toContain(
+        '1 statements were withheld because their wording broke the guard.',
+      );
+    },
+  );
+
+  it.each([
+    ['method', 'Ask them, which proves it.'],
+    ['successSignal', 'Over 60% of them stay.'],
+  ] as const)('looks at the %s of a check, not only at its question', async (field, wording) => {
+    const { validationPlan: rules } = await vi.importActual<
+      typeof import('../src/brief/validation.js')
+    >('../src/brief/validation.js');
+    vi.mocked(validationPlan).mockImplementationOnce((facts) => {
+      const [first, ...rest] = rules(facts);
+      return [{ ...first!, [field]: wording }, ...rest];
+    });
+    const brief = buildBrief(richInputs());
+    expect(JSON.stringify(brief)).not.toContain(wording);
+    expect(brief.validationPlan[0]!.question).toMatch(/^A check was withheld/u);
+    expect(brief.methodology.notes).toContain(
+      '1 statements were withheld because their wording broke the guard.',
+    );
+  });
+
+  it('withholds a recommendation that does not say it is simulated, as well as one that predicts', async () => {
+    const { recommend: wording } = await vi.importActual<
+      typeof import('../src/brief/recommend.js')
+    >('../src/brief/recommend.js');
+    vi.mocked(recommend).mockImplementationOnce((facts) => {
+      const [first, second, ...rest] = wording(facts);
+      return [
+        { ...first!, text: 'Stage the change for the group before it lands.' },
+        { ...second!, text: 'Simulated members will gain.' },
+        ...rest,
+      ];
+    });
+    const brief = buildBrief(richInputs());
+    expect(brief.recommendations[0]!.text).toContain('(missing-simulated)');
+    expect(brief.recommendations[1]!.text).toContain('(prediction)');
+    expect(brief.methodology.notes).toContain(
+      '2 statements were withheld because their wording broke the guard.',
+    );
   });
 });
 
