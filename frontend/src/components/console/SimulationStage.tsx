@@ -132,6 +132,8 @@ export function SimulationStage({
   const simulationBusy =
     isBusy(project) && ['queued', 'running'].includes(stepStatus(project, 'simulation') ?? '');
   const local = project.mode === 'local';
+  // Under a panel that leads the stage, the deep dive's own actions are not its main one.
+  const variant = lead ? 'secondary' : 'primary';
   return (
     <div className="stage-content view-stack">
       {lead ? (
@@ -160,6 +162,7 @@ export function SimulationStage({
             busy={busy}
             onRun={onRun}
             label="Start Simulation"
+            variant={variant}
           />
         )}
         {ready && project.console?.steps.report === 'pending' && (
@@ -169,11 +172,12 @@ export function SimulationStage({
             busy={busy}
             onRun={onRun}
             label="Generate Report"
+            variant={variant}
           />
         )}
         {ready && project.console?.steps.report !== 'pending' && (
           <button
-            className="button button-primary"
+            className={`button button-${variant}`}
             type="button"
             onClick={() => onNavigate('report')}
           >

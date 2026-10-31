@@ -88,6 +88,31 @@ describe('where the workspace mounts the feature panels', () => {
     );
   });
 
+  it('frames what is left of Env Setup as an optional deep dive under the panel, with no main button of its own', () => {
+    const waiting = projectFixture();
+    waiting.status = 'ready';
+    waiting.console!.steps.knowledge = 'ready';
+    for (const project of [waiting, checkpointFixture()]) {
+      const html = render(project, 'environment');
+      const heading = html.indexOf('Deep dive (optional): fixed proxies');
+      expect(html.indexOf('data-seam="stakeholders"')).toBeLessThan(heading);
+      expect(heading).toBeLessThan(html.indexOf('Fixed proxies · '));
+      expect(heading).toBeLessThan(html.indexOf('Fictional proxies, not digital copies of people'));
+      expect(visibleText(html)).toContain('separate from the stakeholder actors above');
+      expect(visibleText(html)).toContain('the comparison does not need it');
+      expect(html).not.toContain('Env Setup · ');
+      expect(html).not.toContain('class="button button-primary"');
+    }
+    const html = render(waiting, 'environment');
+    expect(html.indexOf('Deep dive (optional): fixed proxies')).toBeLessThan(
+      html.indexOf('Prepare fictional environment'),
+    );
+    expect(html).toMatch(/class="button button-secondary"[^>]*>(?:<svg[^>]*>.*?<\/svg>)?Prepare/u);
+    expect(html.indexOf('Prepare fictional environment')).toBeLessThan(
+      html.indexOf('No prepared environment yet'),
+    );
+  });
+
   it('puts the analysis panel in the Simulation stage, above the run controls, and says what they are', () => {
     const html = render(checkpointFixture(), 'simulation');
     expect(seams(html)).toEqual(['analysis']);

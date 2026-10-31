@@ -42,6 +42,8 @@ function EnvironmentEditor({
   project,
   initial,
   busy,
+  variant,
+  notes,
   onSave,
   onRun,
   onNavigate,
@@ -50,6 +52,9 @@ function EnvironmentEditor({
   project: ProjectDetail;
   initial: EnvironmentUpdate;
   busy: boolean;
+  variant: 'primary' | 'secondary';
+  /** What the stage says about its status and its fictional proxies, where it is shown under the actions. */
+  notes: ReactNode;
   onSave: (input: EnvironmentUpdate) => Promise<void>;
   onRun: (step: ExecutionStep) => void;
   onNavigate: (step: ConsoleStep) => void;
@@ -113,7 +118,7 @@ function EnvironmentEditor({
           (project.rounds.length > 0 &&
           ['paused', 'failed', 'cancelled'].includes(project.console?.steps.simulation ?? '') ? (
             <button
-              className="button button-primary"
+              className={`button button-${variant}`}
               type="button"
               onClick={() => onNavigate('simulation')}
             >
@@ -126,6 +131,7 @@ function EnvironmentEditor({
               busy={busy || saving}
               onRun={onRun}
               label="Start Simulation"
+              variant={variant}
             />
           ))}
         {!canExecute(project, 'simulation') && project.console?.steps.simulation !== 'pending' && (
@@ -149,6 +155,7 @@ function EnvironmentEditor({
           The saved environment is up to date; Save is disabled until an assumption changes.
         </p>
       )}
+      {notes}
       {!editable && (
         <div className="readonly-note">
           <LockKeyhole size={14} /> Read-only recorded environment. Editing closes when simulation
@@ -371,6 +378,25 @@ export function EnvironmentStage({
 }) {
   const guided = isGuided(project);
   const input = project.console?.environment ? environmentInput(project) : null;
+  // Where a panel leads the stage, the fixed proxies below it are an optional deep dive, framed as the
+  // agent-by-agent simulation is, and their actions are not the stage's main one.
+  const deepDive = Boolean(lead);
+  const variant = deepDive ? 'secondary' : 'primary';
+  const notes = (
+    <>
+      <StageStatus
+        project={project}
+        step="environment"
+        label={deepDive ? 'Fixed proxies' : undefined}
+      />
+      <Notice tone="warning" title="Fictional proxies, not digital copies of people">
+        Personas and numeric inclinations are generated scenario assumptions. Citation links provide
+        context, not proof of a real person’s beliefs.
+        {project.console?.environment &&
+          ` Prepared by ${project.console.environment.generatedBy === 'local' ? 'local rules' : 'real model assistance'}${project.console.environment.edited ? '; user edits saved' : '; not yet edited'}.`}
+      </Notice>
+    </>
+  );
   return (
     <div className="stage-content view-stack">
       <div>
@@ -378,19 +404,25 @@ export function EnvironmentStage({
         <h2>Make the assumptions explicit</h2>
       </div>
       {lead}
-      <StageStatus project={project} step="environment" />
-      <Notice tone="warning" title="Fictional proxies, not digital copies of people">
-        Personas and numeric inclinations are generated scenario assumptions. Citation links provide
-        context, not proof of a real person’s beliefs.
-        {project.console?.environment &&
-          ` Prepared by ${project.console.environment.generatedBy === 'local' ? 'local rules' : 'real model assistance'}${project.console.environment.edited ? '; user edits saved' : '; not yet edited'}.`}
-      </Notice>
+      {deepDive ? (
+        <div className="deep-dive">
+          <h2>Deep dive (optional): fixed proxies</h2>
+          <p className="field-help">
+            Setup for the slower agent-by-agent simulation, which runs on a small fixed set of
+            fictional proxies; it is separate from the stakeholder actors above, and the comparison
+            does not need it.
+          </p>
+        </div>
+      ) : (
+        notes
+      )}
       <RunStepButton
         project={project}
         step="environment"
         busy={busy}
         onRun={onRun}
         label="Prepare fictional environment"
+        variant={variant}
       />
       {input ? (
         <EnvironmentEditor
@@ -398,16 +430,21 @@ export function EnvironmentStage({
           project={project}
           initial={input}
           busy={busy}
+          variant={variant}
+          notes={deepDive ? notes : null}
           onSave={onSave}
           onRun={onRun}
           onNavigate={onNavigate}
           onInspect={onInspect}
         />
       ) : guided ? (
-        <EmptyPanel title="No prepared environment yet">
-          Prepare this stage after Graph Build is ready. Population, seed inputs and timing appear
-          only when returned by the API.
-        </EmptyPanel>
+        <>
+          {deepDive && notes}
+          <EmptyPanel title="No prepared environment yet">
+            Prepare this stage after Graph Build is ready. Population, seed inputs and timing appear
+            only when returned by the API.
+          </EmptyPanel>
+        </>
       ) : (
         <section className="stage-card">
           <h3>Recorded quick-run proxies</h3>

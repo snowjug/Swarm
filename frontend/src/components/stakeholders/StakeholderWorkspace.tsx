@@ -270,7 +270,13 @@ export function StakeholderWorkspace({ state }: { state: StakeholderState }) {
   const made = actors?.actors?.actors;
   const summary = summarise(set, made);
   const editedActors = made?.filter((actor) => actor.edited).length ?? 0;
-  const action = nextAction({ set, actors: made, may: view.may, editedActors });
+  const action = nextAction({
+    set,
+    actors: made,
+    may: view.may,
+    editedActors,
+    listOpen: open.stakeholders,
+  });
   const modelFailed = FAILED_MODEL.test(set.discovery.note);
   const canAdd = view.may.edit && set.stakeholders.length < MAX_STAKEHOLDERS;
   const firstToReview = orderForReview(set.stakeholders).find(
@@ -304,6 +310,9 @@ export function StakeholderWorkspace({ state }: { state: StakeholderState }) {
           firstToReview ? `toggle:${firstToReview.id}` : 'region:stakeholders',
           'region:stakeholders',
         ]);
+        break;
+      case 'approval':
+        focus(['approve', 'region:stakeholders']);
         break;
       case 'add':
         reveal('stakeholders');

@@ -147,9 +147,15 @@ for (const id of PACKS) {
       expect(found.needReview).toBe(found.found);
       expect(found.approved).toBe(0);
       expect(found.actors).toBe(0);
+      // The list is open and is being read, so the way on is to the approval at the end of it: there is
+      // no second button to start reading, and there is one to approve.
+      await expect(panel(page).getByRole('button', { name: 'Go to approval' })).toBeVisible();
       await expect(
         panel(page).getByRole('button', { name: /^Review \d+ stakeholders$/u }),
-      ).toBeVisible();
+      ).toHaveCount(0);
+      await expect(
+        panel(page).getByRole('button', { name: 'Approve stakeholders and create actors' }),
+      ).toHaveCount(1);
       await expect(rows(page)).toHaveCount(found.found);
       // The panel says what it cannot do.
       await expect(panel(page)).toContainText('expect gaps');
@@ -302,6 +308,15 @@ for (const id of PACKS) {
       await expectSound(page, `${id}: list open, edit form open`);
       await row.getByRole('button', { name: 'Cancel' }).click();
       await expect(row.getByRole('button', { name: `Edit ${name}` })).toBeFocused();
+    });
+
+    await test.step('takes a person from the top of the open list to the approval at its end, and focus goes there', async () => {
+      await panel(page).getByRole('button', { name: 'Go to approval' }).click();
+      const approve = panel(page).getByRole('button', {
+        name: 'Approve stakeholders and create actors',
+      });
+      await expect(approve).toBeFocused();
+      await expect(approve).toBeInViewport(ON_THE_SCREEN);
     });
 
     await test.step('closing the list gives the page back to the stage: Start Simulation is on the screen', async () => {

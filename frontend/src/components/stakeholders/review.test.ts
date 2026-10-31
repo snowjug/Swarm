@@ -210,6 +210,29 @@ describe('the summary and the one thing to do next', () => {
     );
   });
 
+  it('points a person who has the list open to the approval at the end of it, as a way on and not as the thing to do', () => {
+    const open = setOf(live('proposed', 'accepted', 'accepted'));
+    expect(nextAction({ set: open, actors: null, may: MAY, listOpen: true })).toEqual({
+      id: 'approval',
+      label: 'Go to approval',
+      primary: false,
+    });
+    expect(nextAction({ set: open, actors: null, may: MAY, listOpen: false })?.id).toBe('review');
+    // With no right to approve there is no approval to go to, and once everything is reviewed the
+    // approval is itself what the list offers.
+    expect(
+      nextAction({ set: open, actors: null, may: { edit: true, run: false }, listOpen: true })?.id,
+    ).toBe('review');
+    expect(
+      nextAction({
+        set: setOf(live('accepted', 'accepted')),
+        actors: null,
+        may: MAY,
+        listOpen: true,
+      })?.id,
+    ).toBe('approve');
+  });
+
   it('asks for a second stakeholder before anything else, since a simulation needs more than one party', () => {
     expect(nextAction({ set: setOf(live('proposed')), actors: null, may: MAY })?.id).toBe('add');
     expect(
