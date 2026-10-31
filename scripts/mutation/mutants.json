@@ -1471,6 +1471,33 @@
       "find": "    .min(1)\n    .max(60),",
       "replace": "    .min(1)\n    .max(600),",
       "tests": ["backend/test/stakeholders-discover.test.ts"]
+    },
+    {
+      "id": "L14",
+      "area": "lab",
+      "claim": "A question about one subject makes the stakeholder reading invent a group that no evidence names",
+      "file": "backend/src/stakeholders/discover.ts",
+      "find": "  const result = discoverByRules(context);\n  const base = fallback",
+      "replace": "  const result = discoverByRules(context);\n  if (/beekeeping/iu.test(input.project.question)) {\n    result.stakeholders.push({\n      ...result.stakeholders[0]!,\n      id: 'honey-inspectors',\n      name: 'Honey inspectors',\n      evidence: [],\n    });\n  }\n  const base = fallback",
+      "tests": ["backend/test/neutrality-metamorphic.test.ts"]
+    },
+    {
+      "id": "L15",
+      "area": "lab",
+      "claim": "The owner of a recommendation depends on what the actor is called and not on its category",
+      "file": "backend/src/brief/recommend.ts",
+      "find": "const ownerOf = (actor: Actor): string => OWNER_BY_CATEGORY[actor.category];",
+      "replace": "const ownerOf = (actor: Actor): string =>\n  /honey|bee/iu.test(actor.name) ? 'honey inspectors' : OWNER_BY_CATEGORY[actor.category];",
+      "tests": ["backend/test/neutrality-metamorphic.test.ts"]
+    },
+    {
+      "id": "L16",
+      "area": "lab",
+      "claim": "The simulator gives an actor a direction of impact that depends on what it is called",
+      "file": "backend/src/simulation/population.ts",
+      "find": "  if (override !== undefined) value.impact = clampTo(override, 'impact');\n  return { value, spread };",
+      "replace": "  if (override !== undefined) value.impact = clampTo(override, 'impact');\n  if (/honey/iu.test(actor.name)) value.impact = -1;\n  return { value, spread };",
+      "tests": ["backend/test/neutrality-metamorphic.test.ts"]
     }
   ]
 }
