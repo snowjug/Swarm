@@ -7,8 +7,8 @@ import {
   type StakeholderCategory,
   type TraitKey,
 } from '../../../shared/stakeholders.js';
-import { ADVERSE_PHRASE } from '../analysis/findings.js';
 import type { Facts } from './facts.js';
+import { aboutAdverseShare } from './measures.js';
 import { OWNER_BY_CATEGORY, directionOf, type Level } from './rules.js';
 import { clip, embed } from './text.js';
 
@@ -204,7 +204,7 @@ export const STRENGTH_CHECK: Check = {
   question:
     'How large is the change in {change} in practice, and how widely and how soon does it reach the groups it affects?',
   measure:
-    'For each affected group, and first for the groups the answer names: what the change amounts to as the group experiences it, the proportion of the group it reaches, and the number of weeks before they see it.',
+    'For each affected group, and first for the groups the answer names: what the change amounts to for them, the proportion of the group it reaches, and the weeks before they see it.',
   comparison:
     'What was assumed when the simulation was set up for the size, reach and timing of the change, written in the same terms.',
   method:
@@ -398,7 +398,7 @@ export function headlineRelevant(facts: Facts, finding: Finding): boolean {
   if (finding.kind === 'majority-response') {
     // Only a group whose largest response is the adverse one says anything about the share the answer leads with.
     return (
-      finding.statement.includes(ADVERSE_PHRASE) &&
+      aboutAdverseShare(finding) &&
       headline.groups.slice(0, 3).some((group) => group.actorId === finding.actorId)
     );
   }
@@ -498,6 +498,20 @@ export function impactLeads(facts: Facts, limit: number): Actor[] {
         !(
           EXTERNAL_RESPONDER_CATEGORIES.includes(actor.category) && directionOf(actor) === 'neutral'
         ),
+    )
+    .slice(0, limit);
+}
+
+/**
+ * The groups the answer names that stand for a population nobody counted. The size is a setting of
+ * the simulation, and it weighs how far a group sways the others, so a group the answer leans on is
+ * worth counting.
+ */
+export function sizedLeads(facts: Facts, limit: number): Actor[] {
+  return (facts.headline?.groups ?? [])
+    .map((group) => facts.actorById.get(group.actorId))
+    .filter(
+      (actor): actor is Actor => actor !== undefined && actor.kind === 'cohort' && actor.size > 1,
     )
     .slice(0, limit);
 }
@@ -676,6 +690,20 @@ export function planChecks(facts: Facts): PlannedCheck[] {
     });
   });
 
+  sizedLeads(facts, 1).forEach((actor) => {
+    add(`population:${actor.id}`, 6, PLACE.population, {
+      check: POPULATION_CHECK,
+      slots: { ...words, group: groupName(actor) },
+      owner: ownerOf(actor),
+      targets: [`assumption: the size of ${actor.name}, assumed at ${actor.size} and not counted`],
+      keys: [`premise:population:${actor.id}`],
+      refs: {
+        stakeholderIds: [actor.stakeholderId],
+        assumptions: ['Population sizes are assumptions, not counts.'],
+      },
+    });
+  });
+
   const sensitive = analysis.sensitivity
     .filter(
       (row) => row.classification === 'assumption-sensitive' && row.assumptionOrigin !== 'evidence',
@@ -776,7 +804,9 @@ export function planChecks(facts: Facts): PlannedCheck[] {
   if (state !== 'no-direction') {
     const unstable = unstableFindings(facts).slice(0, 3);
     if (unstable.length > 0) {
-      add('repeat', 8, PLACE.repeat, {
+      // When the answer's own direction disagrees across runs, nothing else in the plan matters before this.
+      const rank = unstable.some((finding) => finding.kind === 'direction-vs-baseline') ? 0 : 8;
+      add('repeat', rank, PLACE.repeat, {
         check: REPEAT_CHECK,
         slots: words,
         owner: 'research and analytics',

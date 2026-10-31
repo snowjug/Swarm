@@ -6,7 +6,7 @@ import {
 } from '../../../shared/stakeholders.js';
 import { MATERIAL_SHIFT, ROBUST_SHIFT } from '../analysis/sensitivity.js';
 import type { Facts } from './facts.js';
-import { actorMeasure, findingsFor, pairShares } from './measures.js';
+import { aboutAdverseShare, actorMeasure, findingsFor, pairShares } from './measures.js';
 import { directionOf } from './rules.js';
 import { readingNote } from './signal.js';
 import { sensitivityContext } from './assumptions.js';
@@ -45,7 +45,12 @@ export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
       (category) =>
         `${RESPONSE_LABELS[category].toLowerCase()} ${perHundred(measure.shares[category].mean)}`,
     );
-    const related = findingsFor(analysis, { variantId: measure.variant.id });
+    // The distribution is a mean over the runs; the one finding that bears on it is the comparison of the variant with the baseline.
+    const related = findingsFor(analysis, {
+      variantId: measure.variant.id,
+      actorId: null,
+      kind: 'direction-vs-baseline',
+    });
     const range =
       measure.share.min === null || measure.share.max === null
         ? ''
@@ -96,7 +101,11 @@ export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
       });
     }
     for (const { actor, measure } of ranked) {
-      const own = findingsFor(analysis, { variantId: variant.variant.id, actorId: actor.id });
+      // What the group's own share rests on is the finding that its largest response was the adverse one, if there is one.
+      const own = findingsFor(analysis, {
+        variantId: variant.variant.id,
+        actorId: actor.id,
+      }).filter(aboutAdverseShare);
       const base = baseline ? actorMeasure(baseline, actor.id) : null;
       const against =
         base && baseline && state === 'clear'

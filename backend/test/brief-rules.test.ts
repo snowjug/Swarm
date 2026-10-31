@@ -500,6 +500,21 @@ describe('the recommendations', () => {
     expect(plain.some((entry) => entry.text.startsWith('Mitigate'))).toBe(false);
   });
 
+  it('does not stand a mitigation on a finding about another response of the group', () => {
+    const other = richAnalysis();
+    other.findings = other.findings.map((finding) =>
+      finding.id === 'f2'
+        ? {
+            ...finding,
+            statement:
+              'In 9 of 10 seeded runs, the largest group of simulated members of Subscribers ended up adapting to limit the impact under Proposed change.',
+          }
+        : finding,
+    );
+    const advice = recommend(gatherFacts(richInputs({ analysis: other })));
+    expect(advice.some((entry) => entry.text.startsWith('Mitigate'))).toBe(false);
+  });
+
   it('raises a blocking critique to high impact, and ignores a critique that was accepted', () => {
     const blocking = critiquesFixture();
     blocking.critiques[0] = { ...blocking.critiques[0]!, severity: 'blocking' };
@@ -572,6 +587,10 @@ describe('the validation plan', () => {
     expect(target('conflict X1:')).toBeDefined();
     expect(target('finding f3:')).toBeDefined();
     expect(target('evidence gap provider:')).toBeDefined();
+    // A group the answer names that stands for a population nobody counted gets its size counted.
+    const counted = target('assumption: the size of Resellers');
+    expect(counted?.question).toBe('How many members does “Resellers” have in fact?');
+    expect(counted?.measure).toContain('independent count');
     // An ordering of groups is not something to repeat the runs for.
     expect(target('finding f4:')).toBeUndefined();
     expect(plan.some((experiment) => experiment.method.includes('more seeded runs'))).toBe(false);

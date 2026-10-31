@@ -600,6 +600,33 @@ describe('how far each statement can be relied on', () => {
     const mitigation = recommendations.find((statement) => statement.text.startsWith('Mitigate'))!;
     expect(mitigation.reliance).toBe('high');
   });
+
+  it('does not come from a finding about something else: a distribution rests on the comparison, a group on its adverse response', () => {
+    const analysis = richAnalysis();
+    // An unstable ordering of groups and an unstable event say nothing of the mean outcome or of a group's share.
+    analysis.findings = analysis.findings.map((finding) =>
+      finding.kind === 'ordering' || finding.kind === 'second-order-event'
+        ? { ...finding, classification: 'unstable' as const }
+        : finding,
+    );
+    const brief = buildBrief(richInputs({ analysis }));
+    const patterns = sectionOf(brief, 'reaction-patterns').statements;
+    const distribution = patterns.find((statement) =>
+      statement.text.startsWith('Under “Proposed change”, counting each simulated actor equally'),
+    )!;
+    expect(
+      distribution.refs.findingIds.map(
+        (id) => analysis.findings.find((finding) => finding.id === id)?.kind,
+      ),
+    ).toEqual(['direction-vs-baseline']);
+    expect(distribution.reliance).not.toBe('low');
+    for (const statement of patterns.filter((entry) => entry.origin === 'actor-behavior')) {
+      for (const id of statement.refs.findingIds) {
+        const linked = analysis.findings.find((finding) => finding.id === id);
+        expect(linked?.kind, statement.text).toBe('majority-response');
+      }
+    }
+  });
 });
 
 describe('the assumptions', () => {

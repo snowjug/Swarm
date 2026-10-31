@@ -9,7 +9,16 @@ import {
   type Variant,
   type VariantActorSummary,
 } from '../../../shared/analysis.js';
+import { ADVERSE_PHRASE } from '../analysis/findings.js';
 import { mean, standardError } from '../analysis/stats.js';
+
+/**
+ * Whether a finding says that a group's largest response is the adverse one: looking for an
+ * alternative or resisting. Only such a finding bears on the share the answer leads with; which of
+ * two other responses is a group's largest does not.
+ */
+export const aboutAdverseShare = (finding: Finding): boolean =>
+  finding.kind === 'majority-response' && finding.statement.includes(ADVERSE_PHRASE);
 
 /**
  * Plain arithmetic over the recorded runs of an analysis. Nothing here estimates anything. There are

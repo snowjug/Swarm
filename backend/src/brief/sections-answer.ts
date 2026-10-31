@@ -14,7 +14,7 @@ import { effectOf } from './assumptions.js';
 import { documentOrigin, provenanceLine, uniqueRefs } from './evidence.js';
 import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
-import type { GroupShift, Headline } from './measures.js';
+import { aboutAdverseShare, type GroupShift, type Headline } from './measures.js';
 import type { Advice } from './recommend.js';
 import { relianceOfEvidence, type Reliance } from './rules.js';
 import {
@@ -448,7 +448,9 @@ function answerFirst(
     const ownFindings = named.flatMap((group) =>
       facts.analysis.findings.filter(
         (candidate) =>
-          candidate.actorId === group.actorId && candidate.variantId === variant.variant.id,
+          candidate.actorId === group.actorId &&
+          candidate.variantId === variant.variant.id &&
+          aboutAdverseShare(candidate),
       ),
     );
     groups =

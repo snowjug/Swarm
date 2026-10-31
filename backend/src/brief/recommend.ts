@@ -3,7 +3,7 @@ import type { BriefRefs, Recommendation, StatementOrigin } from '../../../shared
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
 import { EXTERNAL_RESPONDER_CATEGORIES, type Actor } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
-import { groupShifts } from './measures.js';
+import { aboutAdverseShare, groupShifts } from './measures.js';
 import {
   LEVEL_WEIGHT,
   OWNER_BY_CATEGORY,
@@ -120,17 +120,17 @@ function mitigations(facts: Facts): Candidate[] {
     if (shift.delta === null || shift.delta <= 0 || shift.members === 0) continue;
     const actor = facts.actorById.get(shift.actorId);
     if (!actor || directionOf(actor) !== 'harmed') continue;
-    const related = analysis.findings.filter(
-      (candidate) => candidate.actorId === actor.id && candidate.variantId === variant.variant.id,
-    );
-    // Advice about a group rests on a finding about that group that held in most seeded runs.
-    const finding = related
+    // Advice about a group rests on the findings that say its largest response is the adverse one, in most seeded runs.
+    const supports = analysis.findings
       .filter(
         (candidate) =>
+          candidate.actorId === actor.id &&
+          candidate.variantId === variant.variant.id &&
           repeatable(candidate) &&
-          (candidate.kind === 'majority-response' || candidate.kind === 'direction-vs-baseline'),
+          aboutAdverseShare(candidate),
       )
-      .sort((a, b) => b.interval.lo - a.interval.lo || (a.id < b.id ? -1 : 1))[0];
+      .sort((a, b) => b.interval.lo - a.interval.lo || (a.id < b.id ? -1 : 1));
+    const finding = supports[0];
     if (!finding) continue;
     const runs = variant.runs.length;
     const here = embed(variant.variant.label, 60);
@@ -149,7 +149,7 @@ function mitigations(facts: Facts): Candidate[] {
     found.push({
       kind: 'mitigate',
       text: `Mitigate or stage the change for ${subject}: ${how}, and the finding held in ${finding.holdsIn} of ${finding.of} seeded runs.`,
-      linkedFindingIds: idsOf([finding, ...related]),
+      linkedFindingIds: idsOf(supports),
       impact: levelOfSize(shift.delta),
       effort: 'medium',
       reversibility: 'easy',
@@ -169,11 +169,11 @@ function mitigations(facts: Facts): Candidate[] {
       repeatability: lowerBound([finding]),
       origin: 'simulation-aggregation',
       refs: {
-        findingIds: idsOf([finding, ...related]),
+        findingIds: idsOf(supports),
         stakeholderIds: [actor.stakeholderId],
         variantIds: [variant.variant.id, baseline.variant.id],
       },
-      reliance: facts.relianceOf([finding, ...related.slice(0, 3)]),
+      reliance: facts.relianceOf(supports.slice(0, 3)),
       subject,
     });
   }
