@@ -7,9 +7,20 @@ import {
   expectNoHorizontalOverflow,
   expectReadableText,
   expectTargetSizes,
+  expectTouchTargets,
   seed,
   watchPage,
 } from '../support/helpers';
+import {
+  CITY_BRIEFING,
+  CITY_QUESTION,
+  briefDocument,
+  comparisonPanel,
+  openStage,
+  reviewPanel,
+  seedThroughBrief,
+  stakeholderPanel,
+} from '../support/lab';
 
 // The shell around the features: the first screen, the example picker, the guided and advanced modes,
 // the journey and the help under each stage, in every theme and at the width of a desktop and a phone.
@@ -370,6 +381,64 @@ for (const size of SIZES) {
     }
   });
 }
+
+test.describe('a finger on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('reaches every control of the lab at 44px: the stakeholders, the comparison, the brief and the dialogs', async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    const problems = watchPage(page);
+    const id = await seedThroughBrief(page, {
+      title: 'Shell: touch targets',
+      question: CITY_QUESTION,
+      documents: [CITY_BRIEFING],
+    });
+    await page.goto(`/?project=${id}`);
+    await expectTouchTargets(page, 'the first stage of a project');
+
+    await openStage(page, /Env Setup/u);
+    const panel = stakeholderPanel(page);
+    await panel.getByRole('button', { name: /^Stakeholders \d+$/u }).click();
+    await panel
+      .locator('ul[aria-label="Stakeholders, key actors first"] > li')
+      .first()
+      .locator('button.stk-row-toggle')
+      .click();
+    await expectTouchTargets(page, 'stakeholders: the list open, a row open');
+    await panel.getByRole('button', { name: /^Actors \d+$/u }).click();
+    await panel
+      .locator('ul[aria-label="Actors"] > li')
+      .first()
+      .locator('button.stk-row-toggle')
+      .click();
+    await expectTouchTargets(page, 'stakeholders: the actors open, an actor open');
+
+    await openStage(page, /Simulation/u);
+    await expect(
+      comparisonPanel(page).getByRole('heading', { name: 'What this comparison says' }),
+    ).toBeVisible();
+    await expectTouchTargets(page, 'the comparison with its results');
+
+    await openStage(page, /Report/u);
+    await expect(briefDocument(page)).toBeVisible();
+    await expect(reviewPanel(page)).toBeVisible();
+    await expectTouchTargets(page, 'the report: the decision brief and the independent review');
+
+    for (const [name, dialog] of [
+      ['History', 'the history of projects'],
+      ['Audit log', 'the audit log'],
+    ] as const) {
+      await page.getByRole('button', { name: new RegExp(`^${name}`, 'u') }).click();
+      await expect(page.locator('dialog[open]')).toBeVisible();
+      await expectTouchTargets(page, dialog, 'dialog[open]');
+      await page.keyboard.press('Escape');
+      await expect(page.locator('dialog[open]')).toHaveCount(0);
+    }
+    expect(problems).toEqual([]);
+  });
+});
 
 test.describe('reduced motion', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
