@@ -176,8 +176,19 @@ server, so TLS, Entra authentication and two instances racing are not covered.
 
 ## Backup, rollback and restore
 
-Three files, all in `npm test` (and in `npm run test:postgres`):
+Four files, all in `npm test` (and in `npm run test:postgres`):
 
+- `copy.test.ts` covers `npm run db:copy`: a copy each way between SQLite and PostgreSQL with every table
+  compared, nothing kept when a copy fails part-way or the audit chain does not verify, and every kind of
+  lab artifact carried with its revision. It also checks that a source that is being written to is read
+  as one snapshot. A second connection to the same SQLite file commits a change to a project and its
+  actors, or deletes the project, after the first table has been read: the copy holds the moment before,
+  whole, and the writer is not held back (before the fix the first copied a project with the actors of
+  the moment after, and the second an empty project, both with intact row counts and audit chain). The
+  in-process PostgreSQL is one connection, so a concurrent writer cannot be played against it: there the
+  test shows what the copy asks of the server (every table read in one read-only repeatable-read
+  transaction, on one snapshot), and that PostgreSQL then isolates a writer is PostgreSQL's own
+  guarantee, not covered here.
 - `storage-backup.test.ts` covers the copy taken before a SQLite file is upgraded: it is kept when the
   file has not changed since (a restart loop does not fill the disk), set aside under a name that says
   when it was last written when the file has (it is never overwritten), and compared block by block.
@@ -188,8 +199,9 @@ Three files, all in `npm test` (and in `npm run test:postgres`):
 - `restore-drill.test.ts` covers `npm run db:drill`: a backup and a restore from the backup alone,
   checked table by table by digest, by the audit chain and by opening every project, from SQLite and
   from PostgreSQL. It checks that a changed cell, a missing row and a rewritten history are noticed,
-  that a database in use is read as a snapshot including its write-ahead log, and that the database
-  it is run on and its folder are not changed.
+  that a database in use is read as a snapshot including its write-ahead log, that the digests and the
+  backup are of the same snapshot when the database changes meanwhile, and that the database it is run
+  on and its folder are not changed.
 
 Restoring a hosted PostgreSQL server to a point in time, and rolling a Container Apps revision back,
 have not been rehearsed: they need a deployment.

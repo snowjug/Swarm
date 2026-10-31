@@ -711,7 +711,8 @@ untouched.
 differences (`storage/postgres/translate.ts`), keeps the same migrations (`schema.ts`) and reaches the
 server through a worker thread that the process waits for ([ADR 0009](./docs/adr/0009-postgres-through-a-synchronous-bridge.md)),
 with serializable transactions retried when they lose a race. `npm run test:postgres` runs the unit
-suite on it, and `npm run db:copy` and `npm run db:drill` move and rehearse a database between the two.
+suite on it, and `npm run db:copy` and `npm run db:drill` move and rehearse a database between the two,
+reading the source as one snapshot (`SqlDatabase.readSnapshot`), so that a copy is never half of a change.
 JSON payloads are decoded with runtime schemas. SQL values are parameterized and
 source filenames never become paths. Foreign-key deletion removes associated
 chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.
