@@ -1,17 +1,21 @@
 import { Check } from 'lucide-react';
 import type { ConsoleStep } from '../../../../shared/guided';
 import type { ProjectDetail } from '../../../../shared/types';
-import { stepAvailable, stepLabels, stepOrder, stepStatus } from '../../lib/console';
+import type { UiMode } from '../../lib/mode';
+import { stepAvailable, stepHelp, stepLabels, stepOrder, stepStatus } from '../../lib/console';
 import { Spinner } from '../ui';
 
 export function ConsoleStepper({
   project,
   step,
   onNavigate,
+  mode = 'guided',
 }: {
   project: ProjectDetail;
   step: ConsoleStep;
   onNavigate: (step: ConsoleStep) => void;
+  /** Guided says in plain words what each step is for; Advanced keeps the engine's names alone. */
+  mode?: UiMode;
 }) {
   return (
     <nav className="console-stepper" aria-label="Guided workflow steps">
@@ -35,6 +39,7 @@ export function ConsoleStepper({
               <span className="sr-only">
                 , step {index + 1} of 5{!enabled ? ', prerequisite not ready' : ''}
               </span>
+              {mode === 'guided' && <small className="step-help">{stepHelp[item]}</small>}
             </span>
             {(status === 'queued' || status === 'running') && (
               <span className="step-spinner" aria-hidden="true">

@@ -28,7 +28,8 @@ const LIVE = Boolean(process.env.JOURNEY_URL);
 const ASK = LIVE && process.env.JOURNEY_ASK !== '0';
 const SCREENS = process.env.JOURNEY_SCREENSHOTS;
 const ABSTENTION = 'The available project evidence does not support a confident answer.';
-const POSITIONING = 'Swarm explores possible scenarios. It does not predict the future.';
+const POSITIONING =
+  'Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.';
 const [BASE, GUARANTEE, NO_NOTICE] = DEMO_PROJECTS as [
   (typeof DEMO_PROJECTS)[number],
   (typeof DEMO_PROJECTS)[number],
@@ -247,26 +248,23 @@ test('the presentation, step by step, in a real browser', async ({
   });
 
   await run('2. See professional product positioning', async () => {
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Explore what could happen, and see what the evidence supports.',
-    );
-    const capabilities = page.getByRole('list', { name: 'What Swarm does' }).getByRole('listitem');
-    await expect(capabilities).toHaveCount(8);
-    await expect(page.getByText(/turns source documents into an evidence ledger/u)).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('What could happen if…?');
+    const path = page.getByRole('list', { name: 'How Swarm works' }).getByRole('listitem');
+    await expect(path).toHaveCount(8);
+    await expect(path.first()).toContainText('Evidence');
+    await expect(path.last()).toContainText('Decision');
+    await expect(page.getByText(/turns it into a scenario from your evidence/u)).toBeVisible();
     await expectNoAxeViolations(page, 'home');
     await shot(page, '01-home');
   });
 
-  await run(
-    '3. See that Swarm explores possible scenarios and does not predict the future',
-    async () => {
-      const statement = page.getByText(POSITIONING, { exact: true });
-      await expect(statement).toBeVisible();
-      const box = (await statement.boundingBox())!;
-      expect(box.y + box.height, 'the statement is on the first screen').toBeLessThan(900);
-      await expect(page.getByText(/Fictional scenarios, not forecasts/u).first()).toBeVisible();
-    },
-  );
+  await run('3. See that Swarm explores scenarios and does not guarantee or predict', async () => {
+    const statement = page.getByText(POSITIONING, { exact: true });
+    await expect(statement).toBeVisible();
+    const box = (await statement.boundingBox())!;
+    expect(box.y + box.height, 'the statement is on the first screen').toBeLessThan(900);
+    await expect(page.getByText(/Fictional scenarios, not forecasts/u).first()).toBeVisible();
+  });
 
   await run('4. Open the demonstration workspace', async () => {
     const workspace = page.getByRole('region', { name: 'Demonstration workspace' });

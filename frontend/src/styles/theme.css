@@ -13,6 +13,20 @@
   color-scheme: light;
 }
 
+/* Elevation is a solid colour: a dark shadow on dark surfaces, none where the theme draws every edge. */
+:root[data-theme='dark'] {
+  --shadow: var(--t-bg-17191d);
+}
+
+:root[data-theme='high-contrast'] {
+  --shadow: transparent;
+}
+
+/* The spotlight and the grid of the landing hero are decoration: the high-contrast theme draws none. */
+:root[data-theme='high-contrast'] .landing-hero::before {
+  display: none;
+}
+
 .theme-switch {
   display: inline-flex;
   align-items: center;
@@ -38,8 +52,22 @@
 
   .button,
   .icon-button,
-  .theme-switch select {
+  .theme-switch select,
+  .segmented button[aria-pressed='true'],
+  .example-card {
     border: 1px solid ButtonText;
+  }
+
+  .journey-dot {
+    border: 1px solid CanvasText;
+  }
+
+  .journey-step.current .journey-dot {
+    border: 2px solid Highlight;
+  }
+
+  .landing-hero::before {
+    display: none;
   }
 
   .verdict-badge,

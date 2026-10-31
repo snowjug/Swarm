@@ -1,6 +1,7 @@
 @import './styles/theme-tokens.css';
 @import './styles/entry.css';
 @import './styles/home.css';
+@import './styles/shell.css';
 @import './styles/workspace.css';
 @import './styles/graph.css';
 @import './styles/stages.css';
@@ -66,6 +67,38 @@
   --verdict-unchecked-tint: var(--t-bg-f0f1f2);
   --verdict-unchecked-line: var(--t-bd-c3c8ce);
   --mono: 'Cascadia Code', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  /* The design scale. Text is never below 12px; each step up in the type scale is about a fifth. */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 26px;
+  --fs-hero: clamp(34px, 5vw, 54px);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  /* Elevation is a solid shadow colour with a wide blur, so it needs no transparency; theme.css sets
+     the colour for the dark and high-contrast themes. */
+  --shadow: var(--t-bd-cdd1d5);
+  --elevation-1: 0 1px 2px var(--shadow);
+  --elevation-2: 0 10px 28px -12px var(--shadow);
+  /* Motion is short and purposeful, and none of it runs under prefers-reduced-motion. */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  /* Surfaces and the first screen's accents. The glow and the grid appear on the landing hero only. */
+  --surface-inset: var(--t-bg-fafaf8);
+  --hero-glow: var(--t-bg-fff3eb);
+  --hero-grid: var(--t-bd-e3e5e7);
   font-size: 13px;
 }
 * {
@@ -272,15 +305,16 @@ svg {
   position: sticky;
   top: 0;
   z-index: 20;
-  min-height: 48px;
+  min-height: 52px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 6px 12px;
-  padding: 4px 24px;
+  padding: 6px 24px;
   border-bottom: 1px solid var(--border);
   background: var(--t-bg-ffffff);
+  box-shadow: var(--elevation-1);
 }
 .header-brand,
 .header-actions,
@@ -291,6 +325,8 @@ svg {
   min-width: 0;
 }
 .header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
   margin-left: auto;
 }
 .brand-button {
@@ -316,7 +352,7 @@ svg {
   border: 1px solid var(--t-bd-ba8c72);
   background: var(--t-bg-fff3eb);
   color: var(--t-fg-91380f);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .single-user-label {
   color: var(--muted);
@@ -325,7 +361,7 @@ svg {
   min-width: 22px;
   padding: 1px 5px;
   background: var(--t-bg-ececea);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   font: 12px/20px var(--mono);
 }
 .main-content {
@@ -364,13 +400,17 @@ svg {
   gap: 8px;
   min-height: 36px;
   min-width: 32px;
-  padding: 8px 12px;
+  padding: 8px 14px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 600;
   line-height: 1.4;
   text-decoration: none;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease);
 }
 .button:hover:not(:disabled) {
   text-decoration: none;
@@ -411,7 +451,7 @@ svg {
   padding: 6px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 .icon-button:hover:not(:disabled) {
   background: var(--t-bg-f0f0ee);
@@ -440,7 +480,7 @@ svg {
 .card,
 .stage-card {
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   background: var(--t-bg-ffffff);
   min-width: 0;
 }
@@ -466,7 +506,7 @@ svg {
   align-items: flex-start;
   border: 1px solid var(--t-bd-cbd6df);
   border-left: 3px solid var(--t-bd-718a9f);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 11px 12px;
   background: var(--t-bg-f3f6f9);
   color: var(--t-fg-34495c);
@@ -541,7 +581,7 @@ svg {
   width: 100%;
   min-height: 36px;
   border: 1px solid var(--t-bd-aeb7c0);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--t-bg-ffffff);
   padding: 8px 10px;
   line-height: 1.5;
@@ -582,7 +622,7 @@ legend {
   min-height: 36px;
   background: var(--t-bg-ffffff);
   border: 1px solid var(--t-bd-aeb7c0);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   padding: 8px 10px;
   min-width: 0;
 }
@@ -636,7 +676,7 @@ legend {
   background: var(--t-bg-f0f1f2);
   color: var(--t-fg-4a535f);
   border: 1px solid var(--t-bd-c3c8ce);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
 }
 .status-dot {
@@ -693,6 +733,9 @@ legend {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
 }
 .empty-panel h3 {
   color: var(--t-fg-414b56);
@@ -733,7 +776,7 @@ legend {
   font: 12px/1.5 var(--mono);
   padding: 4px 7px;
   border: 1px solid var(--t-bd-a7bdcf);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--t-bg-f1f6fb);
   color: var(--t-fg-315574);
   overflow-wrap: anywhere;
@@ -770,7 +813,7 @@ details > summary::-webkit-details-marker {
 .record-details {
   border: 1px solid var(--border);
   background: var(--t-bg-ffffff);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 .record-details > summary {
   display: flex;
@@ -821,10 +864,10 @@ details > summary::-webkit-details-marker {
   max-height: calc(100dvh - 40px);
   padding: 0;
   border: 1px solid var(--t-bd-9faab5);
-  border-radius: 5px;
+  border-radius: var(--radius-lg);
   background: var(--t-bg-ffffff);
   color: var(--text);
-  box-shadow: 0 16px 80px #0002;
+  box-shadow: var(--elevation-2);
 }
 .modal::backdrop {
   background: var(--t-bg-20242b);
@@ -876,7 +919,7 @@ details > summary::-webkit-details-marker {
   padding: 3px;
   background: var(--t-bg-eeefed);
   border: 1px solid var(--t-bd-c9cdd0);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   min-width: 0;
 }
 .segmented button {
@@ -887,7 +930,7 @@ details > summary::-webkit-details-marker {
   min-height: 32px;
   gap: 5px;
   padding: 6px 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: transparent;
   color: var(--t-fg-4c5662);
   font-size: 12px;
@@ -896,7 +939,9 @@ details > summary::-webkit-details-marker {
 .segmented button[aria-pressed='true'] {
   color: var(--t-fg-24282e);
   background: var(--t-bg-ffffff);
-  box-shadow: 0 1px 3px #0001;
+  box-shadow:
+    var(--elevation-1),
+    inset 0 0 0 1px var(--border);
 }
 .project-loading {
   display: flex;

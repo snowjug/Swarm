@@ -1,0 +1,212 @@
+/* The shell around the features: the path indicator, the mode switch, the grouping of project tools, the
+   places where feature panels are mounted, and the loading state. Theme tokens only; no text below 12px;
+   motion is short, never on text, and only where the person has not asked for less. */
+
+.mode-switch button {
+  padding: 4px 12px;
+}
+
+/* The path from a question to a result. It shows where the person is; it is not navigation. */
+.journey {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0 var(--space-1);
+  padding: var(--space-1) 0;
+}
+.journey-summary {
+  flex: none;
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.journey-summary .mono {
+  color: var(--muted);
+}
+.journey-steps {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.journey-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.journey-dot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--muted);
+  font: 12px/1 var(--mono);
+  transition:
+    background-color var(--dur-base) var(--ease),
+    border-color var(--dur-base) var(--ease);
+}
+.journey-step.done .journey-dot {
+  border-color: var(--verdict-supported-line);
+  background: var(--verdict-supported-tint);
+  color: var(--verdict-supported);
+}
+.journey-step.current .journey-dot {
+  border-color: var(--orange-fill);
+  background: var(--orange-fill);
+  color: var(--t-fg-ffffff);
+}
+.journey-step.current .journey-label {
+  color: var(--text);
+  font-weight: 650;
+}
+@media (max-width: 1239px) {
+  .journey-steps {
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+  }
+  .journey-label {
+    display: none;
+  }
+  .journey-step.current .journey-label {
+    display: inline;
+  }
+}
+@media (max-width: 640px) {
+  .journey {
+    padding: var(--space-1) 0;
+  }
+  .journey-summary {
+    flex: 1 0 100%;
+    white-space: normal;
+  }
+  .journey-steps {
+    flex: 1 0 100%;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .journey-step:not(.current) .journey-dot {
+    width: 18px;
+    height: 18px;
+  }
+  .journey-step.current .journey-label {
+    display: none;
+  }
+}
+
+/* The technical actions of a project, quieter than the ones a person uses every time. */
+.project-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-left: 2px;
+  padding-left: 10px;
+  border-left: 1px solid var(--border);
+}
+.project-tools .button-secondary {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+.project-tools .button-secondary:hover:not(:disabled) {
+  border-color: var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+@media (max-width: 900px) {
+  .project-tools {
+    width: 100%;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+}
+
+/* Where the features add their panels. Nothing is reserved: a stack with nothing in it takes no room. */
+.seam-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  margin-bottom: var(--space-4);
+}
+.seam-stack:empty {
+  display: none;
+}
+.detailed-report-heading {
+  display: none;
+  margin: 0 0 var(--space-3);
+  font-size: var(--fs-xl);
+}
+.seam-stack:not(:empty) + .detailed-report-heading {
+  display: block;
+}
+
+/* Loading: a calm outline of the page that is coming, not a spinner on its own. */
+.project-loading {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--space-5);
+  padding-top: var(--space-6);
+}
+.project-loading-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+.skeleton-stack {
+  display: grid;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.skeleton {
+  display: block;
+  border-radius: var(--radius-sm);
+  background: var(--t-bg-eeefed);
+}
+.skeleton-title {
+  width: 40%;
+  height: 28px;
+}
+.skeleton-line {
+  width: 72%;
+  height: 14px;
+}
+.skeleton-block {
+  height: 220px;
+  border-radius: var(--radius-md);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: skeleton-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}

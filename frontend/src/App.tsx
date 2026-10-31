@@ -17,10 +17,12 @@ import { EntryConsole } from './components/console/EntryConsole';
 import { WorkspaceAccessDialog } from './components/console/AccessDialog';
 import { HistoryDrawer } from './components/console/HistoryDrawer';
 import { ProviderBadge, ProviderPanel } from './components/ProviderBadge';
+import { ModeSwitch } from './components/ModeSwitch';
 import { SignInProblem } from './components/SignInProblem';
 import { ThemeSwitch } from './components/ThemeSwitch';
 import { EmptyPanel, Notice, Spinner } from './components/ui';
 import { useConsole } from './hooks/useConsole';
+import { useMode } from './hooks/useMode';
 import { useWorkspaceRole } from './hooks/useMembers';
 import { useProviderStatus } from './hooks/useProviderStatus';
 import { useTheme } from './hooks/useTheme';
@@ -38,6 +40,7 @@ function Console() {
   const console = useConsole();
   const provider = useProviderStatus();
   const theme = useTheme();
+  const { mode, choose: chooseMode } = useMode();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [peopleOpen, setPeopleOpen] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -145,6 +148,7 @@ function Console() {
               <Users size={14} aria-hidden="true" /> People
             </button>
           )}
+          <ModeSwitch mode={mode} onChoose={chooseMode} />
           <ThemeSwitch preference={theme.preference} onChoose={theme.choose} />
           <button
             className="button button-secondary button-small"
@@ -300,11 +304,19 @@ function Console() {
                 onDuplicate={() => newProject(project)}
                 onSurvey={(record) => console.recordSurvey(project.id, record)}
                 sharing={signedIn}
+                mode={mode}
               />
             ) : console.detail.loading ? (
-              <div className="project-loading">
-                <Spinner label="Loading project" />
-                <span>Opening persisted project…</span>
+              <div className="project-loading" aria-busy="true">
+                <div className="project-loading-status">
+                  <Spinner label="Loading project" />
+                  <span>Opening persisted project…</span>
+                </div>
+                <div className="skeleton-stack" aria-hidden="true">
+                  <span className="skeleton skeleton-title" />
+                  <span className="skeleton skeleton-line" />
+                  <span className="skeleton skeleton-block" />
+                </div>
               </div>
             ) : !console.detail.error ? (
               <EmptyPanel title="No project record loaded">
@@ -328,6 +340,7 @@ function Console() {
             }}
             onOpenProject={console.selectProject}
             onRetryHistory={() => void console.loadHistory()}
+            mode={mode}
           />
         )}
       </main>

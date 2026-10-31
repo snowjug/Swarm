@@ -59,6 +59,21 @@ choice is kept in this browser (local storage, the key `swarm.theme`, holding on
 is applied before the page is drawn, so there is no flash of the wrong theme. The selector is a native
 control: open it with the keyboard and change it with the arrow keys.
 
+## The first screen, the journey and Guided / Advanced
+
+The first screen leads with the question "What could happen if…?", the sentence that Swarm explores
+scenarios and does not guarantee or precisely predict real-world behavior, and the path from
+evidence to a decision. The question is the first field; examples fill in a question and its
+evidence, nothing more. In a project, a journey strip shows where you are on the twelve steps from
+Question to Export and marks a step done only when the project's own record shows it, and each stage
+button carries a line of plain help under its engine name.
+
+The **Interface mode** switch in the header is Guided (the default) or Advanced. Advanced opens the
+system details, the engine's stages, the project details and the operation log, and leaves the step
+help out; it removes and hides nothing, and Guided hides nothing either. The choice is kept in this
+browser (local storage, the key `swarm.mode`, holding only `guided` or `advanced`). The design,
+the seams where features add their panels and the accessibility rules are in [UX.md](./UX.md).
+
 ## What-if loop: pause, resume, intervene, branch, compare
 
 Simulation rounds are saved atomically: the combined history, both platform

@@ -89,12 +89,15 @@
   flex: 1;
   min-width: 0;
   min-height: 44px;
-  gap: 7px;
-  padding: 4px 7px;
+  gap: 8px;
+  padding: 5px 9px;
   border: 1px solid transparent;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: transparent;
   text-align: left;
+  transition:
+    background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease);
 }
 .console-step > span:last-of-type {
   min-width: 0;
@@ -109,6 +112,21 @@
   display: block;
   font: 12px/1.35 var(--mono);
   color: var(--muted);
+}
+.console-step .step-help {
+  margin-top: 1px;
+  font-family: inherit;
+  line-height: 1.4;
+}
+@media (min-width: 641px) {
+  /* The step's name and its state share a line, so that the help under them costs no height. */
+  .console-step strong,
+  .console-step small:not(.step-help) {
+    display: inline;
+  }
+  .console-step small:not(.step-help) {
+    margin-left: 4px;
+  }
 }
 .console-step:disabled {
   color: var(--t-fg-5e6570);
@@ -171,7 +189,8 @@
   min-width: 0;
   background: var(--t-bg-ffffff);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
+  overflow: clip;
 }
 .console-canvas,
 .console-stage {
@@ -220,7 +239,7 @@
   background: var(--t-bg-17191d);
   color: var(--t-fg-d2d7df);
   border: 1px solid var(--t-bd-17191d);
-  border-radius: 4px;
+  border-radius: var(--radius-md);
   margin: 12px 0 22px;
   font: 12px/1.7 var(--mono);
 }
@@ -350,6 +369,9 @@
     text-align: center;
     padding: 6px 2px;
     gap: 4px;
+  }
+  .console-step .step-help {
+    display: none;
   }
   .console-step strong {
     overflow-wrap: anywhere;

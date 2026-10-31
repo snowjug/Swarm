@@ -7,6 +7,8 @@ import { PAGE_BACKGROUND, THEME_NAMES, colour, contrast, minimumContrast } from 
 const styles = [
   'styles.css',
   'entry.css',
+  'home.css',
+  'shell.css',
   'workspace.css',
   'graph.css',
   'stages.css',
@@ -119,5 +121,79 @@ describe('measured console accessibility CSS regressions', () => {
     expect(provider).toMatch(
       /@media \(max-width: 640px\)\s*\{\s*\.provider-badge\s*\{\s*min-height:\s*44px/u,
     );
+  });
+});
+
+/** The text of the `@media` block that opens with this query, braces matched. */
+function mediaBlock(css: string, query: string): string {
+  const start = css.indexOf(`@media ${query}`);
+  if (start < 0) return '';
+  const open = css.indexOf('{', start);
+  let depth = 0;
+  for (let index = open; index < css.length; index += 1) {
+    if (css[index] === '{') depth += 1;
+    if (css[index] === '}' && --depth === 0) return css.slice(open + 1, index);
+  }
+  return '';
+}
+
+describe('restrained decoration and motion', () => {
+  const everything = [...styles];
+  const home = styles.find((style) => style.name === 'home.css')!.text;
+  const shell = styles.find((style) => style.name === 'shell.css')!.text;
+  const theme = readFileSync(new URL('../styles/theme.css', import.meta.url), 'utf8');
+
+  it('puts a gradient and a grid on the landing hero and nowhere else', () => {
+    for (const style of everything) {
+      const code = style.text.replace(/\/\*[^]*?\*\//gu, '');
+      for (const match of code.matchAll(/([^{}]+)\{([^{}]*gradient\([^{}]*)\}/gu)) {
+        expect(`${style.name} ${match[1]!.trim()}`).toBe('home.css .landing-hero::before');
+      }
+    }
+    expect(home).toMatch(/\.landing-hero::before\s*\{[^}]*radial-gradient/u);
+  });
+
+  it('keeps the hero decoration off the page for the high-contrast theme and for forced colours', () => {
+    expect(theme).toMatch(
+      /:root\[data-theme='high-contrast'\] \.landing-hero::before\s*\{\s*display:\s*none/u,
+    );
+    expect(mediaBlock(theme, '(forced-colors: active)')).toMatch(
+      /\.landing-hero::before\s*\{\s*display:\s*none/u,
+    );
+  });
+
+  it('runs no animation of its own unless the person has not asked for less motion', () => {
+    for (const style of everything) {
+      for (const match of style.text.matchAll(/animation(?:-name)?:\s*([^;]+);/gu)) {
+        const spinner = /spin\b/u.test(match[1]!) && style.name === 'styles.css';
+        const gated = mediaBlock(style.text, '(prefers-reduced-motion: no-preference)').includes(
+          match[0],
+        );
+        expect(spinner || gated, `${style.name}: ${match[0]}`).toBe(true);
+      }
+    }
+    expect(shell).toContain('@media (prefers-reduced-motion: no-preference)');
+  });
+
+  it('keeps the global fallback that stops every animation and transition under reduced motion', () => {
+    const base = styles[0]!.text;
+    const reduced = mediaBlock(base, '(prefers-reduced-motion: reduce)');
+    expect(reduced).toMatch(/animation-duration:\s*0\.01ms\s*!important/u);
+    expect(reduced).toMatch(/animation-iteration-count:\s*1\s*!important/u);
+    expect(reduced).toMatch(/transition:\s*none\s*!important/u);
+  });
+
+  it('lifts a card on hover only where there is a pointer to hover with and motion is welcome', () => {
+    const moving = mediaBlock(home, '(hover: hover) and (prefers-reduced-motion: no-preference)');
+    expect(moving).toMatch(/\.example-card:hover\s*\{\s*transform:\s*translateY/u);
+    expect(home.replace(moving, '')).not.toMatch(/\.example-card:hover\s*\{[^}]*transform/u);
+  });
+
+  it('draws the page background, not the hero, behind everything else: the hero is not a layer over content', () => {
+    const hero = /\.landing-hero\s*\{([^}]+)\}/u.exec(home)![1]!;
+    expect(hero).toContain('isolation: isolate');
+    const decoration = /\.landing-hero::before\s*\{([^}]+)\}/u.exec(home)![1]!;
+    expect(decoration).toContain('z-index: -1');
+    expect(decoration).toContain('pointer-events: none');
   });
 });
