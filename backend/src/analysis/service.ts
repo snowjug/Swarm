@@ -12,7 +12,7 @@ import {
   type AnalysisReadiness,
   type AnalysisSummary,
 } from '../../../shared/analysis-plan.js';
-import { changeCanMoveAnyone, NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
+import { directionNotice } from '../../../shared/signal.js';
 import { AppError } from '../errors.js';
 import { simulateEachSpecOnce, SimulationInputError } from '../simulation/simulate.js';
 import type { Repository } from '../storage/repository.js';
@@ -161,6 +161,7 @@ export class AnalysisService {
     }
     const scenario = this.repository.artifacts.get(projectId, 'scenario')?.data ?? null;
     const suggestedVariants = autoVariants(scenario);
+    const notice = directionNotice(cast.actors, suggestedVariants);
     return {
       actors: {
         count: cast.actors.length,
@@ -175,8 +176,8 @@ export class AnalysisService {
         suggestedVariants.find((variant) => variant.kind === 'alternative'),
       ).length,
       rounds: DEFAULT_ROUNDS,
-      // A warning, not a refusal: a comparison where nothing can move shows how much the runs vary by chance.
-      warnings: changeCanMoveAnyone(cast.actors, suggestedVariants) ? [] : [NO_DIRECTION_NOTICE],
+      // A warning, not a refusal: with nobody given a direction, a comparison shows how the assumptions play out, not who gains or loses.
+      warnings: notice === null ? [] : [notice],
       may: { run: mayRun },
     };
   }

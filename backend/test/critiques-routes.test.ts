@@ -1066,11 +1066,12 @@ async function until<T>(read: () => Promise<T>, done: (value: T) => boolean): Pr
 }
 
 /** The cast with nobody expected to be helped or harmed. */
-const withoutDirection = (set: ActorSet): ActorSet => ({
+/** Nobody is helped or harmed, and the members of a group do not differ in it, so the change has nothing to land on. */
+const withoutDirection = (set: ActorSet, spread = 0): ActorSet => ({
   ...set,
   actors: set.actors.map((actor) => ({
     ...actor,
-    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread } },
   })),
 });
 
@@ -1222,5 +1223,25 @@ describe('a comparison that cannot say anything about the change', () => {
     const ids = (await review()).critiques.map((critique) => critique.id);
     expect(ids).not.toContain(CHANGE_CANNOT_MOVE_ID);
     expect(ids).not.toContain('assumption-no-registered-effect');
+  });
+
+  it('does not say that nothing can move where nobody has a direction but the members of a group differ in how the change lands', async () => {
+    const { analysis, review } = await compared(withoutDirection(actorSetFixture(), 0.5), {
+      runsPerVariant: 12,
+      baseSeed: 31,
+      sensitivity: false,
+    });
+    // The two runs are not the same on every seed: the spread moves members, in either direction.
+    const stances = analysis.variants.map((result) => result.runs.map((run) => run.stanceMean));
+    expect(stances[0]).not.toEqual(stances[1]);
+    const critiques = (await review()).critiques;
+    const ids = critiques.map((critique) => critique.id);
+    expect(ids).not.toContain(CHANGE_CANNOT_MOVE_ID);
+    const found = critiques.find((critique) => critique.id === 'methodology-no-declared-direction');
+    expect(found).toMatchObject({ role: 'methodology', severity: 'major', origin: 'rules' });
+    expect(found?.objection).not.toMatch(/cannot move anyone|\bnoise\b/u);
+    expect(found?.objection).toContain('No stakeholder has an expected direction of impact');
+    expect(found?.basis.join('\n')).toContain('Subscribers (spread 0.50)');
+    expect(found?.requestedAction).toMatch(/stakeholder review/u);
   });
 });
