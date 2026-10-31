@@ -147,6 +147,12 @@ export type RunOutcome = z.infer<typeof runOutcomeSchema>;
 export interface SimulateOptions {
   /** Caps how many members any one cohort simulates, to bound the cost of a run. */
   sampleSizeCap?: number;
+  /**
+   * `false` turns off the aggregate signals and everything that follows from them (external
+   * responders and the events they cause), leaving plain stance dynamics. On by default; switching it
+   * off on the same seeds shows how much the second-order effects change an outcome.
+   */
+  signals?: boolean;
 }
 
 /**
