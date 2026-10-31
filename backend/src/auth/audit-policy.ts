@@ -237,6 +237,13 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   // [stakeholders audit]
 
   // [analysis audit]
+  'GET /api/projects/:id/analysis': reads(
+    'Lists the saved comparisons of a project; changes nothing.',
+  ),
+  'GET /api/projects/:id/analysis/:aid': reads('Reads one saved comparison; changes nothing.'),
+  // Recorded by the service, with identifiers and counts only: never a scenario label or description.
+  'POST /api/projects/:id/analysis': { kind: 'inside', action: 'analysis.started' },
+  'POST /api/projects/:id/analysis/:aid/cancel': { kind: 'inside', action: 'analysis.cancelled' },
 
   // [critics audit]
   'GET /api/projects/:id/critiques': reads(

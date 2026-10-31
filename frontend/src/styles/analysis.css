@@ -1,1 +1,486 @@
-/* Scenarios compared, repeated runs, stability and sensitivity. Owned by one feature; use the theme tokens, never raw colours. */
+/* Scenarios compared, repeated runs, stability and sensitivity. Owned by one feature; use the theme tokens, never raw colours.
+   Colour only comes from tokens that the verdict chips and the charts already use, so that it follows all three themes, and it is
+   never the only cue: every bar, band and chip also carries words, numbers or a pattern, and every chart has a table beside it. */
+.analysis-panel {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 18px 16px;
+}
+.analysis-header {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+/* A track that sizes to its content would stretch to the widest table inside it: keep every track within its container. */
+.analysis-panel,
+.analysis-header,
+.analysis-setup,
+.analysis-variants,
+.analysis-variant,
+.analysis-progress,
+.analysis-results,
+.analysis-section,
+.analysis-figure,
+.analysis-bars,
+.analysis-findings,
+.analysis-finding,
+.analysis-sens,
+.analysis-sens-row,
+.analysis-chain,
+.analysis-caveats {
+  grid-template-columns: minmax(0, 1fr);
+}
+.analysis-statement {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.analysis-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+
+/* The scenarios to compare */
+.analysis-setup {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.analysis-variants,
+.analysis-bars,
+.analysis-findings,
+.analysis-sens,
+.analysis-chain,
+.analysis-legend,
+.analysis-caveats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.analysis-variants {
+  display: grid;
+  gap: 10px;
+}
+.analysis-variant {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.analysis-variant-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.analysis-kind {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.analysis-variant-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.analysis-baseline-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.analysis-setup-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+.analysis-setup-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px 24px;
+}
+.analysis-setup-options .field {
+  min-width: min(100%, 180px);
+}
+.analysis-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 460px;
+  line-height: 1.5;
+}
+.analysis-switch small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.analysis-estimate {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.analysis-problems {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* While it runs */
+.analysis-progress {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+.analysis-progress > * {
+  max-width: 100%;
+}
+.analysis-meter {
+  width: min(100%, 520px);
+  height: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+}
+.analysis-meter-fill {
+  height: 100%;
+  background: var(--orange-fill);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .analysis-meter-fill {
+    transition: width 0.3s ease;
+  }
+}
+
+/* Results */
+.analysis-results {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.analysis-meta {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.analysis-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.analysis-section > h3 {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.analysis-figure {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+}
+.analysis-figure > figcaption {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.analysis-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 12px;
+}
+.analysis-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.analysis-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.analysis-bars {
+  display: grid;
+  gap: 14px;
+}
+.analysis-bar-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.analysis-bar-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.analysis-bar {
+  display: flex;
+  width: 100%;
+  min-height: 30px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.analysis-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--panel);
+  color: var(--panel);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.analysis-seg:last-child {
+  border-right: 0;
+}
+.analysis-seg-adopt {
+  background: var(--verdict-supported);
+}
+.analysis-seg-accept-with-conditions {
+  background: var(--chart-1);
+}
+.analysis-seg-wait {
+  background: var(--verdict-unchecked);
+}
+.analysis-seg-adapt-defensively {
+  background: var(--verdict-partial);
+}
+.analysis-seg-switch {
+  background: var(--chart-3);
+}
+.analysis-seg-resist {
+  background: var(--verdict-contradicted);
+}
+.analysis-spread {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.analysis-table-toggle > summary {
+  min-height: 32px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+/* The browser's own marker is hidden for every disclosure, so each says it can be opened. */
+.analysis-table-toggle > summary::before,
+.analysis-predicate > summary::before,
+.analysis-another > summary::before {
+  margin-right: 6px;
+  content: '+';
+}
+.analysis-table-toggle[open] > summary::before,
+.analysis-predicate[open] > summary::before,
+.analysis-another[open] > summary::before {
+  content: '−';
+}
+.analysis-table-wrap {
+  max-width: 100%;
+  margin-top: 8px;
+  overflow-x: auto;
+}
+.analysis-table-wrap .metrics-table {
+  min-width: 520px;
+  table-layout: auto;
+}
+
+/* Findings */
+.analysis-findings {
+  display: grid;
+  gap: 10px;
+}
+.analysis-finding {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.analysis-finding-statement {
+  font-weight: 600;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.analysis-finding-count {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 13px;
+}
+.analysis-predicate > summary {
+  min-height: 28px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.analysis-predicate p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Sensitivity */
+.analysis-sens {
+  display: grid;
+  gap: 12px;
+}
+.analysis-sens-row {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.analysis-sens-warn {
+  border-color: var(--verdict-partial-line);
+  border-left: 4px solid var(--verdict-partial);
+}
+.analysis-sens-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 12px;
+  font-size: 13px;
+}
+.analysis-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.analysis-sens-track {
+  position: relative;
+  height: 18px;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  background: var(--chart-surface);
+}
+.analysis-sens-zero {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--chart-axis);
+}
+.analysis-sens-bar {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 2px;
+}
+.analysis-sens-up {
+  background: var(--chart-3);
+}
+.analysis-sens-down {
+  background: var(--chart-1);
+}
+.analysis-sens-noise {
+  position: absolute;
+  top: 8px;
+  height: 0;
+  border-top: 2px solid var(--text);
+}
+.analysis-sens-text {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Second-order chain, reliability */
+.analysis-chain {
+  display: grid;
+  gap: 8px;
+  padding-left: 0;
+  counter-reset: analysis-step;
+}
+.analysis-chain > li {
+  position: relative;
+  padding: 8px 12px 8px 36px;
+  border-left: 3px solid var(--border);
+  line-height: 1.6;
+  counter-increment: analysis-step;
+}
+.analysis-chain > li::before {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  color: var(--muted);
+  content: counter(analysis-step) '.';
+  font-size: 12px;
+  font-weight: 650;
+}
+.analysis-caveats {
+  display: grid;
+  gap: 4px;
+}
+.analysis-caveats li {
+  line-height: 1.6;
+}
+.analysis-cost,
+.analysis-crosscheck {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.analysis-another {
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.analysis-another > summary {
+  min-height: 32px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+}
+.analysis-another[open] > summary {
+  margin-bottom: 12px;
+}
+.analysis-earlier {
+  max-width: 460px;
+}
+
+@media (max-width: 640px) {
+  .analysis-panel {
+    padding: 14px 10px;
+  }
+  .analysis-variant-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Windows high contrast and other forced colours replace the palette. Each segment keeps an outline and its
+   number, and the table beside every chart says the rest, so the fills that carry no text take system colours. */
+@media (forced-colors: active) {
+  .analysis-seg {
+    border-right: 2px solid CanvasText;
+    color: CanvasText;
+  }
+  .analysis-swatch,
+  .analysis-sens-bar,
+  .analysis-meter-fill {
+    border: 1px solid CanvasText;
+    background: Highlight;
+  }
+}

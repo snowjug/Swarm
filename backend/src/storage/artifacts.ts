@@ -75,6 +75,37 @@ export class ArtifactStore {
   }
 
   /**
+   * Every document of a kind in every project, oldest first. It is for maintenance when the server
+   * starts (marking what a stopped server left unfinished) and for nothing a request may do, since it
+   * looks at no one's access. `matching` sees each document's stored text before it is read, so that a
+   * caller after a few can skip the rest unread. A document that no longer matches its schema is left
+   * out, so that one bad row cannot stop the server from starting; `get` still reports it.
+   */
+  listAll<K extends ArtifactKind>(
+    kind: K,
+    options: { matching?: (payload: string) => boolean } = {},
+  ): ArtifactRecord<K>[] {
+    const records: ArtifactRecord<K>[] = [];
+    const found = this.database
+      .prepare(
+        `SELECT project_id, kind, artifact_key, revision, payload, created_at, updated_at
+         FROM project_artifacts WHERE kind = ?
+         ORDER BY created_at, project_id, artifact_key`,
+      )
+      .all(kind);
+    for (const item of found) {
+      const stored = row.parse(item);
+      if (options.matching && !options.matching(stored.payload)) continue;
+      try {
+        records.push(this.decode(kind, stored));
+      } catch {
+        // Left out on purpose: see above.
+      }
+    }
+    return records;
+  }
+
+  /**
    * Writes a document. With `expectedRevision`, the write is refused unless that is still the current
    * revision (0 meaning there is none yet), so that two people editing one document cannot silently
    * overwrite each other.

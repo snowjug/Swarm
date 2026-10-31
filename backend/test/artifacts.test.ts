@@ -144,4 +144,30 @@ describe('project artifacts', () => {
     const broken = await failure(() => store.artifacts.get(project.id, 'scenario'));
     expect(broken).toMatchObject({ statusCode: 500, code: 'ARTIFACT_INVALID' });
   });
+
+  it('lists a kind across every project for maintenance, leaving out what it cannot read', () => {
+    const store = repository();
+    const first = store.create(fixtureInput({ name: 'First project' }));
+    const second = store.create(fixtureInput({ name: 'Second project' }));
+    store.artifacts.put(first.id, 'scenario', 'a', frame('A'));
+    store.artifacts.put(second.id, 'scenario', 'b', frame('B'));
+    store.artifacts.put(second.id, 'scenario', 'broken', frame('C'));
+    rawOf(store)
+      .prepare('UPDATE project_artifacts SET payload = ? WHERE artifact_key = ?')
+      .run('{"decision": 7}', 'broken');
+    const all = store.artifacts.listAll('scenario');
+    expect(
+      all
+        .map((record) => [record.projectId, record.key])
+        .sort((a, b) => a[1]!.localeCompare(b[1]!)),
+    ).toEqual([
+      [first.id, 'a'],
+      [second.id, 'b'],
+    ]);
+    expect(store.artifacts.listAll('stakeholders')).toEqual([]);
+    const some = store.artifacts.listAll('scenario', {
+      matching: (payload) => payload.includes('"decision":"B"'),
+    });
+    expect(some.map((record) => record.key)).toEqual(['b']);
+  });
 });

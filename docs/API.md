@@ -60,6 +60,9 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | PUT / DELETE | `/api/projects/:id/members/:principalId`                                        | Add or change (`{ "role": "lead" \| "analyst" \| "reviewer" \| "viewer" }`) / remove a project member (project leads)                                                                                                                                                                                                                                             |
 | GET          | `/api/projects/:id/budget`                                                      | What the project has used of its model budget (`calls`, `inputTokens`, `outputTokens`), the limits that apply (`callLimit`, `tokenLimit`; 0 is none), what the project itself sets (`own`; `null` is the deployment's default), the deployment's `defaults`, the `state` (`none`, `ok`, `warning`, `exhausted`) and whether the caller may change it (`may.edit`) |
 | PUT          | `/api/projects/:id/budget`                                                      | Set the project's own limits: `{ "callLimit": n \| null, "tokenLimit": n \| null }`, whole numbers up to 1,000,000,000; `null` is the deployment's default and `0` is no limit. Workspace owners and administrators only, not a project lead                                                                                                                      |
+| GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors); see Comparing scenarios                                                                                                                                                                                                                                         |
+| GET          | `/api/projects/:id/analysis/:aid`                                               | One comparison in full, with its progress while it runs                                                                                                                                                                                                                                                                                                           |
+| POST         | `/api/projects/:id/analysis/:aid/cancel`                                        | Ask a running comparison to stop at its next run                                                                                                                                                                                                                                                                                                                  |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
@@ -118,6 +121,30 @@ limit. The deployment sets a default for every project (`PROJECT_MODEL_CALL_LIMI
   administrator changes it (the `budget` capability, which no project role holds, a lead included).
 - **Audit.** `project.budget.changed` (the two limits) and `model.budget.exhausted` (counts only, once
   for each client that was refused, with the system as the actor).
+
+### Comparing scenarios
+
+A comparison runs a baseline and its alternatives many times on the same seeds, in the server process,
+and is kept as the project's `analysis` artifacts. Its method, limits and what its numbers do and do
+not mean are in [analysis/methodology.md](./analysis/methodology.md).
+
+- **Routes.** `GET /api/projects/:id/analysis` lists the saved comparisons (newest first) with what the
+  next one would use (`readiness`: the actors, the suggested scenarios, whether the caller may run), and
+  answers 200 with an empty list for a project that never ran one. `GET .../analysis/:aid` reads one in
+  full. `POST .../analysis` starts one and answers 202 with it as `running`; its body is
+  `{ runsPerVariant?, baseSeed?, variants?, sensitivity?, rounds? }` (3 to 200 runs for each scenario,
+  `variants` `"auto"` or up to 8 scenarios, 3 to 36 rounds). The caller polls `GET .../analysis/:aid`
+  for its `progress`. `POST .../analysis/:aid/cancel` asks it to stop at its next run.
+- **Who may do what.** Reading needs `read`; starting and stopping need `run` (analysts and project
+  leads).
+- **Refusals the caller should expect.** `409 ACTORS_REQUIRED` (no actors have been created yet),
+  `409 ANALYSIS_RUNNING` (one is already running for the project), `429 ANALYSIS_BUSY` (the server is
+  running its limit), `400 ANALYSIS_INPUT_INVALID` (a request that is not allowed, with the reason:
+  more than 2,400 simulated runs, a change that starts after the last round, and so on),
+  `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`, and `429 RATE_LIMITED` (6 starts a minute).
+- **After a restart.** A comparison still `running` when the server starts is marked `interrupted`; it
+  is reproducible from its seeds and is run again, not resumed.
+- **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only.
 
 ## Authentication
 
