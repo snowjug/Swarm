@@ -1,6 +1,18 @@
 import { MAX_DOCUMENT_CHARS } from '../../../../shared/types.js';
+import { isBoilerplate, landmarkOf, type Landmark } from './boilerplate.js';
 import { flattenJson } from './normalize.js';
 import { fit, inline, sanitize, tidy } from './text.js';
+
+/**
+ * What part of the page the text was taken from. `main`: the page's main region, without the
+ * menus and panels in it. `page`: the whole page without its menus, side panels, footers and the
+ * like. `all`: everything the page shows, either because there was nothing to leave out or, when
+ * `fellBack` is set, because leaving it out would have left almost nothing.
+ */
+export interface PageReading {
+  scope: 'main' | 'page' | 'all';
+  fellBack: boolean;
+}
 
 export interface ExtractedPage {
   title: string | null;
@@ -9,7 +21,31 @@ export interface ExtractedPage {
   body: string;
   /** Facts from the page's JSON-LD, as `path: value` lines. They are data about the page, not text on it. */
   structured: string[];
+  /** How the body was chosen from what the page shows. */
+  reading: PageReading;
 }
+
+/**
+ * When the main region of a page is the page's text, and when leaving out boilerplate leaves too little.
+ * Characters are those of the text that is kept (see `docs/security/url-ingestion.md`).
+ */
+export const READING = {
+  /** A main region has at least this much text and at least `mainShare` of the page's text outside its boilerplate... */
+  mainChars: 400,
+  mainShare: 0.25,
+  /** ...or at least this much, and at least `dominantShare` of it. */
+  dominantChars: 200,
+  dominantShare: 0.5,
+  /** Several articles are all kept when each is at least this share of the largest. */
+  articleShare: 0.25,
+  /**
+   * Leaving out boilerplate may not leave less than `floorChars` characters while the page shows at
+   * least `floorRatio` times as much, and at least `gainChars` more.
+   */
+  floorChars: 200,
+  floorRatio: 2,
+  gainChars: 80,
+} as const;
 
 const LATIN1 =
   'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'.split(
@@ -217,6 +253,8 @@ const MAX_JSON_LD_CHARS = 300_000;
 const MAX_STRUCTURED_CHARS = 6_000;
 // Once this much text has been kept the rest of the page cannot be part of the document.
 const MAX_BODY_CHARS = 200_000;
+// The most main regions and articles that are followed; any more cannot be chosen as the page's text.
+const MAX_REGIONS = 2_000;
 const SKIPPED_FACTS = new Set([
   'url',
   'image',
@@ -268,27 +306,63 @@ function endOfRawText(html: string, name: string, from: number): { content: stri
 interface Open {
   name: string;
   dropped: boolean;
+  /** Menus, side panels, footers and the like: the text inside is not read (see `boilerplate.ts`). */
+  boilerplate: boolean;
+  /** An article, a main region or a section, which is where a `header` stays. */
+  section: boolean;
+  region: Region | null;
+}
+
+/** A main region or an article: which lines of the page are in it, and how much text they hold. */
+interface Region {
+  kind: 'main' | 'article';
+  /** The region this one is inside, if any. */
+  parent: Region | null;
+  /** The lines are `lines[start]` up to, not including, `lines[end]`. */
+  start: number;
+  end: number;
+  /** The text kept before the region, and after it. */
+  from: number;
+  to: number;
+}
+
+interface Scan {
+  title: string | null;
+  description: string | null;
+  jsonLd: string[];
+  lines: string[];
+  /** The characters of text in `lines`. */
+  kept: number;
+  regions: Region[];
+  /** Whether any text was left out as boilerplate. */
+  leftOut: boolean;
 }
 
 /**
- * Reads the text of an HTML page without running any of it. The page is only a string that is
- * scanned once, by a small tokenizer: no script is evaluated, no style is applied, no frame, image,
- * form or link is fetched or followed (the text of a link is kept, its address is not), and the
- * amount of work is capped however the page is built. What a browser would hide, or would not show,
- * is left out: scripts, styles, templates, frames, drawings, form controls, comments, and anything
- * marked `hidden`, `aria-hidden="true"`, `display:none` or `visibility:hidden`. Everything that is
- * kept is data to read, however it is worded.
+ * One pass over the page. With `trim` the text of boilerplate elements is left out and the main
+ * regions and articles are noted; without it every word the page shows is kept, which is how pages
+ * were read before boilerplate was told apart.
  */
-export function extractPage(html: string): ExtractedPage {
+function scan(html: string, trim: boolean): Scan {
   const stack: Open[] = [];
+  // Where each open element is on the stack, by name. An end tag, or a start tag that implies one,
+  // finds what it closes from this and not by looking down the stack: on a page nested as deep as is
+  // allowed, that look would be most of the work for every tag.
+  const places = new Map<string, number[]>();
+  const nearest = (name: string): number => places.get(name)?.at(-1) ?? -1;
   const lines: string[] = [];
   const jsonLd: string[] = [];
+  const regions: Region[] = [];
+  let current: Region | null = null;
   let title: string | null = null;
   let description: string | null = null;
   let ogDescription: string | null = null;
   let line = '';
   let prefix = '';
   let dropped = 0;
+  let skipped = 0;
+  let sections = 0;
+  let leftOut = false;
   let cells = 0;
   let rowCells = 0;
   let pre = 0;
@@ -312,6 +386,10 @@ export function extractPage(html: string): ExtractedPage {
   const text = (raw: string): void => {
     if (dropped > 0 || kept > MAX_BODY_CHARS) return;
     const decoded = decodeEntities(raw);
+    if (skipped > 0) {
+      leftOut ||= inline(decoded) !== '';
+      return;
+    }
     if (pre === 0) {
       line += decoded;
       return;
@@ -325,24 +403,36 @@ export function extractPage(html: string): ExtractedPage {
   const popTo = (index: number): void => {
     while (stack.length > index) {
       const element = stack.pop() as Open;
+      const where = places.get(element.name) as number[];
+      where.pop();
+      if (where.length === 0) places.delete(element.name);
       if (element.dropped) {
         dropped -= 1;
         continue;
       }
+      if (element.boilerplate) skipped -= 1;
+      if (element.section) sections -= 1;
       if (element.name === 'td' || element.name === 'th') cells -= 1;
       else if (element.name === 'pre') pre -= 1;
       if (BLOCK.has(element.name)) {
         boundary();
         if (element.name === 'tr') rowCells = 0;
       }
+      const region = element.region;
+      if (region) {
+        region.end = lines.length;
+        region.to = kept;
+        current = region.parent;
+      }
     }
   };
+  // Closes the nearest open element with one of these names, unless an element with one of the stops
+  // is nearer: a new list item ends the last item of its own list, not one of an outer list.
   const closeNearest = (names: readonly string[], stops: readonly string[]): void => {
-    for (let index = stack.length - 1; index >= 0; index -= 1) {
-      const open = (stack[index] as Open).name;
-      if (names.includes(open)) return popTo(index);
-      if (stops.includes(open)) return;
-    }
+    let target = -1;
+    for (const name of names) target = Math.max(target, nearest(name));
+    if (target < 0 || stops.some((name) => nearest(name) > target)) return;
+    popTo(target);
   };
   // The end tags that a page may leave out: a new list item ends the last, a new row ends the row.
   const impliedEnds = (name: string): void => {
@@ -376,11 +466,30 @@ export function extractPage(html: string): ExtractedPage {
       dropped += 1;
       return;
     }
-    const element: Open = { name, dropped: DROPPED.has(name) || hidden(attributes) };
+    const element: Open = {
+      name,
+      dropped: DROPPED.has(name) || hidden(attributes),
+      boilerplate: false,
+      section: false,
+      region: null,
+    };
+    const where = places.get(name);
+    if (where) where.push(stack.length);
+    else places.set(name, [stack.length]);
     stack.push(element);
     if (element.dropped) {
       dropped += 1;
       return;
+    }
+    let landmark: Landmark | null = null;
+    if (trim) {
+      landmark = landmarkOf(name, attributes);
+      element.boilerplate = isBoilerplate(name, attributes, sections > 0);
+      if (element.boilerplate) skipped += 1;
+    }
+    if (landmark) {
+      element.section = true;
+      sections += 1;
     }
     if (BLOCK.has(name)) {
       if (name === 'tr' || name === 'table' || name === 'caption') flush();
@@ -393,16 +502,37 @@ export function extractPage(html: string): ExtractedPage {
     }
     if (name === 'td' || name === 'th') {
       cells += 1;
-      if (rowCells > 0) line = `${line.trimEnd()} | `;
+      // Not `line.trimEnd()` first: that copies the whole row for every cell, which is quadratic in
+      // a row of many cells. The white space before the bar is collapsed when the line is flushed.
+      if (rowCells > 0 && dropped === 0 && skipped === 0) line += ' | ';
       rowCells += 1;
     } else if (name === 'pre') pre += 1;
+    // Only a block can be a region: a block is where a line begins and ends, so the lines of the page
+    // say what is inside it. (A table cell is an exception; its row is one line.)
+    if (
+      (landmark === 'main' || landmark === 'article') &&
+      BLOCK.has(name) &&
+      skipped === 0 &&
+      regions.length < MAX_REGIONS
+    ) {
+      const region: Region = {
+        kind: landmark,
+        parent: current,
+        start: lines.length,
+        end: lines.length,
+        from: kept,
+        to: kept,
+      };
+      regions.push(region);
+      element.region = region;
+      current = region;
+    }
   };
 
   const close = (name: string): void => {
     if (name === 'br') return open('br', new Map(), false);
-    for (let index = stack.length - 1; index >= 0; index -= 1) {
-      if ((stack[index] as Open).name === name) return popTo(index);
-    }
+    const index = nearest(name);
+    if (index >= 0) popTo(index);
   };
 
   const length = html.length;
@@ -542,12 +672,90 @@ export function extractPage(html: string): ExtractedPage {
   }
   popTo(0);
   flush();
-
   return {
     title,
     description: description ?? ogDescription,
+    jsonLd,
+    lines,
+    kept,
+    regions,
+    leftOut,
+  };
+}
+
+/**
+ * The regions that hold the page's own text, when the page has them: its main region, or else its
+ * articles. One is chosen only when it holds a substantial part of what the page has outside its
+ * boilerplate; a page whose `main` is a few words (a banner, a heading) is read as a whole instead.
+ */
+function chooseRegions(regions: readonly Region[], total: number): Region[] | null {
+  // Once the most that are followed have been, which of the rest holds the page's text is not known.
+  if (regions.length >= MAX_REGIONS) return null;
+  const size = (region: Region): number => region.to - region.from;
+  const enough = (chars: number): boolean =>
+    (chars >= READING.mainChars && chars >= total * READING.mainShare) ||
+    (chars >= READING.dominantChars && chars >= total * READING.dominantShare);
+  let main: Region | null = null;
+  for (const region of regions) {
+    if (region.kind === 'main' && (main === null || size(region) > size(main))) main = region;
+  }
+  if (main && enough(size(main))) return [main];
+  // Articles inside another article or main region are part of it. Several that stand side by side
+  // are all kept, unless some are much smaller than the largest: a story with teasers around it.
+  const articles = regions.filter((region) => region.kind === 'article' && region.parent === null);
+  const largest = Math.max(0, ...articles.map(size));
+  const group = articles.filter(
+    (region) => size(region) > 0 && size(region) >= largest * READING.articleShare,
+  );
+  const chars = group.reduce((sum, region) => sum + size(region), 0);
+  return group.length > 0 && enough(chars) ? group : null;
+}
+
+/**
+ * Reads the text of an HTML page without running any of it. The page is only a string that is
+ * scanned once, by a small tokenizer: no script is evaluated, no style is applied, no frame, image,
+ * form or link is fetched or followed (the text of a link is kept, its address is not), and the
+ * amount of work is capped however the page is built. What a browser would hide, or would not show,
+ * is left out: scripts, styles, templates, frames, drawings, form controls, comments, and anything
+ * marked `hidden`, `aria-hidden="true"`, `display:none` or `visibility:hidden`. Everything that is
+ * kept is data to read, however it is worded.
+ *
+ * Of what the page does show, the text of the page itself is kept and its boilerplate is not: menus,
+ * side panels, footers, notices and the like (`boilerplate.ts`), and, when the page has a main
+ * region with a substantial part of the text, everything outside it. That is a guess from how the
+ * page is built. When it would leave almost nothing of a page that shows much more, the page is
+ * read whole, and `reading` says so.
+ */
+export function extractPage(html: string): ExtractedPage {
+  const first = scan(html, true);
+  const chosen = chooseRegions(first.regions, first.kept);
+  let lines = first.lines;
+  let kept = first.kept;
+  if (chosen) {
+    lines = chosen.flatMap((region, index) => [
+      ...(index > 0 ? [''] : []),
+      ...first.lines.slice(region.start, region.end),
+    ]);
+    kept = chosen.reduce((sum, region) => sum + region.to - region.from, 0);
+  }
+  const leftOut = first.leftOut || kept < first.kept;
+  let reading: PageReading = {
+    scope: !leftOut ? 'all' : chosen ? 'main' : 'page',
+    fellBack: false,
+  };
+  if (leftOut && kept < READING.floorChars) {
+    const whole = scan(html, false);
+    if (whole.kept >= READING.floorRatio * kept && whole.kept - kept >= READING.gainChars) {
+      lines = whole.lines;
+      reading = { scope: 'all', fellBack: true };
+    }
+  }
+  return {
+    title: first.title,
+    description: first.description,
     body: tidy(lines.join('\n')),
-    structured: structuredFacts(jsonLd),
+    structured: structuredFacts(first.jsonLd),
+    reading,
   };
 }
 

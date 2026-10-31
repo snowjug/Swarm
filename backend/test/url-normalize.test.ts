@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { documentName } from '../src/ingest/url/ingest.js';
 import {
   csvToText,
   DataError,
@@ -7,6 +8,14 @@ import {
   plainToText,
 } from '../src/ingest/url/normalize.js';
 import { fit, inline, sanitize, tidy } from '../src/ingest/url/text.js';
+
+/** The processor time, in milliseconds, that a function takes: unlike the clock, a busy machine does not stretch it. */
+function cpuTime(run: () => unknown): number {
+  const before = process.cpuUsage();
+  run();
+  const used = process.cpuUsage(before);
+  return (used.user + used.system) / 1_000;
+}
 
 describe('JSON as readable lines', () => {
   it('writes one path: value line for every value, in document order', () => {
@@ -217,6 +226,57 @@ describe('the text helpers', () => {
     expect(tidy('a  \n\n\n\nb \n   \nc\n\n')).toBe('a\n\nb\n\nc');
   });
 
+  it('tidy gives what the pattern it replaced gave, for every kind of blank and line break', () => {
+    const reference = (value: string): string =>
+      sanitize(value)
+        .replace(/[^\S\n]+$/gmu, '')
+        .replace(/\n{3,}/gu, '\n\n')
+        .trim();
+    const pieces = [
+      ...'ab.#- \t\n\n',
+      '\r\n',
+      '\r',
+      '\u2028',
+      '\u2029',
+      '\u00a0',
+      '\u3000',
+      '\u200b',
+      '\u0085',
+      '\u000b',
+      '\ufeff',
+      '\u0007',
+      '\ud800',
+    ];
+    let seed = 7;
+    const next = (): number => {
+      seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0;
+      return seed / 2 ** 32;
+    };
+    for (let round = 0; round < 3_000; round += 1) {
+      let value = '';
+      for (let length = Math.floor(next() * 30); length > 0; length -= 1) {
+        value += pieces[Math.floor(next() * pieces.length)];
+      }
+      expect(tidy(value), JSON.stringify(value)).toBe(reference(value));
+    }
+  });
+
+  it('tidy and plainToText take time in step with the text, however long the runs of blanks are', () => {
+    // A pattern anchored at the end of a line is tried again from every blank of a run, so these
+    // take seconds, or minutes, if it is used; read as they should be, a few milliseconds.
+    const mixed = `a${' '.repeat(1_000)}b${'\t'.repeat(500)}c${'\u00a0'.repeat(500)}d${' '.repeat(2)}\n`;
+    const cases: Record<string, () => unknown> = {
+      'spaces then a letter': () => tidy(`${' '.repeat(50_000)}x`),
+      'tabs then a letter': () => plainToText(`${'\t'.repeat(50_000)}x`),
+      'a letter between runs': () => tidy(`x${' '.repeat(50_000)}x${' '.repeat(50_000)}`),
+      'lines of 2,000 blanks, 1.5 MB': () => plainToText(mixed.repeat(750)),
+      'blank lines': () => plainToText('\n'.repeat(1_500_000)),
+      'lines that are blank': () => plainToText(' \n'.repeat(750_000)),
+    };
+    for (const [name, run] of Object.entries(cases)) expect(cpuTime(run), name).toBeLessThan(500);
+    expect(plainToText(`${' '.repeat(50_000)}x${' '.repeat(50_000)}\n\n\n\n y`)).toBe('x\n\n y');
+  });
+
   it('fit leaves a short text alone, and cuts a long one with a notice, at a line end, within the limit', () => {
     expect(fit('short', 100)).toEqual({ text: 'short', truncated: false });
     const long = Array.from({ length: 100 }, (_, index) => `line ${index}`).join('\n');
@@ -231,5 +291,23 @@ describe('the text helpers', () => {
     // Never cut inside a pair of surrogates.
     const emoji = fit('\u{1F600}'.repeat(200), 150);
     expect(emoji.text).not.toMatch(/\p{Surrogate}/u);
+  });
+});
+
+describe('the name of a document', () => {
+  it('is made of letters, digits and a few marks, and neither begins nor ends with a dot, a hyphen or a space', () => {
+    expect(documentName('Acme Widget | Acme Ltd', '127.0.0.1')).toBe(
+      '127.0.0.1 - Acme Widget Acme Ltd.txt',
+    );
+    expect(documentName(null, 'example.com')).toBe('example.com.txt');
+    expect(documentName('  ..A \t title..--  ', 'example.com')).toBe('example.com - ..A title.txt');
+    expect(
+      documentName('\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440', 'example.org'),
+    ).toBe('example.org - \u041f\u0440\u0438\u0432\u0435\u0442 \u043c\u0438\u0440.txt');
+    expect(documentName(`x${'-'.repeat(300)}${' .'.repeat(100)}`, 'example.com')).toBe(
+      'example.com - x.txt',
+    );
+    expect(documentName(' ..-- ', '.')).toBe('web page.txt');
+    expect(documentName('y'.repeat(300), 'example.com')).toHaveLength(100 + '.txt'.length);
   });
 });

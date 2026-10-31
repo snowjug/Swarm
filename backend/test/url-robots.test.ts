@@ -124,4 +124,17 @@ describe('reading robots.txt (RFC 9309)', () => {
   it('survives text that is not valid Unicode', () => {
     expect(allows('User-agent: *\nDisallow: /\ud800x\n', '/\ud800x')).toBe(false);
   });
+
+  it('ends a comment at the end of the line, which is a CR, an LF or both, and no other character', () => {
+    expect(allows('User-agent: *\nDisallow: /private # why\u2028not\n', '/private')).toBe(false);
+  });
+
+  it('reads a long line of comment marks and line separators in time in step with its length', () => {
+    // Tried again from every `#`, a pattern for the comment took seconds for a line this long.
+    const robots = `User-agent: *\nDisallow: /x\n${'#'.repeat(30_000)}\u2028\n`;
+    const before = process.cpuUsage();
+    expect(allows(robots, '/x')).toBe(false);
+    const used = process.cpuUsage(before);
+    expect((used.user + used.system) / 1_000).toBeLessThan(500);
+  });
 });

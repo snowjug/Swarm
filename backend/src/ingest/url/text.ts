@@ -59,10 +59,17 @@ export function inline(text: string): string {
   return sanitize(text).replace(/\s+/gu, ' ').trim();
 }
 
-/** Text with its blank lines and trailing spaces tidied, and no more than one blank line in a row. */
+/**
+ * Text with its blank lines and trailing spaces tidied, and no more than one blank line in a row.
+ * The trailing blanks go with `trimEnd`, one line at a time. A pattern anchored at the end of a line
+ * (`/\s+$/`) is tried again from every character of a long run of blanks, so a page that is mostly
+ * spaces would take a time that grows with the square of its length.
+ */
 export function tidy(text: string): string {
   return sanitize(text)
-    .replace(/[^\S\n]+$/gmu, '')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
     .replace(/\n{3,}/gu, '\n\n')
     .trim();
 }

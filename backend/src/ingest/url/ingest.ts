@@ -2,7 +2,7 @@ import type { SourceProvenance } from '../../../../shared/scenario.js';
 import { documentInputSchema, MAX_DOCUMENT_CHARS } from '../../../../shared/types.js';
 import { AppError } from '../../errors.js';
 import { inspectText } from '../../models/injection.js';
-import { extractPage, pageDocument } from './extract.js';
+import { extractPage, pageDocument, type PageReading } from './extract.js';
 import { UrlFailure } from './failure.js';
 import type { FetchedPage, PublicFetcher } from './fetcher.js';
 import { csvToText, DataError, jsonToText, plainToText } from './normalize.js';
@@ -151,13 +151,20 @@ function explain(failure: UrlFailure, host: string | null, settings: UrlIngestSe
   }
 }
 
+/** True for the marks that cannot begin or end a file name: a dot, a hyphen or a space. */
+const isEdgeMark = (character: string | undefined): boolean =>
+  character === '.' || character === '-' || (character !== undefined && /\s/u.test(character));
+
 /** A file name for the document that cannot be anything but a name: letters, digits and a few marks. */
 export function documentName(title: string | null, host: string): string {
   const raw = title ? `${host} - ${title}` : host;
-  const cleaned = raw
-    .replace(/[^\p{L}\p{M}\p{N} ._()-]+/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .replace(/^[.\s-]+|[.\s-]+$/gu, '');
+  const squeezed = raw.replace(/[^\p{L}\p{M}\p{N} ._()-]+/gu, ' ').replace(/\s+/gu, ' ');
+  // A loop, not `/[.\s-]+$/`: a pattern anchored at the end is tried again from every mark of a long run.
+  let start = 0;
+  let end = squeezed.length;
+  while (start < end && isEdgeMark(squeezed[start])) start += 1;
+  while (end > start && isEdgeMark(squeezed[end - 1])) end -= 1;
+  const cleaned = squeezed.slice(start, end);
   return `${cleaned.slice(0, 100).trim() || 'web page'}.txt`;
 }
 
@@ -167,6 +174,8 @@ interface Text {
   truncated: boolean;
   title: string | null;
   structured: boolean;
+  /** How the text of a web page was chosen from what the page shows; null for a file that is not one. */
+  reading: PageReading | null;
 }
 
 function textOf(page: FetchedPage): Text {
@@ -179,6 +188,7 @@ function textOf(page: FetchedPage): Text {
       truncated: document.truncated,
       title: extracted.title,
       structured: extracted.structured.length > 0,
+      reading: extracted.reading,
     };
   }
   const plain =
@@ -194,7 +204,25 @@ function textOf(page: FetchedPage): Text {
     truncated: plain.truncated || fitted.truncated,
     title: null,
     structured: false,
+    reading: null,
   };
+}
+
+/**
+ * What a person should know about the text chosen from a web page. It is a guess from how the page
+ * is built, so it is said whenever something was left out, and the way out is always the same.
+ */
+export function readingNote(reading: PageReading | null): string | null {
+  if (!reading) return null;
+  if (reading.fellBack) {
+    return `Swarm could not tell the page's own text from its menus and side panels, so it kept everything the page shows, menus included. Some of it may not be what the page is about. ${PASTE}`;
+  }
+  if (reading.scope === 'all') return null;
+  const left =
+    reading.scope === 'main'
+      ? 'kept the main text of the page and left out its menus, side panels, footers and similar parts'
+      : 'left out the menus, side panels, footers and similar parts of the page';
+  return `Swarm ${left}. It decides this from how the page is built, so it can leave out something that matters. ${PASTE}`;
 }
 
 /**
@@ -256,6 +284,8 @@ export async function ingestUrl(
       provenance.retrievedAt ? ` on ${provenance.retrievedAt.slice(0, 10)}` : ''
     }. Swarm has not checked that it is true.`,
   ];
+  const reading = readingNote(text.reading);
+  if (reading) notes.push(reading);
   if (text.truncated) {
     notes.push(
       `The page was longer than a document can be (${MAX_DOCUMENT_CHARS.toLocaleString('en-US')} characters), so only the beginning was kept. The text says so.`,
