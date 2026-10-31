@@ -110,6 +110,7 @@ describe('rehearsing a restore', () => {
     expect(report.rows.ledger_state).toBe(1);
     expect(report.rows.studio_documents).toBe(1);
     expect(report.rows.project_usage).toBe(1);
+    expect(report.rows.project_artifacts).toBe(1);
     expect(report.rows.audit_events).toBeGreaterThan(0);
     // The colleague, and the owner who added them.
     expect(report.rows.workspace_members).toBe(2);

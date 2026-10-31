@@ -163,6 +163,20 @@ export const PG_V8 = `
   );
 `;
 
+export const PG_V9 = `
+  CREATE TABLE IF NOT EXISTS project_artifacts (
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    artifact_key TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 1),
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, kind, artifact_key)
+  );
+  CREATE INDEX IF NOT EXISTS project_artifacts_by_kind ON project_artifacts (project_id, kind, created_at);
+`;
+
 /** Where the schema version is kept: SQLite has `PRAGMA user_version`, PostgreSQL has no such thing. */
 export const PG_VERSION_TABLE = `
   CREATE TABLE IF NOT EXISTS swarm_schema (

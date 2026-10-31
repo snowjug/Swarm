@@ -31,6 +31,7 @@ import { migrate, type MigrationReport } from './migrations.js';
 import { openDatabase } from './open.js';
 import { JobStore, LEASE_HELD, jobLease } from './jobs.js';
 import { SessionStore } from './sessions.js';
+import { ArtifactStore } from './artifacts.js';
 import { UsageStore } from './usage.js';
 import type { SqlDatabase } from './sql.js';
 import { parseSnapshot } from './snapshot.js';
@@ -82,6 +83,8 @@ export class Repository {
   readonly jobs: JobStore;
   /** What each project has spent on the model, and what it may. */
   readonly usage: UsageStore;
+  /** What a project carries beyond its own record: scenario, stakeholders, analyses, briefs. */
+  readonly artifacts: ArtifactStore;
   /** What the schema migration did when this database was opened. */
   readonly migration: MigrationReport;
 
@@ -118,6 +121,7 @@ export class Repository {
     );
     this.sessions = new SessionStore(this.database, options.now);
     this.usage = new UsageStore(this.database);
+    this.artifacts = new ArtifactStore(this.database);
     this.jobs = new JobStore(
       this.database,
       (operation) => (this.database.inTransaction ? operation() : this.transaction(operation)),

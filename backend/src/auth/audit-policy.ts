@@ -196,6 +196,19 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
     kind: 'inside',
     action: 'conflict.reviewed',
   },
+
+  // Scenario Lab: one block per feature, each edited only by the feature that owns it.
+  // [url-ingest audit]
+
+  // [scenario audit]
+
+  // [stakeholders audit]
+
+  // [analysis audit]
+
+  // [critics audit]
+
+  // [brief audit]
 };
 
 /**

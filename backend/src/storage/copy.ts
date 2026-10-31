@@ -21,6 +21,7 @@ export const TABLES = [
   { name: 'ledger_state', order: 'project_id', skip: [] },
   { name: 'studio_documents', order: 'project_id', skip: [] },
   { name: 'project_usage', order: 'project_id', skip: [] },
+  { name: 'project_artifacts', order: 'project_id, kind, artifact_key', skip: [] },
   { name: 'workspace_members', order: 'tenant_id, principal_id', skip: [] },
   { name: 'project_members', order: 'project_id, principal_id', skip: [] },
   { name: 'audit_events', order: 'seq', skip: [], keepIdentity: true },

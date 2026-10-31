@@ -11,6 +11,7 @@ import {
   PG_V6,
   PG_V7,
   PG_V8,
+  PG_V9,
   PG_VERSION_TABLE,
 } from './postgres/schema.js';
 import type { SqlDatabase } from './sql.js';
@@ -193,6 +194,20 @@ const SCHEMA_V8 = `
   );
 `;
 
+const SCHEMA_V9 = `
+  CREATE TABLE IF NOT EXISTS project_artifacts (
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    artifact_key TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision >= 1),
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, kind, artifact_key)
+  );
+  CREATE INDEX IF NOT EXISTS project_artifacts_by_kind ON project_artifacts (project_id, kind, created_at);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
@@ -253,6 +268,11 @@ export const MIGRATIONS: readonly Migration[] = [
     version: 8,
     name: 'per-project model budget: usage and limits',
     up: byDialect(SCHEMA_V8, PG_V8),
+  },
+  {
+    version: 9,
+    name: 'project artifacts: scenario, stakeholders, actors, analyses, critiques, briefs',
+    up: byDialect(SCHEMA_V9, PG_V9),
   },
 ];
 

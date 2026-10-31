@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { GroundingReview } from './grounding.js';
 import type { GuidedConsoleState } from './guided.js';
+import { sourceProvenanceSchema, type SourceProvenance } from './scenario.js';
 
 export const APP_VERSION = '0.3.0';
 export const MAX_DOCUMENT_CHARS = 40_000;
@@ -64,6 +65,8 @@ export const documentInputSchema = z.object({
       'Binary files and control characters are not supported.',
     ),
   pageCount: z.int().min(1).max(40).optional(),
+  /** Where the text came from. Absent for an upload or pasted text made before this field existed. */
+  provenance: sourceProvenanceSchema.optional(),
 });
 
 export const createProjectSchema = z
@@ -108,6 +111,7 @@ export interface SourceDocument {
   name: string;
   content: string;
   pageCount?: number;
+  provenance?: SourceProvenance;
 }
 
 export interface EvidenceChunk {

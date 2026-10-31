@@ -17,6 +17,12 @@
 @import './styles/studio.css';
 @import './styles/budget.css';
 @import './styles/access.css';
+@import './styles/intake.css';
+@import './styles/evidence.css';
+@import './styles/stakeholders.css';
+@import './styles/analysis.css';
+@import './styles/critics.css';
+@import './styles/brief.css';
 @import './styles/theme.css';
 
 :root {

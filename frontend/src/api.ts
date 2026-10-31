@@ -115,7 +115,7 @@ async function signIn(): Promise<never> {
   );
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await checkedFetch(path, init);
   try {
     return (await response.json()) as T;
@@ -125,7 +125,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const projectPath = (id: string) => `/api/projects/${encodeURIComponent(id)}`;
-const jsonBody = (body: unknown): RequestInit => ({
+export const jsonBody = (body: unknown): RequestInit => ({
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(body),

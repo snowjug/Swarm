@@ -1,3 +1,4 @@
+import { artifactSchemas } from '../../../shared/artifacts.js';
 import type { GroundingReview } from '../../../shared/grounding.js';
 import { buildApp } from '../../src/app.js';
 import { LedgerService } from '../../src/grounding/service.js';
@@ -75,5 +76,17 @@ export async function populated(applications: Instance[]): Promise<Repository> {
   // What the first has spent on the model, and the limit it was given.
   repository.usage.setLimits(created.id, { callLimit: 100, tokenLimit: null });
   repository.usage.record(created.id, 12, 7);
+  // What the project carries beyond its own record, so that a copy and a restore are checked for it.
+  repository.artifacts.put(
+    created.id,
+    'scenario',
+    'default',
+    artifactSchemas.scenario.parse({
+      decision: 'Whether to change the service',
+      system: 'A regional transit service',
+      baseline: 'Nothing changes.',
+      origin: 'user',
+    }),
+  );
   return repository;
 }

@@ -102,6 +102,19 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
     kind: 'workspace',
     capability: 'manage-members',
   },
+
+  // Scenario Lab: one block per feature, each edited only by the feature that owns it.
+  // [url-ingest policy]
+
+  // [scenario policy]
+
+  // [stakeholders policy]
+
+  // [analysis policy]
+
+  // [critics policy]
+
+  // [brief policy]
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */

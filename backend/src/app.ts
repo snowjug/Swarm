@@ -34,6 +34,18 @@ import { StudioService } from './studio/service.js';
 import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
 import { guidedRoutes } from './routes/guided.js';
+// Scenario Lab routes: one block per feature, each edited only by the feature that owns it.
+// [url-ingest imports]
+
+// [scenario imports]
+
+// [stakeholders imports]
+
+// [analysis imports]
+
+// [critics imports]
+
+// [brief imports]
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
 
@@ -330,6 +342,17 @@ export async function buildApp(options: AppOptions) {
   );
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
+  // [url-ingest routes]
+
+  // [scenario routes]
+
+  // [stakeholders routes]
+
+  // [analysis routes]
+
+  // [critics routes]
+
+  // [brief routes]
 
   const frontend = resolve(process.cwd(), 'frontend', 'dist');
   if (existsSync(resolve(frontend, 'index.html'))) {

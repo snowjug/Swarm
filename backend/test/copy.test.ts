@@ -38,6 +38,7 @@ const DATA_TABLES = [
   ['ledger_state', 'project_id'],
   ['studio_documents', 'project_id'],
   ['project_usage', 'project_id'],
+  ['project_artifacts', 'project_id, kind, artifact_key'],
   ['workspace_members', 'tenant_id, principal_id'],
   ['project_members', 'project_id, principal_id'],
   ['audit_events', 'seq'],
@@ -71,6 +72,7 @@ describe('copying a database', () => {
     expect(report.tables.audit_events).toBeGreaterThan(0);
     expect(report.tables.claim_records).toBeGreaterThan(0);
     expect(report.tables.project_usage).toBe(1);
+    expect(report.tables.project_artifacts).toBe(1);
     expect(dump(rawOf(destination))).toEqual(dump(rawOf(source)));
 
     // The copy is usable, not just equal: it reads, and the next audit entry follows the last.
