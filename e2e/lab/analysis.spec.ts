@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios';
 import {
+  advance,
   apiContext,
   expectNoAxeViolations,
   expectNoBrowserPaintedControls,
@@ -594,6 +595,9 @@ test.beforeAll(async ({ playwright }) => {
     'Analysis: nobody has a direction',
     BUS_STAKEHOLDERS.map((stakeholder) => ({ ...stakeholder, direction: 'unclear' as const })),
   );
+  // The engine's first stage is done here, as it is for a person who came through Graph Build, so that the
+  // way back to the stakeholder review is open.
+  await advance(api, ids.still, 'knowledge');
   ids.heavy = await seedHeavy(api, 'Analysis: a cast that takes long to compare');
 });
 
@@ -726,6 +730,9 @@ test.describe('comparing scenarios on the page', () => {
     await expect(warning).toBeVisible();
     await expect(warning).toContainText('every difference from no change is noise');
     await expect(warning).toContainText('You can still run it');
+    await expect(
+      warning.getByRole('button', { name: 'Open the stakeholder review' }),
+    ).toBeVisible();
     await expect(panel(page).getByRole('button', { name: /^Compare scenarios/u })).toBeEnabled();
     await chooseRuns(page, 10);
     await compare(page);
@@ -739,6 +746,17 @@ test.describe('comparing scenarios on the page', () => {
     await expect(results(page)).toContainText('No effect to test');
     await expect(results(page)).not.toContainText(/\bRobust\b/u);
     expectNoRealWorldClaims(await panel(page).innerText(), 'no direction');
+
+    // The way to say who is helped or harmed is one press away, in the stage that asks it.
+    await page.reload();
+    await page
+      .getByRole('navigation', { name: 'Guided workflow steps' })
+      .getByRole('button', { name: /^Simulation/u })
+      .click();
+    await expect(results(page)).toBeVisible();
+    const again = await openSetup(page);
+    await again.getByRole('button', { name: 'Open the stakeholder review' }).click();
+    await expect(page.getByRole('heading', { name: 'Stakeholders and actors' })).toBeVisible();
   });
 
   test('repeating a comparison on the same seeds gives the same numbers, and the page says which seeds', async ({
