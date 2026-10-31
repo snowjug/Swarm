@@ -5,8 +5,8 @@ import { scenarioFrameSchema, sourceProvenanceSchema, type SourceProvenance } fr
 
 export const APP_VERSION = '0.3.0';
 export const MAX_DOCUMENT_CHARS = 40_000;
-export const MAX_TOTAL_CHARS = 100_000;
-export const MAX_DOCUMENTS = 5;
+export const MAX_TOTAL_CHARS = 200_000;
+export const MAX_DOCUMENTS = 10;
 export const MAX_PROJECTS = 100;
 
 function hasControlCharacters(value: string, allowWhitespace = false): boolean {
@@ -53,7 +53,10 @@ export const documentInputSchema = z.object({
     .string()
     .trim()
     .max(120)
-    .regex(/^[^\\/]+\.(txt|md|markdown|pdf)$/iu, 'Use a TXT, Markdown or extracted PDF filename.')
+    .regex(
+      /^[^\\/]+\.(txt|md|markdown|pdf|csv|json)$/iu,
+      'Use a TXT, Markdown, CSV, JSON or extracted PDF filename.',
+    )
     .refine((name) => !hasControlCharacters(name), 'Filenames cannot contain control characters.'),
   content: z
     .string()
@@ -362,6 +365,11 @@ export interface AppConfig {
   };
   sourceUrl: string | null;
   storage?: { warning: string | null };
+  /**
+   * Whether this server reads a public web page on request (`POST /api/evidence/url`). The page hides
+   * the control when it is not true. Absent from a server that does not know the feature.
+   */
+  urlIngestion?: boolean;
   capabilities: {
     local: boolean;
     modelAssisted: boolean;

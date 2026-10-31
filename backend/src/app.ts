@@ -36,6 +36,8 @@ import { Repository } from './storage/repository.js';
 import { guidedRoutes } from './routes/guided.js';
 // Scenario Lab routes: one block per feature, each edited only by the feature that owns it.
 // [url-ingest imports]
+import { evidenceRoutes } from './routes/evidence.js';
+import type { PublicFetcher } from './ingest/url/fetcher.js';
 
 // [scenario imports]
 
@@ -69,6 +71,8 @@ export interface AppOptions {
   };
   /** Test hook: how the job queue is run (identity, leases, timers), to model several workers or a crash. */
   jobs?: OrchestratorOptions;
+  /** Test hook: read web pages through this fetcher (a stub resolver, or servers on this machine). */
+  urlFetcher?: PublicFetcher;
 }
 
 /** The routes a platform's health probes call. They answer without sign-in, and for any host. */
@@ -343,6 +347,7 @@ export async function buildApp(options: AppOptions) {
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
   // [url-ingest routes]
+  evidenceRoutes(app, config, config.rateLimitScale, options.urlFetcher);
 
   // [scenario routes]
 

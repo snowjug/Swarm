@@ -146,5 +146,3 @@ export class FetchRegistry {
     }
   }
 }
-
-export const fetchRegistry = new FetchRegistry();

@@ -33,21 +33,24 @@ function isControl(code: number): boolean {
   return (code < 32 && code !== 9 && code !== 10 && code !== 13) || (code >= 127 && code <= 159);
 }
 
+/** Replaces each unpaired surrogate, which cannot be encoded, with the replacement character. */
+const wellFormed = (text: string): string => text.replace(/\p{Surrogate}/gu, '\ufffd');
+
 /** Text that is safe to keep as a document: well-formed, no control or hiding characters, one kind of line break. */
 export function sanitize(text: string): string {
-  const wellFormed = text.toWellFormed();
+  const whole = wellFormed(text);
   let out = '';
   let start = 0;
-  for (let index = 0; index < wellFormed.length;) {
-    const code = wellFormed.codePointAt(index) ?? 0;
+  for (let index = 0; index < whole.length;) {
+    const code = whole.codePointAt(index) ?? 0;
     const width = code > 0xffff ? 2 : 1;
     if (isControl(code) || isHiding(code)) {
-      out += wellFormed.slice(start, index);
+      out += whole.slice(start, index);
       start = index + width;
     }
     index += width;
   }
-  out += wellFormed.slice(start);
+  out += whole.slice(start);
   return out.replace(/\r\n?|[\u2028\u2029]/gu, '\n');
 }
 
@@ -78,6 +81,6 @@ export function fit(
   const lastBreak = kept.lastIndexOf('\n');
   // Cut at a line end when one is near, and never inside a surrogate pair.
   if (lastBreak > kept.length - 2_000) kept = kept.slice(0, lastBreak);
-  kept = kept.toWellFormed().replace(/\ufffd$/u, '');
+  kept = wellFormed(kept).replace(/\ufffd$/u, '');
   return { text: `${kept.trimEnd()}${notice}`, truncated: true };
 }

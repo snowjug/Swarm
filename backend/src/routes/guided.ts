@@ -16,6 +16,7 @@ import { editEnvironment } from '../guided/environment.js';
 import { requireConsole } from '../guided/state.js';
 import { searchMemories } from '../guided/tools.js';
 import { createBranch, setIntervention } from '../guided/whatif.js';
+import { extractDataFile } from '../ingest/csv-json-upload.js';
 import { pdfInputSchema, type PdfService } from '../ingest/pdf.js';
 import type { InteractionService } from '../orchestration/interaction.js';
 import type { Orchestrator } from '../orchestration/runner.js';
@@ -154,6 +155,9 @@ export function guidedRoutes(
     '/api/documents/extract',
     { bodyLimit: 2_700_000, config: limit(10) },
     async (request, reply) => {
+      // A CSV or JSON file is read here, as text, without the PDF worker.
+      const dataFile = extractDataFile(request.body);
+      if (dataFile) return dataFile;
       const { name, data } = pdfInputSchema.parse(request.body);
       const controller = new AbortController();
       const onClose = (): void => {

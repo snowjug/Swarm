@@ -26,7 +26,8 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET          | `/api/projects/:id/compare?with=<id>`                                           | Per-round metrics, deltas, lineage and honesty notes for two guided scenarios                                                                                                                                                                                                                                                                                     |
 | POST         | `/api/projects/:id/cancel`                                                      | Cancel waiting work or request active cancellation                                                                                                                                                                                                                                                                                                                |
 | GET          | `/api/projects/:id/jobs`                                                        | The newest stage jobs of a project: state, attempt, error code, times. Never the worker's identity or the idempotency key                                                                                                                                                                                                                                         |
-| POST         | `/api/documents/extract`                                                        | Validate/base64-decode and isolate bounded local PDF extraction                                                                                                                                                                                                                                                                                                   |
+| POST         | `/api/documents/extract`                                                        | Validate/base64-decode and isolate bounded local PDF extraction; a `.csv` or `.json` name is read as text on the server instead                                                                                                                                                                                                                                   |
+| POST         | `/api/evidence/url`                                                             | Read one public web page (or a text, Markdown, CSV or JSON file at an address) as a document with provenance; workspace members who may create a project; 10 a minute; see [URL ingestion](./security/url-ingestion.md)                                                                                                                                           |
 | GET          | `/api/projects/:id/evidence?query=...`                                          | Sparse-vector search; exact `S1`-style citation lookup                                                                                                                                                                                                                                                                                                            |
 | GET          | `/api/projects/:id/evidence`                                                    | Explicit unranked browsing of this project's bounded passages                                                                                                                                                                                                                                                                                                     |
 | GET / POST   | `/api/projects/:id/chat`                                                        | Read target conversation / perform a bounded follow-up                                                                                                                                                                                                                                                                                                            |
@@ -158,7 +159,15 @@ JSON can preserve a labeled partial snapshot.
 
 PDF extraction takes `{ "name": "source.pdf", "data": "BASE64_BYTES" }`, not a data
 URL or remote URL. The response contains extracted `content`, `pageCount` and
-`bytes`. Create the scenario with this text, not raw binary.
+`bytes`. Create the scenario with this text, not raw binary. The same route reads a
+`.csv` or `.json` file (up to 2 MB, UTF-8) as readable text on the server and returns
+`{ name, content, bytes, notes }`.
+
+Reading a public web page: `POST /api/evidence/url` with `{ "url": "https://…" }` returns
+`{ "document": { "name", "content", "provenance" }, "notes": [...] }`, a document that can be sent
+as one of a project's `documents`. A failure is a 4xx with a code that starts `URL_` and a message that ends
+with "You can paste the text instead." What is fetched, how, and what is not promised is in
+[URL ingestion](./security/url-ingestion.md).
 
 Surveys take `{ "kind": "state" | "interview", "question": "...", "agentIds": [...] }`.
 Poll the project's `console.surveys` until completion. Local state snapshots have

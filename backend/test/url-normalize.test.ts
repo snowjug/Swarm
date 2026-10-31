@@ -230,6 +230,6 @@ describe('the text helpers', () => {
     expect(fit('x'.repeat(500), 10).text.length).toBeLessThanOrEqual(10 + 70);
     // Never cut inside a pair of surrogates.
     const emoji = fit('\u{1F600}'.repeat(200), 150);
-    expect(emoji.text).toBe(emoji.text.toWellFormed());
+    expect(emoji.text).not.toMatch(/\p{Surrogate}/u);
   });
 });
