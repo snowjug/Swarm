@@ -16,3 +16,13 @@ export function validateEntry(
   });
   return { error: [...new Set(messages)].join('\n') };
 }
+
+/** A name for a project whose person gave none: the start of the question, cut at a word. */
+export function nameFromQuestion(question: string): string {
+  const text = question.replace(/\s+/gu, ' ').trim();
+  if (text.length < 3) return 'Untitled scenario';
+  if (text.length <= 80) return text;
+  const cut = text.slice(0, 80);
+  const space = cut.lastIndexOf(' ');
+  return `${cut.slice(0, space > 40 ? space : 80)}…`;
+}
