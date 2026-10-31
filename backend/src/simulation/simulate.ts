@@ -89,7 +89,7 @@ function sumUp(
 
 /**
  * The same as `simulate` for a spec that has already been through `simulationSpecSchema`. Validating a
- * large cast costs about as much as running it, so a caller that runs one spec on many seeds parses
+ * typical cast costs about a quarter of running it, so a caller that runs one spec on many seeds parses
  * once and calls this. It still checks the seed, the cap and that the cast and variant agree.
  */
 export function simulateValidated(
