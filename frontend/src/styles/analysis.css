@@ -469,3 +469,18 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Windows high contrast and other forced colours replace the palette. Each segment keeps an outline and its
+   number, and the table beside every chart says the rest, so the fills that carry no text take system colours. */
+@media (forced-colors: active) {
+  .analysis-seg {
+    border-right: 2px solid CanvasText;
+    color: CanvasText;
+  }
+  .analysis-swatch,
+  .analysis-sens-bar,
+  .analysis-meter-fill {
+    border: 1px solid CanvasText;
+    background: Highlight;
+  }
+}

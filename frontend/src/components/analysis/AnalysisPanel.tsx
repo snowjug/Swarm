@@ -27,6 +27,8 @@ const settingsOf = (analysis: Analysis): SetupSettings => ({
 function Progress({ analysis, state }: { analysis: Analysis; state: AnalysisState }) {
   const { completedRuns, totalRuns } = analysis.progress;
   const text = `${completedRuns.toLocaleString('en-GB')} of ${totalRuns.toLocaleString('en-GB')} simulated runs finished`;
+  // Announced to a screen reader in tenths, not on every run, so that it is not read out every second.
+  const tenths = totalRuns > 0 ? Math.floor((completedRuns / totalRuns) * 10) * 10 : 0;
   return (
     <div className="analysis-progress">
       <div
@@ -45,11 +47,16 @@ function Progress({ analysis, state }: { analysis: Analysis; state: AnalysisStat
           }}
         />
       </div>
-      <p aria-live="polite">
+      <p>
         {state.cancelling ? 'Cancelling: it stops after the run in progress. ' : 'Running: '}
         {text}. {analysis.config.variants.length} scenarios × {analysis.config.runsPerVariant}{' '}
         seeded runs
         {analysis.config.sensitivity ? ', then the sensitivity of the proposed change' : ''}.
+      </p>
+      <p className="sr-only" role="status">
+        {state.cancelling
+          ? 'Cancelling the comparison.'
+          : `Comparing scenarios: about ${tenths}% of the simulated runs are finished.`}
       </p>
       {state.readiness?.may.run !== false && (
         <button

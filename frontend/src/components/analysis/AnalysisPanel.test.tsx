@@ -280,7 +280,11 @@ describe('while it runs', () => {
     expect(html).toContain('aria-valuemax="90"');
     expect(html).toContain('aria-valuenow="12"');
     expect(html).toContain('aria-valuetext="12 of 90 simulated runs finished"');
-    expect(html).toContain('aria-live="polite"');
+    // Announced to a screen reader in tenths, so that it is not read out on every run.
+    expect(html).toMatch(
+      /<p class="sr-only" role="status">Comparing scenarios: about 10% of the simulated runs are finished\.<\/p>/u,
+    );
+    expect(html).not.toContain('aria-live');
     expect(visibleText(html)).toContain('Running: 12 of 90 simulated runs finished.');
     expect(visibleText(html)).toContain('Cancel the comparison');
     expect(html).not.toContain('<form');
