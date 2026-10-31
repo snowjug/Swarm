@@ -5,6 +5,7 @@ import {
   type SensitivityClass,
   type StabilityClass,
 } from './analysis.js';
+import { NO_DIRECTION_NOTICE } from './signal.js';
 import {
   evidenceRefSchema,
   idSchema,
@@ -161,6 +162,41 @@ export const validationExperimentSchema = z.object({
 });
 export type ValidationExperiment = z.infer<typeof validationExperimentSchema>;
 
+/**
+ * Whether the comparison of the change with no change can be read as a result about the change.
+ * `no-direction`: no stakeholder has an expected direction of impact, so the change cannot move anyone
+ * and every difference is noise. `no-difference`: stakeholders do have directions, and the comparison
+ * still found the two about the same, repeatably, with no group moving clearly on its own.
+ */
+export const BRIEF_SIGNALS = ['clear', 'no-direction', 'no-difference'] as const;
+export type BriefSignal = (typeof BRIEF_SIGNALS)[number];
+
+export const NO_DIFFERENCE_NOTICE =
+  'Under the assumptions made here the simulation shows no measurable difference between the change and no change: the two ended up about the same in most paired seeded runs, and no group moved clearly on its own. That describes the assumptions, not the world. Check who is affected, and by how much, against real groups before concluding that the change makes no difference.';
+
+/** What a part of the brief that sets variants side by side says first when the comparison cannot be read as a result. */
+export const BRIEF_READING_NOTES: Record<Exclude<BriefSignal, 'clear'>, string> = {
+  'no-direction':
+    'Read every difference between variants in this section as noise: no stakeholder has an expected direction of impact, so the change cannot move anyone in the simulation.',
+  'no-difference':
+    'Read the small differences between variants in this section as within noise: under these assumptions the comparison found no measurable difference between the change and no change.',
+};
+
+/** What the page and the exports say at the top when the comparison cannot be read as a result. */
+export const BRIEF_SIGNAL_NOTICES: Record<
+  Exclude<BriefSignal, 'clear'>,
+  { title: string; text: string }
+> = {
+  'no-direction': {
+    title: 'The simulation could not tell the change from no change',
+    text: NO_DIRECTION_NOTICE,
+  },
+  'no-difference': {
+    title: 'No measurable difference under these assumptions',
+    text: NO_DIFFERENCE_NOTICE,
+  },
+};
+
 /** The artifact `brief`: the answer-first decision brief for one analysis. */
 export const decisionBriefSchema = z.object({
   generatedAt: z.iso.datetime(),
@@ -183,6 +219,8 @@ export const decisionBriefSchema = z.object({
   openCritiques: z.int().min(0),
   /** `rules` assembles every statement from data; `model` also lets a model word interpretations. */
   generatedBy: z.enum(['rules', 'model']),
+  /** Whether the comparison could tell the change from no change; a brief made before this was checked reads `clear`. */
+  signal: z.enum(BRIEF_SIGNALS).default('clear'),
   /**
    * The revision of each document the brief was assembled from (0 when there was none), so that a
    * later change to any of them can be told from a brief that is still current.

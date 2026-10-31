@@ -1,13 +1,15 @@
-import type { BriefRefs, BriefSection } from '../../../shared/brief.js';
+import type { BriefRefs, BriefSection, BriefSignal } from '../../../shared/brief.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
+import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { STAKEHOLDER_CATEGORY_LABELS } from '../../../shared/stakeholders.js';
 import { effectOf } from './assumptions.js';
 import { documentOrigin, provenanceLine, uniqueRefs } from './evidence.js';
 import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
-import { relianceOfEvidence, relianceOfFinding } from './rules.js';
+import type { Headline } from './measures.js';
+import { relianceOfEvidence } from './rules.js';
 import { clip, decimals, embed, listed, plural, whole } from './text.js';
-import { sectionWriter, type Tally } from './writer.js';
+import { sectionWriter, type SectionWriter, type Tally } from './writer.js';
 
 const CLASS_WORDS = {
   repeatable: 'repeatable',
@@ -79,19 +81,89 @@ function caveatOf(facts: Facts): { text: string; refs: Partial<BriefRefs> } {
 export const NOT_TOLD =
   'What this does not tell you: how many real people act this way, how fast, or whether the assumptions behind the simulation hold. Simulated members are synthetic stand-ins for groups; the counts above are neither rates nor forecasts.';
 
+/** The same line when the comparison cannot be read as a result about the change, and there are no counts above it to qualify. */
+export const NOT_TOLD_BY_SIGNAL: Record<BriefSignal, string> = {
+  clear: NOT_TOLD,
+  'no-direction':
+    'What this does not tell you: what the change does. The simulation could not tell it from no change, so there is no simulated result about it, and nothing here says how many real people act this way, how fast, or whether the assumptions behind the simulation hold. Simulated members are synthetic stand-ins for groups; no count in this brief is a rate or a forecast.',
+  'no-difference':
+    'What this does not tell you: that the change makes no difference in the world. No measurable difference is a result under the assumptions made here, not a measurement of real people, and it does not say how many act this way, how fast, or whether the assumptions hold. Simulated members are synthetic stand-ins for groups; no count in this brief is a rate or a forecast.',
+};
+
+const variantIdsOf = (headline: Headline): string[] => [
+  headline.variant.variant.id,
+  ...(headline.baseline ? [headline.baseline.variant.id] : []),
+];
+
+const baselineLabel = (headline: Headline): string =>
+  embed(headline.baseline?.variant.label ?? 'no change', 80);
+
+/** How far the finding about the direction against the baseline held across seeded runs. */
+function addStability(
+  writer: SectionWriter,
+  facts: Facts,
+  headline: Headline,
+  reading: string,
+): void {
+  const { finding } = facts.signal;
+  if (finding) {
+    writer.add({
+      origin: 'simulation-aggregation',
+      text: `Stability: the finding ${embed(finding.statement, 200)} held in ${finding.holdsIn} of ${finding.of} seeded simulated runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}), which the analysis classes as ${classWords(finding.classification)}. There is no confidence score.${reading}`,
+      refs: { findingIds: [finding.id] },
+      reliance: facts.relianceOf([finding]),
+    });
+  } else {
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: 'Stability: no finding about the direction against the baseline was recorded for this variant, so how often the difference holds across seeded simulated runs is not stated.',
+      refs: { variantIds: [headline.variant.variant.id] },
+    });
+  }
+}
+
 export function executiveAnswer(
   facts: Facts,
   tally: Tally,
 ): { section: BriefSection; headline: string } {
   const writer = sectionWriter('executive-answer', tally);
   const headline = facts.headline;
+  const { state, finding } = facts.signal;
   let answer: string;
   if (!headline) {
     answer =
       'The analysis recorded no simulated runs, so there is no comparison to report. Run the simulation again before relying on this brief.';
     writer.add({ origin: 'unresolved-uncertainty', text: answer });
+  } else if (state === 'no-direction') {
+    // Counts of adverse members are not quoted: with no one to move, they are noise, not a result.
+    answer = `With ${engineWords(facts)}, the simulated comparison of ${embed(headline.variant.variant.label, 80)} with ${baselineLabel(headline)} across ${headline.variant.runs.length} seeded runs could not tell the change from no change. ${NO_DIRECTION_NOTICE}`;
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: answer,
+      refs: { findingIds: finding ? [finding.id] : [], variantIds: variantIdsOf(headline) },
+    });
+    addStability(
+      writer,
+      facts,
+      headline,
+      ' With no expected direction of impact it describes the noise of the simulation, and says nothing about the change.',
+    );
+  } else if (state === 'no-difference' && finding) {
+    answer = `With ${engineWords(facts)}, there is no measurable difference under these assumptions: simulated members ended up about the same under ${embed(headline.variant.variant.label, 80)} as under ${baselineLabel(headline)} on the same seed in ${finding.holdsIn} of ${finding.of} paired runs, and no simulated group moved clearly on its own.`;
+    writer.add({
+      origin: 'simulation-aggregation',
+      text: answer,
+      refs: { findingIds: [finding.id], variantIds: variantIdsOf(headline) },
+      reliance: facts.relianceOf([finding]),
+    });
+    addStability(
+      writer,
+      facts,
+      headline,
+      ' It supports reading the two as about the same under these assumptions, not as the same in the world.',
+    );
   } else {
-    const { variant, baseline, pairing, finding } = headline;
+    const { variant, baseline, pairing } = headline;
     const base = `With ${engineWords(facts)}, across ${variant.runs.length} seeded runs of ${variant.members} simulated members each, about ${whole(variant.adverse.mean)} simulated members ended up looking for an alternative or resisting under ${embed(variant.variant.label, 80)}`;
     let clause: string;
     if (baseline && pairing && pairing.pairs > 0) {
@@ -109,37 +181,20 @@ export function executiveAnswer(
     writer.add({
       origin: 'simulation-aggregation',
       text: answer,
-      refs: {
-        findingIds: finding ? [finding.id] : [],
-        variantIds: [variant.variant.id, ...(baseline ? [baseline.variant.id] : [])],
-      },
+      refs: { findingIds: finding ? [finding.id] : [], variantIds: variantIdsOf(headline) },
       reliance: finding ? facts.relianceOf([finding]) : 'low',
     });
-    if (finding) {
-      writer.add({
-        origin: 'simulation-aggregation',
-        text: `Stability: the finding ${embed(finding.statement, 200)} held in ${finding.holdsIn} of ${finding.of} seeded simulated runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}), which the analysis classes as ${classWords(finding.classification)}. There is no confidence score.`,
-        refs: { findingIds: [finding.id] },
-        reliance: relianceOfFinding(finding.classification, facts.evidencedFinding(finding)),
-      });
-    } else {
-      writer.add({
-        origin: 'unresolved-uncertainty',
-        text: 'Stability: no finding about the direction against the baseline was recorded for this variant, so how often the difference holds across seeded simulated runs is not stated.',
-        refs: { variantIds: [variant.variant.id] },
-      });
-    }
+    addStability(writer, facts, headline, '');
   }
-  const caveat = caveatOf(facts);
-  const caveatStatement = writer.add({
-    origin: 'unresolved-uncertainty',
-    text: caveat.text,
-    refs: caveat.refs,
-  });
-  writer.add({ origin: 'unresolved-uncertainty', text: NOT_TOLD });
+  // With no one to move, the answer is itself the biggest caveat.
+  const caveat = state === 'no-direction' ? null : caveatOf(facts);
+  const caveatStatement = caveat
+    ? writer.add({ origin: 'unresolved-uncertainty', text: caveat.text, refs: caveat.refs })
+    : null;
+  writer.add({ origin: 'unresolved-uncertainty', text: NOT_TOLD_BY_SIGNAL[state] });
   return {
     section: writer.build(),
-    headline: clip(`${answer} ${caveatStatement.text}`, 700),
+    headline: clip(caveatStatement ? `${answer} ${caveatStatement.text}` : answer, 700),
   };
 }
 

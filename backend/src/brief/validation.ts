@@ -199,6 +199,18 @@ export const GENERAL_GAP_CHECK: Check = {
   measure: 'What members of the group report in interviews and a survey',
 };
 
+/** The check that comes first when no stakeholder has an expected direction of impact. */
+export const DIRECTION_CHECK: Check = {
+  question: 'Who is helped and who is harmed by the change, and by how much?',
+  method:
+    'Ask the stakeholders themselves, in interviews or a short survey, or someone who knows each group, whether the change helps or harms it and by how much; record a direction for each group in the stakeholder review.',
+  successSignal:
+    'Each key group has a stated direction of impact from people who know it, and the comparison, run again, can tell the change from no change.',
+  effort: 'low',
+  duration: '1 to 2 weeks',
+  measure: 'Stakeholders with a stated direction of impact',
+};
+
 export const gapCheckFor = (category: StakeholderCategory): Check =>
   GAP_CHECKS.find((entry) => entry.categories.includes(category))?.check ?? GENERAL_GAP_CHECK;
 
@@ -255,7 +267,9 @@ export const MAX_EXPERIMENTS = 8;
 /**
  * The checks that would settle what the result most depends on, in this order: the assumptions the
  * runs were sensitive to that nothing cited backs; the results that were not stable across seeded
- * runs; the key actors nothing cited supports.
+ * runs; the key actors nothing cited supports. When no stakeholder has an expected direction of
+ * impact, the first check settles that, and repeating runs that cannot tell the change from no
+ * change is not proposed.
  */
 export function validationPlan(facts: Facts): ValidationExperiment[] {
   const plan: ValidationExperiment[] = [];
@@ -271,6 +285,19 @@ export function validationPlan(facts: Facts): ValidationExperiment[] {
     });
   };
 
+  const noDirection = facts.signal.state === 'no-direction';
+  if (noDirection) {
+    const { finding } = facts.signal;
+    add(
+      finding
+        ? `finding ${finding.id}: the comparison could not tell the change from no change`
+        : 'assumption: the direction of impact of every stakeholder',
+      DIRECTION_CHECK,
+      'the stakeholders',
+      '',
+    );
+  }
+
   const sensitive = facts.analysis.sensitivity
     .filter(
       (row) => row.classification === 'assumption-sensitive' && row.assumptionOrigin !== 'evidence',
@@ -282,7 +309,7 @@ export function validationPlan(facts: Facts): ValidationExperiment[] {
     const { check, group, value } = checkForSensitivity(row, actor);
     add(`sensitivity ${row.id}: ${row.label}`, check, group, value);
   }
-  for (const finding of weakFindings(facts).slice(0, 3)) {
+  for (const finding of noDirection ? [] : weakFindings(facts).slice(0, 3)) {
     add(`finding ${finding.id}: ${finding.statement}`, UNSTABLE_CHECK, 'the group concerned', '');
   }
   for (const actor of unevidencedKeyActors(facts).slice(0, 2)) {
