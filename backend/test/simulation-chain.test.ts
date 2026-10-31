@@ -84,7 +84,7 @@ describe('a second-order chain among Alpha, Beta and Gamma', () => {
     }
   });
 
-  it('goes on to a second responder, whose event names the signal and the first event', () => {
+  it('goes on to a second responder, whose event names the signal it saw and the first event it followed', () => {
     for (const seed of SEEDS) {
       const outcome = simulate(input, seed);
       const first = eventBy(outcome, 'beta')!;
@@ -93,7 +93,9 @@ describe('a second-order chain among Alpha, Beta and Gamma', () => {
       expect(second?.kind, `seed ${seed}`).toBe('substitute-offer');
       expect(second?.round).toBe(crossing! + responderLag(gamma.reactivity.value));
       expect(second!.round).toBeGreaterThan(first.round);
-      expect(second?.causedBy).toEqual(['switching-pressure', first.id]);
+      // The trigger reads a signal, so that is its cause; the first event only came first, until it is tested.
+      expect(second?.causedBy).toEqual(['switching-pressure']);
+      expect(second?.followed).toEqual([first.id]);
       expect(outcome.events.map((event) => event.id)).toEqual(['e1', 'e2']);
       expect(crossing).toBeGreaterThan(first.round);
     }
@@ -153,19 +155,21 @@ describe('a second-order chain among Alpha, Beta and Gamma', () => {
     }
   });
 
-  it('is read back through the events: valid, in order, each cause a signal or an earlier event', () => {
-    const outcome = simulate(input, 4);
-    expect(() => runOutcomeSchema.parse(outcome)).not.toThrow();
-    for (const [at, event] of outcome.events.entries()) {
-      expect(event.round).toBeGreaterThanOrEqual(2);
-      expect(event.description.length).toBeLessThanOrEqual(300);
-      expect(event.description).toContain(`round ${event.round}`);
-      expect(event.description).not.toMatch(/NaN|undefined/u);
-      expect(SIGNAL_NAMES as readonly string[]).toContain(event.causedBy[0]);
-      for (const cause of event.causedBy.slice(1)) {
-        const earlier = outcome.events.findIndex((candidate) => candidate.id === cause);
-        expect(earlier).toBeGreaterThanOrEqual(0);
-        expect(earlier).toBeLessThan(at);
+  it('is read back through the events: valid, in order, each cause a signal and each earlier event one that came first', () => {
+    for (const explain of [false, true]) {
+      const outcome = simulate(input, 4, { explain });
+      expect(() => runOutcomeSchema.parse(outcome)).not.toThrow();
+      for (const [at, event] of outcome.events.entries()) {
+        expect(event.round).toBeGreaterThanOrEqual(2);
+        expect(event.description.length).toBeLessThanOrEqual(300);
+        expect(event.description).toContain(`round ${event.round}`);
+        expect(event.description).not.toMatch(/NaN|undefined/u);
+        expect(SIGNAL_NAMES as readonly string[]).toContain(event.causedBy[0]);
+        for (const cause of [...event.causedBy.slice(1), ...(event.followed ?? [])]) {
+          const earlier = outcome.events.findIndex((candidate) => candidate.id === cause);
+          expect(earlier).toBeGreaterThanOrEqual(0);
+          expect(earlier).toBeLessThan(at);
+        }
       }
     }
   });
@@ -296,7 +300,8 @@ describe('a responder with no relations, or none that reach anyone affected', ()
         'counter-move',
         'substitute-offer',
       ]);
-      expect(outcome.events[1]?.causedBy).toEqual(['switching-pressure', 'e1']);
+      expect(outcome.events[1]?.causedBy).toEqual(['switching-pressure']);
+      expect(outcome.events[1]?.followed).toEqual(['e1']);
       expect(() => runOutcomeSchema.parse(outcome)).not.toThrow();
     }
   });
@@ -393,7 +398,8 @@ describe('events are bounded and unique', () => {
       );
       outcome.events.forEach((event, at) => {
         expect(event.causedBy.length).toBeLessThanOrEqual(8);
-        for (const cause of event.causedBy.slice(1)) {
+        expect((event.followed ?? []).length).toBeLessThanOrEqual(8);
+        for (const cause of [...event.causedBy.slice(1), ...(event.followed ?? [])]) {
           expect(outcome.events.findIndex((candidate) => candidate.id === cause)).toBeLessThan(at);
         }
       });
