@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { UrlFailure, type UrlFailureCode } from '../src/ingest/url/failure.js';
 import {
   fetchPublicPage,
+  pinTo,
   PublicFetcher,
   redirectTarget,
   USER_AGENT,
@@ -375,6 +376,46 @@ describe('looking the name up, and connecting', () => {
       }),
     );
     expect(failure).toMatchObject({ code: 'network', detail: { reason: 'tls' } });
+  });
+});
+
+describe('the connection’s own lookup', () => {
+  // A connection that fails the moment it is made (no route to the address, no network at all) raises
+  // its error where it is made. Answered at once, that is before the request has a listener, and an
+  // error nobody listens for ends the process. This broke a build on a machine with no IPv6 route.
+  it('is answered on a later turn, so that a connection that fails at once is heard by its request', async () => {
+    let answered: { error: unknown; addresses: unknown } | null = null;
+    pinTo([v4('93.184.216.34'), v6('2606:4700:4700::1111')])(
+      'pinned.example.com',
+      { all: true },
+      (error, addresses) => {
+        answered = { error, addresses };
+      },
+    );
+    expect(answered).toBeNull();
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(answered).toEqual({
+      error: null,
+      addresses: [
+        { address: '93.184.216.34', family: 4 },
+        { address: '2606:4700:4700::1111', family: 6 },
+      ],
+    });
+  });
+
+  it('gives the first address to a connection that asks for one, and fails plainly when there is none', async () => {
+    const one = await new Promise<unknown[]>((resolve) => {
+      pinTo([v4('93.184.216.34'), v4('93.184.216.35')])(
+        'pinned.example.com',
+        {},
+        (error, address, family) => resolve([error, address, family]),
+      );
+    });
+    expect(one).toEqual([null, '93.184.216.34', 4]);
+    const none = await new Promise<{ code?: string }>((resolve) => {
+      pinTo([])('pinned.example.com', {}, (error) => resolve(error as { code?: string }));
+    });
+    expect(none.code).toBe('ENOTFOUND');
   });
 });
 

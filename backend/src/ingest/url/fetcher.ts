@@ -110,18 +110,25 @@ function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-/** Answers the connection's own name lookup with the addresses that were already checked. */
-function pinTo(addresses: readonly ResolvedAddress[]): LookupFunction {
+/**
+ * Answers the connection's own name lookup with the addresses that were already checked. It answers on
+ * a later turn, as a real lookup does: a connection that fails at once (no route to the address, no
+ * network) raises its error where the connection is made, and answered at once that is before the
+ * request has a listener for it. An error nobody listens for ends the whole process.
+ */
+export function pinTo(addresses: readonly ResolvedAddress[]): LookupFunction {
   return (_hostname, options, callback) => {
     const wantsAll = typeof options === 'object' && options !== null && options.all === true;
     const first = addresses[0];
-    if (wantsAll)
-      callback(
-        null,
-        addresses.map(({ address, family }) => ({ address, family })),
-      );
-    else if (first) callback(null, first.address, first.family);
-    else callback(Object.assign(new Error('no address'), { code: 'ENOTFOUND' }), '', 4);
+    setImmediate(() => {
+      if (wantsAll)
+        callback(
+          null,
+          addresses.map(({ address, family }) => ({ address, family })),
+        );
+      else if (first) callback(null, first.address, first.family);
+      else callback(Object.assign(new Error('no address'), { code: 'ENOTFOUND' }), '', 4);
+    });
   };
 }
 
