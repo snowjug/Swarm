@@ -431,8 +431,8 @@ function indexWords(sentences: readonly Indexed[], kindOf: Uint8Array, used: num
  * The work is bounded two ways: a list longer than `MAX_POSTING_LENGTH` is not read, because a word
  * that many sentences hold names no particular topic, as a stop word does not; and a sentence is
  * compared with the `MAX_CANDIDATES_PER_SENTENCE` partners that overlap it most. A pair that is
- * compared is judged on every word it shares, however common. Evidence of a few hundred sentences
- * reaches neither limit, and the result is then the one a comparison of every pair gives.
+ * compared is judged on every word it shares, however common. Ordinary evidence of a few hundred
+ * sentences reaches neither limit, and the result is then the one a comparison of every pair gives.
  */
 function searchPairs(sentences: readonly Indexed[], stats: ContradictionScanStats): Match[] {
   const total = sentences.length;
@@ -636,12 +636,12 @@ function searchPairs(sentences: readonly Indexed[], stats: ContradictionScanStat
  * person or an independent check to confirm; none is declared true.
  *
  * The scan is bounded, so that evidence at the size limit is read in a fraction of a second whatever
- * it says: see `MAX_POSTING_LENGTH` and `MAX_CANDIDATES_PER_SENTENCE`. Neither limit applies to a few
- * hundred sentences. Beyond that, a pair is not looked at when every word it shares is one that more
- * than `MAX_POSTING_LENGTH` sentences hold, and a sentence is compared with only the
- * `MAX_CANDIDATES_PER_SENTENCE` partners that overlap it most. The result has no field to say that a
- * pair was left out, so it does not; a caller that needs to know passes `stats`, which counts the
- * lists not read and the sentences held to their closest partners.
+ * it says: see `MAX_POSTING_LENGTH` and `MAX_CANDIDATES_PER_SENTENCE`. Ordinary evidence of a few
+ * hundred sentences reaches neither limit. Beyond them, a pair is not looked at when every word it
+ * shares is one that more than `MAX_POSTING_LENGTH` sentences hold, and a sentence is compared with
+ * only the `MAX_CANDIDATES_PER_SENTENCE` partners that overlap it most. The result has no field to say
+ * that a pair was left out, so it does not; a caller that needs to know passes `stats`, which counts
+ * the lists not read and the sentences held to their closest partners.
  */
 export function detectContradictions(
   passages: readonly EvidenceChunk[],
