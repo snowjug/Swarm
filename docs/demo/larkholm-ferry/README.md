@@ -56,7 +56,7 @@ instead, and the interface says so.
 This is one run with a real Azure-hosted model. A different run will differ, because model output
 is not reproducible.
 
-- **Graph.** 13 source-grounded entities and 16 relations. Every entity carries a verbatim quote
+- **Graph.** 11 source-grounded entities and 13 relations. Every entity carries a verbatim quote
   from a source passage that the server checked.
 - **Actors.** Six fictional proxies with conflicting starting inclinations, from firmly opposed to
   strongly in favour.
@@ -65,8 +65,8 @@ is not reproducible.
 - **Branch.** An assumed council guarantee at round 4 instead of an assumed operator notice, plus one
   proxy made more open to persuasion. The comparison shows the runs are identical through round 3
   and then diverge, and it states that a difference is not a causal estimate.
-- **Report (on the branch).** 29 statements were checked: 21 supported, 4 partly supported, 1 not
-  supported, 0 contradicted and 3 not checkable. Each statement carries one of six labels (source
+- **Report (on the branch).** 28 statements were checked: 21 supported, 3 partly supported, 4 not
+  supported, 0 contradicted and 0 not checkable. Each statement carries one of six labels (source
   fact, extracted claim, user assumption, AI hypothesis, simulated event, analytical conclusion);
   not every label appears in every report.
 - **Chat.** Asked directly about the two ridership figures, the analyst contrasted them and named

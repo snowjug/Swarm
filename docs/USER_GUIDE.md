@@ -108,8 +108,8 @@ that the stage's own **Start Simulation** button stays on the screen. This is wh
 2. **After finding**, the list opens under four counts: **found**, **need review**, **approved** and
    **actors**. A line says how the stakeholders were found ("Found by reading the text, not by a model", or
    by which model), and a note says how many have a direction of impact read from the wording. One button
-   says what to do next and changes as you go: **Review N stakeholders**, then **Approve and create
-   actors**, then **Review the N actors**. **Stakeholders** and **Actors** are toggles that open and shut the
+   says what to do next and changes as you go: **Review N stakeholders**, then **Approve stakeholders and
+   create actors**, then **Review the N actors**. **Stakeholders** and **Actors** are toggles that open and shut the
    list and the actors.
 3. **A row** is one line to scan, key actors first: the name, whether it is a key actor (one actor of its
    own) or a cohort (a group of simulated members), its category, the direction of impact in words ("Impact:

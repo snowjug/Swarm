@@ -60,9 +60,9 @@ describe('README structure', () => {
   it('has the required sections, in order', () => {
     const required = [
       '# Swarm',
+      '## Quick start',
       '## What Swarm is, and is not',
       '## From a question to a decision',
-      '## Quick start',
       '## The four flagship demos',
       '## Evidence and public web pages',
       '## Model modes',

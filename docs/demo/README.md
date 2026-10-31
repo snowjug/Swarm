@@ -60,7 +60,7 @@ and create actors**, **Compare scenarios**, **Generate decision brief**, **Run i
 | 4:45 to 6:15  | Demo 1: the brief and the review      | **See the decision brief** (the Report stage unlocks by itself), **Generate decision brief**, then **Run independent review**                                             | The executive answer and its caveat; the origin chip on each statement; the validation plan (**validation plan**); one objection and its basis (**the independent critic**)                 |
 | 6:15 to 7:15  | Demo 2: a different subject           | **History**, open the prepared project; or **Use this example** on **Regional cloud price change** and **Understand my question**                                         | The open points the question leaves ($1 with no unit, date or scope); the different stakeholders; "nothing in the engine knows AWS"                                                         |
 | 7:15 to 8:45  | Demo 3: a public page                 | **Use this example** on **Online store: delivery and checkout**; in **Add a public web page**, **Fetch page**, **Add as evidence**                                        | The title, site, size and retrieval time; the document's own label as a retrieved page; then type a private address and read the refusal                                                    |
-| 8:45 to 9:30  | Demo 4: the audience's question       | Type it; add a public page; **Understand my question**                                                                                                                    | What the reading made of it; how thin evidence shows as gaps and a warning, not as confident output                                                                                         |
+| 8:45 to 9:30  | Demo 4: the audience's question       | Type it; add a public page; **Understand my question**; in the stakeholder review keep or add at least two stakeholders before approving                                  | What the reading made of it; how thin evidence shows as gaps and a warning, not as confident output                                                                                         |
 | 9:30 to 10:00 | Close                                 | **Markdown**, **JSON** or **Printable** on the brief                                                                                                                      | The limitations section; "It supports a person's analysis. It does not make the decision."                                                                                                  |
 
 ### What to say, segment by segment
@@ -112,8 +112,10 @@ local and cloud-metadata addresses are refused however they are written, and so 
 to one". Read the message, which ends "You can paste the text instead."
 
 **8:45, the audience's question.** Type what they ask. "No one prepared this. Whatever the evidence
-supports is what appears, and where it is thin, the gaps and the warnings say so." If the comparison
-warns that the change cannot move anyone, say what that means: no group has a direction of impact yet.
+supports is what appears, and where it is thin, the gaps and the warnings say so." A page may name
+fewer than two stakeholders. **Approve stakeholders and create actors** stays disabled until there
+are two, so add the missing group yourself and label it as your assumption. If the comparison warns
+that the change cannot move anyone, say what that means: no group has a direction of impact yet.
 
 **9:30, the close.** "Invented evidence, a repeatable method, assumptions on the table, independent
 challenge, and a plan to check it in the real world. Swarm supports a person's analysis. A person

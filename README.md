@@ -17,9 +17,53 @@ its browser sign-in has only met a test identity provider, and it is not ready f
 [Honest limitations](#honest-limitations) and the
 [production-readiness gates](./docs/production-readiness.md) say what that means.
 
-**Judges and first-time readers:** run the [quick start](#quick-start) (rules mode, a few minutes),
-pick **Copilot in Teams** in the example picker, and follow the [demo guide](./docs/demo/README.md),
-which scripts a ten-minute walk-through of the four flagship demos.
+**Three-minute judge path:** Swarm explores scenarios; it does not predict. Run the
+[quick start](#quick-start) below (rules mode, no key, no model), choose **Copilot in Teams** in the
+example picker, and follow **The first demo**. Treat every result as a simulated count under stated
+assumptions, and read the [four rules for reading a result](#from-a-question-to-a-decision) before acting on one.
+The [demo guide](./docs/demo/README.md) scripts a ten-minute walk-through of the four flagship demos.
+
+## Quick start
+
+You need **Node.js 24** (see `.nvmrc`; `engine-strict` makes npm refuse other major versions), npm and
+Git. On Windows PowerShell, write `npm.cmd` for `npm`, which avoids the script-policy problem without
+changing your policy. No `.env` file, key or model is needed: `AI_PROVIDER` defaults to `none`.
+
+```bash
+git clone https://github.com/snowjug/Swarm.git
+cd Swarm
+npm ci
+npm run dev
+```
+
+Open <http://127.0.0.1:5173>. The development server proxies `/api` to the API on port 3001. The
+header chip reads `LOCAL / RULES MODE`: nothing leaves your machine. To run the built application as
+one process that serves both the UI and the API:
+
+```bash
+npm run build
+npm start
+```
+
+Open <http://127.0.0.1:3001>. Data is kept in `./data` (a SQLite file; set `DATA_DIR` to move it, and
+keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is optional: copy
+[`.env.example`](./.env.example) to `.env` only to change a setting.
+
+**The first demo, a few minutes in rules mode.**
+
+1. On the first screen, find **Not sure what to ask? Try an example** and choose **Use this example**
+   on **Copilot in Teams**. It fills the question and five synthetic documents. Nothing is sent yet.
+2. Choose **Understand my question**, read the scenario it made, then **Use this scenario**.
+3. Choose **Build Graph**. When Graph Build reads `ready`, open **Env Setup**. The **Stakeholders and
+   actors** panel starts small: choose **Find stakeholders by reading the text**. It shows four counts
+   (found, need review, approved, actors), a note on how the stakeholders were found, and the list.
+   Open a row to read the quotes it rests on, then choose **Approve stakeholders and create actors**
+   below the list. Choose **Review the N actors** to read each actor's traits.
+4. Open **Simulation** and choose **Compare scenarios**.
+5. When the comparison has finished, choose **See the decision brief** (the Report stage unlocks by
+   itself), then **Generate decision brief** and **Run independent review**.
+
+The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
 
 ## What Swarm is, and is not
 
@@ -84,48 +128,6 @@ The ten origins a brief statement can carry are never merged: the label travels 
 
 _The optional deep dive on the recorded fictional Larkholm demonstration: every graph entity carries
 a quote that the server has checked, character for character, against the passage it cites._
-
-## Quick start
-
-You need **Node.js 24** (see `.nvmrc`; `engine-strict` makes npm refuse other major versions), npm and
-Git. On Windows PowerShell, write `npm.cmd` for `npm`, which avoids the script-policy problem without
-changing your policy. No `.env` file, key or model is needed: `AI_PROVIDER` defaults to `none`.
-
-```bash
-git clone https://github.com/snowjug/Swarm.git
-cd Swarm
-npm ci
-npm run dev
-```
-
-Open <http://127.0.0.1:5173>. The development server proxies `/api` to the API on port 3001. The
-header chip reads `LOCAL / RULES MODE`: nothing leaves your machine. To run the built application as
-one process that serves both the UI and the API:
-
-```bash
-npm run build
-npm start
-```
-
-Open <http://127.0.0.1:3001>. Data is kept in `./data` (a SQLite file; set `DATA_DIR` to move it, and
-keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is optional: copy
-[`.env.example`](./.env.example) to `.env` only to change a setting.
-
-**The first demo, a few minutes in rules mode.**
-
-1. On the first screen, find **Not sure what to ask? Try an example** and choose **Use this example**
-   on **Copilot in Teams**. It fills the question and five synthetic documents. Nothing is sent yet.
-2. Choose **Understand my question**, read the scenario it made, then **Use this scenario**.
-3. Choose **Build Graph**. When Graph Build reads `ready`, open **Env Setup**. The **Stakeholders and
-   actors** panel starts small: choose **Find stakeholders by reading the text**. It shows four counts
-   (found, need review, approved, actors), a note on how the stakeholders were found, and the list.
-   Open a row to read the quotes it rests on, then choose **Approve stakeholders and create actors**
-   below the list. Choose **Review the N actors** to read each actor's traits.
-4. Open **Simulation** and choose **Compare scenarios**.
-5. When the comparison has finished, choose **See the decision brief** (the Report stage unlocks by
-   itself), then **Generate decision brief** and **Run independent review**.
-
-The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
 
 ## The four flagship demos
 
@@ -240,8 +242,11 @@ document needs at least 80 characters. Then **Understand my question** and steps
   and answer or skip each question back.
 - **Check the stakeholders.** They are only as good as the text: the rules find the roles that a text
   names with a role word. Read the "Perspectives that may be missing" list against your question and
-  add the groups that matter yourself. A page that needs JavaScript is refused, with a message that
-  offers to let you paste the text.
+  add the groups that matter yourself. **Before approving, keep or add at least two stakeholders**: a
+  simulation needs more than one party, and **Approve stakeholders and create actors** stays disabled
+  until there are two. If the page names fewer, choose **Add a stakeholder** until the list has two,
+  label each added group as your assumption, and set an impact only where your evidence supports it. A
+  page that needs JavaScript is refused, with a message that offers to let you paste the text.
 - **Read it honestly.** Nothing was planted: no conflict, no gap, no direction. Where the rules find
   no wording that shows a group being helped or harmed, that group has no direction of impact, and
   if no group has one the comparison warns that the change cannot move anyone. Say who is affected,
