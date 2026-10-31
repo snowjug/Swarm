@@ -58,8 +58,7 @@ import { useJsonSnapshotExport } from '../../hooks/useJsonSnapshotExport';
 import { JsonSnapshotExportButton, JsonSnapshotExportError } from './JsonSnapshotExport';
 import type { UiMode } from '../../lib/mode';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
-import { DecisionBriefView } from '../brief/DecisionBriefView';
-import { CriticPanel } from '../critics/CriticPanel';
+import { ReportSeam } from '../brief/ReportSeam';
 import { StakeholderPanel } from '../stakeholders/StakeholderPanel';
 
 export function ConsoleWorkspace({
@@ -431,20 +430,15 @@ export function ConsoleWorkspace({
       {move && <NextStepBar move={move} onNavigate={followNextStep} />}
       {guided && step === 'report' && !comparing && !studioOpen && (
         <>
-          <div className="seam-stack" onClickCapture={nudge}>
-            <DecisionBriefView
-              project={project}
-              refreshToken={`${labToken}:${reviewChanges}`}
-              onNavigate={navigate}
-            />
-            <CriticPanel
-              project={project}
-              refreshToken={labToken}
-              onChanged={reviewChanged}
-              onNavigate={navigate}
-            />
-          </div>
-          <div className="detailed-report">
+          <ReportSeam
+            project={project}
+            onClickCapture={nudge}
+            briefRefreshToken={`${labToken}:${reviewChanges}`}
+            reviewRefreshToken={labToken}
+            onReviewChanged={reviewChanged}
+            onNavigate={navigate}
+          />
+          <div className="detailed-report" id="report-detail">
             <h2>Detailed report</h2>
             <p className="field-help">
               The report and evidence trail of the optional agent-by-agent deep dive. The decision

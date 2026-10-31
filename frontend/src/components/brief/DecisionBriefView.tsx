@@ -5,6 +5,7 @@ import { useBrief, type BriefHandle } from '../../hooks/useBrief';
 import { dateTime } from '../../lib/format';
 import { EmptyPanel, Notice, Spinner } from '../ui';
 import { BriefDocument } from './BriefDocument';
+import { REPORT_BRIEF_ID } from './reportNavigation';
 
 export interface DecisionBriefViewProps {
   project: ProjectDetail;
@@ -45,7 +46,12 @@ export function BriefPanel({
 
   if (!view) {
     return (
-      <section className="brief brief-state" aria-label="Decision brief">
+      <section
+        className="brief brief-state"
+        id={REPORT_BRIEF_ID}
+        aria-label="Decision brief"
+        tabIndex={-1}
+      >
         {loading ? (
           <p className="brief-loading">
             <Spinner label="Loading the decision brief" /> Loading the decision brief…
@@ -88,7 +94,12 @@ export function BriefPanel({
 
   if (!view.latestAnalysis) {
     return (
-      <section className="brief brief-state" aria-label="Decision brief">
+      <section
+        className="brief brief-state"
+        id={REPORT_BRIEF_ID}
+        aria-label="Decision brief"
+        tabIndex={-1}
+      >
         <EmptyPanel
           title="No decision brief yet"
           level={2}
@@ -114,7 +125,12 @@ export function BriefPanel({
   }
 
   return (
-    <section className="brief brief-state" aria-label="Decision brief">
+    <section
+      className="brief brief-state"
+      id={REPORT_BRIEF_ID}
+      aria-label="Decision brief"
+      tabIndex={-1}
+    >
       {failure}
       <EmptyPanel
         title="Make the decision brief"

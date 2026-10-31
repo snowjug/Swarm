@@ -52,7 +52,7 @@ for (const viewport of viewports) {
       await expectNoHorizontalOverflow(page);
       await expectReadableText(page, `entry ${viewport.name}`);
       await expectTargetSizes(page, `entry ${viewport.name}`);
-      await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+      await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
       await expectNoHorizontalOverflow(page);
     });
 

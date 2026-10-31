@@ -314,3 +314,14 @@
     padding: 10px 12px;
   }
 }
+
+/* On paper the review is what it found: the controls for running it and for answering it are of no use. */
+@media print {
+  .critic-run,
+  .critic-answer {
+    display: none;
+  }
+  .critic-card {
+    break-inside: avoid;
+  }
+}

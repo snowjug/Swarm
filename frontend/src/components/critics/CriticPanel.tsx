@@ -46,6 +46,7 @@ import {
   targetLabel,
   withoutLead,
 } from '../../lib/critics';
+import { REPORT_REVIEW_ID } from '../brief/reportNavigation';
 import { EmptyPanel, Notice, Spinner } from '../ui';
 
 export interface CriticPanelProps {
@@ -56,6 +57,11 @@ export interface CriticPanelProps {
   onChanged?: () => void;
   /** Moves to another stage, so that a review of an out-of-date comparison can send the person to run a new one. */
   onNavigate?: (step: ConsoleStep) => void;
+  /**
+   * The review as the page has already read it, when something else on the page shows part of it.
+   * Without it the panel reads the review itself.
+   */
+  state?: CritiquesState;
 }
 
 const SEVERITY_ICON: Record<CritiqueSeverity, LucideIcon> = {
@@ -600,7 +606,12 @@ export function CriticReview({
   }
 
   return (
-    <section className="critic-panel view-stack" aria-labelledby={headingId}>
+    <section
+      className="critic-panel view-stack"
+      id={REPORT_REVIEW_ID}
+      tabIndex={-1}
+      aria-labelledby={headingId}
+    >
       <header className="critic-head">
         <span className="eyebrow">Challenge</span>
         <h2 id={headingId}>Independent review</h2>
@@ -621,12 +632,16 @@ function CriticSession({
   refreshToken,
   onChanged,
   onNavigate,
-}: { projectId: string } & Omit<CriticPanelProps, 'project'>) {
+}: { projectId: string } & Omit<CriticPanelProps, 'project' | 'state'>) {
   const state = useCritiques(projectId, { refreshOn: refreshToken, onChanged });
   return <CriticReview state={state} onNavigate={onNavigate} />;
 }
 
 /** Independent challenges to the analysis, with responses. */
-export function CriticPanel({ project, ...session }: CriticPanelProps) {
-  return <CriticSession key={project.id} projectId={project.id} {...session} />;
+export function CriticPanel({ project, state, onNavigate, ...session }: CriticPanelProps) {
+  return state ? (
+    <CriticReview state={state} onNavigate={onNavigate} />
+  ) : (
+    <CriticSession key={project.id} projectId={project.id} onNavigate={onNavigate} {...session} />
+  );
 }

@@ -235,7 +235,9 @@ describe('entry console landing', () => {
     }
     expect(html).toContain('>Your what-if question</label>');
     expect(html.match(/type="file"/gu)).toHaveLength(1);
-    expect(html.match(/>Load fictional starter input</gu)).toHaveLength(1);
+    // Every card, the fictional starter too, is chosen with a button that names it.
+    expect(html.match(/aria-label="Use this example: Fictional library hours"/gu)).toHaveLength(1);
+    expect(html).not.toContain('Load fictional starter input');
     expect(html.match(/<button[^>]*type="submit"[^>]*>[^]*?Build Graph<\/button>/gu)).toHaveLength(
       1,
     );
@@ -254,7 +256,8 @@ describe('entry console landing', () => {
     const html = renderLanding({ examples: [] });
     expect(visibleText(html)).toContain('Not sure what to ask? Try an example');
     expect(html.match(/class="example-card/gu)).toHaveLength(1);
-    expect(html).not.toContain('Use this example');
+    expect(html.match(/aria-label="Use this example: /gu)).toHaveLength(1);
+    expect(html).toContain('aria-label="Use this example: Fictional library hours"');
   });
 
   it('offers each worked example by its own name, with what its evidence is', () => {
@@ -263,6 +266,8 @@ describe('entry console landing', () => {
     });
     expect(html).toContain('aria-label="Use this example: A price change"');
     expect(html).toContain('aria-label="Use this example: A launch"');
+    // The starter is named the same way, so that a list of the page's buttons tells the cards apart.
+    expect(html).toContain('aria-label="Use this example: Fictional library hours"');
     expect(visibleText(html)).toContain('A short line about A price change.');
     expect(visibleText(html)).toContain('1 document · sample evidence');
     expect(html.match(/class="example-card/gu)).toHaveLength(3);
@@ -305,5 +310,50 @@ describe('entry console landing', () => {
     expect(text).toContain('sample evidence');
     expect(text).toContain('public web page');
     expect(text.match(/uploaded file|pasted text|historical record/gu)).toBeNull();
+  });
+});
+
+describe('the bar that builds', () => {
+  it('keeps the button named Build Graph and says beside it what the form still needs', () => {
+    const html = renderLanding();
+    // Nothing is written yet, so the bar rests at the end of the form; it says what to do first.
+    expect(html).toContain('<div class="entry-submit-bar">');
+    expect(visibleText(html)).toContain('Write your question first: 10 characters or more');
+    const button =
+      /<button class="button button-primary" type="submit"([^>]*)>([^]*?)<\/button>/u.exec(html);
+    expect(visibleText(button?.[2] ?? '')).toBe('Build Graph');
+    // The status and the note under the form describe the button; they are not part of its name.
+    const described = /aria-describedby="([^"]+) ([^"]+)"/u.exec(button?.[1] ?? '');
+    expect(described).not.toBeNull();
+    for (const id of described!.slice(1)) expect(html).toContain(`id="${id}"`);
+  });
+
+  it('stays in reach once there is a question, and says how many documents are attached', () => {
+    const project = projectFixture();
+    project.question = 'What could happen if the opening hours of the library change?';
+    const html = render(configFixture(), project);
+    expect(html).toContain('<div class="entry-submit-bar is-sticky">');
+    expect(visibleText(html)).toMatch(/\d+ documents? attached · ready to build/u);
+    expect(html).toContain('class="entry-status is-ready"');
+    // What the button does is said above the bar, so that the bar itself is one row.
+    const note = html.indexOf('Saves a draft, then starts Graph Build only');
+    expect(note).toBeGreaterThan(-1);
+    expect(note).toBeLessThan(html.indexOf('class="entry-submit-bar'));
+  });
+
+  it('tells a person who has a question and no evidence what to attach, and keeps the bar in reach', () => {
+    const project = projectFixture();
+    project.question = 'What could happen if the opening hours of the library change?';
+    project.documents = [];
+    const html = render(configFixture(), project);
+    expect(html).toContain('<div class="entry-submit-bar is-sticky">');
+    expect(visibleText(html)).toContain('No documents attached yet · attach at least one to build');
+    expect(html).not.toContain('is-ready');
+  });
+
+  it('puts the error where the button is, not at the end of a form that may be a screen away', () => {
+    const html = renderLanding();
+    const bar = html.slice(html.indexOf('class="entry-submit-bar'));
+    expect(bar).toMatch(/^[^>]*>\s*<div id="[^"]+" aria-live="polite" aria-atomic="true"><\/div>/u);
   });
 });

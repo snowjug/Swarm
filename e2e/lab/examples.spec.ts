@@ -25,6 +25,7 @@ import {
   compareScenarios,
   editSource,
   editStakeholder,
+  expandBrief,
   fetchPage,
   findStakeholders,
   inspectPassage,
@@ -299,6 +300,8 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
       await page.getByRole('button', { name: 'Generate decision brief' }).click();
       const brief = briefDocument(page);
       await expect(brief).toBeVisible();
+      // The reference sections are closed when the page opens; these checks read all of them.
+      await expandBrief(page);
       await expect(brief.getByRole('heading', { level: 3 }).first()).toHaveText('Executive answer');
       const answer = brief.locator('.brief-answer');
       await expect(answer.locator('.brief-headline')).toContainText(/simulated members/u);
