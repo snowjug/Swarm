@@ -60,8 +60,13 @@ const state = (patch: Partial<AnalysisState> = {}): AnalysisState => ({
 const view = (patch: Partial<AnalysisState> = {}, onOpenStep?: () => void) =>
   renderToStaticMarkup(<AnalysisView state={state(patch)} onOpenStep={onOpenStep} />);
 
+/** The measure the engine names its sensitivity rows by, so that the screen is checked with the words it really has. */
+const MEASURE =
+  'Simulated share of members ending in switch or resist (each actor counts equally), 30 paired seeds';
+
 const sensitivityRow = (patch: Partial<SensitivityRow>): SensitivityRow => ({
   ...analysisFixture().sensitivity[0]!,
+  metric: MEASURE,
   ...patch,
 });
 
@@ -891,6 +896,39 @@ describe('what every state says, and never says', () => {
       expect(text).not.toMatch(/\bconfidence\b/iu);
       for (const match of text.matchAll(/\d+%\s+of\s+(?!the simulated|simulated|runs)/gu)) {
         throw new Error(`A percentage that is not of simulated members or runs: ${match[0]}`);
+      }
+    },
+  );
+
+  it.each(states)(
+    'says no word of a forecast or of a measurement of people, and calls every share simulated, in the %s state',
+    (_name, html) => {
+      const denials = [
+        'does not guarantee or precisely predict real-world behavior',
+        'none of it is a rate of anything real',
+        'not how likely anything is in the world',
+        'It is not the chance of anything happening in the world',
+      ];
+      // The predicate of a finding is the engine's own sentence, held to the same rules where it is written
+      // (backend/test/analysis-findings.test.ts); the fixtures here write theirs by hand.
+      const withoutPredicates = html.replace(
+        /<details class="analysis-predicate">[^]*?<\/details>/gu,
+        '',
+      );
+      const text = denials.reduce(
+        (kept, phrase) => kept.split(phrase).join(''),
+        visibleText(withoutPredicates),
+      );
+      expect(text).not.toMatch(
+        /\b(?:conversions?|churn\w*|market share|sentiment|adoption|forecasts?|predict\w*|probabilit\w+|likelihood)\b/iu,
+      );
+      for (const sentence of text.split(/(?<=[.!?])\s+/u)) {
+        // A share, not the verb of "shares its randomness".
+        if (/\bshares?\b(?!\s+(?:its|the|a|an|every|each|with|that|this)\b)/iu.test(sentence)) {
+          expect(sentence, 'a share that is not said to be simulated').toMatch(
+            /simulated|seeded run/iu,
+          );
+        }
       }
     },
   );
