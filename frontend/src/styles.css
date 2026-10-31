@@ -301,6 +301,10 @@ svg {
   width: 100%;
   min-width: 0;
 }
+/* The header stays at the top while the page scrolls: a control that takes focus is never left under it. */
+html {
+  scroll-padding-top: 72px;
+}
 .app-header {
   position: sticky;
   top: 0;
@@ -960,6 +964,14 @@ details > summary::-webkit-details-marker {
   align-items: flex-start;
   gap: 20px;
 }
+@media (max-width: 900px) {
+  html {
+    scroll-padding-top: 112px;
+  }
+  .single-user-label {
+    display: none;
+  }
+}
 @media (max-width: 700px) {
   .app-header {
     padding: 6px 12px;
@@ -1047,6 +1059,45 @@ details > summary::-webkit-details-marker {
   }
   .header-counter {
     display: none;
+  }
+}
+@media (max-width: 640px) {
+  /* A header of four rows kept a quarter of the screen for itself. It goes with the page, and the
+     brand, History and New share the first row; the mode and the theme take the second, the model
+     chip the third. */
+  html {
+    scroll-padding-top: 16px;
+  }
+  .app-header {
+    position: static;
+    box-shadow: none;
+  }
+  .header-actions {
+    display: contents;
+  }
+  .header-brand {
+    order: 1;
+    flex: 1 1 auto;
+  }
+  .header-actions > .button {
+    order: 2;
+  }
+  .app-header::after {
+    content: '';
+    order: 3;
+    flex: 1 0 100%;
+    height: 0;
+  }
+  .header-actions > .mode-switch {
+    order: 4;
+  }
+  .header-actions > .theme-switch {
+    order: 5;
+    margin-left: auto;
+  }
+  .app-header > .provider-badge {
+    order: 6;
+    flex: 1 0 100%;
   }
 }
 @media (max-width: 390px) {

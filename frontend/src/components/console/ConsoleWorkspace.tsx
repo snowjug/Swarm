@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy, Gauge, RefreshCw, ShieldCheck, Square, Users } from 'lucide-react';
 import type {
   ConsoleStep,
@@ -166,7 +166,19 @@ export function ConsoleWorkspace({
     polling: labPollingNeeded(project, step),
     refresh: onRefresh,
   });
-  const move = guided && !comparing && !studioOpen ? nextStep(step, project.lab) : null;
+  const move = guided && !comparing && !studioOpen ? nextStep(project, step) : null;
+  // The button that moved the person is gone, or says something else, in the stage it opened: focus
+  // goes to the stage itself, so that a keyboard or screen reader user starts there, not on the page.
+  const stageRegion = useRef<HTMLElement>(null);
+  const [handoffs, setHandoffs] = useState(0);
+  useEffect(() => {
+    if (handoffs > 0) stageRegion.current?.focus({ preventScroll: true });
+  }, [handoffs]);
+  const followNextStep = (next: ConsoleStep) => {
+    navigate(next);
+    if (view === 'graph') setChosenView('workbench');
+    setHandoffs((count) => count + 1);
+  };
   const inspect = (selection: Inspection) => setInspection(selection);
   let stage;
   switch (step) {
@@ -389,7 +401,7 @@ export function ConsoleWorkspace({
           onCompare={compare}
         />
       )}
-      {move && <NextStepBar move={move} onNavigate={navigate} />}
+      {move && <NextStepBar move={move} onNavigate={followNextStep} />}
       {guided && step === 'report' && !comparing && !studioOpen && (
         <>
           <div className="seam-stack">
@@ -449,7 +461,12 @@ export function ConsoleWorkspace({
                   )}
                 </div>
               )}
-              <section className="console-stage" aria-label={`${stepLabels[step]} workbench`}>
+              <section
+                ref={stageRegion}
+                className="console-stage"
+                tabIndex={-1}
+                aria-label={`${stepLabels[step]} workbench`}
+              >
                 {stage}
               </section>
             </>

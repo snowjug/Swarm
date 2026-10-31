@@ -118,6 +118,12 @@
   font-family: inherit;
   line-height: 1.4;
 }
+.console-step small > svg {
+  vertical-align: -1px;
+}
+.console-step .step-locked {
+  white-space: nowrap;
+}
 @media (min-width: 641px) {
   /* The step's name and its state share a line, so that the help under them costs no height. */
   .console-step strong,
@@ -359,22 +365,24 @@
   }
 }
 @media (max-width: 640px) {
+  /* The five stages share the width by what their names need, so that no name is broken in two. */
   .console-stepper {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 2px;
   }
   .console-step {
+    flex: 1 1 auto;
     flex-direction: column;
+    justify-content: flex-start;
+    min-width: min-content;
     text-align: center;
-    padding: 6px 2px;
+    padding: 6px 4px;
     gap: 4px;
   }
   .console-step .step-help {
     display: none;
   }
   .console-step strong {
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
   }
   .console-step > .step-spinner {
     display: none;

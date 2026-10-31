@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { ConsoleStep } from '../../../shared/guided';
 import type { LabProgress } from '../../../shared/lab';
 import { checkpointFixture, projectFixture } from '../test/project';
 import {
@@ -15,6 +16,7 @@ import {
   stepAvailable,
   stepHelp,
   stepLabels,
+  stepLock,
   stepOrder,
   stepStatusLabel,
 } from './console';
@@ -260,25 +262,30 @@ describe('what the scenario lab opens without the engine', () => {
 });
 
 describe('the label under a stage name', () => {
-  it('is the engine’s status when the engine has run the stage, or the lab has done nothing there', () => {
+  it('is the engine’s status when the engine has run the stage, and locked where it cannot be opened', () => {
     const project = projectFixture();
+    expect(stepStatusLabel(project, 'environment')).toBe('locked');
     project.console!.steps.knowledge = 'ready';
     expect(stepStatusLabel(project, 'knowledge')).toBe('ready');
+    expect(stepStatusLabel(project, 'environment')).toBe('pending');
     project.lab = lab({ stakeholders: 'approved', actors: 5, analysis: 'completed', brief: true });
     expect(stepStatusLabel(project, 'knowledge')).toBe('ready');
-    expect(stepStatusLabel(project, 'interaction')).toBe('pending');
+    expect(stepStatusLabel(project, 'interaction')).toBe('locked');
     project.console!.steps.simulation = 'ready';
     expect(stepStatusLabel(project, 'simulation')).toBe('ready');
   });
 
   it('says what the lab did where the engine did not run the stage', () => {
     const project = projectFixture();
-    expect(stepStatusLabel(project, 'environment')).toBe('pending');
+    project.console!.steps.knowledge = 'ready';
     project.lab = lab({ actors: 5 });
     expect(stepStatusLabel(project, 'environment')).toBe('actors ready');
-    expect(stepStatusLabel(project, 'simulation')).toBe('pending');
+    expect(stepStatusLabel(project, 'simulation')).toBe('ready to compare');
     project.lab = lab({ actors: 5, analysis: 'running' });
     expect(stepStatusLabel(project, 'simulation')).toBe('comparing');
+    project.lab = lab({ actors: 5, analysis: 'failed' });
+    expect(stepStatusLabel(project, 'simulation')).toBe('stopped');
+    expect(stepStatusLabel(project, 'report')).toBe('locked');
     project.lab = lab({ actors: 5, analysis: 'completed' });
     expect(stepStatusLabel(project, 'simulation')).toBe('compared');
     expect(stepStatusLabel(project, 'report')).toBe('ready to write');
@@ -291,6 +298,35 @@ describe('the label under a stage name', () => {
     project.workflow = 'quick';
     project.console = null;
     expect(stepStatusLabel(project, 'report')).toBe('historical view');
+  });
+});
+
+describe('what a locked stage says it needs', () => {
+  it('names what opens each stage that can be locked, and nothing for one that can be opened', () => {
+    const project = projectFixture();
+    expect(stepLock(project, 'knowledge')).toBeNull();
+    expect(stepLock(project, 'environment')).toBe('Needs Graph Build first');
+    expect(stepLock(project, 'simulation')).toBe('Needs actors from Env Setup');
+    expect(stepLock(project, 'report')).toBe('Needs a finished comparison');
+    expect(stepLock(project, 'interaction')).toBe('Needs the detailed report');
+    project.console!.steps.knowledge = 'ready';
+    expect(stepLock(project, 'environment')).toBeNull();
+  });
+
+  it('follows the lab: actors open Simulation and a finished comparison opens Report', () => {
+    const project = projectFixture();
+    project.lab = lab({ stakeholders: 'approved', actors: 5 });
+    expect(stepLock(project, 'simulation')).toBeNull();
+    expect(stepLock(project, 'report')).not.toBeNull();
+    project.lab = lab({ stakeholders: 'approved', actors: 5, analysis: 'completed' });
+    expect(stepLock(project, 'report')).toBeNull();
+  });
+
+  it('has nothing to lock in a record with no guided stages', () => {
+    const project = projectFixture();
+    project.workflow = 'quick';
+    project.console = null;
+    for (const step of stepOrder) expect(stepLock(project, step)).toBeNull();
   });
 });
 
@@ -359,28 +395,73 @@ describe('the journey, with what the scenario lab recorded', () => {
   });
 });
 
-describe('the one move offered once a comparison has finished', () => {
+describe('the one move offered from what the scenario lab has recorded', () => {
+  const at = (change: Partial<LabProgress>, graphReady = true) => {
+    const project = projectFixture();
+    project.console!.steps.knowledge = graphReady ? 'ready' : 'pending';
+    project.lab = lab(change);
+    return project;
+  };
+  const APPROVED = { stakeholders: 'approved' } as const;
+  const WITH_ACTORS = { stakeholders: 'approved', actors: 5 } as const;
+
   it('goes from the comparison to the brief, and back', () => {
-    const finished = lab({ actors: 5, analysis: 'completed' });
-    expect(nextStep('simulation', finished)).toMatchObject({
+    const finished = at({ ...WITH_ACTORS, analysis: 'completed' });
+    expect(nextStep(finished, 'simulation')).toMatchObject({
       label: 'See the decision brief',
       to: 'report',
     });
-    expect(nextStep('report', finished)).toMatchObject({
+    expect(nextStep(finished, 'report')).toMatchObject({
       label: 'Back to the comparison',
       to: 'simulation',
+      back: true,
     });
   });
 
-  it('offers nothing before a comparison has finished, or in the other stages', () => {
+  it('names the next piece of work, one at a time, from a stage where it is not done', () => {
+    const next: [Partial<LabProgress>, string, ConsoleStep][] = [
+      [{ stakeholders: 'proposed' }, 'Review the stakeholders', 'environment'],
+      [APPROVED, 'Make the actors', 'environment'],
+      [WITH_ACTORS, 'Compare the scenarios', 'simulation'],
+      [{ ...WITH_ACTORS, analysis: 'running' }, 'Follow the comparison', 'simulation'],
+      [{ ...WITH_ACTORS, analysis: 'failed' }, 'Compare the scenarios', 'simulation'],
+      [{ ...WITH_ACTORS, analysis: 'completed' }, 'See the decision brief', 'report'],
+      [{ ...WITH_ACTORS, analysis: 'completed', brief: true }, 'See the decision brief', 'report'],
+    ];
+    for (const [change, label, to] of next) {
+      const move = nextStep(at(change), 'knowledge');
+      expect(move, label).toMatchObject({ label, to });
+      expect(move?.back).toBeUndefined();
+    }
+    expect(nextStep(at({ ...WITH_ACTORS, analysis: 'failed' }), 'knowledge')?.text).toContain(
+      'stopped before it finished',
+    );
+  });
+
+  it('offers nothing in the stage where that work is done, or in Interaction', () => {
+    expect(nextStep(at({ stakeholders: 'proposed' }), 'environment')).toBeNull();
+    expect(nextStep(at(APPROVED), 'environment')).toBeNull();
     for (const analysis of ['none', 'running', 'failed'] as const) {
-      expect(nextStep('simulation', lab({ actors: 5, analysis }))).toBeNull();
-      expect(nextStep('report', lab({ actors: 5, analysis }))).toBeNull();
+      expect(nextStep(at({ ...WITH_ACTORS, analysis }), 'simulation'), analysis).toBeNull();
     }
-    expect(nextStep('simulation', undefined)).toBeNull();
-    for (const step of ['knowledge', 'environment', 'interaction'] as const) {
-      expect(nextStep(step, lab({ analysis: 'completed' }))).toBeNull();
+    for (const change of [{ stakeholders: 'proposed' }, WITH_ACTORS] as const) {
+      expect(nextStep(at(change), 'interaction')).toBeNull();
     }
+    expect(nextStep(at({ ...WITH_ACTORS, analysis: 'completed' }), 'interaction')).toBeNull();
+  });
+
+  it('offers nothing before the lab has recorded anything, and nothing to a stage that is locked', () => {
+    expect(nextStep(at({}), 'knowledge')).toBeNull();
+    expect(nextStep(at({ scenario: true }), 'knowledge')).toBeNull();
+    // The graph is not built, so Env Setup cannot be opened: the stage in view says what to do.
+    expect(nextStep(at(APPROVED, false), 'knowledge')).toBeNull();
+    const plain = projectFixture();
+    expect(plain.lab).toBeUndefined();
+    expect(nextStep(plain, 'simulation')).toBeNull();
+    plain.workflow = 'quick';
+    plain.console = null;
+    plain.lab = lab({ ...WITH_ACTORS, analysis: 'completed' });
+    expect(nextStep(plain, 'simulation')).toBeNull();
   });
 });
 

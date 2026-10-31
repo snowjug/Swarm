@@ -3,9 +3,9 @@ import type { ConsoleStep } from '../../../../shared/guided';
 import type { NextStep } from '../../lib/console';
 
 /**
- * The one move to offer once a comparison has finished, above whatever the stage shows: on to the
- * decision brief, and back to the comparison from it. It is the workspace's own, so that no panel has
- * to know about the stages around it.
+ * The one move to offer from what the scenario lab has recorded, above whatever the stage shows: on to
+ * the stage where the next piece of work is done, and from the decision brief back to the comparison.
+ * It is the workspace's own, so that no panel has to know about the stages around it.
  */
 export function NextStepBar({
   move,
@@ -14,7 +14,7 @@ export function NextStepBar({
   move: NextStep;
   onNavigate: (step: ConsoleStep) => void;
 }) {
-  const back = move.to === 'simulation';
+  const back = move.back === true;
   return (
     <div className="next-step" role="group" aria-label="Next step">
       <p>

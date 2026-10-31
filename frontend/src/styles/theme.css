@@ -43,6 +43,13 @@
   color: var(--text);
   font-size: 12px;
 }
+@media (max-width: 640px) {
+  .theme-switch select {
+    min-height: 44px;
+    padding: 2px 10px;
+    font-size: 13px;
+  }
+}
 
 /* Windows high contrast and other forced colours replace the palette: keep what the palette drew. */
 @media (forced-colors: active) {
