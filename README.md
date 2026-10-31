@@ -160,8 +160,7 @@ They describe no real company, price or customer.
    and shows what held across the runs, which assumptions the result is sensitive to and a chain of
    second-order effects.
 7. **Report:** **Generate decision brief**, **Run independent review**, then export **Markdown**,
-   **JSON** or the **Printable** page. If **Report** still looks unavailable after the comparison has
-   finished, reload the page.
+   **JSON** or the **Printable** page. **Report** opens by itself when the comparison has finished.
 
 ### What to check at each step
 
