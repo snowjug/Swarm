@@ -59,6 +59,7 @@ import { JsonSnapshotExportButton, JsonSnapshotExportError } from './JsonSnapsho
 import type { UiMode } from '../../lib/mode';
 import { AnalysisPanel } from '../analysis/AnalysisPanel';
 import { ReportSeam } from '../brief/ReportSeam';
+import { REPORT_BRIEF_ID } from '../brief/reportNavigation';
 import { StakeholderPanel } from '../stakeholders/StakeholderPanel';
 
 export function ConsoleWorkspace({
@@ -191,15 +192,18 @@ export function ConsoleWorkspace({
   const move = guided && !comparing && !studioOpen ? nextStep(project, step) : null;
   // The button that moved the person is gone, or says something else, in the stage it opened: focus
   // goes to the stage itself, so that a keyboard or screen reader user starts there, not on the page.
+  // In the Report stage that is the brief, which stands above the rest of the stage.
   const stageRegion = useRef<HTMLElement>(null);
-  const [handoffs, setHandoffs] = useState(0);
+  const [handoff, setHandoff] = useState<{ count: number; toBrief: boolean } | null>(null);
   useEffect(() => {
-    if (handoffs > 0) stageRegion.current?.focus({ preventScroll: true });
-  }, [handoffs]);
+    if (!handoff) return;
+    const brief = handoff.toBrief ? document.getElementById(REPORT_BRIEF_ID) : null;
+    (brief ?? stageRegion.current)?.focus({ preventScroll: true });
+  }, [handoff]);
   const followNextStep = (next: ConsoleStep) => {
     navigate(next);
     if (view === 'graph') setChosenView(null);
-    setHandoffs((count) => count + 1);
+    setHandoff((last) => ({ count: (last?.count ?? 0) + 1, toBrief: guided && next === 'report' }));
   };
   const inspect = (selection: Inspection) => setInspection(selection);
   let stage;

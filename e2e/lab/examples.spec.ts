@@ -893,8 +893,12 @@ test.describe('the workspace follows what the lab has done, and the scenario rea
       stages(page).getByRole('button', { name: /Report ready to write/u }),
     ).toBeVisible();
     await page.getByRole('button', { name: 'See the decision brief' }).click();
+    // A keyboard or screen reader user starts at the brief, not at the end of the page.
+    await expect(page.locator('#report-brief')).toBeFocused();
     await page.getByRole('button', { name: 'Generate decision brief' }).click();
     await expect(briefDocument(page)).toBeVisible();
+    // The button that made the brief goes with its panel: focus stays in the brief that replaces it.
+    await expect(page.locator('#report-brief')).toBeFocused();
     await expect(stages(page).getByRole('button', { name: /Report brief written/u })).toBeVisible({
       timeout: 8_000,
     });

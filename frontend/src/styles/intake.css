@@ -67,6 +67,10 @@
 .intake-review :is(input, textarea, select, summary, button, a[href]):not(.intake-bar *) {
   scroll-margin-bottom: 90px;
 }
+/* On a short screen, such as a phone with its keyboard open, whatever takes focus is brought clear of the bar. */
+html:has(.intake-review) {
+  scroll-padding-bottom: 110px;
+}
 .intake-summary-head {
   display: flex;
   flex-wrap: wrap;

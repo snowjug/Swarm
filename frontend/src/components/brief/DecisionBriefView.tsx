@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { FilePlus2, ListChecks } from 'lucide-react';
 import type { ConsoleStep } from '../../../../shared/guided';
 import type { ProjectDetail } from '../../../../shared/types';
@@ -26,6 +27,19 @@ export function BriefPanel({
   onNavigate?: (step: ConsoleStep) => void;
 }) {
   const { view, loading, error, generating, generateError, generate, reload } = handle;
+  // The button that made the brief goes with the panel it was in: focus moves to the brief that
+  // replaces it, so that a keyboard or screen reader user is not left on nothing.
+  const asked = useRef(false);
+  const hasBrief = Boolean(view?.brief);
+  useEffect(() => {
+    if (generating) asked.current = true;
+  }, [generating]);
+  useEffect(() => {
+    if (hasBrief && asked.current) {
+      asked.current = false;
+      document.getElementById(REPORT_BRIEF_ID)?.focus({ preventScroll: true });
+    }
+  }, [hasBrief]);
   const failure = generateError ? (
     <Notice
       tone="error"

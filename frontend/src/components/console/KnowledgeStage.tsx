@@ -48,11 +48,12 @@ export function KnowledgeStage({
             busy={busy}
             onRun={onRun}
             label="Prepare environment"
+            variant={guided ? 'secondary' : 'primary'}
           />
         )}
         {ready && project.console?.steps.environment !== 'pending' && (
           <button
-            className="button button-primary"
+            className={`button ${guided ? 'button-secondary' : 'button-primary'}`}
             type="button"
             onClick={() => onNavigate('environment')}
           >
