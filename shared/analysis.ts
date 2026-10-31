@@ -226,6 +226,16 @@ export const sensitivityRowSchema = z.object({
   classification: z.enum(SENSITIVITY_CLASSES),
   /** Where the perturbed assumption came from, so that a sensitive but unevidenced one stands out. */
   assumptionOrigin: z.enum(['evidence', 'user', 'system-assumption', 'model', 'scenario']),
+  /**
+   * Present when the value that was moved is not the actor's own but one that the proposed change sets
+   * for it, an impact override or an edit of the trait: `value` is what the change set before the move.
+   */
+  setting: z
+    .object({
+      source: z.enum(['scenario-override', 'scenario-edit']),
+      value: z.number().min(-1).max(1),
+    })
+    .optional(),
 });
 export type SensitivityRow = z.infer<typeof sensitivityRowSchema>;
 
