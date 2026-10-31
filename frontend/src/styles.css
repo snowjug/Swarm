@@ -301,9 +301,15 @@ svg {
   width: 100%;
   min-width: 0;
 }
-/* The header stays at the top while the page scrolls: a control that takes focus is never left under it. */
+/* The header stays at the top while the page scrolls: a control that takes focus is never left under it.
+   It is one row from 1200px, and two or three below that. */
 html {
   scroll-padding-top: 72px;
+}
+@media (max-width: 1199px) {
+  html {
+    scroll-padding-top: 140px;
+  }
 }
 .app-header {
   position: sticky;
@@ -965,9 +971,7 @@ details > summary::-webkit-details-marker {
   gap: 20px;
 }
 @media (max-width: 900px) {
-  html {
-    scroll-padding-top: 112px;
-  }
+  .brand-button > .mono,
   .single-user-label {
     display: none;
   }
@@ -1080,6 +1084,16 @@ details > summary::-webkit-details-marker {
   }
   .app-header > .provider-badge {
     flex: 1 0 100%;
+  }
+}
+@media (pointer: coarse) and (min-width: 641px) {
+  /* A finger needs more room than a pointer. On a touch screen wider than a phone, the controls of the
+     header and of the workspace chrome are as tall as they are on a phone. */
+  .app-header :is(button, .button, .icon-button, select),
+  .project-heading :is(button, .button, .icon-button),
+  .workspace-navigation .segmented button,
+  .next-step .button {
+    min-height: 44px;
   }
 }
 @media (max-width: 390px) {

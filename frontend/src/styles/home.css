@@ -280,20 +280,24 @@
     font-size: var(--fs-md);
     line-height: 1.55;
   }
-  /* The eight steps run on like a sentence and wrap between whole steps, so that no name is ever
-     squeezed into a column that is narrower than it. */
+  /* The eight steps are one row that scrolls sideways, so that the question is not pushed off the first
+     screen by four rows of them. The padding keeps a focus ring whole, should one ever land here. */
   .pipeline {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2) var(--space-4);
+    gap: var(--space-4);
     margin-top: var(--space-1);
-    padding-top: var(--space-3);
+    padding: var(--space-3) 0 var(--space-1);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
   }
   .pipeline li {
+    flex: none;
     flex-direction: row;
     align-items: center;
     gap: var(--space-2);
     padding-right: 0;
+    white-space: nowrap;
   }
   .pipeline li:not(:last-child)::after {
     display: none;
