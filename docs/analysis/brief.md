@@ -112,7 +112,10 @@ as it stands, not the label the cast was saved with); otherwise it is shown as a
 assumption or as unresolved uncertainty. The size of an impact is never shown as evidence: a passage can
 give its direction, so a statement about an impact says that the direction rests on a cited passage and
 the size is an assumption. A trait proposed by a model that no one has changed is a
-system assumption.
+system assumption. The settings a scenario makes for particular groups (an impact override or an edit
+to a trait) are a statement of their own and a user assumption: the scenarios Swarm proposes never carry
+any, so one that is present was put there by a person. How strongly and how soon a scenario lands is
+the system's assumption unless the scenario's description says that a person set it.
 
 The page and the exports show each statement's references, so a reader can open the quotation with
 its passage id, the finding with how often it held, the assumption, the variant or the stakeholder.
@@ -131,7 +134,13 @@ the finding held across seeded runs and whether a cited passage supports the act
 
 A statement is only as reliable as the least reliable finding it rests on. A statement about a
 stakeholder is moderate if a passage supports it and nothing contradicts it, and low otherwise.
-Statements that do not rest on a finding carry no reliance. These levels describe how stable a
+Statements that do not rest on a finding carry no reliance. The headline is about the share of
+simulated members who look for an alternative or resist, and the analysis's finding about the direction
+against the baseline is about the overall stance, a different measure. The headline therefore cites that
+finding, and takes its reliance from it, only when the stance points the same way as the comparison;
+when it does not, the comparison is rated by its own paired steadiness (in how many paired runs the
+share was higher) and the stability statement says that the stance does not point the same way. A
+steady stance is never offered as support for a share that moved the other way. These levels describe how stable a
 simulated result is. They are not probabilities and say nothing about the real world. The one
 exception is a comparison that [cannot tell the change from no change](#when-the-comparison-cannot-tell-the-change-from-no-change)
 because the simulator gives the same outcome with the change as without it: every finding then
@@ -162,7 +171,10 @@ were not measured. Shares and counts are simulated: none is a rate in a real pop
 A sub-0.01 shift or error is printed with enough decimals to show that it is not zero. A shift that
 sensitivity calls robust is described as below the chosen materiality threshold of 0.02 on that
 measure, which is a choice of this method, not as lying within noise: a shift can be many standard
-errors from zero and still be too small to matter.
+errors from zero and still be too small to matter. The register words a sensitivity row for what it
+changed: a row that moves how widely the members of a group differ is described as how varied its
+members are, not as a change in the size of the group, and a shift below the threshold is "less than"
+it, "not the same as no change", never "within noise".
 
 ### When the analysis kept less than every run
 
@@ -226,6 +238,15 @@ before reading it as an effect of the change. The note's origin is an assumption
 brief is `clear`, and unresolved uncertainty when it is `no-difference`. The limitations list the shared
 notice for it (`UNDIRECTED_NOTICE`) after the one that says what the comparison found, as an assumption
 of the system. The review raises it as its own criticism (see [critics.md](./critics.md)).
+
+Because the headline still states a comparison in this state, the brief does not leave the missing
+direction to the limitations. It is the answer's first doubt (the biggest caveat); the executive
+answer's recommendation is not to decide on the comparison until the direction is said ("Recommendation:
+do not decide…"), instead of the usual conditional go-ahead; the first recommendation is to say who is
+helped or harmed, in the stakeholder review (`SAY_DIRECTION_UNDIRECTED`, an assumption of the system); and the first check of the
+validation plan confirms the direction of impact with the stakeholders themselves, ahead of the checks
+on how large the change is. The headline's number is still what the simulation produced under these
+assumptions, and the page says that it follows from the assumed spread or from an edit.
 
 **No measurable difference (`no-difference`).** The change can move members, and the comparison still found
 the two about the same. It is said of the proposed change only (the first alternative, which the
@@ -299,7 +320,14 @@ from a few generic rules that know nothing about the subject:
 - Serious critiques that are not yet closed (anything but accepted: open, responded or disputed):
   resolve them first.
 
-Each recommendation has the origin it can stand behind and the ids it rests on. What follows from a
+Each recommendation has the origin it can stand behind and the ids it rests on. A group counts as
+harmed, helped or unaffected the way the engine reads it for the scenario the answer is about: a
+scenario's own setting of the group's impact (an override, or an edit to the impact trait) wins over
+the group's own default. The same reading is used for the recommendations, the risks and opportunities,
+the first-order effects, the doubts of the answer and the validation plan, so one section never calls a
+group harmed that another calls unaffected. The executive answer's conditional advice takes only advice
+whose findings belong to the proposed change; advice about how a group would respond to a different
+scenario stays in its own recommendation, named there. What follows from a
 count over seeded runs (mitigate, prepare a response, build on, repeat) is a simulation aggregation,
 carries the reliance of the findings it rests on and links them. Advice about the evidence (collect
 evidence, resolve conflicts) or the critiques (resolve them) is unresolved uncertainty: it rests on
@@ -349,7 +377,12 @@ change, or the two sources against each other); how long it takes and how much e
 decision rule that is left for the person to set before the check starts, because nothing in the
 simulation supplies one. Each also names the function that would run it. A check never asks a pilot
 to match an internal score, a setting such as the strength of the change, or a share the simulation
-produced.
+produced. The check of the size, reach and timing of the change sets them from what was delivered
+and not from the reaction that was seen, and compares the simulated reaction with the observed one
+only for a group or a period that was not used to set them: a pilot that tunes a setting is not also
+the test of it. The check of how the change lands on a group measures the outcome that group's own
+evidence is about: it quotes the concern the group cites, and a group that cites nothing keeps a
+general measure that names no outcome of its own.
 Checks that settle the same premise are merged. The method is a generic real-world check (a survey,
 interviews, a data pull, an expert review or a staged rollout) filled in with the groups, the change
 and the sources of this analysis, so two analyses of different questions get visibly different plans.
@@ -371,7 +404,9 @@ on real customers, unless the figure itself says whose it is: "18 of 40 simulate
 "conversion increased by 18 real customers" does not, however many times the sentence says
 "simulated" elsewhere. A statement about the simulation must say that it is simulated, and so must the
 headline and the recommendations. A statement that fails is withheld and replaced by a notice, its
-origin is shown as unresolved, and the count is recorded in the methodology notes of the brief.
+origin is shown as unresolved, and the count is recorded in the methodology notes of the brief. A
+recommendation that fails is withheld whole: its time horizon and owner function are reset to "Not
+stated." along with its text, so that nothing the guard rejected is left in a neighbouring field.
 Quotations from the sources are not rewritten.
 
 ## Reading it

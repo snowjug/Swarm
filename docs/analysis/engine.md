@@ -306,7 +306,10 @@ If the later event still occurs in that round, or sooner, the earlier one only c
 - Replays cost a run each, so the analysis explains only the one run it keeps in detail (the run nearest
   the median under the proposed change), and a run with more than 24 links to try is left as it came and is
   not marked `explained`, so that the mark always means that every earlier event an event only followed was
-  tried. Every other run lists only the signal in `causedBy`.
+  tried. Every other run lists only the signal in `causedBy`. The cost is counted as it was incurred: the
+  replays are added to the members and updates in the run's `work` (and their number is kept as
+  `work.replays`, absent when there were none), and the analysis adds them to `cost.simulatedRuns` and
+  `cost.simulatedMembers`, so the cost shown matches the number of times the engine ran.
 - Only an earlier event that landed on an actor the responder watches is tried. One that could have mattered
   only by another route, such as through what other actors listen to, is not, so a cause that the replays do
   not find is not claimed.

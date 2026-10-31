@@ -187,7 +187,10 @@ what it does and never a stage's name, so that it is not mistaken for the stage 
 moves focus to the stage it opens (the region named "<name> workbench", which takes focus without
 being a tab stop) and, if only the graph or the report was showing, gives that pane up so that the stage
 opens in its own view; the keyboard then
-continues inside the stage. Where the work is more than a click, the stage still has its own
+continues inside the stage. **See the decision brief** is the one exception: it moves focus to the
+brief itself (the document, named by its title, or the region named "Decision brief" while there is
+none), so that a screen reader starts at the answer, and a brief that has just been made from the
+stage's own button takes focus the same way. Where the work is more than a click, the stage still has its own
 primary button: the bar only says where to go.
 
 ### The journey
@@ -269,7 +272,8 @@ push the engine's own **Start Simulation** button off the screen, and the browse
   Simulation stage frames the engine's own run the same way, as "Deep dive (optional): agent-by-agent
   simulation" below the comparison, with **Start Simulation**, **Generate Report** and **Inspect report
   stage** secondary. A project with no stakeholder panel (the engine's own record only) keeps them as the
-  main action.
+  main action. Graph Build's **Prepare environment** and **Inspect environment** follow the same rule for
+  a guided project, so that the journey bar's button is the main one there.
 - **The actors' traits** are a table of four columns; when its own pane is narrower than 640px (the split
   view, or a phone) each trait is stacked, so that the reason is never squeezed into a strip.
 

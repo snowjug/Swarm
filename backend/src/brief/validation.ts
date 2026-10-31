@@ -210,7 +210,7 @@ export const STRENGTH_CHECK: Check = {
   method:
     'Ask the people who run the change what is delivered and when, and check it against a small, reversible rollout or the first weeks of delivery.',
   decision:
-    'Before the check starts, decide how far the observed size, reach or timing may differ from what was assumed before the comparison is run again. Then set the strength so that the simulated reaction of the exposed group reproduces the observed one; the pilot is not asked to match a setting.',
+    'Before the check starts, decide how far the observed size, reach or timing may differ from what was assumed before the comparison is run again. Then set the strength and timing to what was delivered, not to the reaction seen, and compare reactions only for a group or period not used to set them.',
   effort: 'medium',
   duration: '1 to 4 weeks',
   gist: 'what size of change actually reaches the affected groups, and how soon',

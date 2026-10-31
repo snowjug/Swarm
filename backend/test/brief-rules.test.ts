@@ -833,6 +833,18 @@ describe('the validation plan', () => {
     ).toBe(true);
   });
 
+  it('keeps the strength check from tuning a setting to the reaction that it is meant to test', () => {
+    const strength = plan.find((experiment) =>
+      experiment.question.startsWith('How large is the change'),
+    );
+    expect(strength).toBeDefined();
+    expect(strength!.successSignal).toMatch(/not to the reaction seen/u);
+    expect(strength!.successSignal).toMatch(/not used to set them/u);
+    for (const experiment of plan) {
+      expect(experiment.successSignal).not.toMatch(/so that the simulated/iu);
+    }
+  });
+
   it('chooses the check for an actor nothing supports by the kind of actor', () => {
     expect(gapCheckFor('regulator').method).toContain('expert review');
     expect(gapCheckFor('governance').method).toContain('expert review');
