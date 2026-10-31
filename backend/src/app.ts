@@ -354,7 +354,9 @@ export async function buildApp(options: AppOptions) {
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
   // [url-ingest routes]
-  evidenceRoutes(app, config, config.rateLimitScale, options.urlFetcher);
+  evidenceRoutes(app, config, config.rateLimitScale, options.urlFetcher, undefined, (input) =>
+    repository.audit.record(input),
+  );
 
   // [scenario routes]
   scenarioRoutes(app, repository, config, modelFactory, config.rateLimitScale);

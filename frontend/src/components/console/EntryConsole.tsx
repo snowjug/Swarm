@@ -277,6 +277,7 @@ export function EntryConsole({
             frame={frame}
             onFrame={setFrame}
             disabled={disabled}
+            useModel={settings.mode === 'llm'}
           />
           <div className="evidence-group">
             <SourceInput

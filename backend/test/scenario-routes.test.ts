@@ -218,7 +218,7 @@ describe('reading a question', () => {
     it('lets the model read it, names the model, and records the calls and tokens it used', async () => {
       const { factory, made } = scriptedModel(() => reading);
       const instance = await local(modelEnvironment, { modelFactory: factory });
-      const response = await parse(instance, { question: `${QUESTION} ${CANARY}` });
+      const response = await parse(instance, { question: `${QUESTION} ${CANARY}`, useModel: true });
       expect(response.statusCode, response.body).toBe(200);
       const result = response.json<ScenarioParseResult>();
       expect(result.mode).toBe('model');
@@ -242,7 +242,7 @@ describe('reading a question', () => {
         },
       });
       const instance = await local(modelEnvironment, { modelFactory: factory });
-      const response = await parse(instance, { question: QUESTION });
+      const response = await parse(instance, { question: QUESTION, useModel: true });
       expect(response.statusCode, response.body).toBe(200);
       const result = response.json<ScenarioParseResult>();
       expect(result.mode).toBe('rules');
@@ -255,13 +255,34 @@ describe('reading a question', () => {
       });
     });
 
-    it('does not even make a model when none is configured', async () => {
+    it('does not even make a model when none is configured, and says that none was available if one was asked for', async () => {
       const { factory, made } = scriptedModel(() => reading);
       const instance = await local({}, { modelFactory: factory });
       expect((await parse(instance, { question: QUESTION })).json<ScenarioParseResult>().mode).toBe(
         'rules',
       );
+      const asked = (
+        await parse(instance, { question: QUESTION, useModel: true })
+      ).json<ScenarioParseResult>();
+      expect(asked.mode).toBe('rules');
+      expect(asked.notes[0]).toContain('no model is configured; MODEL_NOT_CONFIGURED');
       expect(made).toEqual([]);
+    });
+
+    it('never sends the question to the provider unless the person chose a model, whatever the server has set up', async () => {
+      const { factory, made } = scriptedModel(() => reading);
+      const instance = await local(modelEnvironment, { modelFactory: factory });
+      for (const payload of [{ question: QUESTION }, { question: QUESTION, useModel: false }]) {
+        const result = (await parse(instance, payload)).json<ScenarioParseResult>();
+        expect(result.mode).toBe('rules');
+        expect(result.model).toBeNull();
+        expect(result.notes).toContain(RULES_NOTE);
+      }
+      expect(made).toEqual([]);
+      expect(auditEntries(instance, 'scenario.parsed').map((entry) => entry.detail)).toEqual([
+        expect.objectContaining({ mode: 'rules', modelCalls: 0, tokens: 0 }),
+        expect.objectContaining({ mode: 'rules', modelCalls: 0, tokens: 0 }),
+      ]);
     });
   });
 });

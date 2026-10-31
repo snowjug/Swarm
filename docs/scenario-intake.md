@@ -35,7 +35,7 @@ The frame is `ScenarioFrame` in `shared/scenario.ts`. Every field can be edited.
 `model` is the name of the model that read it (or null), and `notes` is what the page shows beside the
 frame.
 
-1. **A model**, when one is configured. The server sends the question and the names and sizes of the
+1. **A model**, when the person chose one (`useModel: true`) and one is configured. The server sends the question and the names and sizes of the
    documents (never their text), with instructions to stay neutral about the setting, to state no
    fact or number the question does not state, and to describe how it read the question rather than
    what will happen. The reply must pass the checks below. A reply that fails is sent back with the
@@ -100,8 +100,11 @@ say to check every field.
 
 ## Privacy
 
-- The question goes to the configured model provider when there is one, as every other model call in
-  Swarm does. With no model configured nothing leaves the server. Do not put secrets in a question.
+- The question goes to the configured model provider only when the person chose a model: the request
+  carries `useModel: true` (the page sends it when the project's mode is "Model assisted"). Without it,
+  which is the default, rules on this server read the question and it goes nowhere else, whatever
+  provider the server has set up. If a model was asked for and none is configured, the notes say that
+  the rules read it instead. Do not put secrets in a question that you send to a model.
 - The question and the text of documents are never written to the audit trail or the logs. The audit
   entry for a reading holds counts only (mode, documents, model calls, tokens, and the number of
   changes, alternatives, assumptions, stakeholders and questions). An edit records counts only too.
@@ -118,11 +121,11 @@ say to check every field.
 
 ## Routes and limits
 
-| Method | Path                         | Behavior                                                                                                                                                                                                                       |
-| ------ | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| POST   | `/api/scenario/parse`        | Reads a question. Body `{ "question", "documents"? }`: a question of 3 to 2,000 characters and up to 10 documents (`name`, `characters`, optional `excerpt`). Stores nothing. Needs the right to create projects. 10 a minute. |
-| GET    | `/api/projects/:id/scenario` | `{ "scenario", "revision" }`. A project with no scenario answers `null` and revision 0, so a page can ask without failing. Needs the right to read the project.                                                                |
-| PUT    | `/api/projects/:id/scenario` | Body `{ "scenario", "expectedRevision"? }`. With `expectedRevision`, a change made on a page that is out of date is refused with 409 `ARTIFACT_CONFLICT`. Needs the right to edit the project. 60 a minute.                    |
+| Method | Path                         | Behavior                                                                                                                                                                                                                                                                                                          |
+| ------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/api/scenario/parse`        | Reads a question. Body `{ "question", "documents"?, "useModel"? }`: a question of 3 to 2,000 characters, up to 10 documents (`name`, `characters`, optional `excerpt`), and `useModel` (default `false`: only then is a configured model asked). Stores nothing. Needs the right to create projects. 10 a minute. |
+| GET    | `/api/projects/:id/scenario` | `{ "scenario", "revision" }`. A project with no scenario answers `null` and revision 0, so a page can ask without failing. Needs the right to read the project.                                                                                                                                                   |
+| PUT    | `/api/projects/:id/scenario` | Body `{ "scenario", "expectedRevision"? }`. With `expectedRevision`, a change made on a page that is out of date is refused with 409 `ARTIFACT_CONFLICT`. Needs the right to edit the project. 60 a minute.                                                                                                       |
 
 `POST /api/projects` also accepts an optional `scenario`, checked against the same schema, and keeps
 it with the project. `POST /api/projects/:id/branches` copies it to the branch. Who may call each

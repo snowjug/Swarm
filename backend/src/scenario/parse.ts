@@ -13,6 +13,8 @@ export interface ParseInput {
   documents?: readonly ScenarioDocument[];
   /** Without one, or when it fails, the rules read the question and the notes say so. */
   model?: ModelGateway | null;
+  /** The person chose a model. Without one to ask, the notes say that the rules read it instead. */
+  modelAsked?: boolean;
   /** The model's name, handed back so the person can see what read their question. */
   modelName?: string | null;
   signal?: AbortSignal;
@@ -96,6 +98,8 @@ export async function parseScenario(input: ParseInput): Promise<ScenarioParseRes
       if (signal.aborted) throw error;
       notes.push(failureNote(error));
     }
+  } else if (input.modelAsked) {
+    notes.push(failureNote(new AppError(409, 'MODEL_NOT_CONFIGURED', 'No model is configured.')));
   }
   const reading = readByRules({ question: input.question, documents });
   return {

@@ -126,6 +126,11 @@ export const scenarioParseRequestSchema = z
   .object({
     question: z.string().trim().min(3).max(SCENARIO_QUESTION_MAX),
     documents: z.array(scenarioDocumentSchema).max(SCENARIO_DOCUMENTS_MAX).default([]),
+    /**
+     * Whether the person chose a model to read the question. Without it the question is read by rules
+     * on this server and goes nowhere else, whatever provider the server has set up.
+     */
+    useModel: z.boolean().default(false),
   })
   .strict();
 export type ScenarioParseRequest = z.input<typeof scenarioParseRequestSchema>;

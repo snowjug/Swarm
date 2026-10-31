@@ -39,6 +39,15 @@ function listed(numbers: readonly number[]): string {
 
 /** A plain sentence for a person, always ending with the way out. It names the site and never the address. */
 function explain(failure: UrlFailure, host: string | null, settings: UrlIngestSettings): AppError {
+  // A name that leads to a private address is told exactly like a name that does not exist, so that
+  // the answer cannot be used to find out which names are in use inside a network.
+  if (failure.code === 'blocked' && failure.detail.resolved) {
+    return explain(
+      new UrlFailure('network', 'The name could not be found.', { reason: 'dns' }),
+      host,
+      settings,
+    );
+  }
   const site = host ?? 'the site';
   const { status, contentType, redirected, reason } = failure.detail;
   switch (failure.code) {
@@ -127,7 +136,7 @@ function explain(failure: UrlFailure, host: string | null, settings: UrlIngestSe
     case 'network': {
       const what =
         reason === 'dns'
-          ? `Swarm could not find ${site}. Check the address.`
+          ? `Swarm could not find ${site} on the public web. Check the address.`
           : reason === 'refused'
             ? `${site} refused the connection.`
             : reason === 'tls'

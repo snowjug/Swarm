@@ -200,6 +200,8 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   // Scenario Lab: one block per feature, each edited only by the feature that owns it.
   // [url-ingest audit]
   // The host that was asked for, and nothing else: not the path, the query or anything the page said.
+  // An address the server refuses to read is recorded by the route itself, as `evidence.url.refused`
+  // with the host and the reason code, so that probing for addresses leaves a trace.
   'POST /api/evidence/url': {
     kind: 'request',
     action: 'evidence.url.fetched',

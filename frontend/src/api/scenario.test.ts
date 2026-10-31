@@ -30,10 +30,20 @@ describe('the scenario API client', () => {
     const { url, init } = sent(fetch);
     expect(url).toBe('/api/scenario/parse');
     expect(init.method).toBe('POST');
-    expect(JSON.parse(String(init.body))).toEqual({ question: 'What could happen?', documents });
+    expect(JSON.parse(String(init.body))).toEqual({
+      question: 'What could happen?',
+      documents,
+      useModel: false,
+    });
     // A change carries the header that a page of this site alone can add.
     expect(new Headers(init.headers).get('x-swarm-csrf')).toBe('1');
     expect(new Headers(init.headers).get('content-type')).toBe('application/json');
+  });
+
+  it('asks for a model only when it is told the person chose one', async () => {
+    const fetch = respond({ frame: scenarioFixture(), notes: [], mode: 'model', model: 'm' });
+    await scenarioApi.parse('What could happen?', [], undefined, true);
+    expect(JSON.parse(String(sent(fetch).init.body))).toMatchObject({ useModel: true });
   });
 
   it('can be stopped', async () => {

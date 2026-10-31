@@ -6,6 +6,7 @@ import { AppError } from '../errors.js';
 import { PublicFetcher } from '../ingest/url/fetcher.js';
 import { ingestUrl } from '../ingest/url/ingest.js';
 import { FetchRegistry } from '../ingest/url/provenance.js';
+import type { AuditInput } from '../storage/audit.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -16,6 +17,22 @@ declare module 'fastify' {
 
 /** The pages this server fetched are remembered for one person in one workspace. */
 const scopeOf = (principal: Principal): string => `${principal.tenantId}\n${principal.id}`;
+
+/** The answers that mean the address was one the server will not read, as opposed to a site that failed. */
+const REFUSALS: ReadonlySet<string> = new Set([
+  'URL_BLOCKED',
+  'URL_PORT_NOT_ALLOWED',
+  'URL_INVALID',
+]);
+
+/** The host that was asked for, as far as the text can be read as an address; never the path or query. */
+function hostOf(address: string): string | null {
+  try {
+    return new URL(address).hostname.slice(0, 253) || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Runs before a project is created, on the body as it was sent. A document that claims to have been
@@ -41,6 +58,7 @@ export function evidenceRoutes(
   rateScale = 1,
   fetcher: PublicFetcher = new PublicFetcher(),
   registry: FetchRegistry = new FetchRegistry(),
+  record: (input: AuditInput) => void = () => undefined,
 ): void {
   app.decorate('fetchRegistry', registry);
   app.post(
@@ -56,7 +74,26 @@ export function evidenceRoutes(
         );
       }
       const given = (request.body as { url?: unknown } | null)?.url;
-      const evidence = await ingestUrl(fetcher, typeof given === 'string' ? given : '', settings);
+      const address = typeof given === 'string' ? given : '';
+      let evidence;
+      try {
+        evidence = await ingestUrl(fetcher, address, settings);
+      } catch (error) {
+        // A refusal is the trace of someone probing which addresses the server will reach, so it is
+        // kept (the host asked for and the reason, never the path or query); a site that merely
+        // failed to answer is not.
+        if (error instanceof AppError && REFUSALS.has(error.code)) {
+          record({
+            actor: principalOf(request).id,
+            action: 'evidence.url.refused',
+            targetType: 'service',
+            targetId: 'evidence.url.refused',
+            projectId: null,
+            detail: { host: hostOf(address), code: error.code },
+          });
+        }
+        throw error;
+      }
       registry.record(scopeOf(principalOf(request)), evidence.document.provenance);
       return evidence;
     },

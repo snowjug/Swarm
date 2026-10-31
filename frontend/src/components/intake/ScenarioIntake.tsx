@@ -19,6 +19,11 @@ export interface ScenarioIntakeProps {
    * evidence, and the start of each is checked for text aimed at an AI; none is stored or kept.
    */
   documents?: readonly { name: string; content: string }[];
+  /**
+   * Whether the person chose a model for this project. Only then is the question sent to the model
+   * provider; otherwise rules on this server read it and it goes nowhere else.
+   */
+  useModel?: boolean;
 }
 
 interface Reading {
@@ -42,6 +47,7 @@ export function ScenarioIntake({
   onFrame,
   disabled,
   documents = [],
+  useModel = false,
 }: ScenarioIntakeProps) {
   const reading = useScenarioReading();
   const [draft, setDraft] = useState<ScenarioFrame | null>(null);
@@ -53,7 +59,7 @@ export function ScenarioIntake({
   const notes = last !== null && (draft !== null || last.used === frame) ? last : null;
 
   const read = async () => {
-    const result = await reading.read(asked, documentSummaries(documents));
+    const result = await reading.read(asked, documentSummaries(documents), useModel);
     if (!result) return;
     setDraft(result.frame);
     setLast({
@@ -129,6 +135,7 @@ export function ScenarioIntake({
           reading={reading.reading}
           error={reading.error}
           disabled={disabled}
+          useModel={useModel}
           onRead={() => void read()}
           onCancel={reading.cancel}
         />

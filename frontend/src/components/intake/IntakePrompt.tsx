@@ -9,6 +9,7 @@ export function IntakePrompt({
   reading,
   error,
   disabled,
+  useModel = false,
   onRead,
   onCancel,
 }: {
@@ -17,6 +18,8 @@ export function IntakePrompt({
   reading: boolean;
   error: string | null;
   disabled: boolean;
+  /** A model was chosen for the project, so the question is sent to the provider this server uses. */
+  useModel?: boolean;
   onRead: () => void;
   onCancel: () => void;
 }) {
@@ -30,7 +33,10 @@ export function IntakePrompt({
       <p id={`${id}-about`} className="intake-about">
         Swarm can read your question into a scenario that you can edit: what changes, what is
         affected, what is expected without the change, and the options to compare. Nothing runs
-        until you start the experiment, and you can skip this step.
+        until you start the experiment, and you can skip this step.{' '}
+        {useModel
+          ? 'You chose a model for this project, so your question is sent to the model provider this server uses.'
+          : 'Rules on this server read the question; it goes nowhere else.'}
       </p>
       <div className="intake-actions">
         <button

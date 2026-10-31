@@ -431,6 +431,68 @@ describe('the switch, the limit and the record', () => {
   });
 });
 
+describe('POST /api/evidence/url: what a refusal gives away, and what it leaves behind', () => {
+  /** An application whose resolver answers for two names: one inside a network, one that does not exist. */
+  async function withResolver() {
+    const instance = await buildApp({
+      config: testConfig({ URL_INGEST_ALLOWED_PORTS: '80,443' }),
+      urlFetcher: new PublicFetcher({
+        lookup: async (hostname) => {
+          if (hostname === 'exists-inside.example.com') return [{ address: '10.0.0.5', family: 4 }];
+          throw Object.assign(new Error('not found'), { code: 'ENOTFOUND' });
+        },
+      }),
+    });
+    applications.push(instance);
+    const ask = (url: string) =>
+      instance.app.inject({ method: 'POST', url: '/api/evidence/url', payload: { url } });
+    return { ...instance, ask };
+  }
+
+  it('answers a name that leads inside a network exactly as it answers a name that does not exist', async () => {
+    const { ask } = await withResolver();
+    const inside = await ask('http://exists-inside.example.com/');
+    const missing = await ask('http://missing-everywhere.example.com/');
+    expect(inside.statusCode).toBe(422);
+    expect(missing.statusCode).toBe(inside.statusCode);
+    expect(errorOf(inside).code).toBe('URL_FETCH_FAILED');
+    expect(errorOf(missing).code).toBe(errorOf(inside).code);
+    expect(errorOf(inside).message.replaceAll('exists-inside.example.com', 'SITE')).toBe(
+      errorOf(missing).message.replaceAll('missing-everywhere.example.com', 'SITE'),
+    );
+    expect(errorOf(inside).message).not.toMatch(/private|network address|leads to/iu);
+  });
+
+  it('still says plainly that an address written as a private one is not read', async () => {
+    const { ask } = await withResolver();
+    const response = await ask('http://10.0.0.5/');
+    expect(errorOf(response).code).toBe('URL_BLOCKED');
+  });
+
+  it('records an address that was refused, by host and reason, and not a site that failed to answer', async () => {
+    const { ask, repository } = await withResolver();
+    await ask('http://10.0.0.5/secret/path?token=zq-canary-7421');
+    await ask('http://exists-inside.example.com:8081/');
+    await ask('not an address');
+    await ask('http://missing-everywhere.example.com/');
+    const refused = repository.audit
+      .list({ limit: 50 })
+      .filter(({ action }) => action === 'evidence.url.refused');
+    expect(refused.map(({ detail }) => detail)).toEqual(
+      expect.arrayContaining([
+        { host: '10.0.0.5', code: 'URL_BLOCKED' },
+        { host: 'exists-inside.example.com', code: 'URL_PORT_NOT_ALLOWED' },
+        { host: null, code: 'URL_INVALID' },
+      ]),
+    );
+    expect(refused).toHaveLength(3);
+    expect(refused[0]).toMatchObject({ targetType: 'service', projectId: null });
+    const everything = JSON.stringify(repository.audit.list({ limit: 500 }));
+    expect(everything).not.toContain('zq-canary-7421');
+    expect(everything).not.toContain('/secret/path');
+  });
+});
+
 describe('who may read a page, and who may say it was read by the server', () => {
   const ID = {
     owner: 'e0000001-0000-4000-8000-000000000001',

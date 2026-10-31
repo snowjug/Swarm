@@ -56,16 +56,18 @@ export function scenarioRoutes(
       config: { rateLimit: { max: 10 * rateScale, timeWindow: '1 minute' } },
     },
     async (request, reply) => {
-      const { question, documents } = scenarioParseRequestSchema.parse(request.body);
+      const { question, documents, useModel } = scenarioParseRequestSchema.parse(request.body);
       const used = { calls: 0, inputTokens: 0, outputTokens: 0 };
       const sink: ModelUsageSink = (usage) => {
         used.calls += 1;
         used.inputTokens += usage.inputTokens;
         used.outputTokens += usage.outputTokens;
       };
-      const model = config.provider.configured
-        ? createModel(sink, { maxCalls: MODEL_CALLS })
-        : null;
+      // The question leaves this server only when the person chose a model for it.
+      const model =
+        useModel && config.provider.configured
+          ? createModel(sink, { maxCalls: MODEL_CALLS })
+          : null;
       const controller = new AbortController();
       const onClose = (): void => {
         if (!reply.raw.writableEnded) {
@@ -84,6 +86,7 @@ export function scenarioRoutes(
           question,
           documents,
           model,
+          modelAsked: useModel,
           modelName: config.provider.model,
           signal: controller.signal,
         });

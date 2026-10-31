@@ -27,6 +27,12 @@ export interface UrlFailureDetail {
   contentType?: string;
   /** The failure happened on an address a redirect led to, not on the one that was asked for. */
   redirected?: boolean;
+  /**
+   * A `blocked` refusal that came from the addresses a name resolved to, not from the address as it was
+   * written. A person cannot judge that from the text, and saying it would tell them which names exist
+   * inside a network, so it is reported like a name that was not found.
+   */
+  resolved?: boolean;
   /** Narrows `network`. */
   reason?: 'dns' | 'refused' | 'tls' | 'closed' | 'encoding' | 'other';
 }

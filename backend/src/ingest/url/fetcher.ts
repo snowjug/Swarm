@@ -381,7 +381,9 @@ export class PublicFetcher {
     for (const { address } of usable) {
       const verdict = classifyAddress(address);
       if (verdict.allowed || (this.allowLoopback && verdict.reason === 'loopback')) continue;
-      throw new UrlFailure('blocked', `${target.hostname} leads to a ${verdict.reason} address.`);
+      throw new UrlFailure('blocked', `${target.hostname} leads to a ${verdict.reason} address.`, {
+        resolved: !target.ipLiteral,
+      });
     }
     return usable;
   }

@@ -11,6 +11,7 @@ export interface ScenarioReading {
   read: (
     question: string,
     documents: readonly ScenarioDocument[],
+    useModel?: boolean,
   ) => Promise<ScenarioParseResult | null>;
   /** Stops a reading in progress. */
   cancel: () => void;
@@ -33,6 +34,7 @@ export function useScenarioReading(): ScenarioReading {
     async (
       question: string,
       documents: readonly ScenarioDocument[],
+      useModel = false,
     ): Promise<ScenarioParseResult | null> => {
       controller.current?.abort();
       const mine = new AbortController();
@@ -40,7 +42,7 @@ export function useScenarioReading(): ScenarioReading {
       setReading(true);
       setError(null);
       try {
-        const result = await scenarioApi.parse(question, documents, mine.signal);
+        const result = await scenarioApi.parse(question, documents, mine.signal, useModel);
         return mine.signal.aborted ? null : result;
       } catch (failure) {
         if (!mine.signal.aborted && !isAbort(failure)) setError(errorMessage(failure));
