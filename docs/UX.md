@@ -16,7 +16,8 @@ and can ask a what-if question at once.
   lives in `lib/product.ts` (`POSITIONING_STATEMENT`) and unit and end-to-end tests assert its exact
   words.
 - **The question** is the first field of the form and is on the first screen at 1366×768 and larger;
-  on a phone the introduction is shorter so that the field starts on the first screen.
+  on a phone the introduction is shorter so that the field starts on the first screen, and the
+  path under the heading runs on like a sentence instead of sitting in columns.
   The project name is optional: when it is empty, it is the start of the question
   (`nameFromQuestion` in `lib/entryValidation.ts`).
 - **Examples** (`ExamplePicker.tsx`) are read from `EXAMPLE_SCENARIOS` in
@@ -24,7 +25,8 @@ and can ask a what-if question at once.
   documents with their provenance, clears any scenario read from an earlier question, says what was
   loaded, and moves focus to the question. An example brings a question and evidence, nothing
   else: no scenario, stakeholder or result comes with it. With an empty list the picker still
-  offers the fictional starter input, so it is never an empty box.
+  offers the fictional starter input, so it is never an empty box. On a phone the examples sit in
+  one row that scrolls sideways, so that six of them do not push the evidence far down the page.
 - **The scenario** is read by `ScenarioIntake`, mounted between the question and the evidence. The
   frame it returns is held in the entry form and sent as `scenario` in the create request when
   present; the request is validated with the same schema as any other.
@@ -44,11 +46,15 @@ stored, means Guided.
 
 | Where                | Guided (default)                                 | Advanced                         |
 | -------------------- | ------------------------------------------------ | -------------------------------- |
-| Stage steps          | The engine's name, its state, and a line of help | The engine's name and state only |
+| Stage steps          | The engine's name, its state, a line of help     | The engine's name and state only |
+| A locked stage       | Says `locked` and, under its help, what it needs | Says `locked`                    |
+| Next step bar        | Shown from the lab's record                      | The same                         |
 | Entry: readiness     | One line, details a click away                   | Details open                     |
 | Entry: engine stages | One click away                                   | Open                             |
 | Project details      | Project ID and usage a click away                | Open                             |
 | Operation log        | One line, expandable                             | Expanded                         |
+
+A screen reader is told what a locked stage needs in both modes, whatever is drawn.
 
 Neither mode removes or hides a control or a capability. Audit log, Access, Budget, Duplicate and
 Export stay where they were, grouped as "Project tools" in a quieter style, because the end-to-end
@@ -63,20 +69,110 @@ specs click them directly. Not done: a Guided mode that hides technical controls
   and "step N of 5", and the help line after that.
 - **Help** under each step (`stepHelp` in `lib/console.ts`): Understand the evidence; Review
   stakeholders and actors; Run and compare scenarios; Decision brief; Ask questions.
-- **The journey** (`JourneyStrip.tsx`) shows twelve steps: Question, Evidence, Stakeholders, Actors,
-  Scenarios, Run, Progress, Results, Explore, Change, Compare, Export. It follows the stage in view
-  and is not navigation. A step is marked done only when the project's own record shows it:
-  evidence when Graph Build is ready; stakeholders, actors and scenarios when Env Setup is ready; run
-  when the simulation has started; progress when it is ready; results when the report is ready;
-  change when the project is a branch or carries an intervention. Explore, Compare and Export leave
-  no mark on a project, so they are never shown as done.
 - **Project tools** groups Audit log, Access (when people sign in), Budget (model projects),
   Duplicate as guided and Export JSON.
+- **A project opens at the stage the engine is at**, which for a project made in the lab is usually
+  Graph Build, whatever the lab has done since. The next step bar below is what says where the work
+  has got to.
+
+### What opens a stage, and what the page says when it is locked
+
+A stage opens when the engine's own order allows it, or, for two of them, when the scenario lab's
+record does (`stepAvailable` in `lib/console.ts`). The record comes from `GET /api/projects/:id`,
+which adds `lab` (`shared/lab.ts`, worked out in `backend/src/lab/progress.ts`): whether a scenario
+was stored, whether the stakeholders are `none`, `proposed` or `approved`, how many simulated actors
+there are, whether the comparison of scenarios is `none`, `running`, `completed` or `failed`, and
+whether a review and a brief exist. A `running` comparison is one that is queued or running;
+`failed` means every comparison there is stopped without a result (a finished one earlier is not
+forgotten because a later one was cancelled).
+
+| Stage       | Opens when                                                      | What it says under its name                                             |
+| ----------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Graph Build | Always                                                          | The engine's state                                                      |
+| Env Setup   | Graph Build is ready                                            | `actors ready` once there are simulated actors, else the engine's       |
+| Simulation  | There are simulated actors, or the engine's Env Setup is ready  | `ready to compare`, `comparing`, `compared`, `stopped`, or the engine's |
+| Report      | A comparison has finished, or the engine's Simulation is ready  | `ready to write`, `brief written`, or the engine's                      |
+| Interaction | The engine's Report is ready. The lab's record does not open it | The engine's state                                                      |
+
+A stage that cannot be opened is a disabled button, so it is not a tab stop. It says `locked` with
+a lock icon in place of its state and, in Guided, a line under its help says what it needs
+(`stepLock`): "Needs Graph Build first", "Needs actors from Env Setup", "Needs a finished
+comparison", "Needs the detailed report". Nothing opens it from a click or from the keyboard. Once
+the record allows it, it opens without a reload and without pressing Refresh.
+
+The workspace is told when the stakeholders or the actors change (`onChanged` of the stakeholder
+panel), but not when a comparison starts, finishes or is stopped, or when the brief is written: those
+panels keep their own state. So the workspace looks for the change itself (`labWatch` in
+`lib/console.ts`, `useLabRefresh`), and reads the project again:
+
+- when Simulation or Report is opened;
+- every two seconds while a comparison runs, in every stage but Interaction, since the stage in view
+  may be naming it;
+- every five seconds in Simulation, while there are actors and no comparison has finished, and in
+  Report, while the comparison has finished and no brief is written, which ends of itself;
+- 0.8 seconds after a click in a stage it is watching, so that what the click started (a
+  comparison, a brief) is seen at once and not at the next five seconds.
+
+These reads are quiet: the refresh button does not spin and a screen reader is told nothing. Nothing
+is read in Interaction. A comparison started again after one has finished is not noticed until
+Simulation or Report is opened again or Refresh is pressed; the page then shows what the server
+says, which is that the newest comparison, if it is running, decides.
+
+### The next step
+
+`NextStepBar` sits above the stage and names the one next piece of work from the lab's record
+(`nextStep` in `lib/console.ts`), with one button. It is shown from any stage that can be opened
+except the one where that work is done, and never in Interaction, in the comparison of two runs or
+in Report Studio.
+
+| The record says                                  | The bar says                                                    | The button              |
+| ------------------------------------------------ | --------------------------------------------------------------- | ----------------------- |
+| Stakeholders proposed, not approved              | They are proposed from the evidence: review and approve them    | Review the stakeholders |
+| Approved, no actors yet                          | The actors are made from the approved stakeholders              | Make the actors         |
+| Actors, and no comparison, or only stopped ones  | Compare no change with the change, under the stated assumptions | Compare the scenarios   |
+| A comparison is running                          | Its progress is shown in Simulation; the brief opens after it   | Follow the comparison   |
+| A comparison has finished                        | The brief says what it shows and what to do about it            | See the decision brief  |
+| A comparison has finished, and Report is in view | The brief is written from the comparison                        | Back to the comparison  |
+
+The bar offers a stage only when it can be opened (Env Setup needs a built graph), and says nothing
+before the lab has recorded anything: until then the stage's own button leads on. The button names
+what it does and never a stage's name, so that it is not mistaken for the stage list. Following it
+moves focus to the stage it opens (the region named "<name> workbench", which takes focus without
+being a tab stop) and, if only the graph was showing, shows the workbench; the keyboard then
+continues inside the stage. Where the work is more than a click, the stage still has its own
+primary button: the bar only says where to go.
+
+### The journey
+
+`JourneyStrip` shows twelve steps: Question, Evidence, Stakeholders, Actors, Scenarios, Run,
+Progress, Results, Explore, Change, Compare, Export. It follows the stage in view and is not
+navigation. A step is marked done only when the project's own record shows it, by the engine's
+record or the lab's (`journeyItems` in `lib/console.ts`):
+
+| Step         | Done when                                                                       |
+| ------------ | ------------------------------------------------------------------------------- |
+| Question     | Always: the project exists                                                      |
+| Evidence     | Graph Build is ready                                                            |
+| Stakeholders | The stakeholders are approved, or Env Setup is ready                            |
+| Actors       | There are simulated actors, or Env Setup is ready                               |
+| Scenarios    | A comparison is running or has finished, or Env Setup is ready                  |
+| Run          | A comparison is running or has finished, or the engine's simulation has started |
+| Progress     | A comparison has finished, or the engine's simulation is ready                  |
+| Results      | A comparison has finished, or the engine's report is ready                      |
+| Explore      | Never: it leaves no mark on a project                                           |
+| Change       | The project is a branch or carries an intervention                              |
+| Compare      | Never: it leaves no mark on a project                                           |
+| Export       | A decision brief is written                                                     |
+
+Proposed stakeholders are not ticked, and neither are approved stakeholders with no actors made, a
+stopped comparison or a review with no brief: nothing is ticked that a person or the server has not
+done. Exactly one step is current: the first of the stage's own steps that is not done, or the last
+of them when all are.
 
 ## Seams: where a feature adds a panel
 
-A seam is a place in the shell where a feature's component is mounted. Each renders nothing today
-or until its feature fills it in, and the layout does not reserve room for it.
+A seam is a place in the shell where a feature's component is mounted. The layout reserves no room
+for one that has nothing to show.
 
 | Component           | Where                                                 | Props                               | Only for             |
 | ------------------- | ----------------------------------------------------- | ----------------------------------- | -------------------- |
@@ -93,7 +189,7 @@ takes any room. `onChanged` of the stakeholder panel refreshes the project from 
 
 To add a panel at a seam:
 
-1. Replace the body of the placeholder in the feature's own folder and keep its props.
+1. Change the component in the feature's own folder and keep its props.
 2. Render nothing when there is nothing to show, and make no API call for a project that never used
    the feature: the end-to-end specs fail on a console error or a failed request in any stage.
 3. Keep the styles in the feature's own stylesheet, with theme tokens only and no text below 12px.
@@ -160,11 +256,26 @@ their own sizes where they were not part of this work.
 
 ## Responsive
 
-The shell changes layout at these widths: 1239px (the journey keeps only the current label), 1100px
-(the path on the first screen takes two rows of four; the hero is one column), 1050px (the form and
-the side column stack), 900px (project tools take their own row), 700px and 640px (phone: two-column
-path without captions, 44px touch targets) and 470px. No page scrolls sideways at 390px; the
-end-to-end specs check it. Pointer targets are at least 24px, and 44px on a phone.
+The shell changes layout at these widths:
+
+- 1499px: the journey keeps numbers and names only the current step; at 1500px and wider all twelve
+  names show.
+- 1199px: the header, which is one row from 1200px, takes two rows or, with a project's back
+  button, sometimes three.
+- 1120px: the stage list and the view control take their own rows. 1100px: the hero is one column
+  and the path takes two rows of four. 1050px: the form and the side column stack.
+- 900px: the console shows one pane at a time (Graph | Workbench), the header drops "LOCAL · SINGLE
+  USER" and "/ CONSOLE" to save a row, and the project tools take their own row.
+- 700px: the header's padding tightens.
+- 640px (phone): 44px touch targets. The header is not sticky and its controls flow after the brand
+  in the order of the page, with the model chip on a row of its own. The path runs on like a
+  sentence and wraps between whole steps. The examples and the project tools are one row each that
+  scrolls sideways. The five stage names share the width by what they need, so none is broken in
+  two.
+- 470px and 390px: the form's groups become one column.
+
+No page scrolls sideways at 390px; the end-to-end specs check it. Pointer targets are at least 24px,
+and 44px on a phone.
 
 ## Accessibility rules
 
@@ -176,15 +287,41 @@ end-to-end specs check it. Pointer targets are at least 24px, and 44px on a phon
   in a sensible order; the question is within the first ten tab stops of the entry page.
 - Headings do not skip a level: one h1 per page, the form's heading is an h2.
 - A disclosure is a native `details` element, so it works from the keyboard and without script.
+- The header is sticky from 641px, so `html` has a `scroll-padding-top` (72px, and 140px below 1200px,
+  where the header takes more rows) and a control that takes focus is never left under it. On a
+  phone the header scrolls away instead of keeping a quarter of the screen.
+- A control that moves the person to another stage moves focus to that stage, so that it is never
+  lost to the page when the control goes away.
+- A locked stage says that it is locked in words and says what it needs; the reason is also in the
+  accessible name, in both modes.
 - Changes of state that a person must hear about are in a `role="status"` or `role="alert"` region.
+
+## Guards
+
+- `frontend/src/lib/console.test.ts`: what opens each stage, the label and the lock under it, the
+  journey, and the next step for every state of the record.
+- `ConsoleWorkspace.test.tsx` and `ConsoleAccessibility.test.tsx`: what the workspace renders from
+  the record, and the stage names and their hidden context.
+- `e2e/lab/journey-gates.spec.ts`: projects made through the API at each point of the way (nothing,
+  graph built, stakeholders proposed, approved, actors, a comparison stopped, finished, reviewed,
+  brief written) and read in the browser: what is locked and why, the path, the next step and where
+  it leads, a comparison started, stopped and finished in the page, and the brief written there,
+  each without a reload or a press of Refresh (these fail if the workspace stops looking for the
+  change), Guided and Advanced, the keyboard and focus, a reload, three themes on a laptop and a
+  phone, and the phone's header and stage names. `e2e/lab/shell.spec.ts` covers the first screen, the examples, the modes and the
+  workspace in every theme.
 
 ## Not done
 
 - No new screenshots were made for the README or `docs/assets`.
-- The seams render nothing until the features behind them are merged, so how they look inside the
-  shell is not seen here.
-- The examples list is filled by another part of the work; the picker was seen with test examples
-  only.
+- The opening stage is the engine's, not the lab's: a project with a finished comparison still opens
+  in Graph Build, and the next step bar is what points on. Choosing the opening stage from the
+  record was left out so that where a project opens does not change under the specs and the people
+  that rely on it.
+- Run settings (mode, proxies, rounds, seed) are still in front of every first-time visitor, in a
+  quiet group. Putting them behind a disclosure needs the specs that fill them in to change.
+- The names and reasons of the stages were checked with accessible-name queries, axe and keyboard
+  tests, not with a screen reader.
 - Windows forced-colours mode has rules but was not exercised in a browser.
 - The older stylesheets (stages, report, charts, ledger, studio and others) were not restyled; only
   the shared radii, the focus and the colour palette reach them.

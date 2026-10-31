@@ -23,8 +23,12 @@ vi.mock('../stakeholders/StakeholderPanel', async () => {
 vi.mock('../analysis/AnalysisPanel', async () => {
   const { createElement } = await import('react');
   return {
-    AnalysisPanel: (props: { project: { id: string } }) =>
-      createElement('p', { 'data-seam': 'analysis', 'data-project': props.project.id }, 'analysis'),
+    AnalysisPanel: (props: { project: { id: string }; onOpenStep?: () => void }) =>
+      createElement(
+        'p',
+        { 'data-seam': 'analysis', 'data-project': props.project.id },
+        `onOpenStep is a ${typeof props.onOpenStep}`,
+      ),
   };
 });
 vi.mock('../brief/DecisionBriefView', async () => {
@@ -87,6 +91,8 @@ describe('where the workspace mounts the feature panels', () => {
   it('puts the analysis panel in the Simulation stage, above the run controls, and says what they are', () => {
     const html = render(checkpointFixture(), 'simulation');
     expect(seams(html)).toEqual(['analysis']);
+    // So that the panel can send the person to the step where who is affected is said.
+    expect(html).toContain('onOpenStep is a function');
     expect(html.indexOf('03 / SIMULATION')).toBeLessThan(html.indexOf('data-seam="analysis"'));
     expect(html.indexOf('data-seam="analysis"')).toBeLessThan(
       html.indexOf('Deep dive (optional): agent-by-agent simulation'),
@@ -216,21 +222,42 @@ describe('what the workspace does once the scenario lab has recorded something',
     );
   });
 
-  it('offers nothing before a comparison has finished, or in the other stages', () => {
+  it('offers the next piece of work from a stage where it is not done, and nothing where it is', () => {
+    const actors = { stakeholders: 'approved', actors: 5 } as const;
+    const running = render(withLab({ ...actors, analysis: 'running' }), 'knowledge');
+    expect(running).toContain('role="group" aria-label="Next step"');
+    expect(visibleText(running)).toContain('Follow the comparison');
+    const ready = render(withLab(actors), 'environment');
+    expect(visibleText(ready)).toContain('Compare the scenarios');
     for (const analysis of ['none', 'running', 'failed'] as const) {
-      const html = render(withLab({ ...FINISHED, analysis }), 'simulation');
+      const html = render(withLab({ ...actors, analysis }), 'simulation');
       expect(html, analysis).not.toContain('aria-label="Next step"');
     }
     expect(render(checkpointFixture(), 'simulation')).not.toContain('aria-label="Next step"');
-    for (const step of ['knowledge', 'environment', 'interaction'] as const) {
-      expect(render(withLab(FINISHED), step), step).not.toContain('aria-label="Next step"');
-    }
+    expect(render(withLab(FINISHED), 'interaction')).not.toContain('aria-label="Next step"');
+  });
+
+  it('says what a locked stage needs under its name, in Guided, and to a screen reader in both', () => {
+    const guided = render(checkpointFixture(), 'simulation', 'guided');
+    const report = stageButton(guided, 'Report');
+    expect(report.tag).toContain('disabled');
+    expect(report.text).toContain('locked');
+    expect(report.text).toContain('Decision brief');
+    expect(report.text).toContain('Needs a finished comparison');
+    expect(guided).toContain('class="step-help step-lock" aria-hidden="true"');
+    expect(guided).toContain('class="sr-only">, step 4 of 5. Needs a finished comparison</span>');
+    expect(stageButton(guided, 'Simulation').text).toContain('Run and compare scenarios');
+
+    const advanced = render(checkpointFixture(), 'simulation', 'advanced');
+    expect(stageButton(advanced, 'Report').text).toContain('locked');
+    expect(advanced).not.toContain('step-help');
+    expect(advanced).toContain('class="sr-only">, step 4 of 5. Needs a finished comparison</span>');
   });
 
   it('opens Report from a finished comparison without the engine’s simulation, and says what is there', () => {
     const before = render(checkpointFixture(), 'simulation');
     expect(stageButton(before, 'Report').tag).toContain('disabled');
-    expect(stageButton(before, 'Report').text).toContain('pending');
+    expect(stageButton(before, 'Report').text).toContain('locked');
 
     const after = render(withLab(FINISHED), 'simulation');
     expect(stageButton(after, 'Report').tag).not.toContain('disabled');

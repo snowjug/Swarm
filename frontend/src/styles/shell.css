@@ -75,7 +75,9 @@
   color: var(--text);
   font-weight: 650;
 }
-@media (max-width: 1239px) {
+/* The names of all twelve steps need a wide screen; below it the numbers are enough, and the current
+   step is named. */
+@media (max-width: 1499px) {
   .journey-steps {
     flex-wrap: nowrap;
     gap: var(--space-1);
@@ -135,6 +137,21 @@
     margin-left: 0;
     padding-left: 0;
     border-left: 0;
+  }
+}
+@media (max-width: 640px) {
+  /* One row that scrolls sideways, not three rows of buttons above the work. The padding keeps the
+     focus ring of the first and the last from being cut off. */
+  .project-tools {
+    flex-wrap: nowrap;
+    margin: 0 -6px;
+    padding: 5px 6px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+  .project-tools > * {
+    flex: none;
   }
 }
 

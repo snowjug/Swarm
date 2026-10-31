@@ -1,10 +1,16 @@
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { PIPELINE, POSITIONING_STATEMENT, WHAT_IF_LINE } from '../../lib/product';
+
+/** Below this width the path is one row that scrolls sideways (see home.css). */
+const PHONE_QUERY = '(max-width: 640px)';
 
 /**
  * What the product is, said in the first seconds: the question it answers, the path from evidence to
  * a decision, and the one sentence it is never to be read without. It carries the page's one h1.
  */
 export function LandingHero() {
+  // A row that scrolls can be scrolled from the keyboard only if the keyboard can reach it.
+  const phone = useMediaQuery(PHONE_QUERY);
   return (
     <section className="landing-hero" aria-labelledby="landing-heading">
       <div className="hero-main">
@@ -19,7 +25,7 @@ export function LandingHero() {
         </div>
         <p className="positioning-statement">{POSITIONING_STATEMENT}</p>
       </div>
-      <ol className="pipeline" aria-label="How Swarm works">
+      <ol className="pipeline" aria-label="How Swarm works" tabIndex={phone ? 0 : undefined}>
         {PIPELINE.map((step, index) => (
           <li key={step.label}>
             <span className="pipeline-index" aria-hidden="true">

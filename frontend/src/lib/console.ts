@@ -66,19 +66,36 @@ export function stepAvailable(project: ProjectDetail, step: ConsoleStep): boolea
   return project.console!.steps[step] !== 'pending' || project.console!.steps[previous] === 'ready';
 }
 
+/** Why a stage cannot be opened yet, which is also what opens it. Shown under a locked stage. */
+const lockReasons: Record<ConsoleStep, string> = {
+  knowledge: '',
+  environment: 'Needs Graph Build first',
+  simulation: 'Needs actors from Env Setup',
+  report: 'Needs a finished comparison',
+  interaction: 'Needs the detailed report',
+};
+
+/** Null where the stage can be opened, and for a record that has no guided stages to lock. */
+export function stepLock(project: ProjectDetail, step: ConsoleStep): string | null {
+  return isGuided(project) && !stepAvailable(project, step) ? lockReasons[step] : null;
+}
+
 /**
- * The small label under a stage's name: the engine's status, or, where the engine has not run the
- * stage but the lab has done its work, what that was. Nothing is shown that the project's record
- * does not hold.
+ * The small label under a stage's name: `locked` where it cannot be opened yet, the engine's status,
+ * or, where the engine has not run the stage but the lab has done its work, what that was. Nothing is
+ * shown that the project's record does not hold.
  */
 export function stepStatusLabel(project: ProjectDetail, step: ConsoleStep): string {
   const status = stepStatus(project, step);
   if (status === null) return 'historical view';
+  if (status === 'pending' && !stepAvailable(project, step)) return 'locked';
   const lab = project.lab;
   if (status !== 'pending' || !lab) return status;
   if (step === 'environment' && lab.actors > 0) return 'actors ready';
   if (step === 'simulation' && lab.analysis === 'running') return 'comparing';
   if (step === 'simulation' && lab.analysis === 'completed') return 'compared';
+  if (step === 'simulation' && lab.analysis === 'failed') return 'stopped';
+  if (step === 'simulation' && lab.actors > 0) return 'ready to compare';
   if (step === 'report' && lab.brief) return 'brief written';
   if (step === 'report' && lab.analysis === 'completed') return 'ready to write';
   return status;
@@ -227,39 +244,96 @@ export interface NextStep {
   /** The button, which opens `to`. */
   label: string;
   to: ConsoleStep;
+  /** The move goes back to where the person came from, so that it is the quieter of the two. */
+  back?: true;
 }
 
-/**
- * The one move to offer once a comparison has finished: from the comparison to the decision brief, and
- * back. Nothing is offered while there is no finished comparison, or in any other stage, where the
- * stage itself says what to do.
- */
-export function nextStep(step: ConsoleStep, lab: LabProgress | undefined): NextStep | null {
-  if (lab?.analysis !== 'completed') return null;
-  if (step === 'simulation') {
+const toBrief: NextStep = {
+  text: 'The comparison has finished. The decision brief says what it shows and what to do about it.',
+  label: 'See the decision brief',
+  to: 'report',
+};
+const backToComparison: NextStep = {
+  text: 'The brief is written from the comparison. Open the comparison for its charts, or to run another.',
+  label: 'Back to the comparison',
+  to: 'simulation',
+  back: true,
+};
+
+/** Where the lab's own record says the work has got to, and the one thing to do there. */
+function labFrontier(lab: LabProgress): NextStep | null {
+  if (lab.analysis === 'completed') return toBrief;
+  if (lab.analysis === 'running') {
     return {
-      text: 'The comparison has finished. The decision brief says what it shows and what to do about it.',
-      label: 'See the decision brief',
-      to: 'report',
+      text: 'A comparison is running. Its progress is shown there, and the decision brief opens when it finishes.',
+      label: 'Follow the comparison',
+      to: 'simulation',
     };
   }
-  if (step === 'report') {
+  if (lab.actors > 0) {
     return {
-      text: 'The brief is written from the comparison. Open the comparison for its charts, or to run another.',
-      label: 'Back to the comparison',
+      text:
+        lab.analysis === 'failed'
+          ? 'The last comparison stopped before it finished, so there is no result yet. You can run it again.'
+          : 'The simulated actors are ready. Compare no change with the change to see how they could respond, under the assumptions stated.',
+      label: 'Compare the scenarios',
       to: 'simulation',
+    };
+  }
+  if (lab.stakeholders === 'approved') {
+    return {
+      text: 'The stakeholders are approved. The simulated actors are made from them, and then the scenarios can be compared.',
+      label: 'Make the actors',
+      to: 'environment',
+    };
+  }
+  if (lab.stakeholders === 'proposed') {
+    return {
+      text: 'The stakeholders are proposed from your evidence. Review them and approve the list; the simulated actors are made from it.',
+      label: 'Review the stakeholders',
+      to: 'environment',
     };
   }
   return null;
 }
 
 /**
- * Whether to read the project again every few seconds: while a comparison is running and the person
- * is in a stage that shows its result. The comparison runs on the server, and the project's progress
- * is not otherwise read again until something is done.
+ * The one move to offer, from what the scenario lab has recorded: the stage where its next piece of
+ * work is done, from any other stage that can be opened, and from a finished comparison's brief back
+ * to the comparison. Nothing is offered in the stage where that work is done, which says what to do
+ * itself, in the Interaction stage, which is for asking questions, or before the lab has recorded
+ * anything, when the engine's stage in view leads on by itself.
  */
-export function labPollingNeeded(project: ProjectDetail, step: ConsoleStep): boolean {
-  return (step === 'simulation' || step === 'report') && project.lab?.analysis === 'running';
+export function nextStep(project: ProjectDetail, step: ConsoleStep): NextStep | null {
+  const lab = project.lab;
+  if (!isGuided(project) || !lab || step === 'interaction') return null;
+  if (step === 'report' && lab.analysis === 'completed') {
+    return stepAvailable(project, 'simulation') ? backToComparison : null;
+  }
+  const move = labFrontier(lab);
+  return move && move.to !== step && stepAvailable(project, move.to) ? move : null;
+}
+
+/**
+ * Why the page reads the project again while the person works: `running` while a comparison runs, in
+ * every stage but Interaction, since the stage in view may be naming it; `waiting` where one could be
+ * started or a brief written and none has been yet, which ends of itself once it has.
+ */
+export type LabWatch = 'running' | 'waiting';
+
+/**
+ * Whether, and why, to read the project again. The panels that change what the lab has recorded (a
+ * comparison, the brief) do not tell the workspace, which is only told about the stakeholders and the
+ * actors, so the workspace looks for the change itself: a Report that opened only after a reload would
+ * be a stage that stays locked after what unlocks it was done.
+ */
+export function labWatch(project: ProjectDetail, step: ConsoleStep): LabWatch | null {
+  const lab = project.lab;
+  if (!isGuided(project) || !lab || step === 'interaction') return null;
+  if (lab.analysis === 'running') return 'running';
+  if (step === 'simulation' && lab.actors > 0 && lab.analysis !== 'completed') return 'waiting';
+  if (step === 'report' && lab.analysis === 'completed' && !lab.brief) return 'waiting';
+  return null;
 }
 
 /**

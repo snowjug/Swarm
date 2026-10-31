@@ -301,6 +301,16 @@ svg {
   width: 100%;
   min-width: 0;
 }
+/* The header stays at the top while the page scrolls: a control that takes focus is never left under it.
+   It is one row from 1200px, and two or three below that. */
+html {
+  scroll-padding-top: 72px;
+}
+@media (max-width: 1199px) {
+  html {
+    scroll-padding-top: 140px;
+  }
+}
 .app-header {
   position: sticky;
   top: 0;
@@ -966,6 +976,12 @@ details > summary::-webkit-details-marker {
   align-items: flex-start;
   gap: 20px;
 }
+@media (max-width: 900px) {
+  .brand-button > .mono,
+  .single-user-label {
+    display: none;
+  }
+}
 @media (max-width: 700px) {
   .app-header {
     padding: 6px 12px;
@@ -1053,6 +1069,37 @@ details > summary::-webkit-details-marker {
   }
   .header-counter {
     display: none;
+  }
+}
+@media (max-width: 640px) {
+  /* A header of four rows kept a quarter of the screen for itself. It goes with the page now, and its
+     controls flow on after the brand in the order of the page, so that what is seen first is what
+     the keyboard reaches first; the model chip takes a row of its own. */
+  html {
+    scroll-padding-top: 16px;
+  }
+  .app-header {
+    position: static;
+    box-shadow: none;
+  }
+  .header-brand {
+    flex: 1 1 auto;
+  }
+  .header-actions {
+    display: contents;
+  }
+  .app-header > .provider-badge {
+    flex: 1 0 100%;
+  }
+}
+@media (pointer: coarse) and (min-width: 641px) {
+  /* A finger needs more room than a pointer. On a touch screen wider than a phone, the controls of the
+     header and of the workspace chrome are as tall as they are on a phone. */
+  .app-header :is(button, .button, .icon-button, select),
+  .project-heading :is(button, .button, .icon-button),
+  .workspace-navigation .segmented button,
+  .next-step .button {
+    min-height: 44px;
   }
 }
 @media (max-width: 390px) {

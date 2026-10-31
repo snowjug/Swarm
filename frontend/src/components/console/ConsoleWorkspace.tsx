@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Copy, Gauge, RefreshCw, ShieldCheck, Square, Users } from 'lucide-react';
 import type {
   ConsoleStep,
@@ -18,7 +18,7 @@ import {
   initialStep,
   isBusy,
   isGuided,
-  labPollingNeeded,
+  labWatch,
   nextStep,
   stepAvailable,
   stepLabels,
@@ -160,13 +160,36 @@ export function ConsoleWorkspace({
       // The operation hook displays cancellation errors.
     });
   };
-  useLabRefresh({
+  // A read that the person did not ask for is quiet: nothing spins on the button, and a screen reader is
+  // not told "Refreshing project" every few seconds.
+  const [quiet, setQuiet] = useState(false);
+  useEffect(() => {
+    if (!refreshing) setQuiet(false);
+  }, [refreshing]);
+  const readQuietly = useCallback(() => {
+    setQuiet(true);
+    onRefresh();
+  }, [onRefresh]);
+  const { nudge } = useLabRefresh({
     step,
     enabled: guided,
-    polling: labPollingNeeded(project, step),
-    refresh: onRefresh,
+    watch: labWatch(project, step),
+    refresh: readQuietly,
   });
-  const move = guided && !comparing && !studioOpen ? nextStep(step, project.lab) : null;
+  const reading = refreshing && !quiet;
+  const move = guided && !comparing && !studioOpen ? nextStep(project, step) : null;
+  // The button that moved the person is gone, or says something else, in the stage it opened: focus
+  // goes to the stage itself, so that a keyboard or screen reader user starts there, not on the page.
+  const stageRegion = useRef<HTMLElement>(null);
+  const [handoffs, setHandoffs] = useState(0);
+  useEffect(() => {
+    if (handoffs > 0) stageRegion.current?.focus({ preventScroll: true });
+  }, [handoffs]);
+  const followNextStep = (next: ConsoleStep) => {
+    navigate(next);
+    if (view === 'graph') setChosenView('workbench');
+    setHandoffs((count) => count + 1);
+  };
   const inspect = (selection: Inspection) => setInspection(selection);
   let stage;
   switch (step) {
@@ -212,7 +235,7 @@ export function ConsoleWorkspace({
           onIntervention={onIntervention}
           onBranch={() => setBranchOpen(true)}
           onCompare={() => compare()}
-          lead={guided ? <AnalysisPanel project={project} /> : null}
+          lead={guided ? <AnalysisPanel project={project} onOpenStep={navigate} /> : null}
         />
       );
       break;
@@ -274,11 +297,14 @@ export function ConsoleWorkspace({
           <button
             className="icon-button"
             type="button"
-            disabled={refreshing || busy}
-            onClick={onRefresh}
+            disabled={reading || busy}
+            onClick={() => {
+              setQuiet(false);
+              onRefresh();
+            }}
             aria-label="Refresh project from server"
           >
-            {refreshing ? <Spinner label="Refreshing project" /> : <RefreshCw size={16} />}
+            {reading ? <Spinner label="Refreshing project" /> : <RefreshCw size={16} />}
           </button>
           {guided && isBusy(project) && (
             <button
@@ -389,10 +415,10 @@ export function ConsoleWorkspace({
           onCompare={compare}
         />
       )}
-      {move && <NextStepBar move={move} onNavigate={navigate} />}
+      {move && <NextStepBar move={move} onNavigate={followNextStep} />}
       {guided && step === 'report' && !comparing && !studioOpen && (
         <>
-          <div className="seam-stack">
+          <div className="seam-stack" onClickCapture={nudge}>
             <DecisionBriefView project={project} />
             <CriticPanel project={project} />
           </div>
@@ -449,7 +475,13 @@ export function ConsoleWorkspace({
                   )}
                 </div>
               )}
-              <section className="console-stage" aria-label={`${stepLabels[step]} workbench`}>
+              <section
+                ref={stageRegion}
+                className="console-stage"
+                tabIndex={-1}
+                aria-label={`${stepLabels[step]} workbench`}
+                onClickCapture={nudge}
+              >
                 {stage}
               </section>
             </>
