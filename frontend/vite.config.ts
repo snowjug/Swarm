@@ -22,6 +22,8 @@ export default defineConfig(({ mode }) => {
         '/auth': `http://127.0.0.1:${apiPort}`,
       },
     },
-    build: { outDir: 'dist', emptyOutDir: true },
+    // The entry chunk (React, the schemas and the entry console) is kept under this size. The project
+    // console is a chunk of its own, fetched when a project opens (see App.tsx), and is under it too.
+    build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 500 },
   };
 });

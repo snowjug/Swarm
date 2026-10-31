@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ExternalLink,
@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import type { ProjectDetail } from '../../shared/types';
 import { api, errorMessage } from './api';
-import { ConsoleWorkspace } from './components/console/ConsoleWorkspace';
 import { EntryConsole } from './components/console/EntryConsole';
 import { WorkspaceAccessDialog } from './components/console/AccessDialog';
 import { HistoryDrawer } from './components/console/HistoryDrawer';
@@ -29,6 +28,34 @@ import { useTheme } from './hooks/useTheme';
 import { sourceLink } from './lib/format';
 import { administersWorkspace } from './lib/members';
 import { signInProblem } from './lib/signIn';
+
+/**
+ * The project console holds the view of every stage: graph, simulation, analysis, report, critics,
+ * stakeholders and studio. A person who is still asking a question needs none of it, so its code is
+ * fetched when a project is opened, and begun as soon as one is chosen, not when its record arrives.
+ */
+const loadWorkspace = () =>
+  import('./components/console/ConsoleWorkspace').then((module) => ({
+    default: module.ConsoleWorkspace,
+  }));
+const ConsoleWorkspace = lazy(loadWorkspace);
+
+/** What stands in the console's place while its code arrives: the same shape as while the project loads. */
+function OpeningProject() {
+  return (
+    <div className="project-loading" aria-busy="true">
+      <div className="project-loading-status">
+        <Spinner label="Opening the project" />
+        <span>Opening the project…</span>
+      </div>
+      <div className="skeleton-stack" aria-hidden="true">
+        <span className="skeleton skeleton-title" />
+        <span className="skeleton skeleton-line" />
+        <span className="skeleton skeleton-block" />
+      </div>
+    </div>
+  );
+}
 
 /** A sign-in that did not produce a session is explained on its own screen, not behind the console. */
 export default function App() {
@@ -75,6 +102,10 @@ function Console() {
     setCreation((old) => ({ key: old.key + 1, project: initialProject }));
   };
 
+  useEffect(() => {
+    // A failed fetch is reported where the code is used, by the boundary around the application.
+    if (console.selectedId) loadWorkspace().catch(() => undefined);
+  }, [console.selectedId]);
   useEffect(() => {
     const pop = () => {
       setComparisonProject(null);
@@ -270,42 +301,44 @@ function Console() {
               </Notice>
             )}
             {project ? (
-              <ConsoleWorkspace
-                key={project.id}
-                project={project}
-                config={console.config.error ? null : console.config.data}
-                busy={busy}
-                refreshing={console.detail.loading}
-                onRefresh={() => {
-                  console.refresh();
-                  void console.loadHistory();
-                }}
-                onRun={(step) => console.execute(project.id, step)}
-                onCancel={() => console.cancel(project.id)}
-                onPause={async () => {
-                  await console.pause(project.id);
-                }}
-                onResume={async () => {
-                  await console.resume(project.id);
-                }}
-                onIntervention={async (value) => {
-                  await console.updateIntervention(project.id, value);
-                }}
-                onBranch={async (input) => {
-                  await console.branch(project.id, input);
-                }}
-                onSelectProject={console.selectProject}
-                projects={console.history.data?.projects ?? []}
-                comparisonRequested={comparisonProject === project.id}
-                onCloseComparison={() => setComparisonProject(null)}
-                onSave={async (input) => {
-                  await console.saveEnvironment(project.id, input);
-                }}
-                onDuplicate={() => newProject(project)}
-                onSurvey={(record) => console.recordSurvey(project.id, record)}
-                sharing={signedIn}
-                mode={mode}
-              />
+              <Suspense fallback={<OpeningProject />}>
+                <ConsoleWorkspace
+                  key={project.id}
+                  project={project}
+                  config={console.config.error ? null : console.config.data}
+                  busy={busy}
+                  refreshing={console.detail.loading}
+                  onRefresh={() => {
+                    console.refresh();
+                    void console.loadHistory();
+                  }}
+                  onRun={(step) => console.execute(project.id, step)}
+                  onCancel={() => console.cancel(project.id)}
+                  onPause={async () => {
+                    await console.pause(project.id);
+                  }}
+                  onResume={async () => {
+                    await console.resume(project.id);
+                  }}
+                  onIntervention={async (value) => {
+                    await console.updateIntervention(project.id, value);
+                  }}
+                  onBranch={async (input) => {
+                    await console.branch(project.id, input);
+                  }}
+                  onSelectProject={console.selectProject}
+                  projects={console.history.data?.projects ?? []}
+                  comparisonRequested={comparisonProject === project.id}
+                  onCloseComparison={() => setComparisonProject(null)}
+                  onSave={async (input) => {
+                    await console.saveEnvironment(project.id, input);
+                  }}
+                  onDuplicate={() => newProject(project)}
+                  onSurvey={(record) => console.recordSurvey(project.id, record)}
+                  sharing={signedIn}
+                  mode={mode}
+                />
+              </Suspense>
             ) : console.detail.loading ? (
               <div className="project-loading" aria-busy="true">
                 <div className="project-loading-status">
