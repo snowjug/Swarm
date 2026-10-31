@@ -7,6 +7,7 @@ import type {
   Variant,
 } from '../../../shared/analysis.js';
 import type { Actor } from '../../../shared/stakeholders.js';
+import { isSetByPerson } from '../../../shared/analysis-plan.js';
 import { mean, pairedDifferences, round4, standardError } from './stats.js';
 
 /**
@@ -128,7 +129,7 @@ export function planPerturbations(
       target: { kind: 'intensity', actorId: null, trait: null },
       label: `Intensity of ${proposed.label}: ${INTENSITY_STEP * 100}% ${direction > 0 ? 'higher' : 'lower'} (${round4(proposed.intensity)} to ${round4(moved)})`,
       perturbation: direction * INTENSITY_STEP,
-      origin: 'scenario',
+      origin: isSetByPerson(proposed) ? 'user' : 'system-assumption',
       apply: (spec) => ({ ...spec, variant: { ...spec.variant, intensity: moved } }),
     });
   }

@@ -26,6 +26,14 @@ export const SENSITIVITY_SEED_CAP = 30;
 /** A person's saved comparisons per project; the oldest finished ones are removed beyond this. */
 export const MAX_STORED_ANALYSES = 12;
 
+/**
+ * What the description of a scenario says once a person has chosen how strongly it lands. A scenario the
+ * system made says that its intensity is a system assumption, so one without this note is read that way.
+ */
+export const USER_SET_NOTE = 'was set by you';
+export const isSetByPerson = (variant: Pick<Variant, 'description'>): boolean =>
+  variant.description.includes(USER_SET_NOTE);
+
 export interface RunPlan {
   /** Variants times seeded runs. */
   mainRuns: number;

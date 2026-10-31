@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SimulationSpec, Simulator } from '../../shared/analysis.js';
+import { USER_SET_NOTE } from '../../shared/analysis-plan.js';
 import type { Actor } from '../../shared/stakeholders.js';
 import { runAnalysis, type AnalysisInputs } from '../src/analysis/runset.js';
 import {
@@ -69,10 +70,15 @@ describe('which assumptions are moved', () => {
     for (const item of traits) expect(Math.abs(item.perturbation)).toBeCloseTo(TRAIT_STEP, 6);
   });
 
-  it('moves the intensity of the proposed change by a quarter either way, and says where it came from', () => {
+  it('moves the intensity of the proposed change by a quarter either way, and reads it as a system assumption unless a person set it', () => {
     const intensity = perturbations.filter((item) => item.target.kind === 'intensity');
     expect(intensity.map((item) => item.perturbation)).toEqual([INTENSITY_STEP, -INTENSITY_STEP]);
-    expect(intensity.every((item) => item.origin === 'scenario')).toBe(true);
+    expect(intensity.every((item) => item.origin === 'system-assumption')).toBe(true);
+    const chosen = planPerturbations(testCast(), {
+      ...PROPOSED,
+      description: `Intensity 0.7 from round 2 ${USER_SET_NOTE}.`,
+    }).filter((item) => item.target.kind === 'intensity');
+    expect(chosen.map((item) => item.origin)).toEqual(['user', 'user']);
     const raised = intensity[0]!.apply(spec());
     expect(raised.variant.intensity).toBeCloseTo(0.875, 6);
     expect(intensity[1]!.apply(spec()).variant.intensity).toBeCloseTo(0.525, 6);
