@@ -87,11 +87,50 @@ At this size a run is a few tens of milliseconds, so 100 runs take roughly 3 to 
 the target for the typical cast. The cost is linear in members times rounds, and `sampleSizeCap` is the
 lever: capping cohorts at 30 members cuts this cast's member updates from 432,000 to 64,800.
 
+## Through the analysis service, on the real routes
+
+The measurements above are of the simulator alone. A comparison also checks the cast, saves progress,
+computes the findings and the sensitivity and stores a document, and the server must go on answering
+while it does. These were taken on a Linux machine with 4 cores shared with other work (load average 6
+to 8), Node 24.22.2, on the rules-mode server built from the same commit: the example packs and a
+custom scenario were seeded through the routes (reading the text for stakeholders, approving them,
+making the actors), a comparison was started with the defaults (30 seeded runs of each scenario, with
+sensitivity), and `GET /api/health` was asked every 20 ms from another process until it finished.
+
+| Cast and comparison                                                            | Simulated runs | Members a run | Engine time | End to end | `/api/health`, median and slowest |
+| ------------------------------------------------------------------------------ | -------------- | ------------- | ----------- | ---------- | --------------------------------- |
+| Copilot in Teams example (23 actors, 2 scenarios)                              | 1,201          | 304           | 1.13 s      | 1.29 s     | 3 ms and 44 ms                    |
+| Regional price change example (25 actors, 4 scenarios)                         | 1,261          | 275           | 0.69 s      | 0.82 s     | 2 ms and 36 ms                    |
+| E-commerce experience example (17 actors, 2 scenarios)                         | 1,201          | 184           | 0.41 s      | 0.48 s     | 2 ms and 20 ms                    |
+| A custom scenario, bus fares (9 actors, 4 scenarios)                           | 1,261          | 113           | 0.46 s      | 0.59 s     | 2 ms and 16 ms                    |
+| 12 cohorts of 200 members, 12 rounds (2 scenarios)                             | 1,201          | 2,002         | 6.3 s       | 6.4 s      | 6 ms and 34 ms                    |
+| 40 actors of 200 members, 36 rounds (2 scenarios of 10 runs, with sensitivity) | 401            | 7,602         | 7.3 s       | 7.6 s      | 12 ms and 66 ms                   |
+| The largest document: 8 scenarios of 200 runs, 40 actors, 12 rounds            | 1,601          | 762           | 4.6 s       | 4.8 s      | 4 ms and 99 ms (before: 327 ms)   |
+
+- **Every run is checked once, not every time.** A specification used to be validated on each of its
+  runs, which for a real cast (whose actors carry quoted passages) cost more than the run itself. Run
+  alternately in one process, so that both saw the same load, 300 runs of the Copilot in Teams cast took
+  2.40 ms a run validated every time and 1.09 ms validated once (2.2 times faster), and the e-commerce
+  cast 1.46 ms and 0.60 ms (2.4 times), with identical outcomes (a test compares them). The screen's
+  estimate (about 2 to 3 ms a run for the typical cast) is measured on the simulator alone and is
+  therefore a safe over-estimate for these casts. The rows above were not measured at one load, so
+  they are not comparable with one another except in their order of magnitude.
+- **The event loop is never held for long.** Runs yield between each other, so what remains is what a
+  comparison does once the last run is done. For the largest document that was one stretch of about
+  440 ms (the findings, each scenario's summaries and the check of the document's size, which wrote out
+  an 11.6 MB string to learn that it was too large) and held `/api/health` for 260 to 330 ms. The finish
+  now takes a turn before the findings, between the scenarios and before the document is assembled,
+  and measures the runs one at a time until the budget is passed: the slowest answer in that run fell to
+  99 ms (217 ms in the first run after the server started, while the code was still cold).
+- **What an answer to `/api/health` is measured against.** Under 500 ms is the target for a request made
+  while a comparison runs; it was met in every row above, and in the browser test of the stage, which
+  asks twenty times while a 7,800-member comparison runs.
+
 ## What these numbers do not show
 
 - Speed on other hardware, under load from a server, or with many runs in parallel. The simulator is
   single-threaded and holds no shared state, so runs can be spread over workers, but that was not
   measured.
-- The cost of what surrounds a run in an analysis (comparing variants, findings, sensitivity, storing
-  results).
+- The cost of what surrounds a run in an analysis is measured above for six casts on one machine, not
+  for a server that is serving several people at once.
 - Any property of the results. The benchmark checks nothing about what the simulator says; the tests do.

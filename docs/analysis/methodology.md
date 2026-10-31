@@ -14,10 +14,16 @@ none is a probability that something will happen.
 ## What a comparison does
 
 1. **Scenarios.** `variants: 'auto'` is a baseline (intensity 0), the "Proposed change" (intensity 0.7,
-   landing in round 2) and one scenario for each alternative the project's scenario names (intensity
-   0.5, round 2). How strongly a change lands is not stated by the scenario, so these intensities are
-   system assumptions; each description says so, and a person can edit them before running. When they
-   do, the description is rewritten to say that the intensity "was set by you".
+   landing in round 2) and one scenario for each alternative the project's scenario names (round 2).
+   How strongly a change lands is not stated by the scenario, so these intensities are system
+   assumptions; each description says so, and a person can edit them before running. An alternative that
+   states the same kind of amount as the proposed change in other numbers ("increased by $0.50" or "by
+   $2" against "by $1", or two stated values against two) lands in proportion to it: 0.7 times the ratio
+   of the amounts, at most 1, so that a larger version is never milder than the change it enlarges. Any
+   other alternative, which states nothing comparable, has the middling intensity 0.5. Either way the
+   description says how the intensity was reached. When a person edits an intensity or a round, or adds a
+   scenario of their own, the description is rewritten from the values they gave to say that the
+   intensity "was set by you".
 2. **Seeds.** Run `i` of every scenario uses the seed `baseSeed + i`. The same seeds are used for every
    scenario, so the runs can be paired: a run of the change shares its randomness with the run of the
    baseline that has the same seed, and a difference between them is the effect of the change and not
@@ -137,8 +143,9 @@ seed (common random numbers). What is moved:
 - for the two most influential cohorts, how varied their members are (the spread of every trait,
   doubled and halved).
 
-The headline measure is **the overall share of simulated members ending in switch or resist**, each
-actor weighted equally. For each move: `shift` is the mean over the seeds of (perturbed − unperturbed),
+The headline measure is **the overall simulated share of members ending in switch or resist**, each
+actor weighted equally (the screen, the critics and the brief name it "Simulated share of members
+ending in switch or resist (each actor counts equally)"). For each move: `shift` is the mean over the seeds of (perturbed − unperturbed),
 and `standardError` is the standard deviation of those paired differences divided by √n.
 
 | Class                  | When                                                         |
@@ -248,24 +255,33 @@ occurred.
 
 ## Limits, storage and failure
 
-| Limit                            | Value                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Seeded runs for each scenario    | 3 to 200 (10, 30 or 100 in the screen)                                                                  |
-| Scenarios                        | 2 to 8: exactly one baseline and at least one alternative                                               |
-| Rounds                           | 3 to 36; 12 unless the request says otherwise                                                           |
-| Simulated runs in one comparison | 2,400 at most, sensitivity included; a larger request is refused with a message saying how to shrink it |
-| Comparisons running              | one for a project, two for the server                                                                   |
-| Comparisons started              | 6 a minute (the rate limit of the route)                                                                |
-| Comparisons kept for a project   | 12; the oldest finished ones are removed beyond that                                                    |
+| Limit                            | Value                                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Seeded runs for each scenario    | 3 to 200 (10, 30 or 100 in the screen)                                                                   |
+| Scenarios                        | 2 to 8: exactly one baseline and at least one alternative                                                |
+| Rounds                           | 3 to 36; 12 unless the request says otherwise                                                            |
+| Simulated runs in one comparison | 2,400 at most, sensitivity included; a larger request is refused with a message saying how to shrink it  |
+| Comparisons running              | one for a project, two for the server                                                                    |
+| Comparisons started              | 6 a minute (the rate limit of the route)                                                                 |
+| Comparisons kept for a project   | 12; the oldest finished ones are removed beyond that, except the one the stored brief or review rests on |
 
 A comparison runs in the server process after the answer to the request is sent, gives the event loop
-a turn after every run, and saves its progress every few runs. It can be stopped between runs. Statuses:
+a turn after every run and between the stretches in which it puts its results together (the findings,
+each scenario's summaries, the check of the document's size), and saves its progress every few runs. On
+the largest document the limits allow (8 scenarios of 200 runs of a 40-actor cast) the longest the
+event loop was held fell from about 330 ms to about 100 ms, and `GET /api/health` answered in under
+100 ms throughout a run (see [engine-benchmark.md](engine-benchmark.md)). Each specification is
+validated once and run on all its seeds. A request outside the limits is refused with the limit in a
+sentence (`400 INVALID_INPUT`), never with the schema's own words. It can be stopped between runs. Statuses:
 `running`, `completed`, `cancelled` (stopped by a person; nothing is shown from a partial comparison,
 because its scenarios would not all have the same seeds), `failed` (with the reason) and `interrupted`.
 
 When the server starts, every comparison still marked `running` or `queued` is marked `interrupted`, and
 a server that is stopping marks what it is running the same way. An interrupted comparison says that it
-can be reproduced exactly from its seeds and can be run again with the same settings. This assumes a
+can be reproduced exactly from its seeds and can be run again with the same settings. A page that is
+open when the server stops keeps trying to read the comparison, a little later each time (2, 4, 8 and then
+every 15 seconds), says meanwhile that the progress cannot be read, and shows the interrupted comparison
+as soon as the server answers, without a reload. This assumes a
 single server instance, as in [ADR 0009](../adr/0009-postgres-through-a-synchronous-bridge.md): a
 second instance starting would mark the other's running comparison as interrupted.
 
