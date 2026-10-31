@@ -379,28 +379,48 @@ export async function findStakeholders(page: Page): Promise<void> {
   await expect(panel.getByText(/\d+ stakeholders? \(\d+ key\)/u)).toBeVisible();
 }
 
+/** Opens the list of stakeholders or the list of actors, which the panel keeps shut until it is asked. */
+export async function openRegion(page: Page, region: 'Stakeholders' | 'Actors'): Promise<void> {
+  const toggle = stakeholderPanel(page).getByRole('button', {
+    name: new RegExp(`^${region} \\d+$`, 'u'),
+    expanded: false,
+  });
+  if (await toggle.count()) await toggle.click();
+}
+
+/** A stakeholder's row, opened: its evidence, its assumptions and what can be done to it are inside. */
+export async function openStakeholder(page: Page, name: string): Promise<Locator> {
+  await openRegion(page, 'Stakeholders');
+  const row = stakeholderPanel(page).getByRole('listitem', { name, exact: true });
+  const closed = row.getByRole('button', { name, exact: true, expanded: false });
+  if (await closed.count()) await closed.click();
+  return row;
+}
+
 export async function editStakeholder(
   page: Page,
   name: string,
   change: { why: string; direction: 'harmed' | 'benefited' | 'mixed'; because: string },
 ): Promise<void> {
   const panel = stakeholderPanel(page);
-  await panel.getByRole('button', { name: `Edit ${name}`, exact: true }).click();
+  const row = await openStakeholder(page, name);
+  await row.getByRole('button', { name: `Edit ${name}`, exact: true }).click();
   const form = panel.getByRole('form', { name: `Edit ${name}` });
   await form.getByLabel('Why they matter here').fill(change.why);
   await form.getByLabel('How the change lands on them').selectOption(change.direction);
   await form.getByLabel('Why you think so').fill(change.because);
   await form.getByRole('button', { name: 'Save changes' }).click();
   await expect(form).toBeHidden();
-  await expect(
-    panel.getByRole('listitem', { name, exact: true }).getByText(change.why),
-  ).toBeVisible();
+  await expect(row.getByText(change.why).first()).toBeVisible();
 }
 
 export async function approveAndMakeActors(page: Page): Promise<void> {
   const panel = stakeholderPanel(page);
   await panel.getByRole('button', { name: 'Approve stakeholders and create actors' }).click();
-  await expect(panel.getByRole('region', { name: 'Approval' })).toContainText('Approved');
+  await expect(panel.getByRole('list', { name: 'Summary of the stakeholders' })).toContainText(
+    /\d+ approved/u,
+  );
+  await panel.getByRole('button', { name: /^Review the \d+ actors$/u }).click();
   await expect(panel.getByRole('region', { name: 'Actors' })).toBeVisible();
 }
 

@@ -32,7 +32,9 @@ import {
   kindsOfCall,
   liveStakeholders,
   openReport,
+  openRegion,
   openStage,
+  openStakeholder,
   pasteSource,
   pipelineCalls,
   questionField,
@@ -177,8 +179,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
       // The evidence is in the page: one stakeholder's quotes are opened and read there.
       const first = cited[0]!;
-      const row = panel.getByRole('listitem', { name: first.name, exact: true });
-      await row.getByText(/^Evidence \(\d+\)/u).click();
+      const row = await openStakeholder(page, first.name);
       await expect(row.locator('blockquote').first()).toBeVisible();
 
       // What the person said in the scenario is a stakeholder of its own, and says where it came from.
@@ -213,7 +214,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     const mine = cast.find((actor) => actor.stakeholderId === edited.id);
     expect(mine?.traits.impact.origin, 'the person set this actor’s impact').toBe('user');
     expect(mine?.traits.impact.value).toBeLessThan(0);
-    await expect(panel.getByRole('article', { name: edited.name, exact: true })).toBeVisible();
+    await expect(panel.getByRole('listitem', { name: edited.name, exact: true })).toBeVisible();
   });
 
   await test.step('comparison: the baseline, the proposed change, an alternative and an intervention', async () => {
@@ -439,6 +440,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
     await openStage(page, /Env Setup/u);
     await expect(stakeholderPanel(page)).toContainText(/1 edited by you/u);
+    await openRegion(page, 'Actors');
     await expect(stakeholderPanel(page).getByRole('region', { name: 'Actors' })).toBeVisible();
     await openStage(page, /Simulation/u);
     await expect(
@@ -727,13 +729,11 @@ test.describe('a public web page as evidence', () => {
     const project = await build(page);
     await openStage(page, /Env Setup/u);
     await findStakeholders(page);
-    const panel = stakeholderPanel(page);
     const quoted = liveStakeholders(await stakeholdersOf(page, project)).find((stakeholder) =>
       stakeholder.evidence.some((reference) => (reference.quote ?? '').includes('<img')),
     );
     expect(quoted, 'a stakeholder quoted from the sentence that has markup in it').toBeDefined();
-    const row = panel.getByRole('listitem', { name: quoted?.name ?? '', exact: true });
-    await row.getByText(/^Evidence \(\d+\)/u).click();
+    const row = await openStakeholder(page, quoted?.name ?? '');
     await expect(
       row.locator('blockquote').filter({ hasText: '<img src=x onerror=' }),
     ).toBeVisible();
