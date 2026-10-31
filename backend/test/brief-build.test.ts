@@ -9,7 +9,7 @@ import {
   type DecisionBrief,
   type StatementOrigin,
 } from '../../shared/brief.js';
-import { analysisFixture, actorFixture } from '../../shared/lab-fixtures.js';
+import { analysisFixture, actorFixture, scenarioFixture } from '../../shared/lab-fixtures.js';
 import { stakeholderSchema, type Actor } from '../../shared/stakeholders.js';
 import { buildBrief } from '../src/brief/build.js';
 import { lintBrief } from '../src/brief/lint.js';
@@ -313,6 +313,50 @@ describe('where each source came from', () => {
     const text = textOf(buildBrief(baseInputs()), 'evidence-base');
     expect(text).toContain('Conflicts between the sources were not checked');
     expect(text).toContain('No source document is attached');
+  });
+});
+
+describe('the scenario', () => {
+  const asked = (field: string, message: string) => ({ field, message, question: `${message}?` });
+  const openPoints = (brief: DecisionBrief) =>
+    sectionOf(brief, 'decision')
+      .statements.filter((statement) => statement.text.startsWith('Open point in the scenario'))
+      .map((statement) => statement.text);
+
+  it('lists a question the reading left open only while the scenario still leaves it open', () => {
+    const scenario = scenarioFixture({
+      horizon: null,
+      geography: null,
+      likelyStakeholders: [],
+      ambiguities: [
+        asked('horizon', 'The question does not say over what period to look'),
+        asked('likelyStakeholders', 'The question does not name the groups that are affected'),
+        asked('success', 'The question does not say how a good outcome would be judged'),
+      ],
+    });
+    const open = openPoints(buildBrief(baseInputs({ scenario })));
+    expect(open).toHaveLength(3);
+
+    // The person wrote a period and a group into the scenario instead of answering the questions.
+    const filled = {
+      ...scenario,
+      horizon: 'the first twelve months',
+      likelyStakeholders: ['Staff'],
+    };
+    const left = openPoints(buildBrief(baseInputs({ scenario: filled })));
+    expect(left).toHaveLength(1);
+    expect(left[0]).toContain('how a good outcome would be judged');
+    expect(textOf(buildBrief(baseInputs({ scenario: filled })), 'decision')).toContain(
+      'horizon “the first twelve months”',
+    );
+  });
+
+  it('understands a model’s own name for the field a question was about', () => {
+    const scenario = scenarioFixture({
+      horizon: 'The next two quarters',
+      ambiguities: [asked('time horizon', 'The question does not say over what period to look')],
+    });
+    expect(openPoints(buildBrief(baseInputs({ scenario })))).toEqual([]);
   });
 });
 

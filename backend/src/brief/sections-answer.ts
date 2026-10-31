@@ -1,6 +1,7 @@
 import type { BriefRefs, BriefSection, BriefSignal } from '../../../shared/brief.js';
 import { isSetByPerson } from '../../../shared/analysis-plan.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
+import { canonicalField, type ScenarioFrame } from '../../../shared/scenario.js';
 import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { STAKEHOLDER_CATEGORY_LABELS } from '../../../shared/stakeholders.js';
 import { effectOf } from './assumptions.js';
@@ -199,6 +200,32 @@ export function executiveAnswer(
   };
 }
 
+/**
+ * Whether the person has filled in, in the scenario itself, what a question back was about. The
+ * reading asks it of the question, and a person who then writes the answer into the field has
+ * settled it: listing it as an open point beside the answer would contradict the scenario.
+ */
+function filledIn(scenario: ScenarioFrame, field: string): boolean {
+  const written = (value: string | null): boolean => (value ?? '').trim() !== '';
+  const groups = scenario.likelyStakeholders.some((group) => written(group));
+  switch (canonicalField(field)) {
+    case 'horizon':
+      return written(scenario.horizon);
+    case 'geography':
+      return written(scenario.geography);
+    case 'likelyStakeholders':
+      return groups;
+    case 'system':
+      return written(scenario.system) || groups;
+    case 'requestedDecision':
+      return written(scenario.requestedDecision);
+    case 'desiredOutput':
+      return written(scenario.desiredOutput);
+    default:
+      return false;
+  }
+}
+
 export function decision(facts: Facts, tally: Tally): BriefSection {
   const writer = sectionWriter('decision', tally);
   const { scenario, inputs } = facts;
@@ -265,7 +292,8 @@ export function decision(facts: Facts, tally: Tally): BriefSection {
         },
       });
     }
-    for (const ambiguity of scenario.ambiguities.slice(0, 5)) {
+    const open = scenario.ambiguities.filter((ambiguity) => !filledIn(scenario, ambiguity.field));
+    for (const ambiguity of open.slice(0, 5)) {
       writer.add({
         origin: 'unresolved-uncertainty',
         text: `Open point in the scenario, ${embed(ambiguity.field, 60)}: ${embed(ambiguity.message, 240)}${ambiguity.question ? ` To settle it: ${embed(ambiguity.question, 160)}` : ''}`,
