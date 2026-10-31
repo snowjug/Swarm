@@ -329,6 +329,11 @@ for (const id of PACKS) {
 
     await test.step('approves and makes the actors, says so, and keeps the person where they were', async () => {
       const before = await counts(page);
+      // The review has the whole width, and approving does not move the page to another view.
+      const workbench = page
+        .getByRole('group', { name: 'Console view' })
+        .getByRole('button', { name: 'Workbench' });
+      await expect(workbench).toHaveAttribute('aria-pressed', 'true');
       await panel(page)
         .getByRole('button', { name: 'Approve stakeholders and create actors' })
         .click();
@@ -336,6 +341,11 @@ for (const id of PACKS) {
         panel(page).getByRole('button', { name: /^Review the \d+ actors$/u }),
       ).toBeFocused();
       await expect(panel(page).getByRole('status').filter({ hasText: 'Approved.' })).toBeAttached();
+      // The page reads the project again, and the next step says the actors are there.
+      await expect(page.getByRole('group', { name: 'Next step' })).toContainText(
+        'The simulated actors are ready',
+      );
+      await expect(workbench).toHaveAttribute('aria-pressed', 'true');
       const after = await counts(page);
       expect(after.approved).toBe(before.found);
       expect(after.needReview).toBe(0);
