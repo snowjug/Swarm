@@ -39,7 +39,7 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       const mode = page.getByRole('radio', { name: /Model assisted/ });
       await expect(mode).toBeEnabled();
       await mode.check();
-      await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+      await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
       await page.getByRole('spinbutton', { name: 'Fictional proxies' }).fill(String(PROXIES));
       await page.getByRole('spinbutton', { name: 'Rounds / platform' }).fill(String(ROUNDS));
     });

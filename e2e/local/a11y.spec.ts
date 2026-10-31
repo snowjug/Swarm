@@ -59,7 +59,7 @@ for (const viewport of viewports) {
       await page.getByRole('button', { name: 'Build Graph', exact: true }).click();
       await expect(page.getByText('Cannot build this project')).toBeVisible();
       await expectNoAxeViolations(page, 'entry validation error');
-      await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+      await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
       await expectNoAxeViolations(page, 'entry filled');
     });
 

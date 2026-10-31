@@ -99,7 +99,7 @@ test.describe('error conditions are specific, actionable, and never create misle
       });
     });
     await page.goto('/');
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.getByRole('button', { name: 'Build Graph', exact: true }).click();
     await expect(page.getByText('Operation not confirmed')).toBeVisible();
     await expect(page.getByText(/Too many requests/).first()).toBeVisible();
@@ -124,7 +124,7 @@ test.describe('error conditions are specific, actionable, and never create misle
     const api = await apiContext(playwright);
     const before = (await listProjects(api)).length;
     await page.goto('/');
-    await page.getByRole('button', { name: 'Load fictional starter input' }).click();
+    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
     await page.getByRole('button', { name: 'Build Graph', exact: true }).dblclick();
     await expect(page.getByRole('button', { name: /Prepare environment/ })).toBeVisible();
     expect((await listProjects(api)).length).toBe(before + 1);
