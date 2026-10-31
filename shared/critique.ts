@@ -89,5 +89,40 @@ export const critiqueSetSchema = z.object({
   generatedAt: z.iso.datetime(),
   mode: z.enum(['rules', 'model', 'both']),
   critiques: z.array(critiqueSchema).max(120),
+  /** What a person should know about how this set was made: a model review that failed, an input that was missing. */
+  notes: z.array(line(400)).max(10).optional(),
 });
 export type CritiqueSet = z.infer<typeof critiqueSetSchema>;
+
+/** What a person can say to a critique. `accepted` means the objection stands and its impact applies. */
+export const CRITIQUE_RESPONSE_STATUSES = ['responded', 'accepted', 'disputed'] as const;
+export type CritiqueResponseStatus = (typeof CRITIQUE_RESPONSE_STATUSES)[number];
+
+export const critiqueResponseInputSchema = z
+  .object({
+    text: line(800).min(1),
+    status: z.enum(CRITIQUE_RESPONSE_STATUSES),
+    remainingDisagreement: line(600).nullable().optional(),
+  })
+  .strict();
+export type CritiqueResponseInput = z.input<typeof critiqueResponseInputSchema>;
+export type CritiqueResponseBody = z.output<typeof critiqueResponseInputSchema>;
+
+/** Without `analysisId` the newest finished analysis is reviewed. */
+export const runCritiquesInputSchema = z
+  .object({
+    analysisId: idSchema.optional(),
+    useModel: z.boolean().default(false),
+  })
+  .strict();
+export type RunCritiquesInput = z.input<typeof runCritiquesInputSchema>;
+export type RunCritiquesBody = z.output<typeof runCritiquesInputSchema>;
+
+/** What the page needs to show the independent review and to know what the caller may do with it. */
+export interface CritiquesView {
+  critiques: CritiqueSet | null;
+  /** The newest finished analysis, so that a review of an older one can be called out of date. */
+  analysis: { id: string; completedAt: string | null } | null;
+  may: { run: boolean; respond: boolean };
+  model: { available: boolean };
+}

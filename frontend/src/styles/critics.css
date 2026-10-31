@@ -1,1 +1,278 @@
-/* Independent review of the analysis. Owned by one feature; use the theme tokens, never raw colours. */
+/* Independent review of the analysis. Colour comes only from theme variables that the verdict chips
+   already use, and every severity and status is also said in words and with a glyph of its own. */
+.critic-panel {
+  min-width: 0;
+}
+.critic-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.critic-intro {
+  max-width: 78ch;
+  color: var(--muted);
+}
+.critic-run,
+.critic-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+.critic-run h3,
+.critic-summary h3 {
+  font-size: 15px;
+}
+.critic-run p {
+  max-width: 78ch;
+}
+.critic-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.critic-check label {
+  font-weight: 600;
+}
+.critic-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+.critic-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.critic-counts li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.critic-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.critic-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--chip-line);
+  border-radius: 999px;
+  background: var(--chip-tint);
+  color: var(--chip-color);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.critic-chip-blocking {
+  --chip-color: var(--verdict-contradicted);
+  --chip-tint: var(--verdict-contradicted-tint);
+  --chip-line: var(--verdict-contradicted-line);
+}
+.critic-chip-major {
+  --chip-color: var(--verdict-unsupported);
+  --chip-tint: var(--verdict-unsupported-tint);
+  --chip-line: var(--verdict-unsupported-line);
+}
+.critic-chip-minor,
+.critic-chip-status-disputed {
+  --chip-color: var(--verdict-partial);
+  --chip-tint: var(--verdict-partial-tint);
+  --chip-line: var(--verdict-partial-line);
+}
+.critic-chip-note,
+.critic-chip-origin,
+.critic-chip-status-open {
+  --chip-color: var(--verdict-unchecked);
+  --chip-tint: var(--verdict-unchecked-tint);
+  --chip-line: var(--verdict-unchecked-line);
+}
+.critic-chip-status-responded {
+  --chip-color: var(--tone-info);
+  --chip-tint: var(--tone-info-tint);
+  --chip-line: var(--tone-info-line);
+}
+.critic-chip-status-accepted {
+  --chip-color: var(--verdict-supported);
+  --chip-tint: var(--verdict-supported-tint);
+  --chip-line: var(--verdict-supported-line);
+}
+
+.critic-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.critic-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.critic-group-head .eyebrow {
+  flex-basis: 100%;
+}
+.critic-group-head h3 {
+  flex: 1 1 24ch;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.critic-group-count {
+  color: var(--muted);
+  font-size: 12px;
+}
+.critic-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.critic-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 6px;
+  background: var(--panel);
+}
+.critic-blocking {
+  border-left-color: var(--verdict-contradicted);
+}
+.critic-major {
+  border-left-color: var(--verdict-unsupported);
+}
+.critic-minor {
+  border-left-color: var(--verdict-partial);
+}
+.critic-note {
+  border-left-color: var(--verdict-unchecked);
+}
+.critic-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+.critic-card-head h4 {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.critic-objection {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.critic-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.critic-facts > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.critic-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.critic-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.critic-basis,
+.critic-evidence {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+.critic-evidence {
+  padding-left: 0;
+  list-style: none;
+}
+.critic-quote {
+  margin: 4px 0 0;
+  padding: 4px 10px;
+  border-left: 3px solid var(--border);
+  background: var(--verdict-unchecked-tint);
+  color: var(--text);
+}
+.critic-facts > .critic-impact,
+.critic-facts > .critic-remaining {
+  padding: 8px 10px;
+  border: 1px solid var(--verdict-unchecked-line);
+  border-radius: 4px;
+  background: var(--verdict-unchecked-tint);
+  color: var(--text);
+}
+.critic-facts > .critic-impact dt,
+.critic-facts > .critic-remaining dt {
+  color: var(--text);
+}
+.critic-facts > .critic-impact-accepted {
+  border-color: var(--verdict-unsupported-line);
+  background: var(--verdict-unsupported-tint);
+}
+.critic-facts > .critic-impact-disputed,
+.critic-facts > .critic-remaining {
+  border-color: var(--tone-info-line);
+  background: var(--tone-info-tint);
+}
+
+.critic-answer summary,
+.critic-explain summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  color: var(--orange);
+  font-weight: 600;
+  cursor: pointer;
+}
+.critic-explain {
+  display: grid;
+  gap: 8px;
+}
+.critic-explain p {
+  max-width: 78ch;
+}
+.critic-form {
+  display: grid;
+  gap: 10px;
+  padding-top: 8px;
+}
+.critic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .critic-run,
+  .critic-summary,
+  .critic-card {
+    padding: 10px 12px;
+  }
+}
