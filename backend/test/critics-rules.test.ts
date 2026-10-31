@@ -379,6 +379,60 @@ const CASES: Case[] = [
     expected: none,
   },
   {
+    name: 'assumption: a direction read from a passage that is still cited is confirmed, whatever the size rests on',
+    edit: (i) =>
+      withTrait(i, 'subscribers', 'impact', {
+        origin: 'system-assumption',
+        direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+      }),
+    expected: none,
+  },
+  {
+    name: 'assumption: a direction labelled as read from a passage that nobody cites now is not confirmed',
+    edit: (i) =>
+      withStakeholder(
+        withTrait(i, 'subscribers', 'impact', {
+          origin: 'system-assumption',
+          direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+        }),
+        'subscribers',
+        { evidence: [] },
+      ),
+    expected: {
+      'evidence-uncited-stakeholders': ['evidence', 'minor'],
+      'assumption-unconfirmed-impact': ['assumption', 'minor'],
+    },
+  },
+  {
+    name: 'assumption: a sensitive impact whose direction rests on a cited passage is still an unevidenced number',
+    edit: (i) =>
+      withRows(
+        withTrait(i, 'subscribers', 'impact', {
+          origin: 'system-assumption',
+          direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+        }),
+        [
+          row({
+            id: 'impact-down',
+            target: { kind: 'trait', actorId: 'subscribers', trait: 'impact' },
+            label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+          }),
+        ],
+      ),
+    expected: { 'assumption-sensitive-impact-down': ['assumption', 'major'] },
+  },
+  {
+    name: 'assumption: a sensitive assumption labelled evidence is not backed once nobody cites a passage for the actor',
+    edit: (i) =>
+      withStakeholder(withRows(i, [row({ assumptionOrigin: 'evidence' })]), 'subscribers', {
+        evidence: [],
+      }),
+    expected: {
+      'evidence-uncited-stakeholders': ['evidence', 'minor'],
+      'assumption-sensitive-s1': ['assumption', 'major'],
+    },
+  },
+  {
     name: 'assumption: the change is judged about the same as no change although actors have a direction',
     edit: (i) => withNoDifference(i),
     expected: { 'assumption-no-registered-effect': ['assumption', 'major'] },
@@ -1021,6 +1075,31 @@ describe('what the critics quote', () => {
     };
     const found = raise(conflicted).find((c) => c.id === 'evidence-open-conflicts');
     expect(found?.evidence.length).toBe(5);
+  });
+
+  it('says that a cited passage gives an impact its direction and not its size, and names a direction whose passages are gone', () => {
+    const base = withTrait(cleanInput(), 'subscribers', 'impact', {
+      origin: 'system-assumption',
+      direction: { origin: 'evidence', passageIds: ['d2-p2'] },
+    });
+    const moved = row({
+      id: 'impact-down',
+      target: { kind: 'trait', actorId: 'subscribers', trait: 'impact' },
+      label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+    });
+    const size = raise(withRows(base, [moved])).find(
+      (c) => c.id === 'assumption-sensitive-impact-down',
+    );
+    expect(size?.objection).toContain('the size of that impact is a system default');
+    expect(size?.basis.join(' ')).toContain(
+      'Its direction rests on a passage that is still cited; its size does not.',
+    );
+    const gone = raise(withStakeholder(base, 'subscribers', { evidence: [] })).find(
+      (c) => c.id === 'assumption-unconfirmed-impact',
+    );
+    expect(gone?.basis.join(' ')).toContain(
+      'Labelled as read from cited passages, but none is cited for them now: Subscribers.',
+    );
   });
 
   it('names the assumption whose plausible change closes the gap, with the runner-up', () => {

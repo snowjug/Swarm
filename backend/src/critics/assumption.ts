@@ -1,7 +1,14 @@
 import type { SensitivityRow } from '../../../shared/analysis.js';
 import type { Critique } from '../../../shared/critique.js';
+import type { EvidenceRef } from '../../../shared/evidence.js';
 import { changeCanMoveAnyone } from '../../../shared/signal.js';
-import { TRAIT_KEYS, type Actor, type TraitKey } from '../../../shared/stakeholders.js';
+import {
+  TRAIT_KEYS,
+  directionOrigin,
+  type Actor,
+  type TraitKey,
+  type TraitOrigin,
+} from '../../../shared/stakeholders.js';
 import { affectedBy, impactUnder } from './direction.js';
 import { draft, fixed, level, names, plural, signed, stableId, whole, words } from './text.js';
 import type { Resolved, RoleCritic } from './types.js';
@@ -17,31 +24,76 @@ const ORIGIN_PHRASE: Record<SensitivityRow['assumptionOrigin'], string> = {
   evidence: 'a value taken from cited evidence',
 };
 
+/** What an actor's stakeholder cites now, or what the actor itself cites when no stakeholders were recorded. */
+function citedNow(input: Resolved, actor: Actor): EvidenceRef[] {
+  const stakeholder = input.stakeholders?.stakeholders.find(
+    (candidate) => candidate.id === actor.stakeholderId,
+  );
+  return stakeholder ? stakeholder.evidence : actor.evidence;
+}
+
+const supportedNow = (input: Resolved, actor: Actor): boolean =>
+  citedNow(input, actor).some((ref) => ref.role === 'supports');
+
+/**
+ * What the direction of an actor's impact rests on today. A label of evidence is a claim about
+ * passages, so it is checked against what the actor's stakeholder cites now, not against the label it
+ * was saved with: once no passage is cited, the direction is an assumption.
+ */
+function directionNow(input: Resolved, actor: Actor): { origin: TraitOrigin; lost: boolean } {
+  const claimed = directionOrigin(actor.traits.impact);
+  if (claimed !== 'evidence') return { origin: claimed, lost: false };
+  return supportedNow(input, actor)
+    ? { origin: 'evidence', lost: false }
+    : { origin: 'system-assumption', lost: true };
+}
+
+/** Where a moved assumption came from: a label of evidence stands only while a passage is cited for the actor. */
+function originOfRow(input: Resolved, row: SensitivityRow): SensitivityRow['assumptionOrigin'] {
+  if (row.assumptionOrigin !== 'evidence' || row.target.kind !== 'trait') {
+    return row.assumptionOrigin;
+  }
+  const actor = input.actors.actors.find((candidate) => candidate.id === row.target.actorId);
+  return actor && !supportedNow(input, actor) ? 'system-assumption' : 'evidence';
+}
+
 function sensitiveAssumptions(input: Resolved): Critique[] {
-  return input.analysis.sensitivity
-    .filter(
-      (row) => row.classification === 'assumption-sensitive' && row.assumptionOrigin !== 'evidence',
-    )
-    .map((row) => {
-      const unsupported = row.assumptionOrigin === 'system-assumption';
-      return draft(input.now, {
+  return input.analysis.sensitivity.flatMap((row) => {
+    const origin = originOfRow(input, row);
+    if (row.classification !== 'assumption-sensitive' || origin === 'evidence') return [];
+    const unsupported = origin === 'system-assumption';
+    const actor =
+      row.target.trait === 'impact'
+        ? input.actors.actors.find((candidate) => candidate.id === row.target.actorId)
+        : undefined;
+    // A cited passage can show which way an impact points, but none gives its size.
+    const sizeOnly =
+      unsupported && actor !== undefined && directionNow(input, actor).origin === 'evidence';
+    return [
+      draft(input.now, {
         id: stableId('assumption-sensitive', row.id),
         role: ROLE,
         target: { kind: 'assumption', id: row.id },
         severity: unsupported ? 'major' : 'minor',
-        objection: unsupported
-          ? `The result moves when "${row.label}" is changed, and nothing supports that assumption: it is a system assumption with no evidence.`
-          : `The result moves when "${row.label}" is changed, and the value rests on ${ORIGIN_PHRASE[row.assumptionOrigin]}.`,
+        objection: sizeOnly
+          ? `The result moves when "${row.label}" is changed, and the size of that impact is a system default: a cited passage may show which way it points, but none gives a number.`
+          : unsupported
+            ? `The result moves when "${row.label}" is changed, and nothing supports that assumption: it is a system assumption with no evidence.`
+            : `The result moves when "${row.label}" is changed, and the value rests on ${ORIGIN_PHRASE[origin]}.`,
         basis: [
           `Tested: ${row.label} (change of ${signed(row.perturbation)}).`,
           `Headline measure: ${row.metric}; shift ${signed(row.shift)} with standard error ${fixed(row.standardError)}, from a base of ${fixed(row.baseMean)}.`,
-          `Origin of the assumption: ${row.assumptionOrigin}.`,
+          `Origin of the assumption: ${origin}.`,
+          ...(sizeOnly
+            ? ['Its direction rests on a passage that is still cited; its size does not.']
+            : []),
         ],
         impact: unsupported
           ? 'If this stands, the headline result is only as good as one unevidenced number; present it as conditional on that number until it is checked.'
           : 'If this stands, the headline result depends on a value nobody has backed with evidence; say so wherever the result is used.',
-      });
-    });
+      }),
+    ];
+  });
 }
 
 interface DefaultedActor {
@@ -157,13 +209,15 @@ function noRegisteredEffect(input: Resolved): Critique[] {
 
 function unconfirmedImpact(input: Resolved): Critique[] {
   const actors = input.actors.actors;
-  const unconfirmed = actors.filter((actor) => {
-    const { origin, value } = actor.traits.impact;
-    return (origin === 'system-assumption' || origin === 'model') && value !== 0;
+  const unconfirmed = actors.flatMap((actor) => {
+    const basis = directionNow(input, actor);
+    const open = basis.origin === 'system-assumption' || basis.origin === 'model';
+    return open && actor.traits.impact.value !== 0 ? [{ actor, lost: basis.lost }] : [];
   });
   if (unconfirmed.length === 0) return [];
-  const key = unconfirmed.filter((actor) => actor.kind === 'key').length;
+  const key = unconfirmed.filter(({ actor }) => actor.kind === 'key').length;
   const keyTotal = actors.filter((actor) => actor.kind === 'key').length;
+  const lost = unconfirmed.filter((entry) => entry.lost).map(({ actor }) => actor.name);
   return [
     draft(input.now, {
       id: 'assumption-unconfirmed-impact',
@@ -172,9 +226,14 @@ function unconfirmedImpact(input: Resolved): Critique[] {
       severity: key > 0 ? 'major' : 'minor',
       objection: `${unconfirmed.length} of ${actors.length} actors have an impact direction, harmed or benefited, that no person confirmed and no evidence supports, and it decides which way each of them moves.`,
       basis: [
-        `Direction not confirmed: ${names(unconfirmed.map((actor) => `${actor.name} (${actor.traits.impact.value < 0 ? 'harmed' : 'benefited'})`))}.`,
+        `Direction not confirmed: ${names(unconfirmed.map(({ actor }) => `${actor.name} (${actor.traits.impact.value < 0 ? 'harmed' : 'benefited'})`))}.`,
         `Key actors among them: ${key} of ${keyTotal}.`,
-        'Confirmed means set by a person or taken from cited evidence.',
+        'Confirmed means set by a person or read from a passage that is still cited; the size of an impact is a separate assumption and is not confirmed by either.',
+        ...(lost.length > 0
+          ? [
+              `Labelled as read from cited passages, but none is cited for them now: ${names(lost)}.`,
+            ]
+          : []),
       ],
       impact:
         'If this stands, the direction of the results could reverse if one of these signs is wrong; confirm the signs before relying on the direction.',
