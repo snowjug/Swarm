@@ -59,6 +59,12 @@ export interface AnalysisHooks {
 /** Leaves room beneath the artifact limit for what the document carries besides the runs. */
 export const SIZE_BUDGET_BYTES = Math.floor(MAX_ARTIFACT_BYTES * 0.9);
 
+export const FIDELITY_LABEL = 'Rules: outcomes follow from the declared assumptions';
+export const RULES_CAVEATS = [
+  'Outcomes are a mechanical consequence of the declared assumptions; no model decided any actor’s behaviour.',
+  'Run-to-run variation of a model is not measured.',
+] as const;
+
 const DETAIL_DROPPED =
   'The per-actor results of each individual run were not stored, because the document would be too large; per-actor totals over the runs are kept, and every finding was counted from the full results while the runs were in memory.';
 
@@ -276,9 +282,8 @@ export async function runAnalysis(
     hooks.onProgress?.({ completedRuns, totalRuns: plan.totalRuns });
   };
 
-  const caveats = [
-    'Outcomes are a mechanical consequence of the declared assumptions; no model decided any actor’s behaviour.',
-    'Run-to-run variation of a model is not measured.',
+  const caveats: string[] = [
+    ...RULES_CAVEATS,
     `Each seeded run differs only through the simulator’s own randomness (seeds ${seeds[0]} to ${seeds.at(-1)}, the same for every scenario). Repeatability describes that randomness, not how likely anything is in the world.`,
   ];
   if (inputs.runsPerVariant < 10) {
@@ -310,7 +315,7 @@ export async function runAnalysis(
       cohorts: 'rules',
       repeatedRuns: inputs.runsPerVariant,
       modelRepeats: 0,
-      label: 'Rules: outcomes follow from the declared assumptions',
+      label: FIDELITY_LABEL,
       caveats,
     },
     progress: { completedRuns, totalRuns: plan.totalRuns },

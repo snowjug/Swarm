@@ -459,6 +459,9 @@ describe('identifiers a route accepts outside the path', () => {
 
   it('are exactly the ones that have been looked at', () => {
     expect(uuidFields()).toEqual([
+      // In the path: vouched for by the guard. A comparison is named by `aid`, an id that is not a
+      // UUID, and is only ever looked up inside the project in the path.
+      'analysis.ts: id',
       // In the path: vouched for by the guard.
       'budget.ts: id',
       // In the path: vouched for by the guard.

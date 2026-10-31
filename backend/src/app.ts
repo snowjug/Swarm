@@ -42,6 +42,7 @@ import { guidedRoutes } from './routes/guided.js';
 // [stakeholders imports]
 
 // [analysis imports]
+import { analysisRoutes, type AnalysisServiceOptions } from './routes/analysis.js';
 
 // [critics imports]
 
@@ -67,6 +68,8 @@ export interface AppOptions {
     /** Test hook: the managed identity's client assertion, where there is no managed identity. */
     assertion?: () => Promise<string>;
   };
+  /** Test hook: the simulator and the pacing of the scenario comparisons that run in this process. */
+  analysis?: AnalysisServiceOptions;
   /** Test hook: how the job queue is run (identity, leases, timers), to model several workers or a crash. */
   jobs?: OrchestratorOptions;
 }
@@ -349,6 +352,7 @@ export async function buildApp(options: AppOptions) {
   // [stakeholders routes]
 
   // [analysis routes]
+  analysisRoutes(app, repository, options.analysis ?? {}, config.rateLimitScale);
 
   // [critics routes]
 
