@@ -10,6 +10,9 @@ describe('configuration of reading web pages', () => {
       maxBytes: 1_500_000,
       timeoutMs: 12_000,
       allowedHosts: [],
+      maxConcurrent: 8,
+      queueLength: 8,
+      queueWaitMs: 5_000,
     });
     expect(publicConfig(loadConfig({})).urlIngestion).toBe(true);
   });
@@ -44,7 +47,29 @@ describe('configuration of reading web pages', () => {
       maxBytes: 250_000,
       timeoutMs: 5_000,
       allowedHosts: ['example.com', '*.docs.example.org'],
+      maxConcurrent: 8,
+      queueLength: 8,
+      queueWaitMs: 5_000,
     });
+  });
+
+  it('reads how many pages may be read at once, how many may wait, and for how long', () => {
+    const { urlIngestion } = loadConfig({
+      URL_INGEST_CONCURRENCY: '16',
+      URL_INGEST_QUEUE: '0',
+      URL_INGEST_QUEUE_WAIT_MS: '2500',
+    });
+    expect(urlIngestion).toMatchObject({ maxConcurrent: 16, queueLength: 0, queueWaitMs: 2_500 });
+  });
+
+  it.each([
+    ['URL_INGEST_CONCURRENCY', ['0', '65', '-1', '1.5', 'many']],
+    ['URL_INGEST_QUEUE', ['-1', '65', '1.5', 'many']],
+    ['URL_INGEST_QUEUE_WAIT_MS', ['99', '15001', '-1', '1.5', 'long']],
+  ])('refuses %s outside its bounds, naming it', (name, values) => {
+    for (const value of values) {
+      expect(() => loadConfig({ [name]: value }), `${name}=${value}`).toThrow(name);
+    }
   });
 
   it.each([
@@ -123,6 +148,9 @@ describe('configuration of reading web pages', () => {
       'allowedPorts',
       'enabled',
       'maxBytes',
+      'maxConcurrent',
+      'queueLength',
+      'queueWaitMs',
       'timeoutMs',
     ]);
   });

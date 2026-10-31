@@ -6,6 +6,7 @@ import { AppError } from '../errors.js';
 import { PublicFetcher } from '../ingest/url/fetcher.js';
 import { UrlFailure } from '../ingest/url/failure.js';
 import { ingestUrl } from '../ingest/url/ingest.js';
+import { FetchBusy, FetchLimiter } from '../ingest/url/limiter.js';
 import { FetchRegistry } from '../ingest/url/provenance.js';
 import type { AuditInput } from '../storage/audit.js';
 
@@ -35,6 +36,9 @@ function hostOf(address: string): string | null {
   }
 }
 
+const BUSY =
+  'Too many page fetches are running; try again in a moment. You can paste the text instead.';
+
 /**
  * Runs before a project is created, on the body as it was sent. A document that claims to have been
  * fetched by the server keeps that claim only if this server fetched exactly that text for this
@@ -60,12 +64,17 @@ export function evidenceRoutes(
   fetcher: PublicFetcher = new PublicFetcher(),
   registry: FetchRegistry = new FetchRegistry(),
   record: (input: AuditInput) => void = () => undefined,
+  limiter: FetchLimiter = new FetchLimiter({
+    maxActive: config.urlIngestion.maxConcurrent,
+    maxQueued: config.urlIngestion.queueLength,
+    maxWaitMs: config.urlIngestion.queueWaitMs,
+  }),
 ): void {
   app.decorate('fetchRegistry', registry);
   app.post(
     '/api/evidence/url',
     { bodyLimit: 8_192, config: { rateLimit: { max: 10 * rateScale, timeWindow: '1 minute' } } },
-    async (request) => {
+    async (request, reply) => {
       const settings = config.urlIngestion;
       if (!settings.enabled) {
         throw new AppError(
@@ -76,10 +85,22 @@ export function evidenceRoutes(
       }
       const given = (request.body as { url?: unknown } | null)?.url;
       const address = typeof given === 'string' ? given : '';
+      // A request that waits for a place leaves the line when the person goes. One that has a place
+      // runs to its end, and `run` gives the place back then, however it ends.
+      const gone = new AbortController();
+      const goneIfUnanswered = () => {
+        if (!reply.raw.writableFinished) gone.abort();
+      };
+      reply.raw.once('close', goneIfUnanswered);
       let evidence;
       try {
-        evidence = await ingestUrl(fetcher, address, settings);
+        evidence = await limiter.run(() => ingestUrl(fetcher, address, settings), gone.signal);
       } catch (error) {
+        // Nothing of the address is in the answer, and no one is told whether it would have been read.
+        if (error instanceof FetchBusy) {
+          reply.header('retry-after', String(Math.max(1, Math.ceil(settings.queueWaitMs / 1_000))));
+          throw new AppError(503, 'URL_BUSY', BUSY);
+        }
         // A refusal is the trace of someone probing which addresses the server will reach, so it is
         // kept (the host asked for and the reason, never the path or query); a site that merely
         // failed to answer is not. A name that led inside a network is answered like a missing one,
@@ -99,6 +120,8 @@ export function evidenceRoutes(
           }
         }
         throw error;
+      } finally {
+        reply.raw.off('close', goneIfUnanswered);
       }
       registry.record(scopeOf(principalOf(request)), evidence.document.provenance);
       return evidence;

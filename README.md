@@ -454,6 +454,10 @@ server process and are marked interrupted if it stops). The wider picture is in 
 - **Limited scale.** A comparison is capped at 8 scenarios, 200 runs each and 2,400 runs in all. The
   deep dive takes 4 to 10 model-driven actors over 3 to 10 rounds, and only runs of up to six actors
   and six rounds were exercised live.
+- **The PostgreSQL adapter waits on every query.** Its bridge makes each statement synchronously on the
+  thread that serves requests, so a slow remote database slows every request, and a production
+  deployment needs it replaced by a pooled asynchronous client (a performance review measured project
+  creation about 20 times slower on the in-process PostgreSQL of the tests than on SQLite).
 - **A public page is what it said.** No JavaScript runs, no PDFs, images or sign-in pages are read,
   and Swarm does not know whether a page is true, current or the same for everyone.
 - **Not hosted, and unreviewed.** Sign-in has only met a test provider, PostgreSQL has not met a

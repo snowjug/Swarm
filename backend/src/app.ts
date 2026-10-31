@@ -383,6 +383,9 @@ export async function buildApp(options: AppOptions) {
       prefix: '/',
       dotfiles: 'deny',
       index: false,
+      // `scripts/precompress.mjs` writes a .br and a .gz beside each text asset at build time. The
+      // plugin sends the one the browser accepts, with the original type, and `Vary: Accept-Encoding`.
+      preCompressed: true,
     });
     app.setNotFoundHandler((request, reply) => {
       if (

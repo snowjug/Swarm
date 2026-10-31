@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { ContradictionRecord } from '../../shared/evidence.js';
 import type { EvidenceChunk, SourceDocument } from '../../shared/types.js';
 import {
+  MAX_CANDIDATES_PER_SENTENCE,
   MAX_CONTRADICTIONS,
+  MAX_POSTING_LENGTH,
+  type ContradictionScanStats,
   completeSentences,
   detectContradictions,
   hasNegation,
@@ -517,6 +520,135 @@ describe('detectContradictions', () => {
         '- Fares are capped at 5% in summer',
         'The review follows the budget cycle',
       ]);
+    });
+  });
+});
+
+describe('a scan of a great deal of evidence', () => {
+  const emptyStats = (): ContradictionScanStats => ({
+    sentences: 0,
+    skippedLists: 0,
+    postingVisits: 0,
+    pairsCompared: 0,
+    cappedSentences: 0,
+  });
+
+  /** A name that is one word and different for every number: no stop word, no digit. */
+  const token = (n: number): string => {
+    let name = '';
+    for (let rest = n; rest >= 0; rest = Math.floor(rest / 26) - 1) {
+      name = String.fromCharCode(97 + (rest % 26)) + name;
+    }
+    return `zq${name}`;
+  };
+
+  /** One passage per sentence, so that no two sentences share a passage. */
+  const apart = (sentences: string[]): EvidenceChunk[] =>
+    sentences.map((text, i) => passage(`S${i + 1}`, text));
+
+  /** Sentences that all say the same thing, each with a figure of its own: every one pairs with every other. */
+  const saidAgain = (count: number, family = 'harbour'): string[] =>
+    Array.from(
+      { length: count },
+      (_, i) =>
+        `The ${family} ferry carried ${100_000 + i * 37} passengers across the island route according to the council.`,
+    );
+
+  it('does not read a list of sentences that is longer than the limit allows', () => {
+    const stats = emptyStats();
+    detectContradictions(apart(saidAgain(MAX_POSTING_LENGTH + 100)), NOW, stats);
+    // Every word is held by more sentences than that, so none is used to look for a partner. Read in
+    // full, the lists make 600 sentences compare with each other: about 180,000 pairs.
+    expect(stats.skippedLists).toBeGreaterThan(0);
+    expect(stats.postingVisits).toBe(0);
+    expect(stats.pairsCompared).toBe(0);
+  });
+
+  it('compares a sentence with no more than the limit of its partners', () => {
+    const families = ['alpha', 'bravo', 'charlie', 'delta'];
+    const stats = emptyStats();
+    const sentences = families.flatMap((family) => saidAgain(450, family));
+    detectContradictions(apart(sentences), NOW, stats);
+    // Each family is a list of 450, which is read; the words all families share are not.
+    expect(stats.skippedLists).toBeGreaterThan(0);
+    expect(stats.postingVisits).toBeGreaterThan(0);
+    expect(stats.cappedSentences).toBeGreaterThan(0);
+    expect(stats.pairsCompared).toBeLessThanOrEqual(stats.sentences * MAX_CANDIDATES_PER_SENTENCE);
+    // Every pair within a family, which is what an uncapped scan compares, is 4 x 450 x 449 / 2.
+    expect(stats.pairsCompared).toBeLessThan(404_100 * 0.6);
+  });
+
+  describe('when a sentence has more partners than it is compared with', () => {
+    const BASE = [
+      'harbour',
+      'ferry',
+      'council',
+      'island',
+      'route',
+      'budget',
+      'tender',
+      'safety',
+      'winter',
+    ];
+    const sentence = (words: string[], figure: number): string =>
+      `The ${words.join(' ')} plan covers ${figure} units.`;
+    const first = sentence(BASE, 100);
+    // Shares six of the ten words with the first, the closest a statement can be and still be paired.
+    const weak = (k: number): string =>
+      sentence([...BASE.slice(0, 6), token(4 * k), token(4 * k + 1), token(4 * k + 2)], 200 + k);
+    // Shares every word: the one partner that the cap must not drop, wherever it comes.
+    const strong = sentence(BASE, 300);
+    const crowd = Array.from({ length: 300 }, (_, k) => weak(k));
+
+    it.each([
+      ['last', [first, ...crowd, strong]],
+      ['first', [strong, ...crowd, first]],
+    ])('keeps the closest partner of a sentence, when it comes %s', (_where, sentences) => {
+      const stats = emptyStats();
+      const found = detectContradictions(apart(sentences), NOW, stats);
+      expect(stats.cappedSentences).toBeGreaterThan(0);
+      expect(found[0]).toMatchObject({ kind: 'numeric', confidence: 0.95 });
+      expect([found[0]?.leftValue, found[0]?.rightValue].sort()).toEqual(['100', '300']);
+    });
+  });
+
+  describe('among thousands of sentences that share common words', () => {
+    // Every filler sentence holds the same six words, and one word of its own.
+    const filler = (i: number): string =>
+      `Harbour board item ${token(i)} costs ${10 + (i % 80)} pounds.`;
+    // The two statements share ten words, six of which the filler holds too, and give different figures.
+    const left = 'The harbour board item for the Skerry Point tidal turbine costs 412 pounds.';
+    const right = 'The harbour board item for the Skerry Point tidal turbine costs 365 pounds.';
+    const around = (at: number): string[] => {
+      const sentences = Array.from({ length: 5_000 }, (_, i) => filler(i));
+      sentences.splice(at, 0, left);
+      sentences.splice(at + 7, 0, right);
+      return sentences;
+    };
+
+    it.each([0, 2_500, 4_990])(
+      'still finds a clear contradiction between two statements at %i',
+      (at) => {
+        const stats = emptyStats();
+        const found = detectContradictions(apart(around(at)), NOW, stats);
+        // The common words are not used to look for partners, yet the pair is judged on all it shares.
+        expect(stats.skippedLists).toBeGreaterThan(0);
+        expect(stats.sentences).toBeGreaterThan(5_000);
+        expect(found).toHaveLength(1);
+        expect(found[0]).toMatchObject({ kind: 'numeric', confidence: 0.95 });
+        expect([found[0]?.leftValue, found[0]?.rightValue].sort()).toEqual(['365', '412']);
+        expect(found[0]?.topic).toContain('harbour');
+        expect(found[0]?.topic).toContain('skerry');
+      },
+    );
+
+    it('finds it whichever way round the passages arrive', () => {
+      const forward = detectContradictions(apart(around(2_500)), NOW);
+      const backward = detectContradictions(apart(around(2_500).reverse()), NOW);
+      expect(forward).toHaveLength(1);
+      expect(backward.map((c) => [c.kind, c.confidence, c.topic])).toEqual(
+        forward.map((c) => [c.kind, c.confidence, c.topic]),
+      );
     });
   });
 });
