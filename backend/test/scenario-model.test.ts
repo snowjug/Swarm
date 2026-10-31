@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { scenarioFrameSchema } from '../../shared/scenario.js';
+import { canonicalField, scenarioFrameSchema } from '../../shared/scenario.js';
 import { AppError } from '../src/errors.js';
 import { ModelClient, type JsonOptions, type ModelGateway } from '../src/models/client.js';
 import { MODEL_NOTE, RULES_NOTE, parseScenario } from '../src/scenario/parse.js';
@@ -165,6 +165,94 @@ describe('reading a question with a model', () => {
     expect(sent(fetcher, 1).messages.at(-1)?.content).toContain(
       'These numbers are not in the question: 6',
     );
+  });
+
+  it('refuses a "from" that the question never describes, and accepts one it does', async () => {
+    const { model, fetcher } = scripted([
+      reading({
+        changes: [
+          { name: 'Monthly charge', from: 'Optional and rarely used', to: '$12', note: '' },
+        ],
+      }),
+      reading({ changes: [{ name: 'Monthly charge', from: null, to: '$12', note: '' }] }),
+    ]);
+    const result = await parseScenario({ question: QUESTION, model });
+    expect(result.mode).toBe('model');
+    expect(result.frame.changes[0]).toMatchObject({ from: null, to: '$12' });
+    const repair = sent(fetcher, 1).messages.at(-1)?.content ?? '';
+    expect(repair).toContain('is not stated in the question');
+    expect(repair).toContain('"Monthly charge"');
+    // What the question states, however it is worded, is fine: so is "as it is now".
+    for (const from of ['$10', 'The current monthly charge', 'Current charge', 'charges']) {
+      expect(() =>
+        validateReading(
+          modelFrameSchema.parse(
+            reading({ changes: [{ name: 'Charge', from, to: '$12', note: '' }] }),
+          ),
+          QUESTION,
+        ),
+      ).not.toThrow();
+    }
+  });
+
+  it('does not take a guess about what something is now for what the question says', () => {
+    // Nothing in this question says what the assistant is now, so any "from" is a guess about the present.
+    const question =
+      'What could happen if the team integrates the assistant more deeply into the workspace?';
+    const change = (from: string | null) =>
+      modelFrameSchema.parse(
+        reading({
+          changes: [
+            { name: 'Assistant integration', from, to: 'More deeply integrated', note: '' },
+          ],
+        }),
+      );
+    for (const guess of [
+      'The assistant is integrated at a basic level',
+      'The assistant is not integrated',
+      'Optional',
+    ]) {
+      expect(() => validateReading(change(guess), question), guess).toThrow(
+        /"from" of "Assistant integration" is not stated in the question/u,
+      );
+    }
+    for (const fine of [null, '', 'current assistant integration']) {
+      expect(() => validateReading(change(fine), question), String(fine)).not.toThrow();
+    }
+    // A question that says what it is now can be quoted.
+    expect(() =>
+      validateReading(
+        change('A basic assistant'),
+        'What if we move from a basic assistant to a deeply integrated assistant?',
+      ),
+    ).not.toThrow();
+  });
+
+  it('asks about a field by the same name whatever the model calls it', async () => {
+    const asks = (field: string) => ({
+      field,
+      message: 'Not stated.',
+      question: 'What would settle it?',
+    });
+    const names = [
+      'time horizon',
+      'Magnitude of changes',
+      'Who is affected',
+      'success measure',
+      'x',
+    ];
+    const { model } = scripted([reading({ ambiguities: names.slice(0, 3).map(asks) })]);
+    const { frame } = await parseScenario({ question: QUESTION, model });
+    expect(frame.ambiguities.map((item) => item.field)).toEqual([
+      'horizon',
+      'changes',
+      'likelyStakeholders',
+    ]);
+    expect(canonicalField('success measure')).toBe('success');
+    expect(canonicalField('geographic scope')).toBe('geography');
+    expect(canonicalField('requestedDecision')).toBe('requestedDecision');
+    expect(canonicalField('desiredOutput')).toBe('desiredOutput');
+    expect(canonicalField('x')).toBe('x');
   });
 
   it('asks for a reply with no more than three questions back', async () => {
@@ -357,7 +445,7 @@ describe('the checks on a reading', () => {
       validateReading(
         parse(
           reading({
-            changes: [{ name: 'Charge', from: '$10.00 a month', to: '12 dollars', note: '' }],
+            changes: [{ name: 'Charge', from: '$10.00', to: '12 dollars', note: '' }],
           }),
         ),
         'We raise it from $10.00 to 12 dollars.',

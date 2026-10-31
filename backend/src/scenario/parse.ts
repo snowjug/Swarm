@@ -22,7 +22,7 @@ export const RULES_NOTE =
   'Read by rules, not a model. The rules look for common patterns (an if or when clause, amounts, places, spans of time and named groups) and can miss or misread things: check every field.';
 
 export const MODEL_NOTE =
-  'Read by a model, then checked by the server: its shape, that ids are unique, and that every number is one the question states. A model can still misread a question: check every field.';
+  'Read by a model, then checked by the server: its shape, that ids are unique, that every number is one the question states, and that a starting value is one the question gives. A model can still misread a question: check every field.';
 
 const FAILURES: Readonly<Record<string, string>> = {
   MODEL_OUTPUT_INVALID: 'its reply did not pass the checks',

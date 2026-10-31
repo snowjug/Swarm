@@ -132,6 +132,41 @@ export type ScenarioParseRequest = z.input<typeof scenarioParseRequestSchema>;
 
 export type ScenarioReadMode = 'rules' | 'model';
 
+/** The fields of a frame that a question back can be about, and `success`, which has no field of its own. */
+export const SCENARIO_FIELDS = [
+  'decision',
+  'system',
+  'geography',
+  'horizon',
+  'changes',
+  'baseline',
+  'requestedDecision',
+  'desiredOutput',
+  'likelyStakeholders',
+  'success',
+] as const;
+
+const FIELD_HINTS: readonly (readonly [RegExp, string])[] = [
+  [/stakeholder|affected|audience|\bwho\b|groups?|people/u, 'likelyStakeholders'],
+  [/horizon|timing|time|period|duration|\bwhen\b/u, 'horizon'],
+  [/geograph|region|location|\bplace\b|\bwhere\b/u, 'geography'],
+  [/success|outcome|metric|measure|goal|objective/u, 'success'],
+  [/baseline|status quo|counterfactual/u, 'baseline'],
+  [/magnitude|size|amount|extent|scale|change|variable/u, 'changes'],
+  [/system|scope|market|organi[sz]ation/u, 'system'],
+  [/decision|event/u, 'decision'],
+];
+
+/**
+ * The name of the field a question back is about, in the names this file uses. A model may call the
+ * same thing "time horizon" or "magnitude of changes"; an unrecognised name is left as it is.
+ */
+export function canonicalField(field: string): string {
+  if ((SCENARIO_FIELDS as readonly string[]).includes(field)) return field;
+  const lower = field.toLowerCase();
+  return FIELD_HINTS.find(([hint]) => hint.test(lower))?.[1] ?? field;
+}
+
 export interface ScenarioParseResult {
   frame: ScenarioFrame;
   /** What the person should know about how the question was read, in plain words. */
