@@ -167,7 +167,9 @@ repeated over many seeds, under assumptions that the page lists.
   actor's behaviour), its caveats, what it cost, and, when the optional deep-dive run exists, whether that
   run lies inside the range of the repeated runs (a plausibility check, not a validation).
   **Second-order effects in one typical run** reads back a chain of events from the run nearest the
-  middle; it is one run, not a forecast of the chain.
+  middle; it is one run, not a forecast of the chain. An event is said to have happened because of the
+  signal its responder watches; an earlier event is said to have been needed only where the run was
+  replayed without it, and is otherwise said only to have come first.
 - **The independent review is a second reader, not a verdict.** The critics check the evidence, the
   assumptions, the method, who is missing, bias, whether each recommendation follows from a finding, and
   what would have to be true for the conclusion to be wrong. Each criticism is **Blocking**, **Major**,
