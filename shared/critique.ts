@@ -99,6 +99,12 @@ export const critiqueSetSchema = z.object({
   critiques: z.array(critiqueSchema).max(120),
   /** What a person should know about how this set was made: a model review that failed, an input that was missing. */
   notes: z.array(line(400)).max(10).optional(),
+  /**
+   * The revision of each document the review was made from (0 when there was none), so that a later
+   * change to any of them can be told from a review that still describes the project. Absent for a
+   * review saved before this was recorded.
+   */
+  inputRevisions: z.record(z.string().max(40), z.int().min(0)).optional(),
 });
 export type CritiqueSet = z.infer<typeof critiqueSetSchema>;
 
@@ -111,6 +117,12 @@ export const critiqueResponseInputSchema = z
     text: line(800).min(1),
     status: z.enum(CRITIQUE_RESPONSE_STATUSES),
     remainingDisagreement: line(600).nullable().optional(),
+    /**
+     * The revision of the review (`CritiquesView.revision`) that the person was looking at. A response
+     * is refused when the review has changed since, so that two people answering from two pages
+     * cannot silently replace each other's answer.
+     */
+    expectedRevision: z.int().min(1),
   })
   .strict();
 export type CritiqueResponseInput = z.input<typeof critiqueResponseInputSchema>;
@@ -129,6 +141,14 @@ export type RunCritiquesBody = z.output<typeof runCritiquesInputSchema>;
 /** What the page needs to show the independent review and to know what the caller may do with it. */
 export interface CritiquesView {
   critiques: CritiqueSet | null;
+  /** The revision of the stored review, to send back with a response. Null until one has been run. */
+  revision: number | null;
+  /**
+   * What has changed since the comparison the review is of was run (the scenario, the stakeholders or
+   * the actors), and whether a newer comparison exists. Empty when the review still describes the
+   * project; running the review again does not clear a change to what the comparison was made from.
+   */
+  changedSince: string[];
   /** The newest finished analysis, so that a review of an older one can be called out of date. */
   analysis: { id: string; completedAt: string | null } | null;
   may: { run: boolean; respond: boolean };

@@ -1,4 +1,4 @@
-import type { Analysis } from '../../../shared/analysis.js';
+import { NEWER_ANALYSIS_EXISTS, inputsInWords } from '../../../shared/analysis.js';
 import { DEFAULT_ARTIFACT_KEY } from '../../../shared/artifacts.js';
 import type {
   CritiqueResponseBody,
@@ -8,7 +8,9 @@ import type {
 } from '../../../shared/critique.js';
 import { isOpenConflict } from '../../../shared/evidence.js';
 import { AppError, publicFailure } from '../errors.js';
+import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage.js';
 import type { ModelFactory } from '../models/factory.js';
+import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
 import { carryResponses } from './merge.js';
 import { modelCritiques, type ModelReview } from './model.js';
@@ -32,12 +34,15 @@ const notReady = (): AppError =>
 const RUNS_WITHOUT_MODEL =
   'This project runs without a model, so nothing is sent to one. Only the deterministic checks run.';
 
-function newestCompleted(analyses: readonly Analysis[]): Analysis | null {
-  const done = analyses.filter((analysis) => analysis.status === 'completed');
+type AnalysisRecord = ArtifactRecord<'analysis'>;
+
+function newestCompleted(records: readonly AnalysisRecord[]): AnalysisRecord | null {
+  const done = records.filter((record) => record.data.status === 'completed');
   return (
     done.sort(
       (a, b) =>
-        byText(b.completedAt ?? b.createdAt, a.completedAt ?? a.createdAt) || byText(b.id, a.id),
+        byText(b.data.completedAt ?? b.data.createdAt, a.data.completedAt ?? a.data.createdAt) ||
+        byText(b.data.id, a.data.id),
     )[0] ?? null
   );
 }
@@ -66,10 +71,30 @@ export class CritiqueService {
   }
 
   /** The newest analysis that has finished, which is the one a review without an id is about. */
-  private newest(projectId: string): Analysis | null {
-    return newestCompleted(
-      this.repository.artifacts.list(projectId, 'analysis').map((record) => record.data),
+  private newest(projectId: string): AnalysisRecord | null {
+    return newestCompleted(this.repository.artifacts.list(projectId, 'analysis'));
+  }
+
+  /**
+   * What has changed since the comparison the review is of was run, checked against what that
+   * comparison recorded, so that running the review again on it does not make it look current.
+   */
+  private changedSince(
+    projectId: string,
+    stored: ArtifactRecord<'critiques'>,
+    latest: AnalysisRecord | null,
+  ): string[] {
+    const { artifacts } = this.repository;
+    const analysisId = stored.data.analysisId;
+    const analysis = analysisId ? artifacts.get(projectId, 'analysis', analysisId) : null;
+    const changed: string[] = changedInputs(
+      analysis?.data.inputRevisions,
+      stored.data.inputRevisions,
+      inputRevisionsNow(artifacts, projectId),
     );
+    if (analysisId && !analysis) changed.push('analysis (no longer stored)');
+    if (analysisId && latest && latest.data.id !== analysisId) changed.push(NEWER_ANALYSIS_EXISTS);
+    return changed;
   }
 
   view(projectId: string, may: CritiquesView['may']): CritiquesView {
@@ -78,7 +103,9 @@ export class CritiqueService {
     const runsWithoutModel = this.repository.get(projectId).mode !== 'llm';
     return {
       critiques: stored?.data ?? null,
-      analysis: latest ? { id: latest.id, completedAt: latest.completedAt } : null,
+      revision: stored?.revision ?? null,
+      changedSince: stored ? this.changedSince(projectId, stored, latest) : [],
+      analysis: latest ? { id: latest.data.id, completedAt: latest.data.completedAt } : null,
       may,
       model: {
         available: this.options.modelAvailable && !runsWithoutModel,
@@ -87,7 +114,7 @@ export class CritiqueService {
     };
   }
 
-  private completedAnalysis(projectId: string, analysisId: string | undefined): Analysis {
+  private completedAnalysis(projectId: string, analysisId: string | undefined): AnalysisRecord {
     if (analysisId !== undefined) {
       const found = this.repository.artifacts.get(projectId, 'analysis', analysisId);
       if (!found) {
@@ -104,7 +131,7 @@ export class CritiqueService {
           `That analysis has not finished (it is ${found.data.status}). Wait for it to finish, then run the review.`,
         );
       }
-      return found.data;
+      return found;
     }
     const latest = this.newest(projectId);
     if (!latest) throw notReady();
@@ -114,14 +141,22 @@ export class CritiqueService {
   /** What the critics read, and what is missing from it, in words. */
   private gather(
     projectId: string,
-    analysis: Analysis,
-  ): { input: Omit<CriticInput, 'now'>; notes: string[] } {
+    record: AnalysisRecord,
+  ): { input: Omit<CriticInput, 'now'>; notes: string[]; revisions: Revisions } {
     const { artifacts, ledger } = this.repository;
+    const analysis = record.data;
     const scenario = artifacts.get(projectId, 'scenario')?.data ?? null;
     const stakeholders = artifacts.get(projectId, 'stakeholders')?.data ?? null;
     const storedBrief = artifacts.get(projectId, 'brief')?.data ?? null;
     const brief = storedBrief?.analysisId === analysis.id ? storedBrief : null;
+    const revisions = { ...inputRevisionsNow(artifacts, projectId), analysis: record.revision };
     const notes: string[] = [];
+    const earlier = changedInputs(analysis.inputRevisions, undefined, revisions);
+    if (earlier.length > 0) {
+      notes.push(
+        `This comparison was run before ${inputsInWords(earlier)} changed, so a check that sets it against ${earlier.length === 1 ? 'that document' : 'those documents'} reads two different versions. Run the comparison again, then this review.`,
+      );
+    }
     if (!scenario) {
       notes.push('No scenario was recorded, so the checks that compare against it were skipped.');
     }
@@ -166,6 +201,7 @@ export class CritiqueService {
         },
       },
       notes,
+      revisions,
     };
   }
 
@@ -191,8 +227,9 @@ export class CritiqueService {
     }
     this.running.add(projectId);
     try {
-      const analysis = this.completedAnalysis(projectId, body.analysisId);
-      const { input, notes } = this.gather(projectId, analysis);
+      const record = this.completedAnalysis(projectId, body.analysisId);
+      const analysis = record.data;
+      const { input, notes, revisions } = this.gather(projectId, record);
       const now = this.now().toISOString();
       const rules = runRuleCritics({ ...input, now });
       const kept = rules.slice(0, MAX_RULE_CRITIQUES);
@@ -247,6 +284,7 @@ export class CritiqueService {
           mode: review ? 'both' : 'rules',
           critiques,
           ...(notes.length > 0 ? { notes: notes.slice(0, 10).map((note) => clip(note, 400)) } : {}),
+          inputRevisions: revisions,
         };
         this.repository.artifacts.put(projectId, 'critiques', DEFAULT_ARTIFACT_KEY, set, {
           expectedRevision: previous?.revision ?? 0,
@@ -272,30 +310,41 @@ export class CritiqueService {
     }
   }
 
-  /** Records a person's response. It replaces any earlier response to the same critique. */
+  /**
+   * Records a person's response. It replaces any earlier response to the same critique, and only if
+   * the review is still the one the person was looking at: when someone else has responded, or the
+   * review has been run again, since then, it is refused rather than silently replacing theirs.
+   */
   respond(projectId: string, critiqueId: string, body: CritiqueResponseBody, actor: string): void {
-    const stored = this.repository.artifacts.get(projectId, 'critiques');
-    const target = stored?.data.critiques.find((critique) => critique.id === critiqueId);
-    if (!stored || !target) {
-      throw new AppError(
-        404,
-        'CRITIQUE_NOT_FOUND',
-        'This critique is not in the review. Run the independent review again and choose one from the list.',
-      );
-    }
-    const at = this.now().toISOString();
-    const remaining = body.remainingDisagreement?.trim() || null;
-    const critiques = stored.data.critiques.map((critique) =>
-      critique.id === critiqueId
-        ? {
-            ...critique,
-            status: body.status,
-            response: { text: body.text, by: 'user' as const, at },
-            remainingDisagreement: remaining,
-          }
-        : critique,
-    );
     this.repository.atomic(() => {
+      const stored = this.repository.artifacts.get(projectId, 'critiques');
+      if (stored && stored.revision !== body.expectedRevision) {
+        throw new AppError(
+          409,
+          'CRITIQUES_CHANGED',
+          'This review changed while you were reading it: someone else responded, or the review was run again. Reload the review to see how it stands now, then answer again.',
+        );
+      }
+      const target = stored?.data.critiques.find((critique) => critique.id === critiqueId);
+      if (!stored || !target) {
+        throw new AppError(
+          404,
+          'CRITIQUE_NOT_FOUND',
+          'This critique is not in the review. Run the independent review again and choose one from the list.',
+        );
+      }
+      const at = this.now().toISOString();
+      const remaining = body.remainingDisagreement?.trim() || null;
+      const critiques = stored.data.critiques.map((critique) =>
+        critique.id === critiqueId
+          ? {
+              ...critique,
+              status: body.status,
+              response: { text: body.text, by: 'user' as const, at },
+              remainingDisagreement: remaining,
+            }
+          : critique,
+      );
       this.repository.artifacts.put(
         projectId,
         'critiques',
