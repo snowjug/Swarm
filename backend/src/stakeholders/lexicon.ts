@@ -12,6 +12,11 @@ export interface Head {
   category: StakeholderCategory;
   /** A noun that names a group only with a describing word before it: "support team", not "team". */
   weak: boolean;
+  /**
+   * A noun that names a group only when a describing word before it points to this category: a
+   * "review panel" is a group of reviewers, but a "new panel" is something on a screen.
+   */
+  needs?: StakeholderCategory;
 }
 
 const nouns = (category: StakeholderCategory, words: string, weak: boolean): [string, Head][] =>
@@ -54,7 +59,8 @@ export const HEADS: ReadonlyMap<string, Head> = new Map<string, Head>([
     'team group department unit office division function company firm organisation organization business provider officer',
     true,
   ),
-  ...nouns('governance', 'council committee board panel', true),
+  ...nouns('governance', 'council committee board', true),
+  ['panel', { category: 'governance', weak: true, needs: 'governance' }],
   ...nouns('regulator', 'agency authority', true),
   ...nouns('influencer', 'association union community', true),
   ...nouns('decision-maker', 'management', true),
@@ -74,15 +80,16 @@ export const PAIR_HEADS: ReadonlyMap<string, Head> = new Map<string, Head>([
 const MODIFIER_LIST: [StakeholderCategory | null, string][] = [
   [
     null,
-    'enterprise small medium large regional local national international global internal external independent corporate individual public private institutional commercial professional paying paid premium junior middle new existing prospective returning loyal',
+    'enterprise small medium large regional local national international global internal external independent corporate public private institutional commercial professional',
   ],
+  [null, 'individual paying paid premium junior middle new existing prospective returning loyal'],
   [
     'operations',
     'support operations ops engineering infrastructure maintenance service delivery technical platform data helpdesk logistics production it',
   ],
   [
     'governance',
-    'legal compliance security privacy risk audit finance procurement policy review oversight governance ethics steering',
+    'legal compliance security privacy risk audit finance procurement policy review oversight governance ethics steering advisory expert',
   ],
   ['decision-maker', 'executive leadership senior product strategy'],
   ['channel', 'sales marketing channel distribution'],
@@ -96,6 +103,36 @@ export const MODIFIERS: ReadonlyMap<string, StakeholderCategory | null> = new Ma
   MODIFIER_LIST.flatMap(([category, words]) =>
     words.split(' ').map((word): [string, StakeholderCategory | null] => [word, category]),
   ),
+);
+
+/**
+ * Describing words that say what state a person is in rather than what kind of group they form: a
+ * "new customer" is a person, but a "new team" or a "new panel" is only something that is new. They
+ * describe people, and do not make a noun like "team" or "panel" into a group of its own.
+ */
+export const STATE_ONLY: ReadonlySet<string> = new Set(
+  'individual paying paid premium junior middle new existing prospective returning loyal'.split(
+    ' ',
+  ),
+);
+
+/**
+ * A role noun with one of these straight after it is the first word of a compound that names
+ * something else: "customer survey", "user interface", "customer success".
+ */
+export const COMPOUND_FOLLOWERS: ReadonlySet<string> = new Set(
+  (
+    'survey support service success experience journey interface account portal profile relationship ' +
+    'satisfaction behaviour behavior story guide manual documentation ticket analytics insight data research list'
+  ).split(' '),
+);
+
+/**
+ * Roles that name a position in any organisation and not a party to a change. Mentioned alone, with no
+ * sign that anything is at stake for them, they start as background and not as a group of their own.
+ */
+export const GENERIC_ROLES: ReadonlySet<string> = new Set(
+  'manager employee staff worker member specialist'.split(' '),
 );
 
 /** Function words and sentence openers that are never part of a group's name. */

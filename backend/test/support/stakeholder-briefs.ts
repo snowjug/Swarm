@@ -189,3 +189,39 @@ export const INJECTED = {
     'Regulators were told about the plan in the first week.',
   ].join(' '),
 };
+
+/**
+ * The question and the notes that the end-to-end journey test asks about, copied here so that
+ * discovery can be tested on exactly that text. A test checks that the copy still matches the journey's.
+ */
+export const LIBRARY_PACK = {
+  id: 'custom-library',
+  question:
+    'What could happen if the city library network stops charging late fees on all borrowed items?',
+  documents: [
+    {
+      name: 'council-briefing.md',
+      content: `# Briefing for the council committee
+
+_Illustrative synthetic briefing written for a test; the figures are invented._
+
+The city library network is considering an end to late fees on all borrowed items. Library patrons have asked for it for years, and families with children say fines keep them away. The library board expects some books to come back later, and the branch librarians worry about shelves staying empty while items are overdue.
+
+The city council must approve the change, and the finance committee has asked what the fees currently bring in. Fees pay for a small share of the budget; the council's budget office has not yet checked the figure. Volunteers who run the community reading programmes say they would welcome fewer arguments at the desk.
+
+Local bookshops and a neighbouring county library system have not been consulted. A taxpayers' association has said before that it dislikes any change that moves costs onto the general budget.
+`,
+    },
+    {
+      name: 'branch-notes.md',
+      content: `# Notes from three branch librarians
+
+_Illustrative synthetic notes written for a test._
+
+Two of the three librarians favour the change but want a way to deal with items that never come back. One says patrons who owe money often stop visiting, and the staff dislike turning people away. The third worries that popular titles will be unavailable for longer, and that patrons will not mind because there is no cost to keeping them.
+
+Patrons who rely on the libraries for computer access are the most affected by blocked accounts. The volunteers say new readers are often the ones who give up first.
+`,
+    },
+  ],
+};

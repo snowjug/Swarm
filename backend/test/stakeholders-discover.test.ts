@@ -129,12 +129,20 @@ describe.each(BRIEFS)('reading $id for roles, with no model', (brief) => {
     }
   });
 
-  it('gives every impact as a category default, never as a finding, and says so', async () => {
+  it('gives every impact as a reading of tone or a category default, never as a finding, and says so', async () => {
     const set = await rules(brief.document, brief.hints);
     for (const stakeholder of set.stakeholders) {
-      expect(stakeholder.expectedImpact.origin).toBe('system-assumption');
-      expect(stakeholder.expectedImpact.rationale).toContain('not a finding from the sources');
-      expect(['harmed', 'benefited', 'unclear']).toContain(stakeholder.expectedImpact.direction);
+      const { origin, rationale, direction } = stakeholder.expectedImpact;
+      if (origin === 'evidence') {
+        expect(rationale, stakeholder.name).toContain(
+          'This is a reading of tone from the cited passage, not a finding.',
+        );
+        expect(['harmed', 'benefited', 'mixed']).toContain(direction);
+      } else {
+        expect(origin, stakeholder.name).toBe('system-assumption');
+        expect(rationale).toContain('not a finding from the sources');
+        expect(['harmed', 'benefited', 'unclear']).toContain(direction);
+      }
       expect(stakeholder.relevance).toContain('Category default');
       if (stakeholder.priority !== 'key') {
         expect(stakeholder.assumptions.join(' ')).toContain(
@@ -216,14 +224,23 @@ describe('reading text for roles: what it does with the words', () => {
   it('places an end user among those who bear cost only when two sentences say they pay', async () => {
     const once = await rules('Customers pay a fee. Customers like the speed of the service.');
     expect(once.stakeholders[0]?.category).toBe('end-user');
+    // No word of tone: the category's own default stands, and is called an assumption.
     const twice = await rules(
-      'Customers pay a higher fee each month. The new charge falls on customers. Customers like the speed.',
+      'Customers pay a higher fee each month. The new fee falls on customers. Customers keep their plans.',
     );
     expect(twice.stakeholders[0]).toMatchObject({
       category: 'cost-bearer',
       expectedImpact: { direction: 'harmed', origin: 'system-assumption' },
     });
     expect(twice.stakeholders[0]?.assumptions.join(' ')).toContain('from wording');
+    // A word of tone in a cited sentence is read, and is the group's direction instead.
+    const read = await rules(
+      'Customers pay a higher fee each month. The new charge falls on customers. Customers like the speed.',
+    );
+    expect(read.stakeholders[0]).toMatchObject({
+      category: 'cost-bearer',
+      expectedImpact: { direction: 'mixed', origin: 'evidence' },
+    });
   });
 
   it('counts a sentence once, even when the passages overlap and both contain it', async () => {
