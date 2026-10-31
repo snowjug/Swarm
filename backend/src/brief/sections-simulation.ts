@@ -6,7 +6,8 @@ import {
 } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
 import { actorMeasure, findingsFor, pairRuns } from './measures.js';
-import { directionOf, relianceOfFinding } from './rules.js';
+import { directionOf } from './rules.js';
+import { readingNote } from './signal.js';
 import { sensitivityContext } from './assumptions.js';
 import { approx, decimals, embed, listed, plural, signed } from './text.js';
 import { classWords } from './sections-answer.js';
@@ -18,6 +19,9 @@ const stabilityText = (finding: Finding): string =>
 export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
   const writer = sectionWriter('reaction-patterns', tally);
   const { analysis, baseline, headline } = facts;
+  const { state } = facts.signal;
+  const note = readingNote(facts.signal);
+  if (note) writer.add(note);
   if (facts.measures.length === 0) {
     writer.add({
       origin: 'unresolved-uncertainty',
@@ -62,7 +66,7 @@ export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
       const base = baseline ? actorMeasure(baseline.runs, actor.id) : null;
       writer.add({
         origin: 'actor-behavior',
-        text: `Simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}, ${measure.members} simulated ${plural(measure.members, 'member')}): under ${embed(variant.variant.label, 60)} about ${approx(measure.adverse)} ended up looking for an alternative or resisting${base && baseline ? `, against about ${approx(base.adverse)} under ${embed(baseline.variant.label, 60)}` : ''}; mean final stance ${signed(measure.stance)}.`,
+        text: `Simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}, ${measure.members} simulated ${plural(measure.members, 'member')}): under ${embed(variant.variant.label, 60)} about ${approx(measure.adverse)} ended up looking for an alternative or resisting${base && baseline && state === 'clear' ? `, against about ${approx(base.adverse)} under ${embed(baseline.variant.label, 60)}` : ''}; mean final stance ${signed(measure.stance)}.`,
         refs: {
           stakeholderIds: [actor.stakeholderId],
           findingIds: own.map((finding) => finding.id),
@@ -79,7 +83,7 @@ export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
         origin: 'simulation-aggregation',
         text: `Finding: ${embed(finding.statement, 240)} ${stabilityText(finding)}.`,
         refs: { findingIds: [finding.id], variantIds: [finding.variantId] },
-        reliance: relianceOfFinding(finding.classification, facts.evidencedFinding(finding)),
+        reliance: facts.relianceOf([finding]),
       });
     }
   }
@@ -94,7 +98,10 @@ export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
 export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
   const writer = sectionWriter('alternative-outcomes', tally);
   const { analysis, baseline, measures } = facts;
+  const { state } = facts.signal;
   const alternatives = measures.filter((measure) => measure.variant.kind === 'alternative');
+  const note = readingNote(facts.signal);
+  if (note) writer.add(note);
   if (!baseline) {
     writer.add({
       origin: 'unresolved-uncertainty',
@@ -103,12 +110,28 @@ export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
   }
   for (const measure of alternatives) {
     if (!baseline) break;
+    // With no one to move, a count that differs from the baseline's is noise, so none is put as a result.
+    if (state === 'no-direction') continue;
     const pairing = pairRuns(measure.runs, baseline.runs);
     const direction = findingsFor(analysis, {
       variantId: measure.variant.id,
       actorId: null,
       kind: 'direction-vs-baseline',
     });
+    const refs = {
+      findingIds: direction.map((finding) => finding.id),
+      variantIds: [measure.variant.id, baseline.variant.id],
+    };
+    const reliance = direction.length > 0 ? facts.relianceOf(direction) : null;
+    if (state === 'no-difference') {
+      writer.add({
+        origin: 'simulation-aggregation',
+        text: `Against ${embed(baseline.variant.label, 60)}, ${embed(measure.variant.label, 60)} moved the mean final stance of simulated members by ${signed(pairing.stanceDelta)} on a scale from -1 to 1 (mean over ${pairing.pairs} paired seeds), which the comparison reads as about the same.`,
+        refs,
+        reliance,
+      });
+      continue;
+    }
     const size = Math.abs(pairing.adverseDelta);
     const movement =
       pairing.adverseDelta === 0
@@ -117,14 +140,11 @@ export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
     writer.add({
       origin: 'simulation-aggregation',
       text: `Against ${embed(baseline.variant.label, 60)}, ${embed(measure.variant.label, 60)} left ${movement} looking for an alternative or resisting (mean over ${pairing.pairs} paired seeds; ${pairing.adverseDelta >= 0 ? `more in ${pairing.worse}` : `fewer in ${pairing.better}`} of ${pairing.pairs} paired runs) and moved the mean final stance by ${signed(pairing.stanceDelta)} on a scale from -1 to 1.`,
-      refs: {
-        findingIds: direction.map((finding) => finding.id),
-        variantIds: [measure.variant.id, baseline.variant.id],
-      },
-      reliance: direction.length > 0 ? facts.relianceOf(direction) : null,
+      refs,
+      reliance,
     });
   }
-  if (measures.length >= 2) {
+  if (measures.length >= 2 && state === 'clear') {
     const ordered = [...measures].sort(
       (a, b) => a.adverse.mean - b.adverse.mean || (a.variant.id < b.variant.id ? -1 : 1),
     );
@@ -140,13 +160,17 @@ export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
     });
   }
   for (const finding of analysis.findings
-    .filter((candidate) => candidate.kind === 'ordering' || candidate.kind === 'threshold-crossing')
+    .filter(
+      (candidate) =>
+        candidate.kind === 'threshold-crossing' ||
+        (candidate.kind === 'ordering' && state === 'clear'),
+    )
     .slice(0, 4)) {
     writer.add({
       origin: 'simulation-aggregation',
       text: `Finding: ${embed(finding.statement, 240)} ${stabilityText(finding)}.`,
       refs: { findingIds: [finding.id], variantIds: [finding.variantId] },
-      reliance: relianceOfFinding(finding.classification, facts.evidencedFinding(finding)),
+      reliance: facts.relianceOf([finding]),
     });
   }
   const check = analysis.crossCheck;
@@ -175,6 +199,14 @@ export function firstOrder(facts: Facts, tally: Tally): BriefSection {
     refs: { assumptions: ['First-order effects are direct responses to the change.'] },
   });
   if (!headline) return writer.build();
+  if (facts.signal.state === 'no-difference') {
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text: 'No first-order effect is singled out: under these assumptions the comparison found no measurable difference between the change and no change.',
+      refs: { findingIds: facts.signal.finding ? [facts.signal.finding.id] : [] },
+    });
+    return writer.build();
+  }
   const { variant } = headline;
   const affected = analysis.actors
     .filter((actor) => directionOf(actor) !== 'neutral')
@@ -229,7 +261,7 @@ export function secondOrder(facts: Facts, tally: Tally): BriefSection {
         variantIds: [finding.variantId],
         stakeholderIds: actor ? [actor.stakeholderId] : [],
       },
-      reliance: relianceOfFinding(finding.classification, facts.evidencedFinding(finding)),
+      reliance: facts.relianceOf([finding]),
     });
   }
   const run = analysis.representativeRun;

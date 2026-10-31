@@ -1,6 +1,7 @@
 import { RESPONSE_CATEGORIES, RESPONSE_LABELS } from '../../../shared/analysis.js';
 import {
   BRIEF_SECTION_IDS,
+  BRIEF_SIGNAL_NOTICES,
   STATEMENT_ORIGIN_LABELS,
   type BriefLookups,
   type BriefRefs,
@@ -36,7 +37,7 @@ export interface BriefExportInput {
 
 type Block =
   | { kind: 'heading'; level: 1 | 2 | 3; text: string; anchor?: string }
-  | { kind: 'paragraph'; text: string; tone?: 'notice' | 'note' }
+  | { kind: 'paragraph'; text: string; tone?: 'notice' | 'note' | 'alert'; title?: string }
   | {
       kind: 'statement';
       id: string;
@@ -169,7 +170,10 @@ function tablesFor(
     'alternative-outcomes': [
       {
         kind: 'table',
-        caption: 'Each alternative against the baseline, on the same seeds',
+        caption:
+          brief.signal === 'clear'
+            ? 'Each alternative against the baseline, on the same seeds'
+            : 'Each alternative against the baseline, on the same seeds (the differences are not read as effects of the change: see the notice at the top)',
         headers: [
           'Variant',
           'Mean adverse members',
@@ -266,6 +270,13 @@ function blocks(input: BriefExportInput): Block[] {
   const result: Block[] = [
     { kind: 'heading', level: 1, text: `Decision brief: ${input.project.name}` },
     { kind: 'paragraph', text: NOTICE, tone: 'notice' },
+  ];
+  // Before anything else is read: when the comparison cannot be read as a result, the page says so.
+  if (brief.signal !== 'clear') {
+    const { title, text } = BRIEF_SIGNAL_NOTICES[brief.signal];
+    result.push({ kind: 'paragraph', title, text, tone: 'alert' });
+  }
+  result.push(
     {
       kind: 'facts',
       items: [
@@ -286,7 +297,7 @@ function blocks(input: BriefExportInput): Block[] {
     },
     { kind: 'heading', level: 2, text: 'In short', anchor: 'in-short' },
     { kind: 'paragraph', text: brief.headline },
-  ];
+  );
   const extras = visuals ? tablesFor(brief, visuals) : {};
   BRIEF_SECTION_IDS.forEach((id, index) => {
     const section = brief.sections.find((entry) => entry.id === id);
@@ -402,7 +413,11 @@ export function briefMarkdown(input: BriefExportInput): string {
         lines.push('', `${'#'.repeat(block.level)} ${md(block.text)}`, '');
         break;
       case 'paragraph':
-        lines.push(block.tone === 'notice' ? `> ${md(block.text)}` : md(block.text), '');
+        if (block.tone === 'alert') {
+          lines.push(`> **${md(block.title ?? '')}** ${md(block.text)}`, '');
+        } else {
+          lines.push(block.tone === 'notice' ? `> ${md(block.text)}` : md(block.text), '');
+        }
         break;
       case 'facts':
         lines.push(...block.items.map(([key, value]) => `- **${md(key)}:** ${md(value)}`), '');
@@ -472,6 +487,7 @@ const STYLE = `
   h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 .25rem; }
   h2 { font-size: 1.2rem; margin: 2rem 0 .5rem; padding-bottom: .2rem; border-bottom: 2px solid #111; }
   .notice { font-style: italic; margin: 0 0 1rem; }
+  .alert { border: 2px solid #111; padding: .5rem .75rem; margin: 0 0 1rem; break-inside: avoid; }
   .note { font-size: .9rem; color: #333; margin: .2rem 0; }
   dl { margin: 1rem 0; display: grid; grid-template-columns: max-content 1fr; gap: .15rem 1rem; font-size: .9rem; }
   dt { font-weight: 700; }
@@ -514,7 +530,9 @@ export function briefHtml(input: BriefExportInput): string {
         );
         break;
       case 'paragraph':
-        body.push(`<p${block.tone ? ` class="${block.tone}"` : ''}>${esc(block.text)}</p>`);
+        body.push(
+          `<p${block.tone ? ` class="${block.tone}"` : ''}>${block.title ? `<strong>${esc(block.title)}</strong> ` : ''}${esc(block.text)}</p>`,
+        );
         break;
       case 'facts':
         body.push(

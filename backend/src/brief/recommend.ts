@@ -50,6 +50,7 @@ export const OWNER_BY_CATEGORY: Record<StakeholderCategory, string> = {
 };
 
 export type RecommendationKind =
+  | 'say-direction'
   | 'mitigate'
   | 'validate'
   | 'collect-evidence'
@@ -74,6 +75,14 @@ export const rank = (candidate: Pick<Candidate, 'impact' | 'effort' | 'repeatabi
 
 export const ORDERING_RULE =
   'Recommendations are ordered by impact times repeatability divided by effort. Impact is the size of the simulated shift (at least 0.3 is high, at least 0.1 is medium). Repeatability is the largest lower bound of the Wilson interval among the findings a recommendation follows from. Effort is a generic planning default for the kind of action. Ties go to the higher impact, then the lower effort.';
+
+/** Said after the ordering rule when the comparison could not tell the change from no change. */
+export const LEAD_EXCEPTION =
+  'The first recommendation comes first whatever its score, because nothing else in this brief can be read until it is done.';
+
+/** The recommendation that comes first when no stakeholder has an expected direction of impact. */
+export const SAY_DIRECTION =
+  'Say who is helped or harmed by the change, in the stakeholder review, or read the evidence with a model, then run the comparison again: no stakeholder has an expected direction of impact, so the simulated comparison could not tell the change from no change.';
 
 const lowerBound = (findings: readonly Finding[]): number =>
   findings.reduce((best, finding) => Math.max(best, finding.interval.lo), 0);
@@ -384,18 +393,47 @@ function critiqueActions(facts: Facts): Candidate[] {
 
 export const MAX_RECOMMENDATIONS = 12;
 
-/** Every candidate the rules produce, best first, with a priority from 1 and an id that says so. */
+/** Saying who is helped or harmed, linked to the finding the comparison could not tell apart. */
+function sayDirection(facts: Facts): Candidate | null {
+  const linked = facts.signal.finding ?? facts.analysis.findings[0] ?? null;
+  if (!linked) return null;
+  return {
+    kind: 'say-direction',
+    text: SAY_DIRECTION,
+    linkedFindingIds: [linked.id],
+    impact: 'high',
+    effort: 'low',
+    reversibility: 'easy',
+    horizon: 'Before reading anything into the results',
+    ownerFunction: 'research and analytics',
+    leadingIndicators: ['Stakeholders with a stated direction of impact, out of all stakeholders.'],
+    assumptions: [
+      'Each stakeholder’s direction of impact is an assumption until a person or a model sets it.',
+    ],
+    validation:
+      'Ask the stakeholders, or someone who knows each group, whether the change helps or harms it, record the direction in the stakeholder review, and run the comparison again.',
+    repeatability: lowerBound([linked]),
+  };
+}
+
+/**
+ * Every candidate the rules produce, best first, with a priority from 1 and an id that says so. When
+ * the comparison could not tell the change from no change, nothing else can be read until someone says
+ * who is helped or harmed, so that comes first whatever its score and no result is built on the noise:
+ * no mitigation, no building on a favourable response, and no repeating of runs that cannot help.
+ */
 export function recommend(facts: Facts): Recommendation[] {
+  const { state } = facts.signal;
   const candidates = [
-    ...mitigations(facts),
+    ...(state === 'clear' ? mitigations(facts) : []),
     ...validations(facts),
     ...evidenceGaps(facts),
     ...responses(facts),
-    ...repeats(facts),
-    ...opportunities(facts),
+    ...(state === 'no-direction' ? [] : repeats(facts)),
+    ...(state === 'clear' ? opportunities(facts) : []),
     ...critiqueActions(facts),
   ].map((candidate, order) => ({ candidate, order }));
-  return candidates
+  const ordered = candidates
     .sort((a, b) => {
       // Scores that differ only by rounding are ties.
       const difference = rank(b.candidate) - rank(a.candidate);
@@ -406,8 +444,11 @@ export function recommend(facts: Facts): Recommendation[] {
         a.order - b.order
       );
     })
+    .map(({ candidate }) => candidate);
+  const lead = state === 'no-direction' ? sayDirection(facts) : null;
+  return [...(lead ? [lead] : []), ...ordered]
     .slice(0, MAX_RECOMMENDATIONS)
-    .map(({ candidate }, index): Recommendation => ({
+    .map((candidate, index): Recommendation => ({
       id: `rec-${index + 1}`,
       priority: index + 1,
       text: clip(candidate.text, 500),

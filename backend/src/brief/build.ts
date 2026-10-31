@@ -111,7 +111,7 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
     uncertainty(facts, tally),
     risksOpportunities(facts, tally),
     recommendationsSection(facts, recommendations, tally),
-    validationSection(plan, tally),
+    validationSection(plan, tally, facts.signal.state),
     sources(facts, tally),
     limitationsSection(limitations, tally),
     technicalAppendix(facts, tally),
@@ -125,6 +125,15 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
   ];
   if (tally.withheld > 0) {
     notes.push(`${tally.withheld} statements were withheld because their wording broke the guard.`);
+  }
+  if (facts.signal.state === 'no-direction') {
+    notes.push(
+      'The comparison could not tell the change from no change, so this brief reports no result about the change; see the first limitation.',
+    );
+  } else if (facts.signal.state === 'no-difference') {
+    notes.push(
+      'The comparison found no measurable difference between the change and no change under these assumptions; see the first limitation.',
+    );
   }
   if (tally.downgraded > 0) {
     notes.push(
@@ -151,6 +160,7 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
     },
     openCritiques: facts.critiques.filter((critique) => critique.status !== 'accepted').length,
     generatedBy: 'rules',
+    signal: facts.signal.state,
     inputRevisions: inputs.inputRevisions ?? {},
   });
 }

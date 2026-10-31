@@ -1,9 +1,11 @@
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
-import type {
-  BriefSection,
-  Recommendation,
-  StatementOrigin,
-  ValidationExperiment,
+import {
+  BRIEF_SIGNAL_NOTICES,
+  type BriefSection,
+  type BriefSignal,
+  type Recommendation,
+  type StatementOrigin,
+  type ValidationExperiment,
 } from '../../../shared/brief.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
@@ -13,7 +15,7 @@ import {
 } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
 import { actorMeasure, findingsFor } from './measures.js';
-import { ORDERING_RULE } from './recommend.js';
+import { LEAD_EXCEPTION, ORDERING_RULE, SAY_DIRECTION } from './recommend.js';
 import { directionOf } from './rules.js';
 import { approx, clip, decimals, embed, plural, traitLabel } from './text.js';
 import { sectionWriter, type Tally } from './writer.js';
@@ -36,6 +38,13 @@ export function uncertainty(facts: Facts, tally: Tally): BriefSection {
   const writer = sectionWriter('uncertainty', tally);
   const { analysis } = facts;
   const findings = analysis.findings;
+  if (facts.signal.state === 'no-direction') {
+    writer.add({
+      origin: 'system-assumption',
+      text: 'How often a finding held across seeded runs shows only that the simulation repeats itself: with no stakeholder given an expected direction of impact, no finding is about the change.',
+      refs: { assumptions: ['No stakeholder has an expected direction of impact.'] },
+    });
+  }
   if (findings.length > 0) {
     const count = (name: string) =>
       findings.filter((finding) => finding.classification === name).length;
@@ -145,6 +154,17 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
     });
     return writer.build();
   }
+  if (facts.signal.state !== 'clear') {
+    writer.add({
+      origin: 'unresolved-uncertainty',
+      text:
+        facts.signal.state === 'no-direction'
+          ? 'No risk or opportunity is attributed to the change: it cannot move anyone in the simulation, so no difference between the variants is read as a risk or an opportunity.'
+          : 'No risk or opportunity is attributed to the change: under these assumptions the comparison found no measurable difference between the change and no change.',
+      refs: { findingIds: facts.signal.finding ? [facts.signal.finding.id] : [] },
+    });
+    return writer.build();
+  }
   const { variant } = headline;
   const readings = analysis.actors.flatMap((actor) => {
     const measure = actorMeasure(variant.runs, actor.id);
@@ -235,9 +255,10 @@ export function recommendationsSection(
   tally: Tally,
 ): BriefSection {
   const writer = sectionWriter('recommendations', tally);
+  const leads = recommendations.some((recommendation) => recommendation.text === SAY_DIRECTION);
   writer.add({
     origin: 'system-assumption',
-    text: ORDERING_RULE,
+    text: leads ? `${ORDERING_RULE} ${LEAD_EXCEPTION}` : ORDERING_RULE,
     refs: {
       assumptions: ['Recommendations are ordered by impact times repeatability divided by effort.'],
     },
@@ -247,15 +268,17 @@ export function recommendationsSection(
       const finding = facts.findingById.get(id);
       return finding ? [finding] : [];
     });
+    // Saying who is helped or harmed rests on an assumption, not on what the runs showed.
+    const advice = recommendation.text === SAY_DIRECTION;
     writer.add({
       id: recommendation.id,
-      origin: 'simulation-aggregation',
+      origin: advice ? 'system-assumption' : 'simulation-aggregation',
       text: recommendation.text,
       refs: {
         findingIds: recommendation.linkedFindingIds,
         assumptions: recommendation.assumptions,
       },
-      reliance: facts.relianceOf(linked),
+      reliance: advice ? null : facts.relianceOf(linked),
     });
   }
   if (recommendations.length === 0) {
@@ -272,11 +295,12 @@ const TARGET = /^(sensitivity|finding|evidence gap) (\S+):/u;
 export function validationSection(
   plan: readonly ValidationExperiment[],
   tally: Tally,
+  state: BriefSignal = 'clear',
 ): BriefSection {
   const writer = sectionWriter('validation-plan', tally);
   writer.add({
     origin: 'system-assumption',
-    text: 'Each check below would test, against the real world, an assumption the simulated result is sensitive to, a result that was not stable across seeded runs, or an actor that nothing cited supports. None of them has been run.',
+    text: `${state === 'no-direction' ? 'The first check below settles who is helped or harmed by the change, which the comparison needs before anything else. ' : ''}Each check below would test, against the real world, an assumption the simulated result is sensitive to, a result that was not stable across seeded runs, or an actor that nothing cited supports. None of them has been run.`,
     refs: { assumptions: ['The validation checks are proposals and have not been run.'] },
   });
   for (const experiment of plan) {
@@ -364,6 +388,14 @@ export function limitationItems(facts: Facts): { text: string; origin: Statement
   }
   if (facts.critiqueNote)
     items.push({ text: facts.critiqueNote, origin: 'unresolved-uncertainty' });
+  // What the comparison could not tell comes before everything else the brief cannot tell you.
+  if (facts.signal.state !== 'clear') {
+    items.unshift({
+      text: BRIEF_SIGNAL_NOTICES[facts.signal.state].text,
+      origin:
+        facts.signal.state === 'no-direction' ? 'system-assumption' : 'unresolved-uncertainty',
+    });
+  }
   return items.slice(0, 20).map((item) => ({ ...item, text: clip(item.text, 500) }));
 }
 

@@ -19,6 +19,7 @@ import {
   type VariantMeasure,
 } from './measures.js';
 import { relianceOfFinding, weakestReliance, type Reliance } from './rules.js';
+import { readSignal, type SignalReading } from './signal.js';
 
 /** A conflict between two supplied sources, as the evidence ledger recorded it. */
 export interface BriefConflict {
@@ -69,6 +70,8 @@ export interface Facts {
   measures: VariantMeasure[];
   baseline: VariantMeasure | null;
   headline: Headline | null;
+  /** Whether the comparison with no change can be read as a result about the change. */
+  signal: SignalReading;
   assumptions: AssumptionRow[];
   /** The actors were edited after the analysis ran. */
   actorsChanged: boolean;
@@ -106,6 +109,8 @@ export function gatherFacts(inputs: BriefInputs): Facts {
   const critiques = forThisAnalysis ? (inputs.critiques?.critiques ?? []) : [];
   const evidence = evidenceIndex(inputs.stakeholders, analysis.actors, inputs.documents);
   const measures = measureVariants(analysis);
+  const headline = headlineOf(analysis, measures);
+  const signal = readSignal(analysis, headline);
   const actorById = new Map(analysis.actors.map((actor) => [actor.id, actor]));
   const findingById = new Map(analysis.findings.map((finding) => [finding.id, finding]));
   const evidencedFinding = (finding: Finding): boolean => {
@@ -136,7 +141,8 @@ export function gatherFacts(inputs: BriefInputs): Facts {
     evidence,
     measures,
     baseline: baselineOf(measures),
-    headline: headlineOf(analysis, measures),
+    headline,
+    signal,
     assumptions: assumptionRows({ analysis, scenario: inputs.scenario, evidence }),
     actorsChanged,
     actorById,
@@ -144,11 +150,14 @@ export function gatherFacts(inputs: BriefInputs): Facts {
     variantLabel: (variantId) =>
       analysis.config.variants.find((variant) => variant.id === variantId)?.label ?? variantId,
     evidencedFinding,
-    relianceOf: (findings) =>
-      weakestReliance(
+    // When no one can be moved, every finding describes noise, however often it held.
+    relianceOf: (findings) => {
+      if (signal.state === 'no-direction') return findings.length > 0 ? 'low' : null;
+      return weakestReliance(
         findings.map((finding) =>
           relianceOfFinding(finding.classification, evidencedFinding(finding)),
         ),
-      ),
+      );
+    },
   };
 }

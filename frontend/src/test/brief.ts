@@ -218,6 +218,7 @@ export function briefFixture(overrides: Partial<DecisionBrief> = {}): DecisionBr
     },
     openCritiques: 1,
     generatedBy: 'rules',
+    signal: 'clear',
     inputRevisions: { analysis: 1 },
     ...overrides,
   });
