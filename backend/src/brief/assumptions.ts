@@ -45,7 +45,7 @@ function describeOrigin(origin: StatementOrigin, traitOrigin: Trait['origin'] | 
 }
 
 export const effectOf = (row: SensitivityRow): string =>
-  `moving it by ${signed(row.perturbation)} changed ${embed(row.metric, 80)} by ${signed(row.shift)} (standard error ${decimals(row.standardError)}) on the same seeds`;
+  `moving it by ${signed(row.perturbation)} changed ${embed(row.metric, 100)} by ${signed(row.shift)} (standard error ${decimals(row.standardError)}) on the same seeds`;
 
 /** The actor an assumption belongs to, the passages cited for it, and whether the assumption is evidenced. */
 export function sensitivityContext(
