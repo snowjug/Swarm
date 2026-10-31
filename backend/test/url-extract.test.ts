@@ -7,6 +7,14 @@ const page = (body: string, head = '') =>
 const text = (body: string) => page(body).body;
 const ld = (json: string) => `<script type="application/ld+json">${json}</script>`;
 
+/** The processor time, in milliseconds, that a function takes: unlike the clock, a busy machine does not stretch it. */
+function cpuTime(run: () => unknown): number {
+  const before = process.cpuUsage();
+  run();
+  const used = process.cpuUsage(before);
+  return (used.user + used.system) / 1_000;
+}
+
 /** Characters that show nothing or turn text round, and control characters other than a line break or tab. */
 function hiding(value: string): string[] {
   return [...value].filter((character) => {
@@ -308,6 +316,24 @@ describe('markup that is broken, hostile, or enormous', () => {
       extractPage(html);
       expect(Date.now() - started, name).toBeLessThan(4_000);
     }
+  });
+
+  it('takes time in step with the page, for a row of many cells and for deep, crowded stacks of tags', () => {
+    // Sized so that a quadratic reading takes seconds, and a linear one a few tens of milliseconds.
+    const cases: Record<string, string> = {
+      cells: `<table><tr>${'<td>x'.repeat(60_000)}`,
+      headerCells: `<table><tr>${'<th>some words'.repeat(30_000)}`,
+      blocksInDeepNesting: `${'<b>'.repeat(399)}${'<div>'.repeat(100_000)}`,
+      hiddenBlocks: '<div hidden>'.repeat(120_000),
+      blocksBelowAStop: `<p><button>${'<span>'.repeat(380)}${'<div>'.repeat(140_000)}`,
+    };
+    for (const [name, html] of Object.entries(cases)) {
+      expect(
+        cpuTime(() => extractPage(html)),
+        name,
+      ).toBeLessThan(500);
+    }
+    expect(text('<table><tr><td>a  <td>  b <td><b>c</b><td><td>d</table>')).toBe('a | b | c | | d');
   });
 
   it('keeps only the first stretch of a very long page', () => {

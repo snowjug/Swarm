@@ -281,6 +281,11 @@ interface Open {
  */
 export function extractPage(html: string): ExtractedPage {
   const stack: Open[] = [];
+  // Where each open element is on the stack, by name. An end tag, or a start tag that implies one,
+  // finds what it closes from this and not by looking down the stack: on a page nested as deep as is
+  // allowed, that look would be most of the work for every tag.
+  const places = new Map<string, number[]>();
+  const nearest = (name: string): number => places.get(name)?.at(-1) ?? -1;
   const lines: string[] = [];
   const jsonLd: string[] = [];
   let title: string | null = null;
@@ -325,6 +330,9 @@ export function extractPage(html: string): ExtractedPage {
   const popTo = (index: number): void => {
     while (stack.length > index) {
       const element = stack.pop() as Open;
+      const where = places.get(element.name) as number[];
+      where.pop();
+      if (where.length === 0) places.delete(element.name);
       if (element.dropped) {
         dropped -= 1;
         continue;
@@ -337,12 +345,13 @@ export function extractPage(html: string): ExtractedPage {
       }
     }
   };
+  // Closes the nearest open element with one of these names, unless an element with one of the stops
+  // is nearer: a new list item ends the last item of its own list, not one of an outer list.
   const closeNearest = (names: readonly string[], stops: readonly string[]): void => {
-    for (let index = stack.length - 1; index >= 0; index -= 1) {
-      const open = (stack[index] as Open).name;
-      if (names.includes(open)) return popTo(index);
-      if (stops.includes(open)) return;
-    }
+    let target = -1;
+    for (const name of names) target = Math.max(target, nearest(name));
+    if (target < 0 || stops.some((name) => nearest(name) > target)) return;
+    popTo(target);
   };
   // The end tags that a page may leave out: a new list item ends the last, a new row ends the row.
   const impliedEnds = (name: string): void => {
@@ -377,6 +386,9 @@ export function extractPage(html: string): ExtractedPage {
       return;
     }
     const element: Open = { name, dropped: DROPPED.has(name) || hidden(attributes) };
+    const where = places.get(name);
+    if (where) where.push(stack.length);
+    else places.set(name, [stack.length]);
     stack.push(element);
     if (element.dropped) {
       dropped += 1;
@@ -393,16 +405,17 @@ export function extractPage(html: string): ExtractedPage {
     }
     if (name === 'td' || name === 'th') {
       cells += 1;
-      if (rowCells > 0) line = `${line.trimEnd()} | `;
+      // Not `line.trimEnd()` first: that copies the whole row for every cell, which is quadratic in
+      // a row of many cells. The white space before the bar is collapsed when the line is flushed.
+      if (rowCells > 0) line += ' | ';
       rowCells += 1;
     } else if (name === 'pre') pre += 1;
   };
 
   const close = (name: string): void => {
     if (name === 'br') return open('br', new Map(), false);
-    for (let index = stack.length - 1; index >= 0; index -= 1) {
-      if ((stack[index] as Open).name === name) return popTo(index);
-    }
+    const index = nearest(name);
+    if (index >= 0) popTo(index);
   };
 
   const length = html.length;
