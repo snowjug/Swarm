@@ -260,7 +260,7 @@ describe('the independent review', () => {
 
     it('shows what the criticism does to the conclusion if it stands', () => {
       const text = visibleText(render({ view: populated() }));
-      expect(text).toContain('If this stands, the conclusion changes like this');
+      expect(text).toContain('Effect on the conclusion, if it stands');
       expect(text).toContain('If this stands, the direction depends on this assumption.');
     });
 
@@ -331,7 +331,7 @@ describe('the independent review', () => {
     it('offers a form on each criticism, with a label for each field and the three things a response can mean', () => {
       const html = render({ view: populated() });
       expect(html.match(/<form/gu)).toHaveLength(3);
-      expect(html.match(/<details/gu)).toHaveLength(3);
+      expect(html.match(/<details class="critic-answer"/gu)).toHaveLength(3);
       const text = visibleText(html);
       expect(text).toContain('Respond to this criticism');
       expect(text).toContain('Your response');

@@ -59,8 +59,8 @@ describe('words for a criticism', () => {
   });
 
   it('says what the impact means once the person has accepted or disputed it', () => {
-    expect(impactHeading('open')).toContain('If this stands');
-    expect(impactHeading('responded')).toContain('If this stands');
+    expect(impactHeading('open')).toBe('Effect on the conclusion, if it stands');
+    expect(impactHeading('responded')).toBe('Effect on the conclusion, if it stands');
     expect(impactHeading('accepted')).toBe('Accepted: this applies to the conclusion');
     expect(impactHeading('disputed')).toBe('Disputed: this is what is contested');
   });

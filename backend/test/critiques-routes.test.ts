@@ -216,8 +216,12 @@ describe('running the review', () => {
       analysisFixture({ id: 'busy', status: 'running', completedAt: null }),
     );
     expect((await run()).statusCode).toBe(409);
-    expect((await run({ analysisId: 'busy' })).statusCode).toBe(409);
-    expect((await run({ analysisId: 'missing' })).statusCode).toBe(409);
+    const unfinished = await run({ analysisId: 'busy' });
+    expect(unfinished.statusCode).toBe(409);
+    expect(unfinished.json().error.message).toMatch(/has not finished \(it is running\)/u);
+    const unknown = await run({ analysisId: 'missing' });
+    expect(unknown.statusCode).toBe(409);
+    expect(unknown.json().error.message).toMatch(/no analysis with that id/u);
     expect((await get()).critiques).toBeNull();
     expect(audit()).toEqual([]);
   });

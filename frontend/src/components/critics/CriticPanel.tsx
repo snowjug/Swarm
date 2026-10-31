@@ -317,6 +317,23 @@ function Summary({ set }: { set: CritiqueSet }) {
   );
 }
 
+/** What the two kinds of review are, so that a person knows what asking for either one does. */
+const REVIEW_EXPLANATION = (
+  <>
+    <p>
+      The <strong>deterministic checks</strong> always run. They read the scenario, the
+      stakeholders, the cast and the analysis, and the decision brief when there is one, and apply
+      fixed rules, so the same input always gives the same criticisms. No model is involved.
+    </p>
+    <p>
+      The optional <strong>model review</strong> sends a compact digest to the configured model,
+      which may add criticisms. Anything it says about an id that does not exist is dropped, it
+      cannot change a finding, and if it fails you still get the deterministic checks, with a note
+      that says so.
+    </p>
+  </>
+);
+
 /** Asks for a review, and says what each kind of review is. */
 function RunControls({ view, state }: { view: CritiquesView; state: CritiquesState }) {
   const id = useId();
@@ -326,17 +343,14 @@ function RunControls({ view, state }: { view: CritiquesView; state: CritiquesSta
   return (
     <section className="critic-run" aria-labelledby={`${id}-title`}>
       <h3 id={`${id}-title`}>{again ? 'Run the review again' : 'Run an independent review'}</h3>
-      <p>
-        The <strong>deterministic checks</strong> always run. They read the scenario, the
-        stakeholders, the cast and the analysis, and the decision brief when there is one, and apply
-        fixed rules, so the same input always gives the same criticisms. No model is involved.
-      </p>
-      <p>
-        The optional <strong>model review</strong> sends a compact digest to the configured model,
-        which may add criticisms. Anything it says about an id that does not exist is dropped, it
-        cannot change a finding, and if it fails you still get the deterministic checks, with a note
-        that says so.
-      </p>
+      {again ? (
+        <details className="critic-explain">
+          <summary>How the review works</summary>
+          {REVIEW_EXPLANATION}
+        </details>
+      ) : (
+        REVIEW_EXPLANATION
+      )}
       <div className="critic-check">
         <input
           id={`${id}-model`}
@@ -504,8 +518,13 @@ export function CriticReview({ state }: { state: CritiquesState }) {
   );
 }
 
+/** One session of the review for one project: switching project starts it afresh. */
+function CriticSession({ projectId }: { projectId: string }) {
+  const state = useCritiques(projectId);
+  return <CriticReview state={state} />;
+}
+
 /** Independent challenges to the analysis, with responses. */
 export function CriticPanel({ project }: CriticPanelProps) {
-  const state = useCritiques(project.id);
-  return <CriticReview state={state} />;
+  return <CriticSession key={project.id} projectId={project.id} />;
 }

@@ -136,7 +136,7 @@ export function impactHeading(status: CritiqueStatus): string {
     case 'disputed':
       return 'Disputed: this is what is contested';
     default:
-      return 'If this stands, the conclusion changes like this';
+      return 'Effect on the conclusion, if it stands';
   }
 }
 

@@ -73,11 +73,16 @@ export class CritiqueService {
     return this.options.now?.() ?? new Date();
   }
 
-  view(projectId: string, may: CritiquesView['may']): CritiquesView {
-    const stored = this.repository.artifacts.get(projectId, 'critiques');
-    const latest = newestCompleted(
+  /** The newest analysis that has finished, which is the one a review without an id is about. */
+  private newest(projectId: string): Analysis | null {
+    return newestCompleted(
       this.repository.artifacts.list(projectId, 'analysis').map((record) => record.data),
     );
+  }
+
+  view(projectId: string, may: CritiquesView['may']): CritiquesView {
+    const stored = this.repository.artifacts.get(projectId, 'critiques');
+    const latest = this.newest(projectId);
     return {
       critiques: stored?.data ?? null,
       analysis: latest ? { id: latest.id, completedAt: latest.completedAt } : null,
@@ -89,12 +94,23 @@ export class CritiqueService {
   private completedAnalysis(projectId: string, analysisId: string | undefined): Analysis {
     if (analysisId !== undefined) {
       const found = this.repository.artifacts.get(projectId, 'analysis', analysisId);
-      if (!found || found.data.status !== 'completed') throw notReady();
+      if (!found) {
+        throw new AppError(
+          409,
+          'ANALYSIS_NOT_READY',
+          'There is no analysis with that id to review. Choose a finished analysis, or leave the id out to review the newest.',
+        );
+      }
+      if (found.data.status !== 'completed') {
+        throw new AppError(
+          409,
+          'ANALYSIS_NOT_READY',
+          `That analysis has not finished (it is ${found.data.status}). Wait for it to finish, then run the review.`,
+        );
+      }
       return found.data;
     }
-    const latest = newestCompleted(
-      this.repository.artifacts.list(projectId, 'analysis').map((record) => record.data),
-    );
+    const latest = this.newest(projectId);
     if (!latest) throw notReady();
     return latest;
   }

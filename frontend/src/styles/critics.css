@@ -241,13 +241,21 @@
   background: var(--tone-info-tint);
 }
 
-.critic-answer summary {
+.critic-answer summary,
+.critic-explain summary {
   display: inline-flex;
   align-items: center;
   min-height: 32px;
   color: var(--orange);
   font-weight: 600;
   cursor: pointer;
+}
+.critic-explain {
+  display: grid;
+  gap: 8px;
+}
+.critic-explain p {
+  max-width: 78ch;
 }
 .critic-form {
   display: grid;

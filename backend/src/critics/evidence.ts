@@ -116,7 +116,7 @@ function undatedSources(input: Resolved): Critique[] {
       role: ROLE,
       target: whole(input.analysis.id),
       severity: 'minor',
-      objection: `The scenario looks ahead, but ${undated.length} of ${documents.length} documents carry no date for the information they hold, so it is unclear how current they are.`,
+      objection: `The scenario looks ahead, but no date is recorded for ${undated.length} of ${plural(documents.length, 'document')}, so it is unclear how current ${undated.length === 1 ? 'it is' : 'they are'}.`,
       basis: [
         `Scenario horizon: ${horizon}.`,
         `Documents with no provenance date: ${names(undated.map((document) => document.name))}.`,
