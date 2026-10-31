@@ -56,7 +56,7 @@ Do not say:
 
 - That it is production ready, or secure, or accurate.
 - That sign-in works for your organisation. It has been verified against a local test provider
-  only, and the browser has no sign-in screen.
+  only; no real tenant has been used.
 - That the analyst never answers something it should not. A plausible question about something
   absent usually gets past the first check; the model's own refusal and its duty to cite are the
   second line, and they are observed only in live runs.

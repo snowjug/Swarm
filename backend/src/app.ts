@@ -27,6 +27,9 @@ import { sessionRoutes, sessionStatusRoute } from './routes/session.js';
 import { recordApiError, registerRequestTelemetry } from './telemetry/http.js';
 import { signals } from './telemetry/signals.js';
 import { ledgerRoutes } from './routes/ledger.js';
+import { studioRoutes } from './routes/studio.js';
+import { ModelSectionRegenerator } from './studio/regenerate.js';
+import { StudioService } from './studio/service.js';
 import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
 import { guidedRoutes } from './routes/guided.js';
@@ -309,7 +312,19 @@ export async function buildApp(options: AppOptions) {
     purge.unref();
     app.addHook('onClose', async () => clearInterval(purge));
   }
-  ledgerRoutes(app, repository, new LedgerService(repository), config.rateLimitScale);
+  const ledger = new LedgerService(repository);
+  ledgerRoutes(app, repository, ledger, config.rateLimitScale);
+  studioRoutes(
+    app,
+    repository,
+    new StudioService(
+      repository,
+      ledger,
+      new ModelSectionRegenerator(repository, config, modelFactory),
+      { isBusy: (projectId) => jobs.isBusy(projectId) || interaction.isBusy(projectId) },
+    ),
+    config.rateLimitScale,
+  );
   providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
 

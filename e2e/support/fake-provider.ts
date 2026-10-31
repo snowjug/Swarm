@@ -6,7 +6,7 @@
  * results presented as AI output). This is NOT evidence about any live model's reasoning quality.
  *
  * Control surface (test-only, loopback):
- *   POST /__control {latencyMs?, failOnRound?: number|null, hostileCitation?: boolean}
+ *   POST /__control {latencyMs?, failOnRound?: number|null, failKind?: string|null, hostileCitation?: boolean}
  *   GET  /__stats   -> {calls, byKind, rounds, actors}
  *   POST /__reset
  *
@@ -47,9 +47,16 @@ const signatures: [Kind, RegExp][] = [
 interface Controls {
   latencyMs: number;
   failOnRound: number | null;
+  /** Every request of this kind (for example `chapter`) is answered with a server error. */
+  failKind: Kind | null;
   hostileCitation: boolean;
 }
-const defaults: Controls = { latencyMs: 400, failOnRound: null, hostileCitation: false };
+const defaults: Controls = {
+  latencyMs: 400,
+  failOnRound: null,
+  failKind: null,
+  hostileCitation: false,
+};
 let controls: Controls = { ...defaults };
 let calls = 0;
 const byKind: Record<string, number> = {};
@@ -352,6 +359,7 @@ createServer((request, response) => {
       await sleep(controls.latencyMs);
       if (kind === 'actor' && controls.failOnRound === Number(data.round))
         return send(500, { error: 'injected provider failure' });
+      if (controls.failKind === kind) return send(500, { error: 'injected provider failure' });
       const content = JSON.stringify(answer(kind, system, data));
       return send(200, {
         model: 'fake-model',

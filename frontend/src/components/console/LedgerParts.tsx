@@ -18,8 +18,19 @@ const TONE_ICONS: Record<Tone, LucideIcon> = {
   info: Info,
 };
 
-export function ToneChip({ tone, label, title }: { tone: Tone; label: string; title?: string }) {
-  const Icon = TONE_ICONS[tone];
+export function ToneChip({
+  tone,
+  label,
+  title,
+  icon,
+}: {
+  tone: Tone;
+  label: string;
+  title?: string;
+  /** A glyph that says more than the tone's own, where the tone's would mislead (a state is not a doubt). */
+  icon?: LucideIcon;
+}) {
+  const Icon = icon ?? TONE_ICONS[tone];
   return (
     <span className={`tone-chip tone-${tone}`} title={title}>
       <Icon size={13} aria-hidden="true" />

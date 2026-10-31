@@ -20,18 +20,23 @@ a tamper-evident audit log.
   authentication. A fifteen-check live scenario passed against a deployed model at the baseline and
   after the chat changes (see [evaluation results](./evaluation-results.md)).
 - The evidence layer, the abstention gate, the conflict detector, the assumption register, the audit
-  log, API sign-in with roles and tenant isolation, and six synthetic demonstration packs are built
-  and tested. The [requirement matrix](../program/requirement-matrix.md) gives counts and evidence.
+  log, sign-in (a bearer token or the browser) with seven roles and tenant isolation, an optional PostgreSQL
+  adapter, durable stage jobs, OpenTelemetry instrumentation, light, dark and high-contrast themes, Report
+  Studio (edit, review and approve the report, with a printable memo), and six synthetic demonstration packs
+  are built and tested. The [requirement matrix](../program/requirement-matrix.md) gives counts and evidence.
 - A starting measurement was taken before any change, so improvements are compared with something:
   [the baseline](../program/baseline.md).
 
 ## What is not
 
-- It is not production ready. See [the gates](../production-readiness.md): 8 of 28 are met.
-- Sign-in has never been used with a real Entra tenant, and the browser has no sign-in screen.
-- Storage is SQLite, so one instance only. A PostgreSQL design is proposed, not built.
-- There is no distributed tracing, no per-tenant budget, and no automatic resume of an interrupted
-  run.
+- It is not production ready. See [the gates](../production-readiness.md): 8 of 29 are met.
+- Sign-in has never been used with a real Entra tenant, and there is no screen for managing members.
+- Storage is SQLite unless a PostgreSQL database is configured. The PostgreSQL adapter passes the unit suite
+  in-process and has never run against a deployed server; the job queue has not run across separate
+  containers.
+- Telemetry is built and tested with in-memory exporters; no Application Insights resource exists. There is
+  no per-tenant budget. Nothing is hosted: the Azure pilot is planned, costed and compiled, not deployed.
+- Report Studio has run on a recording, and writing a chapter again only against a stand-in for the provider.
 - The checks behind the support classes are heuristics. The deterministic check accepted 3 of 8
   unsupported statements in a labelled set. The analyst's abstention catches off-topic questions and
   unknown years but only 1 of 4 plausible-sounding questions about something absent.

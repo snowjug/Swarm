@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { GroundingReview } from '../../shared/grounding.js';
 import { buildApp } from '../src/app.js';
 import { LedgerService } from '../src/grounding/service.js';
+import { StudioService } from '../src/studio/service.js';
 import { copyDatabase } from '../src/storage/copy.js';
 import { Repository } from '../src/storage/repository.js';
 import type { SqlDatabase, SqlRow, SqlStatement } from '../src/storage/sql.js';
@@ -36,6 +37,7 @@ const DATA_TABLES = [
   ['claim_records', 'project_id, id'],
   ['source_conflicts', 'project_id, id'],
   ['ledger_state', 'project_id'],
+  ['studio_documents', 'project_id'],
   ['workspace_members', 'tenant_id, principal_id'],
   ['project_members', 'project_id, principal_id'],
   ['audit_events', 'seq'],
@@ -97,6 +99,15 @@ async function populated(): Promise<Repository> {
   const report = repository.get(created.id).report!;
   repository.update(created.id, { report: { ...report, grounding } });
   new LedgerService(repository).get(created.id);
+  // A person has worked on the report: a document with an edit, so that it has something to carry.
+  const studio = new StudioService(repository, new LedgerService(repository));
+  studio.start(created.id, { confirm: false }, 'local-user');
+  studio.editSection(
+    created.id,
+    'summary',
+    { body: 'A summary as a person wrote it.', expectedVersion: 1, reason: null },
+    'local-user',
+  );
   await interaction.reply(
     created.id,
     'report',

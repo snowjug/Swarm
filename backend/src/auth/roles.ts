@@ -5,9 +5,9 @@
  *   Platform Administrator  an Entra app role; runs the platform, sees no project content
  *   Workspace Owner         workspace membership; everything in the workspace, and the owners
  *   Workspace Admin         workspace membership; everything in the workspace except the owners
- *   Project Lead            project membership; runs, reviews, deletes and shares the project
- *   Analyst                 project membership; runs, branches and asks questions
- *   Reviewer                project membership; reads, exports and reviews, never runs
+ *   Project Lead            project membership; runs, edits, reviews, deletes and shares the project
+ *   Analyst                 project membership; runs, branches, edits the report and asks questions
+ *   Reviewer                project membership; reads, exports and reviews, never runs or edits
  *   Viewer                  project membership; reads and exports
  *
  * A workspace is a tenant in this release. A workspace member can create projects and sees only the
@@ -25,6 +25,7 @@ export const PROJECT_CAPABILITIES = [
   'export',
   'review',
   'run',
+  'edit',
   'chat',
   'delete',
   'members',
@@ -37,10 +38,10 @@ export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 const PROJECT_ROLE_CAPABILITIES: Readonly<Record<ProjectRole, ReadonlySet<ProjectCapability>>> = {
   viewer: new Set<ProjectCapability>(['read', 'export']),
-  // Reviewing is a separate duty from running: a reviewer never changes what they review.
+  // Reviewing is a separate duty from running and from writing: a reviewer never changes what they review.
   reviewer: new Set<ProjectCapability>(['read', 'export', 'review']),
-  // An analyst runs and asks. They do not review their own work, delete, or share.
-  analyst: new Set<ProjectCapability>(['read', 'export', 'run', 'chat']),
+  // An analyst runs, writes the report and asks. They do not review their own work, delete, or share.
+  analyst: new Set<ProjectCapability>(['read', 'export', 'run', 'edit', 'chat']),
   lead: new Set<ProjectCapability>(PROJECT_CAPABILITIES),
 };
 

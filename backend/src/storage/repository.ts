@@ -25,6 +25,7 @@ import {
 } from './codec.js';
 import { LedgerStore } from './ledger-store.js';
 import { MemberStore } from './members.js';
+import { StudioStore } from './studio-store.js';
 import { migrate, type MigrationReport } from './migrations.js';
 import { openDatabase } from './open.js';
 import { JobStore, LEASE_HELD, jobLease } from './jobs.js';
@@ -67,6 +68,8 @@ export class Repository {
   private readonly database: SqlDatabase;
   /** Claim records and conflicts between sources. */
   readonly ledger: LedgerStore;
+  /** The people's work on each generated report: edits, notes, versions and approval. */
+  readonly studio: StudioStore;
   /** Append-only record of who did what. Holds identifiers and counts, never content. */
   readonly audit: AuditLog;
   /** Workspace and project membership: who may see and do what. */
@@ -102,6 +105,7 @@ export class Repository {
       throw error;
     }
     this.ledger = new LedgerStore(this.database, (operation) => this.transaction(operation));
+    this.studio = new StudioStore(this.database);
     this.audit = new AuditLog(this.database);
     this.members = new MemberStore(
       this.database,

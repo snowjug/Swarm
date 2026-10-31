@@ -15,13 +15,25 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - The analyst's abstention gate and the cite-or-abstain rule; a grounding status on every reply.
 - An append-only, hash-chained audit log; versioned storage migrations with a backup before an
   upgrade.
-- API sign-in verification for Microsoft Entra tokens, four roles, a default-deny route table, and
-  tenant and owner scoping. Tested against a local test identity provider.
+- Sign-in with Microsoft Entra, as a bearer token or in the browser (Authorization Code with PKCE, a
+  server-side session), seven roles through workspace and project membership, a default-deny route table and
+  tenant scoping. Tested against a local test identity provider.
+- An optional PostgreSQL implementation behind the same stores (the whole unit suite passes on it,
+  in-process), and a copy tool between SQLite and PostgreSQL.
+- Durable stage jobs: a refresh or restart does not lose a run; a stalled worker is replaced and a
+  simulation resumes from its last saved round; bounded retries; cancel and pause across processes.
+- OpenTelemetry spans and metrics with a redaction gate and a correlation id on every answer.
+- Bicep for a hosted pilot, compiled and linted.
 - An offline evaluation with hash-pinned labelled sets, a dev/test split, and floors that fail the
   build on a regression.
 - Six synthetic demonstration packs, each checked by a test.
 - Light, dark and high-contrast themes that follow the device until a choice is made; the contrast of
   every declared text colour is computed in each theme, and axe-core is run on the demonstration in each.
+- Report Studio: a person opens the generated report as a copy and edits it section by section, every
+  save a new version; locks sections; a reviewer approves or sends it back with a reason; an approval
+  holds a hash of the exact text; a printable memo, Markdown and JSON say what was approved. An edited
+  chapter's statements are shown as describing the earlier text. The whole workflow runs in a browser
+  test on the demonstration, in each theme and on a phone, and 25 mutations of its rules are caught.
 
 ## Built with limits
 
@@ -34,20 +46,23 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   only in live runs.
 - **The assumption register** is derived from the scenario and read-only. An analyst cannot add an
   assumption of their own.
-- **Sign-in** is verified in the API only. No real tenant has been used, and the browser has no
-  sign-in screen.
+- **Sign-in** is verified against a test identity provider only. No real tenant has been used, and there
+  is no screen for managing members.
+- **PostgreSQL, the job queue and telemetry** have not met the real thing: no deployed database, no
+  separate worker containers, no Application Insights resource.
 - **Accessibility** is checked by automated tools at four viewports, and on the demonstration in each
   of the three themes. No assistive-technology testing has been done.
 - **Cost and budget controls** limit calls and run time. There is no per-tenant token budget.
+- **Report Studio** has run on a recording, not in use. Writing a chapter again has been tested only
+  against a stand-in for the provider, never a live model. An approval is a record in the application,
+  not an external attestation. There is no co-editing, merge or comment thread.
 
 ## Not built
 
-- A PostgreSQL implementation (proposed in [ADR 0006](../adr/0006-postgres-adapter-proposed.md)).
-- Automatic resume of a run after a restart.
-- OpenTelemetry tracing, Application Insights, alerts.
-- A report studio for assembling and publishing a report from reviewed statements.
+- Anything deployed in Azure beyond the model: no host, no database server, no monitoring resource,
+  no dashboards or alerts (written, not created).
+
 - Quantitative analysis (sensitivity, intervals) of simulation results.
-- Hosting infrastructure as code (Container Apps, a database, a key vault, monitoring).
 - A Fluent UI component library; Storybook.
 - A model-in-the-loop regression suite, and any evaluation on real documents.
 - The persistent Azure development machine: prepared but not provisioned, awaiting approval for

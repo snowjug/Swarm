@@ -15,6 +15,9 @@ process.env.JOURNEY_URL ||= 'http://127.0.0.1:3001';
 
 export default defineConfig({
   testDir: 'e2e/journey',
+  // The other specs in this folder (themes, the report studio) need the throwaway server and data of
+  // playwright.config.ts; only the presentation is meant to run against a server that is already up.
+  testMatch: /demo-journey\.spec\.ts/u,
   globalSetup: './e2e/journey/live-preflight.ts',
   fullyParallel: false,
   workers: 1,

@@ -64,7 +64,8 @@ Ten minutes before:
 ## Screen sequence
 
 The order the screens appear in the longer script. The right-hand column is the step of the automated
-journey that checks the same screen, so that every screen you show has been exercised.
+journey that checks the same screen, so that every screen you show has been exercised. The Report Studio
+screens are not among its 32 steps; e2e/journey/studio.spec.ts checks them.
 
 | Screen                              | What to click                                               | Journey step |
 | ----------------------------------- | ----------------------------------------------------------- | ------------ |
@@ -82,6 +83,9 @@ journey that checks the same screen, so that every screen you show has been exer
 | Report: reader                      | A chapter                                                   | 21           |
 | Report: evidence ledger             | The conflict, the assumptions, a statement                  | 8, 9, 10     |
 | Report: statement inspector         | A supported statement, then one with contradicting evidence | 22, 23, 24   |
+| Report Studio: sections             | **Open Report Studio**, **Open the report in the studio**   | Studio spec  |
+| Report Studio: edit and compare     | **Edit text**, save, then **Compare with the current text** | Studio spec  |
+| Report Studio: review and memo      | **Submit for review**, **Approve…**, the printable memo     | Studio spec  |
 | Interaction: analyst                | An answerable question, then an unsupported one             | 25 to 28     |
 | Interaction: fictional actor        | One proxy                                                   | 29           |
 | Export                              | **Export Markdown**, **Export JSON**                        | 30, 31       |
@@ -171,6 +175,18 @@ actor what would reassure them.
 **9:15 to 10:00 Exports and the audit log.** Markdown and JSON: the ledger travels with the report.
 The audit log: what you just did is in it, with no questions or answers. **Verify integrity**.
 
+**Optional, about ninety seconds more: Report Studio.** It changes the demonstration project, so do it
+last and reset afterwards (see [Resetting](#resetting-the-demonstration)). In **Report**, choose **Open
+Report Studio**, then **Open the report in the studio**. "The generated report is never changed: this is a
+copy that a person works on." Open a chapter: "Each statement shows what the server checked it against."
+Choose **Edit text**, add a sentence, **Save as a new version**: "Every save is a version. The statements
+now say they describe the earlier text, because nobody has checked these new words." Open **Version
+history** and **Compare with the current text**: the added sentence is underlined and announced as added.
+Choose **Submit for review**, then **Approve…**: "A reviewer approves exactly these words; the record holds
+a hash of them and says that the approver also wrote part of the text." **Open the printable memo**: the
+status at the top, the hash, and only the statements a source supports listed as findings. Close by saying
+that an approval is a person's decision, recorded. It does not make a statement true.
+
 ## Speaking points
 
 Say:
@@ -183,6 +199,7 @@ Say:
 - "Two sources disagreed and Swarm did not pick one. Neither passage is declared true."
 - "If the project cannot answer, the analyst says so, in those words, before any model is asked."
 - "It supports a person's analysis. A person decides."
+- "An approval is of the exact words, and says who approved and when. It does not make a statement true."
 
 Do not say:
 
@@ -195,6 +212,8 @@ Do not say:
 - That prompt injection is solved. It is an active risk: documents are treated as untrusted data and
   warned about, and that reduces the risk without removing it.
 - That the same run would repeat. The demonstration is a recording; a new run would differ.
+- That an approved report is a verified one, or that the studio's approval is signed or attested. It is a
+  record in this application: who, when and a hash of the words.
 
 ## Likely objections and answers
 
@@ -218,10 +237,15 @@ a test plants an instruction in a document. This reduces the risk. It does not r
 **"Where does our data go?"** In rules mode, nowhere. In model mode, to the Azure OpenAI deployment you
 configure, signed in with Microsoft Entra, with no key stored. Nothing is sent to anyone else.
 
-**"Is it secure? Is it production ready?"** No claim. The API verifies Entra tokens, enforces roles
-and separates tenants, tested against a local test identity provider. The browser has no sign-in
-screen, so a hosted deployment is not ready. The [FAQ](../pitch/faq.md) and the readiness gates are
-specific.
+**"Is it secure? Is it production ready?"** No claim. The server verifies Entra tokens, signs a person in
+through the browser, enforces seven roles and separates tenants, all tested against a local test identity
+provider and never against a real tenant, and nothing is hosted. The [FAQ](../pitch/faq.md) and the
+readiness gates are specific.
+
+**"Can someone edit the report and keep the check marks?"** No. Once a chapter's words change, its
+statements are shown as describing the earlier text, the memo does not list them as findings, and the
+review summary counts the chapter as not current. Words a person writes are not checked statement by
+statement, and the page says so beside them.
 
 **"Can I get the same answer again?"** Not from the model. The recorded demonstration is fixed; a
 re-recording would differ. The deterministic parts (the checks, the ledger, the comparison) are
@@ -245,6 +269,15 @@ The journey saves one screenshot per key step when you give it a folder:
 ```powershell
 $env:JOURNEY_SCREENSHOTS = 'docs/demo/backup'
 npm run demo:journey
+```
+
+The Report Studio screens (22 to 25) come from its own spec, which needs a built application and starts
+its own server:
+
+```powershell
+npm run build
+$env:JOURNEY_SCREENSHOTS = 'docs/demo/backup'
+npx playwright test --project=journey e2e/journey/studio.spec.ts -g "a person works on the report"
 ```
 
 That folder is ignored by Git: the images belong on the presenting laptop, not in the repository. Make
@@ -274,6 +307,10 @@ changes. Open the folder before you start and keep a copy on a USB drive or in a
 | `19-analyst-abstains.png` | The abstention sentence                         | Honest refusal                    |
 | `20-actor-chat.png`       | A fictional actor's reply                       | Role play, labelled               |
 | `21-audit-log.png`        | The audit log                                   | Accountability                    |
+| `22-studio-sections.png`  | Report Studio, a chapter with its statements    | Working on the report             |
+| `23-studio-diff.png`      | A version compared with the current text        | Every change is a version         |
+| `24-studio-approved.png`  | An approved report and who approved it          | Review and approval               |
+| `25-studio-memo.png`      | The printable memo                              | What was approved, on paper       |
 
 If you present from images, say so at the start: "The live system is unavailable, so these are
 captures from a rehearsal today."
@@ -290,6 +327,9 @@ The reset validates every file before it writes anything. It only ever touches t
 demonstration identifiers; any other project in the database is left as it is. It refuses to replace a
 project that belongs to another workspace. Restoring twice leaves the same state as restoring once.
 
+A Report Studio document made in a rehearsal goes with the project it was made on: the reset replaces the
+project, and the document is removed with it.
+
 Two things it cannot undo, by design: the audit log is append-only, so a rehearsal's entries stay in
 it, and a model that differs from the recorded one blocks **new** questions on the recorded projects
 (the reset says so). Reading, comparing and exporting still work.
@@ -302,15 +342,16 @@ own), see `npm run demo:record`; read what it writes before committing it.
 Say what happened, plainly, and move to the nearest fallback. The audience forgives a failed demo and
 does not forgive a pretended one.
 
-| What fails                                | What it looks like                                                                 | What to do                                                                                                                                                                                                                                                                                                                                        |
-| ----------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The model or its sign-in is unavailable   | **Verify connection** fails; a new answerable question fails with a provider error | Everything recorded still works: all of the sources, graph, ledger, simulation, branches, comparison, report, exports and audit log, and the recorded conversation (a cited answer, an abstention, an actor). Read those instead of asking new questions. Fix later with `az login`. An unsupported question still gets its immediate abstention. |
-| The server will not start                 | The page does not load                                                             | `GET http://127.0.0.1:3001/api/health`. If something else holds the port, stop it or set `PORT`. Start again with `npm start`. See [troubleshooting](../TROUBLESHOOTING.md).                                                                                                                                                                      |
-| The projects are missing or altered       | The workspace says **Not loaded in this workspace**                                | `npm run demo:seed`.                                                                                                                                                                                                                                                                                                                              |
-| The browser misbehaves                    | Blank page, stuck layout                                                           | Reload. Try a private window, or the other browser.                                                                                                                                                                                                                                                                                               |
-| The laptop sleeps or the network drops    | The page stops updating                                                            | Wake it and reload. Recorded content does not need the network; only new model questions do.                                                                                                                                                                                                                                                      |
-| Everything fails                          | No live system                                                                     | Present from the [backup screenshots](#backup-screenshots) and this guide. Say so.                                                                                                                                                                                                                                                                |
-| You need a live run and the model is down | Nothing to demonstrate                                                             | Rules mode works with no network: **Load fictional starter input**, then build. The interface labels it **local rules**, and you should say that it is not the model.                                                                                                                                                                             |
+| What fails                                        | What it looks like                                                                 | What to do                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The model or its sign-in is unavailable           | **Verify connection** fails; a new answerable question fails with a provider error | Everything recorded still works: all of the sources, graph, ledger, simulation, branches, comparison, report, exports and audit log, and the recorded conversation (a cited answer, an abstention, an actor). Read those instead of asking new questions. Fix later with `az login`. An unsupported question still gets its immediate abstention. |
+| The server will not start                         | The page does not load                                                             | `GET http://127.0.0.1:3001/api/health`. If something else holds the port, stop it or set `PORT`. Start again with `npm start`. See [troubleshooting](../TROUBLESHOOTING.md).                                                                                                                                                                      |
+| The projects are missing or altered               | The workspace says **Not loaded in this workspace**                                | `npm run demo:seed`.                                                                                                                                                                                                                                                                                                                              |
+| Report Studio will not open, or a save is refused | An error under the studio's heading; `That change was not made`                    | It is optional: leave it out, or read its screens from the backup set. A refused save says why (someone else changed the section, it is locked, the report is in review): reload the studio and say so. A half-finished document stays in the demonstration project until `npm run demo:seed`.                                                    |
+| The browser misbehaves                            | Blank page, stuck layout                                                           | Reload. Try a private window, or the other browser.                                                                                                                                                                                                                                                                                               |
+| The laptop sleeps or the network drops            | The page stops updating                                                            | Wake it and reload. Recorded content does not need the network; only new model questions do.                                                                                                                                                                                                                                                      |
+| Everything fails                                  | No live system                                                                     | Present from the [backup screenshots](#backup-screenshots) and this guide. Say so.                                                                                                                                                                                                                                                                |
+| You need a live run and the model is down         | Nothing to demonstrate                                                             | Rules mode works with no network: **Load fictional starter input**, then build. The interface labels it **local rules**, and you should say that it is not the model.                                                                                                                                                                             |
 
 Do not hide a failure behind another mode. The interface shows which mode a project was run in, and
 there is no silent fallback from the real model to the rules engine.

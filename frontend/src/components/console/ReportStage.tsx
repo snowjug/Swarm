@@ -1,4 +1,4 @@
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, FilePenLine } from 'lucide-react';
 import type { ConsoleStep, ExecutionStep } from '../../../../shared/guided';
 import type { ProjectDetail } from '../../../../shared/types';
 import { stepStatus } from '../../lib/console';
@@ -14,6 +14,7 @@ export function ReportStage({
   onNavigate,
   onInspect,
   onCompare,
+  onOpenStudio,
 }: {
   project: ProjectDetail;
   busy: boolean;
@@ -21,6 +22,7 @@ export function ReportStage({
   onNavigate: (step: ConsoleStep) => void;
   onInspect: (selection: Inspection) => void;
   onCompare?: () => void;
+  onOpenStudio?: () => void;
 }) {
   const plan = project.console?.reportPlan;
   const traces = project.console?.traces.filter((trace) => trace.step === 'report') ?? [];
@@ -30,18 +32,41 @@ export function ReportStage({
         <span className="eyebrow">04 / REPORT</span>
         <h2>Review the evidence trail</h2>
       </div>
-      {onCompare && (
+      {(onCompare || onOpenStudio) && (
         <div className="stage-actions primary-stage-actions">
-          <button
-            className="button button-secondary"
-            type="button"
-            disabled={!project.rounds.length}
-            onClick={onCompare}
-          >
-            Compare recorded runs
-          </button>
-          {!project.rounds.length && (
-            <span className="field-help">Save at least one simulation round before comparing.</span>
+          {onOpenStudio && (
+            <>
+              <button
+                className="button button-primary"
+                type="button"
+                disabled={!project.report}
+                onClick={onOpenStudio}
+              >
+                <FilePenLine size={14} aria-hidden="true" /> Open Report Studio
+              </button>
+              {!project.report && (
+                <span className="field-help">
+                  Generate the report before opening it in the studio.
+                </span>
+              )}
+            </>
+          )}
+          {onCompare && (
+            <>
+              <button
+                className="button button-secondary"
+                type="button"
+                disabled={!project.rounds.length}
+                onClick={onCompare}
+              >
+                Compare recorded runs
+              </button>
+              {!project.rounds.length && (
+                <span className="field-help">
+                  Save at least one simulation round before comparing.
+                </span>
+              )}
+            </>
           )}
         </div>
       )}

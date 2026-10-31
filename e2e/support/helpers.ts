@@ -3,6 +3,7 @@ import {
   expect,
   test,
   type APIRequestContext,
+  type Locator,
   type Page,
   type PlaywrightWorkerArgs,
 } from '@playwright/test';
@@ -170,6 +171,44 @@ export async function expectNoBrowserPaintedControls(page: Page, label: string):
     return found;
   });
   expect(painted, `controls painted with the browser's own colours: ${label}`).toEqual([]);
+}
+
+/** What the page did that it must not do: a console error or warning, a failed request or API call. */
+export function watchPage(page: Page, options: { refusals?: boolean } = {}): string[] {
+  const problems: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() !== 'error' && message.type() !== 'warning') return;
+    // A browser logs every refused request (4xx) itself; a test that provokes one says so.
+    if (options.refusals && /status of 4\d\d/u.test(message.text())) return;
+    problems.push(`console ${message.type()}: ${message.text().slice(0, 200)}`);
+  });
+  page.on('pageerror', (error) => problems.push(`page error: ${error.message}`));
+  page.on('requestfailed', (request) => {
+    const reason = request.failure()?.errorText ?? '';
+    if (reason !== 'net::ERR_ABORTED') {
+      problems.push(
+        `request failed: ${request.method()} ${new URL(request.url()).pathname} ${reason}`,
+      );
+    }
+  });
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (url.pathname.startsWith('/api/') && response.status() >= 400 && !options.refusals) {
+      problems.push(`${response.status()} ${response.request().method()} ${url.pathname}`);
+    }
+  });
+  return problems;
+}
+
+/** Opens a disclosure that may be open already: clicking its summary a second time would close it. */
+export async function openDetails(scope: Locator, summaryText: string): Promise<Locator> {
+  const summary = scope.getByText(summaryText);
+  const details = summary.locator('xpath=ancestor::details[1]');
+  if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
+    await summary.click();
+  }
+  await expect(details).toHaveJSProperty('open', true);
+  return details;
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {

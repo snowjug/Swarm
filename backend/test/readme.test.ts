@@ -319,6 +319,9 @@ describe('the architecture diagram', () => {
       'Microsoft Entra ID',
       'audit log',
       'JSON export',
+      'Report Studio',
+      'Durable stage jobs',
+      'OpenTelemetry signals',
       'Test and observability boundaries',
     ]) {
       expect(diagram, component).toContain(component);
@@ -326,7 +329,9 @@ describe('the architecture diagram', () => {
   });
 
   it('does not draw anything that is only proposed', () => {
-    // Update this list, and the diagram, in the change that builds and validates a component.
+    // Update this list, and the diagram, in the change that builds and validates a component. The
+    // OpenTelemetry instrumentation is built and tested with in-memory exporters, so it is drawn, as
+    // never connected; an Application Insights resource is not, and cannot be drawn.
     for (const proposed of [
       /service ?bus/iu,
       /container apps?/iu,
@@ -334,7 +339,6 @@ describe('the architecture diagram', () => {
       /managed identity/iu,
       /key ?vault/iu,
       /application insights/iu,
-      /opentelemetry/iu,
       /\bmsal\b/iu,
       /blob/iu,
     ]) {

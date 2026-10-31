@@ -141,6 +141,16 @@ export const PG_V6 = `
   CREATE INDEX IF NOT EXISTS jobs_project ON jobs(project_id, created_at);
 `;
 
+export const PG_V7 = `
+  CREATE TABLE IF NOT EXISTS studio_documents (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('draft', 'in-review', 'changes-requested', 'approved')),
+    updated_at TEXT NOT NULL,
+    payload TEXT NOT NULL
+  );
+`;
+
 /** Where the schema version is kept: SQLite has `PRAGMA user_version`, PostgreSQL has no such thing. */
 export const PG_VERSION_TABLE = `
   CREATE TABLE IF NOT EXISTS swarm_schema (

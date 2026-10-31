@@ -21,6 +21,21 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   'conflict.reviewed': 'Conflict reviewed',
   'access.refused': 'Access refused',
   'provider.checked': 'Model connection checked',
+  'studio.started': 'Report opened in the studio',
+  'studio.restarted': 'Studio document started again from a newer report',
+  'studio.section.edited': 'Report section edited',
+  'studio.section.locked': 'Report section locked',
+  'studio.section.unlocked': 'Report section unlocked',
+  'studio.section.restored': 'Report section restored to an earlier version',
+  'studio.note.added': 'Reviewer note added',
+  'studio.regeneration.proposed': 'Regenerated text proposed',
+  'studio.proposal.accepted': 'Regenerated text accepted',
+  'studio.proposal.rejected': 'Regenerated text rejected',
+  'studio.submitted': 'Report submitted for review',
+  'studio.approved': 'Report approved',
+  'studio.changes.requested': 'Changes requested on the report',
+  'studio.reopened': 'Report reopened',
+  'studio.exported': 'Report exported from the studio',
 };
 
 export function actionLabel(action: string): string {

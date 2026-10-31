@@ -69,7 +69,7 @@ function ledgerOf(
 }
 
 /** The conflicts that still weigh on the statements citing them. */
-function openConflicts(contradictions: readonly ContradictionRecord[]): SourceConflict[] {
+export function openConflicts(contradictions: readonly ContradictionRecord[]): SourceConflict[] {
   return contradictions
     .filter((conflict) => isOpenConflict(conflict.status))
     .map(({ id, topic, leftValue, rightValue, left, right }) => ({

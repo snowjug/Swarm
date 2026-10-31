@@ -1,6 +1,6 @@
 # Using the guided console
 
-This guide describes every stage of the console, the what-if loop (pause, resume, intervene, branch, compare) and the grounding review. Back to the [README](../README.md).
+This guide describes every stage of the console, the what-if loop (pause, resume, intervene, branch, compare), the grounding review and Report Studio. Back to the [README](../README.md).
 
 The default UI is a technical five-stage console, not a one-click replay. It has light, dark and
 high-contrast themes (see [Themes](#themes)).
@@ -152,3 +152,56 @@ still sent back for correction.
 Report and chapter titles must not claim a prediction (the words _predict_ and
 _forecast_ are rejected and corrected), because Swarm explores possible scenarios and
 does not predict the future.
+
+## Report Studio
+
+The Report stage ends with **Open Report Studio**. The studio is where a person works on the report that
+was generated: it makes a copy, called the _document_, and the generated report itself is never changed.
+The design and its limits are in [ADR 0011](./adr/0011-report-studio.md).
+
+- **Opening it.** The first time, choose **Open the report in the studio**. Analysts and project leads
+  can; everyone else can read it once it is open. A report computed from recorded results, with no model,
+  can be opened too.
+- **Sections.** The executive summary, each chapter and the limitations are listed on the left. A
+  chapter shows the statements the server checked against the sources, and each statement opens to the
+  passages that support it, the passages that contradict it and the assumptions it rests on. Open
+  conflicts between sources and the assumptions behind the simulated results are under the section.
+- **Editing.** **Edit text** and save: the save is a new version, with an optional reason. The version
+  history compares any earlier version with the current text (added words are underlined, removed
+  words are struck through, and a screen reader is told which is which) and can bring an earlier text
+  back as a new version. A save that changes nothing is refused. A save made on a section that someone
+  else changed in the meantime is refused, and the page then shows their text: you cannot overwrite it by
+  accident.
+- **What an edit does to the checks.** The server checked the statements against the text it
+  generated. Once the text of a chapter has changed, those statements describe an earlier text: they are
+  still shown, marked as such, and nothing says they check the new words. Text a person wrote is not
+  checked statement by statement. Bringing the exact earlier text back brings its statements back.
+- **Locking.** A locked section cannot be edited, restored or written again until it is unlocked.
+- **Writing a chapter again.** When the report was written by a model and the same provider and model are
+  configured, **Write this chapter again** asks the model to rewrite one chapter from the same sources, with
+  an optional request about emphasis or wording (it cannot loosen a check). The server checks the new text
+  the way the report was checked, then shows the changes against the text as it stands, what the checks
+  found, and any figure that matches nothing in the cited material. Nothing changes until you
+  **accept** it; you can **reject** it. It uses model calls (at most ten) that are counted in the
+  project's usage. When it is not possible, the studio says why.
+- **Review.** **Submit for review** freezes the report so that a reviewer approves what they read. A
+  reviewer (a reviewer or a project lead) **approves** it, or **requests changes** with a reason, after
+  which the author can edit and submit again. An approval records a hash of the exact text. **Reopen**
+  (with a reason) takes an approval away. A reviewer can leave a note on any section in any state; a
+  note changes no text and does not disturb an approval. When the person who approves also wrote part
+  of the text, the approval says so.
+- **If the generated report is replaced** (the Report stage was run again), the document can be read and
+  exported but not changed. **Start again from the new report** makes a new document and keeps the old
+  text in an archive.
+- **Exports.** **Export Markdown** and **Export JSON** carry every section, its statements and the
+  record. **Open the printable memo** opens a page to print or save as PDF with the browser's Print
+  command. A memo says at the top whether it is approved, in review, a draft, or carries an approval that
+  no longer matches its text; lists as findings only statements a source passage supports; shows
+  hypotheses, simulation results and statements that are not verified under their own headings; and
+  says which statements it left out because their text was changed.
+- **Audit.** Each step is recorded in the [audit log](../README.md#security) with identifiers and counts,
+  never with the text.
+
+An approval means a person with the review capability read this text and accepted it. It does not mean
+the statements are true, and it is not an external attestation. There is no live co-editing and no
+merge: two people editing one section are told, and the second sees the first's text.

@@ -71,6 +71,22 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'POST /api/projects/:id/conflicts/:conflictId/review': project('review'),
   'GET /api/projects/:id/audit': project('review'),
 
+  // Report Studio. Writing the report and judging it are separate duties and separate capabilities:
+  // the author edits, regenerates and submits; the reviewer notes, approves and sends it back.
+  'GET /api/projects/:id/studio': project('read'),
+  'POST /api/projects/:id/studio': project('edit'),
+  'PUT /api/projects/:id/studio/sections/:sectionId': project('edit'),
+  'PUT /api/projects/:id/studio/sections/:sectionId/lock': project('edit'),
+  'POST /api/projects/:id/studio/sections/:sectionId/notes': project('review'),
+  'POST /api/projects/:id/studio/sections/:sectionId/restore': project('edit'),
+  'POST /api/projects/:id/studio/sections/:sectionId/regenerate': project('edit'),
+  'POST /api/projects/:id/studio/sections/:sectionId/proposal': project('edit'),
+  'POST /api/projects/:id/studio/submit': project('edit'),
+  'POST /api/projects/:id/studio/approve': project('review'),
+  'POST /api/projects/:id/studio/request-changes': project('review'),
+  'POST /api/projects/:id/studio/reopen': project('edit'),
+  'GET /api/projects/:id/studio/export': project('export'),
+
   'GET /api/projects/:id/members': project('read'),
   'PUT /api/projects/:id/members/:principalId': project('members'),
   'DELETE /api/projects/:id/members/:principalId': project('members'),

@@ -63,6 +63,7 @@ const ALL: readonly ProjectCapability[] = [
   'export',
   'review',
   'run',
+  'edit',
   'chat',
   'delete',
   'members',
@@ -73,7 +74,7 @@ const CAN: Record<Actor, readonly ProjectCapability[]> = {
   owner: ALL,
   wsAdmin: ALL,
   lead: ALL,
-  analyst: ['read', 'export', 'run', 'chat'],
+  analyst: ['read', 'export', 'run', 'edit', 'chat'],
   reviewer: ['read', 'export', 'review'],
   viewer: ['read', 'export'],
   member: [],
@@ -180,17 +181,18 @@ describe('the roles, as a table', () => {
   it('gives each project role exactly the capabilities written here', () => {
     expect(capabilitiesOf('viewer')).toEqual(['read', 'export']);
     expect(capabilitiesOf('reviewer')).toEqual(['read', 'export', 'review']);
-    expect(capabilitiesOf('analyst')).toEqual(['read', 'export', 'run', 'chat']);
+    expect(capabilitiesOf('analyst')).toEqual(['read', 'export', 'run', 'edit', 'chat']);
     expect(capabilitiesOf('lead')).toEqual(ALL);
     expect([...PROJECT_ROLES]).toEqual(['lead', 'analyst', 'reviewer', 'viewer']);
     expect([...WORKSPACE_ROLES]).toEqual(['owner', 'admin', 'member']);
     expect([...PROJECT_CAPABILITIES]).toEqual(ALL);
   });
 
-  it('keeps reviewing apart from running: nobody below a lead can do both', () => {
+  it('keeps reviewing apart from running and from writing: nobody below a lead can do either with it', () => {
     for (const role of ['viewer', 'reviewer', 'analyst'] as const) {
       const may = capabilitiesOf(role);
       expect(may.includes('run') && may.includes('review'), role).toBe(false);
+      expect(may.includes('edit') && may.includes('review'), role).toBe(false);
     }
   });
 
@@ -309,6 +311,108 @@ describe('every project route, for every kind of person', () => {
       capability: 'review',
       method: 'GET',
       url: (id) => `/api/projects/${id}/audit`,
+    },
+    {
+      name: 'read the report studio',
+      policy: 'GET /api/projects/:id/studio',
+      capability: 'read',
+      method: 'GET',
+      url: (id) => `/api/projects/${id}/studio`,
+    },
+    {
+      name: 'open the report studio',
+      policy: 'POST /api/projects/:id/studio',
+      capability: 'edit',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'edit a report section',
+      policy: 'PUT /api/projects/:id/studio/sections/:sectionId',
+      capability: 'edit',
+      method: 'PUT',
+      url: (id) => `/api/projects/${id}/studio/sections/S1`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'lock a report section',
+      policy: 'PUT /api/projects/:id/studio/sections/:sectionId/lock',
+      capability: 'edit',
+      method: 'PUT',
+      url: (id) => `/api/projects/${id}/studio/sections/S1/lock`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'leave a reviewer note on a section',
+      policy: 'POST /api/projects/:id/studio/sections/:sectionId/notes',
+      capability: 'review',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/sections/S1/notes`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'restore an earlier version of a section',
+      policy: 'POST /api/projects/:id/studio/sections/:sectionId/restore',
+      capability: 'edit',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/sections/S1/restore`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'have a section written again by the model',
+      policy: 'POST /api/projects/:id/studio/sections/:sectionId/regenerate',
+      capability: 'edit',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/sections/S1/regenerate`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'accept or reject regenerated text',
+      policy: 'POST /api/projects/:id/studio/sections/:sectionId/proposal',
+      capability: 'edit',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/sections/S1/proposal`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'submit the report for review',
+      policy: 'POST /api/projects/:id/studio/submit',
+      capability: 'edit',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/submit`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'approve the report',
+      policy: 'POST /api/projects/:id/studio/approve',
+      capability: 'review',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/approve`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'send the report back for changes',
+      policy: 'POST /api/projects/:id/studio/request-changes',
+      capability: 'review',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/request-changes`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'reopen the report',
+      policy: 'POST /api/projects/:id/studio/reopen',
+      capability: 'edit',
+      method: 'POST',
+      url: (id) => `/api/projects/${id}/studio/reopen`,
+      payload: { invalid: true },
+    },
+    {
+      name: 'export the report studio',
+      policy: 'GET /api/projects/:id/studio/export',
+      capability: 'export',
+      method: 'GET',
+      url: (id) => `/api/projects/${id}/studio/export?format=memo`,
     },
     {
       name: 'start a stage',

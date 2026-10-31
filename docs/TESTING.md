@@ -24,29 +24,33 @@ The evidence layer has its own tests: the ledger and its publication policy
 sign-in, roles and tenant isolation against a local test identity provider (`auth.test.ts`,
 `membership.test.ts`, `session.test.ts`), migrations and the audit log (`storage.test.ts`), the six
 demonstration packs (`demos.test.ts`) and a front-end guard against raw-HTML sinks
-(`markup-sinks.test.ts`). The job queue has two files: `jobs.test.ts` drives the queue rules directly (claims, leases, retries, poison, cancel, pause, the lease fence on repository writes), and `durable-jobs.test.ts` drives the orchestrator with a scripted model and a clock the test sets: a stalled worker, a crash, a stopped backend, cancel and pause from another process, retries, idempotency and branch lineage. Both run on PostgreSQL as part of `npm run test:postgres`. Security-critical rules and the queue's rules are mutation-checked, as described next.
+(`markup-sinks.test.ts`). The job queue has two files: `jobs.test.ts` drives the queue rules directly (claims, leases, retries, poison, cancel, pause, the lease fence on repository writes), and `durable-jobs.test.ts` drives the orchestrator with a scripted model and a clock the test sets: a stalled worker, a crash, a stopped backend, cancel and pause from another process, retries, idempotency and branch lineage. Both run on PostgreSQL as part of `npm run test:postgres`. Report Studio has five files: `studio-model.test.ts` drives its rules as pure functions of a document, `studio.test.ts` drives the service and routes over HTTP (the memo, the exports, the audit entries, a report that has been replaced), `studio-access.test.ts` drives every studio route as every kind of caller against the test identity provider, `studio-regenerate.test.ts` runs writing a chapter again against a provider that speaks the real protocol (including hostile instructions and concurrency), and `studio-store.test.ts` covers the store, migration 7 and its backup. Security-critical rules, the queue's rules and the studio's rules are mutation-checked, as described next.
 
 ## Mutation checks on security code
 
 A test that passes proves little unless it would fail when the rule it guards is gone. For the access
 rules (workspace and project membership, the seven roles, tenant isolation), for browser sign-in
 (PKCE, nonce, state, sessions, expiry, the anti-forgery header, cookies) for the job queue (leases,
-the fence on a worker that lost its lease, retries, cancel and pause across processes) and for the
-redaction gate of telemetry (which names and values may leave the process), each rule is listed in
+the fence on a worker that lost its lease, retries, cancel and pause across processes), for the
+redaction gate of telemetry (which names and values may leave the process) and for Report Studio (who may
+edit and who may approve, locks and versions, what an approval is of, what a memo may call a finding),
+each rule is listed in
 [`scripts/mutation/mutants.json`](../scripts/mutation/mutants.json) as one small edit that breaks it:
 a check replaced by `false`, a capability added to a role, a `DELETE` that no longer deletes, a
 nonce that is no longer compared. The runner applies one edit at a time to the working copy, runs the
 tests that should notice, and restores the file.
 
 ```powershell
-npm.cmd run mutation:security                     # all 80; about an hour on a busy machine
-npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs or telemetry
+npm.cmd run mutation:security                     # all 105; about an hour and a half on a busy machine
+npm.cmd run mutation:security -- --area=sign-in   # or membership, storage, jobs, telemetry or studio
 npm.cmd run mutation:security -- --only=M3,S8     # named ones
 npm.cmd run mutation:security -- --list
 ```
 
 Result when each area was last run: **15 of 15 membership, 27 of 27 sign-in, 10 of 10 storage, 19 of 19
-job and 9 of 9 telemetry mutations were caught.** Two sign-in mutations survived the first run (an error reply that
+job, 9 of 9 telemetry and 25 of 25 studio mutations were caught.** One studio mutation survived the first run
+(a memo that said APPROVED for an approval whose text had since changed, which no test had stored and
+exported), and a test was added. Two sign-in mutations survived the first run (an error reply that
 still carried a code, and a session that remembered every caller as a platform administrator); a
 test for each was added and both are now caught. This is a check of the tests, not proof that the
 rules are right, and a rule that is not in the list is not covered by it. Two storage rules cannot be
@@ -89,6 +93,41 @@ Provider tests use explicitly labeled fixture HTTP responses; they do **not**
 establish live model connectivity or reasoning quality. Live evidence comes only from
 `npm run azure:verify` against a real deployment (see
 [AZURE.md](./AZURE.md#live-evidence)).
+
+## Report Studio
+
+Report Studio is tested at four levels, each of which would fail for a different mistake.
+
+- **Rules** (`backend/test/studio-model.test.ts`): what each change to a document allows or refuses,
+  as functions of the document alone: states, locks, versions, the revision a decision must name,
+  reasons, limits, staleness.
+- **Service, routes and storage** (`studio.test.ts`, `studio-access.test.ts`, `studio-regenerate.test.ts`,
+  `studio-store.test.ts`): the same through HTTP, with every role and every kind of outsider, the memo
+  and exports, the audit entries, migration 7 and the backup it takes. Writing a chapter again runs
+  against a provider that speaks the real protocol, which is a test of the code that builds the request
+  and checks the answer, not of any model.
+- **The page** (`frontend/src/components/studio/studio.test.tsx`, `frontend/src/lib/studio.test.ts`): what
+  each state, capability and refusal looks like, including that edited text is shown as written by a
+  person and its old statements as describing an earlier text, and that text with markup in it stays text.
+- **A real browser** (`e2e/journey/studio.spec.ts` on the demonstration, `e2e/model/studio-regenerate.spec.ts`
+  on a model-assisted project made through the fake provider): open the report, edit, compare, lock,
+  note, submit, send back, restore, approve, open the memo and check what it says and how it is served,
+  export both formats, reopen, read the audit log; a save made on a section someone else changed is
+  refused and the page shows their text; the keyboard, focus return and a phone-sized screen; axe-core
+  in the light, dark and high-contrast themes on every state of the controls; a chapter written again is
+  a proposal that changes nothing until accepted, and a provider that fails leaves the document as it was.
+
+```powershell
+npm.cmd run build
+$env:PW_CHANNEL = 'msedge'   # locally; CI uses Chromium
+npx.cmd playwright test --project=journey e2e/journey/studio.spec.ts
+npx.cmd playwright test --project=model e2e/model/studio-regenerate.spec.ts
+```
+
+Every browser action in these files has a 30-second limit, so an element that never appears fails with
+its locator and does not wait out the test. A regular expression given to Playwright's text locator is
+matched against the text as written, spaces included, so a summary that begins with an icon is not found
+by `^`; the specs find summaries by string.
 
 ## Colour themes
 

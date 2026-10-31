@@ -30,6 +30,7 @@ import type {
   Ledger,
   ReviewInput,
 } from '../../shared/evidence';
+import type { EditSectionInput, StudioExportFormat, StudioView } from '../../shared/studio';
 
 export class ApiError extends Error {
   readonly code: string;
@@ -238,6 +239,78 @@ export const api = {
       `${projectPath(id)}/conflicts/${encodeURIComponent(conflictId)}/review`,
       { ...jsonBody(review), signal },
     ),
+  studio: (id: string, signal?: AbortSignal) =>
+    request<StudioView>(`${projectPath(id)}/studio`, { signal }),
+  /** Opens the report in the studio, or starts it again from a newer generated report. */
+  startStudio: (id: string, confirm: boolean, signal?: AbortSignal) =>
+    request<StudioView>(`${projectPath(id)}/studio`, { ...jsonBody({ confirm }), signal }),
+  editSection: (
+    id: string,
+    sectionId: string,
+    input: Pick<EditSectionInput, 'body' | 'expectedVersion' | 'reason'>,
+    signal?: AbortSignal,
+  ) =>
+    request<StudioView>(`${projectPath(id)}/studio/sections/${encodeURIComponent(sectionId)}`, {
+      ...jsonBody(input),
+      method: 'PUT',
+      signal,
+    }),
+  lockSection: (id: string, sectionId: string, locked: boolean, signal?: AbortSignal) =>
+    request<StudioView>(
+      `${projectPath(id)}/studio/sections/${encodeURIComponent(sectionId)}/lock`,
+      { ...jsonBody({ locked }), method: 'PUT', signal },
+    ),
+  addNote: (id: string, sectionId: string, text: string, signal?: AbortSignal) =>
+    request<StudioView>(
+      `${projectPath(id)}/studio/sections/${encodeURIComponent(sectionId)}/notes`,
+      { ...jsonBody({ text }), signal },
+    ),
+  restoreVersion: (
+    id: string,
+    sectionId: string,
+    input: { version: number; expectedVersion: number; reason: string | null },
+    signal?: AbortSignal,
+  ) =>
+    request<StudioView>(
+      `${projectPath(id)}/studio/sections/${encodeURIComponent(sectionId)}/restore`,
+      { ...jsonBody(input), signal },
+    ),
+  regenerateSection: (
+    id: string,
+    sectionId: string,
+    input: { expectedVersion: number; instruction: string | null },
+    signal?: AbortSignal,
+  ) =>
+    request<StudioView>(
+      `${projectPath(id)}/studio/sections/${encodeURIComponent(sectionId)}/regenerate`,
+      { ...jsonBody(input), signal },
+    ),
+  decideProposal: (
+    id: string,
+    sectionId: string,
+    input: { decision: 'accept' | 'reject'; proposalId: string; expectedVersion: number },
+    signal?: AbortSignal,
+  ) =>
+    request<StudioView>(
+      `${projectPath(id)}/studio/sections/${encodeURIComponent(sectionId)}/proposal`,
+      { ...jsonBody(input), signal },
+    ),
+  /** One step of the review workflow, taken on the revision the person was looking at. */
+  studioStep: (
+    id: string,
+    step: 'submit' | 'approve' | 'request-changes' | 'reopen',
+    input: { expectedRevision: number; note: string | null },
+    signal?: AbortSignal,
+  ) => request<StudioView>(`${projectPath(id)}/studio/${step}`, { ...jsonBody(input), signal }),
+  /** Where the printable memo is: a page of its own, opened in a new tab. */
+  studioExportUrl: (id: string, format: StudioExportFormat) =>
+    `${projectPath(id)}/studio/export?format=${encodeURIComponent(format)}`,
+  exportStudio: async (id: string, format: 'markdown' | 'json', signal?: AbortSignal) => {
+    const response = await checkedFetch(api.studioExportUrl(id, format), { signal });
+    const blob = await response.blob();
+    if (!blob.size) throw new ApiError('The server returned an empty export. Refresh and retry.');
+    return blob;
+  },
   export: async (id: string, format: 'markdown' | 'json', signal?: AbortSignal) => {
     const response = await checkedFetch(
       `${projectPath(id)}/export?format=${encodeURIComponent(format)}`,

@@ -37,10 +37,13 @@ The short version. The full register, with what is in place and what remains for
 
 ## Limits of the platform
 
-- One SQLite file: one instance, no sharing between hosts.
-- Sign-in is verified in the API only, against a local test provider. No real tenant; no browser
-  sign-in.
-- No tracing, no alerts, no per-tenant budget, no automatic resume.
+- By default one SQLite file: one instance, no sharing between hosts. The PostgreSQL adapter that lifts this
+  passes the unit suite in-process and has never run against a deployed server.
+- Sign-in, in the API and in the browser, is verified against a local test provider only. No real tenant, and no
+  screen for managing members.
+- Telemetry reaches no real Application Insights resource, so there are no live traces or alerts. There is no
+  per-tenant budget. Durable jobs and their automatic resume have not run across separate containers.
+- Report Studio has run on a recording; writing a chapter again has run only against a stand-in for the provider.
 - Dark and high-contrast themes are derived from the light one and checked by computation and axe, not by a designer or by someone using assistive technology.
 - No SBOM, no signed provenance, no independent penetration test.
 

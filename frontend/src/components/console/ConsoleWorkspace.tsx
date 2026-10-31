@@ -38,6 +38,7 @@ import { BranchDialog } from './BranchDialog';
 import { AuditDialog } from './AuditDialog';
 import { BranchBanner } from './BranchBanner';
 import { CompareView } from './CompareView';
+import { ReportStudio } from '../studio/ReportStudio';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ConsoleViewControls, CONSOLE_NARROW_QUERY } from './ConsoleViewControls';
 import type { ConsoleView } from './ConsoleViewControls';
@@ -95,6 +96,7 @@ export function ConsoleWorkspace({
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const [comparisonOther, setComparisonOther] = useState<string | null>(null);
   const [comparisonRevision, setComparisonRevision] = useState(0);
+  const [studioOpen, setStudioOpen] = useState(false);
   const guided = isGuided(project);
   const whatIf = guided && Boolean(config?.capabilities.whatIf);
   const comparing = whatIf && (comparisonOpen || comparisonRequested);
@@ -102,10 +104,12 @@ export function ConsoleWorkspace({
     setComparisonOther(otherId ?? project.parentId);
     setComparisonRevision((value) => value + 1);
     setComparisonOpen(true);
+    setStudioOpen(false);
   };
   const changeView = (next: ConsoleView) => {
     setView(next);
     setComparisonOpen(false);
+    setStudioOpen(false);
     onCloseComparison();
   };
   const reportView = step === 'report' || step === 'interaction';
@@ -113,6 +117,7 @@ export function ConsoleWorkspace({
     if (!stepAvailable(project, next)) return;
     setStep(next);
     setComparisonOpen(false);
+    setStudioOpen(false);
     onCloseComparison();
     if (narrow) setView('workbench');
   };
@@ -184,6 +189,11 @@ export function ConsoleWorkspace({
           onNavigate={navigate}
           onInspect={inspect}
           onCompare={whatIf ? () => compare() : undefined}
+          onOpenStudio={() => {
+            setComparisonOpen(false);
+            onCloseComparison();
+            setStudioOpen(true);
+          }}
         />
       );
       break;
@@ -325,6 +335,8 @@ export function ConsoleWorkspace({
             onCloseComparison();
           }}
         />
+      ) : studioOpen ? (
+        <ReportStudio projectId={project.id} onClose={() => setStudioOpen(false)} />
       ) : (
         <div
           className={`console-grid view-${effectiveView} ${reportView && effectiveView === 'split' ? 'report-layout' : ''}`}

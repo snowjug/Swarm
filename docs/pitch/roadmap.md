@@ -10,26 +10,29 @@ needs.
 
 ## Phase 1: make a hosted pilot possible
 
-| Order | Work                                                                                                                                                      | Class | Needs                                 |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------- |
-| 1     | An asynchronous repository interface, with no behaviour change, and the full suite as the safety net                                                      | P2    | Engineering time                      |
-| 2     | A PostgreSQL implementation behind it, with row-level security and the same tests run against both ([ADR 0006](../adr/0006-postgres-adapter-proposed.md)) | P2    | Order 1; an approved database         |
-| 3     | Browser sign-in (MSAL) and a real Entra app registration with the app roles (`Swarm.User`, `Swarm.Admin`, `Swarm.PlatformAdmin`)                          | P2    | A tenant administrator                |
-| 4     | OpenTelemetry traces and metrics to Application Insights; a per-run cost signal                                                                           | P2    | Order 7 for a destination             |
-| 5     | Per-tenant token budgets with alerts                                                                                                                      | P2    | Order 4                               |
-| 6     | Automatic resume of a run interrupted by a restart                                                                                                        | P2    | Order 1                               |
-| 7     | Bicep for hosting (Container Apps, Container Registry, PostgreSQL, monitoring, managed identities), validated and deployed to a test subscription         | P2    | **Approval for chargeable resources** |
+Most of this is built and has never met the real thing. The state column says which.
+
+| Order | Work                                                                                                                          | State                                                                                                                           | Needs                                 |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1     | A database that more than one instance can use: PostgreSQL behind the unchanged stores                                        | Built and tested in-process ([ADR 0009](../adr/0009-postgres-through-a-synchronous-bridge.md)); never against a deployed server | An approved database                  |
+| 2     | Browser sign-in, and a real Entra app registration with the app roles                                                         | Sign-in built and tested against a test identity provider ([ADR 0008](../adr/0008-browser-sign-in.md)); no real tenant          | A tenant administrator                |
+| 3     | A run that survives a restart: durable jobs, leases, bounded retries, resume from the last saved round                        | Built ([ADR 0010](../adr/0010-durable-jobs-leased-from-the-database.md)); not run across separate containers                    | A deployed environment                |
+| 4     | OpenTelemetry traces and metrics to Application Insights; a per-run cost signal                                               | Instrumentation and an Entra-signed export built and tested with in-memory exporters; no Application Insights resource          | Order 6 for a destination             |
+| 5     | Per-tenant token budgets with alerts                                                                                          | Not built                                                                                                                       | Order 4                               |
+| 6     | Bicep for hosting (Container Apps, PostgreSQL, monitoring, managed identities), validated and deployed to a test subscription | Compiles and lints; no what-if run; nothing deployed ([pilot plan](../azure/pilot-plan.md))                                     | **Approval for chargeable resources** |
+| 7     | Row-level security in PostgreSQL                                                                                              | Not built; isolation is enforced in application code only                                                                       | Order 1                               |
+| 8     | A screen for sharing a project and managing members                                                                           | Not built; members are managed through the API                                                                                  | Design                                |
 
 ## Phase 2: evidence quality
 
-| Work                                                                                      | Class | Needs                          |
-| ----------------------------------------------------------------------------------------- | ----- | ------------------------------ |
-| A labelled evaluation set from **real** documents, under a data agreement                 | P1    | The pilot's approved documents |
-| A model-assisted pass for conflicts of meaning (the semantic and anaphoric misses)        | P1    | The set above, to measure it   |
-| A scheduled, cost-capped model-in-the-loop regression suite                               | P1    | A budget                       |
-| Analyst-entered assumptions with dependency tracking through branches                     | P1    | Design                         |
-| A report studio: compose a report from reviewed statements and publish it with its ledger | P1    | Design with analysts           |
-| Anchor the audit chain head outside the database; settle retention                        | P2    | A retention decision           |
+| Work                                                                                                                                           | Class | Needs                            |
+| ---------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------- |
+| A labelled evaluation set from **real** documents, under a data agreement                                                                      | P1    | The pilot's approved documents   |
+| A model-assisted pass for conflicts of meaning (the semantic and anaphoric misses)                                                             | P1    | The set above, to measure it     |
+| A scheduled, cost-capped model-in-the-loop regression suite                                                                                    | P1    | A budget                         |
+| Analyst-entered assumptions with dependency tracking through branches                                                                          | P1    | Design                           |
+| Report Studio beyond the first version: try writing a chapter again on a live model and measure it, comments, a generated PDF, live co-editing | P2    | Analysts using the first version |
+| Anchor the audit chain head outside the database; settle retention                                                                             | P2    | A retention decision             |
 
 ## Phase 3: experience
 

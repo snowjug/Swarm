@@ -17,13 +17,16 @@ import type { BranchChange } from '../../shared/guided.js';
 import type { EvidenceChunk, ProjectDetail } from '../../shared/types.js';
 import { AppError } from './errors.js';
 
-function text(value: string): string {
+/** Escapes server text for Markdown: markup stays inert, whatever a source or a model wrote. */
+export function markdownText(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replace(/[\\`*_[\]{}()#+.!|]/gu, '\\$&');
 }
+
+const text = markdownText;
 
 function describeChange(change: BranchChange): string {
   if (change.kind === 'intervention') {

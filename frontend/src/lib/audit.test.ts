@@ -1,6 +1,20 @@
+/// <reference types="node" />
+
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { AuditEntry } from '../../../shared/types';
 import { actionLabel, detailText, newestFirst, shortValue } from './audit';
+
+/** The `studio.*` actions the server can record, read from the code that records them. */
+function recordedStudioActions(): string[] {
+  const sources = ['backend/src/studio/service.ts', 'backend/src/auth/audit-policy.ts'];
+  const found = new Set<string>();
+  for (const source of sources) {
+    const text = readFileSync(new URL(`../../../${source}`, import.meta.url), 'utf8');
+    for (const match of text.matchAll(/'(studio\.[a-z]+(?:\.[a-z]+)?)'/gu)) found.add(match[1]!);
+  }
+  return [...found].sort();
+}
 
 const entry = (seq: number, overrides: Partial<AuditEntry> = {}): AuditEntry => ({
   seq,
@@ -22,6 +36,18 @@ describe('audit presentation', () => {
     expect(actionLabel('export.downloaded')).toBe('Export downloaded');
     expect(actionLabel('access.refused')).toBe('Access refused');
     expect(actionLabel('something.new')).toBe('something.new');
+  });
+
+  it('shows an unknown action as it is', () => {
+    expect(actionLabel('studio.something.new')).toBe('studio.something.new');
+  });
+
+  it('names every action the report studio records, so that none reaches the audit log as a bare code', () => {
+    const actions = recordedStudioActions();
+    expect(actions.length).toBeGreaterThanOrEqual(15);
+    for (const action of actions) {
+      expect(actionLabel(action), action).not.toBe(action);
+    }
   });
 
   it('shortens an identifier and nothing else', () => {

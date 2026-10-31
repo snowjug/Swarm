@@ -472,6 +472,9 @@ describe('identifiers a route accepts outside the path', () => {
       'members.ts: principalId',
       'members.ts: principalId',
       'projects.ts: id',
+      // In the path: vouched for by the guard. A section is named by a short id and a proposal by an
+      // id, and both are only ever looked up inside the studio document of that experiment.
+      'studio.ts: id',
     ]);
   });
 
@@ -1037,6 +1040,7 @@ describe('upgrading a database that has no owners', () => {
       '4:',
       '5:',
       '6:',
+      '7:',
     ]);
     expect(upgraded.ownership(project.id)).toEqual({ tenantId: 'local', ownerId: 'local-user' });
     expect(upgraded.get(project.id).name).toBe(project.name);

@@ -167,6 +167,7 @@ complete. This is a local, single-user architecture, not a distributed job syste
 | `backend/src/agents/`              | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting                                                                               |
 | `backend/src/grounding/`           | Verbatim quote matching, claim verdicts, entailment check, chapter-claim validation, the review, and the evidence ledger: classification, publication policy, cross-source conflicts and the ledger service |
 | `backend/src/auth/`                | Optional Entra token verification, roles, the default-deny route table and the request guard                                                                                                                |
+| `backend/src/studio/`              | Report Studio: the rules of a document (versions, locks, review states, the hash an approval is of), the service, chapter regeneration, and the memo, Markdown and JSON exports                             |
 | `backend/src/models/`              | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry                                                                                      |
 | `backend/src/orchestration/`       | Shared quick/guided queue ownership, cancellation, follow-up locking and survey lifecycle, and the analyst's evidence gate and citation checks                                                              |
 | `backend/src/guided/`              | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                                                                                                            |
@@ -268,6 +269,20 @@ decline; ids are checked against what it was shown, and the reply records a grou
 caveated, abstained or uncited). Personas are never shown the ledger and the gate does not apply to
 them. It is a lexical gate and says so: it cannot see meaning ([ADR 0002](./docs/adr/0002-abstention-and-citation-rule.md)).
 
+**Report Studio.** The generated report is never changed. `studio/` makes a document from it, held as one
+JSON row per project in `studio_documents`, with sections (the summary, each chapter, the limitations), each
+a list of versions, and locks, reviewer notes, regenerated text waiting for a decision, the review decisions,
+the approval and an archive. `studio/model.ts` holds the rules as pure functions of a document: only
+`draft` and `changes-requested` can be edited, a save names the section version it was made on, a decision
+names the document revision, and an approval stores a SHA-256 over every section's id and text. `service.ts`
+saves with `WHERE revision = ?` and writes the audit entry in the same transaction. The statements of a
+chapter are the ledger's, tied to the hash of the text they were checked against; once a person changes the
+text they are shown as describing an earlier text and are not listed as findings. `regenerate.ts` asks the
+model to write one chapter again with the report writer's own prompt and the same grounding review, and the
+result is a proposal that changes nothing until accepted. `export.ts` draws the memo (HTML with no script,
+served under `default-src 'none'`), Markdown and JSON from one memo structure, so they cannot disagree. Two
+capabilities, `edit` and `review`, keep editing and approving apart. See
+[ADR 0011](./docs/adr/0011-report-studio.md).
 **Identity.** `auth/` runs as an `onRequest` hook, so it authenticates before a body is parsed. With
 `AUTH_MODE=none` the caller is a local administrator in a `local` tenant and nothing changes. With
 `AUTH_MODE=entra`, `tokens.ts` verifies the signature (RS256 only), audience, lifetime, tenant
@@ -330,11 +345,14 @@ Server-side validators (citation IDs, quotes, ranges) then bound what any reply 
 
 ### Persistence and failure semantics
 
-SQLite is at schema version 3, applied by numbered migrations (`storage/migrations.ts`): version 1
+SQLite is at schema version 7, applied by numbered migrations (`storage/migrations.ts`): version 1
 is the original `projects`, `chunks`, `events` and `messages`; version 2 adds `claim_records`,
 `source_conflicts`, `ledger_state` and the append-only `audit_events`; version 3 adds `tenant_id` and
-`owner_id` to projects. An existing database file is copied before it is upgraded, a failed step rolls
-back, and a database newer than the build is refused untouched.
+`owner_id` to projects; version 4 adds workspace and project membership; version 5 adds browser sign-in
+(`login_attempts`, `sessions`); version 6 adds the durable job queue (`jobs`); version 7 adds Report
+Studio documents (`studio_documents`). An existing database file is copied before it is upgraded, a failed
+step rolls back, and a database newer than the build is refused untouched. The same migrations exist for
+the optional PostgreSQL adapter.
 JSON payloads are decoded with runtime schemas. SQL values are parameterized and
 source filenames never become paths. Foreign-key deletion removes associated
 chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.

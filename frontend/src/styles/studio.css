@@ -1,0 +1,237 @@
+/* Report Studio. Colours come only from the semantic variables, so that the three themes apply. */
+.studio {
+  min-width: 0;
+}
+.studio h5 {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 640;
+}
+
+.studio-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.studio-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.studio-toolbar .stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.studio-export {
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.studio-grid {
+  display: grid;
+  grid-template-columns: minmax(190px, 250px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.studio-outline {
+  min-width: 0;
+}
+.studio-outline ol {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.studio-outline-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.studio-outline-item:hover {
+  background: var(--verdict-unchecked-tint);
+}
+.studio-outline-item small {
+  color: var(--muted);
+}
+.studio-outline-item[aria-current='true'] {
+  border-color: var(--orange);
+  box-shadow: inset 4px 0 0 var(--orange);
+}
+
+.studio-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.studio-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.studio-section .stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.studio-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+ul.studio-body {
+  padding-left: 20px;
+}
+.studio-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.studio-edit textarea {
+  line-height: 1.6;
+}
+
+.studio-proposal {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-left: 4px solid var(--tone-info);
+}
+.studio-versions,
+.studio-notes,
+.studio-statements {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.studio-versions > li,
+.studio-notes > li {
+  padding: 8px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+}
+.studio-statement {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+}
+.studio-statement-text {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.studio-record {
+  min-width: 0;
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.qualification {
+  padding: 6px 10px;
+  border-left: 3px solid var(--verdict-partial);
+  background: var(--verdict-partial-tint);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Added and removed words differ by marks as well as colour: underline and strike-through. */
+.studio-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.studio-diff-text {
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.studio-diff ins {
+  background: var(--verdict-supported-tint);
+  color: var(--verdict-supported);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.studio-diff del {
+  background: var(--verdict-unsupported-tint);
+  color: var(--verdict-unsupported);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+@media (max-width: 860px) {
+  .studio-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .studio-outline ol {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  }
+}
+@media (max-width: 550px) {
+  .studio-section {
+    padding: 12px 10px;
+  }
+  .studio-outline ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A disclosure's summary is a flex row with a marker at the end; with an icon before its text, the
+   default spacing pushes the text to the middle. The summary reads from the left, and what is inside a
+   disclosure is spaced like the disclosure. */
+.studio .record-details > summary {
+  justify-content: flex-start;
+}
+.studio .record-details > summary::after {
+  margin-left: auto;
+}
+.studio .record-details > summary > svg {
+  color: var(--muted);
+}
+.studio .record-details > :not(summary) {
+  margin: 0 12px 12px;
+}
+.studio .record-details > ul:not([class]) {
+  padding-left: 24px;
+}

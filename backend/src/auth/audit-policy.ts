@@ -69,6 +69,9 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'GET /api/projects/:id/audit': reads(
     'Reading the log is not itself logged, or it would grow as it is read.',
   ),
+  'GET /api/projects/:id/studio': reads(
+    'Reads the studio document; handing it over (export) is what is recorded.',
+  ),
   'GET /api/workspace': reads('The caller’s own role.'),
   'GET /api/session': reads('Whether, how and until when the caller is signed in.'),
   'GET /api/workspace/members': reads('Lists who belongs to the workspace and in what role.'),
@@ -128,6 +131,53 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
     action: 'survey.cancelled',
   },
   'POST /api/projects/:id/branches': { kind: 'inside', action: 'branch.created' },
+
+  'GET /api/projects/:id/studio/export': {
+    kind: 'request',
+    action: 'studio.exported',
+    detail: (request) => ({
+      format:
+        query(request).format === 'json' || query(request).format === 'memo'
+          ? String(query(request).format)
+          : 'markdown',
+    }),
+  },
+  // Recorded by the studio, in the transaction of the change, with ids, counts and versions: never text.
+  // Recorded as `studio.restarted` when it replaces a document made from an older report.
+  'POST /api/projects/:id/studio': { kind: 'inside', action: 'studio.started' },
+  'PUT /api/projects/:id/studio/sections/:sectionId': {
+    kind: 'inside',
+    action: 'studio.section.edited',
+  },
+  // Recorded as `studio.section.unlocked` when the lock is removed.
+  'PUT /api/projects/:id/studio/sections/:sectionId/lock': {
+    kind: 'inside',
+    action: 'studio.section.locked',
+  },
+  'POST /api/projects/:id/studio/sections/:sectionId/notes': {
+    kind: 'inside',
+    action: 'studio.note.added',
+  },
+  'POST /api/projects/:id/studio/sections/:sectionId/restore': {
+    kind: 'inside',
+    action: 'studio.section.restored',
+  },
+  'POST /api/projects/:id/studio/sections/:sectionId/regenerate': {
+    kind: 'inside',
+    action: 'studio.regeneration.proposed',
+  },
+  // Recorded as `studio.proposal.rejected` when the regenerated text is turned down.
+  'POST /api/projects/:id/studio/sections/:sectionId/proposal': {
+    kind: 'inside',
+    action: 'studio.proposal.accepted',
+  },
+  'POST /api/projects/:id/studio/submit': { kind: 'inside', action: 'studio.submitted' },
+  'POST /api/projects/:id/studio/approve': { kind: 'inside', action: 'studio.approved' },
+  'POST /api/projects/:id/studio/request-changes': {
+    kind: 'inside',
+    action: 'studio.changes.requested',
+  },
+  'POST /api/projects/:id/studio/reopen': { kind: 'inside', action: 'studio.reopened' },
 
   'POST /api/projects/:id/claims/:claimId/review': { kind: 'inside', action: 'claim.reviewed' },
   'POST /api/projects/:id/conflicts/:conflictId/review': {

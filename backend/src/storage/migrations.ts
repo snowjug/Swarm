@@ -1,7 +1,16 @@
 import { copyFileSync, existsSync } from 'node:fs';
 import { z } from 'zod';
 import { AppError } from '../errors.js';
-import { PG_V1, PG_V2, PG_V3, PG_V4, PG_V5, PG_V6, PG_VERSION_TABLE } from './postgres/schema.js';
+import {
+  PG_V1,
+  PG_V2,
+  PG_V3,
+  PG_V4,
+  PG_V5,
+  PG_V6,
+  PG_V7,
+  PG_VERSION_TABLE,
+} from './postgres/schema.js';
 import type { SqlDatabase } from './sql.js';
 
 export interface Migration {
@@ -149,6 +158,21 @@ const SCHEMA_V6 = `
   CREATE INDEX IF NOT EXISTS jobs_project ON jobs(project_id, created_at);
 `;
 
+/**
+ * Report Studio: one document per project, holding the people's work on a generated report. The row is
+ * one JSON payload; `revision` is what a save compares, so that two people never overwrite each other.
+ * The document is deleted with its project.
+ */
+const SCHEMA_V7 = `
+  CREATE TABLE IF NOT EXISTS studio_documents (
+    project_id TEXT PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('draft', 'in-review', 'changes-requested', 'approved')),
+    updated_at TEXT NOT NULL,
+    payload TEXT NOT NULL
+  );
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   {
     version: 1,
@@ -199,6 +223,11 @@ export const MIGRATIONS: readonly Migration[] = [
     version: 6,
     name: 'durable jobs: queue, leases and retries',
     up: byDialect(SCHEMA_V6, PG_V6),
+  },
+  {
+    version: 7,
+    name: 'report studio: documents',
+    up: byDialect(SCHEMA_V7, PG_V7),
   },
 ];
 

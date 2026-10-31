@@ -720,6 +720,235 @@
       "find": "if (!CONNECTION_STRING.test(connectionString)) {",
       "replace": "if (false) {",
       "tests": ["backend/test/telemetry-start.test.ts"]
+    },
+    {
+      "id": "R1",
+      "area": "studio",
+      "claim": "A report that is in review or approved can still be edited",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (isEditableState(doc.state)) return;",
+      "replace": "return;",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R2",
+      "area": "studio",
+      "claim": "A locked section can be edited, restored or replaced",
+      "file": "backend/src/studio/model.ts",
+      "find": "function assertUnlocked(section: StudioSection): void {\n  if (section.locked) {",
+      "replace": "function assertUnlocked(section: StudioSection): void {\n  if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R3",
+      "area": "studio",
+      "claim": "A change made on an older version of a section replaces a newer one",
+      "file": "backend/src/studio/model.ts",
+      "find": "function assertVersion(section: StudioSection, expected: number): void {\n  if (section.version !== expected) {",
+      "replace": "function assertVersion(section: StudioSection, expected: number): void {\n  if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R4",
+      "area": "studio",
+      "claim": "A decision is accepted on a document that changed after the person looked at it",
+      "file": "backend/src/studio/model.ts",
+      "find": "  if (doc.revision !== input.expectedRevision) {",
+      "replace": "  if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R5",
+      "area": "studio",
+      "claim": "Changes can be requested, or an approved report reopened, with no reason given",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (NEEDS_NOTE.has(kind) && (input.note?.trim().length ?? 0) < 3) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R6",
+      "area": "studio",
+      "claim": "An approval does not record that the approver also wrote part of the text",
+      "file": "backend/src/studio/model.ts",
+      "find": "alsoEdited: doc.sections.some((section) =>\n              section.versions.some((version) => version.actor === actor),\n            ),",
+      "replace": "alsoEdited: false,",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R7",
+      "area": "studio",
+      "claim": "A report with regenerated text still waiting for a decision can be submitted",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (kind === 'submit' && doc.proposals.length > 0) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R8",
+      "area": "studio",
+      "claim": "An approval stays current after the text it approved has changed",
+      "file": "backend/src/studio/model.ts",
+      "find": "return doc.approval !== null && doc.approval.contentHash === contentHash(doc.sections);",
+      "replace": "return doc.approval !== null;",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R9",
+      "area": "studio",
+      "claim": "Statements checked against an earlier text of a section are shown as describing its text now",
+      "file": "backend/src/studio/service.ts",
+      "find": "statementsCurrent: current !== undefined,",
+      "replace": "statementsCurrent: true,",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R10",
+      "area": "studio",
+      "claim": "The memo lists a statement that is labelled not verified as a finding",
+      "file": "backend/src/studio/export.ts",
+      "find": "memo.unverified.push(statement);",
+      "replace": "memo.findings.push(statement);",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R11",
+      "area": "studio",
+      "claim": "The memo lists the statements of text a person changed as findings about the new text",
+      "file": "backend/src/studio/export.ts",
+      "find": "    if (!section.statementsCurrent) {\n      // The statements describe an earlier text. They are not shown as describing this one.",
+      "replace": "    if (false) {\n      // The statements describe an earlier text. They are not shown as describing this one.",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R12",
+      "area": "studio",
+      "claim": "The memo does not escape the text it prints, so a source or a note could inject markup",
+      "file": "backend/src/studio/export.ts",
+      "find": "    .replaceAll('<', '&lt;')",
+      "replace": "    .replaceAll('<', '<')",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R13",
+      "area": "studio",
+      "claim": "The memo says APPROVED for an approval that no longer matches the text",
+      "file": "backend/src/studio/export.ts",
+      "find": "const current = doc.approval !== null && doc.approval.contentHash === contentHash(doc.sections);",
+      "replace": "const current = doc.approval !== null;",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R14",
+      "area": "studio",
+      "claim": "A reviewer may edit the report they review",
+      "file": "backend/src/auth/roles.ts",
+      "find": "reviewer: new Set<ProjectCapability>(['read', 'export', 'review']),",
+      "replace": "reviewer: new Set<ProjectCapability>(['read', 'export', 'review', 'edit']),",
+      "tests": ["backend/test/studio-access.test.ts", "backend/test/membership.test.ts"]
+    },
+    {
+      "id": "R15",
+      "area": "studio",
+      "claim": "An analyst may approve the report they wrote",
+      "file": "backend/src/auth/roles.ts",
+      "find": "analyst: new Set<ProjectCapability>(['read', 'export', 'run', 'edit', 'chat']),",
+      "replace": "analyst: new Set<ProjectCapability>(['read', 'export', 'run', 'edit', 'chat', 'review']),",
+      "tests": ["backend/test/studio-access.test.ts", "backend/test/membership.test.ts"]
+    },
+    {
+      "id": "R16",
+      "area": "studio",
+      "claim": "A report can be approved by someone who may only edit it",
+      "file": "backend/src/auth/policy.ts",
+      "find": "'POST /api/projects/:id/studio/approve': project('review'),",
+      "replace": "'POST /api/projects/:id/studio/approve': project('edit'),",
+      "tests": ["backend/test/studio-access.test.ts", "backend/test/membership.test.ts"]
+    },
+    {
+      "id": "R17",
+      "area": "studio",
+      "claim": "Someone who may only read a report can change its sections",
+      "file": "backend/src/auth/policy.ts",
+      "find": "'PUT /api/projects/:id/studio/sections/:sectionId': project('edit'),",
+      "replace": "'PUT /api/projects/:id/studio/sections/:sectionId': project('read'),",
+      "tests": ["backend/test/studio-access.test.ts", "backend/test/membership.test.ts"]
+    },
+    {
+      "id": "R18",
+      "area": "studio",
+      "claim": "Starting again silently replaces a document that holds people?s edits, notes and decisions",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (hasPeopleContent(previous) && !confirm) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R19",
+      "area": "studio",
+      "claim": "A document made from a report that has since been replaced can still be changed",
+      "file": "backend/src/studio/service.ts",
+      "find": "if (this.isStale(project, doc)) {\n      throw new AppError(\n        409,\n        'STUDIO_STALE',",
+      "replace": "if (false) {\n      throw new AppError(\n        409,\n        'STUDIO_STALE',",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R20",
+      "area": "studio",
+      "claim": "A chapter is written again by a different model than the one that wrote the report",
+      "file": "backend/src/studio/regenerate.ts",
+      "find": "project.execution?.provider !== this.config.provider.name ||\n      project.execution?.model !== this.config.provider.model",
+      "replace": "false",
+      "tests": ["backend/test/studio-regenerate.test.ts"]
+    },
+    {
+      "id": "R21",
+      "area": "studio",
+      "claim": "A section can hold more versions than its limit",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (section.versions.length >= MAX_VERSIONS_PER_SECTION) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R22",
+      "area": "studio",
+      "claim": "An edit that changes nothing is saved as a new version",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (body === normaliseBody(section.body)) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R23",
+      "area": "studio",
+      "claim": "The printable memo is served without the policy that stops it loading or running anything",
+      "file": "backend/src/routes/studio.ts",
+      "find": ".header('content-security-policy', MEMO_CSP)",
+      "replace": ".header('x-memo', 'plain')",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R24",
+      "area": "studio",
+      "claim": "A section can be saved empty",
+      "file": "backend/src/studio/model.ts",
+      "find": "if (!body) throw new AppError(400, 'SECTION_EMPTY', 'A section cannot be empty.');",
+      "replace": "if (false) throw new AppError(400, 'SECTION_EMPTY', 'A section cannot be empty.');",
+      "tests": ["backend/test/studio-model.test.ts", "backend/test/studio.test.ts"]
+    },
+    {
+      "id": "R25",
+      "area": "studio",
+      "claim": "Exporting a studio report is recorded in the audit log as some other action",
+      "file": "backend/src/auth/audit-policy.ts",
+      "find": "action: 'studio.exported',",
+      "replace": "action: 'export.downloaded',",
+      "tests": [
+        "backend/test/studio-model.test.ts",
+        "backend/test/studio.test.ts",
+        "backend/test/studio-access.test.ts"
+      ]
     }
   ]
 }

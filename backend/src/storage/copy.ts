@@ -19,6 +19,7 @@ const TABLES = [
   { name: 'claim_records', order: 'project_id, id', skip: [] },
   { name: 'source_conflicts', order: 'project_id, id', skip: [] },
   { name: 'ledger_state', order: 'project_id', skip: [] },
+  { name: 'studio_documents', order: 'project_id', skip: [] },
   { name: 'workspace_members', order: 'tenant_id, principal_id', skip: [] },
   { name: 'project_members', order: 'project_id, principal_id', skip: [] },
   { name: 'audit_events', order: 'seq', skip: [], keepIdentity: true },
