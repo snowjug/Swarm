@@ -138,8 +138,10 @@ parser itself reads at most 2,000 characters of whatever it is given, and says s
 
 Cost and time: a project does not exist yet when a question is read, so no project budget applies. What
 bounds the cost is the rate limit, the three calls, and the size of the question; the audit entry
-records the calls and tokens used. In a manual check a reading took 13 to 23 seconds, and 43 seconds
-when a first reply had to be repaired. The page shows that it is reading and offers Cancel.
+records the calls and tokens used. A model that has not answered within 170 seconds (less than the
+three minutes a request may go quiet) is given up on, and the rules read the question, with a note
+that says it did not answer in time. In a manual check a reading took 13 to 23 seconds, and 43
+seconds when a first reply had to be repaired. The page shows that it is reading and offers Cancel.
 
 ## In the page
 

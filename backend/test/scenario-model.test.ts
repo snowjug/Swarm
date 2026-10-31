@@ -317,6 +317,34 @@ describe('reading a question with a model', () => {
     expect(result.notes.join(' ')).not.toContain('boom');
   });
 
+  it('gives up on a model that has not answered by the deadline, and the rules read the question', async () => {
+    // A model that only stops when it is told to, as a slow one does.
+    const slow: ModelGateway = {
+      json: async <T>(
+        _schema: unknown,
+        _instructions: string,
+        _data: unknown,
+        signal: AbortSignal,
+      ): Promise<T> =>
+        new Promise<T>((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        }),
+    };
+    const started = Date.now();
+    const result = await parseScenario({
+      question: QUESTION,
+      model: slow,
+      deadline: AbortSignal.timeout(60),
+    });
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(result.mode).toBe('rules');
+    expect(result.model).toBeNull();
+    expect(result.notes[0]).toBe(
+      'The model could not read this question (it did not answer in time; MODEL_TIMEOUT), so the rules read it instead.',
+    );
+    expect(result.notes).toContain(RULES_NOTE);
+  });
+
   it('does not read the question again for someone who has gone away', async () => {
     const controller = new AbortController();
     const gone = new AppError(409, 'CLIENT_DISCONNECTED', 'The request disconnected.');

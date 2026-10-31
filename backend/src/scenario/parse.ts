@@ -15,6 +15,11 @@ export interface ParseInput {
   model?: ModelGateway | null;
   /** The person chose a model. Without one to ask, the notes say that the rules read it instead. */
   modelAsked?: boolean;
+  /**
+   * When it fires, the model is given up on and the rules read the question, with a note. It is not
+   * the person going away: that is `signal`, and it ends the reading.
+   */
+  deadline?: AbortSignal;
   /** The model's name, handed back so the person can see what read their question. */
   modelName?: string | null;
   signal?: AbortSignal;
@@ -80,12 +85,13 @@ export async function parseScenario(input: ParseInput): Promise<ScenarioParseRes
   const signal = input.signal ?? new AbortController().signal;
   const notes = injectionNotes(input.question, documents);
   if (input.model) {
+    const modelSignal = input.deadline ? AbortSignal.any([signal, input.deadline]) : signal;
     try {
       const frame = await readByModel({
         question: input.question,
         documents,
         model: input.model,
-        signal,
+        signal: modelSignal,
       });
       return {
         frame,
@@ -96,7 +102,13 @@ export async function parseScenario(input: ParseInput): Promise<ScenarioParseRes
     } catch (error) {
       // Someone who has gone away is not owed a second reading.
       if (signal.aborted) throw error;
-      notes.push(failureNote(error));
+      notes.push(
+        failureNote(
+          input.deadline?.aborted
+            ? new AppError(504, 'MODEL_TIMEOUT', 'The model did not answer in time.')
+            : error,
+        ),
+      );
     }
   } else if (input.modelAsked) {
     notes.push(failureNote(new AppError(409, 'MODEL_NOT_CONFIGURED', 'No model is configured.')));

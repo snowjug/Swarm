@@ -20,6 +20,8 @@ const KEY = 'default';
 const PARSE_BODY_LIMIT = 300_000;
 /** The first reading and two repairs: reading one question never costs more than this. */
 const MODEL_CALLS = 3;
+/** Below the time the server lets a request go quiet, so that a slow model ends in a reading by rules. */
+const MODEL_DEADLINE_MS = 170_000;
 
 const countOf = (frame: ScenarioFrame) => ({
   changes: frame.changes.length,
@@ -89,6 +91,7 @@ export function scenarioRoutes(
           modelAsked: useModel,
           modelName: config.provider.model,
           signal: controller.signal,
+          deadline: AbortSignal.timeout(MODEL_DEADLINE_MS),
         });
         repository.audit.record({
           actor: principalOf(request).id,

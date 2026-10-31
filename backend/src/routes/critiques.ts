@@ -16,7 +16,7 @@ const idParams = z.object({ id: z.uuid() });
 const critiqueParams = idParams.extend({ cid: z.string().min(1).max(80) });
 
 /** A review that asks a model is bounded in time: a model that does not answer does not hold the page. */
-const REVIEW_TIMEOUT_MS = 3 * 60_000;
+const REVIEW_TIMEOUT_MS = 170_000;
 
 /**
  * The independent review of an analysis. Anyone who can read the project reads it; running it needs
