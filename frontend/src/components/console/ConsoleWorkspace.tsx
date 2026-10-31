@@ -110,7 +110,7 @@ export function ConsoleWorkspace({
   const snapshotExport = useJsonSnapshotExport(project.id);
   // What the person chose, once they have; until then the view that suits the project.
   const [chosenView, setChosenView] = useState<ConsoleView | null>(null);
-  const view: ConsoleView = chosenView ?? defaultView(project);
+  const view: ConsoleView = chosenView ?? defaultView(project, step);
   const narrow = useMediaQuery(CONSOLE_NARROW_QUERY);
   const effectiveView = narrow && view === 'split' ? 'workbench' : view;
   const [inspection, setInspection] = useState<Inspection | null>(null);
@@ -140,17 +140,22 @@ export function ConsoleWorkspace({
     onCloseComparison();
   };
   const reportView = step === 'report' || step === 'interaction';
+  // On a narrow screen the pane that was opened on its own gives way to the stage that is opened next;
+  // any other choice is the person's and stays.
+  const leaveSidePane = () => {
+    if (narrow && chosenView === 'graph') setChosenView(null);
+  };
   const navigate = (next: ConsoleStep) => {
     if (!stepAvailable(project, next)) return;
     setStep(next);
     setComparisonOpen(false);
     setStudioOpen(false);
     onCloseComparison();
-    if (narrow) setChosenView('workbench');
+    leaveSidePane();
   };
   const run = (next: ExecutionStep) => {
     setStep(next);
-    if (narrow) setChosenView('workbench');
+    leaveSidePane();
     void onRun(next).catch(() => {
       // The operation hook displays the API error and refreshes persisted state.
     });

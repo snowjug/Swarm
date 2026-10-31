@@ -337,12 +337,28 @@ export function labWatch(project: ProjectDetail, step: ConsoleStep): LabWatch | 
 }
 
 /**
- * The view the workspace starts in. A project with simulated actors starts with the workbench alone:
- * the map beside it is drawn from the words of the evidence and says nothing about the actors. The
- * person can still open it.
+ * The view the workspace starts in, from the stage in view, so that it never changes while the person
+ * works in a stage. Graph Build keeps the map beside it, which is what it is about, and Interaction the
+ * report, which is what the questions are about. Env Setup is the review of the stakeholders and the
+ * actors made from them: tables that need the whole width, and the map beside them is drawn from the
+ * words of the evidence and says nothing about the actors. So are the comparison in Simulation and the
+ * decision brief in Report, once there are actors to compare and a finished comparison to write from.
+ * A guided project that has only the engine's own record keeps the graph and the report reader beside
+ * Simulation and Report, because that is what it has to show there. Any other record keeps the split
+ * view. The person can still choose another, and the choice is kept.
  */
-export function defaultView(project: ProjectDetail): 'split' | 'workbench' {
-  return isGuided(project) && (project.lab?.actors ?? 0) > 0 ? 'workbench' : 'split';
+export function defaultView(project: ProjectDetail, step: ConsoleStep): 'split' | 'workbench' {
+  if (!isGuided(project)) return 'split';
+  switch (step) {
+    case 'environment':
+      return 'workbench';
+    case 'simulation':
+      return (project.lab?.actors ?? 0) > 0 ? 'workbench' : 'split';
+    case 'report':
+      return project.lab?.analysis === 'completed' ? 'workbench' : 'split';
+    default:
+      return 'split';
+  }
 }
 
 /**
