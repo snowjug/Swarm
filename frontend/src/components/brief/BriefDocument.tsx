@@ -1,6 +1,7 @@
 import { Download, ExternalLink, FileJson, Info, RefreshCw } from 'lucide-react';
 import {
   BRIEF_SECTION_IDS,
+  BRIEF_SIGNAL_NOTICES,
   STATEMENT_ORIGINS,
   type BriefSection,
   type BriefView,
@@ -115,7 +116,7 @@ function Section({
       <h4 id={`${id}-title`}>
         <span className="mono">{index + 1}.</span> {section.title}
       </h4>
-      <SectionVisuals kinds={section.visuals} visuals={visuals} />
+      <SectionVisuals kinds={section.visuals} visuals={visuals} signal={brief.signal} />
       <BriefStatementList statements={statements} visuals={visuals} />
       {section.id === 'recommendations' ? (
         <RecommendationsTable
@@ -204,6 +205,14 @@ export function BriefDocument({
           ) : null}
         </div>
       </header>
+      {brief.signal !== 'clear' ? (
+        <Notice
+          tone={brief.signal === 'no-direction' ? 'warning' : 'info'}
+          title={BRIEF_SIGNAL_NOTICES[brief.signal].title}
+        >
+          {BRIEF_SIGNAL_NOTICES[brief.signal].text}
+        </Notice>
+      ) : null}
       {view.changedSince.length > 0 ? (
         <Notice tone="warning" title="This brief may be out of date">
           Since it was made, this has changed: {view.changedSince.join(', ')}.{' '}

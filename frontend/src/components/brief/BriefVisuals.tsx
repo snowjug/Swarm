@@ -2,7 +2,9 @@ import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, CircleHelp } from 'lucide
 import type { LucideIcon } from 'lucide-react';
 import { RESPONSE_CATEGORIES, RESPONSE_LABELS } from '../../../../shared/analysis';
 import {
+  BRIEF_READING_NOTES,
   STATEMENT_ORIGIN_LABELS,
+  type BriefSignal,
   type BriefVisuals,
   type VisualKind,
 } from '../../../../shared/brief';
@@ -186,7 +188,7 @@ function OutcomeDistribution({ visuals }: { visuals: BriefVisuals }) {
   );
 }
 
-function ScenarioComparison({ visuals }: { visuals: BriefVisuals }) {
+function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal: BriefSignal }) {
   const rows = visuals.scenarioComparison;
   if (rows.length === 0) {
     return (
@@ -202,6 +204,9 @@ function ScenarioComparison({ visuals }: { visuals: BriefVisuals }) {
   return (
     <figure className="brief-figure">
       <figcaption>Each alternative against the baseline, on the same seeds</figcaption>
+      {signal !== 'clear' ? (
+        <p className="field-help brief-reading-note">{BRIEF_READING_NOTES[signal]}</p>
+      ) : null}
       {rows.map((row) => (
         <div className="brief-compare" key={row.variantId}>
           <h5>{row.label}</h5>
@@ -236,13 +241,15 @@ function ScenarioComparison({ visuals }: { visuals: BriefVisuals }) {
           <p>
             About {approx(row.adverseMean)} of {row.members} simulated members ended up looking for
             an alternative or resisting
-            {row.baselineAdverseMean !== null ? (
+            {signal === 'clear' && row.baselineAdverseMean !== null ? (
               <> against about {approx(row.baselineAdverseMean)} under the baseline</>
             ) : null}
             .{' '}
-            {row.adverseDelta !== null
-              ? `On the same seeds, the change left ${approx(Math.abs(row.adverseDelta))} ${row.adverseDelta >= 0 ? 'more' : 'fewer'} simulated members adverse, with more in ${row.worseInRuns} of ${row.pairedRuns} paired runs.`
-              : 'The runs could not be paired with the baseline.'}{' '}
+            {signal !== 'clear'
+              ? 'The comparison with the baseline is not read as an effect of the change.'
+              : row.adverseDelta !== null
+                ? `On the same seeds, the change left ${approx(Math.abs(row.adverseDelta))} ${row.adverseDelta >= 0 ? 'more' : 'fewer'} simulated members adverse, with more in ${row.worseInRuns} of ${row.pairedRuns} paired runs.`
+                : 'The runs could not be paired with the baseline.'}{' '}
             {row.findingId && row.classification
               ? `Finding ${row.findingId} holds in ${row.holdsIn} of ${row.of} seeded runs (${STABILITY_LABELS[row.classification]}).`
               : 'No finding states how often this direction holds.'}
@@ -416,9 +423,12 @@ function EvidenceMap({ visuals }: { visuals: BriefVisuals }) {
 export function SectionVisuals({
   kinds,
   visuals,
+  signal = 'clear',
 }: {
   kinds: readonly VisualKind[];
   visuals: BriefVisuals | null;
+  /** Whether the comparison could tell the change from no change; the chart that sets them side by side says so. */
+  signal?: BriefSignal;
 }) {
   if (kinds.length === 0) return null;
   if (!visuals) {
@@ -438,7 +448,7 @@ export function SectionVisuals({
           case 'outcome-distribution':
             return <OutcomeDistribution key={kind} visuals={visuals} />;
           case 'scenario-comparison':
-            return <ScenarioComparison key={kind} visuals={visuals} />;
+            return <ScenarioComparison key={kind} visuals={visuals} signal={signal} />;
           case 'sensitivity':
             return <SensitivityBars key={kind} visuals={visuals} />;
           case 'assumption-register':

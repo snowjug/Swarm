@@ -91,7 +91,10 @@ the finding held across seeded runs and whether a cited passage supports the act
 A statement is only as reliable as the least reliable finding it rests on. A statement about a
 stakeholder is moderate if a passage supports it and nothing contradicts it, and low otherwise.
 Statements that do not rest on a finding carry no reliance. These levels describe how stable a
-simulated result is. They are not probabilities and say nothing about the real world.
+simulated result is. They are not probabilities and say nothing about the real world. The one
+exception is a comparison that [cannot tell the change from no change](#when-the-comparison-cannot-tell-the-change-from-no-change)
+because no stakeholder has a direction of impact: every finding then describes noise, so every
+statement that rests on one is low, however often it held.
 
 ## Numbers
 
@@ -101,6 +104,60 @@ variant, with the lowest and highest shown. Members who ended up looking for an 
 resisting are counted as adverse. A comparison with the baseline is paired by seed, so the same
 random draws sit on both sides and the difference is the change, not the noise. Population sizes
 are assumptions that weight each group. They were not measured.
+
+## When the comparison cannot tell the change from no change
+
+A comparison with no change only means something if the change can move someone. Two situations
+are named. The brief stores which one applies as `signal` (`clear` when neither does), says it first
+on the page and in the Markdown and printable exports, and changes what it writes as follows.
+
+**No direction of impact (`no-direction`).** No stakeholder has an expected direction of impact: every
+simulated actor's impact is zero, and no variant sets another. The change then moves no one in the
+simulation, and every difference from no change is noise, whatever counts the runs show. The test is
+the shared rule `changeCanMoveAnyone` (in `shared/signal.ts`) together with a check that no actor has
+a direction under any change, so that a change with no strength is not mistaken for a missing
+direction. Then:
+
+- The headline and the executive answer say that the simulated comparison could not tell the change
+  from no change, in the shared wording of the notice: say who is helped or harmed in the stakeholder
+  review, or read the evidence with a model. No count of adverse members is put forward as a result,
+  and the answer is itself the main caveat. The statement is unresolved uncertainty. The finding that
+  the two ended up about the same is quoted with its stability, as a description of the noise.
+- The first recommendation is to say who is helped or harmed, in the stakeholder review, or to read
+  the evidence with a model, and then to run the comparison again. It comes first whatever its score
+  (its impact is high and its effort low, because nothing else can be read until it is done), links to
+  the finding about the direction against the baseline, and is an assumption of the system, not a
+  result. Nothing is built on the noise: no mitigation, no building on a favourable response, and no
+  repeating of runs that cannot help.
+- The first check of the validation plan confirms the direction of impact with the stakeholders
+  themselves.
+- The first limitation is the notice, and every statement that rests on a finding is low reliance.
+- The sections that set variants side by side begin with a note to read the differences as noise.
+  No comparison with the baseline is written as an effect, no variant is ranked, and no risk or
+  opportunity is attributed to the change.
+
+**No measurable difference (`no-difference`).** The stakeholders have directions, and the comparison
+still found the two about the same. Three things must hold. The analysis's finding that simulated
+members ended up about the same under the change as under no change, on the same seeds, is repeatable
+or mostly repeatable. No other direction finding for the same variant that is repeatable or mostly
+repeatable says otherwise. And no group moved clearly on its own: no actor's mean final stance, or
+share of simulated members looking for an alternative or resisting, differs from the baseline's by
+0.1 or more on the same seeds (the medium cut-off of an impact). The last test is there because the
+overall stance is a mean over groups, and groups moving in opposite ways could hide in it. Then the
+headline says that there is no measurable difference under these assumptions, leads with how often
+the two ended up about the same instead of with counts, and keeps the main caveat after it. It says
+that this is a result about the assumptions, not about the world. No mitigation and no
+building-on recommendation is made, the comparison is read in stance and not in counts, no first-order
+effect, risk or opportunity is singled out, and the first limitation says what the result does not show.
+
+What this relies on, and where it stops:
+
+- The finding about the direction is recognised by its wording ("ended up about the same under"),
+  because the contract has no field for it. If the analysis changes that wording, the second state
+  stops being detected; the first does not depend on it.
+- When no baseline was run, or the headline variant is not an alternative, there is nothing to
+  compare, neither state applies, and the brief says so as before.
+- Only the headline variant, the first alternative, is read for the second state.
 
 ## Recommendations
 
@@ -123,7 +180,9 @@ Repeatability is the largest lower bound of the Wilson interval among the findin
 recommendation follows from. Effort is a planning default for the kind of action, and low, medium and
 high weigh 1, 2 and 3. Ties go to the higher impact, then the lower effort, then the order they were
 found in. The owner function comes from the stakeholder category the recommendation is about. These
-are lenses, not a list of answers for any one case, and the effort values are not estimates.
+are lenses, not a list of answers for any one case, and the effort values are not estimates. The
+only exception to the order is the recommendation to say who is helped or harmed, which comes first
+when the comparison could not tell the change from no change (see above).
 
 ## Validation plan
 
@@ -132,7 +191,9 @@ that nothing cited backs (the five that moved the result most), the findings tha
 across seeded runs (up to three), and the key actors that no cited passage supports (up to two).
 Each check names its targets, the question, the method, the signal that would count as success, the
 effort and the duration. The method is a generic real-world check (a survey, interviews, a data
-pull, an expert review or a staged rollout) adapted only by the trait and the kind of group.
+pull, an expert review or a staged rollout) adapted only by the trait and the kind of group. When no
+stakeholder has a direction of impact, the first check confirms it with the stakeholders themselves,
+and no check proposes repeating runs that cannot tell the change from no change.
 
 ## Wording guard
 
@@ -149,6 +210,9 @@ recorded in the methodology notes of the brief. Quotations from the sources are 
   answer and the line "what this does not tell you".
 - A finding that held in few seeded runs, or whose actors no cited passage supports, is a hypothesis
   to check, not a result. The validation plan says how.
+- A notice above the executive answer means the comparison cannot be read as a result about the
+  change: either it could not tell the change from no change, or it found no measurable difference
+  under these assumptions. Read the notice before the counts.
 - Each chart has a table behind it with the same numbers.
 - "This brief may be out of date" means a scenario, stakeholders, actors, critiques or the analysis
   changed after it was made, or a newer completed analysis exists. Generate it again.
@@ -190,6 +254,9 @@ format and ids only and never a question, a statement, a name or a passage.
 frame-ancestors 'none'`, together with `x-content-type-options: nosniff` and `cache-control:
 no-store`. Print it from the browser to get a paper or PDF copy.
 - **JSON** is the stored brief and the chart data, with a notice and a schema version.
+- When the comparison cannot be read as a result, the Markdown opens with a quoted notice and the
+  printable page with a boxed one, both ahead of the headline, and the caption of the table that sets
+  variants side by side says that its differences are not read as effects of the change.
 
 ## What it does not do
 

@@ -1,10 +1,15 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  BRIEF_READING_NOTES,
   BRIEF_SECTION_IDS,
   BRIEF_SECTION_TITLES,
+  BRIEF_SIGNAL_NOTICES,
+  NO_DIFFERENCE_NOTICE,
   STATEMENT_ORIGINS,
+  type BriefSignal,
 } from '../../../../shared/brief';
+import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
 import type { BriefHandle } from '../../hooks/useBrief';
 import {
   GENERATED_AT,
@@ -608,11 +613,77 @@ describe('text a person or a source wrote stays text', () => {
   });
 });
 
+describe('when the comparison cannot be read as a result', () => {
+  const withSignal = (signal: BriefSignal) => viewFixture({ brief: briefFixture({ signal }) });
+  const comparison = (html: string) =>
+    html.slice(html.indexOf('Each alternative against the baseline, on the same seeds'));
+
+  it('adds nothing when the comparison can be read', () => {
+    const html = document();
+    const text = visibleText(html);
+    expect(text).not.toContain(BRIEF_SIGNAL_NOTICES['no-direction'].title);
+    expect(text).not.toContain(BRIEF_SIGNAL_NOTICES['no-difference'].title);
+    expect(html).not.toContain('brief-reading-note');
+    expect(html).not.toContain('notice-warning');
+    expect(html).not.toContain('notice-info');
+    expect(visibleText(comparison(html))).toContain('On the same seeds, the change left');
+  });
+
+  it('says first, in a notice above the executive answer, that the simulation could not tell the change from no change', () => {
+    const html = document(withSignal('no-direction'));
+    expect(html).toContain('<div class="notice notice-warning" role="status">');
+    expect(visibleText(html)).toContain(
+      `The simulation could not tell the change from no change ${NO_DIRECTION_NOTICE}`,
+    );
+    expect(html.indexOf('notice notice-warning')).toBeGreaterThan(html.indexOf('</header>'));
+    expect(html.indexOf('notice notice-warning')).toBeLessThan(
+      html.indexOf('class="brief-answer"'),
+    );
+  });
+
+  it('says first, in a notice of its own kind, that there is no measurable difference under these assumptions', () => {
+    const html = document(withSignal('no-difference'));
+    expect(html).toContain('<div class="notice notice-info" role="status">');
+    expect(visibleText(html)).toContain(
+      `No measurable difference under these assumptions ${NO_DIFFERENCE_NOTICE}`,
+    );
+    expect(html.indexOf('notice notice-info')).toBeLessThan(html.indexOf('class="brief-answer"'));
+    expect(html).not.toContain('notice-warning');
+  });
+
+  it('keeps it apart from the warning that a brief is out of date, and shows both', () => {
+    const html = document(
+      viewFixture({ brief: briefFixture({ signal: 'no-direction' }), changedSince: ['actors'] }),
+    );
+    expect(html.match(/class="notice notice-warning"/gu)).toHaveLength(2);
+    expect(visibleText(html)).toContain('This brief may be out of date');
+  });
+
+  it.each(['no-direction', 'no-difference'] as const)(
+    'does not read the chart that sets variants side by side as an effect when it is %s',
+    (signal) => {
+      const html = comparison(document(withSignal(signal)));
+      const text = visibleText(html);
+      expect(text).toContain(BRIEF_READING_NOTES[signal]);
+      expect(html).toContain('class="field-help brief-reading-note"');
+      expect(text).toContain(
+        'The comparison with the baseline is not read as an effect of the change.',
+      );
+      expect(text).not.toContain('On the same seeds, the change left');
+      expect(text).not.toMatch(/against about \d+(?:\.\d+)? under the baseline/u);
+      // The numbers are still there, in the table, for anyone who wants them.
+      expect(text).toContain('Mean adverse simulated members');
+    },
+  );
+});
+
 describe('what the page says about itself', () => {
   it('predicts nothing, promises nothing and quotes no percentage of real people', () => {
     const text =
       visibleText(document()) +
-      visibleText(panel({ view: viewFixture({ brief: null, visuals: null }) }));
+      visibleText(panel({ view: viewFixture({ brief: null, visuals: null }) })) +
+      visibleText(document(viewFixture({ brief: briefFixture({ signal: 'no-direction' }) }))) +
+      visibleText(document(viewFixture({ brief: briefFixture({ signal: 'no-difference' }) })));
     expect(text).not.toMatch(/\bwill\b/iu);
     expect(text).not.toMatch(/\b(?:certainly|guarantee[ds]?|proves?|proven)\b/iu);
     expect(text).not.toMatch(/\d\s?%/u);
