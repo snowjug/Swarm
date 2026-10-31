@@ -804,7 +804,11 @@ test.describe('the next step from the keyboard', () => {
     await expect(workbench(page, 'Simulation')).toBeFocused();
     await expect(stageButton(page, 'Simulation')).toHaveAttribute('aria-current', 'step');
 
-    // Focus is on the stage, so the next Tab goes into it, not back to the top of the page.
+    // Focus is on the stage, so the next Tab goes into it, not back to the top of the page. The
+    // comparison is read as the stage opens, and until it is drawn there is nothing in it to reach.
+    await expect(
+      workbench(page, 'Simulation').getByRole('heading', { name: 'What this comparison says' }),
+    ).toBeVisible();
     await page.keyboard.press('Tab');
     expect(
       await page.evaluate(() => document.activeElement?.closest('section.console-stage') !== null),
