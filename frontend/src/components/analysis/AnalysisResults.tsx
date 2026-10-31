@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import type { Analysis, Finding, Variant } from '../../../../shared/analysis';
-import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
+import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE, directionNotice } from '../../../../shared/signal';
 import {
   SHOWN_FINDINGS,
   STABILITY,
@@ -200,11 +200,17 @@ export function AnalysisResults({
   const seeds = analysis.config.baseSeed;
   // Where nothing can move anyone, every difference below is noise, and nothing it says is about the change.
   const noEffect = cannotMoveAnyone(analysis);
+  const notice = directionNotice(analysis.actors, analysis.config.variants);
   return (
     <div className="analysis-results">
-      {noEffect && (
+      {notice === NO_DIRECTION_NOTICE && (
         <Notice tone="warning" title="This comparison cannot say anything about the change">
           {NO_DIRECTION_NOTICE}
+        </Notice>
+      )}
+      {notice === UNDIRECTED_NOTICE && (
+        <Notice tone="warning" title="No stakeholder has an expected direction of impact">
+          {UNDIRECTED_NOTICE}
         </Notice>
       )}
       <ComparisonSummary analysis={analysis} headingRef={headingRef} />

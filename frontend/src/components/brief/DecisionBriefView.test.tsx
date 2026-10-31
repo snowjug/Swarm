@@ -645,7 +645,7 @@ describe('when the comparison cannot be read as a result', () => {
     const html = document(withSignal('no-difference'));
     expect(html).toContain('<div class="notice notice-info" role="status">');
     expect(visibleText(html)).toContain(
-      `No measurable difference under these assumptions ${NO_DIFFERENCE_NOTICE}`,
+      `No measurable difference for the proposed change under these assumptions ${NO_DIFFERENCE_NOTICE}`,
     );
     expect(html.indexOf('notice notice-info')).toBeLessThan(html.indexOf('class="brief-answer"'));
     expect(html).not.toContain('notice-warning');
@@ -675,6 +675,56 @@ describe('when the comparison cannot be read as a result', () => {
       expect(text).toContain('Mean adverse simulated members');
     },
   );
+});
+
+describe('when the proposed change comes out about the same and another scenario does not', () => {
+  const two = (signal: BriefSignal) => {
+    const base = visualsFixture();
+    const [proposed] = base.scenarioComparison;
+    const visuals = visualsFixture({
+      scenarioComparison: [
+        proposed!,
+        {
+          ...proposed!,
+          variantId: 'strong-alternative',
+          label: 'Strong alternative',
+          adverseMean: 30.2,
+          adverseDelta: 26.3,
+          worseInRuns: 10,
+        },
+      ],
+    });
+    return document(viewFixture({ brief: briefFixture({ signal }), visuals }));
+  };
+  const rowOf = (html: string, label: string) => {
+    const start = html.indexOf(`<h4>${label}</h4>`);
+    return visibleText(html.slice(start, html.indexOf('</p>', start)));
+  };
+
+  it('reads no difference of the proposed change only, and every other scenario on its own', () => {
+    const html = two('no-difference');
+    expect(rowOf(html, 'Proposed change')).toContain(
+      'The comparison with the baseline is not read as an effect of the change.',
+    );
+    expect(rowOf(html, 'Proposed change')).not.toContain('On the same seeds');
+    const strong = rowOf(html, 'Strong alternative');
+    expect(strong).not.toContain('not read as an effect of the change');
+    expect(strong).toContain('against about 3.9 under the baseline');
+    expect(strong).toContain(
+      'On the same seeds, the change left 26 more simulated members adverse, with more in 10 of 10 paired runs.',
+    );
+  });
+
+  it('still reads no row as an effect where nobody has a direction, and every row as one where it can be read', () => {
+    const none = two('no-direction');
+    for (const label of ['Proposed change', 'Strong alternative']) {
+      expect(rowOf(none, label)).toContain('not read as an effect of the change');
+    }
+    const clear = two('clear');
+    for (const label of ['Proposed change', 'Strong alternative']) {
+      expect(rowOf(clear, label)).toContain('On the same seeds, the change left');
+    }
+  });
 });
 
 describe('what the page says about itself', () => {

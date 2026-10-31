@@ -201,13 +201,16 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
     visuals.outcomeDistribution.find((row) => row.kind === 'baseline')?.label ?? 'the baseline';
   const width = (value: number, members: number): string =>
     `${members > 0 ? Math.min(100, (value / members) * 100) : 0}%`;
+  // No difference is said of the proposed change, the first row, and of nothing else: every other row reads on its own.
+  const unread = (index: number): boolean =>
+    signal === 'no-direction' || (signal === 'no-difference' && index === 0);
   return (
     <figure className="brief-figure">
       <figcaption>Each alternative against the baseline, on the same seeds</figcaption>
       {signal !== 'clear' ? (
         <p className="field-help brief-reading-note">{BRIEF_READING_NOTES[signal]}</p>
       ) : null}
-      {rows.map((row) => (
+      {rows.map((row, index) => (
         <div className="brief-compare" key={row.variantId}>
           <h4>{row.label}</h4>
           {row.baselineAdverseMean !== null ? (
@@ -241,11 +244,11 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
           <p>
             About {approx(row.adverseMean)} of {row.members} simulated members ended up looking for
             an alternative or resisting
-            {signal === 'clear' && row.baselineAdverseMean !== null ? (
+            {!unread(index) && row.baselineAdverseMean !== null ? (
               <> against about {approx(row.baselineAdverseMean)} under the baseline</>
             ) : null}
             .{' '}
-            {signal !== 'clear'
+            {unread(index)
               ? 'The comparison with the baseline is not read as an effect of the change.'
               : row.adverseDelta !== null
                 ? `On the same seeds, the change left ${approx(Math.abs(row.adverseDelta))} ${row.adverseDelta >= 0 ? 'more' : 'fewer'} simulated members adverse, with more in ${row.worseInRuns} of ${row.pairedRuns} paired runs.`

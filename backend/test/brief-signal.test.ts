@@ -816,7 +816,9 @@ describe('the exports say so before anything else', () => {
       expect(markdown.slice(notice)).toContain(text.slice(0, 60));
       expect(notice).toBeLessThan(markdown.indexOf('- **Question:**'));
       expect(notice).toBeLessThan(markdown.indexOf('## In short'));
-      expect(markdown).toContain('not read as effects of the change');
+      expect(markdown).toMatch(/not read as (?:effects|an effect) of the change/u);
+      if (state === 'no-difference')
+        expect(markdown).toContain('every other row is read on its own');
     },
   );
 

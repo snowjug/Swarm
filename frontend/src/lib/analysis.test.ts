@@ -6,6 +6,7 @@ import {
   type SensitivityRow,
 } from '../../../shared/analysis';
 import { FIXTURE_VARIANTS, actorSetFixture, analysisFixture } from '../../../shared/lab-fixtures';
+import { UNDIRECTED_NOTICE, directionNotice } from '../../../shared/signal';
 import {
   ESTIMATE_BASIS,
   NO_EFFECT_TO_TEST,
@@ -398,12 +399,12 @@ describe('the axis of a chart of stance', () => {
   });
 });
 
-/** The comparison with no stakeholder given an expected direction of impact: nothing can move. */
-const withoutDirection = (analysis: Analysis): Analysis => ({
+/** The comparison with no stakeholder given an expected direction of impact, and no member of a group differing in it: nothing can move. */
+const withoutDirection = (analysis: Analysis, spread = 0): Analysis => ({
   ...analysis,
   actors: analysis.actors.map((actor) => ({
     ...actor,
-    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0, spread } },
   })),
 });
 
@@ -425,6 +426,13 @@ describe('a change that cannot move anyone', () => {
       },
     };
     expect(cannotMoveAnyone(named)).toBe(false);
+  });
+
+  it('is not told where nobody has a direction but the members of a group can still be moved', () => {
+    const spread = withoutDirection(analysisFixture(), 0.4);
+    expect(cannotMoveAnyone(spread)).toBe(false);
+    expect(directionNotice(spread.actors, spread.config.variants)).toBe(UNDIRECTED_NOTICE);
+    expect(directionNotice(analysisFixture().actors, analysisFixture().config.variants)).toBeNull();
   });
 
   it('does not let “robust” read as a finding there, and leaves every other result alone', () => {
