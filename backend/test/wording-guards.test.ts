@@ -41,6 +41,7 @@ const REFUSED = [
   'Revenue rose by 5 million.',
   'Customer satisfaction scored 8 out of 10.',
   'Seven real customers left.',
+  'One real customer converted.',
   'Eighteen real customers converted in the simulation.',
   'Simulated runs suggest sentiment of 0.4 among real users.',
   'The simulation shows 18 real customers converting.',
@@ -61,6 +62,7 @@ const ALLOWED = [
   'These counts are not 18 real customers.',
   'The 18 simulated members are not 18 real customers.',
   'No share of a real population is measured.',
+  'No one has measured real adoption, and each one of the simulated members was asked.',
   'Revenue is not something this brief measures.',
   'Population sizes are assumptions used to weight each group, not counts of real people: “Supplier” 100, “Administrators” 100, “Support engineers” 100, “Clients” 25, and 11 more.',
   // What someone else wrote is quoted, and is theirs.

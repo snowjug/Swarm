@@ -217,7 +217,11 @@ function realWorldClaims(own: string): string[] {
   for (const sentence of own.split(/(?<=[.!?])\s+|[;\n]/u)) {
     const words = wordsOf(sentence);
     for (let at = 0; at < words.length; at += 1) {
-      const span = QUANTITY.test(words[at]!.text) ? claimAt(words, at) : null;
+      // "one" is a number only where it counts real people: "no one" and "one of them" are not.
+      const counts =
+        QUANTITY.test(words[at]!.text) ||
+        (words[at]!.text === 'one' && REAL.test(words[at + 1]?.text ?? ''));
+      const span = counts ? claimAt(words, at) : null;
       if (span) {
         claims.push(sentence.slice(words[span[0]]!.start, words[span[1]]!.end));
         break;

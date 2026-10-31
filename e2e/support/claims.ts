@@ -107,7 +107,10 @@ export function claimsAgainst(text: string): string[] {
     if (!said) continue;
     if (FUTURE.some((pattern) => pattern.test(said))) found.push(`a prediction: "${said}"`);
     const tokens = tokensOf(said);
-    if (tokens.some((token, at) => isFigure(token) && figureClaim(tokens, at))) {
+    // "one" is a number only where it counts real people: "no one" and "one of them" are not.
+    const counted = (token: string, at: number): boolean =>
+      isFigure(token) || (token === 'one' && REAL.test(tokens[at + 1] ?? ''));
+    if (tokens.some((token, at) => counted(token, at) && figureClaim(tokens, at))) {
       found.push(`a real-world figure that is not attributed to the simulation: "${said}"`);
     }
   }
