@@ -815,6 +815,89 @@ describe('second-order effects and risks', () => {
     expect(finding.reliance).toBe('moderate');
   });
 
+  it('says that an earlier event was needed only where the run was replayed without it, and otherwise only that it came first', () => {
+    const event = (
+      id: string,
+      round: number,
+      actorId: string,
+      description: string,
+      extra = {},
+    ) => ({
+      id,
+      round,
+      kind: 'counter-move',
+      actorId,
+      description,
+      causedBy: [] as string[],
+      ...extra,
+    });
+    const events = [
+      event('e1', 2, 'provider', 'The provider announced the change.'),
+      event('e2', 3, 'rival-provider', 'The rival provider made an offer.', {
+        causedBy: ['adverse-share', 'e1'],
+      }),
+      event('e3', 4, 'regulator', 'The regulator asked for information.', {
+        causedBy: ['risk-concern'],
+        followed: ['e1'],
+      }),
+    ];
+    const made = (explained: boolean) => {
+      const given = richInputs();
+      given.analysis = analysisSchema.parse({
+        ...given.analysis,
+        representativeRun: {
+          ...given.analysis.representativeRun!,
+          events,
+          ...(explained ? { explained: true } : {}),
+        },
+      });
+      return sectionOf(buildBrief(given), 'second-order').statements.map(
+        (statement) => statement.text,
+      );
+    };
+    const replayed = made(true);
+    const needed = replayed.find((text) => text.includes('could not have happened without'))!;
+    expect(needed).toContain(
+      '“The rival provider made an offer” in round 3 could not have happened without “The provider announced the change” in round 2: a replay of the same seed without that responder had no such event by then.',
+    );
+    expect(needed).toContain('not an observation');
+    const only = replayed.find((text) => text.includes('regulator asked'))!;
+    expect(only).toContain(
+      'after “The provider announced the change” in round 2, “The regulator asked for information” followed in round 4. Nothing shows that the earlier event mattered: a replay of the same seed without the responder still had this event',
+    );
+    expect(only).not.toContain('could not have happened');
+    // A run that was not replayed says nothing was tested, and an event it names as earlier only came first.
+    const older = made(false).join('\n');
+    expect(older).not.toContain('could not have happened without');
+    expect(older).toContain('the run was not replayed without the responder');
+  });
+
+  it('says which signal an event happened after when no event followed another', () => {
+    const given = richInputs();
+    given.analysis = analysisSchema.parse({
+      ...given.analysis,
+      representativeRun: {
+        ...given.analysis.representativeRun!,
+        events: [
+          {
+            id: 'e1',
+            round: 3,
+            kind: 'counter-move',
+            actorId: 'rival-provider',
+            description: 'The rival provider made an offer.',
+            causedBy: ['adverse-share'],
+          },
+        ],
+        explained: true,
+      },
+    });
+    const text = textOf(buildBrief(given), 'second-order');
+    expect(text).toContain(
+      '“The rival provider made an offer” occurred in round 3, when the simulated “adverse-share” signal it watches reached its threshold.',
+    );
+    expect(text).not.toContain('following from');
+  });
+
   it('lists the risk from a harmed group, and from an actor outside the organisation', () => {
     const statements = sectionOf(brief, 'risks-opportunities').statements;
     const harmed = statements.find((statement) =>
