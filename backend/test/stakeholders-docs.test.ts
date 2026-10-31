@@ -1,12 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios.js';
 import { STAKEHOLDER_CATEGORIES } from '../../shared/stakeholders.js';
 import { ROUTE_POLICY } from '../src/auth/policy.js';
 import { SAMPLE_SIZE } from '../src/stakeholders/actors.js';
 import { MAX_AGENTS, MIN_AGENTS } from '../src/stakeholders/agents.js';
 import { CATEGORY_PRIORS, COHORT_SPREAD, IMPACT_VALUE } from '../src/stakeholders/priors.js';
 import { MAX_DISCOVERED, MAX_KEY, PLACEHOLDER_SIZE } from '../src/stakeholders/rules.js';
+import { PACK_TABLE_HEADER, packTableRows } from './support/pack-table.js';
 
 // The page says what the numbers are. These checks hold it to the code, so that a number changed in one
 // place and not the other fails here instead of misleading a reader.
@@ -105,5 +107,29 @@ describe('docs/stakeholders.md and the code agree', () => {
       .map(read)
       .join('\n');
     for (const code of codes) expect(source, code).toContain(`'${code}'`);
+  });
+
+  it('prints what reading the text finds on each example, as the code finds it', async () => {
+    // The table is made by running the discovery: if the reading, the examples or the chunker change what
+    // is found, `npx tsx backend/test/support/print-pack-table.ts` prints the table to put here.
+    const section = doc.slice(
+      doc.indexOf('### What it finds on the examples'),
+      doc.indexOf('## Categories are a lens'),
+    );
+    const table = [...section.matchAll(/^\|(.+)\|[ \t]*$/gmu)].map((match) =>
+      match[1]!.split('|').map((cell) => cell.trim()),
+    );
+    expect(table[0], 'the header').toEqual([...PACK_TABLE_HEADER]);
+    expect(table[1]?.every((cell) => /^-+$/u.test(cell))).toBe(true);
+    expect(table.slice(2), 'one row for each example, as the code finds them').toEqual(
+      await packTableRows(),
+    );
+    expect(table.slice(2)).toHaveLength(EXAMPLE_SCENARIOS.length);
+  });
+
+  it('says that the table is made by the code, and what the rules cannot do', () => {
+    expect(flat).toContain('a test fails if this table and the code disagree');
+    expect(flat).toContain('the words are counted, not understood');
+    expect(flat).toContain('They do not find a group the sources describe without a role word');
   });
 });

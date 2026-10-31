@@ -18,8 +18,11 @@ does not predict what real people will do.
    trait starts from a [documented prior](#category-priors) and says where it came from.
 5. **Adjust** any trait on a slider. The Environment stage then builds its agents from these actors.
 
-The panel for all of this sits at the top of the Environment stage's setup. A project that never opens it
-behaves exactly as before.
+The panel for all of this sits at the top of the Environment stage. It is small until it is opened: a
+title with four counts (how many stakeholders were **found**, how many **need review**, how many are
+**approved**, how many **actors** there are), one button for the next step, and two toggles that open the
+list and the actors. It never pushes the stage's own _Start Simulation_ button off the screen, and on a
+phone the counts come first. A project that never opens it behaves exactly as before.
 
 ## Finding stakeholders
 
@@ -38,23 +41,42 @@ a few words that only count with a modifier (a _team_ or a _department_ is a sta
 says which). The lexicon names no market, product or organisation. A role word is a **mention**; the same
 group named in several ways (a plural, a possessive, "end user" and "user") is one stakeholder.
 
+A mention counts only in a line that **says something**. Text taken from a web page also holds menus,
+navigation boxes, tables of contents, rows of links and footers, which are made of the same words as a
+sentence about a group and say nothing about it. They are told apart by their shape, not by any word:
+
+- a line of three or more words that are nearly all capitalised, with no full stop, is a **list of names**
+  (a menu row, a row of a table of contents), and no group is found in it;
+- a line of up to three words with no full stop is a **heading** when it stands between sentences, which
+  introduces what follows, so a group it names is found; next to another such line it is a menu entry or
+  an outline, and is not;
+- five or more capitalised words in a row are a list of names, never one name;
+- a person's own bulleted list of groups is kept, an item each;
+- a link is not read: a word in its path ("example.org/users/support") is not a word of the sentence.
+
 What it decides, and how:
 
-| Question        | Rule                                                                                                                                                                                                                                                          |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Category        | From the role word and a modifier that signals a kind (a security reviewer is governance, a rival is a competitor). An end user whose sentences keep speaking of paying, gaining or being exposed (at least two sentences with the same cue) is read as that. |
-| Priority        | **Key** for a decision maker, a regulator, a competitor, and the two groups named in the most sentences (at least two); at most eight in all. **Standard** if named in two or more sentences or by the scenario; otherwise **background**.                    |
-| Size            | A **placeholder**: 1 for a key actor, 100 for a standard cohort, 25 for a background one. It is an assumption, shown as one, never a count.                                                                                                                   |
-| Expected impact | From the category only, and labelled so: a group that bears cost is assumed harmed, a beneficiary benefited, every other category has no direction.                                                                                                           |
-| Relations       | Derived from categories, and worded "Assumed from categories, not found in the sources".                                                                                                                                                                      |
-| Evidence        | Up to four verbatim quotes for a group, each checked against the passage it was taken from.                                                                                                                                                                   |
-| Missing groups  | A category with no stakeholder is listed as a **gap**: a prompt to look, not an error.                                                                                                                                                                        |
-| Text for an AI  | A sentence that addresses an AI system is not read, and the person is told which passages had one.                                                                                                                                                            |
+| Question        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Category        | From the role word and a modifier that signals a kind (a security reviewer is governance, a rival is a competitor). An end user whose sentences keep speaking of paying, gaining or being exposed (at least two sentences with the same cue) is read as that.                                                                                                                                                                                                                                                                                                                |
+| Priority        | **Key** for a decision maker, a regulator, a competitor, and the two groups named in the most sentences (at least two); at most eight in all. **Standard** if named in two or more sentences or by the scenario; otherwise **background**. A role that names a position in any organisation (a manager, an employee) with nothing at stake for it in its sentences starts as background. It is a rule, and each stakeholder says so.                                                                                                                                         |
+| Size            | A **placeholder**: 1 for a key actor, 100 for a standard cohort, 25 for a background one. It is an assumption, shown as one, never a count.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Expected impact | **Read from the wording** of the sentences cited for the group: words of concern (worried, objects to, pay more) give _harmed_, words of welcome (welcomes, saves, benefits) give _benefited_, both give _mixed_. A word turned round by a negation ("no concern") does not count. The rationale quotes the words counted and says it is a reading of tone, not a finding. With no such word the direction comes from the category only, and says so: a group that bears cost is assumed harmed, a beneficiary benefited, every other category has no direction (_unclear_). |
+| Same group      | A name that is another with describing words in front ("Analyst" and "Independent analyst") in the same category, with no other longer name it could belong to, is folded into it and kept under _Removed_, so the fold can be seen and undone. Different words for one idea ("staff", "workers", "employees") stay apart: only a person can say they are one group.                                                                                                                                                                                                         |
+| Relations       | Derived from categories, and worded "Assumed from categories, not found in the sources".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Evidence        | Up to four verbatim quotes for a group, each checked against the passage it was taken from. Those that carry a cue are chosen first, so that the direction can be seen in what is cited.                                                                                                                                                                                                                                                                                                                                                                                     |
+| Missing groups  | A category with no stakeholder is listed as a **gap**: a prompt to look, not an error.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Text for an AI  | A sentence that addresses an AI system is not read, and the person is told which passages had one.                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
-At most 25 stakeholders are proposed.
+At most 25 stakeholders are proposed. Whatever is set by rule or taken from a category (the priority, how
+directly the group is affected, the size, a direction that is not read from the wording) is said to be so in
+the stakeholder's **assumptions**, and the review screen marks it as an assumption.
 
 **What it cannot do.** It finds groups that the text names with a role word. It will miss a group the
-lexicon has no word for, and it cannot tell who decides from a bare "the provider". It says so before it
+lexicon has no word for ("the city council" is missed, because _council_ counts only after a describing word
+that the lexicon knows, and "drivers" is not a role word), and it cannot tell who decides from a bare "the provider". Its reading of tone
+is a count of listed words in a sentence: it does not understand the sentence, and a cue can belong to the
+wrong group ("a year of slower growth" counted for the customers named just before it). It says so before it
 runs, and the gaps list is there to prompt the person to add what it missed.
 
 ### By asking the model
@@ -95,6 +117,32 @@ Even "low" supports only that the group is in the evidence. It does not say what
 stakeholder a model proposed, the level is the higher of the one the quotes support and the one the model
 reported.
 
+### What it finds on the examples
+
+This is what reading the text for roles, with no model, finds on each of the five worked examples. It was
+made by running the discovery itself on each example's question and sources, the way a project does, and a
+test fails if this table and the code disagree (`npx tsx backend/test/support/print-pack-table.ts` prints it
+again). _Found_ counts the groups in the list, not those folded into another or removed. A group that cites
+no quote is one the question names and no passage does.
+
+| Example                 | Found (key / standard / background) | Cite a quote | Direction (wording / category / unclear) | Key groups, and the others whose direction was read from the wording                                                                                          |
+| ----------------------- | ----------------------------------- | ------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `copilot-in-teams`      | 23 (4 / 11 / 8)                     | 23 of 23     | 5 / 0 / 18                               | Key: Clients, Competitors, Regulators, Manager (mixed). Others: Users (mixed), Finance team (harmed), Staff (harmed), Support teams (harmed).                 |
+| `regional-price-change` | 25 (5 / 7 / 13)                     | 25 of 25     | 5 / 0 / 20                               | Key: Sales director (harmed), Customers (harmed), Competitors, Regulator, Managers. Others: Vendors (harmed), Engineers (harmed), Support engineers (harmed). |
+| `ecommerce-experience`  | 17 (4 / 5 / 8)                      | 16 of 17     | 2 / 0 / 15                               | Key: Customers, Competitor, Sellers, Regulators. Others: Delivery partners (harmed), Employees (harmed).                                                      |
+| `ai-first-support`      | 20 (5 / 3 / 12)                     | 20 of 20     | 3 / 0 / 17                               | Key: Support director, Customers (harmed), Competitors, Regulators, Engineers (mixed). Others: Support engineers (harmed).                                    |
+| `launch-pricing`        | 20 (3 / 9 / 8)                      | 20 of 20     | 2 / 1 / 17                               | Key: Executives, Customers (harmed), Competitors. Others: Partners (harmed).                                                                                  |
+
+What the table shows is what the rules can and cannot do. They find the roles the sources name, with a quote
+for each, and say how sure they are: most groups in these examples are named in only a few sentences, and
+so are marked as uncertain (about one in six is not). They read a direction only where a cited sentence
+carries a word of concern or welcome, which is for about a fifth of the groups at most, so most stay
+_unclear_ and a person has to say who is helped or harmed. A direction read this way can be wrong: the
+words are counted, not understood. They do not find a group the sources describe without a role word, and
+they do not know which groups matter most: the keys here are by rule (decision makers, regulators,
+competitors, and the groups named most often). The list is a starting point for the person's review, never
+the answer.
+
 ## Categories are a lens
 
 The categories (decision maker, end user, bears cost, bears risk, beneficiary, influencer, competitor,
@@ -104,6 +152,52 @@ relations between groups are assumed, and which groups are key by default, and n
 with nobody in it appears as a gap, and it is the person's call whether it matters here.
 
 ## Reviewing
+
+### The panel
+
+The summary at the top of the panel is four counts and one button. The counts are text ("12 found", "9 need
+review", "0 approved", "0 actors"), so that a screen reader says them as they are. _Need review_ counts the
+stakeholders that nobody has accepted, edited or added yet; _approved_ is the whole list once it has been
+approved. The one button says what it will do and changes as the work goes on:
+
+| Where the person has got to   | The button                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Nothing found yet             | _Find stakeholders by reading the text_ (or _with the model_ when the project has one, which is then the main way) |
+| Some stakeholders need review | _Review N stakeholders_, which opens the list at the first                                                         |
+| Every one is checked          | _Approve and create actors_                                                                                        |
+| Approved, no actors yet       | _Make the actors_                                                                                                  |
+| Actors exist                  | _Review the N actors_, which is a way to look and not the next step                                                |
+| Fewer than two stakeholders   | _Add a stakeholder_                                                                                                |
+| A person who may only read    | _Read the N stakeholders_, which opens the list; there is nothing to approve                                       |
+
+When a model is available, approving and making actors open the approval card first, so that the choice of
+letting the model read the key actors, which sends the source text, is never skipped.
+
+Two toggles open what the panel keeps shut: **Stakeholders** (the list, the means to add one, the gaps, the
+note on how they were found, the approval, and finding them again) and **Actors**. Both are shut until
+the person opens them, so the stage's _Start Simulation_ stays on the screen at every size; approving shuts
+the list again.
+
+The list is one line to scan for each stakeholder, **key actors first**, then standard and background
+cohorts, and by category and name within each. The order never depends on the review status, so a row does
+not move when it is accepted. Each line shows the name and role, the **direction of impact in words** with
+where it came from (_read from the wording_, _assumption_, _set by you_ or _model's reading_), the
+**uncertainty in words**, whether the stakeholder **cites a quote** or is an _assumption with no cited
+evidence_, whether it still _needs review_, and one line on why it is listed. Opening a row shows the quotes
+it rests on, word for word with the passage they come from, what is assumed, and the means to act on it.
+Anything that is an assumption and not evidence is labelled so in words, and an assumed direction or a
+stakeholder with no cited evidence has a dashed edge as well, so that no colour is needed to tell. The
+actors are rows too: opening one shows what it is assumed to want and every trait on a slider, with where
+the number came from and why. They stay editable after approval.
+
+What a change takes away, the panel replaces: an accepted row loses its _Accept_ button, a removed one leaves
+the list, an added one appears, and approving replaces the button that was pressed. Each change is said to a
+screen reader and focus goes to the row, its neighbour or the next step, never back to the top of the page.
+Headings run in order under the stage's (the panel's title is a third-level heading, its parts the fourth
+and the rows the fifth), every control has a name, and every target is at least 24 pixels. It is checked in
+the light, dark and high-contrast themes, on a desktop and on a phone.
+
+### What a person can do
 
 | Action     | What it does                                                                                                                                         |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -241,8 +335,21 @@ the mode only**: never the question, the sources or a stakeholder's text.
 npm test -- backend/test/stakeholders-discover.test.ts backend/test/stakeholders-review.test.ts
 npm test -- backend/test/stakeholders-actors.test.ts backend/test/stakeholders-environment.test.ts
 npm test -- backend/test/stakeholders-routes.test.ts backend/test/stakeholders-neutrality.test.ts
+npm test -- backend/test/stakeholders-packs.test.ts backend/test/stakeholders-tone.test.ts
+npm test -- backend/test/stakeholders-noise.test.ts backend/test/stakeholders-speed.test.ts
+npm test -- backend/test/stakeholders-docs.test.ts
 npm test -- frontend/src/components/stakeholders frontend/src/api/stakeholders.test.ts
+npx playwright test --project=lab e2e/lab/stakeholders.spec.ts
 ```
 
 The discovery tests run on briefs of very different subjects, and a test checks that every name found
-comes from the text it was given and that the code names no market or product.
+comes from the text it was given and that the code names no market or product. The noise tests give it
+invented menus, tables of contents and rows of links, in the shape such text takes, and expect no group
+from them; the speed tests give it 40,000 characters of full stops, of one capitalised word, of many
+different names, and expect the time to grow with the length of the text and not with its square.
+`stakeholders-docs.test.ts` holds this page to the code: the category table, the sizes and limits, the
+routes, the error codes and the table of what the examples give.
+
+The browser test takes three of the examples through the real screens, from the first page to the actors,
+and checks in each state that the stage's own button is on the screen, nothing overflows, axe is clean in
+every theme and focus is not lost.
