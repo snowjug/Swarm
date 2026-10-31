@@ -30,7 +30,7 @@ The order is fixed. The first section is the answer.
 | #   | Section                             | What it holds                                                                                                           |
 | --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | 1   | Executive answer                    | One or two sentences, the main caveat in order of how much it can change the answer, and what the brief cannot tell you |
-| 2   | Decision evaluated                  | The question, the scenario's decision, changes, baseline, alternatives and open points, and the variants simulated      |
+| 2   | Decision evaluated                  | The question, decision, changes, baseline, alternatives, open points and the variants, with what each sets for whom     |
 | 3   | Evidence base and quality           | Sources by kind, cited passages, conflicts between sources, and which actors no cited passage supports                  |
 | 4   | Stakeholder landscape               | Stakeholders grouped by category, who is harmed or benefited, how much is cited for each                                |
 | 5   | Main reaction patterns              | What the simulated groups did, as counts of simulated members                                                           |
