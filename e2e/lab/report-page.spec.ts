@@ -37,6 +37,7 @@ const OPEN = [
   'drivers',
   'risks-opportunities',
   'recommendations',
+  'validation-plan',
 ] as const;
 const CLOSED = BRIEF_SECTION_IDS.filter(
   (id) => id !== 'executive-answer' && !(OPEN as readonly string[]).includes(id),
@@ -99,7 +100,7 @@ test.describe('the report page', () => {
     const review = (await reviewPanel(page).boundingBox())!;
     await expandBrief(page);
     const expanded = await documentHeight(page);
-    expect(closed, 'the page with the reference closed').toBeLessThan(expanded * 0.5);
+    expect(closed, 'the page with the reference closed').toBeLessThan(expanded * 0.6);
     expect(
       review.y + (await page.evaluate(() => window.scrollY)),
       'where the review sits',
@@ -143,18 +144,18 @@ test.describe('the report page', () => {
     const bar = jumpBar(page);
 
     await contents(page)
-      .getByRole('link', { name: /Validation plan/u })
+      .getByRole('link', { name: /Sources and provenance/u })
       .click();
-    await expect(isOpen(page, 'validation-plan')).toHaveJSProperty('open', true);
-    await expect(section(page, 'validation-plan')).toBeFocused();
+    await expect(isOpen(page, 'sources')).toHaveJSProperty('open', true);
+    await expect(section(page, 'sources')).toBeFocused();
     const barBox = (await bar.boundingBox())!;
-    const planBox = (await section(page, 'validation-plan').boundingBox())!;
-    expect(planBox.y, 'the section is not under the bar').toBeGreaterThanOrEqual(
+    const sourcesBox = (await section(page, 'sources').boundingBox())!;
+    expect(sourcesBox.y, 'the section is not under the bar').toBeGreaterThanOrEqual(
       barBox.y + barBox.height - 1,
     );
-    expect(planBox.y, 'the section is in view').toBeLessThan(300);
+    expect(sourcesBox.y, 'the section is in view').toBeLessThan(300);
 
-    await section(page, 'validation-plan').getByRole('link', { name: 'Back to contents' }).click();
+    await section(page, 'sources').getByRole('link', { name: 'Back to contents' }).click();
     await expect(contents(page)).toBeFocused();
     expect((await contents(page).boundingBox())!.y).toBeGreaterThanOrEqual(
       barBox.y + barBox.height - 1,
@@ -185,10 +186,10 @@ test.describe('the report page', () => {
 
   test('opens the section an address names when the report is first opened', async ({ page }) => {
     const project = await seedWithBrief(page, SEED);
-    await page.goto(`/?project=${project}#brief-validation-plan`);
+    await page.goto(`/?project=${project}#brief-sources`);
     await openStage(page, /Report/u);
-    await expect(isOpen(page, 'validation-plan')).toHaveJSProperty('open', true);
-    await expect(section(page, 'validation-plan')).toBeInViewport();
+    await expect(isOpen(page, 'sources')).toHaveJSProperty('open', true);
+    await expect(section(page, 'sources')).toBeInViewport();
     await expect(isOpen(page, 'limitations')).toHaveJSProperty('open', false);
   });
 });

@@ -15,9 +15,9 @@ describe('which sections of the brief are open until they are wanted', () => {
       'drivers',
       'risks-opportunities',
       'recommendations',
+      'validation-plan',
     ]);
-    // What a person checks before acting on it, and what the brief cannot tell them, are closed but listed.
-    expect(openByDefault('validation-plan')).toBe(false);
+    // What the brief cannot tell a person is closed but listed; the plan that checks it is open.
     expect(openByDefault('limitations')).toBe(false);
   });
 });

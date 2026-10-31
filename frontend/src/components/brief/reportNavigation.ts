@@ -9,8 +9,9 @@ export const BRIEF_CONTENTS_ID = 'brief-contents';
 
 /**
  * What a decision-maker reads without opening anything: the answer, what was decided, what the
- * simulation showed and what to do about it. Every other section is reference material: it is closed
- * until it is wanted, one click away, and listed in the contents with all the others.
+ * simulation showed, what to do about it and how to check that in the real world. Every other section
+ * is reference material: it is closed until it is wanted, one click away, and listed in the contents
+ * with all the others.
  */
 const OPEN_BY_DEFAULT: ReadonlySet<BriefSectionId> = new Set<BriefSectionId>([
   'executive-answer',
@@ -22,6 +23,7 @@ const OPEN_BY_DEFAULT: ReadonlySet<BriefSectionId> = new Set<BriefSectionId>([
   'drivers',
   'risks-opportunities',
   'recommendations',
+  'validation-plan',
 ]);
 
 export const openByDefault = (id: BriefSectionId): boolean => OPEN_BY_DEFAULT.has(id);

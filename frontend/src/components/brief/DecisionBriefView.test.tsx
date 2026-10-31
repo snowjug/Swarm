@@ -265,13 +265,13 @@ describe('the sections', () => {
       'drivers',
       'risks-opportunities',
       'recommendations',
+      'validation-plan',
     ];
     const CLOSED = [
       'evidence-base',
       'stakeholders',
       'assumptions',
       'uncertainty',
-      'validation-plan',
       'sources',
       'limitations',
       'technical-appendix',
