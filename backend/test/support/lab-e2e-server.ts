@@ -13,8 +13,9 @@
  *     judged); every other name is not found;
  *   - the connection to a fixture host is made to a web server on this machine (the fixture server
  *     below) instead of to that public address, by wrapping `http.request` in this process only.
- *     A request for any other host is not made at all: it is recorded and fails, so the process
- *     cannot reach the network whatever the checks let through.
+ *     A request for any other host is not made at all: it is recorded and fails, and so is every
+ *     https request, since the lab has no certificates, so the process cannot reach the network
+ *     whatever the checks let through.
  *
  * The fixture server also answers control requests, for the test to see what was attempted:
  *
@@ -24,6 +25,7 @@
  *   POST /__reset     forget both
  */
 import http, { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import https from 'node:https';
 import { buildApp } from '../../src/app.js';
 import { loadConfig } from '../../src/config.js';
 import { PublicFetcher, type Resolver } from '../../src/ingest/url/fetcher.js';
@@ -133,16 +135,17 @@ let attempts: Attempt[] = [];
 let served: { host: string; path: string }[] = [];
 
 const realRequest = http.request;
+function noNetwork(host: string): Error {
+  return Object.assign(new Error(`connect ECONNREFUSED ${host}: the lab has no network`), {
+    code: 'ECONNREFUSED',
+  });
+}
 function interpose(request: typeof http.request): typeof http.request {
   return ((first: unknown, ...rest: unknown[]) => {
     const options = first as http.RequestOptions;
     const host = String(options.host ?? '');
     attempts.push({ host, port: Number(options.port ?? 80), path: String(options.path ?? '/') });
-    if (!Object.hasOwn(SITES, host)) {
-      throw Object.assign(new Error(`connect ECONNREFUSED ${host}: the lab has no network`), {
-        code: 'ECONNREFUSED',
-      });
-    }
+    if (!Object.hasOwn(SITES, host)) throw noNetwork(host);
     // The connection is to the fixture server, by its own address; the pinned lookup is for names.
     const forwarded: http.RequestOptions = {
       ...options,
@@ -155,6 +158,14 @@ function interpose(request: typeof http.request): typeof http.request {
   }) as typeof http.request;
 }
 Object.assign(http, { request: interpose(realRequest) });
+Object.assign(https, {
+  request: (first: unknown) => {
+    const options = first as http.RequestOptions;
+    const host = String(options.host ?? '');
+    attempts.push({ host, port: Number(options.port ?? 443), path: String(options.path ?? '/') });
+    throw noNetwork(host);
+  },
+});
 
 function fixture(request: IncomingMessage, response: ServerResponse): void {
   const url = new URL(request.url ?? '/', `http://127.0.0.1:${fixturePort}`);
