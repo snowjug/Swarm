@@ -1,6 +1,13 @@
 # Swarm
 
-**Explore how a situation might unfold, and check every statement against your sources.**
+**Explore what might happen before it happens.**
+
+Swarm is an AI-powered scenario simulation platform that lets you create a virtual population of AI
+actors and explore how they might react to a scenario.
+
+Instead of asking a single AI model, "What will happen?", Swarm creates multiple actors with
+different roles, motivations, and perspectives, lets them interact across multiple rounds, and
+analyzes the resulting behavior.
 
 > Swarm explores possible scenarios. It does not predict the future.
 
@@ -22,7 +29,73 @@ before relying on it for anything.
 
 _Every screenshot in this repository shows a fictional scenario ([the Larkholm ferry demo](./docs/demo/larkholm-ferry/README.md))._
 
+## What does Swarm do?
+
+Give Swarm a scenario such as:
+
+> "What might happen if a company increases the price of its AI product by 30%?"
+
+Swarm can:
+
+1. **Understand your evidence**\
+   Upload documents or provide information about the scenario.
+
+2. **Build the scenario**\
+   Swarm identifies important claims, relationships, assumptions, and conflicts.
+
+3. **Create AI actors**\
+   It creates different participants with their own roles, motivations, and perspectives.
+
+4. **Run the simulation**\
+   The actors interact and react to each other across multiple rounds.
+
+5. **Change the scenario while it runs**\
+   Introduce a new event or intervention and explore how the actors respond.
+
+6. **Analyze the outcome**\
+   Swarm identifies important behaviors, disagreements, influences, and possible outcomes.
+
+7. **Ask questions about the simulation**\
+   Explore why actors behaved a certain way and examine the evidence behind the results.
+
+## The idea in one line
+
+Traditional AI:
+
+**Question → AI → Answer**
+
+Swarm:
+
+**Evidence → Scenario → AI Actors → Interactions → Outcomes → Analysis**
+
+## Example
+
+A support organization could explore:
+
+> "What might happen if AI handles initial troubleshooting before a support engineer?"
+
+Swarm could simulate customers, AI assistants, support engineers, escalation engineers, and
+managers interacting under the proposed process.
+
+The simulation could then help explore:
+
+- Where customers may become frustrated
+- When cases are likely to escalate
+- Which parts of the process become bottlenecks
+- How different interventions change the outcome
+- Why particular actors behaved the way they did
+
+## Important
+
+Swarm is a **scenario exploration system, not a prediction engine**.
+
+Its purpose is not to claim exactly what will happen in the real world. It helps users explore
+possibilities, assumptions, interactions, and potential consequences before making a real-world
+decision.
+
 ## What Swarm Does
+
+The same flow in technical detail, with what is checked at each step:
 
 ```text
 Sources → Evidence extraction → Claims and contradictions → Assumptions → Scenario graph
