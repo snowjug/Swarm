@@ -1,1 +1,419 @@
-/* Stakeholder and actor review. Owned by one feature; use the theme tokens, never raw colours. */
+/* Stakeholder and actor review. Owned by one feature; use the theme tokens, never raw colours. Every piece of
+   text is 12px or more, colour is never the only cue (each chip and badge says its meaning in words), and
+   focus is the global outline. */
+.stk {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  margin-bottom: 15px;
+  overflow-wrap: anywhere;
+}
+.stk h3,
+.stk h4,
+.stk h5,
+.stk p {
+  margin: 0;
+}
+.stk h3 {
+  font-size: 16px;
+}
+.stk h4 {
+  font-size: 14px;
+}
+.stk-name {
+  font-size: 14px;
+  font-weight: 650;
+}
+.stk-truth {
+  padding: 8px 10px;
+  border-left: 3px solid var(--border);
+  background: var(--verdict-unchecked-tint);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.stk-note,
+.stk-hint,
+.stk-counts,
+.stk-size,
+.stk-source,
+.stk-merged {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.stk-hint {
+  font-weight: 400;
+}
+.stk-problem {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+/* Finding */
+.stk-find {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.stk-how {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.stk-how > div {
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.stk-how dt {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 650;
+}
+.stk-how dd {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.stk-buttons,
+.stk-form-actions,
+.stk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.stk-by-hand,
+.stk-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stk-set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* The list */
+.stk-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.stk-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.stk-count {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+.stk-rows {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stk-row,
+.stk-actor {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.stk-row-removed {
+  border-style: dashed;
+  color: var(--muted);
+}
+.stk-row-head,
+.stk-actor > header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+.stk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stk-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--verdict-unchecked-tint);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.stk-pill-you {
+  border-color: var(--orange);
+  background: var(--orange-light);
+  color: var(--orange);
+}
+.stk-description,
+.stk-why,
+.stk-impact,
+.stk-reason,
+.stk-role,
+.stk-belief {
+  font-size: 13px;
+  line-height: 1.65;
+}
+.stk-reason {
+  color: var(--muted);
+}
+.stk-evidence,
+.stk-assumptions,
+.stk-again,
+.stk-removed {
+  font-size: 13px;
+}
+.stk-evidence summary,
+.stk-assumptions summary,
+.stk-again summary,
+.stk-removed summary,
+.stk-traits summary {
+  min-height: 24px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.stk-evidence ul,
+.stk-assumptions ul {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stk-quote {
+  margin: 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--tone-info-line);
+  background: var(--tone-info-tint);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.65;
+}
+.stk-source {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+.stk-no-evidence {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.stk-priority {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 12px;
+}
+.stk-priority label {
+  font-weight: 600;
+}
+.stk-form,
+.stk-merge {
+  padding: 10px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.stk-merge label,
+.stk-check {
+  font-size: 13px;
+  font-weight: 600;
+}
+.stk-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Where a number or a judgement came from: always a word. */
+.stk-origin {
+  display: inline-block;
+  padding: 1px 8px;
+  border: 1px solid var(--verdict-unchecked-line);
+  border-radius: 3px;
+  background: var(--verdict-unchecked-tint);
+  color: var(--verdict-unchecked);
+  font: 12px/1.5 var(--mono);
+  white-space: nowrap;
+}
+.stk-origin-evidence {
+  border-color: var(--verdict-supported-line);
+  background: var(--verdict-supported-tint);
+  color: var(--verdict-supported);
+}
+.stk-origin-model {
+  border-color: var(--tone-info-line);
+  background: var(--tone-info-tint);
+  color: var(--tone-info);
+}
+.stk-origin-user {
+  border-color: var(--orange);
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+/* Approval and actors */
+.stk-approve {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+}
+.stk-approved {
+  border-color: var(--verdict-supported-line);
+  background: var(--verdict-supported-tint);
+}
+.stk-approved svg {
+  vertical-align: text-bottom;
+  color: var(--verdict-supported);
+}
+.stk-actors {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+.stk-actor-list {
+  display: grid;
+  gap: 12px;
+}
+.stk-wants {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.stk-cohort {
+  max-width: 520px;
+}
+.stk-traits table {
+  width: 100%;
+  margin-top: 6px;
+  border-collapse: collapse;
+}
+.stk-traits th,
+.stk-traits td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: left;
+  vertical-align: top;
+}
+.stk-traits thead th {
+  border-top: 0;
+  color: var(--muted);
+}
+.stk-traits tbody th {
+  min-width: 150px;
+  font-weight: 600;
+}
+.stk-traits tbody th .stk-hint {
+  display: block;
+  font-weight: 400;
+}
+.stk-slider {
+  min-width: 190px;
+}
+.stk-slider input[type='range'] {
+  width: calc(100% - 52px);
+  min-width: 110px;
+  vertical-align: middle;
+  accent-color: var(--orange-fill);
+}
+.stk-slider output {
+  display: inline-block;
+  min-width: 44px;
+  margin-left: 6px;
+  font: 12px/1.5 var(--mono);
+}
+.stk-why-cell {
+  color: var(--muted);
+}
+.stk-reset {
+  padding-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .stk {
+    padding: 12px;
+  }
+  .stk-traits table,
+  .stk-traits tbody,
+  .stk-traits tr,
+  .stk-traits th,
+  .stk-traits td {
+    display: block;
+    width: 100%;
+  }
+  .stk-traits thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .stk-traits tr {
+    padding: 6px 0;
+    border-top: 1px solid var(--border-soft);
+  }
+  .stk-traits th,
+  .stk-traits td {
+    padding: 2px 0;
+    border-top: 0;
+  }
+  .stk-priority {
+    width: 100%;
+    margin-left: 0;
+  }
+  .stk-actions .button,
+  .stk-buttons .button {
+    min-height: 44px;
+  }
+}
