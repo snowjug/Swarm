@@ -92,7 +92,7 @@ type Proposal = z.output<typeof proposalSchema>;
 
 const INSTRUCTIONS =
   'Find the stakeholders of the scenario in the data: the groups, roles and organisations that decide, are affected by, or can react to the proposed change, directly or indirectly ' +
-  '(decision makers, influencers, beneficiaries, those bearing cost or risk, competitors, substitutes, partners, channels, regulators, governance and operations teams, and perspectives that are easy to overlook). ' +
+  '(decision makers, influencers, beneficiaries, those bearing cost or risk, competitors, substitutes, partners, channels, regulators, governance and operations functions, and perspectives that are easy to overlook). ' +
   'JSON {stakeholders:[{id,name,category,description,relevance,directness,priority,populationSize,expectedImpact:{direction,rationale},evidence:[{passageId,quote}],assumptions:[string],uncertainty:{level,reason}}],relations:[{from,to,type,strength,rationale}],gaps:[string]}. ' +
   'At most 25 stakeholders, the most important first. id is a unique lower-case slug of letters, digits and hyphens. category is one of data.categories. directness is direct or indirect. ' +
   'priority is key (modelled as an individual actor), standard or background. populationSize is a modelling assumption for how many members a group stands for (1 for an individual), never a measured count. ' +
