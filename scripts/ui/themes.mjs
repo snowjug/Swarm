@@ -89,23 +89,43 @@ const clamp = (value, low, high) => Math.min(high, Math.max(low, value));
 
 // ---- derivation of a theme's colour from its light colour
 
-/** Backgrounds: light surfaces become dark ones with their tint kept; saturated fills stay. */
+// The dark theme has a few quiet surfaces. The page is the lowest, the panel (white in the light theme)
+// sits a step above it, and what is a little darker than white in the light theme (hover, wells, chips)
+// is a little lighter than the panel here. A faint cool tint keeps them from reading as flat grey.
+const DARK_PAGE = [0.17, -0.003, -0.01];
+const DARK_PANEL = 0.225;
+const DARK_NEUTRAL = [-0.003, -0.01];
+
+/** Backgrounds: light surfaces become dark ones, a tint stays a tint; saturated fills stay. */
 function darkBackground([L, a, b]) {
   if (L < 0.78) return [L, a, b];
-  const lifted = 0.3 - (L - 0.78) * (0.14 / 0.22);
-  return [clamp(lifted, 0.15, 0.3), a * 0.55, b * 0.55];
+  const lifted = DARK_PANEL + (1 - L) * 0.5;
+  const chroma = chromaOf([L, a, b]);
+  if (chroma <= 0.008) return [lifted, ...DARK_NEUTRAL];
+  // A state tint (success, warning, error, accent) has to be seen on a dark surface, so it is made
+  // stronger than the light one was; its hue is kept.
+  const scale = clamp(chroma * 2, 0.02, 0.045) / chroma;
+  return [lifted, a * scale, b * scale];
 }
 
-/** Text and icons: dark text becomes light text, its colour kept; light text stays light. */
+/**
+ * Text and icons: dark text becomes light text, its colour kept; light text stays light. Body text
+ * is nearly white and the further a grey is from it in the light theme the dimmer it is here, so
+ * the order of importance survives.
+ */
 function darkForeground([L, a, b]) {
   if (L >= 0.8) return [L, a, b];
   const coloured = chromaOf([L, a, b]) > 0.05;
-  return [clamp(1 - L, 0.72, 0.95), a * (coloured ? 0.9 : 0.4), b * (coloured ? 0.9 : 0.4)];
+  return [
+    clamp(0.93 - (L - 0.28) * 1.05, 0.68, 0.94),
+    a * (coloured ? 0.9 : 0.4),
+    b * (coloured ? 0.9 : 0.4),
+  ];
 }
 
-/** Borders: light lines become dim lines; a saturated accent line stays visible. */
+/** Borders: a line stays a step above the surface it sits on, soft ones barely and inputs clearly. */
 function darkBorder([L, a, b]) {
-  return [clamp(1 - L + 0.2, 0.26, 0.58), a * 0.6, b * 0.6];
+  return [clamp(0.28 + (0.93 - L) * 0.9, 0.26, 0.6), a * 0.6, b * 0.6];
 }
 
 function highContrastBackground(light) {
@@ -136,7 +156,11 @@ function highContrastBorder(light) {
 
 /** The dark and high-contrast colours for a token of this role with this light colour. */
 export function derive(role, light) {
-  const dark = { bg: darkBackground, fg: darkForeground, bd: darkBorder }[role](labOf(light));
+  // The page is the one surface that is darker than the panel in both themes.
+  const dark =
+    role === 'bg' && light === '#f7f7f5'
+      ? DARK_PAGE
+      : { bg: darkBackground, fg: darkForeground, bd: darkBorder }[role](labOf(light));
   const highContrast = {
     bg: highContrastBackground,
     fg: highContrastForeground,

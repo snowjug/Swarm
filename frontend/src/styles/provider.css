@@ -6,7 +6,7 @@
   min-width: 0;
   max-width: 100%;
   border: 1px solid var(--t-bd-c3c8ce);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--t-bg-f0f1f2);
   color: var(--t-fg-4a535f);
   font: 12px/1.5 var(--mono);
@@ -50,7 +50,7 @@
   gap: 4px;
   padding: 0 6px;
   border: 1px solid var(--t-bd-c3c8ce);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--t-bg-ffffff);
   color: var(--t-fg-4a535f);
   font: 12px/1.5 var(--mono);
@@ -122,7 +122,7 @@
   margin: 0;
   padding: 8px 10px;
   border: 1px solid var(--t-bd-ba8c72);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--t-bg-fff3eb);
   color: var(--t-fg-91380f);
   font: 12px/1.6 var(--mono);
