@@ -244,7 +244,7 @@ document needs at least 80 characters. Then **Understand my question** and steps
   offers to let you paste the text.
 - **Read it honestly.** Nothing was planted: no conflict, no gap, no direction. Where the rules find
   no wording that shows a group being helped or harmed, that group has no direction of impact, and
-  if no group has one the comparison warns that the change cannot move anyone. Say who is affected,
+  if no group has one the comparison warns that nobody has an expected direction of impact. Say who is affected,
   in the stakeholder review, only where your evidence supports it.
 
 **Optional deep dive and the recorded run.** Each project also keeps the engine's five stages:

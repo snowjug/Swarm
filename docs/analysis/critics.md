@@ -61,7 +61,8 @@ An `assumption-sensitive` row whose origin is `evidence` is not criticised: some
 
 | Id                                      | Raised when                                                                         | Severity                                            |
 | --------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `methodology-change-cannot-move-anyone` | No scenario other than the baseline can move any actor (see below)                  | `major`, and it sorts before every other criticism  |
+| `methodology-change-cannot-move-anyone` | The simulator gives the same outcome with a change as without it (see below)        | `major`, and it sorts before every other criticism  |
+| `methodology-no-declared-direction`     | Nobody has an expected direction of impact, but members can still be moved (below)  | `major`                                             |
 | `methodology-few-runs`                  | Fewer than 20 runs per variant                                                      | `major` below 10, else `minor`                      |
 | `methodology-rules-only`                | The engine and the key actors are both rules                                        | `minor`                                             |
 | `methodology-model-repeats`             | A model drove part of the behaviour and it was repeated no more than once           | `major`                                             |
@@ -137,15 +138,18 @@ is not backed by evidence (`major` when it is).
 
 ## When a comparison cannot say anything about the change
 
-Two rules guard against reading a result that the assumptions could not have produced.
+Three rules guard against reading a result that the assumptions could not have produced.
 
 **The change cannot move anyone** (`methodology-change-cannot-move-anyone`, methodology, `major`).
-An actor moves under a scenario only when the scenario is not the baseline, its intensity is above
-nothing, and the actor has a direction of impact that is not zero: the actor's own `impact` trait, or
-the scenario's figure for that actor where it gives one. That test is `changeCanMoveAnyone` in
-`shared/signal.ts`, the one the page and the brief use too. Where no scenario and actor meet it, every
-difference from no change is noise, and so is a finding that the two are "about the same", however
-repeatable it looks. The review says so once:
+A change can move a member through the impact of an actor as a scenario runs it (its override and edits
+applied), through the spread of that impact among the members of a cohort, and through what a scenario
+edits. The criticism is raised only when the simulator is certain to give the same outcome with a change
+as without it, on every seed: no scenario lands on anyone (a strength of nothing, or an impact of 0 for
+every actor and no cohort whose members differ in it) and none sets anything that the baseline does
+not. That test is `changeCanMoveAnyone` in `shared/signal.ts`, the one the page, the brief and the
+readiness warning use too; where it is unsure it says that the change can, and this criticism is not
+raised. Where it holds, every difference from no change is noise, and so is a finding that the two are
+"about the same", however repeatable it looks. The review says so once:
 
 - When no actor has a direction of impact at all, the objection and the requested action are the two
   sentences of the shared notice (`NO_DIRECTION_NOTICE`), word for word: what is wrong, and then to
@@ -167,13 +171,26 @@ repeatable it looks. The review says so once:
   given to a per-actor criticism is dropped with it when the review changes over, as for any
   criticism that no longer applies.
 
+**Nobody has a direction, but members can still be moved** (`methodology-no-declared-direction`,
+methodology, `major`). No actor has an expected direction of impact under any scenario, yet the change
+can move members, because those of a cohort are assumed to differ in how it lands on them (a spread of
+the impact) or because a scenario edits a trait. What the comparison shows then follows from those
+assumptions and not from anyone being helped or harmed, and the objection says exactly that (the shared
+`UNDIRECTED_CLAIM`, with `Say who is helped or harmed in the stakeholder review, or read the evidence with
+a model` as the requested action). It does not say that the change cannot move anyone and does not call a
+difference noise. It is not pinned: it sorts by severity like the others. The basis counts the actors
+with a direction (none), names the groups whose members differ in impact with their spread and the traits
+that a scenario edits, and quotes the first finding about the direction of the change. It is not raised
+where someone has a direction, or where the criticism above is.
+
 **"No difference" that the assumptions may be too weak to show** (`assumption-no-registered-effect`,
 assumption, `major`). A finding about the direction of the change that says simulated members ended
 up "about the same" as under no change, and that holds in enough runs to be `repeatable` or
 `mostly-repeatable`, is a result about the change only if the assumptions could have produced a
-difference. When some actor does have a direction under that scenario and its intensity is above
-nothing, the review says that the assumptions may be too weak to register an effect, and asks to raise
-the intensity of the change or to check the impact each actor is given, then to compare again. It does
+difference. When some actor does have a direction under that scenario (its impact as the scenario runs
+it, override and edits applied) and its intensity is above nothing, the review says that the assumptions
+may be too weak to register an effect, and asks to raise the intensity of the change or to check the
+impact each actor is given, then to compare again. It does
 not claim that they are too weak, only that nothing shows they were not. It is raised once, however
 many scenarios came out the same, and its target is the first such finding. It is not raised:
 
@@ -181,7 +198,7 @@ many scenarios came out the same, and its target is the first such finding. It i
   `assumption-sensitive` row, with a criticism of its own;
 - for a finding that holds in only some runs (`unstable` or `rare`), that is about one actor, or that
   does not say "about the same";
-- for a scenario that cannot move anyone, or when nobody has a direction: the first rule says more.
+- for a scenario that cannot move anyone, or when nobody has a direction: the first two rules say more.
 
 The basis quotes the finding, how often it held and its interval, the intensity of the scenario and
 how many actors have a direction, and what sensitivity did to the intensity, or that it did not test

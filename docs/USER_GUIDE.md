@@ -137,7 +137,8 @@ that the stage's own **Start Simulation** button stays on the screen. This is wh
 
 The rules read the groups that the text names with a role word, and read a direction of impact only where a
 cited sentence has a word of concern or welcome. The others stay unclear until you say who is helped or
-harmed, which is what the warning before a comparison means when it says the change cannot move anyone. The
+harmed, which is what the warning before a comparison means when it says that nobody has an expected
+direction of impact. The
 method is in [Stakeholders and actors](./stakeholders.md), and how the panel behaves is in
 [UX.md](./UX.md#the-stakeholder-review).
 
@@ -160,8 +161,10 @@ repeated over many seeds, under assumptions that the page lists.
   **Which assumptions the result is sensitive to** moves one assumption at a time and marks it
   **Sensitive**, **Robust** or **Inconclusive**.
 - **Check what the comparison could tell.** If no stakeholder has a direction of impact (who is helped or
-  harmed), the change cannot move anyone in the simulation, every difference from no change is noise, and
-  the page says so first. Say who is helped or harmed in the stakeholder review, then compare again.
+  harmed), the page says so first: either that the change cannot move anyone in the simulation (when
+  nothing can land on anyone), or that nobody is set as helped or harmed, so what the comparison shows
+  comes from how widely the members of a group are assumed to differ and not from a direction. Say who is
+  helped or harmed in the stakeholder review, then compare again.
 - **How far to rely on it.** **How far to rely on this** states the fidelity of the comparison (it runs a
   rules engine: the outcome follows mechanically from the stated assumptions, and no model decided any
   actor's behaviour), its caveats, what it cost, and, when the optional deep-dive run exists, whether that
