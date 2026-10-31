@@ -23,8 +23,9 @@ export function ConsoleStepper({
   step: ConsoleStep;
   onNavigate: (step: ConsoleStep) => void;
   /**
-   * Guided says in plain words what each step is for, and for a locked one what it needs; Advanced
-   * keeps the engine's names alone, and says what a locked one needs to a screen reader only.
+   * Guided says in plain words what each step is for, and for a locked one what it needs too;
+   * Advanced keeps the engine's names alone. A screen reader is told what a locked step needs in
+   * both, whatever is drawn.
    */
   mode?: UiMode;
 }) {
@@ -54,11 +55,12 @@ export function ConsoleStepper({
                 {stepStatusLabel(project, item)}
               </small>
               <span className="sr-only">
-                , step {index + 1} of 5{lock && mode !== 'guided' ? `. ${lock}` : ''}
+                , step {index + 1} of 5{lock ? `. ${lock}` : ''}
               </span>
-              {mode === 'guided' && (
-                <small className={`step-help${lock ? ' step-lock' : ''}`}>
-                  {lock ?? stepHelp[item]}
+              {mode === 'guided' && <small className="step-help">{stepHelp[item]}</small>}
+              {mode === 'guided' && lock && (
+                <small className="step-help step-lock" aria-hidden="true">
+                  {lock}
                 </small>
               )}
             </span>

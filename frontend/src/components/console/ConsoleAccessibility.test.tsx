@@ -109,9 +109,9 @@ describe('stepper names contain exact visible labels before hidden context', () 
     expect(openings.every((opening) => !opening.includes('aria-label='))).toBe(true);
     expect(html).toContain('<strong>Graph Build</strong> <small>ready</small>');
     expect(html).toContain('class="sr-only">, step 1 of 5</span>');
-    expect(html).toContain('class="sr-only">, step 4 of 5</span>');
+    expect(html).toContain('class="sr-only">, step 4 of 5. Needs a finished comparison</span>');
     expect(html).toContain(
-      '<small class="step-help step-lock">Needs a finished comparison</small>',
+      '<small class="step-help step-lock" aria-hidden="true">Needs a finished comparison</small>',
     );
   });
 });

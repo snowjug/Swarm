@@ -231,14 +231,15 @@ describe('what the workspace does once the scenario lab has recorded something',
     expect(render(withLab(FINISHED), 'interaction')).not.toContain('aria-label="Next step"');
   });
 
-  it('says what a locked stage needs under its name, in Guided, and to a screen reader in Advanced', () => {
+  it('says what a locked stage needs under its name, in Guided, and to a screen reader in both', () => {
     const guided = render(checkpointFixture(), 'simulation', 'guided');
     const report = stageButton(guided, 'Report');
     expect(report.tag).toContain('disabled');
     expect(report.text).toContain('locked');
+    expect(report.text).toContain('Decision brief');
     expect(report.text).toContain('Needs a finished comparison');
-    expect(guided).toContain('class="step-help step-lock"');
-    expect(guided).toContain('class="sr-only">, step 4 of 5</span>');
+    expect(guided).toContain('class="step-help step-lock" aria-hidden="true"');
+    expect(guided).toContain('class="sr-only">, step 4 of 5. Needs a finished comparison</span>');
     expect(stageButton(guided, 'Simulation').text).toContain('Run and compare scenarios');
 
     const advanced = render(checkpointFixture(), 'simulation', 'advanced');
@@ -301,7 +302,7 @@ describe('the journey and the stage help in the workspace', () => {
       expect(guided).toContain(`<strong>${name}</strong>`);
       expect(advanced).toContain(`<strong>${name}</strong>`);
     }
-    expect(guided.match(/class="step-help( step-lock)?"/gu)).toHaveLength(5);
+    expect(guided.match(/class="step-help"/gu)).toHaveLength(5);
     expect(visibleText(guided)).toContain('Review stakeholders and actors');
     expect(advanced).not.toContain('step-help');
     expect(visibleText(advanced)).not.toContain('Review stakeholders and actors');
