@@ -161,7 +161,7 @@ export function risksOpportunities(facts: Facts, tally: Tally): BriefSection {
       text:
         facts.signal.state === 'no-direction'
           ? 'No risk or opportunity is attributed to the change: it cannot move anyone in the simulation, so no difference between the variants is read as a risk or an opportunity.'
-          : 'No risk or opportunity is attributed to the change: under these assumptions the comparison found no measurable difference between the change and no change.',
+          : 'No risk or opportunity is attributed to the proposed change: under these assumptions the comparison found no measurable difference between it and no change.',
       refs: { findingIds: facts.signal.finding ? [facts.signal.finding.id] : [] },
     });
     return writer.build();

@@ -132,7 +132,7 @@ export function buildBrief(inputs: BriefInputs): DecisionBrief {
     );
   } else if (facts.signal.state === 'no-difference') {
     notes.push(
-      'The comparison found no measurable difference between the change and no change under these assumptions; see the first limitation.',
+      'The comparison found no measurable difference between the proposed change and no change under these assumptions, which is said of the proposed change only; see the first limitation.',
     );
   }
   if (tally.downgraded > 0) {

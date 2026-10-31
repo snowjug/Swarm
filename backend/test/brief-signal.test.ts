@@ -670,6 +670,12 @@ describe('when the proposed change comes out about the same and another scenario
     }
     expect(outcomes()[0]?.text).toBe(BRIEF_READING_NOTES['no-difference']);
     expect(brief().limitations[0]).toBe(NO_DIFFERENCE_NOTICE);
+    expect(brief().methodology.notes.join(' ')).toContain('said of the proposed change only');
+    const risks = section(brief(), 'risks-opportunities').statements;
+    expect(risks[0]?.text).toContain('attributed to the proposed change');
+    expect(section(brief(), 'first-order').statements[1]?.text).toContain(
+      'singled out for the proposed change',
+    );
   });
 
   it('does not leave the scenario that moved things out of the answer: it says that no difference is said of the proposed change only', () => {
