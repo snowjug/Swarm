@@ -103,7 +103,7 @@ This is a working note from the firm's security reviewers and its records manage
 
 ## Access and oversharing
 
-The assistant's documentation says it respects each person's existing permissions, and the security reviewers do not dispute that. Their concern is what existing permissions look like in practice. During the pilot, one ticket described a recap that referred to a shared folder the employee had never opened but could read through a broad group. Reviewers counted 14 groups with more than 500 members that still have access to client folders. Tidying those groups was not part of the pilot.
+The security reviewers read the assistant's documentation as saying that it respects each person's existing permissions, and they do not dispute that. Their concern is what existing permissions look like in practice. During the pilot, one ticket described a recap that referred to a shared folder the employee had never opened but could read through a broad group. Reviewers counted 14 groups with more than 500 members that still have access to client folders. Tidying those groups was not part of the pilot.
 
 ## Records and retention
 

@@ -32,10 +32,10 @@ files in this folder are readable copies of it.
 - The pilot reached 41% weekly use of the meeting recap feature. The partner reports 68% in its
   early-adopter tenants, which it chose itself and which are mostly technology companies.
 
-**Tensions only a reader will notice.** The documentation is said to respect existing
-permissions, yet a pilot ticket describes a recap that referred to a folder the employee never opened.
-The poll puts written AI policies at 37% of organisations; the partner says few of its small clients
-have one. Time saved is self-reported, and nobody measured it.
+**Tensions only a reader will notice.** The security reviewers read the documentation as saying that
+permissions are respected, and a pilot ticket still describes a recap that referred to a folder the
+employee never opened. The poll puts written AI policies at 37% of organisations; the partner says
+few of its small clients have one. Time saved is self-reported, and nobody measured it.
 
 **Evidence gaps the brief should show as uncertainty:** no licence terms for features that arrive by
 default (so finance cannot say who pays, or whether people without a licence would see anything); no
