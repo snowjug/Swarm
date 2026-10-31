@@ -54,7 +54,8 @@ parcel" is the largest ticket theme.
 so margin cannot be worked out; why some customers never return; what the carriers would charge for
 fee tiers by speed; whether guest checkout stays; the new checkout has not been tested, and the
 accessibility review has not been scheduled; one anecdote about charges that appear only on the final
-page, with no regulator view.
+page, with no regulator view. Check on your run that the brief shows them, and say so if one is
+missing.
 
 **Open points in the question itself.** "This online store", "different users" and the sizes of the
 changes are not stated. The documents give the current fee and threshold and the options under
@@ -163,8 +164,7 @@ assumptions, uncertainty, recommendations and the validation plan.
 
 - "The survey and the pop-up measure different things in different populations. Neither is declared
   true."
-- "The shop does not know what each delivery costs it. The pack says so, and the brief should show it
-  as an unresolved question, not a guess."
+- "The shop does not know what each delivery costs it, and the pack says so."
 - "The new checkout has not been tested with anyone. The pack says that too."
 - "The public page is evidence about a catalogue page, not about this shop."
 

@@ -42,7 +42,8 @@ group, so the pack's own 15.8% against 17.0% cannot be told from noise, and it s
 evidence on how many existing customers would move to a $39 plan, or leave, if the Team plan closed to
 new sign-ups; nothing separating customers who would have bought without a trial from those who needed
 one; no view from procurement teams at larger customers; accounts that come through partners have not
-been modelled; no figure for what the trial costs in support and infrastructure.
+been modelled; no figure for what the trial costs in support and infrastructure. Check on your run
+that the brief shows them, and say so if one is missing.
 
 **Open points in the question itself.** "The new plan", "a higher price", and "a free trial removed"
 are not defined: how much higher, removed from the new plan only or from every plan, what happens to
@@ -144,7 +145,7 @@ passages.
   17.0% as one."
 - "The funnel and the sales leads disagree on the trial share. A data pull settles that, not a
   simulation."
-- "Nobody has tested a price above $34. The brief should show that as uncertainty."
+- "Nobody has tested a price above $34, and the pack says so."
 
 ## Objections specific to this example
 
@@ -156,7 +157,6 @@ counting. That is a check on the accounts' own data, and the validation plan is 
 change, under assumptions you can read and edit, and says which assumptions the result depends on.
 
 **"Would customers leave?"** The pack has no evidence on that. Any such finding in the analysis is a
-count of simulated runs, not a rate in the real world, and the brief should show it with its
-assumptions and its limits.
+count of simulated runs, not a rate in the real world, and the brief labels its origin.
 
 **"Is this our company?"** No. The company, the plans, the prices and the competitors are invented.

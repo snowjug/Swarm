@@ -46,7 +46,8 @@ contracts that name the jurisdiction.
 **Evidence gaps the brief should show as uncertainty:** the notice has no billing unit, effective
 date or scope; no price history for the provider in the region; nothing on other customers of the
 provider or on what rival cloud providers charge; no regulator view; customers and resale partners
-have not been asked; the sales team has not been asked about migration.
+have not been asked; the sales team has not been asked about migration. Check on your run that the
+brief shows them, and say so if one is missing.
 
 **Open points in the question itself.** "$1" is given without a unit, a time or a size relative to the
 current price, "a particular cloud service" and "a selected region" are not named, and no horizon or

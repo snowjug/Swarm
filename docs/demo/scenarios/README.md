@@ -77,7 +77,8 @@ pipeline has something to be honest about:
   compare (a test pins which ones); other disagreements need a reader.
 - **A note of concerns or risks** written by the people who carry them.
 - **A stated evidence gap.** One document says what nobody has measured. The brief should show that
-  gap as uncertainty, and the stakeholder step may show roles nobody was found for.
+  gap as uncertainty, and the stakeholder step may show roles nobody was found for. Check on your run
+  that it does; if a gap is missing from the brief, say so rather than filling it in.
 
 If a result, a stakeholder list or a recommendation ever appears in a pack, that is a defect in the
 pack: tests check for the obvious forms of it.

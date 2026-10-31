@@ -42,7 +42,8 @@ involves premium or enterprise customers or integration cases.
 **Evidence gaps the brief should show as uncertainty:** customers who are not helped and give up
 without opening a case; the cost of a wrong first answer; whether customers who meet the assistant
 first renew at the same rate; languages other than English; the running cost per case; the effect on
-how new engineers learn the product; reopen rates for cases the assistant resolved.
+how new engineers learn the product; reopen rates for cases the assistant resolved. Check on your run
+that the brief shows them, and say so if one is missing.
 
 **Open points in the question itself.** "Initial troubleshooting" is not defined, nor is which
 customers, which kinds of case, what counts as a good outcome or over what period. The brief names

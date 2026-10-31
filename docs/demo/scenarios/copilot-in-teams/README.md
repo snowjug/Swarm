@@ -41,7 +41,8 @@ have one. Time saved is self-reported, and nobody measured it.
 default (so finance cannot say who pays, or whether people without a licence would see anything); no
 figures for frontline or shift workers; no regulator or works council position; no record of how
 external guests reacted; recap quality never compared with a human record; steering by shared content
-never tested; nothing about what the platform vendor actually intends.
+never tested; nothing about what the platform vendor actually intends. Check on your run that the
+brief shows them, and say so if one is missing.
 
 **Open points in the question itself.** The question does not say for whom "by default" applies,
 how deep "more deeply" is, over what period, or what counts as a good outcome. The intake step
@@ -148,11 +149,11 @@ nearest passages and does not compose an answer.
 
 ## Points specific to this example
 
-- "The security note states concerns, not findings. The brief should treat them the same way."
+- "The security note states concerns, not findings."
 - "The poll asked people what they would do. The partner counted what its clients did. They are
   different kinds of evidence about the same behaviour."
 - "Nothing in this pack says what Microsoft intends. The premise is hypothetical."
-- "The firm has no figure for who pays. That gap is deliberate, and the brief should not close it."
+- "The firm has no figure for who pays, and that gap is deliberate."
 
 ## Objections specific to this example
 
@@ -168,4 +169,5 @@ tenants it chose. Swarm shows both and does not reconcile them.
 not settle which is closer to the truth. The validation plan says how to find out.
 
 **"What about privacy and regulators?"** The pack records concerns and says that no regulator or
-works council has stated a position. The brief should show that as uncertainty, not as reassurance.
+works council has stated a position. That is a gap, not reassurance, and the brief's uncertainty
+section is where to look for it.
