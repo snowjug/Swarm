@@ -280,23 +280,51 @@ export async function readScenario(page: Page, edits: ScenarioEdits): Promise<st
   await expect(open).toHaveCount(0);
 
   await review.getByLabel('Over what period (optional)').fill(edits.period);
+
+  // An alternative is added to the ones the reading already holds: one more, the earlier ones as they
+  // were. Finding the last row and typing into it would pass just as well on a page whose Add button did
+  // nothing, by renaming a suggestion.
+  const alternatives = review.getByRole('group', { name: /^Alternative \d+$/u });
+  const alternativeNames = (): Promise<string[]> =>
+    alternatives
+      .getByLabel('Name', { exact: true })
+      .evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  const alternativesBefore = await alternativeNames();
   await review.getByRole('button', { name: 'Add an alternative' }).click();
-  await review
-    .getByRole('group', { name: /^Alternative \d+$/u })
-    .last()
-    .getByLabel('Name', { exact: true })
-    .fill(edits.alternative);
+  await expect(alternatives).toHaveCount(alternativesBefore.length + 1);
+  expect(await alternativeNames(), 'the alternatives that were read are unchanged').toEqual([
+    ...alternativesBefore,
+    '',
+  ]);
+  await alternatives.last().getByLabel('Name', { exact: true }).fill(edits.alternative);
+  expect(await alternativeNames()).toEqual([...alternativesBefore, edits.alternative]);
+
+  const groups = review.getByLabel(/^Group \d+$/u);
+  const groupNames = (): Promise<string[]> =>
+    groups.evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+  const groupsBefore = await groupNames();
   await review.getByRole('button', { name: 'Add a group' }).click();
-  await review
-    .getByLabel(/^Group \d+$/u)
-    .last()
-    .fill(edits.group);
+  await expect(groups).toHaveCount(groupsBefore.length + 1);
+  expect(await groupNames(), 'the groups that were read are unchanged').toEqual([
+    ...groupsBefore,
+    '',
+  ]);
+  await groups.last().fill(edits.group);
+  expect(await groupNames()).toEqual([...groupsBefore, edits.group]);
   await review.getByRole('button', { name: 'Use this scenario' }).click();
 
   const summary = intake.locator('.intake-summary');
   await expect(summary.getByRole('heading', { name: 'This scenario will be used' })).toBeVisible();
   await expect(summary).toContainText('Edited by you');
   await expect(summary).toContainText(`Period: ${edits.period}`);
+  // What was added is what is counted: the summary does not hold the reading as it first came.
+  const counted = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+  await expect(summary).toContainText(
+    counted(alternativesBefore.length + 1, 'alternative', 'alternatives'),
+  );
+  await expect(summary).toContainText(
+    counted(groupsBefore.length + 1, 'group likely to be affected', 'groups likely to be affected'),
+  );
   return decision;
 }
 
