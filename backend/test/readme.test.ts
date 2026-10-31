@@ -2,14 +2,21 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { MAX_TOTAL_RUNS, MAX_VARIANTS, MAX_RUNS_PER_VARIANT } from '../../shared/analysis-plan.js';
+import { BRIEF_SECTION_IDS, STATEMENT_ORIGIN_LABELS } from '../../shared/brief.js';
+import { CRITIC_ROLES } from '../../shared/critique.js';
+import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios.js';
+import { MAX_DOCUMENT_CHARS, MAX_DOCUMENTS, MAX_TOTAL_CHARS } from '../../shared/types.js';
 
 // A README that drifts from the repository is worse than none. These checks make every command,
-// script, variable, link and image in it something that must exist, and keep private identifiers,
-// stale placeholders and over-claims out. They deliberately assert no test counts: the numbers in
-// the Validation section come from a run and are recorded by hand.
+// script, variable, link and image in it something that must exist, quote the flagship examples and
+// the limits from the code, and keep private identifiers, stale placeholders and over-claims out.
+// They deliberately assert no test counts: numbers that come from a run are recorded by hand, in
+// docs/TESTING.md.
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const read = (path: string): string => readFileSync(join(root, path), 'utf8');
 const readme = read('README.md');
+const architecture = read('ARCHITECTURE.md');
 const packageJson = JSON.parse(read('package.json')) as { scripts: Record<string, string> };
 const envExample = read('.env.example');
 
@@ -53,26 +60,19 @@ describe('README structure', () => {
   it('has the required sections, in order', () => {
     const required = [
       '# Swarm',
-      '## What Swarm Does',
-      '## Why Swarm',
-      '## Verified Capabilities',
-      '## How It Works',
+      '## What Swarm is, and is not',
+      '## From a question to a decision',
+      '## Quick start',
+      '## The four flagship demos',
+      '## Evidence and public web pages',
+      '## Model modes',
       '## Architecture',
-      '## Quick Start',
-      '### Local / Rules Mode',
-      '### Production Build',
-      '### Real Azure AI Mode',
-      '### Demonstration',
-      '### Tests',
-      '### Browser Tests',
-      '### Azure Verification',
-      '### Secret Scanning',
-      '## Real Azure AI',
       '## Security',
-      '## Validation',
-      '## Known Limitations',
-      '## Responsible Use',
-      '## Documentation',
+      '## Testing',
+      '## Honest limitations',
+      '## Repository map',
+      '## More documentation',
+      '## Responsible use',
       '## License',
     ];
     const found = headings(readme);
@@ -91,31 +91,67 @@ describe('README structure', () => {
     );
   });
 
-  it('explains the ten statement types by name, in capitals', () => {
-    for (const label of [
-      'SOURCE FACT',
-      'EXTRACTED CLAIM',
-      'USER ASSUMPTION',
-      'INFERRED RELATIONSHIP',
-      'AI HYPOTHESIS',
-      'SIMULATED EVENT',
-      'ANALYTICAL CONCLUSION',
-      'RECOMMENDATION',
-      'CONTRADICTING EVIDENCE',
-      'UNRESOLVED UNCERTAINTY',
-    ]) {
-      expect(readme, label).toContain(`**${label}**`);
+  it('leads with a general-purpose platform, and says what it is not', () => {
+    const lead = readme.slice(0, readme.indexOf('## What Swarm is, and is not'));
+    expect(lead).toMatch(/general-purpose, evidence-grounded platform/u);
+    expect(lead).toContain('What could happen if X changes?');
+    expect(lead).toMatch(/demonstration packs/u);
+    expect(readme).toMatch(/simulated counts under stated assumptions/u);
+  });
+
+  it('walks the whole journey, from the question to the validation plan', () => {
+    const steps = [
+      '**Question**',
+      '**Evidence**',
+      '**Scenario**',
+      '**Stakeholders**',
+      '**Synthetic actors**',
+      '**Interactions**',
+      '**Interventions**',
+      '**Second-order effects**',
+      '**Alternative outcomes**',
+      '**Uncertainty and sensitivity**',
+      '**Independent critique**',
+      '**Decision-ready analysis**',
+      '**Recommendations**',
+      '**Real-world validation plan**',
+    ];
+    let cursor = -1;
+    for (const step of steps) {
+      const index = readme.indexOf(step, cursor + 1);
+      expect(index, `missing or out of order: ${step}`).toBeGreaterThan(cursor);
+      cursor = index;
     }
   });
 
-  it('shows the whole flow, from sources to export', () => {
-    for (const step of [
-      'Sources → Evidence extraction → Claims and contradictions → Assumptions → Scenario graph',
-      '→ Synthetic actors → Multi-round simulation → Intervention → Branching → Comparison',
-      '→ Grounded report → Actor and analyst conversations → Export',
-    ]) {
-      expect(readme).toContain(step);
+  it('names the ten origins of a brief statement, as the code does', () => {
+    for (const label of Object.values(STATEMENT_ORIGIN_LABELS)) {
+      expect(readme, label).toContain(`**${label}**`);
     }
+    expect(readme).toContain(`${BRIEF_SECTION_IDS.length} sections`);
+    expect(readme).toContain('Seven critics');
+    expect(CRITIC_ROLES).toHaveLength(7);
+  });
+
+  it('quotes the flagship examples and their public page from the code', () => {
+    for (const id of ['copilot-in-teams', 'regional-price-change', 'ecommerce-experience']) {
+      const example = EXAMPLE_SCENARIOS.find((candidate) => candidate.id === id);
+      expect(example, id).toBeDefined();
+      expect(readme, `${id}: title`).toContain(example!.title);
+      expect(readme, `${id}: question`).toContain(example!.question);
+    }
+    const shop = EXAMPLE_SCENARIOS.find((candidate) => candidate.id === 'ecommerce-experience');
+    expect(readme).toContain(shop!.urlSuggestion!.url);
+    expect(readme).toMatch(/Your own question and a public URL/u);
+  });
+
+  it('states the limits that the code enforces', () => {
+    expect(readme).toContain(`1 to ${MAX_DOCUMENTS} documents`);
+    expect(readme).toContain(MAX_DOCUMENT_CHARS.toLocaleString('en-US'));
+    expect(readme).toContain(MAX_TOTAL_CHARS.toLocaleString('en-US'));
+    expect(readme).toContain(
+      `${MAX_VARIANTS} scenarios, ${MAX_RUNS_PER_VARIANT} runs each and ${MAX_TOTAL_RUNS.toLocaleString('en-US')} runs in all`,
+    );
   });
 
   it('says what runs locally, what is deployed in Azure, and what is only proposed', () => {
@@ -128,30 +164,39 @@ describe('README structure', () => {
     }
   });
 
-  it('shows how to seed the demonstration, test, build, scan and verify against Azure', () => {
+  it('shows how to install, run, seed, test, build, scan and demonstrate', () => {
     const commands = [
-      'npm.cmd ci',
-      'npm.cmd run dev',
-      'npm.cmd run build',
-      'npm.cmd start',
-      'npm.cmd run demo:seed',
-      'npm.cmd run demo:journey',
-      'npm.cmd run check',
-      'npm.cmd run test:e2e',
-      'npm.cmd run azure:verify',
-      'npm.cmd run scan:secrets',
+      'npm ci',
+      'npm run dev',
+      'npm run build',
+      'npm start',
+      'npm run demo:seed',
+      'npm run demo:journey',
+      'npm run check',
+      'npm run format:check',
+      'npm run test:e2e',
+      'npm run test:postgres',
+      'npm run scan:secrets',
     ];
     for (const command of commands) expect(readme, command).toContain(command);
   });
 
-  it('links the parity matrix and the roadmap, and states the license', () => {
-    expect(readme).toContain('](./docs/parity-matrix.md)');
-    expect(readme).toContain('](./docs/microsoft-product-roadmap.md)');
+  it('links the demo guide, the architecture, the decision record and the parity matrix, and states the license', () => {
+    for (const link of [
+      '](./docs/demo/README.md)',
+      '](./ARCHITECTURE.md)',
+      '](./docs/adr/0014-scenario-lab.md)',
+      '](./docs/security/url-ingestion.md)',
+      '](./docs/parity-matrix.md)',
+      '](./docs/microsoft-product-roadmap.md)',
+    ]) {
+      expect(readme, link).toContain(link);
+    }
     expect(readme).toMatch(/AGPL-3\.0/u);
     expect(read('package.json')).toContain('"license": "AGPL-3.0-only"');
   });
 
-  it('has no unfilled placeholder in the Validation section', () => {
+  it('has no unfilled placeholder', () => {
     expect(readme).not.toMatch(/@@[A-Z]+@@|\bTBD\b|\bTODO\b|\bFIXME\b/u);
   });
 });
@@ -211,7 +256,7 @@ describe('links and images resolve', () => {
     const images = [...readme.matchAll(/!\[[^\]]*\]\((\.\/docs\/assets\/[^)]+)\)/gu)].map(
       (match) => match[1] ?? '',
     );
-    expect(images.length).toBeGreaterThanOrEqual(6);
+    expect(images.length).toBeGreaterThanOrEqual(1);
     for (const image of images) {
       expect(image).toMatch(/\.png$/u);
       expect(statSync(join(root, image)).size, image).toBeLessThan(400 * 1024);
@@ -258,13 +303,58 @@ describe('README keeps private identifiers and over-claims out', () => {
   });
 });
 
-describe('the architecture diagram', () => {
-  const blocks = [...readme.matchAll(/^```mermaid\n([\s\S]*?)^```/gmu)];
+const mermaidBlocks = (markdown: string): RegExpExecArray[] => [
+  ...markdown.matchAll(/^```mermaid\n([\s\S]*?)^```/gmu),
+];
+
+describe('the diagram in the README', () => {
+  const blocks = mermaidBlocks(readme);
   const diagram = blocks[0]?.[1] ?? '';
 
-  it('is the only diagram, and a flowchart', () => {
+  it('is the only diagram, and a small flowchart', () => {
     expect(blocks).toHaveLength(1);
     expect(diagram).toMatch(/^flowchart (?:LR|TB|TD|RL|BT)\n/u);
+    expect(diagram.split('\n').length).toBeLessThan(30);
+  });
+
+  it('draws only edges between nodes it declares', () => {
+    const declared = new Set(
+      [...diagram.matchAll(/^\s*(\w+)(?:\[|\(\[)/gmu)].map((match) => match[1] ?? ''),
+    );
+    const names = [...diagram.matchAll(/^\s*(\w+)\s*(?:<-->|-->|-\.->)/gmu)];
+    const targets = [...diagram.matchAll(/(?:-->|-\.->)(?:\|"[^"]*"\|)?\s*(\w+)\s*$/gmu)];
+    expect(names.length).toBeGreaterThan(0);
+    for (const match of [...names, ...targets]) {
+      expect(declared, `undeclared node ${match[1]}`).toContain(match[1]);
+    }
+  });
+
+  it('does not draw anything that is only proposed', () => {
+    for (const proposed of [
+      /container apps?/iu,
+      /hosted/iu,
+      /managed identity/iu,
+      /key ?vault/iu,
+    ]) {
+      expect(diagram, String(proposed)).not.toMatch(proposed);
+    }
+  });
+
+  it('keeps the browser away from the model and the web, which only the server may reach', () => {
+    expect(diagram).not.toMatch(/Browser\s*(?:<-->|-->|-\.->)\|?[^\n]*\b(?:Model|Web)\b/u);
+    expect(diagram).toMatch(/Pages\s*-\.->\|"public pages only"\|\s*Web/u);
+  });
+});
+
+describe('the system diagram in ARCHITECTURE.md', () => {
+  const blocks = mermaidBlocks(architecture);
+  const block = blocks.find((candidate) => /^flowchart TB\n/u.test(candidate[1] ?? ''));
+  const diagram = block?.[1] ?? '';
+
+  it('is a flowchart, beside the lab flow', () => {
+    expect(blocks).toHaveLength(2);
+    expect(diagram).toMatch(/^flowchart TB\n/u);
+    expect(blocks.some((candidate) => /^flowchart LR\n/u.test(candidate[1] ?? ''))).toBe(true);
   });
 
   it('has exactly the six subgraphs, named as specified', () => {
@@ -323,6 +413,9 @@ describe('the architecture diagram', () => {
       'Durable stage jobs',
       'OpenTelemetry signals',
       'Test and observability boundaries',
+      'Scenario lab',
+      'Public page reader',
+      'Project artifacts',
     ]) {
       expect(diagram, component).toContain(component);
     }
@@ -381,7 +474,7 @@ describe('the architecture diagram', () => {
   it('is followed by the exact caption', () => {
     const caption =
       'Current validated architecture. The application and database run locally; Azure hosts the AI model deployment. Planned cloud hosting and managed identity are not shown as implemented components.';
-    const after = readme.slice((blocks[0]?.index ?? 0) + (blocks[0]?.[0].length ?? 0));
+    const after = architecture.slice((block?.index ?? 0) + (block?.[0].length ?? 0));
     expect(after.trimStart().startsWith(caption)).toBe(true);
   });
 });
