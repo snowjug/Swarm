@@ -11,6 +11,7 @@ import {
 import { buildApp } from '../src/app.js';
 import { AnalysisService, type AnalysisServiceOptions } from '../src/analysis/service.js';
 import { ROUTE_POLICY } from '../src/auth/policy.js';
+import { SimulationInputError } from '../src/simulation/simulate.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import { Repository } from '../src/storage/repository.js';
 import { fixtureInput, testConfig } from './fixtures.js';
@@ -296,22 +297,27 @@ describe('starting a comparison', () => {
     await finished(first.id);
   });
 
-  it('fails visibly, saying why, when the simulation engine is not connected', async () => {
+  it('runs on the population simulator when no other engine is supplied', async () => {
     const instance = await buildApp({ config: testConfig({ LOG_LEVEL: 'silent' }) });
     applications.push(instance);
     const project = instance.repository.create(fixtureInput({ workflow: 'guided' }));
     instance.repository.artifacts.put(project.id, 'actors', 'default', actorSetFixture());
+    instance.repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
     const url = `/api/projects/${project.id}/analysis`;
-    const started = (await instance.app.inject({ method: 'POST', url, payload: {} })).json()
-      .analysis as Analysis;
-    const failed = await until(
+    const started = (
+      await instance.app.inject({
+        method: 'POST',
+        url,
+        payload: { runsPerVariant: 3, sensitivity: false },
+      })
+    ).json().analysis as Analysis;
+    const done = await until(
       async () => (await instance.app.inject(`${url}/${started.id}`)).json().analysis as Analysis,
-      (value) => value.status === 'failed',
+      (value) => !['running', 'queued'].includes(value.status),
     );
-    expect(failed.error).toMatchObject({ code: 'SIMULATOR_NOT_CONNECTED' });
-    expect(failed.error!.message).toContain('not connected');
-    expect(failed.variants).toEqual([]);
-    expect(failed.completedAt).not.toBeNull();
+    expect(done.status, JSON.stringify(done.error)).toBe('completed');
+    expect(done.variants.length).toBeGreaterThanOrEqual(2);
+    expect(done.completedAt).not.toBeNull();
   });
 
   it('says that the engine did not accept the actors or a scenario, without quoting the engine', async () => {
@@ -329,6 +335,20 @@ describe('starting a comparison', () => {
     expect(failed.error!.message).toContain('did not accept the actors or one of the scenarios');
     expect(JSON.stringify(failed)).not.toContain('zq-canary-4417');
     expect(JSON.stringify(failed.error)).not.toContain('traits');
+  });
+
+  it('says the same of a specification the engine can read but cannot honour', async () => {
+    const { start, withActors, finished } = await world({
+      simulator: () => {
+        throw new SimulationInputError('zq-canary-9921 is not in the cast.');
+      },
+    });
+    withActors();
+    const started = (await start({})).json().analysis as Analysis;
+    const failed = await finished(started.id);
+    expect(failed.status).toBe('failed');
+    expect(failed.error!.code).toBe('SPEC_NOT_ACCEPTED');
+    expect(JSON.stringify(failed)).not.toContain('zq-canary-9921');
   });
 
   it('shows an unexpected failure without what the engine said, and logs only a code', async () => {

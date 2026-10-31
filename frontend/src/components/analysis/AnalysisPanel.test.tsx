@@ -347,14 +347,14 @@ describe('a comparison that did not finish', () => {
         findings: [],
         sensitivity: [],
         error: {
-          code: 'SIMULATOR_NOT_CONNECTED',
-          message: 'The simulation engine is not connected in this build.',
+          code: 'ANALYSIS_FAILED',
+          message: 'The comparison could not be completed. Run it again with the same settings.',
         },
       }),
     });
     const text = visibleText(html);
     expect(text).toContain('This comparison failed');
-    expect(text).toContain('The simulation engine is not connected');
+    expect(text).toContain('The comparison could not be completed');
     expect(text).toContain('Run it again with the same settings');
     expect(html).toContain('role="alert"');
   });

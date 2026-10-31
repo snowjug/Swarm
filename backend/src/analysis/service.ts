@@ -10,6 +10,7 @@ import {
   type AnalysisSummary,
 } from '../../../shared/analysis-plan.js';
 import { AppError } from '../errors.js';
+import { simulate, SimulationInputError } from '../simulation/simulate.js';
 import type { Repository } from '../storage/repository.js';
 import {
   FIDELITY_LABEL,
@@ -20,11 +21,10 @@ import {
 } from './runset.js';
 import { planPerturbations } from './sensitivity.js';
 import { round4 } from './stats.js';
-import { unwiredSimulator } from './unwired.js';
 import { autoVariants } from './variants.js';
 
 export interface AnalysisServiceOptions {
-  /** The engine that runs one scenario on one seed. Until one is connected, a comparison fails saying so. */
+  /** The engine that runs one scenario on one seed: the population simulator, unless a test supplies another. */
   simulator?: Simulator;
   /** Awaited after every run. The default hands the event loop a turn; a test may hold a run here. */
   yieldNow?: () => Promise<void>;
@@ -94,7 +94,7 @@ export class AnalysisService {
     private readonly repository: Repository,
     private readonly options: AnalysisServiceOptions = {},
   ) {
-    this.simulator = options.simulator ?? unwiredSimulator;
+    this.simulator = options.simulator ?? simulate;
     this.yieldNow =
       options.yieldNow ?? (() => new Promise<void>((resolve) => setImmediate(resolve)));
     this.now = options.now ?? Date.now;
@@ -368,7 +368,7 @@ export class AnalysisService {
   private failed(base: Analysis, progress: Analysis['progress'], error: unknown): Analysis {
     // The engine refusing the cast or a scenario is something a person can act on; it is said without
     // the engine's own words, which name fields and may quote what they wrote.
-    const refused = error instanceof ZodError;
+    const refused = error instanceof ZodError || error instanceof SimulationInputError;
     const known = error instanceof AppError;
     if (!known) this.options.onFault?.(refused ? 'SPEC_NOT_ACCEPTED' : 'ANALYSIS_FAILED');
     return {

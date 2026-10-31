@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { principalOf } from '../auth/guard.js';
 import { projectAllows } from '../auth/roles.js';
 import { AnalysisService, type AnalysisServiceOptions } from '../analysis/service.js';
-import { unwiredSimulator } from '../analysis/unwired.js';
 import { AppError } from '../errors.js';
 import type { Repository } from '../storage/repository.js';
 import { idSchema } from '../../../shared/stakeholders.js';
@@ -26,7 +25,6 @@ export function analysisRoutes(
   rateScale = 1,
 ): AnalysisService {
   const service = new AnalysisService(repository, {
-    simulator: unwiredSimulator,
     // A code only: never what the engine said, which may hold what a person wrote.
     onFault: (code) =>
       app.log.error(
