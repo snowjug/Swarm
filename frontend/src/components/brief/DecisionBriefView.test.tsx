@@ -558,7 +558,18 @@ describe('the charts', () => {
   it('gives every chart a caption, an accessible name, and a table for the same data', () => {
     expect(tags(html, 'figure')).toHaveLength(4);
     expect(tags(html, 'figcaption')).toHaveLength(4);
-    expect((html.match(/<details class="brief-table-alt">/gu) ?? []).length).toBe(4);
+    expect(
+      (html.match(/<details class="brief-table-alt(?: brief-table-print)?">/gu) ?? []).length,
+    ).toBe(4);
+    // On paper a chart is printed and its table is not, except the one chart that shows no numbers.
+    const printed = [...html.matchAll(/<details class="brief-table-alt brief-table-print">/gu)];
+    expect(printed).toHaveLength(1);
+    expect(
+      html.slice(
+        html.indexOf('id="brief-reaction-patterns"'),
+        html.indexOf('id="brief-alternative-outcomes"'),
+      ),
+    ).toContain('<details class="brief-table-alt brief-table-print">');
     expect((html.match(/role="img"/gu) ?? []).length).toBe(6);
     for (const image of html.matchAll(/role="img" aria-label="([^"]*)"/gu)) {
       expect(image[1]?.length).toBeGreaterThan(10);

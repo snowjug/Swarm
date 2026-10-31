@@ -24,18 +24,24 @@ const DIRECTION_ICONS: Record<keyof typeof DIRECTION_LABELS, LucideIcon> = {
   unclear: CircleHelp,
 };
 
-/** The same data as a chart, as a table: for a reader who cannot see the chart, and for print. */
+/**
+ * The same data as a chart, as a table: for a reader who cannot see the chart. On paper the chart is
+ * printed and the table is not, because it says the same again; `printed` is for the chart that shows
+ * no numbers of its own, where the table is the only place on paper that has them.
+ */
 function TableAlternative({
   caption,
   headers,
   rows,
+  printed = false,
 }: {
   caption: string;
   headers: readonly string[];
   rows: readonly (readonly string[])[];
+  printed?: boolean;
 }) {
   return (
-    <details className="brief-table-alt">
+    <details className={printed ? 'brief-table-alt brief-table-print' : 'brief-table-alt'}>
       <summary>Show this as a table</summary>
       <div className="brief-scroll" role="region" aria-label={caption} tabIndex={0}>
         <table className="brief-table">
@@ -170,6 +176,7 @@ function OutcomeDistribution({ visuals }: { visuals: BriefVisuals }) {
         ))}
       </ul>
       <TableAlternative
+        printed
         caption="Mean number of simulated members in each response"
         headers={[
           'Variant',

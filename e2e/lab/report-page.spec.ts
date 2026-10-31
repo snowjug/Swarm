@@ -281,7 +281,7 @@ test.describe('the independent review in the bar', () => {
 test.describe('printing the report', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('prints the whole brief and the review, whatever is closed on the screen', async ({
+  test('prints the whole brief and the review, whatever is closed on the screen, and nothing of the application', async ({
     page,
   }) => {
     const project = await seedWithBrief(page, SEED, { review: true });
@@ -307,6 +307,38 @@ test.describe('printing the report', () => {
     expect(has('Independent review')).toBe(true);
     expect(has('What the review found')).toBe(true);
     expect(has('Decision brief')).toBe(true);
+    expect(has('Executive answer')).toBe(true);
+
+    // The application around the report, and the controls that are of no use on paper, are not.
+    for (const chrome of [
+      'Swarm Lab',
+      'Skip to console',
+      'Operation log',
+      'Back to the comparison',
+      'Audit log',
+      'Jump to',
+      'Expand all sections',
+      'Back to contents',
+      'Run independent review again',
+      'Detailed report and studio',
+    ]) {
+      expect(has(chrome), chrome).toBe(false);
+    }
+    // A chart is printed once: the tables that say the same again are not, and neither is the button
+    // that opens them. The one chart with no numbers of its own keeps its table, without the button.
+    expect(has('Show this as a table')).toBe(false);
+    expect(has('Stakeholder map, as a table')).toBe(false);
+    expect(has('Sensitivity of the simulated outcome to each assumption moved')).toBe(false);
+    expect(has('Mean number of simulated members in each response')).toBe(true);
+  });
+
+  test('prints the other stages as it always did', async ({ page }) => {
+    const project = await seedWithBrief(page, SEED);
+    await page.goto(`/?project=${project}`);
+    await openStage(page, /Simulation/u);
+    await page.emulateMedia({ media: 'print' });
+    await expect(page.locator('.app-header')).toBeVisible();
+    await expect(page.locator('.journey')).toBeVisible();
   });
 });
 

@@ -774,10 +774,44 @@ html:has(.report-jump) {
   .brief-text {
     font-size: 11pt;
   }
+  .brief-map-group,
+  .brief-bar-row,
+  .brief-sensitivity li {
+    break-inside: avoid;
+  }
+  /* A chart is printed, and the table that says it again is not. */
+  .brief-table-alt:not(.brief-table-print) {
+    display: none;
+  }
+  .brief-table-print > summary {
+    display: none;
+  }
 }
 @media print {
   .brief details::details-content {
     content-visibility: visible;
     display: block;
+  }
+}
+
+/* ---- Printing the Report stage: the report, and nothing of the application around it. The stage is
+   known by its bar, which no other stage has, so every other screen prints as it always did. */
+@media print {
+  html:has(.report-jump) :is(.skip-link, .app-header, .provider-panel, .app-footer),
+  .console-workspace:has(.report-jump)
+    :is(
+      .project-actions,
+      .project-provenance,
+      .project-identity .eyebrow,
+      .journey,
+      .workspace-navigation,
+      .next-step,
+      .branch-banner,
+      .report-jump,
+      .detailed-report,
+      .console-grid,
+      .diagnostic-log
+    ) {
+    display: none !important;
   }
 }

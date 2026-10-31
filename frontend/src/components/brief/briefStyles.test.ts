@@ -107,6 +107,35 @@ describe('the brief stylesheet', () => {
     expect(css).toContain('break-inside: avoid');
   });
 
+  it('prints the Report stage as a document, whatever is closed, and prints no other stage differently', () => {
+    const print = [...css.matchAll(/@media print \{\n([\s\S]*?)\n\}/gu)]
+      .map((m) => m[1])
+      .join('\n');
+    // A section that is closed on the screen is printed in full.
+    expect(print).toMatch(
+      /\.brief details::details-content\s*\{[^}]*content-visibility:\s*visible/u,
+    );
+    // The application around the report is hidden, and only where the Report stage's bar is: every other
+    // screen would lose its content if it were hidden for all of them.
+    expect(print).toContain('html:has(.report-jump)');
+    expect(print).toContain('.console-workspace:has(.report-jump)');
+    for (const chrome of [
+      '.skip-link',
+      '.app-header',
+      '.app-footer',
+      '.journey',
+      '.workspace-navigation',
+      '.next-step',
+      '.console-grid',
+      '.detailed-report',
+      '.diagnostic-log',
+    ]) {
+      expect(print, chrome).toContain(chrome);
+    }
+    // A chart is printed and the table that says it again is not.
+    expect(print).toMatch(/\.brief-table-alt:not\(\.brief-table-print\)\s*\{\s*display:\s*none/u);
+  });
+
   it('lets wide tables scroll inside their own region instead of breaking the page', () => {
     const scroll = rules.find((rule) => rule.selector === '.brief-scroll');
     expect(declared(scroll?.body ?? '', 'overflow-x')).toBe('auto');
