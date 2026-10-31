@@ -3,8 +3,9 @@
 The independent review challenges a finished analysis from seven angles. Critics never edit the
 analysis, the stakeholders, the cast or the decision brief. Every criticism is shown with what it
 rests on, any response, what disagreement remains, and what it would do to the conclusion if it
-stands. A criticism is a challenge, not a verdict, and a review with no criticism does not show that
-an analysis is right: the checks look only for the faults listed below.
+stands. Where there is one clear next step, it also carries the action it asks for
+(`requestedAction`, optional). A criticism is a challenge, not a verdict, and a review with no
+criticism does not show that an analysis is right: the checks look only for the faults listed below.
 
 Swarm explores scenarios. It does not guarantee or precisely predict real-world behaviour, and a
 critic cannot change that.
@@ -46,25 +47,28 @@ conflicts" into the silence.
 
 ### Assumption: which assumptions carry the result, and does anything support them?
 
-| Id                              | Raised when                                                                                        | Severity                                                                                                   |
-| ------------------------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `assumption-sensitive-<row>`    | A sensitivity row is `assumption-sensitive` and its value is not backed by evidence                | `major` for a system assumption; `minor` for a value a person set, a model proposed or the scenario states |
-| `assumption-defaults-<actor>`   | A key actor nobody edited still has traits at their system default                                 | `minor`                                                                                                    |
-| `assumption-unconfirmed-impact` | An actor's impact (harmed or benefited) is a system assumption or a model's proposal, and not zero | `major` if a key actor is among them, else `minor`                                                         |
+| Id                                | Raised when                                                                                                           | Severity                                                                                                   |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `assumption-sensitive-<row>`      | A sensitivity row is `assumption-sensitive` and its value is not backed by evidence                                   | `major` for a system assumption; `minor` for a value a person set, a model proposed or the scenario states |
+| `assumption-defaults-<actor>`     | A key actor nobody edited still has traits at their system default                                                    | `minor`                                                                                                    |
+| `assumption-key-actor-defaults`   | The same, folded into one for all such key actors while the change cannot move anyone (see below)                     | `minor`                                                                                                    |
+| `assumption-unconfirmed-impact`   | An actor's impact (harmed or benefited) is a system assumption or a model's proposal, and not zero                    | `major` if a key actor is among them, else `minor`                                                         |
+| `assumption-no-registered-effect` | A repeatable "about the same" finding for a scenario that could move someone, with no sensitive intensity (see below) | `major`                                                                                                    |
 
 An `assumption-sensitive` row whose origin is `evidence` is not criticised: something supports it.
 
 ### Methodology: are there enough repeated runs, and does the fidelity justify the wording?
 
-| Id                                  | Raised when                                                                         | Severity                                            |
-| ----------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------- |
-| `methodology-few-runs`              | Fewer than 20 runs per variant                                                      | `major` below 10, else `minor`                      |
-| `methodology-rules-only`            | The engine and the key actors are both rules                                        | `minor`                                             |
-| `methodology-model-repeats`         | A model drove part of the behaviour and it was repeated no more than once           | `major`                                             |
-| `methodology-unstable-findings`     | At least 2 findings, and at least a third of them, are `unstable`                   | `major` above one half, else `minor`                |
-| `methodology-no-cross-check`        | No deeper run was compared with the repeated runs                                   | `minor`                                             |
-| `methodology-cross-check-disagrees` | The deeper run lies outside the range of the repeated runs                          | `major`                                             |
-| `methodology-wide-intervals`        | A headline finding (one not about a single actor) has a 95% interval wider than 0.4 | `major` if its lower end is below 0.5, else `minor` |
+| Id                                      | Raised when                                                                         | Severity                                            |
+| --------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------- |
+| `methodology-change-cannot-move-anyone` | No scenario other than the baseline can move any actor (see below)                  | `major`, and it sorts before every other criticism  |
+| `methodology-few-runs`                  | Fewer than 20 runs per variant                                                      | `major` below 10, else `minor`                      |
+| `methodology-rules-only`                | The engine and the key actors are both rules                                        | `minor`                                             |
+| `methodology-model-repeats`             | A model drove part of the behaviour and it was repeated no more than once           | `major`                                             |
+| `methodology-unstable-findings`         | At least 2 findings, and at least a third of them, are `unstable`                   | `major` above one half, else `minor`                |
+| `methodology-no-cross-check`            | No deeper run was compared with the repeated runs                                   | `minor`                                             |
+| `methodology-cross-check-disagrees`     | The deeper run lies outside the range of the repeated runs                          | `major`                                             |
+| `methodology-wide-intervals`            | A headline finding (one not about a single actor) has a 95% interval wider than 0.4 | `major` if its lower end is below 0.5, else `minor` |
 
 The few-runs basis quotes the lower end of the 95% Wilson interval for a finding that holds in every
 run, so that "few" is a number: with 10 runs it starts at 0.72.
@@ -131,6 +135,58 @@ with the numbers, and, if the effect is linear, how big a change would close it.
 from a quarter of the gap, `major` from a half, and from the whole gap `blocking` when the assumption
 is not backed by evidence (`major` when it is).
 
+## When a comparison cannot say anything about the change
+
+Two rules guard against reading a result that the assumptions could not have produced.
+
+**The change cannot move anyone** (`methodology-change-cannot-move-anyone`, methodology, `major`).
+An actor moves under a scenario only when the scenario is not the baseline, its intensity is above
+nothing, and the actor has a direction of impact that is not zero: the actor's own `impact` trait, or
+the scenario's figure for that actor where it gives one. That test is `changeCanMoveAnyone` in
+`shared/signal.ts`, the one the page and the brief use too. Where no scenario and actor meet it, every
+difference from no change is noise, and so is a finding that the two are "about the same", however
+repeatable it looks. The review says so once:
+
+- When no actor has a direction of impact at all, the objection and the requested action are the two
+  sentences of the shared notice (`NO_DIRECTION_NOTICE`), word for word: what is wrong, and then to
+  say who is helped or harmed in the stakeholder review, or to read the evidence with a model, before
+  reading anything into the results.
+- When someone has a direction but no scenario has both an intensity and an actor it affects, the
+  objection says that instead, and asks for a scenario with an intensity that affects someone. It never
+  claims that nobody has a direction when somebody does.
+- The basis counts the actors with a direction, lists the scenarios other than the baseline with
+  their intensities, and quotes the first finding about the direction of the change. The stated effect
+  is the strongest the review can give: nothing in the comparison is about the change, so the
+  conclusions drawn from it do not follow.
+- It sorts before every other criticism, a `blocking` one included, and the page shows it first, in a
+  section of its own above the controls and the summary. Its id is exported as `CHANGE_CANNOT_MOVE_ID`
+  in `shared/critique.ts` so that the page and the server agree on which one it is.
+- While it stands, the per-actor `assumption-defaults-<actor>` criticisms are folded into one `minor`
+  criticism, `assumption-key-actor-defaults`, which names up to four of the actors and how many of
+  their traits are defaults. A dozen minor items would otherwise bury the one that matters. A response
+  given to a per-actor criticism is dropped with it when the review changes over, as for any
+  criticism that no longer applies.
+
+**"No difference" that the assumptions may be too weak to show** (`assumption-no-registered-effect`,
+assumption, `major`). A finding about the direction of the change that says simulated members ended
+up "about the same" as under no change, and that holds in enough runs to be `repeatable` or
+`mostly-repeatable`, is a result about the change only if the assumptions could have produced a
+difference. When some actor does have a direction under that scenario and its intensity is above
+nothing, the review says that the assumptions may be too weak to register an effect, and asks to raise
+the intensity of the change or to check the impact each actor is given, then to compare again. It does
+not claim that they are too weak, only that nothing shows they were not. It is raised once, however
+many scenarios came out the same, and its target is the first such finding. It is not raised:
+
+- when sensitivity already showed that a change in the intensity moves the result: that is an
+  `assumption-sensitive` row, with a criticism of its own;
+- for a finding that holds in only some runs (`unstable` or `rare`), that is about one actor, or that
+  does not say "about the same";
+- for a scenario that cannot move anyone, or when nobody has a direction: the first rule says more.
+
+The basis quotes the finding, how often it held and its interval, the intensity of the scenario and
+how many actors have a direction, and what sensitivity did to the intensity, or that it did not test
+it.
+
 ## The model critic
 
 One call through the validated, untrusted-data path. The digest is data, never instructions, and
@@ -189,8 +245,9 @@ written, so a reader can tell it is older than the criticism's current wording.
   criticism or of a response.
 - At most 100 rules criticisms are kept (the least severe are left out, and the review says so) and
   at most 12 model criticisms, so a set always fits the stored document. They are ordered most severe
-  first, then by critic, then by id; the page groups them by critic, headed by the question that
-  critic asks, and shows counts by severity and by status.
+  first, then by critic, then by id, except that the criticism that the change cannot move anyone
+  comes before all of them. The page shows that one first, in a section of its own, groups the rest
+  by critic, headed by the question that critic asks, and shows counts by severity and by status.
 
 ## What the critics cannot do
 
@@ -202,6 +259,10 @@ written, so a reader can tell it is older than the criticism's current wording.
   way, and can raise a "will" that is harmless.
 - The gap check compares a gap with a shift on one measure. It uses a linear reading of a single
   test, which is a way to size a change, not a prediction of what a change would do.
+- "About the same" is recognised by the words of the finding the analysis wrote, not by a field. A
+  change in that wording has to be followed here. The no-effect check also cannot tell weak
+  assumptions from a real null: a change that helps some actors and harms others by the same amount
+  also ends up "about the same", and gets the same prompt to look at the intensity and the impacts.
 - A model criticism is checked against ids, not for being right.
 - The review does not run on its own when an analysis, the stakeholders or the brief change. The page
   says when a review is of an earlier analysis; it does not say when the stakeholders have changed

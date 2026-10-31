@@ -1142,6 +1142,7 @@ describe('a comparison that cannot say anything about the change', () => {
     expect(again.critiques[0]?.response?.text).toContain('stakeholder review');
     const shown = (await app.inject(`${base}/critiques`)).json() as CritiquesView;
     expect(shown.critiques?.critiques[0]?.id).toBe(CHANGE_CANNOT_MOVE_ID);
+    expect(shown.critiques?.critiques[0]?.requestedAction).toMatch(/stakeholder review/u);
   });
 
   it('raises the other one when someone has a direction but the change was too faint to show it', async () => {
