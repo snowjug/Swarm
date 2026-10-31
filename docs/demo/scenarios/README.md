@@ -196,6 +196,9 @@ path by specification, but the scripts have not yet been rehearsed against the m
 - Intake, stakeholders, actors, runs, review and the brief all have a rules path. Each says it was
   produced by rules. Expect fewer and plainer stakeholders, a mechanical simulation and a brief
   assembled from data, not worded by a model.
+- In the detailed report, the existing evidence ledger's sufficiency banner can read "insufficient"
+  in rules mode, because rules mode classifies no statements. Say that it is informative only with a
+  model; see the [known limits of the demonstration packs](../README.md#known-limits-of-these-demos).
 - The model is never replaced silently. If a model step fails you see the error and the rules
   result that was used instead, or you are asked to choose it.
 - Fetching a public address needs the network. If it fails, or the page cannot be read, the form
