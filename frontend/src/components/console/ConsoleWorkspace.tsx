@@ -192,7 +192,7 @@ export function ConsoleWorkspace({
   }, [handoffs]);
   const followNextStep = (next: ConsoleStep) => {
     navigate(next);
-    if (view === 'graph') setChosenView('workbench');
+    if (view === 'graph') setChosenView(null);
     setHandoffs((count) => count + 1);
   };
   const inspect = (selection: Inspection) => setInspection(selection);

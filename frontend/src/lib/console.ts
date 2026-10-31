@@ -338,14 +338,11 @@ export function labWatch(project: ProjectDetail, step: ConsoleStep): LabWatch | 
 
 /**
  * The view the workspace starts in, from the stage in view, so that it never changes while the person
- * works in a stage. Graph Build keeps the map beside it, which is what it is about, and Interaction the
- * report, which is what the questions are about. Env Setup is the review of the stakeholders and the
- * actors made from them: tables that need the whole width, and the map beside them is drawn from the
- * words of the evidence and says nothing about the actors. So are the comparison in Simulation and the
- * decision brief in Report, once there are actors to compare and a finished comparison to write from.
- * A guided project that has only the engine's own record keeps the graph and the report reader beside
- * Simulation and Report, because that is what it has to show there. Any other record keeps the split
- * view. The person can still choose another, and the choice is kept.
+ * works in a stage. Graph Build keeps the map beside it and Interaction the report. Env Setup is
+ * tables of stakeholders and actors, which need the whole width, and so are the comparison and the
+ * decision brief once there are actors and a finished comparison. A guided project with only the
+ * engine's own record keeps its graph and report reader beside Simulation and Report, which is what it
+ * has to show there. Any other record keeps the split view. A view the person chose is kept.
  */
 export function defaultView(project: ProjectDetail, step: ConsoleStep): 'split' | 'workbench' {
   if (!isGuided(project)) return 'split';
