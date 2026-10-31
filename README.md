@@ -1,428 +1,287 @@
 # Swarm
 
-**Explore what might happen before it happens.**
-
-Swarm is an AI-powered scenario simulation platform that lets you create a virtual population of AI
-actors and explore how they might react to a scenario.
-
-Instead of asking a single AI model, "What will happen?", Swarm creates multiple actors with
-different roles, motivations, and perspectives, lets them interact across multiple rounds, and
-analyzes the resulting behavior.
+**What could happen if X changes?** Swarm is a general-purpose, evidence-grounded platform for
+exploring strategic scenarios: a price change, a product integration, a policy, a launch, a process.
+You bring a question and some evidence. Swarm walks them, step by step and in the open, to a
+decision brief with recommendations and a plan for checking them in the real world.
 
 > Swarm explores possible scenarios. It does not predict the future.
 
-Swarm is an evidence-grounded scenario-intelligence and multi-agent simulation platform. You give it
-source documents and a decision question. It builds an evidence ledger and a scenario graph from the
-sources, prepares fictional proxy actors whose assumptions you can read, simulates how they might
-respond over several rounds, lets you intervene, branch and compare what-ifs, and writes a report in
-which every statement is labelled and checked against the sources. It runs on your machine with a
-deterministic rules engine and no keys, or with a real model, including **Azure AI authenticated by
-Microsoft Entra ID, with no API key**.
-
-**Where it stands.** Swarm runs locally and has been run end to end against a real Azure model. It
-is not hosted anywhere, its browser sign-in has only met a test identity provider, and it is not
-ready for production use. Read
-[Known Limitations](#known-limitations) and the [production-readiness gates](./docs/production-readiness.md)
-before relying on it for anything.
-
-![The Swarm console: product introduction and the recorded demonstration workspace](./docs/assets/swarm-home.png)
-
-_Every screenshot in this repository shows a fictional scenario ([the Larkholm ferry demo](./docs/demo/larkholm-ferry/README.md))._
-
-## What does Swarm do?
-
-Give Swarm a scenario such as:
-
-> "What might happen if a company increases the price of its AI product by 30%?"
-
-Swarm can:
-
-1. **Understand your evidence**\
-   Upload documents or provide information about the scenario.
-
-2. **Build the scenario**\
-   Swarm identifies important claims, relationships, assumptions, and conflicts.
-
-3. **Create AI actors**\
-   It creates different participants with their own roles, motivations, and perspectives.
-
-4. **Run the simulation**\
-   The actors interact and react to each other across multiple rounds.
-
-5. **Change the scenario while it runs**\
-   Introduce a new event or intervention and explore how the actors respond.
-
-6. **Analyze the outcome**\
-   Swarm identifies important behaviors, disagreements, influences, and possible outcomes.
-
-7. **Ask questions about the simulation**\
-   Explore why actors behaved a certain way and examine the evidence behind the results.
-
-## The idea in one line
-
-Traditional AI:
-
-**Question → AI → Answer**
-
-Swarm:
-
-**Evidence → Scenario → AI Actors → Interactions → Outcomes → Analysis**
-
-## Example
-
-A support organization could explore:
-
-> "What might happen if AI handles initial troubleshooting before a support engineer?"
-
-Swarm could simulate customers, AI assistants, support engineers, escalation engineers, and
-managers interacting under the proposed process.
-
-The simulation could then help explore:
-
-- Where customers may become frustrated
-- When cases are likely to escalate
-- Which parts of the process become bottlenecks
-- How different interventions change the outcome
-- Why particular actors behaved the way they did
-
-## Important
-
-Swarm is a **scenario exploration system, not a prediction engine**.
-
-Its purpose is not to claim exactly what will happen in the real world. It helps users explore
-possibilities, assumptions, interactions, and potential consequences before making a real-world
-decision.
-
-## What Swarm Does
-
-The same flow in technical detail, with what is checked at each step:
-
-```text
-Sources → Evidence extraction → Claims and contradictions → Assumptions → Scenario graph
-→ Synthetic actors → Multi-round simulation → Intervention → Branching → Comparison
-→ Grounded report → Actor and analyst conversations → Export
-```
-
-1. **Reads your sources.** Text, Markdown and text-based PDFs are split into numbered passages
-   (S1, S2, …). Source text is treated as data, never as instructions.
-2. **Extracts evidence, claims and contradictions.** Statements are checked against the passages they
-   cite, and the **evidence ledger** shows where two of your sources disagree, so that you can
-   confirm or dismiss each conflict. Neither passage is declared true.
-3. **Records assumptions.** Every input you chose, and every proxy trait the model proposed, is
-   listed as an assumption, with the statements that depend on it. Assumptions are inputs, not
-   findings.
-4. **Builds a scenario graph.** Entities and relations are extracted from the passages. In model
-   mode each entity carries a quote that the server has checked, character for character, against
-   the passage it cites. The graph has a keyboard-operable alternative.
-5. **Prepares synthetic actors.** Fictional proxies with starting inclinations, influence and
-   openness, and seed posts, labelled as assumptions.
-6. **Simulates over several rounds.** On two platforms (a broadcast one and a community one) each
-   proxy decides, round by round, whether to post or reply and how its inclination moves, and records
-   why. Every round is saved as a checkpoint.
-7. **Takes an intervention, branches and compares.** Pause after any round, schedule an assumed
-   intervention, branch from a checkpoint with declared changes, and compare the runs round by round.
-8. **Writes a grounded report.** Each statement is labelled with one of ten types and checked
-   against the cited passage or recorded run. The evidence ledger classifies how well your sources
-   back each one.
-9. **Holds actor and analyst conversations.** Ask the report an analyst question, or ask a fictional
-   proxy. Answers cite what they were given. If the project's own evidence cannot answer, the analyst
-   says so and makes no model call.
-10. **Exports.** Markdown or JSON, ledger and lineage included. Every write is recorded in a
-    hash-chained audit log that the console can display and verify.
-
-### A short tour
-
-|                                                                                             |                                                                                         |
-| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| ![The source graph and an entity's verified quote](./docs/assets/swarm-graph-inspector.png) | ![Fictional proxies and assumed inputs](./docs/assets/swarm-environment.png)            |
-| **1. Sources and graph.** Every entity carries a quote checked against its passage          | **2. Actors.** Proxies and seed posts are labelled assumptions                          |
-| ![Recorded trajectory and the two platforms](./docs/assets/swarm-simulation.png)            | ![A branch compared with its parent](./docs/assets/swarm-compare.png)                   |
-| **3. Simulate.** Recorded rounds, a trajectory and a stated reason for every decision       | **4. Branch and compare.** Identical through the checkpoint, then divergent             |
-| ![The grounding review](./docs/assets/swarm-report-grounding.png)                           | ![An analyst answer citing the sources](./docs/assets/swarm-analyst-chat.png)           |
-| **5. Report.** Every statement has a label, a verdict and a reason                          | **6. Ask.** The analyst cites passages, or says the evidence does not support an answer |
-
-## Why Swarm
-
-- **Scenarios, not forecasts.** Output is conditional on your sources and assumptions, and the
-  interface says so wherever a number appears.
-- **Evidence you can inspect.** A citation opens the exact passage. A quote is either verbatim or it
-  is not shown as one.
-- **Assumptions are visible.** Source facts, extracted claims, your assumptions, the model's
-  hypotheses, simulated events and analytical conclusions are never blended.
-- **No fake results.** If a model call fails, you see the error. There is no silent fallback to
-  canned output, and rules mode is labelled as rules mode.
-- **Local-first.** Your documents and results stay in a SQLite file on your machine unless you
-  choose a model provider, and then only bounded context is sent to it.
-- **Real Azure AI without secrets.** The default Azure mode uses Microsoft Entra ID. No key exists
-  to leak.
-
-## Verified Capabilities
-
-Each row is something a person can do in the console today, with the tests that exercise it. A
-capability is listed only if a test drives it; what is missing is under
-[Known Limitations](#known-limitations).
-
-| Capability                             | What you can do                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Exercised by                                                                                                                                                                                 |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source-grounded graph                  | Read numbered passages, inspect every entity and relation, see its verified quote, browse and search the evidence                                                                                                                                                                                                                                                                                                                                                                                                                               | `knowledge.test.ts`, `grounding-quotes.test.ts`, `pdf.test.ts`, `e2e/local/journey.spec.ts`                                                                                                  |
-| Evidence ledger                        | Filter statements by type and support class, open a statement's supporting and contradicting passages, confirm or dismiss conflicts, see the assumptions behind simulated results                                                                                                                                                                                                                                                                                                                                                               | `ledger.test.ts`, `ledger-service.test.ts`, `contradictions.test.ts`, `e2e/local/ledger.spec.ts`, `e2e/model/ledger-ui.spec.ts`                                                              |
-| Fictional actors                       | Read each proxy's profile and assumed traits; edit them before a run (or on a branch before it is resumed); records are read-only afterwards                                                                                                                                                                                                                                                                                                                                                                                                    | `actor.test.ts`, `guided.test.ts`, `e2e/local/journey.spec.ts`                                                                                                                               |
-| Multi-round simulation                 | Configure rounds and platforms, replay a run, read each decision with its stated reason, filter by proxy and round, pause and resume                                                                                                                                                                                                                                                                                                                                                                                                            | `guided.test.ts`, `guided-model.test.ts`, `whatif.test.ts`, `e2e/local/whatif.spec.ts`                                                                                                       |
-| Intervention, branches, compare        | Schedule an assumed intervention, branch from a checkpoint with declared edits, compare a branch with its parent or sibling                                                                                                                                                                                                                                                                                                                                                                                                                     | `whatif.test.ts`, `whatif-model.test.ts`, `e2e/local/whatif.spec.ts`                                                                                                                         |
-| Grounded report                        | Read a chaptered report with a grounding review: verdicts, the checks that ran, and what the server repaired or withheld                                                                                                                                                                                                                                                                                                                                                                                                                        | `grounding-*.test.ts`, `report-plan.test.ts`, `e2e/model/grounding-ui.spec.ts`                                                                                                               |
-| Report Studio                          | Open the generated report as a document and work on it: edit sections as versions (compare, restore), lock, leave reviewer notes, submit for review, approve or send back with a reason, reopen; write a chapter again and accept or reject it; export Markdown, JSON and a printable memo that says what was approved. The generated report is never changed, and an edited chapter's statements are shown as describing the earlier text                                                                                                      | `studio-model.test.ts`, `studio.test.ts`, `studio-access.test.ts`, `studio-regenerate.test.ts`, `studio-store.test.ts`, `studio.test.tsx`, `e2e/journey/studio.spec.ts`, 25 studio mutations |
-| Analyst chat with abstention           | Ask a question the sources answer (cited, with a note when a source it cites is disputed by another, and a mark when it states only one side of a disputed figure) and one they do not (exact refusal sentence, no model call)                                                                                                                                                                                                                                                                                                                  | `evidence-gate.test.ts`, `model-workflow.test.ts`, `evaluation/test/evaluation.test.ts`, `e2e/model/model.spec.ts`                                                                           |
-| Actor chat and survey                  | Ask one fictional proxy a question, or survey all of them, against what that proxy was given                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `model-workflow.test.ts`, `e2e/model/model.spec.ts`                                                                                                                                          |
-| Export and audit                       | Export Markdown and JSON; read and verify the append-only, hash-chained audit log                                                                                                                                                                                                                                                                                                                                                                                                                                                               | `audit-trail.test.ts`, `storage.test.ts`, `snapshot.test.ts`, `e2e/journey/demo-journey.spec.ts`                                                                                             |
-| Themes                                 | Choose light, dark or high contrast in the header, or let the page follow the device's colour scheme and contrast setting; the choice is kept and applied before the page is drawn                                                                                                                                                                                                                                                                                                                                                              | `theme.test.ts`, `theme-contrast.test.ts`, `accessibility.test.ts`, `scripts/ui/themes.test.ts`, `e2e/journey/themes.spec.ts`                                                                |
-| Identity and access                    | Sign in with Microsoft in the browser (Authorization Code with PKCE, a server-side session, no token in the page) or call with an Entra bearer token; seven roles through workspace and project membership; default-deny routes; tenant isolation; access removed on the next request; a People screen for a workspace owner or administrator and an Access screen on each project to add, change and remove people by Entra object ID, offered only to those the server would let (tested against a test identity provider, not a real tenant) | `auth.test.ts`, `membership.test.ts`, `session.test.ts`, `AccessDialog.test.tsx`, `e2e/signin/signin.spec.ts`, `e2e/signin/access.spec.ts`, `security.test.ts`, 9 access mutations           |
-| Real Azure AI, no key                  | Run every stage against an Azure model deployment with Entra authentication                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `npm run azure:verify` (15 checks), `scripts/azure/lib/*.test.ts`                                                                                                                            |
-| PostgreSQL storage (optional)          | Run the same stores on PostgreSQL (`DATABASE_URL`), with serializable transactions retried when they lose a race; copy a database between SQLite and PostgreSQL in either direction, checked, for migration and backup                                                                                                                                                                                                                                                                                                                          | `postgres.test.ts`, `postgres-driver.test.ts`, `copy.test.ts`, `npm run test:postgres` (the whole unit suite on PostgreSQL)                                                                  |
-| Durable stage jobs                     | A refresh or a restart does not lose a run: stages are queued in the database, taken by a worker under a lease, retried a bounded number of times, resumed from the last saved round, cancelled or paused from any process; asking twice with the same `Idempotency-Key` is one job                                                                                                                                                                                                                                                             | `jobs.test.ts`, `durable-jobs.test.ts` (each also on PostgreSQL), 19 job mutations                                                                                                           |
-| Observability                          | Every answer carries a correlation id; OpenTelemetry spans and metrics for requests, jobs, model calls, the queue, denials and grounding, with a gate that keeps content, headers and credentials out; export to Application Insights signed by Entra (tested with in-memory exporters)                                                                                                                                                                                                                                                         | `telemetry.test.ts`, `telemetry-start.test.ts`, 9 telemetry mutations                                                                                                                        |
-| Model budget per project               | Each project is held to a budget of model calls and tokens: the deployment sets a default, and only a workspace owner or administrator may change one project's limits. Once it is used the next call is refused before anything is sent, the page says when a project is running low or out and what stops (runs, answers, interviews, rewritten chapters) and what does not (reading, editing, exporting)                                                                                                                                     | `usage.test.ts`, `model-budget.test.ts`, `budget-routes.test.ts`, `membership.test.ts`, `BudgetDialog.test.tsx`, `e2e/model/budget.spec.ts`, 17 budget mutations                             |
-| Backup, rollback and restore rehearsal | A SQLite file is copied before an upgrade, and a copy that is out of date is set aside, never overwritten; the release before refuses an upgraded database, and putting the copy back returns it with its data. `npm run db:drill` backs a database up, restores it from the backup alone and proves that every table, the audit chain and every project came back                                                                                                                                                                              | `rollback.test.ts`, `storage-backup.test.ts`, `restore-drill.test.ts`, 12 storage mutations                                                                                                  |
-| Recorded demonstration                 | Restore a real-model recording of one scenario and two branches, and walk the 32-step presentation in a real browser                                                                                                                                                                                                                                                                                                                                                                                                                            | `scripts/demo/lib/*.test.ts`, `e2e/journey/demo-journey.spec.ts`                                                                                                                             |
-| Accessibility checks                   | Use the console by keyboard; axe-core finds no violation on the audited screens at four viewport sizes                                                                                                                                                                                                                                                                                                                                                                                                                                          | `e2e/local/a11y.spec.ts`, `e2e/local/responsive.spec.ts`, `npm run audit:ui`                                                                                                                 |
-
-## How It Works
-
-The console has five stages. Each runs separately and stops at **ready** until you start the next.
-
-| Stage          | Rules mode                              | Real-model mode                                                                          |
-| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1. Graph Build | Term and co-occurrence extraction       | The model proposes entities and relations; the server checks every quote and citation    |
-| 2. Env Setup   | Generated personas and seed posts       | The model proposes personas and seed posts, which you can edit                           |
-| 3. Simulation  | Seeded opinion dynamics                 | One request per proxy per platform per round, validated and bounded                      |
-| 4. Report      | A report computed from recorded metrics | A planned, tool-assisted report with a grounding review and an independent support check |
-| 5. Interaction | Evidence lookup and state snapshots     | Report chat, proxy chat and interviews                                                   |
-
-Every model reply is validated on the server before it is used: identifiers, citations, verbatim
-quotes and bounded changes. A bad reply is sent back for a limited number of corrections. When a
-slip can be repaired only by removing, shortening or weakening what the model claimed, the server
-repairs it and **says so** in the report; otherwise the stage fails and you see why. See the
-[user guide](./docs/USER_GUIDE.md) for each stage and the
-[grounding review](./docs/USER_GUIDE.md#grounding-review-model-assisted-reports).
-
-### What a statement can be
-
-Swarm defines ten statement types. They are never merged: the label travels with the statement.
-
-| Label                      | Meaning                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| **SOURCE FACT**            | Stated in the provided source text and quoted verbatim                                     |
-| **EXTRACTED CLAIM**        | A paraphrase of what a provided source says                                                |
-| **USER ASSUMPTION**        | An input you chose: a setting, an intervention or a seed post. Not a claim to verify       |
-| **INFERRED RELATIONSHIP**  | A link between things that no single passage states. At best partly supported              |
-| **AI HYPOTHESIS**          | The model's speculation, not claimed to be backed by any source. Never shown as a finding  |
-| **SIMULATED EVENT**        | Something that happened inside the simulation, not in the real world                       |
-| **ANALYTICAL CONCLUSION**  | A figure or reading derived from the recorded simulation metrics                           |
-| **RECOMMENDATION**         | A suggestion. Allowed only when the evidence is sufficient, and shown with its assumptions |
-| **CONTRADICTING EVIDENCE** | A passage that conflicts with a statement or with another source, shown beside it          |
-| **UNRESOLVED UNCERTAINTY** | A question the evidence leaves open. Recorded, never presented as a finding                |
-
-The classification and publication rules cover all ten and are pure, tested functions. The report
-writer currently emits six of them (source fact, extracted claim, user assumption, AI hypothesis,
-simulated event, analytical conclusion). Contradicting evidence appears as the conflicts between
-sources and as the passages attached to a statement. Inferred relationship, recommendation and
-unresolved uncertainty are defined and classified by policy, but the report writer does not yet emit
-them as statements of their own.
-
-How well your sources back a statement is a separate **support class**: directly supported,
-partially supported, contradicted, unsupported, not applicable, not checkable, simulation derived or
-assumption dependent. Deterministic checks assign it. A model's check can lower a class or confirm
-it, never raise it, and a reviewer can withhold a statement but never upgrade one. A support class
-says how well _your_ sources back a statement. It is not a claim that the statement is true.
-
-Simulated results are hypothetical. They describe the scenario, not the world.
-
-## Architecture
-
-```mermaid
-flowchart TB
-    subgraph UX["User experience"]
-        Browser["User browser<br/>No credentials or tokens in the page;<br/>an HttpOnly cookie holds a sign-in"]
-        Frontend["React and TypeScript console<br/>served by the API process"]
-    end
-
-    subgraph APP["Swarm application (runs locally)"]
-        API["Fastify and TypeScript API<br/>validation, rate limits,<br/>host and origin checks"]
-        Identity["Identity boundary<br/>local single user, or Entra:<br/>bearer token, or browser sign-in<br/>with a server-side session"]
-        Authz["Authorization and tenant<br/>isolation: default-deny<br/>route table"]
-        Orchestrator["Simulation orchestrator<br/>(stage runner, local worker)"]
-        Actors["Actor runtime<br/>(fictional proxies)"]
-        Interv["Scheduled<br/>interventions"]
-        Checkpoints["Round<br/>checkpoints"]
-        Branches["Branches from<br/>a checkpoint"]
-        Compare["Run<br/>comparison"]
-        Report["Report generation and<br/>grounding review"]
-        Analyst["Analyst chat<br/>(abstains without evidence)"]
-        ActorChat["Actor chat"]
-        Studio["Report Studio<br/>versions, locks, review and approval<br/>of exact text, printable memo"]
-        Export["Markdown and<br/>JSON export"]
-        Jobs["Durable stage jobs<br/>(lease, heartbeat, bounded retry)"]
-        Telemetry["OpenTelemetry signals<br/>(redacted; export built,<br/>never connected)"]
-        Provider["Model-provider<br/>abstraction"]
-        Budget["Model budget per project<br/>(calls and tokens, asked<br/>before every model call)"]
-    end
-
-    subgraph DATA["Data and evidence"]
-        Sources["Uploaded sources and<br/>numbered passages"]
-        Graph["Scenario graph"]
-        Ledger["Evidence ledger:<br/>statements and conflicts"]
-        Assumptions["Assumption<br/>register"]
-        DB[("Local SQLite<br/>persistence")]
-        Pg[("PostgreSQL adapter (optional)<br/>tested with an in-process server<br/>and over the wire; none deployed")]
-        Audit["Hash-chained,<br/>append-only audit log"]
-    end
-
-    subgraph MODELS["Model providers"]
-        Rules["Local rules provider<br/>(no network)"]
-        Other["OpenAI-compatible or<br/>Ollama (optional)"]
-        FoundryProv["Azure AI Foundry<br/>provider"]
-    end
-
-    subgraph AZ["Azure (the only deployed component)"]
-        Entra["Microsoft Entra ID<br/>model authentication"]
-        Deployment["Azure AI Foundry<br/>model deployment"]
-    end
-
-    subgraph QA["Test and observability boundaries"]
-        Tests["Vitest, Playwright and axe suites,<br/>fake model provider"]
-        Logs["Structured logs without content,<br/>token and call counts"]
-    end
-
-    Browser --> Frontend
-    Frontend <-->|"HTTP API only"| API
-    API --> Identity
-    Identity --> Authz
-    Authz --> Orchestrator
-    Authz --> Analyst
-    Authz --> ActorChat
-    Authz --> Compare
-    Authz --> Export
-    Authz --> Studio
-    API -.-> Audit
-    API -.-> Telemetry
-    Jobs -->|"leased by a worker"| Orchestrator
-
-    Sources --> Graph
-    Graph --> Orchestrator
-    Assumptions --> Orchestrator
-    Interv --> Orchestrator
-    Orchestrator --> Actors
-    Orchestrator --> Checkpoints
-    Checkpoints --> Branches
-    Branches --> Compare
-    Orchestrator --> Report
-    Report --> Ledger
-    Sources --> Ledger
-    Ledger --> Analyst
-    Ledger --> Export
-    Report --> Export
-    Report -->|"opened as a copy"| Studio
-    Ledger -->|"statements of<br/>generated text"| Studio
-    Studio --> Export
-    Studio -->|"write a chapter again"| Provider
-    Studio --> DB
-    Jobs --> DB
-    Checkpoints --> DB
-    Ledger --> DB
-    Audit --> DB
-    DB -.->|"or, by setting<br/>DATABASE_URL"| Pg
-
-    Actors --> Provider
-    Report --> Provider
-    Analyst --> Provider
-    ActorChat --> Provider
-    Provider -->|"asks before each call"| Budget
-    Budget --> DB
-    Provider -->|"rules mode"| Rules
-    Provider -.-> Other
-    Provider -->|"Azure mode"| FoundryProv
-    FoundryProv -->|"Azure mode: token<br/>requested on the server"| Entra
-    FoundryProv -->|"Azure mode: requests<br/>with the token"| Deployment
-
-    Tests -.->|"drive the API<br/>and the browser"| API
-    API -.-> Logs
-```
-
-Current validated architecture. The application and database run locally; Azure hosts the AI model deployment. Planned cloud hosting and managed identity are not shown as implemented components.
-
-| Where it runs           | Components                                                                                                                                                                                                                                                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **On your machine**     | The browser console, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application |
-| **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                     |
-| **Proposed, not built** | A hosted worker container, Azure Container Apps hosting, a PostgreSQL server in Azure, managed identity for the application, an Application Insights resource that the telemetry is sent to. They are designed in [docs/AZURE.md](./docs/AZURE.md) and [docs/azure/](./docs/azure/); none is deployed or validated                    |
-
-- **Frontend:** React and TypeScript. In the built application the same process serves it and the
-  API. It holds no credentials.
-- **Backend:** Fastify on Node.js 24 with the built-in SQLite module, or an optional PostgreSQL
-  adapter behind the same stores. Validation, rate limits and host and origin checks sit in front of
-  every route.
-- **Identity boundary:** local single-user mode by default. With `AUTH_MODE=entra` a person signs in
-  with Microsoft in the browser (the server runs the Authorization Code flow with PKCE and keeps an
-  opaque, HttpOnly session; no token reaches the page), or an API client sends an Entra bearer token.
-  Every request is then authorized from workspace and project membership (seven roles: platform
-  administrator, workspace owner and admin, project lead, analyst, reviewer and viewer), with a
-  default-deny route table and tenant isolation. A project a person was not added to is reported as
-  missing. A workspace owner or administrator manages the workspace's people, and a project lead
-  the project's, from the browser (the People and Access screens), naming each person by their Entra
-  object ID. It has only been tested against a test identity provider, never a real tenant.
-- **Provider abstraction:** one gateway for every model call. It picks the rules engine or a real
-  provider from configuration, bounds retries, counts calls and tokens, and never falls back
-  silently.
-- **Evidence and grounding:** passages, retrieval, verbatim quote matching and the report's
-  grounding review live on the server, so no browser state can change a verdict.
-
-The full design, data flow and threat boundaries are in [ARCHITECTURE.md](./ARCHITECTURE.md).
-
-## Quick Start
-
-You need Node.js 24 (the version in `.nvmrc`; npm refuses other major versions), npm and Git. On
-Windows use `npm.cmd` where shown, which avoids the PowerShell script-policy issue without changing
-your policy; elsewhere use `npm`. Every command below was run on Node.js 24, and CI runs the
-checks on Linux for every push.
-
-### Local / Rules Mode
-
-No keys, no cloud, no model download, no network calls.
-
-```powershell
+It runs on your machine, in a deterministic **rules mode that needs no model, no key and no network**,
+or with an optional model provider. It is one generic engine. Microsoft Copilot in Teams, an AWS price
+change and an online store are **demonstration packs**: a question plus a few synthetic documents, run
+through the same pipeline as any question you type.
+
+**Where it stands.** Swarm runs locally and its rules mode is complete end to end. It is not hosted,
+its browser sign-in has only met a test identity provider, and it is not ready for production use.
+[Honest limitations](#honest-limitations) and the
+[production-readiness gates](./docs/production-readiness.md) say what that means.
+
+**Judges and first-time readers:** run the [quick start](#quick-start) (rules mode, a few minutes),
+pick **Copilot in Teams** in the example picker, and follow the [demo guide](./docs/demo/README.md),
+which scripts a ten-minute walk-through of the four flagship demos.
+
+## What Swarm is, and is not
+
+| Swarm is                                                                                            | Swarm is not                                                                                                           |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A way to **explore** what a set of stated assumptions could imply, with the evidence beside it      | A forecast. It never claims to predict, and its wording and exports say so                                             |
+| Generic: the engine, the stakeholder step and the brief contain no market, product or industry code | An e-commerce tool, a Microsoft tool or an AWS tool. Those are demo packs, and tests keep domain words out of the code |
+| Honest about numbers: results are **simulated counts under stated assumptions**                     | A source of real-world rates. A count is never a conversion, churn, share, adoption or sentiment rate                  |
+| Built on **synthetic actors** that stand in for groups, with every trait labelled by its origin     | A panel of real people. Actors are not people, and a group's size in the model is an assumption, not a measurement     |
+| Explicit about where each statement comes from: evidence, assumption, simulation or interpretation  | A black box. Nothing in a brief is unsourced, and an unsupported statement is shown as uncertainty                     |
+| Useful without a model: every step has a rules path, and a model is optional and never silent       | Dependent on a model, or on any cloud service                                                                          |
+
+## From a question to a decision
+
+Every step is a real screen, backed by a stored, validated document and covered by tests. The
+[user guide](./docs/USER_GUIDE.md) walks the screens; [ADR 0014](./docs/adr/0014-scenario-lab.md)
+records why it is built this way.
+
+| #   | Step                            | What Swarm does                                                                                                                                                                                                                          |
+| --- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Question**                    | You write a "What could happen if…?" question. **Understand my question** reads it into an editable scenario: the decision, what changes, the baseline, alternatives, assumptions, and at most three questions it needs answered         |
+| 2   | **Evidence**                    | Uploaded files (text, Markdown, CSV, JSON, text PDF), pasted notes or a **public web page** that the server fetches. Text becomes numbered passages (S1, S2, …), each document keeps its provenance, and conflicting figures are flagged |
+| 3   | **Scenario**                    | The frame you settled on is stored with the project. It defines the baseline and each alternative that the later runs compare                                                                                                            |
+| 4   | **Stakeholders**                | Found in the evidence by reading the text, or with a model. Each has cited quotes and an uncertainty level. You accept, edit, merge, remove, add and prioritise, then approve. Missing kinds of stakeholder are listed as gaps           |
+| 5   | **Synthetic actors**            | A key actor for each key stakeholder and a cohort of simulated members for the others. Every trait says where it came from (evidence, you, a system assumption or a model) and why, and you can change it                                |
+| 6   | **Interactions**                | Each simulated member's stance is pulled, round by round, by how the change lands on it, by its own traits and by the actors it listens to, through typed relations (influences, competes with, supplies, and so on)                     |
+| 7   | **Interventions**               | The change lands in a chosen round at a stated intensity, for the baseline and for each alternative. The optional deep dive adds pause, a scheduled intervention, branching from a checkpoint and run comparison                         |
+| 8   | **Second-order effects**        | Competitors, substitutes, partners and regulators react after a lag to generic signals in the run. A chain of "because … then …" events is read back from one typical run. No reaction is scripted for any example                       |
+| 9   | **Alternative outcomes**        | For every scenario, how many simulated members ended up going along, accepting with conditions, waiting, adapting, looking for an alternative or resisting, and how that spreads over the seeded runs                                    |
+| 10  | **Uncertainty and sensitivity** | Each finding is "holds in k of n seeded runs" with a 95% interval and a stability class. Sensitivity moves one assumption at a time on the same seeds and compares the shift with the noise                                              |
+| 11  | **Independent critique**        | Seven critics (evidence, assumption, methodology, stakeholder coverage, bias, recommendation, adversarial) challenge the analysis. They never edit it. You respond, accept or dispute, and the disagreement stays visible                |
+| 12  | **Decision-ready analysis**     | An answer-first brief in 17 sections, assembled from data. Every statement carries one of ten origins and the ids it rests on                                                                                                            |
+| 13  | **Recommendations**             | Each follows from at least one finding, with priority, impact, effort, reversibility, horizon, an owner function, leading indicators and how to check it                                                                                 |
+| 14  | **Real-world validation plan**  | Experiments that would test what the result depends on most: the question, the method, the success signal, the effort and the duration                                                                                                   |
+
+**Reading a result honestly.** Four rules cover most of it.
+
+1. A number is a count of simulated members or of seeded runs, never a rate in a real population.
+2. "Holds in k of n seeded runs" measures how repeatable the simulation is under its own
+   assumptions. It is not the probability that the event happens.
+3. An outcome is exactly as well founded as the assumptions it ran on. The sensitivity view shows
+   which assumptions the result moves with, and which of those have no evidence behind them.
+4. A critic that raises nothing does not show that the analysis is right. A critic checks only what
+   it can see.
+
+The ten origins a brief statement can carry are never merged: the label travels with the statement.
+
+| Origin                        | What it means                                                                    |
+| ----------------------------- | -------------------------------------------------------------------------------- |
+| **Supplied evidence**         | A passage from a document that was uploaded or pasted                            |
+| **Retrieved public evidence** | A passage from a page that this server fetched. Swarm has not checked it is true |
+| **User assumption**           | A setting a person typed, edited or added                                        |
+| **System assumption**         | A default Swarm filled in, or a property of the method. Open to edit             |
+| **Inferred stakeholder**      | A stakeholder worked out from the sources                                        |
+| **Actor behaviour**           | What a simulated actor did in the simulation                                     |
+| **Simulation aggregation**    | A count or comparison over seeded runs                                           |
+| **Model interpretation**      | A reading of a finding by a model                                                |
+| **Historical comparison**     | A document whose provenance marks it as a record of what happened before (API)   |
+| **Unresolved uncertainty**    | What is not known. It cites nothing, and names what is missing                   |
+
+![A source graph entity with the quote the server checked against its passage](./docs/assets/swarm-graph-inspector.png)
+
+_The optional deep dive on the recorded fictional Larkholm demonstration: every graph entity carries
+a quote that the server has checked, character for character, against the passage it cites._
+
+## Quick start
+
+You need **Node.js 24** (see `.nvmrc`; `engine-strict` makes npm refuse other major versions), npm and
+Git. On Windows PowerShell, write `npm.cmd` for `npm`, which avoids the script-policy problem without
+changing your policy. No `.env` file, key or model is needed: `AI_PROVIDER` defaults to `none`.
+
+```bash
 git clone https://github.com/snowjug/Swarm.git
 cd Swarm
-npm.cmd ci
-Copy-Item .env.example .env
-npm.cmd run dev
+npm ci
+npm run dev
 ```
 
-Open <http://127.0.0.1:5173>. On macOS or Linux use `cp .env.example .env`.
+Open <http://127.0.0.1:5173>. The development server proxies `/api` to the API on port 3001. The
+header chip reads `LOCAL / RULES MODE`: nothing leaves your machine. To run the built application as
+one process that serves both the UI and the API:
 
-### Production Build
-
-To run the built application as one process, serving both the UI and the API:
-
-```powershell
-npm.cmd run build
-npm.cmd start
+```bash
+npm run build
+npm start
 ```
 
-Open <http://127.0.0.1:3001>. With no model configured the header reads `LOCAL / RULES MODE`. Load
-the fictional starter input and press **Build Graph**, or use the
-[Larkholm demo sources](./docs/demo/larkholm-ferry/README.md).
+Open <http://127.0.0.1:3001>. Data is kept in `./data` (a SQLite file; set `DATA_DIR` to move it, and
+keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is optional: copy
+[`.env.example`](./.env.example) to `.env` only to change a setting.
 
-### Real Azure AI Mode
+**The first demo, a few minutes in rules mode.**
 
-You need an Azure OpenAI or Foundry resource with a chat-completions deployment, the Azure CLI, and
-the role described under [Real Azure AI](#real-azure-ai). Model calls are billed by your
-subscription.
+1. On the first screen, find **Not sure what to ask? Try an example** and choose **Use this example**
+   on **Copilot in Teams**. It fills the question and five synthetic documents. Nothing is sent yet.
+2. Choose **Understand my question**, read the scenario it made, then **Use this scenario**.
+3. Choose **Build Graph**. When Graph Build reads `ready`, open **Env Setup** and choose **Find
+   stakeholders by reading the text**. Read the note on how they were found, then **Approve
+   stakeholders and create actors**.
+4. Open **Simulation** and choose **Compare scenarios**.
+5. Open **Report** and choose **Generate decision brief**, then **Run independent review**.
 
-```powershell
-az login
-```
+The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
 
-In your local, git-ignored `.env`, set placeholders to your own values (never put a key in a `VITE_`
-variable or in source):
+## The four flagship demos
+
+Each is an input to the same pipeline. The example picker offers five worked examples; the four
+below are the ones the demo guide scripts. **Nothing here says what a run will show.** Run it, read
+the real screen and quote that.
+
+| Demo                                                                               | Question                                                                                                                    | Evidence                                                 | Built in on purpose                                                                      |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [**Copilot in Teams**](./docs/demo/scenarios/copilot-in-teams/README.md)           | What could happen if Microsoft integrates Copilot more deeply into Teams and enables additional AI capabilities by default? | 5 synthetic documents                                    | Two source conflicts, unknown licence terms, regulators and works councils silent        |
+| [**Regional price change**](./docs/demo/scenarios/regional-price-change/README.md) | What could happen if AWS increases the price of a particular cloud service by $1 in a selected region?                      | 5 synthetic documents                                    | Two source conflicts, a notice with no billing unit, date or scope, and no price history |
+| [**Online store**](./docs/demo/scenarios/ecommerce-experience/README.md)           | How might different users react if this online store changes its delivery fees, free-delivery threshold and checkout flow?  | 4 synthetic documents, plus an optional public page      | One source conflict, no cost per delivery, an untested checkout                          |
+| **Your own question and a public URL**                                             | Anything that starts "What could happen if…?"                                                                               | A public web page, pasted notes or files that you supply | Nothing is planted: the evidence is whatever you bring                                   |
+
+Microsoft, Copilot, Teams and AWS appear only because the question names them. The documents are
+invented and say so in their first lines and in their provenance (`sample`, licence `Synthetic, CC0`).
+They describe no real company, price or customer.
+
+### The click path, once, for every demo
+
+1. **Start.** On the first screen, choose **Use this example** on the card for your demo. For your own
+   question, type it into **Your what-if question** instead. Choosing an example only fills the form.
+2. **Add a public page (optional).** In **Add a public web page**, type an address, choose **Fetch
+   page**, read the title, site, size, retrieval time and notes, then choose **Add as evidence**.
+   The server fetches the page, not your browser. If it fails, the message says why and offers to
+   let you paste the text. The online-store example suggests `https://books.toscrape.com/`, a public
+   practice site whose prices and ratings are random, so it holds no real customer.
+3. **Understand my question** (optional), then **Use this scenario**. Edit any field, answer the
+   questions it raises, and add alternatives. Nothing runs until you build.
+4. **Build Graph.** Graph Build reads the sources into numbered passages and a lexical graph.
+5. **Env Setup:** **Find stakeholders by reading the text** (or **with the model** when one is
+   configured). Review them, then **Approve stakeholders and create actors**. Read the actor cards:
+   each trait has a slider, an origin badge and the reason for its value.
+6. **Simulation:** **Compare scenarios** runs the baseline and the alternatives on the same seeds,
+   and shows what held across the runs, which assumptions the result is sensitive to and a chain of
+   second-order effects.
+7. **Report:** **Generate decision brief**, **Run independent review**, then export **Markdown**,
+   **JSON** or the **Printable** page. If **Report** still looks unavailable after the comparison has
+   finished, reload the page.
+
+### What to check at each step
+
+| Step               | Look at                                                                                                                                                    | Read it as                                                                                               |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Question           | The notes beside the scenario: "Read by rules, not a model", the assumptions and who made each one, and the questions back                                 | A starting point that you edit, not an answer. Rules read patterns and can misread a question            |
+| Evidence           | Each document's provenance: sample, pasted, uploaded or a public page, with when it was retrieved                                                          | Evidence has a label. A fetched page records what the page said, not that it is true                     |
+| Stakeholders       | The note on how they were found, the cited quote and uncertainty of each, and the list of kinds that nobody was found for                                  | Roles found in text, not people. The note says how many have a direction of impact read from the wording |
+| Actors             | Each trait's origin badge. Change one and watch the badge become yours                                                                                     | Every number an actor runs on is an assumption you can see and edit. Group sizes are weights, not counts |
+| Compare scenarios  | The baseline and the change side by side, "holds in k of n seeded runs" with its interval and class, the sensitivity list, and the second-order chain      | Repeatability under assumptions. A finding classed unstable is not to be relied on                       |
+| Independent review | The objections, what each rests on, and what it would do to the conclusion. Respond, accept or dispute                                                     | A challenge, not a verdict. A critic never edits the analysis                                            |
+| Decision brief     | The executive answer and its caveat, then the origin chip on each statement, the assumptions, the uncertainty, the recommendations and the validation plan | An exploration of a simulation. The validation plan is what you must still check in the real world       |
+
+If a pack was built to show a gap (an unknown licence term, a notice with no billing unit), check
+whether your run's brief shows it, and say so if it does not. Do not fill the gap in by hand.
+
+### Demo 1: Copilot in Teams
+
+Choose **Use this example** on **Copilot in Teams**, then follow steps 3 to 7 above.
+
+- **Check the intake.** The question does not say for whom "by default" applies, how deep "more
+  deeply" goes, over what period or what a good outcome is. Check that **Understand my question**
+  raises these as questions rather than filling them in.
+- **Check the evidence.** Two pairs of sources give different figures for the same behaviour: a poll
+  of administrators' intentions against a partner's observed tenants, and a pilot against a group of
+  early adopters. Check that both quotes are shown and neither is picked.
+- **Check the stakeholders.** Look at the cited quotes and uncertainty of the roles found
+  (administrators, security reviewers, finance, a partner, competitors) and at the kinds of
+  stakeholder that nobody was found for.
+- **Read it honestly.** The names are in the question only because the question names them. Nothing
+  here describes a real plan, price or adoption figure.
+
+### Demo 2: Regional cloud price change (AWS)
+
+Choose **Use this example** on **Regional cloud price change**, then steps 3 to 7.
+
+- **Check the intake.** The "$1" comes with no unit, date or scope, and the evidence says so. Check
+  that these appear as open points, and that the brief carries the same gap as uncertainty.
+- **Check the evidence.** Finance and sales operations give different shares of revenue under
+  fixed-price contracts because they define "fixed" differently, and two estimates of the migration
+  effort come from a team and from a consultancy that would earn fees. Check that Swarm shows both
+  and picks neither.
+- **Read it honestly.** The service, region, prices and company are invented. Sums you do by hand
+  from the documents are your own check, not a Swarm result.
+
+### Demo 3: Online store, with a public page
+
+Choose **Use this example** on **Online store: delivery and checkout**. Before **Build Graph**, go to
+**Add a public web page**, enter `https://books.toscrape.com/`, choose **Fetch page**, read the
+title, site, size and retrieval time, then choose **Add as evidence**. Then steps 3 to 7.
+
+- **Check the provenance.** The page should be listed as a public web page that the server
+  retrieved, apart from the four synthetic documents, and the notes should say that Swarm has not
+  checked it. In the brief, look for it among the sources with its own origin.
+- **Check the evidence.** The survey and the exit pop-up measure the same thing by different methods
+  in different groups. Check that both are shown.
+- **Read it honestly.** The page is a catalogue sandbox whose prices and ratings are random. It says
+  nothing about any shop's customers, and the "different users" in the pack are kinds of shopper
+  paraphrased from an invented survey. Without network access, skip the page: the four documents
+  are complete.
+
+### Demo 4: Your own question and a public URL
+
+Type your own question into **Your what-if question**. Add a page you may read (**Fetch page**, then
+**Add as evidence**), and your own notes as pasted text or files if the page alone is thin: each
+document needs at least 80 characters. Then **Understand my question** and steps 3 to 7.
+
+- **Check the intake.** Rules read patterns in English and can misread a question. Check every field
+  and answer or skip each question back.
+- **Check the stakeholders.** They are only as good as the text. Expect fewer and plainer groups in
+  rules mode and a long list of gaps. A page that needs JavaScript is refused, with a message that
+  offers to let you paste the text.
+- **Read it honestly.** Nothing was planted: no conflict, no gap, no direction. Where the rules find
+  no wording that shows a group being helped or harmed, that group has no direction of impact, and
+  if no group has one the comparison warns that the change cannot move anyone. Say who is affected,
+  in the stakeholder review, only where your evidence supports it.
+
+**Optional deep dive and the recorded run.** Each project also keeps the engine's five stages:
+agent-by-agent runs with a stated reason for each decision, pause, intervention, branching and
+comparison, an evidence ledger, a grounded report and an analyst that cites passages or declines.
+**Interaction** opens once that report exists. `npm run demo:seed` restores a real-model recording
+of one fictional scenario and two branches, with no model call. The
+[presenter guide](./docs/demo/presentation.md) covers it.
+
+## Evidence and public web pages
+
+Evidence reaches Swarm as a file (text, Markdown, CSV, JSON or a text PDF), as pasted text or as a
+public page. Limits: 1 to 10 documents, 80 to 40,000 characters each and 200,000 in all. Scanned
+PDFs need OCR, which is not built. Everything in a document is **untrusted data**: it is read, never
+obeyed, and text that addresses an AI is flagged.
+
+Reading a page is the one place the server fetches an address it was given, so the rules are strict
+([URL ingestion](./docs/security/url-ingestion.md) has every one, with the tests):
+
+| Allowed                                                                                      | Refused, and why                                                                                        |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `http` and `https` pages on a public host, on ports 80 and 443 (a setting)                   | Other schemes, a user name or password in the address, a space, or an address over 2,048 characters     |
+| Text, Markdown, CSV, JSON and HTML, up to 1.5 MB and 12 seconds, with at most five redirects | `localhost`, internal names, and private, loopback, link-local and cloud-metadata addresses, as written |
+| Pages that robots.txt allows. Each redirect is checked again and each connection is pinned   | A name that resolves to even one refused address, which is how DNS rebinding is stopped                 |
+| One page that a person named, fetched once, with no cookie, credential or referrer           | Anything but the page's text: no script runs, and frames, forms and hidden elements are dropped         |
+
+Every document made this way records its address (secret-looking query values removed), the final
+address, when it was retrieved, its type and a hash. Only the server can claim that it fetched a
+page. The audit log keeps the host and nothing else. `URL_INGESTION=off` turns the feature off, and
+`URL_INGEST_ALLOWED_HOSTS` limits it to hosts you name. If the network is down, or the page needs
+JavaScript, paste its text instead. Pasted text and uploaded files are **supplied evidence**; only
+a page this server fetched is **retrieved public evidence**.
+
+## Model modes
+
+| Mode                        | How to get it                                            | What it does                                                                                               |
+| --------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Rules** (the default)     | `AI_PROVIDER=none`, or choose **Local rules**            | Every step runs with no model, key or network. Deterministic: the same inputs and seed give the same run   |
+| **Ollama**                  | `AI_PROVIDER=ollama`, `AI_MODEL`, `OLLAMA_BASE_URL`      | A local model you install yourself. No paid API                                                            |
+| **OpenAI-compatible**       | `AI_PROVIDER=openai`, `AI_MODEL`, `OPENAI_API_KEY`       | A trusted v1 endpoint named by the administrator (`OPENAI_BASE_URL`)                                       |
+| **Azure OpenAI or Foundry** | `AI_PROVIDER=azure`, `AI_MODEL`, `AZURE_OPENAI_ENDPOINT` | Microsoft Entra ID by default (`az login`), so no key exists. `AZURE_OPENAI_AUTH=key` is the legacy option |
+
+`AI_MODEL` is the model name, or the deployment name on Azure. [`.env.example`](./.env.example) lists
+every variable and [CONFIGURATION.md](./docs/CONFIGURATION.md) describes them, the Azure setup, the
+per-project model budget and the limits. In your own, git-ignored `.env`:
 
 ```dotenv
 AI_PROVIDER=azure
@@ -431,294 +290,209 @@ AZURE_OPENAI_ENDPOINT=<your-resource-endpoint>
 AZURE_OPENAI_AUTH=entra
 ```
 
-Then rebuild, restart, and choose the real model when you create a project:
+A provider is optional and never silent. **Model assisted** stays disabled until the server has one,
+and the header chip names the provider and says `connected` only after a real request has succeeded.
+A failure is shown as a failure, and Swarm never substitutes canned output. Where a step has a rules
+path (reading the question, finding stakeholders), it may use that path after a model fails, and a
+note says so.
 
-```powershell
-npm.cmd run build
-npm.cmd start
+What a model can do: with a provider configured, read your question when you choose **Understand my
+question** (the server sends the question and each document's name and size, never its text); in a
+model-assisted project, find stakeholders, refine actors on request and add a deeper critique; and,
+in the deep dive, drive each actor's decisions. What it never does: decide an actor's behaviour in
+the repeated runs, which always use the rules engine, or word the brief. In model mode, bounded
+excerpts of your sources go to the provider you chose, so check its privacy terms first. Keyless
+Azure access has been run end to end against one development deployment, and nothing else about
+Azure is claimed.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser["Browser<br/>React console"]
+    API["Fastify API<br/>validation, limits, optional sign-in"]
+    Pages["Public page reader<br/>address policy, pinned fetch"]
+    Lab["Scenario lab<br/>intake, stakeholders, actors,<br/>repeated runs, critics, brief"]
+    Deep["Deep dive<br/>staged workflow, ledger, report, chat"]
+    Store[("Project store<br/>SQLite, or PostgreSQL")]
+    Model["Model provider<br/>off by default"]
+    Web["Public web"]
+
+    Browser -->|"same-origin HTTP"| API
+    API --> Lab
+    API --> Deep
+    API --> Pages
+    Lab --> Store
+    Deep --> Store
+    Pages -.->|"public pages only"| Web
+    Lab -.->|"optional, never silent"| Model
+    Deep -.->|"optional, never silent"| Model
 ```
 
-The header chip reads `REAL AZURE AI` and `connected` once a request has succeeded. **Verify
-connection** makes one real round trip.
+Current validated architecture. The application and database run locally; the browser never talks to
+a model or to the web. One Node.js process serves the UI and the API, and the lab's results are
+validated JSON documents kept with each project. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the
+components, the data flow and the stage workflow, [ADR 0014](./docs/adr/0014-scenario-lab.md) for the
+lab's decisions and [docs/analysis/](./docs/analysis/engine.md) for the simulator and the statistics.
 
-### Demonstration
-
-The repository holds a real-model recording of one fictional scenario and two branches of it. This
-restores it, without calling a model, and resets it after a rehearsal:
-
-```powershell
-npm.cmd run demo:seed
-```
-
-With the real-model server above running on port 3001, this walks the 32-step presentation in a real
-browser (set `PW_CHANNEL=msedge` to reuse Edge), asking the analyst and one actor a question each:
-
-```powershell
-npm.cmd run demo:journey
-```
-
-The scripts, the speaking notes and the failure plan are in [Presenting Swarm](./docs/demo/presentation.md).
-
-### Tests
-
-```powershell
-npm.cmd run check          # typecheck, lint, unit and integration tests, production build
-npm.cmd run format:check   # Prettier
-npm.cmd run eval           # the offline evaluation: abstention gate, retrieval, conflicts, injection warnings
-npm.cmd run test:postgres  # the unit tests again, with every in-memory database made a PostgreSQL one
-npm.cmd run test:load      # latency, back-pressure and memory on this machine, and eight simultaneous saves of one report section
-npm.cmd run test:resilience # kills a real server mid-simulation, restarts it, and checks the run finishes intact (build first)
-npm.cmd run mutation:security -- --list   # the access, sign-in, storage, job, telemetry, studio, analyst and budget rules that are mutation-checked
-```
-
-### Browser Tests
-
-```powershell
-npm.cmd run build
-npm.cmd run test:e2e       # builds first by hand: the E2E servers run dist/ (set PW_CHANNEL=msedge to reuse Edge)
-npm.cmd run audit:ui       # starts its own local-mode server; screenshots and layout and axe metrics at four viewports
-```
-
-### Backup and Restore
-
-```powershell
-npm.cmd run db:drill -- --from .\data\swarm-lab.sqlite   # backs it up, restores from the backup alone, proves every table came back
-```
-
-It only reads the database it is pointed at, and a file in use is read as a snapshot. The steps for rolling an upgrade back, and what a restore of a hosted server needs, are in the [runbook](./docs/operations/runbook.md#restore-the-database).
-
-### Azure Verification
-
-```powershell
-npm.cmd run azure:verify   # the real Azure AI journey; needs your own deployment and az login
-```
-
-### Secret Scanning
-
-```powershell
-npm.cmd run scan:secrets   # credentials in every reachable commit and the working tree
-```
-
-Every variable is described in [docs/CONFIGURATION.md](./docs/CONFIGURATION.md).
-
-## Real Azure AI
-
-Azure mode sends bounded source and persona context to a model deployment that you own, on Azure
-OpenAI or Microsoft Foundry.
-
-- **Microsoft Entra ID, no key.** The server asks Entra for an access token (`DefaultAzureCredential`;
-  locally that is your `az login`) and sends it only to an allow-listed Azure AI host. The token
-  never reaches the browser, the database, the logs or the repository.
-- **One role.** Your identity needs **Cognitive Services OpenAI User** on the resource. A missing role
-  produces an error that names it.
-- **Azure hosts only the model deployment.** The application and its database run on your machine.
-- **Honest status.** The header badge reads `REAL AZURE AI`, then `connected` only after a real
-  request has succeeded, and `failing` after one has failed.
-- **End-to-end proof.** `npm run azure:verify` runs a real multi-agent scenario against your
-  deployment (per-proxy calls, grounding, branching, both chats, an injection probe and a check that
-  no credential appears anywhere) and exits `0` only if every check passes.
-- **Provisioning.** `npm run azure:provision` can create a keyless account and a pay-as-you-go
-  deployment from the Bicep in [`infra/`](./infra), after a read-only preflight that names any
-  permission you lack. See [docs/AZURE.md](./docs/AZURE.md).
-
-Not validated: a managed identity, hosting in Azure, multiple users, and any model other than the
-one small development deployment the live checks ran against.
+| Where it runs           | Components                                                                                                                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **On your machine**     | The browser console, the API and everything behind it (one Node.js 24 process), the rules engine, and one SQLite file or a PostgreSQL database you provide through `DATABASE_URL`               |
+| **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it, when you choose Azure. Nothing else is deployed                                                        |
+| **Proposed, not built** | A hosted worker, Azure Container Apps hosting, a PostgreSQL server in Azure, a managed identity for the application, and an Application Insights resource. See [docs/AZURE.md](./docs/AZURE.md) |
 
 ## Security
 
-Swarm is a **local, single-user application** by default. Read this before you expose it to anything.
+Swarm is a **local, single-user application** by default. Read this before exposing it to anything.
 
-- **Sign-in is off by default.** With `AUTH_MODE=none` there is no authentication and no tenant
-  isolation: it binds to loopback, checks host and origin, applies a content-security policy,
-  request limits and rate limits, and none of that replaces authentication. Do not expose it to the
-  internet. With `AUTH_MODE=entra` the server signs a person in with Microsoft (Authorization Code
-  with PKCE, run on the server; an ID token is verified and then discarded, and the browser gets only
-  an opaque HttpOnly session cookie that idles out after 30 minutes and ends after 8 hours), or
-  verifies an Entra bearer token. It authorizes each request from workspace and project membership
-  (seven roles, checked on every request, so removing someone takes effect at once), refuses any
-  route that has no policy, requires an anti-forgery header on every change made with a cookie, and
-  separates tenants. That mode has only been tested against a test identity provider, never a real
-  tenant, so treat it as verified code and not as a validated deployment. Details are in
-  [ADR 0008](./docs/adr/0008-browser-sign-in.md) and [CONFIGURATION.md](./docs/CONFIGURATION.md#browser-sign-in).
+- **Sign-in is off by default.** With `AUTH_MODE=none` there is no authentication or tenant isolation.
+  It binds to loopback and checks host and origin, with a content-security policy and request and
+  rate limits, and none of that replaces authentication: do not expose it to the internet. With
+  `AUTH_MODE=entra` a person signs in with Microsoft in the browser (Authorization Code with PKCE, run
+  on the server, with an opaque HttpOnly session and no token in the page), or an API client sends an
+  Entra bearer token. Seven roles from workspace and project membership authorise every request, and
+  routes with no policy are refused. That mode has only met a test identity provider, never a real
+  tenant. See [ADR 0008](./docs/adr/0008-browser-sign-in.md) and
+  [CONFIGURATION.md](./docs/CONFIGURATION.md#browser-sign-in).
 - **Prompt injection is an active risk and cannot be considered completely solved.** Source text,
-  retrieved passages, memories and model output are untrusted data. Embedded instructions are
-  flagged, the model is told to treat them as content, a reply that repeats text an embedded
-  instruction asked for is rejected, and no model has a shell, a filesystem, a browser or a URL
-  fetcher. These reduce the risk; they do not prove immunity.
-- **Audit.** Every successful write, and every refused request from a signed-in caller, is recorded
-  in an append-only, hash-chained log. A test enumerates every route and fails if one has no audit
-  rule. The log records identifiers and counts, never document text or prompts.
-- **Secrets.** The default Azure mode has no key. No credential may be placed in source, in a `VITE_`
-  variable or in the database. `.env` is git-ignored, and `npm run scan:secrets` scans every
-  reachable commit and the working tree.
-- **Untrusted files and input.** Uploads are type- and size-checked. PDFs are parsed in an isolated,
-  resource-limited worker. Source names never become paths. SQL is parameterized. Text is rendered
-  as text, and Markdown exports escape untrusted content.
-- **Bounded consumption.** Documents, populations, rounds, calls per stage and requests per minute
-  are capped.
-- **Dependencies.** `npm audit` is part of CI, which fails on a high or critical advisory. A result is
-  a point-in-time check, not a guarantee, and two moderate advisories published on 2026-10-30 are open
-  (see [Validation](#validation)); neither can be reached from a request.
+  fetched pages, retrieved passages and model output are untrusted data. Embedded instructions are
+  flagged, a reply that repeats one is rejected, and no model has a shell, a filesystem, a browser or a
+  URL fetcher. These reduce the risk. They do not prove immunity.
+- **The one outbound fetch** is a public page that a person names, through the address policy above.
+  It refuses private, local and metadata addresses however they are written, pins each connection to
+  the addresses it checked, re-checks every redirect and obeys robots.txt.
+- **Audit.** Every successful write, and every refused request from a signed-in caller, goes to an
+  append-only, hash-chained log. The log records identifiers and counts, never document text,
+  questions or prompts. A test fails if a route has no audit rule.
+- **Secrets.** The default Azure mode has no key. No credential belongs in source, a `VITE_` variable
+  or the database. `.env` is git-ignored and `npm run scan:secrets` scans every reachable commit.
+- **Untrusted input.** Uploads are type- and size-checked, PDFs are parsed in an isolated worker, SQL
+  is parameterized, source names never become paths and all text is rendered as text. Markdown and
+  HTML exports escape untrusted content, and the printable brief is served with a policy that lets it
+  load and run nothing.
+- **Bounded consumption.** Documents, populations, rounds, runs per comparison, calls per stage and
+  requests per minute are capped, and each project has a model budget.
 
-Residual risks: prompt injection (above); a model can still produce a plausible unsupported
-statement that the deterministic checks accept; tenant isolation is enforced in application code
-only; data at rest is unencrypted plain text in one SQLite file; there has been no independent
-security review or penetration test.
+Residual risks: prompt injection; a model can still produce a plausible unsupported statement that
+the deterministic checks accept; tenant isolation lives in application code only; data at rest is
+plain text in one SQLite file; and there has been no independent security review or penetration
+test. Details: [security model](./docs/security-model.md), [threat model](./docs/threat-model.md),
+[security review](./docs/security-review.md) and the
+[risk register](./docs/program/risk-register.md). None of this claims that Swarm is hardened.
 
-Details are in [docs/security-model.md](./docs/security-model.md),
-[docs/security-review.md](./docs/security-review.md) and [docs/threat-model.md](./docs/threat-model.md).
-None of this is a claim that Swarm is hardened: the remaining risks are in
-[docs/program/risk-register.md](./docs/program/risk-register.md).
+## Testing
 
-## Validation
+```bash
+npm run check          # typecheck of five projects, ESLint with no warnings, the Vitest suite, the build
+npm run format:check   # Prettier over code and docs
+npm run test:e2e       # real-browser tests of five projects against built servers (build first)
+npm run test:postgres  # the unit suite again, on PostgreSQL running in the test process
+npm run scan:secrets   # credentials in every reachable commit and the working tree
+npm run demo:journey   # the 32-step Larkholm presentation, against a running server and a real model
+```
 
-Totals from the checks run on this tree with Node.js 24. Re-run them yourself; the commands are in
-[Quick Start](#quick-start). CI runs most of them on Linux for every push.
+| Command                 | What it covers                                                                                                                                                                                                                                                                   |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model; and the production build                                           |
+| `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`)                           |
+| `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                |
+| `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                               |
+| `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model |
 
-| Check                                                                                             | Command                     | Result                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Types, lint, unit and integration tests, build                                                    | `npm run check`             | Passes. **1,925 tests in 112 files** (Vitest). Strict typecheck of five projects, ESLint with zero warnings                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Formatting                                                                                        | `npm run format:check`      | Passes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Browser end-to-end tests                                                                          | `npm run test:e2e`          | **143 passed, 0 failed, 0 flaky** (Edge on Windows, 23.0 minutes; CI runs Chromium on Linux and its result is on the commit): 71 against the local engine, 39 model-assisted against a protocol-faithful fake provider, 20 for the 32-step presentation on a server holding the recorded demonstration, and 13 for browser sign-in and for managing who has access, against a test identity provider. They include axe-core on every reachable state and the responsive checks                                                                                                                                                                        |
-| Unit tests on PostgreSQL                                                                          | `npm run test:postgres`     | The same 1,925 tests with every in-memory database a PostgreSQL one (PGlite, PostgreSQL in-process): all pass. CI runs it as its own job. The real driver is also tested over the wire protocol; no deployed server has been used                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Mutation checks on the access, sign-in, storage, job, telemetry, studio, analyst and budget rules | `npm run mutation:security` | **150 of 150 mutations caught** by a failing test in one run on this tree (19 minutes): 15 membership, 27 sign-in, 22 storage, 19 job, 9 telemetry, 25 studio, 7 analyst, 17 budget, 9 access screens. A check of the tests, not proof of the rules; see [the test guide](./docs/TESTING.md#mutation-checks-on-security-code)                                                                                                                                                                                                                                                                                                                         |
-| Load on this machine                                                                              | `npm run test:load`         | One run (Windows, Node 24, 44 s): no 5xx answer; 3,000 health reads at p95 76 ms; 600 ledger reads at p95 177 ms; a burst of 12 workflows was held back with `429 QUEUE_FULL` answers instead of failing; peak memory 358 MB; eight simultaneous saves of one report section: one accepted, seven told to reload. One machine, one run, nothing hosted: not a capacity claim                                                                                                                                                                                                                                                                          |
-| A server killed mid-simulation                                                                    | `npm run test:resilience`   | 9 of 9 checks, in two runs: a real server is killed with `SIGKILL` while model calls are in flight and started again; the run finishes by itself (22 s and 18 s after the restart), every platform has every round, 96 actions and none twice, saved rounds are not computed again, the model budget counted both sides of the crash, and the audit chain still verifies. SQLite, one machine, a stand-in for the provider                                                                                                                                                                                                                            |
-| Backup and restore rehearsal                                                                      | `npm run db:drill`          | On the demonstration database (409 rows, 11 tables, 9 projects): backed up in 0.25 s, restored from the backup alone in 0.24 s, and every table, the audit chain and every project came back identical. Rolling an upgrade back is tested; restoring a hosted server from a point-in-time backup has not been rehearsed                                                                                                                                                                                                                                                                                                                               |
-| Presentation against a real model                                                                 | `npm run demo:journey`      | Passed twice against the live server with the real Azure model (7.6 minutes each): once reading the recorded conversation, and once asking the analyst and an actor new questions while checking that five private values, which are never written to the repository, appear on no page. A negative control made it fail as intended                                                                                                                                                                                                                                                                                                                  |
-| Real Azure AI, Microsoft Entra only                                                               | `npm run azure:verify`      | **15 of 15 checks passed** in 467 s with 59 round trips: every stage, per-proxy decisions, verbatim quotes, grounding, branching, both chats, an injection probe and a scan for credentials                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Dependency audit                                                                                  | `npm audit`                 | **0 high or critical; 14 moderate** (corporate registry mirror, 2026-10-31), all from two advisories published the day before: `minimatch` (a crafted pattern can exhaust a process; reached through ESLint's tooling and through `glob`) and `glob` (an abort signal does not stop a walk; reached only through `@fastify/static`, whose glob call runs only with `wildcard: false`, which Swarm does not set). Neither can be reached from a request. The fixed releases (minimatch 11.0.1, glob 14.0.2) were not yet on the mirror, so nothing was changed; CI fails on high or above (`npm audit --audit-level=high`). To be fixed when they ship |
-| Secret scan, every reachable commit                                                               | `npm run scan:secrets`      | 0 findings (933 history blobs and 483 working-tree files at the last run); no `.env` tracked. One history blob that holds only fake credentials made up for a redaction test is accepted by its hash (the scanner says which and why), because history is not rewritten                                                                                                                                                                                                                                                                                                                                                                               |
-| Offline evaluation                                                                                | `npm run eval`              | Every floor in `evaluation/thresholds.json` holds. The analyst's gate refuses no answerable question and refuses 43% (dev) and 86% (test) of unanswerable ones; 1 of 3 labelled conflicts between sources is found; injection warnings catch 80% of 18 labelled samples (in-sample). Small, author-labelled sets: see [evaluation/README.md](./evaluation/README.md)                                                                                                                                                                                                                                                                                  |
-| UI audit at four viewports                                                                        | `npm run audit:ui`          | 44 states: 0 console errors, 0 axe violations, no overflow, small text, small targets, unnamed controls or label collisions, and a visible focus indicator on every Tab stop. It reports 9 status lines that are deliberately truncated at 390 px, each with its full text as a tooltip                                                                                                                                                                                                                                                                                                                                                               |
-| Container build and health                                                                        | CI                          | Builds, answers its health check and serves the UI; the console smoke flow passes inside it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+Also: `npm run eval` (the offline evaluation), `npm run mutation:security`, `npm run test:load`,
+`npm run test:resilience`, `npm run audit:ui`, `npm run azure:verify` (your own Azure deployment) and
+`npm run db:drill` (backs up a SQLite file and proves a restore from the backup alone; see the
+[runbook](./docs/operations/runbook.md#restore-the-database)). The
+[testing guide](./docs/TESTING.md) explains each layer, the Playwright ports (`E2E_*_PORT`), what a
+passing run does not show, and the results recorded on earlier trees. Tests of the model path use
+protocol-faithful fake providers, which is not evidence about any live model.
 
-What these do **not** show: that the model's output is correct, that any scenario predicts the real
-world, that a manual screen-reader review has been done (it has not), that sign-in works against a
-real Microsoft Entra tenant (it has only met a local test provider), or that the application is
-ready for production use. See [Known Limitations](#known-limitations),
-[docs/production-readiness.md](./docs/production-readiness.md) and the
-[requirement matrix](./docs/program/requirement-matrix.md) for what is partial or missing.
+## Honest limitations
 
-## Known Limitations
+Not built, per [ADR 0014](./docs/adr/0014-scenario-lab.md): historical backtesting, a model run
+repeated many times (a model's run-to-run variation is unmeasured, and said to be), Word or slide
+exports (the brief prints from the browser), and hosted execution of long analyses (they run in the
+server process and are marked interrupted if it stops). The wider picture is in the
+[requirements matrix](./docs/requirements-matrix.md); the detailed list is in
+[ARCHITECTURE.md](./ARCHITECTURE.md#known-limitations).
 
-- **Model output varies.** Model-assisted runs are not reproducible. Rerunning gives different
-  actors, posts and reports. The demonstration is a recording for that reason.
-- **Grounding is imperfect.** The deterministic support check accepted 3 of 8 unsupported statements
-  in a labelled set, because word overlap cannot read meaning. The conflict detector found 1 of 3
-  labelled conflicts, raises false alarms on some material and misses conflicts of meaning; you
-  confirm or dismiss every candidate. The evaluation sets are small, in one fictional domain, and
-  labelled by the author; see [evaluation/README.md](./evaluation/README.md).
-- **Unsupported questions can slip through.** The analyst's first check refuses off-topic questions
-  and years the sources never mention, but lets through 3 of 4 plausible questions about something
-  absent. Those rest on the model declining, which is seen only in live runs.
-- **The analyst can miss a conflict unless you ask.** In the demo it said it found no direct
-  contradictions when asked in general terms, although two are planted, and found the difference
-  when asked about it by name.
-- **Rules mode has no statements in its ledger.** It produces no grounding review, so the ledger
-  shows conflicts and assumptions only.
-- **Proxies tend to sound like an analyst.** Their answers are useful, but often read as a summary
-  rather than as the character speaking.
-- **Chat citations show what the model was given, not what supports each sentence.**
-- **The grounding review checks the report against the sources, not the sources against the world.**
-  Only the statements the writer lists are checked.
-- **Limited scale.** Model mode accepts 4 to 10 proxies and 3 to 10 rounds, and a stage's model
-  calls are budgeted. Only six proxies and six rounds were exercised live.
-- **Not hosted.** Nothing is deployed in Azure except the model. There is one process; the data is
-  one SQLite file, or a PostgreSQL database you provide. The PostgreSQL adapter has been tested
-  against PostgreSQL running in-process and over the wire protocol, never against a deployed Azure
-  server, and it reaches the database through a synchronous bridge that blocks the process for the
-  length of each query ([ADR 0009](./docs/adr/0009-postgres-through-a-synchronous-bridge.md)). There
-  is no hosted worker and no managed identity for the application.
-- **Identity gaps.** Browser sign-in and the seven roles exist and are tested, but only against a
-  test identity provider: no real Entra tenant has been used, because creating the app registration
-  needs a tenant administrator. A session ends only Swarm's side of the sign-in (there is no single
-  sign-out), and a platform-administrator role removed in Entra lasts until the session ends. There
-  is no directory lookup: people are added by their Entra object id, so the page cannot say who an
-  id belongs to and a wrong id gives access to the wrong person (the audit log records who added
-  whom). There are no groups, no invitations by name or email, and one workspace per tenant.
-- **Durable jobs have not run across real containers.** Stages are jobs in the database: they survive
-  a restart, a worker that stops is replaced after its lease runs out, and a simulation continues from
-  its last saved round ([ADR 0010](./docs/adr/0010-durable-jobs-leased-from-the-database.md)). That is
-  tested with a second worker modelled as a second queue consumer in one process, on SQLite and on
-  PostgreSQL in-process; two real processes racing for one deployed PostgreSQL row have not been tried.
-  A worker that lost its lease is stopped at its next write to the project, its events or its usage,
-  but not at a ledger write it is already making. A process killed outright waits for its lease (up
-  to 30 seconds) before its run is taken over.
-- **Monitoring has not reached a real Application Insights resource.** OpenTelemetry traces and metrics
-  (requests, jobs, model calls, queue depth, denials, grounding) are built and tested with in-memory
-  exporters, and the export to Application Insights is authenticated with Microsoft Entra; the
-  dashboards, alert rules and runbook in [docs/operations/](./docs/operations/observability.md) are
-  written, not created or rehearsed.
-- **Report Studio has been tried on a recording, not in use.** Writing a chapter again has run only
-  against a stand-in for the provider that speaks the real protocol, never against a live model, so
-  how good the rewritten chapters are is unknown; the checks catch a quotation that is not in the
-  passages, wording no passage supports and a figure that matches nothing, not a wrong statement
-  that cites a passage saying something else. An approval is a record in this application (who, when
-  and a hash of the exact text), not an external attestation, and it does not make a statement true.
-  There is no live co-editing, merge or comment thread: a second person saving the same section is
-  refused. Only chapters can be written again, one at a time, with the provider that wrote the
-  report; there is no generated PDF, the memo is printed from the browser.
-- **Themes are derived, not designed.** The dark and high-contrast palettes are computed from the light
-  one, and tests hold them to WCAG contrast ratios and run axe-core on the demonstration's pages in
-  each. No designer has reviewed them, the Windows forced-colours rules have no browser test, and
-  nobody has used them with a screen reader.
-- **Incomplete human reviews.** Security, privacy, responsible-AI, licence, accessibility
-  (screen-reader and forced-colours) and legal reviews have not been done; the
-  [review checklist](./docs/pitch/human-review-checklist.md) says what to put before each reviewer.
-- **Usage cost.** A recorded real-model scenario (three runs, 199 model calls, about 534,000 tokens
-  in and 62,000 out) cost roughly US$0.30 at assumed list prices. Longer sources and more proxies
-  cost more. Each project has a model budget (calls and tokens: a deployment default, and a limit that only a workspace owner or administrator may change) and each run a call budget, but there is no per-tenant total, no daily limit and no spend alert.
-- **Text only.** Scanned PDFs need OCR, which is not implemented. There is no web crawling and no
-  live social-media connection.
+- **Nothing here is calibrated.** Rules-mode results follow from the declared assumptions and are not
+  evidence about the world. No outcome has been compared with what really happened.
+- **Rules readings are shallow.** The rules read English patterns and role words, find fewer and
+  plainer stakeholders than a model, and give most groups no direction of impact unless the wording
+  of the evidence shows one. You set the direction in the review, and the change moves only groups
+  that have one.
+- **Grounding and conflict checks are heuristic.** On small sets labelled by their author, the
+  conflict detector found 1 of 3 labelled conflicts (it finds figure conflicts stated in comparable
+  words and misses conflicts of meaning) and the deterministic support check accepted 3 of 8
+  unsupported statements, because word overlap cannot read meaning. You confirm or dismiss every
+  candidate conflict. [Evaluation](./evaluation/README.md) has the sets and the weak spots.
+- **The engines can disagree.** The repeated runs use a simple, transparent rules engine. The deep
+  dive can use a model for each actor's decisions. The analysis records whether the two agree and
+  says that it compares different engines.
+- **Limited scale.** A comparison is capped at 8 scenarios, 200 runs each and 2,400 runs in all. The
+  deep dive takes 4 to 10 model-driven actors over 3 to 10 rounds, and only runs of up to six actors
+  and six rounds were exercised live.
+- **A public page is what it said.** No JavaScript runs, no PDFs, images or sign-in pages are read,
+  and Swarm does not know whether a page is true, current or the same for everyone.
+- **Not hosted, and unreviewed.** Sign-in has only met a test provider, PostgreSQL has not met a
+  deployed server, telemetry has reached no real monitoring resource, and security, privacy,
+  accessibility (screen reader) and legal reviews have not been done.
 
-## Responsible Use
+## Repository map
+
+| Path                             | Contents                                                                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/`                        | The zod contracts that both sides use: scenario, stakeholders, analysis, critique, brief, evidence, the example packs (`examples/`)                   |
+| `backend/src/scenario/`          | Reading a question into a scenario frame, by rules or by a model                                                                                      |
+| `backend/src/ingest/url/`        | Reading a public page: address policy, pinned fetch, robots.txt, text extraction                                                                      |
+| `backend/src/stakeholders/`      | Stakeholder discovery, review and approval, and the actors made from them                                                                             |
+| `backend/src/simulation/`        | The pure, seeded population simulator and its generic responders                                                                                      |
+| `backend/src/analysis/`          | Repeated runs, findings, intervals and sensitivity                                                                                                    |
+| `backend/src/critics/`           | The seven critics, by rules and optionally by a model                                                                                                 |
+| `backend/src/brief/`             | The answer-first decision brief and its exports                                                                                                       |
+| `backend/src/guided/` and others | The older five-stage deep dive: graph, environment, simulation, report, chat, branches, the evidence ledger (`grounding/`), Report Studio (`studio/`) |
+| `backend/src/routes/`            | The HTTP routes. `auth/` holds the default-deny policy and `storage/` the stores, migrations and audit log                                            |
+| `frontend/src/`                  | The React console: `components/` by feature (`intake`, `evidence`, `stakeholders`, `analysis`, `critics`, `brief`, `console`), `hooks/`, `lib/`       |
+| `e2e/`                           | Playwright projects `local`, `model`, `journey`, `signin` and `lab`, with shared helpers and a fake model provider                                    |
+| `scripts/`                       | The demonstration seed and recorder, Azure provisioning and verification, the UI audit, the secret scan, load, resilience and mutation tests          |
+| `evaluation/`                    | Labelled datasets, the offline harness, thresholds and results                                                                                        |
+| `infra/`                         | Bicep for the Azure model account and, not deployed, a hosted pilot                                                                                   |
+| `docs/`                          | Guides, references, architecture decisions, the demo guide and example packs, and the pitch package                                                   |
+
+## More documentation
+
+| Topic                | Where                                                                                                                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Using it             | [User guide](./docs/USER_GUIDE.md), [interface design](./docs/UX.md), [scenario intake](./docs/scenario-intake.md), [stakeholders and actors](./docs/stakeholders.md)                                                |
+| How the numbers work | [Comparing scenarios](./docs/analysis/methodology.md), [the population simulator](./docs/analysis/engine.md), [the independent review](./docs/analysis/critics.md), [the decision brief](./docs/analysis/brief.md)   |
+| Demonstrating it     | [Demo guide](./docs/demo/README.md), [example scenarios](./docs/demo/scenarios/README.md), [presenting the recorded Larkholm run](./docs/demo/presentation.md), [pitch package](./docs/pitch/README.md)              |
+| Running it           | [Configuration](./docs/CONFIGURATION.md), [HTTP API](./docs/API.md), [testing](./docs/TESTING.md), [Docker](./docs/DOCKER.md), [troubleshooting](./docs/TROUBLESHOOTING.md), [Azure](./docs/AZURE.md)                |
+| Architecture         | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md)                                                                                                                                 |
+| Security             | [Security model](./docs/security-model.md), [threat model](./docs/threat-model.md), [security review](./docs/security-review.md), [reading web pages](./docs/security/url-ingestion.md)                              |
+| Status and limits    | [Production-readiness gates](./docs/production-readiness.md), [requirements matrix](./docs/requirements-matrix.md), [risk register](./docs/program/risk-register.md), [roadmap](./docs/microsoft-product-roadmap.md) |
+| Operations           | [Observability](./docs/operations/observability.md), [service levels and alerts](./docs/operations/slo-dashboards-alerts.md), [incident runbook](./docs/operations/runbook.md)                                       |
+| Evaluation           | [Evaluation harness and datasets](./evaluation/README.md), [results](./docs/pitch/evaluation-results.md)                                                                                                             |
+| Origins and parity   | [Parity matrix](./docs/parity-matrix.md), [attribution](./NOTICE.md)                                                                                                                                                 |
+
+## Responsible use
 
 Swarm supports human analysis. It must not make high-impact decisions on its own.
 
 - Treat every result as a **hypothesis about a scenario**, never as a forecast or a recommendation.
-- The proxies are **fictional**. They do not represent real people, and their opinions are not
-  survey results, testimony or evidence about any group.
-- Do not use Swarm to make or justify decisions about real individuals, or to decide anything that
-  affects people's rights, safety, employment, health or access to services without human review.
-- Read the sources and the grounding review. A "supported" verdict means a passage backs a statement,
-  not that the passage is true.
-- In model mode, bounded excerpts of your sources go to the provider you configured. Check that
-  provider's privacy terms and your data-handling rules before you use confidential material.
+- Synthetic actors are **not real people**. Their traits are assumptions, not survey results,
+  testimony or evidence about any group.
+- Do not use Swarm to make or justify decisions about real individuals, or anything that affects
+  people's rights, safety, employment, health or access to services, without human review.
+- A "supported" label means that a passage backs a statement, not that the passage is true.
+- With a model, bounded excerpts of your sources go to your provider. With a public page, the site
+  sees this server's address. Check both before using confidential material.
 - Say that content is simulated when you share it. Exports carry that statement.
 
-## Documentation
-
-| Topic                 | Where                                                                                                                                                                                                                                                |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Architecture          | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md), [pitch architecture](./docs/pitch/architecture.md)                                                                                                             |
-| Production readiness  | [Gates and their status](./docs/production-readiness.md)                                                                                                                                                                                             |
-| Security review       | [Security model](./docs/security-model.md), [security review](./docs/security-review.md), [reading web pages](./docs/security/url-ingestion.md)                                                                                                      |
-| Threat model          | [Threat model](./docs/threat-model.md)                                                                                                                                                                                                               |
-| Evaluation            | [Evaluation harness and datasets](./evaluation/README.md), [results](./docs/pitch/evaluation-results.md)                                                                                                                                             |
-| Pitch package         | [Executive summary, cost model, pilot plan and more](./docs/pitch/README.md)                                                                                                                                                                         |
-| Parity matrix         | [Comparison with the publicly documented reference idea](./docs/parity-matrix.md), [attribution](./NOTICE.md)                                                                                                                                        |
-| Roadmap               | [Product roadmap](./docs/microsoft-product-roadmap.md), [pitch roadmap](./docs/pitch/roadmap.md)                                                                                                                                                     |
-| Limitations and risks | [Risks and limitations](./docs/pitch/risks-and-limitations.md), [risk register](./docs/program/risk-register.md), [requirement matrix](./docs/program/requirement-matrix.md)                                                                         |
-| Demonstration         | [Demonstration workspace and packs](./docs/demo/README.md), [Presenting Swarm](./docs/demo/presentation.md)                                                                                                                                          |
-| Operations            | [Observability](./docs/operations/observability.md), [service levels, dashboards and alerts](./docs/operations/slo-dashboards-alerts.md), [incident runbook](./docs/operations/runbook.md), [hosted pilot plan and cost](./docs/azure/pilot-plan.md) |
-| Using and running it  | [User guide](./docs/USER_GUIDE.md), [configuration](./docs/CONFIGURATION.md), [HTTP API](./docs/API.md), [testing](./docs/TESTING.md), [Docker](./docs/DOCKER.md), [troubleshooting](./docs/TROUBLESHOOTING.md), [Azure](./docs/AZURE.md)            |
-
-Swarm is an independent implementation inspired by a public idea: turn documents into a knowledge
-graph, simulate many agents against it, and report what happened. It contains none of that project's
-code or brand assets, and differs deliberately: it is evidence-first, labels every claim, refuses to
-fake results, supports branching and comparison, and authenticates to Azure without a key.
-
-| Folder        | Contents                                                                                                               |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `frontend/`   | React console                                                                                                          |
-| `backend/`    | Fastify API, simulation, grounding, providers, storage, and their unit tests                                           |
-| `shared/`     | Types and schemas used by both                                                                                         |
-| `e2e/`        | Playwright journeys, error states, responsive and accessibility checks, and the presentation walk                      |
-| `scripts/`    | Azure provisioning and verification, the demonstration recorder and seed, the UI audit, the secret scan, the load test |
-| `evaluation/` | Labelled datasets, the offline evaluation harness, thresholds and results                                              |
-| `infra/`      | Bicep for the Azure model account and, not deployed, the hosted pilot                                                  |
-| `docs/`       | Guides, references, matrices, architecture decisions, program records, demonstration material and the pitch package    |
+Swarm is an independent implementation inspired by a public idea: turn documents into a graph,
+simulate many agents against it and report what happened. It contains none of that project's code or
+brand assets. It differs on purpose: it is evidence-first, labels every claim, refuses to fake
+results, compares repeated runs, and authenticates to Azure without a key.
 
 ## License
 
