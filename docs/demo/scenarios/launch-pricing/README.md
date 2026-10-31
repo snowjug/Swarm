@@ -54,8 +54,8 @@ questions to answer.
 Roles you can expect discovery to find and cite, depending on the mode: the head of product, the
 chief financial officer, marketing managers, sales staff and account executives, customer success
 managers, the support team, channel partners and resellers, procurement teams at larger customers,
-small teams as prospects, analysts, and three competitors. Rules mode reads for generic role words and
-will find fewer and plainer ones than a model.
+small teams as prospects, analysts, and three competitors. Rules mode reads for generic role words, so it
+finds the groups the text names that way and misses the others; the review is where you add them.
 
 Alternatives worth adding by hand if the form has none: a smaller price rise; keeping a shorter trial;
 a trial limited to some features; the Team plan kept on sale; existing customers moved or left alone.
@@ -78,10 +78,10 @@ outcome. Answer one, then **Use this scenario**.
 **1:10 The evidence (30 s).** **Build Graph**. Open the funnel summary. Say: "Every passage keeps its
 source. The ledger later compares sources and shows where they disagree."
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders**. Point at the prospects
-and customers, sales, marketing, customer success, partners and competitors, each with a cited quote,
-the uncertainty chips and the prompt about roles nobody was found for. Say: "Roles, with the passage
-shown. They are not real people." **Approve stakeholders and create actors**; point at a trait and its
+**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
+the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
+and the prompt about roles nobody was found for. Say: "Roles, with the passage shown. They are not real
+people." **Approve stakeholders and create actors**, **Review the N actors**; point at a trait and its
 origin badge.
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
@@ -115,10 +115,10 @@ alternatives are what we compare against the baseline, so they are mine to defin
 evidence for "trial" and open two passages. Do the arithmetic aloud and say it is your own check, and
 that the pack does not settle it.
 
-**3:30 to 5:00 Stakeholders and actors.** Open three stakeholders and read their cited quotes. Edit
-one stakeholder's priority and remove or merge one. Read the prompt about roles nobody was found for
-and say what you would do. Approve, then change one trait on one actor and show its badge change to
-"you".
+**3:30 to 5:00 Stakeholders and actors.** Open three rows and read their cited quotes. Edit one
+stakeholder (**Edit**, or the **Priority** menu) and **Merge** or **Remove** one. Read the prompt about
+roles nobody was found for and say what you would do. Approve, choose **Review the N actors**, then change
+one trait on one actor and show its badge change to "you".
 
 **5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band and two findings with their intervals. If one is unstable, say what that means.

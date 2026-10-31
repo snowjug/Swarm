@@ -58,7 +58,8 @@ and platform teams, the security team, the sales director and sales operations, 
 managers, small retailers on monthly plans, large retailers and public-sector customers with
 procurement teams, the board's audit committee and external auditors, investors, the cloud reseller,
 a migration consultancy, implementation partners, rival analytics vendors, and the provider as the
-supplier. Rules mode reads for generic role words and will find fewer and plainer ones than a model.
+supplier. Rules mode reads for generic role words, so it finds the groups the text names that way and misses
+the others; the review is where you add them.
 
 Alternatives worth adding by hand if the form has none: absorb the increase; pass it on at renewal;
 move part of the workload to the second region; negotiate a commitment through the reseller.
@@ -83,11 +84,11 @@ Answer one open point, then **Use this scenario**.
 about the change is a short relayed message. It names no billing unit and no date. Swarm will carry
 that gap forward instead of filling it."
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders**. Point at the note on
-how they were found, a few cited quotes (finance, engineering, customers, the reseller, rival
-vendors), the uncertainty chips, and the prompt about roles nobody was found for. Say: "Roles, with
-the passage shown." Then **Approve stakeholders and create actors**; point at a trait and its origin
-badge. Say: "Population sizes are assumptions."
+**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
+the four counts and the note on how they were found, one row opened to its cited quotes and uncertainty,
+and the prompt about roles nobody was found for. Say: "Roles, with the passage shown." Then **Approve
+stakeholders and create actors**, **Review the N actors**; point at a trait and its origin badge. Say:
+"Population sizes are assumptions."
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change, the spread across the seeded runs, one finding with "N of 30 seeded runs" and
@@ -123,10 +124,10 @@ Search the evidence for "discount" and open a passage or two. Say: "The agreemen
 whether the discount applies to an increase. Nobody has filled that gap here, and Swarm does not
 either."
 
-**3:30 to 5:00 Stakeholders and actors.** Open three stakeholders and read their cited quotes (for
-example finance, customers on monthly plans, the reseller). Edit one stakeholder's priority and
-remove or merge one. Read the prompt about roles nobody was found for and say what you would do. Approve,
-then change one trait on one actor with a slider and show its badge change to "you".
+**3:30 to 5:00 Stakeholders and actors.** Open three rows and read their cited quotes. Edit one
+stakeholder (**Edit**, or the **Priority** menu) and **Merge** or **Remove** one. Read the prompt about
+roles nobody was found for and say what you would do. Approve, choose **Review the N actors**, then change
+one trait on one actor with a slider and show its badge change to "you".
 
 **5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band and two findings with their intervals. If one is unstable, say what that means.

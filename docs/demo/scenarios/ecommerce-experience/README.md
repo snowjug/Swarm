@@ -69,8 +69,8 @@ guest-checkout users. They are not personas drawn from data.
 Roles you can expect discovery to find and cite, depending on the mode: those kinds of shopper, the
 customer support team, warehouse employees, the carriers as delivery partners, the payments provider,
 the web developer, the marketing manager, finance, the operations manager, regulators such as a local
-trading-standards office, and the four competitors. Rules mode reads for generic role words and will
-find fewer and plainer ones than a model.
+trading-standards office, and the four competitors. Rules mode reads for generic role words, so it finds
+the groups the text names that way and misses the others; the review is where you add them.
 
 Alternatives worth adding by hand if the form has none: keep the threshold and add a paid membership;
 raise it to £40; charge by delivery speed; a one-page checkout that keeps guest checkout, and one that
@@ -96,11 +96,11 @@ passage keeps its source. The ledger later compares sources and shows where they
 have network access, add the public page first (see the ten-minute script). Then press **Build
 Graph**.
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders**. Point at the kinds of
-shopper, the support team, the warehouse, the carriers and the competitors, each with a cited quote,
-the uncertainty chips and the prompt about roles nobody was found for. Say: "Kinds of shopper from
-survey free text, not real individuals." **Approve stakeholders and create actors**; point at a trait
-and its origin badge.
+**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
+the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
+and the prompt about roles nobody was found for. Say: "Kinds of shopper from survey free text, not real
+individuals." **Approve stakeholders and create actors**, **Review the N actors**; point at a trait and its
+origin badge.
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change side by side, the spread across the seeded runs, one finding with "N of 30 seeded
@@ -140,10 +140,10 @@ analytics are invented too. What matters is that the two kinds of evidence keep 
 If the fetch fails, read the message: it says why and offers to let you paste the text instead.
 Leave it out and continue; the example does not need it.
 
-**4:00 to 5:30 Stakeholders and actors.** **Build Graph**, then **Find stakeholders**. Open three
-stakeholders and read their cited quotes. Edit one stakeholder's priority and remove or merge one.
-Read the prompt about roles nobody was found for. Approve, then change one trait on one actor and
-show its badge change to "you".
+**4:00 to 5:30 Stakeholders and actors.** **Build Graph**, then **Find stakeholders by reading the text**.
+Open three rows and read their cited quotes. Edit one stakeholder (**Edit**, or the **Priority** menu) and
+**Merge** or **Remove** one. Read the prompt about roles nobody was found for. Approve, choose **Review the
+N actors**, then change one trait on one actor and show its badge change to "you".
 
 **5:30 to 7:00 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
 the trajectory band and two findings with their intervals. If one is unstable, say what that means.
