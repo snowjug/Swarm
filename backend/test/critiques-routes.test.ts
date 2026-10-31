@@ -1,13 +1,16 @@
 import type { z } from 'zod';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Analysis } from '../../shared/analysis.js';
-import type { CritiquesView } from '../../shared/critique.js';
+import type { Analysis, Variant } from '../../shared/analysis.js';
+import { CHANGE_CANNOT_MOVE_ID, type CritiquesView } from '../../shared/critique.js';
 import type { ContradictionRecord } from '../../shared/evidence.js';
 import {
+  actorSetFixture,
   analysisFixture,
   scenarioFixture,
   stakeholderSetFixture,
 } from '../../shared/lab-fixtures.js';
+import { NO_DIRECTION_NOTICE } from '../../shared/signal.js';
+import type { ActorSet } from '../../shared/stakeholders.js';
 import { buildApp } from '../src/app.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import { CritiqueService } from '../src/critics/service.js';
@@ -1004,5 +1007,175 @@ describe('who may read, run and respond', () => {
       ['critiques.run', ID.analyst],
       ['critique.responded', ID.lead],
     ]);
+  });
+});
+
+// --- a comparison that cannot say anything about the change, on the real engine -------------------
+
+async function until<T>(read: () => Promise<T>, done: (value: T) => boolean): Promise<T> {
+  for (let attempt = 0; attempt < 1_200; attempt += 1) {
+    const value = await read();
+    if (done(value)) return value;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error('The condition was not reached in time.');
+}
+
+/** The cast with nobody expected to be helped or harmed. */
+const withoutDirection = (set: ActorSet): ActorSet => ({
+  ...set,
+  actors: set.actors.map((actor) => ({
+    ...actor,
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+  })),
+});
+
+const variant = (change: Partial<Variant>): Variant => ({
+  id: 'proposed-change',
+  label: 'Proposed change',
+  kind: 'alternative',
+  description: 'The change as framed. Its intensity was set by you.',
+  round: 2,
+  intensity: 0.7,
+  impactOverrides: {},
+  traitEdits: [],
+  ...change,
+});
+const NO_CHANGE = variant({
+  id: 'baseline',
+  label: 'No change',
+  kind: 'baseline',
+  description: 'Nothing changes.',
+  round: 1,
+  intensity: 0,
+});
+
+/** Runs the real engine on a cast, as a person would, so that the review reads what the engine says. */
+async function compared(cast: ActorSet, payload: Record<string, unknown>) {
+  const instance = await buildApp({
+    config: testConfig({ LOG_LEVEL: 'silent', RATE_LIMIT_SCALE: '50' }),
+  });
+  applications.push(instance);
+  const { app, repository } = instance;
+  const project = repository.create(fixtureInput({ workflow: 'guided' }));
+  repository.artifacts.put(project.id, 'actors', 'default', cast);
+  repository.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+  const base = `/api/projects/${project.id}`;
+  const started = await app.inject({ method: 'POST', url: `${base}/analysis`, payload });
+  expect(started.statusCode, started.body).toBe(202);
+  const id = (started.json().analysis as Analysis).id;
+  const analysis = await until(
+    async () => (await app.inject(`${base}/analysis/${id}`)).json().analysis as Analysis,
+    (value) => !['running', 'queued'].includes(value.status),
+  );
+  expect(analysis.status, JSON.stringify(analysis.error)).toBe('completed');
+  const stored = () =>
+    JSON.stringify(repository.artifacts.get(project.id, 'analysis', analysis.id));
+  const review = async () => {
+    const run = await app.inject({ method: 'POST', url: `${base}/critiques/run`, payload: {} });
+    expect(run.statusCode, run.body).toBe(200);
+    return (run.json() as CritiquesView).critiques!;
+  };
+  return { ...instance, base, analysis, stored, review };
+}
+
+const sameFindings = (analysis: Analysis) =>
+  analysis.findings.filter(
+    (finding) =>
+      finding.kind === 'direction-vs-baseline' && finding.statement.includes('about the same'),
+  );
+
+describe('a comparison that cannot say anything about the change', () => {
+  it('leads with the criticism that nobody can be moved, however repeatable the "no difference" looks', async () => {
+    const { analysis, review, stored } = await compared(withoutDirection(actorSetFixture()), {
+      runsPerVariant: 12,
+      baseSeed: 31,
+      sensitivity: false,
+    });
+    const reported = sameFindings(analysis);
+    expect(reported.length).toBeGreaterThan(0);
+    expect(reported.every((finding) => finding.holdsIn === finding.of)).toBe(true);
+    const before = stored();
+
+    const set = await review();
+    const [first] = set.critiques;
+    expect(first).toMatchObject({
+      id: CHANGE_CANNOT_MOVE_ID,
+      role: 'methodology',
+      severity: 'major',
+      origin: 'rules',
+      status: 'open',
+    });
+    expect(`${first?.objection} ${first?.requestedAction}`).toBe(NO_DIRECTION_NOTICE);
+    expect(first?.impactOnConclusion).toMatch(/do not follow/u);
+    expect(first?.basis.join('\n')).toContain('about the same');
+    // The system defaults of the key actors are one criticism, not one for each actor, and the
+    // other criticism is not raised where this one already says that nothing can be read.
+    const ids = set.critiques.map((critique) => critique.id);
+    expect(ids.filter((id) => id.startsWith('assumption-defaults-'))).toEqual([]);
+    expect(ids).not.toContain('assumption-no-registered-effect');
+    expect(set.critiques.filter((critique) => critique.id === CHANGE_CANNOT_MOVE_ID)).toHaveLength(
+      1,
+    );
+    expect(stored()).toBe(before);
+  });
+
+  it('keeps the answer to it when the review is made again, and still leads with it', async () => {
+    const { app, base, review } = await compared(withoutDirection(actorSetFixture()), {
+      runsPerVariant: 12,
+      baseSeed: 31,
+      sensitivity: false,
+    });
+    await review();
+    const answered = await app.inject({
+      method: 'PUT',
+      url: `${base}/critiques/${CHANGE_CANNOT_MOVE_ID}/response`,
+      payload: {
+        text: 'Who is helped or harmed will be said in the stakeholder review first.',
+        status: 'accepted',
+      },
+    });
+    expect(answered.statusCode, answered.body).toBe(200);
+
+    const again = await review();
+    expect(again.critiques[0]).toMatchObject({ id: CHANGE_CANNOT_MOVE_ID, status: 'accepted' });
+    expect(again.critiques[0]?.response?.text).toContain('stakeholder review');
+    const shown = (await app.inject(`${base}/critiques`)).json() as CritiquesView;
+    expect(shown.critiques?.critiques[0]?.id).toBe(CHANGE_CANNOT_MOVE_ID);
+  });
+
+  it('raises the other one when someone has a direction but the change was too faint to show it', async () => {
+    const { analysis, review, stored } = await compared(actorSetFixture(), {
+      runsPerVariant: 12,
+      baseSeed: 31,
+      sensitivity: true,
+      variants: [NO_CHANGE, variant({ intensity: 0.001 })],
+    });
+    expect(sameFindings(analysis).length).toBeGreaterThan(0);
+    const before = stored();
+
+    const set = await review();
+    const ids = set.critiques.map((critique) => critique.id);
+    expect(ids).not.toContain(CHANGE_CANNOT_MOVE_ID);
+    const found = set.critiques.find(
+      (critique) => critique.id === 'assumption-no-registered-effect',
+    );
+    expect(found).toMatchObject({ role: 'assumption', severity: 'major', origin: 'rules' });
+    expect(found?.target.kind).toBe('finding');
+    expect(found?.requestedAction).toMatch(/Raise the intensity/u);
+    expect(found?.basis.join('\n')).toContain('Intensity of Proposed change: 0.001');
+    expect(stored()).toBe(before);
+  });
+
+  it('says neither where the change moved the result', async () => {
+    const { analysis, review } = await compared(actorSetFixture(), {
+      runsPerVariant: 12,
+      baseSeed: 31,
+      sensitivity: true,
+    });
+    expect(sameFindings(analysis)).toEqual([]);
+    const ids = (await review()).critiques.map((critique) => critique.id);
+    expect(ids).not.toContain(CHANGE_CANNOT_MOVE_ID);
+    expect(ids).not.toContain('assumption-no-registered-effect');
   });
 });
