@@ -44,7 +44,9 @@ if (!isDirectory) {
 }
 
 const rows = [];
-for (const path of files(target)) {
+// The files are listed before any copy is written or removed, so that a copy left by an earlier run
+// and removed by this one is not looked for afterwards.
+for (const path of [...files(target)]) {
   if (!TEXT.has(extname(path).toLowerCase())) continue;
   const original = readFileSync(path);
   const brotli = keep(

@@ -564,6 +564,29 @@ describe('a scan of a great deal of evidence', () => {
     expect(stats.pairsCompared).toBe(0);
   });
 
+  it('reads a list of 512 sentences and skips one of 513, whatever the exported limits are', () => {
+    const read = emptyStats();
+    detectContradictions(apart(saidAgain(512)), NOW, read);
+    expect(read.skippedLists).toBe(0);
+    expect(read.postingVisits).toBeGreaterThan(0);
+    const skipped = emptyStats();
+    detectContradictions(apart(saidAgain(513)), NOW, skipped);
+    expect(skipped.skippedLists).toBeGreaterThan(0);
+    expect(skipped.postingVisits).toBe(0);
+    expect(skipped.pairsCompared).toBe(0);
+  });
+
+  it('compares a sentence with 128 partners at most: 129 alike are all compared, 130 lose one pair', () => {
+    const within = emptyStats();
+    detectContradictions(apart(saidAgain(129)), NOW, within);
+    expect(within.cappedSentences).toBe(0);
+    expect(within.pairsCompared).toBe((129 * 128) / 2);
+    const over = emptyStats();
+    detectContradictions(apart(saidAgain(130)), NOW, over);
+    expect(over.cappedSentences).toBe(1);
+    expect(over.pairsCompared).toBe((130 * 129) / 2 - 1);
+  });
+
   it('compares a sentence with no more than the limit of its partners', () => {
     const families = ['alpha', 'bravo', 'charlie', 'delta'];
     const stats = emptyStats();

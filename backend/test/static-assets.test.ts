@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -81,10 +81,28 @@ describe('scripts/precompress.mjs', () => {
     expect(listing()).toEqual(before);
   });
 
+  it('removes the copies of an asset that no longer shrinks, and finishes', () => {
+    const rerun = mkdtempSync(join(tmpdir(), 'swarm-precompress-'));
+    try {
+      writeFileSync(join(rerun, 'index.html'), FILES['index.html']!);
+      writeFileSync(join(rerun, 'tiny.js'), 'a=1;');
+      writeFileSync(join(rerun, 'tiny.js.br'), 'left by an earlier, larger build');
+      writeFileSync(join(rerun, 'tiny.js.gz'), 'left by an earlier, larger build');
+      const run = spawnSync(process.execPath, [PRECOMPRESS, rerun], { encoding: 'utf8' });
+      expect(run.status, run.stderr).toBe(0);
+      expect(readdirSync(rerun).filter((name) => name.startsWith('tiny.js'))).toEqual(['tiny.js']);
+      expect(readdirSync(rerun)).toContain('index.html.br');
+    } finally {
+      rmSync(rerun, { recursive: true, force: true });
+    }
+  });
+
   it('fails, saying so, when there is nothing built to compress', () => {
-    expect(() =>
-      execFileSync(process.execPath, [PRECOMPRESS, join(root, 'missing')], { stdio: 'pipe' }),
-    ).toThrow();
+    const run = spawnSync(process.execPath, [PRECOMPRESS, join(root, 'missing')], {
+      encoding: 'utf8',
+    });
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain('is not a directory. Build the frontend first.');
   });
 });
 

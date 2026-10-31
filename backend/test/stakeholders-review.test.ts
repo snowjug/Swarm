@@ -139,6 +139,32 @@ describe('accepting, editing and re-prioritising', () => {
     expect(find(again, target!.name).expectedImpact).toEqual(none.expectedImpact);
   });
 
+  it('stops calling the direction read from the wording evidence when only a quote that contradicts it is left', () => {
+    const target = base.stakeholders.find(
+      (s) => s.expectedImpact.origin === 'evidence' && s.evidence.length > 0,
+    )!;
+    const supporting = target.evidence[0]!;
+    const both = structuredClone(base);
+    both.stakeholders.find((s) => s.id === target.id)!.evidence = [
+      supporting,
+      { ...supporting, passageId: `${supporting.passageId}-other`, role: 'contradicts' },
+    ];
+    const next = applyReview(
+      both,
+      review(both, (list) => {
+        const own = list.find((s) => s.id === target.id)!;
+        own.evidence = own.evidence.filter((ref) => ref.role === 'contradicts');
+      }),
+      LATER,
+    );
+    const left = find(next, target.name);
+    expect(left.evidence.map((ref) => ref.role)).toEqual(['contradicts']);
+    expect(left.expectedImpact.origin).toBe('system-assumption');
+    expect(left.expectedImpact.rationale).toContain(
+      'No quote is cited for this direction now, so it is an assumption.',
+    );
+  });
+
   it('takes the impact as the person’s own when they change it, and only then', () => {
     const next = applyReview(
       base,
