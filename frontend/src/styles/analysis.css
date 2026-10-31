@@ -140,6 +140,24 @@
   font-size: 13px;
   line-height: 1.6;
 }
+/* The button that starts a comparison, and what stops it, stay on the screen while the form is longer than
+   it: the one action of the stage is never below the fold. A field that takes focus is kept clear of it. */
+.analysis-submit {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: 0 -16px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+/* What stops it, in a live region that is there even when empty, sits above the button only when it has something to say. */
+.analysis-submit > div:not(:empty) + div {
+  margin-top: 8px;
+}
+.analysis-setup :is(input, select, summary, button) {
+  scroll-margin-bottom: 84px;
+}
 
 /* While it runs */
 .analysis-progress {
@@ -508,6 +526,10 @@
 @media (max-width: 640px) {
   .analysis-panel {
     padding: 14px 10px;
+  }
+  .analysis-submit {
+    margin: 0 -10px;
+    padding: 10px;
   }
   .analysis-variant-fields {
     grid-template-columns: minmax(0, 1fr);
