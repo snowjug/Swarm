@@ -1,9 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
-import type { Analysis, Simulator } from '../../../shared/analysis.js';
+import { MAX_ROUNDS, type Analysis, type Simulator } from '../../../shared/analysis.js';
 import {
   DEFAULT_ROUNDS,
+  MAX_RUNS_PER_VARIANT,
   MAX_STORED_ANALYSES,
+  MAX_VARIANTS,
+  MIN_RUNS_PER_VARIANT,
   startAnalysisSchema,
   type AnalysisList,
   type AnalysisReadiness,
@@ -56,6 +59,43 @@ interface ActiveRun {
 }
 
 const keyOf = (projectId: string, analysisId: string): string => `${projectId}/${analysisId}`;
+
+const SCENARIO_FIELDS: Record<string, string> = {
+  label: 'its name has to be from 1 to 120 characters',
+  description: 'its description is longer than 600 characters',
+  intensity: 'its intensity has to be a number from 0 to 1',
+  round: `the round it starts in has to be a whole number from 1 to ${MAX_ROUNDS}`,
+  kind: 'it has to be the baseline or an alternative',
+  id: 'its id has to be lower-case letters, digits and hyphens',
+};
+
+/**
+ * What a request that does not fit the limits says to the person who sent it: the limit, in a sentence.
+ * The schema's own words name fields and quote what was sent, so they are not passed on.
+ */
+export function refusalOf(error: ZodError): AppError {
+  const issue = error.issues[0];
+  const [field, at, inner] = issue?.path ?? [];
+  let message =
+    'The settings of the comparison were not accepted. Check the number of runs, the scenarios and the rounds.';
+  if (issue?.code === 'unrecognized_keys') {
+    message = 'The settings of the comparison include something this server does not use.';
+  } else if (field === 'runsPerVariant') {
+    message = `Choose a whole number of seeded runs for each scenario, from ${MIN_RUNS_PER_VARIANT} to ${MAX_RUNS_PER_VARIANT}.`;
+  } else if (field === 'rounds') {
+    message = `A run has a whole number of rounds from 3 to ${MAX_ROUNDS}.`;
+  } else if (field === 'baseSeed') {
+    message = 'The first seed has to be a whole number from 1 to 2,147,483,647.';
+  } else if (field === 'sensitivity') {
+    message = 'Whether to test sensitivity has to be yes or no.';
+  } else if (field === 'variants' && typeof at === 'number') {
+    const clause = typeof inner === 'string' ? SCENARIO_FIELDS[inner] : undefined;
+    message = `Scenario ${at + 1} was not accepted${clause ? `: ${clause}` : ''}.`;
+  } else if (field === 'variants') {
+    message = `Compare between 2 and ${MAX_VARIANTS} scenarios: a baseline and at least one alternative, or leave the scenarios out to use the suggested ones.`;
+  }
+  return new AppError(400, 'INVALID_INPUT', message);
+}
 const running = (status: Analysis['status']): boolean =>
   status === 'running' || status === 'queued';
 
@@ -155,9 +195,15 @@ export class AnalysisService {
     return record.data;
   }
 
+  private accepted(body: unknown) {
+    const parsed = startAnalysisSchema.safeParse(body ?? {});
+    if (!parsed.success) throw refusalOf(parsed.error);
+    return parsed.data;
+  }
+
   /** Checks the request, saves the comparison as running, and starts it without waiting for it. */
   start(projectId: string, body: unknown, actorId: string): Analysis {
-    const input = startAnalysisSchema.parse(body ?? {});
+    const input = this.accepted(body);
     const cast = this.cast(projectId);
     if (!cast) {
       throw new AppError(
@@ -457,14 +503,24 @@ export class AnalysisService {
     }
   }
 
-  /** Keeps a project's saved comparisons to a bounded number by removing its oldest finished ones. */
+  /**
+   * Keeps a project's saved comparisons to a bounded number by removing its oldest finished ones, but
+   * never the one the decision brief or the independent review was made from: without it they could
+   * not draw their charts or be checked against what they say.
+   */
   private prune(projectId: string, keep: string): void {
     try {
       const all = this.repository.artifacts.list(projectId, 'analysis');
+      const used = new Set(
+        [
+          this.repository.artifacts.get(projectId, 'brief')?.data.analysisId,
+          this.repository.artifacts.get(projectId, 'critiques')?.data.analysisId,
+        ].filter((id): id is string => typeof id === 'string'),
+      );
       let excess = all.length - MAX_STORED_ANALYSES;
       for (const record of all) {
         if (excess <= 0) break;
-        if (record.key === keep || running(record.data.status)) continue;
+        if (record.key === keep || used.has(record.key) || running(record.data.status)) continue;
         if (this.active.has(keyOf(projectId, record.key))) continue;
         this.repository.artifacts.delete(projectId, 'analysis', record.key);
         excess -= 1;
