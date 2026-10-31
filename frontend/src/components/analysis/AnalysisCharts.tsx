@@ -9,9 +9,10 @@ import {
 import { useElementSize } from '../../hooks/useElementSize';
 import {
   ORIGIN,
-  SENSITIVITY,
+  SHOWN_ASSUMPTIONS,
   VARIANT_STYLES,
   percentText,
+  sensitivityView,
   signedNumber,
   signedPoints,
   stanceAxis,
@@ -318,10 +319,78 @@ export function BandChart({ analysis }: { analysis: Analysis }) {
   );
 }
 
-/** How far the headline moved when each assumption was moved, with the noise of the paired runs and where the assumption came from. */
-export function SensitivityBars({ rows }: { rows: SensitivityRow[] }) {
+/** One assumption that was moved: how far the headline went, with the noise of the paired runs and where the assumption came from. */
+function SensitivityItem({
+  row,
+  reach,
+  noEffect,
+}: {
+  row: SensitivityRow;
+  reach: number;
+  noEffect: boolean;
+}) {
+  const share = (Math.abs(row.shift) / reach) * 50;
+  const whisker = (row.standardError / reach) * 50;
+  const origin = ORIGIN[row.assumptionOrigin];
+  const result = sensitivityView(row.classification, noEffect);
+  const unsupported = row.classification === 'assumption-sensitive' && !origin.evidenced;
+  return (
+    <li className={unsupported ? 'analysis-sens-row analysis-sens-warn' : 'analysis-sens-row'}>
+      <div className="analysis-sens-head">
+        <strong>{row.label}</strong>
+        <span className="analysis-chips">
+          <ToneChip tone={result.tone} label={result.label} />
+          <ToneChip tone={origin.tone} label={origin.label} />
+        </span>
+      </div>
+      <div
+        className="analysis-sens-track"
+        role="img"
+        aria-label={`${row.label}: the simulated share moved by ${signedPoints(row.shift)} points, with noise of about ${Math.round(row.standardError * 100)} points. ${result.label}. ${origin.label}.`}
+      >
+        <span className="analysis-sens-zero" />
+        <span
+          className={`analysis-sens-bar ${row.shift < 0 ? 'analysis-sens-down' : 'analysis-sens-up'}`}
+          style={
+            row.shift < 0
+              ? { right: '50%', width: `${share}%` }
+              : { left: '50%', width: `${share}%` }
+          }
+        />
+        <span
+          className="analysis-sens-noise"
+          style={{
+            left: `${50 + Math.sign(row.shift || 1) * share - whisker}%`,
+            width: `${whisker * 2}%`,
+          }}
+        />
+      </div>
+      <p className="analysis-sens-text">
+        {signedPoints(row.shift)} points of the simulated share (±
+        {Math.round(row.standardError * 100)} noise), from {percentText(row.baseMean)}.{' '}
+        {result.explain}
+      </p>
+    </li>
+  );
+}
+
+/**
+ * How far the headline moved when each assumption was moved, with the noise of the paired runs and where
+ * the assumption came from. The first few are shown, the rest one disclosure away on the same scale, and
+ * the table beside the chart has them all. Where the change cannot move anyone, "robust" is not shown as a
+ * finding: there was nothing to test.
+ */
+export function SensitivityBars({
+  rows,
+  noEffect = false,
+}: {
+  rows: SensitivityRow[];
+  noEffect?: boolean;
+}) {
   const reach = Math.max(0.1, ...rows.map((row) => Math.abs(row.shift) + row.standardError));
   const metric = rows[0]?.metric ?? 'Share ending in switch or resist';
+  const shown = rows.slice(0, SHOWN_ASSUMPTIONS);
+  const rest = rows.slice(SHOWN_ASSUMPTIONS);
   return (
     <figure className="analysis-figure">
       <figcaption>How the result moves when one assumption is moved</figcaption>
@@ -330,57 +399,23 @@ export function SensitivityBars({ rows }: { rows: SensitivityRow[] }) {
         measure is: {metric}. Bars to the right mean more simulated members ended that way.
       </p>
       <ol className="analysis-sens">
-        {rows.map((row) => {
-          const share = (Math.abs(row.shift) / reach) * 50;
-          const whisker = (row.standardError / reach) * 50;
-          const origin = ORIGIN[row.assumptionOrigin];
-          const unsupported = row.classification === 'assumption-sensitive' && !origin.evidenced;
-          return (
-            <li
-              key={row.id}
-              className={unsupported ? 'analysis-sens-row analysis-sens-warn' : 'analysis-sens-row'}
-            >
-              <div className="analysis-sens-head">
-                <strong>{row.label}</strong>
-                <span className="analysis-chips">
-                  <ToneChip
-                    tone={SENSITIVITY[row.classification].tone}
-                    label={SENSITIVITY[row.classification].label}
-                  />
-                  <ToneChip tone={origin.tone} label={origin.label} />
-                </span>
-              </div>
-              <div
-                className="analysis-sens-track"
-                role="img"
-                aria-label={`${row.label}: the simulated share moved by ${signedPoints(row.shift)} points, with noise of about ${Math.round(row.standardError * 100)} points. ${SENSITIVITY[row.classification].label}. ${origin.label}.`}
-              >
-                <span className="analysis-sens-zero" />
-                <span
-                  className={`analysis-sens-bar ${row.shift < 0 ? 'analysis-sens-down' : 'analysis-sens-up'}`}
-                  style={
-                    row.shift < 0
-                      ? { right: '50%', width: `${share}%` }
-                      : { left: '50%', width: `${share}%` }
-                  }
-                />
-                <span
-                  className="analysis-sens-noise"
-                  style={{
-                    left: `${50 + Math.sign(row.shift || 1) * share - whisker}%`,
-                    width: `${whisker * 2}%`,
-                  }}
-                />
-              </div>
-              <p className="analysis-sens-text">
-                {signedPoints(row.shift)} points of the simulated share (±
-                {Math.round(row.standardError * 100)} noise), from {percentText(row.baseMean)}.{' '}
-                {SENSITIVITY[row.classification].explain}
-              </p>
-            </li>
-          );
-        })}
+        {shown.map((row) => (
+          <SensitivityItem key={row.id} row={row} reach={reach} noEffect={noEffect} />
+        ))}
       </ol>
+      {rest.length > 0 && (
+        <details className="analysis-more">
+          <summary>Show all {rows.length} assumptions</summary>
+          <p className="field-help">
+            The other {rest.length}, on the same scale and in the same order.
+          </p>
+          <ol className="analysis-sens" start={shown.length + 1}>
+            {rest.map((row) => (
+              <SensitivityItem key={row.id} row={row} reach={reach} noEffect={noEffect} />
+            ))}
+          </ol>
+        </details>
+      )}
       <details className="analysis-table-toggle">
         <summary>View the sensitivity as a table</summary>
         <div className="analysis-table-wrap" aria-label="Sensitivity values" {...TABLE_REGION}>
@@ -403,7 +438,7 @@ export function SensitivityBars({ rows }: { rows: SensitivityRow[] }) {
                   <td>{percentText(row.baseMean)}</td>
                   <td>{signedNumber(row.shift)}</td>
                   <td>{row.standardError.toFixed(3)}</td>
-                  <td>{SENSITIVITY[row.classification].label}</td>
+                  <td>{sensitivityView(row.classification, noEffect).label}</td>
                   <td>{ORIGIN[row.assumptionOrigin].label}</td>
                 </tr>
               ))}

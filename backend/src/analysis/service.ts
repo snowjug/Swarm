@@ -9,6 +9,7 @@ import {
   type AnalysisReadiness,
   type AnalysisSummary,
 } from '../../../shared/analysis-plan.js';
+import { changeCanMoveAnyone, NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
 import { AppError } from '../errors.js';
 import { simulate, SimulationInputError } from '../simulation/simulate.js';
 import type { Repository } from '../storage/repository.js';
@@ -114,6 +115,7 @@ export class AnalysisService {
         suggestedVariants: [],
         perturbations: 0,
         rounds: DEFAULT_ROUNDS,
+        warnings: [],
         may: { run: mayRun },
       };
     }
@@ -133,6 +135,8 @@ export class AnalysisService {
         suggestedVariants.find((variant) => variant.kind === 'alternative'),
       ).length,
       rounds: DEFAULT_ROUNDS,
+      // A warning, not a refusal: a comparison where nothing can move shows how much the runs vary by chance.
+      warnings: changeCanMoveAnyone(cast.actors, suggestedVariants) ? [] : [NO_DIRECTION_NOTICE],
       may: { run: mayRun },
     };
   }

@@ -100,6 +100,12 @@ export interface AnalysisReadiness {
   suggestedVariants: Variant[];
   perturbations: number;
   rounds: number;
+  /**
+   * What a person should know before running, said in the words the page shows. None of it stops a
+   * run: comparing with a change that moves no one is a fair test of how much the simulation varies
+   * by chance. Empty when there is nothing to say, and before the actors exist.
+   */
+  warnings: string[];
   may: { run: boolean };
 }
 

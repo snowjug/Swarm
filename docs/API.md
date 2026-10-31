@@ -129,8 +129,11 @@ and is kept as the project's `analysis` artifacts. Its method, limits and what i
 not mean are in [analysis/methodology.md](./analysis/methodology.md).
 
 - **Routes.** `GET /api/projects/:id/analysis` lists the saved comparisons (newest first) with what the
-  next one would use (`readiness`: the actors, the suggested scenarios, whether the caller may run), and
-  answers 200 with an empty list for a project that never ran one. `GET .../analysis/:aid` reads one in
+  next one would use (`readiness`: the actors, the suggested scenarios, `warnings`, whether the caller
+  may run), and answers 200 with an empty list for a project that never ran one. `readiness.warnings`
+  is a list of plain sentences, empty by default: it holds the notice that no stakeholder has an
+  expected direction of impact (so the change cannot move anyone, and every difference from no change
+  is noise) when that is so. It never stops a run. `GET .../analysis/:aid` reads one in
   full. `POST .../analysis` starts one and answers 202 with it as `running`; its body is
   `{ runsPerVariant?, baseSeed?, variants?, sensitivity?, rounds? }` (3 to 200 runs for each scenario,
   `variants` `"auto"` or up to 8 scenarios, 3 to 36 rounds). The caller polls `GET .../analysis/:aid`

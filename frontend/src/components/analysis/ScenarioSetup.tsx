@@ -8,7 +8,8 @@ import {
   type AnalysisReadiness,
   type StartAnalysisInput,
 } from '../../../../shared/analysis-plan';
-import { describeEdit, estimateText, setupProblems } from '../../lib/analysis';
+import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
+import { ESTIMATE_BASIS, describeEdit, estimateText, setupProblems } from '../../lib/analysis';
 import { Notice, Spinner } from '../ui';
 
 /** The scenarios of a comparison, as a person may edit them. Numbers are kept as typed until they are used. */
@@ -125,6 +126,51 @@ function VariantRow({
 }
 
 /**
+ * What a person is told before running that does not stop them. Where nothing can move anyone, a
+ * comparison is still a fair test of how much the simulation varies by chance, so it stays allowed, with
+ * the way to say who is helped or harmed beside the warning.
+ */
+function Warnings({
+  warnings,
+  onOpenStep,
+}: {
+  warnings: string[];
+  onOpenStep?: (step: 'environment') => void;
+}) {
+  return (
+    <>
+      {warnings.map((warning) =>
+        warning === NO_DIRECTION_NOTICE ? (
+          <Notice
+            key={warning}
+            tone="warning"
+            title="Nothing in this change can move anyone yet"
+            action={
+              onOpenStep ? (
+                <button
+                  className="button button-secondary button-small"
+                  type="button"
+                  onClick={() => onOpenStep('environment')}
+                >
+                  Open the stakeholder review
+                </button>
+              ) : undefined
+            }
+          >
+            {warning} You can still run it: with nothing to move, it shows only how much the
+            simulation varies by chance.
+          </Notice>
+        ) : (
+          <Notice key={warning} tone="warning">
+            {warning}
+          </Notice>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
  * The scenarios to compare, how many seeded runs of each, and whether to test the sensitivity of the
  * proposed change to its assumptions, with what that will cost said before anything is run.
  */
@@ -136,6 +182,7 @@ export function ScenarioSetup({
   error,
   submitLabel = 'Compare scenarios',
   onStart,
+  onOpenStep,
 }: {
   readiness: AnalysisReadiness;
   initial?: SetupSettings;
@@ -144,6 +191,8 @@ export function ScenarioSetup({
   error: string | null;
   submitLabel?: string;
   onStart: (input: StartAnalysisInput) => void;
+  /** When given, a warning about who the change affects offers the step where that is said. */
+  onOpenStep?: (step: 'environment') => void;
 }) {
   const id = useId();
   const original = initial?.variants ?? readiness.suggestedVariants;
@@ -151,6 +200,7 @@ export function ScenarioSetup({
   const [runs, setRuns] = useState(initial?.runsPerVariant ?? 30);
   const [sensitivity, setSensitivity] = useState(initial?.sensitivity ?? true);
   const rounds = initial?.rounds ?? readiness.rounds;
+  const members = readiness.actors?.members ?? 0;
 
   const parsed: Variant[] = rows.map((row) => ({
     ...row.variant,
@@ -224,8 +274,9 @@ export function ScenarioSetup({
       className="analysis-setup"
       noValidate
       onSubmit={submit}
-      aria-describedby={`${id}-estimate ${id}-problems`}
+      aria-describedby={`${id}-estimate ${id}-basis ${id}-problems`}
     >
+      <Warnings warnings={readiness.warnings} onOpenStep={onOpenStep} />
       <p className="field-help">
         Each scenario runs on the same seeds, so that every run of a change can be compared with the
         run of the baseline that shares its randomness. How strongly a change lands is an assumption
@@ -291,10 +342,17 @@ export function ScenarioSetup({
             runsPerVariant: runs,
             sensitivity,
             perturbations: readiness.perturbations,
+            members,
+            rounds,
           },
           lastWallMs,
         )}
       </p>
+      {members > 0 && (
+        <p id={`${id}-basis`} className="analysis-estimate">
+          {ESTIMATE_BASIS}
+        </p>
+      )}
       <div id={`${id}-problems`} aria-live="polite">
         {problems.length > 0 && (
           <ul className="analysis-problems">

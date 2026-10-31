@@ -62,6 +62,19 @@ At most 40 findings are kept, most important first: comparisons with the baselin
 orderings, events and last the response of each actor; within a kind the change before its
 alternatives, then the more repeatable first.
 
+### Which findings the page shows first
+
+The results page does not list forty findings at once. It reads them by how steady they are: the
+repeatable ones, and the rare ones that matter, first; then the mostly repeatable; then the unstable;
+and last the rare ones that do not matter. Within each group it keeps the order above, which puts
+the change before its alternatives. A rare finding matters when it is about what a change might set
+off (an adverse threshold being crossed, or a follow-on event) under a scenario that is not the
+baseline: how seldom the threshold was crossed, even never, is what the comparison was asked to find
+out. A rare ordering, and anything under the baseline (which is only the reference), do not. The first
+8 are shown, each as its statement, its class and how many runs it held in (with the interval), and
+the rest are under "Show all N findings", in the same form and the same order. Nothing is left out or
+changed: only the first screen is shorter.
+
 ## Repeatability: the Wilson interval and the classes
 
 For a finding that held in `x` of `n` runs, with `p = x / n` and `z = 1.96`:
@@ -138,12 +151,52 @@ Each row records where the moved assumption came from (`assumptionOrigin`): a tr
 (evidence, user, system assumption or model), "system assumption" for a spread, and for the intensity
 "system assumption" unless the scenario says it was set by the person. A sensitive assumption that no
 evidence backs is highlighted, because it is where a result rests on a guess. The twelve most telling
-rows are kept: sensitive ones first, then by size of shift.
+rows are kept: sensitive ones first, then by size of shift. The page shows the first 6, with the rest
+under "Show all N assumptions" on the same scale, and the table beside the chart has every row.
 
 Cost is bounded: at most 38 moves, each on at most 30 seeds (the first seeds of the main runs), so at
 most 1,140 extra runs. Sensitivity can be turned off. **Not explored:** moving two assumptions
 together, assumptions of actors outside the four most influential, and anything about the rules of the
 engine itself.
+
+## What the results say first
+
+Above everything else the page gives three lines, made only of what the comparison already states:
+
+1. which scenarios were compared, and how many seeded runs of each, on the same seeds;
+2. the finding that states the direction of the proposed change against the baseline, word for word;
+3. whether that finding is repeatable: its class, how many runs it held in and its interval.
+
+Nothing is added to the findings, and there is no number in these lines that a finding does not already
+give. Where no finding sets the proposed change against the baseline, the second line says so. Where
+the change cannot move anyone (below), there is no direction to state, and the lines say that instead
+and do not call anything repeatable.
+
+## A change that cannot move anyone
+
+A change can move a simulated member only through an actor's `impact`: how it is expected to land on
+them. The engine reads it from the actor, or from the scenario if the scenario sets its own for that
+actor. When no stakeholder has been given an expected direction of impact, every actor's `impact` is 0, and
+a scenario with any intensity still changes nothing. Every difference from no change is then noise, and a
+comparison reports that noise faithfully: "30 of 30 runs about the same", and sensitivity rows of a few
+thousandths that look robust only because there was nothing to move. A person could read that as a
+result.
+
+`changeCanMoveAnyone(actors, variants)` in [shared/signal.ts](../../shared/signal.ts) says whether the
+declared assumptions give a change any way to move anyone: some scenario other than the baseline has an
+intensity above 0, and some actor's impact (or the scenario's override of it) is not 0. The comparison
+uses it twice, and refuses nothing:
+
+- **Before running.** The list route's `readiness.warnings` holds the shared notice
+  (`NO_DIRECTION_NOTICE`) when the suggested scenarios fail it, and is empty otherwise and before the
+  actors exist. The page shows it above the button that starts a comparison, with the way to the
+  stakeholder review where a direction is given. The comparison is still allowed: a comparison with no
+  change is a fair test of how much the simulation varies by chance.
+- **After running.** The same test on the comparison's own cast and scenarios. When it fails, the same
+  notice is the first thing in the results, the three lines above say that nothing can move, and a
+  sensitivity row that would have been called `robust` reads "No effect to test" (neutral, not green)
+  with the explanation that this is not evidence that the result is robust. Rows that did move are
+  reported as they are.
 
 ## Spread over rounds, and the representative run
 
@@ -165,6 +218,29 @@ occurred.
   also say which seeds were used and that repeatability describes the randomness of the runs.
 - **Cost.** Every simulated run (including sensitivity and the repeated representative run), the
   simulated members and the wall time. Model calls and tokens are 0.
+- **Time, said before running.** The screen says how long a comparison will take, from the engine's
+  measured speed and not from any assumed one: 2 to 3 ms for a run of the typical cast of the
+  [engine benchmark](./engine-benchmark.md) (600 simulated members over 24 rounds), multiplied by
+  `members × rounds / 14,400` for a cast with more member updates than that, and never less, because
+  what a run costs apart from its members does not shrink with them. The estimate is the runs of the
+  comparison (sensitivity included) times that, said in whole seconds, rounded outwards ("about 2 to 4
+  seconds"), with one line under it saying where the speed comes from. It was checked against whole
+  comparisons on the real engine, with the summaries, findings and sensitivity around the runs:
+
+  | Cast                                 | Simulated members | Rounds | A run, in a whole comparison                 |
+  | ------------------------------------ | ----------------- | ------ | -------------------------------------------- |
+  | Copilot in Teams example, rules mode | 334 (25 actors)   | 12     | 2.7 and 3.2 ms (1,201 runs: 3.3 s and 3.8 s) |
+  | 8 actors of 20 members               | 160               | 12     | 0.64 to 0.69 ms                              |
+  | 20 actors of 30 members              | 600               | 12     | 1.5 to 2.1 ms                                |
+  | 20 actors of 30 members              | 600               | 24     | 2.4 ms                                       |
+  | 60 actors of 200 members             | 12,000            | 12     | 17 to 18.5 ms                                |
+
+  These are timings on one shared laptop, and they move with what else it is doing: the same cast took
+  up to 4.5 ms a run when the CPU was fully busy. The estimate is a guide to the order of magnitude. A
+  cast smaller than the typical one is counted at the typical speed, which overstates it (the 8-actor
+  cast above took about a third of that); one that is much larger is counted in proportion, which is
+  close at 12 rounds and overstates it at 36. When the actors are not known the screen gives no time.
+
 - **Cross-check.** When the project also has a completed deep-dive run, the comparison says whether
   that run's final mean stance lies within the 10th to 90th percentile of the proposed change's final
   round. The two use different engines, so being inside is a plausibility check and not a validation,
@@ -197,7 +273,7 @@ second instance starting would mark the other's running comparison as interrupte
 
 | Method | Path                                     | Behavior                                                                                                                                                                                                                                                                                  |
 | ------ | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/api/projects/:id/analysis`             | The saved comparisons (summaries, newest first) and what the next one would use (`readiness`). 200 with an empty list for a project that has never run one. `read`.                                                                                                                       |
+| GET    | `/api/projects/:id/analysis`             | The saved comparisons (summaries, newest first) and what the next one would use (`readiness`: the actors, the suggested scenarios, `warnings`, whether the caller may run). 200 with an empty list for a project that has never run one. `read`.                                          |
 | GET    | `/api/projects/:id/analysis/:aid`        | One comparison in full. 404 `ANALYSIS_NOT_FOUND` for another project's. `read`.                                                                                                                                                                                                           |
 | POST   | `/api/projects/:id/analysis`             | Starts one: `{ runsPerVariant?, baseSeed?, variants?: 'auto' \| Variant[], sensitivity?, rounds? }`. 202 with the comparison as `running`. 409 `ACTORS_REQUIRED` without an `actors` artifact, 409 `ANALYSIS_RUNNING`, 429 `ANALYSIS_BUSY`, 400 for a request that is not allowed. `run`. |
 | POST   | `/api/projects/:id/analysis/:aid/cancel` | Asks a running comparison to stop at its next run. 202; 409 `ANALYSIS_NOT_RUNNING` when it is not running. `run`.                                                                                                                                                                         |

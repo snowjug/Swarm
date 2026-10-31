@@ -3,11 +3,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   runOutcomeSchema,
   type Analysis,
+  type Finding,
   type SensitivityRow,
   type Variant,
 } from '../../../../shared/analysis';
 import type { AnalysisReadiness, AnalysisSummary } from '../../../../shared/analysis-plan';
 import { FIXTURE_VARIANTS, analysisFixture } from '../../../../shared/lab-fixtures';
+import { NO_DIRECTION_NOTICE } from '../../../../shared/signal';
 import type { AnalysisState } from '../../hooks/useAnalysis';
 import { projectFixture } from '../../test/project';
 import { visibleText } from '../../test/provider';
@@ -33,6 +35,7 @@ const readiness = (patch: Partial<AnalysisReadiness> = {}): AnalysisReadiness =>
   suggestedVariants: [...FIXTURE_VARIANTS, alternative],
   perturbations: 38,
   rounds: 12,
+  warnings: [],
   may: { run: true },
   ...patch,
 });
@@ -129,6 +132,87 @@ function finished(patch: Partial<Analysis> = {}): Analysis {
     },
     ...patch,
   };
+}
+
+/** The same comparison, of a cast in which no stakeholder has an expected direction of impact. */
+const withoutDirection = (analysis: Analysis): Analysis => ({
+  ...analysis,
+  actors: analysis.actors.map((actor) => ({
+    ...actor,
+    traits: { ...actor.traits, impact: { ...actor.traits.impact, value: 0 } },
+  })),
+});
+
+const GROUPS = [
+  'Alpha',
+  'Bravo',
+  'Charlie',
+  'Delta',
+  'Echo',
+  'Foxtrot',
+  'Golf',
+  'Hotel',
+  'India',
+  'Juliet',
+  'Kilo',
+  'Lima',
+  'Mike',
+  'November',
+];
+
+/** Fourteen findings, the unstable ones first as a server may leave them, to be put in the order to read them. */
+function crowdedFindings(): Finding[] {
+  const make = (
+    name: string,
+    classification: Finding['classification'],
+    holdsIn: number,
+    interval: Finding['interval'],
+  ): Finding => ({
+    id: `finding-${name.toLowerCase()}`,
+    kind: 'majority-response',
+    variantId: 'proposed-change',
+    actorId: 'subscribers',
+    statement: `In ${holdsIn} of 10 seeded runs, the largest group of simulated members of ${name} ended up waiting and seeing under Proposed change.`,
+    predicate: `Waiting and seeing is the largest of the response groups among the simulated members of ${name}.`,
+    holdsIn,
+    of: 10,
+    interval,
+    classification,
+  });
+  return [
+    ...GROUPS.slice(0, 5).map((name) => make(name, 'unstable', 5, { lo: 0.24, hi: 0.76 })),
+    ...GROUPS.slice(5, 8).map((name) => make(name, 'mostly-repeatable', 8, { lo: 0.49, hi: 0.94 })),
+    ...GROUPS.slice(8).map((name) => make(name, 'repeatable', 10, { lo: 0.72, hi: 1 })),
+  ];
+}
+
+/** Nine assumptions that were moved, the sensitive ones first as the server puts them. */
+function crowdedSensitivity(): SensitivityRow[] {
+  return Array.from({ length: 9 }, (_, index) =>
+    sensitivityRow({
+      id: `row-${index + 1}`,
+      label: `Assumption number ${index + 1}`,
+      shift: 0.2 - index * 0.02,
+      classification: index < 4 ? 'assumption-sensitive' : index < 7 ? 'inconclusive' : 'robust',
+      assumptionOrigin: index % 2 === 0 ? 'system-assumption' : 'evidence',
+    }),
+  );
+}
+
+/** One disclosure, and the page without it, so that what is behind it can be told from what is not. */
+function disclosed(html: string, label: RegExp): { inside: string; outside: string } {
+  const at = html.search(label);
+  if (at < 0) throw new Error(`No disclosure says ${String(label)}.`);
+  const start = html.lastIndexOf('<details', at);
+  let depth = 0;
+  for (const match of html.slice(start).matchAll(/<(\/?)details\b/gu)) {
+    depth += match[1] ? -1 : 1;
+    if (depth === 0) {
+      const end = start + match.index + '</details>'.length;
+      return { inside: html.slice(start, end), outside: html.slice(0, start) + html.slice(end) };
+    }
+  }
+  throw new Error('The disclosure never closes.');
 }
 
 const summary = (patch: Partial<AnalysisSummary> = {}): AnalysisSummary => ({
@@ -261,6 +345,74 @@ describe('the scenarios to compare', () => {
     });
     expect(visibleText(failed)).toContain('The comparison did not start');
     expect(visibleText(failed)).toContain('already running');
+  });
+});
+
+describe('before the run: the time it takes, and a warning that the change cannot move anyone', () => {
+  const warned = readiness({ warnings: [NO_DIRECTION_NOTICE] });
+
+  it('says how long it takes from the measured speed of the engine, in one line, and not from an assumed speed', () => {
+    const small = visibleText(view());
+    expect(small).toContain('server time only, about 2 to 4 seconds.');
+    expect(small).toContain(
+      'The time is estimated from the engine’s measured speed, not an assumed one',
+    );
+    expect(small).toContain('about 2 to 3 ms a run for a typical cast');
+    expect(small.split('measured speed')).toHaveLength(2);
+    const large = visibleText(
+      view({ readiness: readiness({ actors: { count: 60, members: 12_000 } }) }),
+    );
+    expect(large).toContain(
+      '1,140 for sensitivity (30 seeds, 38 assumptions moved one at a time): 1,230 in all',
+    );
+    expect(large).toContain('server time only, about 20 to 40 seconds.');
+  });
+
+  it('shows the notice before the button that starts it, with the way to the stakeholder review', () => {
+    const html = view({ readiness: warned }, () => undefined);
+    const text = visibleText(html);
+    expect(text).toContain('Nothing in this change can move anyone yet');
+    expect(text).toContain(NO_DIRECTION_NOTICE);
+    expect(text).toContain('Open the stakeholder review');
+    const start = html.indexOf('type="submit"');
+    expect(html.indexOf('Nothing in this change can move anyone yet')).toBeGreaterThan(-1);
+    expect(html.indexOf('Nothing in this change can move anyone yet')).toBeLessThan(start);
+    expect(html.indexOf('Open the stakeholder review')).toBeLessThan(start);
+    expect(html).toContain('role="status"');
+  });
+
+  it('does not stop the run: a comparison with no change is a fair test of chance', () => {
+    const html = view({ readiness: warned });
+    expect(html).toMatch(/<button[^>]*type="submit"(?![^>]*disabled)[^>]*>/u);
+    expect(visibleText(html)).toContain(
+      'You can still run it: with nothing to move, it shows only how much the simulation varies by chance.',
+    );
+    // Without a way to open another step the notice still says what to do, and offers no button.
+    expect(html).not.toContain('Open the stakeholder review');
+  });
+
+  it('says nothing of it when someone is helped or harmed, or whoever may not run it can still read it', () => {
+    expect(visibleText(view())).not.toContain('Nothing in this change can move anyone yet');
+    const viewer = view({
+      readiness: readiness({ warnings: [NO_DIRECTION_NOTICE], may: { run: false } }),
+    });
+    expect(visibleText(viewer)).toContain(NO_DIRECTION_NOTICE);
+    expect(visibleText(viewer)).toContain('You can read comparisons but not start one');
+  });
+
+  it('shows any other warning as it was written', () => {
+    const other = visibleText(
+      view({ readiness: readiness({ warnings: ['Something else to know.'] }) }),
+    );
+    expect(other).toContain('Something else to know.');
+    expect(other).not.toContain('Open the stakeholder review');
+  });
+
+  it('calls no API while it renders, with or without a warning', () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch');
+    view({ readiness: warned }, () => undefined);
+    view();
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
 
@@ -400,7 +552,7 @@ describe('the results', () => {
     expect(text).toContain('Unstable');
     expect(text).toContain('does not settle this');
     expect(text).toContain('not the chance of anything happening in the world');
-    expect(text).toContain('How this was tested');
+    expect(text).toContain('What this means and how it was tested');
   });
 
   it('shows sensitivity as bars with the shift, the noise, the class and where each assumption came from', () => {
@@ -493,11 +645,165 @@ describe('the results', () => {
   });
 });
 
+describe('the answer first', () => {
+  const crowded = finished({ findings: crowdedFindings(), sensitivity: crowdedSensitivity() });
+  const html = view({ current: crowded, summaries: [summary()] });
+  const text = visibleText(html);
+
+  it('says in three lines what the comparison says, above the spread and the findings', () => {
+    const own = view({ current: finished(), summaries: [summary()] });
+    expect(visibleText(own)).toContain('What this comparison says');
+    const list = own.match(/<ul class="analysis-says">((?:(?!<\/ul>)[^])*)<\/ul>/u)?.[1] ?? '';
+    expect(list.match(/<li>/gu)).toHaveLength(3);
+    expect(visibleText(list)).toBe(
+      'Compared No change and Proposed change: 10 seeded runs of each, on the same seeds. ' +
+        'Under the proposed change, simulated members ended less favourable than under no change in 10 of 10 runs. ' +
+        'Mostly repeatable: it holds in 10 of 10 seeded runs (95% interval 72–100%).',
+    );
+    const at = own.indexOf('What this comparison says');
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(own.indexOf('The spread of outcomes'));
+    expect(at).toBeLessThan(own.indexOf('What held across the seeded runs'));
+  });
+
+  it('shows the first eight findings, the steadiest first, and the other six behind one disclosure', () => {
+    expect(text).toContain('Show all 14 findings');
+    const { inside, outside } = disclosed(html, /<summary>Show all 14 findings/u);
+    expect(outside.match(/class="analysis-finding"/gu)).toHaveLength(8);
+    expect(inside.match(/class="analysis-finding"/gu)).toHaveLength(6);
+    const groups = (part: string) =>
+      [...part.matchAll(/members of (\w+) ended up waiting/gu)].map((match) => match[1]);
+    expect(groups(outside)).toEqual([
+      'India',
+      'Juliet',
+      'Kilo',
+      'Lima',
+      'Mike',
+      'November',
+      'Foxtrot',
+      'Golf',
+    ]);
+    expect(groups(inside)).toEqual(['Hotel', 'Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo']);
+    expect(visibleText(inside)).toContain('The other 6, in the same order.');
+  });
+
+  it('gives each finding its statement, its class and how many runs it held in, and keeps the rest in the same form', () => {
+    const { inside, outside } = disclosed(html, /<summary>Show all 14 findings/u);
+    for (const part of [outside, inside]) {
+      const items = part.match(/<li class="analysis-finding">(?:(?!<\/li>)[^])*<\/li>/gu) ?? [];
+      expect(items.length).toBeGreaterThan(0);
+      for (const item of items) {
+        expect(item).toMatch(/class="analysis-finding-statement"/u);
+        expect(item).toMatch(/It holds in \d+ of 10 seeded runs \(95% interval \d+–\d+%\)\./u);
+        expect(item).toMatch(/Repeatable|Mostly repeatable|Unstable|Rare/u);
+        expect(item).toContain('What this means and how it was tested');
+      }
+    }
+  });
+
+  it('shows the first six assumptions, and the other three behind one disclosure on the same scale', () => {
+    expect(text).toContain('Show all 9 assumptions');
+    const { inside, outside } = disclosed(html, /<summary>Show all 9 assumptions/u);
+    expect(outside.match(/class="analysis-sens-row/gu)).toHaveLength(6);
+    expect(inside.match(/class="analysis-sens-row/gu)).toHaveLength(3);
+    for (const label of ['Assumption number 7', 'Assumption number 8', 'Assumption number 9']) {
+      expect(inside).toContain(label);
+      expect(outside.replace(/<table[^]*<\/table>/u, '')).not.toContain(label);
+    }
+  });
+
+  it('keeps the table of every assumption beside the chart, and every chart’s table', () => {
+    const start = html.indexOf('<caption>Shift of the headline');
+    const table = html.slice(start, html.indexOf('</table>', start));
+    expect(table.match(/<th scope="row">Assumption number \d/gu)).toHaveLength(9);
+    expect(html.match(/<details class="analysis-table-toggle"/gu)).toHaveLength(3);
+    expect(html.match(/<table/gu)).toHaveLength(3);
+  });
+
+  it('adds no disclosure when everything fits, and one as soon as something does not', () => {
+    expect(visibleText(view({ current: finished() }))).not.toContain('Show all');
+    const exact = visibleText(
+      view({
+        current: finished({
+          findings: crowdedFindings().slice(0, 8),
+          sensitivity: crowdedSensitivity().slice(0, 6),
+        }),
+      }),
+    );
+    expect(exact).not.toContain('Show all');
+    const over = visibleText(
+      view({
+        current: finished({
+          findings: crowdedFindings().slice(0, 9),
+          sensitivity: crowdedSensitivity().slice(0, 7),
+        }),
+      }),
+    );
+    expect(over).toContain('Show all 9 findings');
+    expect(over).toContain('Show all 7 assumptions');
+  });
+});
+
+describe('a comparison whose change could not move anyone', () => {
+  const flat = withoutDirection(finished());
+  const html = view({ current: flat, summaries: [summary()] });
+  const text = visibleText(html);
+
+  it('puts the notice at the very top of the results, once', () => {
+    const results = html.slice(html.indexOf('<div class="analysis-results">'));
+    expect(
+      visibleText(results).startsWith(
+        `This comparison cannot say anything about the change ${NO_DIRECTION_NOTICE}`,
+      ),
+    ).toBe(true);
+    expect(text.split(NO_DIRECTION_NOTICE)).toHaveLength(2);
+    expect(html.slice(html.indexOf('<div class="analysis-results">'))).toMatch(
+      /^<div class="analysis-results"><div class="notice notice-warning" role="status">/u,
+    );
+  });
+
+  it('does not let a sensitivity row read as robust when there was nothing to move', () => {
+    expect(text).toContain('No effect to test');
+    expect(text).not.toContain('Robust');
+    expect(text).toContain('That is not evidence that the result is robust');
+    expect(html).toMatch(/aria-label="[^"]*Intensity of Proposed change[^"]*No effect to test\./u);
+    const start = html.indexOf('<caption>Shift of the headline');
+    const table = html.slice(start, html.indexOf('</table>', start));
+    expect(table).toContain('<td>No effect to test</td>');
+    expect(table).not.toContain('<td>Robust</td>');
+    // What did move is still reported as it is.
+    expect(table).toContain('<td>Sensitive</td>');
+  });
+
+  it('does not state a direction in the summary, only that nothing can move', () => {
+    const own = html.match(/<ul class="analysis-says">((?:(?!<\/ul>)[^])*)<\/ul>/u)?.[1] ?? '';
+    expect(visibleText(own)).toContain('Nothing in the change can move anyone in this cast');
+    expect(visibleText(own)).not.toContain('holds in');
+  });
+
+  it('says none of it about a comparison whose change could move someone', () => {
+    const normal = visibleText(view({ current: finished() }));
+    expect(normal).not.toContain('This comparison cannot say anything about the change');
+    expect(normal).not.toContain('No effect to test');
+    expect(normal).toContain('Robust');
+  });
+
+  it('calls no API while it renders', () => {
+    const fetcher = vi.spyOn(globalThis, 'fetch');
+    view({ current: flat });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+});
+
 describe('what every state says, and never says', () => {
   const states: [string, string][] = [
     ['reading', view({ readiness: null, loading: true })],
     ['no actors', view({ readiness: readiness({ actors: null }) })],
     ['ready', view()],
+    [
+      'ready, with a warning',
+      view({ readiness: readiness({ warnings: [NO_DIRECTION_NOTICE] }) }, () => undefined),
+    ],
     [
       'running',
       view({
@@ -511,6 +817,13 @@ describe('what every state says, and never says', () => {
       }),
     ],
     ['results', view({ current: finished(), summaries: [summary()] })],
+    [
+      'results of many findings',
+      view({
+        current: finished({ findings: crowdedFindings(), sensitivity: crowdedSensitivity() }),
+      }),
+    ],
+    ['results where nothing can move', view({ current: withoutDirection(finished()) })],
     [
       'interrupted',
       view({
