@@ -108,3 +108,10 @@ they do not.
   the report's statements are classified. With a real model the same sources can produce different
   statements and different support classes; the live Azure run on the Larkholm pack is the only
   model evidence.
+
+## Example scenarios
+
+[Example scenarios](./scenarios/README.md) are five worked examples for the scenario lab: each is a
+question and a few synthetic documents, picked from the entry page and run through the whole
+pipeline. They carry no answer and no result. Each has a five-minute and a ten-minute script and a
+readable copy of its documents.
