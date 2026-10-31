@@ -199,8 +199,9 @@ searches its source for such words).
 - **Reach.** The actors the responder is related to, in either direction, weighted by relation
   strength (and, when watching, by the actor's population weight). With no relations, the actors in
   the categories in `DEFAULT_REACH` (for example, for a competitor: end users, cost bearers,
-  beneficiaries and channels) at a tie of 0.5. If none of those is harmed by the change, the harmed
-  actors are added at a tie of 0.3, because there would otherwise be nothing to watch or act on.
+  beneficiaries and channels) at a tie of 0.5. If none of the actors it reaches, by relation or by
+  default, is harmed by the change, the harmed actors are added at a tie of 0.3, because there would
+  otherwise be nothing to watch or act on.
 - **Chains.** Every event has `causedBy`: first the signal it saw, then up to three earlier events that
   had already landed on an actor it was watching. The engine does not say which of those mattered;
   running the same seeds with `signals: false` shows what they did together. Because a responder acts
@@ -237,13 +238,18 @@ Every random number is a pure function of the seed and labels: the draw for a tr
   through JSON (tested).
 - Changing one actor's trait, adding or removing an actor, or reordering the cast leaves every unrelated
   actor's draws, and so its outcome, exactly as they were (tested). Actors are related when a relation
-  or a responder's reach links them.
+  or a responder's reach links them; an external responder with no relations reaches actors by
+  default, so adding one can change those.
 - Traits are drawn through the inverse distribution function, so a changed trait moves each sample
   smoothly with its draw. Paired runs on the same seeds are therefore far steadier than independent
   runs (tested: the standard deviation of paired differences is under a third of the independent one),
   which is what the sensitivity analysis depends on.
 - A cap on the sample keeps the first members of a cohort as they were; it only drops the rest
   (tested).
+- Reproducibility is for one build of Node. Drawing a cohort's traits uses `Math.exp` and `Math.log`,
+  and a different build could in principle round them differently in the last digit, which could in
+  rare cases move a member across a threshold. Re-running an analysis on another build can therefore
+  differ slightly; it was not tested across builds.
 
 ## Weights
 
