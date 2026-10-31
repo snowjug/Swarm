@@ -108,7 +108,12 @@ export function ComparisonSummary({
   );
 }
 
-/** One run read in detail: what happened, because of what, and then what. */
+/**
+ * One run read in detail: what happened, and what each event could not have happened without. A
+ * responder acts when a signal it watches reaches its threshold, so that is what it happened because of;
+ * an earlier event is said to have been needed only where a replay of the run showed it, and is otherwise
+ * said only to have come first.
+ */
 export function ChainView({ analysis }: { analysis: Analysis }) {
   const run = analysis.representativeRun;
   const proposed = analysis.config.variants.find((variant) => variant.kind === 'alternative');
@@ -126,20 +131,41 @@ export function ChainView({ analysis }: { analysis: Analysis }) {
         <p className="field-help">No simulated follow-on events occurred in this run.</p>
       ) : (
         <ol className="analysis-chain">
-          {steps.slice(0, 12).map((step) => (
-            <li key={step.id}>
-              <p>
-                {step.because.length > 0 ? (
-                  <>
-                    <strong>Because</strong> {step.because.map((cause) => cause.text).join(' and ')}
-                    , <strong>then</strong>{' '}
-                  </>
-                ) : null}
-                in round {step.round}, a simulated “{step.kind}” event
-                {step.actor ? ` by ${step.actor}` : ''}: {step.description}
-              </p>
-            </li>
-          ))}
+          {steps.slice(0, 12).map((step) => {
+            const signals = step.because.filter((cause) => cause.kind === 'signal');
+            const needed = step.because.filter((cause) => cause.kind === 'event');
+            return (
+              <li key={step.id}>
+                <p>
+                  {signals.length > 0 ? (
+                    <>
+                      <strong>Because</strong> {signals.map((cause) => cause.text).join(' and ')} it
+                      watches reached its threshold, <strong>then</strong>{' '}
+                    </>
+                  ) : null}
+                  in round {step.round}, a simulated “{step.kind}” event
+                  {step.actor ? ` by ${step.actor}` : ''}: {step.description}
+                </p>
+                {needed.length > 0 && (
+                  <p className="field-help">
+                    It could not have happened without{' '}
+                    {needed.map((cause) => cause.text).join(' and ')}: a replay of this run without
+                    that responder had no such event by then.
+                  </p>
+                )}
+                {step.followed.length > 0 && (
+                  <p className="field-help">
+                    It came after {step.followed.join(' and ')}, which had already reached actors it
+                    watches;{' '}
+                    {step.tested
+                      ? 'a replay of this run without it still had the event, so it is not shown to have mattered'
+                      : 'nothing here shows that it mattered'}
+                    .
+                  </p>
+                )}
+              </li>
+            );
+          })}
           {steps.length > 12 && (
             <li className="field-help">{steps.length - 12} more events are not shown.</li>
           )}
