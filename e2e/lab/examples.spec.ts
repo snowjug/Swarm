@@ -79,8 +79,6 @@ interface Outcome {
   stakeholders: Stakeholder[];
   findings: string[];
   briefText: string;
-  /** Whether the Report stage opened by itself when the comparison finished. */
-  reportOpened: 'by itself' | 'after a refresh';
 }
 
 /** One person's whole way from the first screen to the brief, with what is checked at each step. */
@@ -277,32 +275,30 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     expect(finding.statement.toLowerCase()).toContain((actor?.name ?? '').toLowerCase());
   }
 
-  const reportOpened =
-    await test.step('critique: an independent review that challenges the comparison', async () => {
-      const opened = await openReport(page);
-      const review = reviewPanel(page);
-      await review.getByRole('button', { name: 'Run independent review', exact: true }).click();
-      await expect(review.getByRole('heading', { name: 'What the review found' })).toBeVisible();
-      await expect(review).toContainText('Deterministic checks only');
-      await expect(review).toContainText('A criticism is a challenge, not a verdict');
-      const first = review.getByRole('article').first();
-      await expect(first).toContainText('What it rests on');
-      await expect(first).toContainText('Effect on the conclusion, if it stands');
-      await first.getByText('Respond to this criticism').click();
-      await first
-        .getByLabel('Your response', { exact: true })
-        .fill('Noted: the person will check this against the evidence.');
-      await first.getByRole('button', { name: 'Respond', exact: true }).click();
-      await expect(first).toContainText('Responded');
-      return opened;
-    });
+  await test.step('critique: an independent review that challenges the comparison', async () => {
+    await openReport(page);
+    const review = reviewPanel(page);
+    await review.getByRole('button', { name: 'Run independent review', exact: true }).click();
+    await expect(review.getByRole('heading', { name: 'What the review found' })).toBeVisible();
+    await expect(review).toContainText('Deterministic checks only');
+    await expect(review).toContainText('A criticism is a challenge, not a verdict');
+    const first = review.getByRole('article').first();
+    await expect(first).toContainText('What it rests on');
+    await expect(first).toContainText('Effect on the conclusion, if it stands');
+    await first.getByText('Respond to this criticism').click();
+    await first
+      .getByLabel('Your response', { exact: true })
+      .fill('Noted: the person will check this against the evidence.');
+    await first.getByRole('button', { name: 'Respond', exact: true }).click();
+    await expect(first).toContainText('Responded');
+  });
 
   const briefText =
     await test.step('decision brief: the answer first, every statement labelled', async () => {
       await page.getByRole('button', { name: 'Generate decision brief' }).click();
       const brief = briefDocument(page);
       await expect(brief).toBeVisible();
-      await expect(brief.getByRole('heading', { level: 4 }).first()).toHaveText('Executive answer');
+      await expect(brief.getByRole('heading', { level: 3 }).first()).toHaveText('Executive answer');
       const answer = brief.locator('.brief-answer');
       await expect(answer.locator('.brief-headline')).toContainText(/simulated members/u);
       await expect(answer.locator('.brief-headline')).toContainText(/seeded runs/u);
@@ -460,13 +456,6 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
   expect(problems, 'what the page logged or failed at').toEqual([]);
   expect(readPages(calls), 'pages read').toBe(pack.urls.length);
-  if (reportOpened !== 'by itself') {
-    test.info().annotations.push({
-      type: 'known bug',
-      description:
-        'BUG-1: the Report stage did not open when the comparison finished; the project was read again by hand',
-    });
-  }
   const view = await stakeholdersOf(page, project);
   return {
     pack,
@@ -475,7 +464,6 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     stakeholders: liveStakeholders(view),
     findings,
     briefText,
-    reportOpened,
   };
 }
 
@@ -564,7 +552,7 @@ test.describe('the scenario read is optional', () => {
     await expect(review.getByRole('heading', { name: 'What the review found' })).toBeVisible();
     await page.getByRole('button', { name: 'Generate decision brief' }).click();
     const brief = briefDocument(page);
-    await expect(brief.getByRole('heading', { level: 4 }).first()).toHaveText('Executive answer');
+    await expect(brief.getByRole('heading', { level: 3 }).first()).toHaveText('Executive answer');
     await expect(brief.locator('.brief-headline')).toContainText(/simulated members/u);
     await expect(brief).toContainText('No structured scenario was recorded');
     await expect(brief.locator('li.brief-statement:not(:has(.brief-origin))')).toHaveCount(0);
@@ -575,6 +563,7 @@ test.describe('the scenario read is optional', () => {
 
 test.describe('a public web page as evidence', () => {
   const NOT_PUBLIC = /Swarm reads only public web pages|web address Swarm can read/u;
+  const NOT_FOUND_PUBLIC = /could not find .* on the public web/u;
   const attempts = async (request: { get(url: string): Promise<{ json(): Promise<unknown> }> }) =>
     (
       (await (await request.get(`${FIXTURES}/__attempts`)).json()) as {
@@ -591,11 +580,17 @@ test.describe('a public web page as evidence', () => {
     ['a private network', 'http://10.0.0.5/admin', NOT_PUBLIC],
     ['localhost', 'http://localhost/', NOT_PUBLIC],
     ['an address written as one number', 'http://2130706433/', NOT_PUBLIC],
-    ['a name that answers with a private address', 'http://intranet-wiki.example.org/', NOT_PUBLIC],
+    // A name that leads inside a network is answered exactly like one that does not exist, so the
+    // answer cannot be used to learn which names are in use there.
+    [
+      'a name that answers with a private address',
+      'http://intranet-wiki.example.org/',
+      NOT_FOUND_PUBLIC,
+    ],
     [
       'a name with a metadata address among its answers',
       'http://mixed-answers.example.org/x',
-      NOT_PUBLIC,
+      NOT_FOUND_PUBLIC,
     ],
     ['a file on the server', 'file:///etc/passwd', NOT_PUBLIC],
     [
@@ -860,19 +855,13 @@ test.describe('what the product may not claim', () => {
   });
 });
 
-test.describe('known bugs, kept strict until they are fixed', () => {
-  test.fixme('the Report stage opens by itself when a comparison finishes, and the brief marks the path as done', async ({
+test.describe('the workspace follows what the lab has done, and the scenario read lists its evidence', () => {
+  test('the Report stage opens by itself when a comparison finishes, and the brief marks the path as done', async ({
     page,
   }) => {
-    // BUG-1. ConsoleWorkspace reads the project again only on a change of stage and, every four
-    // seconds, while the project it holds says a comparison is running (labPollingNeeded). A
-    // comparison started on the page is not in the project it holds, so neither happens: when it
-    // finishes the stepper still says "Simulation pending" and "Report ... prerequisite not ready",
-    // "See the decision brief" never appears, and the same is true after the brief is made
-    // ("ready to write", and "Export" is not marked done) until "Refresh project from server" is
-    // pressed. AnalysisPanel, CriticPanel and DecisionBriefView should tell the workspace when
-    // they change what the lab has done, as StakeholderPanel does (onChanged), and the workspace
-    // should read the project again.
+    // A comparison started on the page is not in the project the workspace holds, so the workspace
+    // looks for the change itself: it reads the project again while a comparison runs and until the
+    // brief is written. No reload and no Refresh press is needed.
     const project = await seedThroughActors(page, {
       title: 'Journey gates: the Report stage',
       question: CITY_QUESTION,
@@ -905,14 +894,12 @@ test.describe('known bugs, kept strict until they are fixed', () => {
     ).toHaveCount(1);
   });
 
-  test.fixme('the scenario read lists the documents that are attached when the question is read', async ({
+  test('the scenario read lists the documents that are attached when the question is read', async ({
     page,
   }) => {
-    // BUG-4. EntryConsole renders <ScenarioIntake question frame onFrame disabled /> without its
-    // `documents` prop, so POST /api/scenario/parse always sends "documents": [] and the review says
-    // "No documents were attached when the question was read" under five attached documents. The
-    // scenario then keeps no list of the evidence the person had, the brief cannot say what was
-    // listed as available, and the documents are not checked for text aimed at an AI when read.
+    // The page sends the names and sizes of the attached documents with the question, so that the
+    // scenario keeps a list of the evidence the person had and the start of each document is checked
+    // for text aimed at an AI.
     const parsed = page.waitForRequest(
       (request) => new URL(request.url()).pathname === '/api/scenario/parse',
     );

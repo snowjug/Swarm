@@ -345,7 +345,11 @@ export async function build(page: Page): Promise<string> {
 export const stages = (page: Page): Locator =>
   page.getByRole('navigation', { name: 'Guided workflow steps' });
 export const openStage = (page: Page, stage: RegExp): Promise<void> =>
-  stages(page).getByRole('button', { name: stage }).click();
+  // Anchored: a locked stage names the one to finish first in its description, so the name of another
+  // stage can appear further along in a button's accessible name.
+  stages(page)
+    .getByRole('button', { name: new RegExp(`^${stage.source}`, stage.flags) })
+    .click();
 export const stakeholderPanel = (page: Page): Locator =>
   page.getByRole('region', { name: 'Stakeholders and actors', exact: true });
 export const comparisonPanel = (page: Page): Locator =>
@@ -428,18 +432,12 @@ export async function compareScenarios(page: Page, options: Comparison): Promise
  * by itself; where the page has not noticed within a few seconds, the person's own way of reading the
  * project again is used, and this says so, so that the journey still goes on and the bug is not lost.
  */
-export async function openReport(page: Page): Promise<'by itself' | 'after a refresh'> {
+/** The workspace follows the lab on its own: a finished comparison opens the way to the brief without a reload. */
+export async function openReport(page: Page): Promise<void> {
   const next = page.getByRole('button', { name: 'See the decision brief' });
-  let how: 'by itself' | 'after a refresh' = 'by itself';
-  try {
-    await next.waitFor({ state: 'visible', timeout: 6_000 });
-  } catch {
-    how = 'after a refresh';
-    await page.getByRole('button', { name: 'Refresh project from server' }).click();
-  }
+  await next.waitFor({ state: 'visible', timeout: 12_000 });
   await next.click();
   await expect(reviewPanel(page)).toBeVisible();
-  return how;
 }
 
 export const analysisOf = async (page: Page, project: string): Promise<Analysis> => {
