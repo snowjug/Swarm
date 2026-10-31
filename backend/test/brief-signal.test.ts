@@ -516,11 +516,11 @@ describe('when the stakeholders have directions and the two still come out about
     expect(make({ alsoLower: 'unstable' }).signal).toBe('no-difference');
   });
 
-  it('does not touch a brief that can be read: counts lead, as before', () => {
+  it('does not touch a brief that can be read: the paired comparison leads, as the answer', () => {
     const brief = make({ finding: 'lower', changeAdverse: 0.45 });
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toMatch(
-      /about \d+ simulated members ended up looking for an alternative/u,
+      /the mean share of simulated members looking for an alternative or resisting was about \d+(?:\.\d+)? in 100 under/u,
     );
     expect(brief.recommendations.map((recommendation) => recommendation.text)).not.toContain(
       SAY_DIRECTION,
@@ -641,7 +641,7 @@ describe('when the proposed change comes out about the same and another scenario
     );
     const strong = against('Strong alternative');
     expect(strong?.text).not.toContain('about the same');
-    expect(strong?.text).toMatch(/more in 10 of 10 paired runs/u);
+    expect(strong?.text).toMatch(/higher under the change in 10 of 10 paired runs/u);
     expect(strong?.text).toMatch(/looking for an alternative or resisting/u);
     expect(strong?.refs.findingIds).toEqual(['direction-strong-alternative']);
     expect(strong?.refs.variantIds).toEqual(['strong-alternative', 'baseline']);
@@ -1114,19 +1114,21 @@ describe('on the real engine', () => {
     const against = (label: string) =>
       outcomes.find((text) => text.startsWith(`Against “No change”, “${label}”`));
     expect(against('Proposed change')).toContain('reads as about the same');
-    expect(against('Strong alternative')).toMatch(/more in \d+ of 10 paired runs/u);
+    expect(against('Strong alternative')).toMatch(
+      /higher under the change in \d+ of 10 paired runs/u,
+    );
     expect(against('Strong alternative')).not.toContain('about the same');
     expect(brief.limitations[0]).toContain('between the proposed change and no change');
     expect(lintBrief(brief)).toEqual([]);
   });
 
-  it('keeps the counts as the answer when the stakeholders have directions of impact', async () => {
+  it('keeps the paired comparison as the answer when the stakeholders have directions of impact', async () => {
     const { analysis, view } = await engineWorld(null);
     const brief = view.brief!;
     expect(analysis.findings.some(isAboutTheSame)).toBe(false);
     expect(brief.signal).toBe('clear');
     expect(brief.headline).toMatch(
-      /about \d+ simulated members ended up looking for an alternative or resisting under “Proposed change”/u,
+      /the mean share of simulated members looking for an alternative or resisting was about \d+(?:\.\d+)? in 100 under “Proposed change” against \d+(?:\.\d+)? in 100 under “No change”/u,
     );
     expect(brief.recommendations.map((recommendation) => recommendation.text)).not.toContain(
       SAY_DIRECTION,

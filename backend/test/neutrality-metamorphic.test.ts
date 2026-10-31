@@ -231,12 +231,19 @@ describe('the brief gives an actor the owner of its category, whatever the actor
     generatedAt: '',
   });
 
-  /** The same inputs with each actor and stakeholder named for the subject; what is named alike is named alike. */
+  /**
+   * The same inputs with each actor and stakeholder named for the subject; what is named alike is named
+   * alike. A name is as long as the one it replaces, because the headline is cut at a length and so
+   * says what fits, which depends on how long the names in it are.
+   */
   function renamed(subject: string) {
     const inputs = structuredClone(original);
     const names = new Map<string, string>();
     const rename = (name: string): string => {
-      if (!names.has(name)) names.set(name, `${capital(subject)} inspectors ${names.size}`);
+      if (!names.has(name)) {
+        const word = `${String(names.size).padStart(2, '0')}${capital(subject)}`;
+        names.set(name, word.padEnd(name.length, 'x').slice(0, name.length));
+      }
       return names.get(name)!;
     };
     for (const actor of inputs.analysis.actors) actor.name = rename(actor.name);

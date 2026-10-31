@@ -50,7 +50,8 @@ const DOMAIN_WORDS = [
   'student',
   'parking',
   'ferry',
-  'transit',
+  // Not the CSS property `transition`.
+  'transit(?!ion)',
   'warehouse',
   'robot',
   'library',

@@ -15,7 +15,7 @@ import { sensitivityContext } from './assumptions.js';
 import { documentOrigin, provenanceLine } from './evidence.js';
 import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
-import { baselineOf, pairRuns } from './measures.js';
+import { baselineOf, pairShares } from './measures.js';
 import { oneLine } from './text.js';
 
 /**
@@ -30,11 +30,19 @@ function outcomeRows(facts: Facts): BriefOutcomeRow[] {
     kind: measure.variant.kind,
     runs: measure.runs.length,
     members: measure.members,
-    responses: RESPONSE_CATEGORIES.map((category) => ({
+    shares: RESPONSE_CATEGORIES.map((category) => ({
       category,
-      ...measure.responses[category],
+      ...measure.shares[category],
     })),
-    adverse: measure.adverse,
+    adverseShare: measure.share,
+    responses: measure.counts
+      ? RESPONSE_CATEGORIES.map((category) => ({
+          category,
+          ...measure.counts![category],
+        }))
+      : null,
+    adverse: measure.adverseCount,
+    perRun: measure.detail === 'runs',
     stanceMean: measure.stance.mean,
   }));
 }
@@ -44,7 +52,9 @@ function comparisonRows(facts: Facts): BriefComparisonRow[] {
   return facts.measures
     .filter((measure) => measure.variant.kind === 'alternative')
     .map((measure) => {
-      const pairing = baseline ? pairRuns(measure.runs, baseline.runs) : null;
+      // The engine's own measure, every actor counting equally, needs only what every run keeps.
+      const pairing = baseline ? pairShares(measure.runs, baseline.runs) : null;
+      const paired = pairing !== null && pairing.pairs > 0;
       const direction =
         facts.analysis.findings.find(
           (finding) =>
@@ -52,17 +62,27 @@ function comparisonRows(facts: Facts): BriefComparisonRow[] {
             finding.variantId === measure.variant.id &&
             finding.actorId === null,
         ) ?? null;
+      // Counts of simulated members come from the runs or from the totals over them; a mean of
+      // paired differences is the difference of the means because both ran the same seeds.
+      const countDelta =
+        paired && measure.adverseCount && baseline?.adverseCount
+          ? measure.adverseCount.mean - baseline.adverseCount.mean
+          : null;
       return {
         variantId: measure.variant.id,
         label: measure.variant.label,
         members: measure.members,
-        adverseMean: measure.adverse.mean,
-        baselineAdverseMean: baseline?.adverse.mean ?? null,
-        adverseDelta: pairing && pairing.pairs > 0 ? pairing.adverseDelta : null,
+        adverseShare: measure.share.mean,
+        baselineAdverseShare: baseline?.share.mean ?? null,
+        shareDelta: paired ? pairing.delta : null,
+        shareDeltaError: paired ? pairing.standardError : null,
+        adverseMean: measure.adverseCount?.mean ?? null,
+        baselineAdverseMean: baseline?.adverseCount?.mean ?? null,
+        adverseDelta: countDelta,
         stanceMean: measure.stance.mean,
-        stanceDelta: pairing && pairing.pairs > 0 ? pairing.stanceDelta : null,
+        stanceDelta: paired ? pairing.stanceDelta : null,
         pairedRuns: pairing?.pairs ?? 0,
-        worseInRuns: pairing?.worse ?? 0,
+        worseInRuns: pairing?.higher ?? 0,
         findingId: direction?.id ?? null,
         classification: direction?.classification ?? null,
         holdsIn: direction?.holdsIn ?? null,

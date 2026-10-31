@@ -9,6 +9,7 @@ import {
   MAX_RECOMMENDATIONS,
   OWNER_BY_CATEGORY,
   ORDERING_RULE,
+  advise,
   rank,
   recommend,
 } from '../src/brief/recommend.js';
@@ -20,29 +21,40 @@ import {
   weakestReliance,
 } from '../src/brief/rules.js';
 import {
+  CONFLICT_CHECK,
+  DIRECTION_CHECK,
   GENERAL_GAP_CHECK,
-  INTENSITY_CHECK,
   POPULATION_CHECK,
+  REPEAT_CHECK,
+  RESPONDER_CHECK,
+  SPREAD_CHECK,
+  STRENGTH_CHECK,
   TRAIT_CHECKS,
-  UNSTABLE_CHECK,
   gapCheckFor,
+  planChecks,
   validationPlan,
 } from '../src/brief/validation.js';
 import { MAX_STATEMENTS, sectionWriter } from '../src/brief/writer.js';
 import { STAKEHOLDER_CATEGORIES } from '../../shared/stakeholders.js';
-import { baseInputs, critiquesFixture, richAnalysis, richInputs } from './support/brief-world.js';
+import {
+  baseInputs,
+  critiquesFixture,
+  richAnalysis,
+  richInputs,
+  totalsOnly,
+} from './support/brief-world.js';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
-// The builder runs what the rules recommend and propose through the guard. These pass the real
-// functions through, so that a test can put one wording of its own in front of the guard.
+// The builder runs what the rules advise and plan through the guard. These pass the real functions
+// through, so that a test can put one wording of its own in front of the guard.
 vi.mock('../src/brief/recommend.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/brief/recommend.js')>();
-  return { ...actual, recommend: vi.fn(actual.recommend) };
+  return { ...actual, advise: vi.fn(actual.advise) };
 });
 vi.mock('../src/brief/validation.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/brief/validation.js')>();
-  return { ...actual, validationPlan: vi.fn(actual.validationPlan) };
+  return { ...actual, planChecks: vi.fn(actual.planChecks) };
 });
 
 describe('the wording guard', () => {
@@ -211,18 +223,18 @@ describe('the wording guard', () => {
   it('is applied to recommendations and checks too: a claim in either is withheld, in the fields the tables and exports read, and counted', async () => {
     const claim = 'Simulated members will certainly improve.';
     const question = 'Will real-world conversion rise?';
-    const [{ recommend: wording }, { validationPlan: checks }] = await Promise.all([
+    const [{ advise: wording }, { planChecks: checks }] = await Promise.all([
       vi.importActual<typeof import('../src/brief/recommend.js')>('../src/brief/recommend.js'),
       vi.importActual<typeof import('../src/brief/validation.js')>('../src/brief/validation.js'),
     ]);
     const inputs = richInputs();
     const clean = buildBrief(inputs);
 
-    vi.mocked(recommend).mockImplementationOnce((facts) => {
+    vi.mocked(advise).mockImplementationOnce((facts) => {
       const [first, ...rest] = wording(facts);
-      return [{ ...first!, text: claim }, ...rest];
+      return [{ ...first!, recommendation: { ...first!.recommendation, text: claim } }, ...rest];
     });
-    vi.mocked(validationPlan).mockImplementationOnce((facts) => {
+    vi.mocked(planChecks).mockImplementationOnce((facts) => {
       const [first, ...rest] = checks(facts);
       return [{ ...first!, question }, ...rest];
     });
@@ -262,13 +274,16 @@ describe('the wording guard', () => {
   ] as const)(
     'looks at the %s of a recommendation, not only at what it says',
     async (field, wording, replaced) => {
-      const { recommend: rules } = await vi.importActual<
-        typeof import('../src/brief/recommend.js')
-      >('../src/brief/recommend.js');
-      vi.mocked(recommend).mockImplementationOnce((facts) => {
+      const { advise: rules } = await vi.importActual<typeof import('../src/brief/recommend.js')>(
+        '../src/brief/recommend.js',
+      );
+      vi.mocked(advise).mockImplementationOnce((facts) => {
         const [first, ...rest] = rules(facts);
-        const changed = { ...first!, [field]: field === 'leadingIndicators' ? [wording] : wording };
-        return [changed, ...rest];
+        const recommendation = {
+          ...first!.recommendation,
+          [field]: field === 'leadingIndicators' ? [wording] : wording,
+        };
+        return [{ ...first!, recommendation }, ...rest];
       });
       const brief = buildBrief(richInputs());
       if (replaced) expect(JSON.stringify(brief)).not.toContain(wording);
@@ -283,10 +298,10 @@ describe('the wording guard', () => {
     ['method', 'Ask them, which proves it.'],
     ['successSignal', 'Over 60% of them stay.'],
   ] as const)('looks at the %s of a check, not only at its question', async (field, wording) => {
-    const { validationPlan: rules } = await vi.importActual<
+    const { planChecks: rules } = await vi.importActual<
       typeof import('../src/brief/validation.js')
     >('../src/brief/validation.js');
-    vi.mocked(validationPlan).mockImplementationOnce((facts) => {
+    vi.mocked(planChecks).mockImplementationOnce((facts) => {
       const [first, ...rest] = rules(facts);
       return [{ ...first!, [field]: wording }, ...rest];
     });
@@ -299,14 +314,18 @@ describe('the wording guard', () => {
   });
 
   it('withholds a recommendation that does not say it is simulated, as well as one that predicts', async () => {
-    const { recommend: wording } = await vi.importActual<
-      typeof import('../src/brief/recommend.js')
-    >('../src/brief/recommend.js');
-    vi.mocked(recommend).mockImplementationOnce((facts) => {
+    const { advise: wording } = await vi.importActual<typeof import('../src/brief/recommend.js')>(
+      '../src/brief/recommend.js',
+    );
+    vi.mocked(advise).mockImplementationOnce((facts) => {
       const [first, second, ...rest] = wording(facts);
+      const said = (entry: typeof first, text: string) => ({
+        ...entry!,
+        recommendation: { ...entry!.recommendation, text },
+      });
       return [
-        { ...first!, text: 'Stage the change for the group before it lands.' },
-        { ...second!, text: 'Simulated members will gain.' },
+        said(first, 'Stage the change for the group before it lands.'),
+        said(second, 'Simulated members will gain.'),
         ...rest,
       ];
     });
@@ -388,7 +407,7 @@ describe('the recommendations', () => {
   const starting = (text: string) =>
     brief.recommendations.filter((recommendation) => recommendation.text.startsWith(text));
 
-  it('come from generic rules over the findings: mitigate, validate, collect evidence, prepare, repeat and resolve', () => {
+  it('come from generic rules over the findings: mitigate, validate, collect evidence, prepare and resolve', () => {
     const mitigate = starting('Mitigate or stage the change for “Subscribers”');
     expect(mitigate).toHaveLength(1);
     expect(mitigate[0]?.text).toContain(
@@ -426,17 +445,128 @@ describe('the recommendations', () => {
       reversibility: 'moderate',
       ownerFunction: 'strategy',
     });
-
-    const repeat = starting('Do not decide on the unstable simulated result');
-    expect(repeat[0]).toMatchObject({
-      linkedFindingIds: ['f4'],
-      effort: 'low',
-      reversibility: 'easy',
-    });
+    // It names the actor and how often it acted, from the finding that is about that actor.
+    expect(prepare[0]?.text).toContain('rival provider followed in 9 of 10 runs');
 
     const critique = starting('Resolve the 1 open major critique');
     expect(critique[0]?.linkedFindingIds).toEqual(['f2']);
     expect(critique[0]?.impact).toBe('medium');
+  });
+
+  describe('each says what it can stand behind, and the ids it rests on', () => {
+    const statements = brief.sections.find(
+      (section) => section.id === 'recommendations',
+    )!.statements;
+    const of = (text: string) => {
+      const id = starting(text)[0]!.id;
+      return statements.find((statement) => statement.id === id)!;
+    };
+
+    it('takes the reliance of the findings only when it follows from a count over seeded runs', () => {
+      expect(of('Mitigate or stage the change for “Subscribers”')).toMatchObject({
+        origin: 'simulation-aggregation',
+        reliance: 'high',
+      });
+      expect(of('Mitigate or stage the change for “Subscribers”').refs).toMatchObject({
+        stakeholderIds: ['subscribers'],
+        findingIds: expect.arrayContaining(['f2']),
+      });
+      const prepare = of('Prepare a response to how “Rival provider” could react');
+      expect(prepare).toMatchObject({ origin: 'simulation-aggregation', reliance: 'moderate' });
+      expect(prepare.refs.stakeholderIds).toEqual(['rival-provider']);
+      expect(prepare.refs.findingIds).toEqual(['f3']);
+    });
+
+    it('is unresolved uncertainty with no reliance, and the ids of the passages, actors and critiques, for evidence, gaps and critiques', () => {
+      const conflicts = of('Resolve the 1 open conflict');
+      expect(conflicts.origin).toBe('unresolved-uncertainty');
+      expect(conflicts.reliance).toBeNull();
+      expect(conflicts.refs.evidence.map((ref) => ref.passageId).sort()).toEqual(['P1', 'P3']);
+      expect(conflicts.refs.findingIds).toEqual([]);
+      const actors = of('Collect evidence for 3 actors');
+      expect(actors).toMatchObject({ origin: 'unresolved-uncertainty', reliance: null });
+      expect(actors.refs.stakeholderIds).toEqual(['provider', 'rival-provider', 'regulator']);
+      const named = of('Close the 1 evidence gap');
+      expect(named).toMatchObject({ origin: 'unresolved-uncertainty', reliance: null });
+      expect(named.refs.assumptions).toContain(
+        'Independent counts of the group the change affects',
+      );
+      const critique = of('Resolve the 1 open major critique');
+      expect(critique).toMatchObject({ origin: 'unresolved-uncertainty', reliance: null });
+      expect(critique.refs.critiqueIds).toEqual(['c1']);
+    });
+
+    it('rests an assumption to validate on the sensitivity row, not on a stance finding it was not about', () => {
+      const validate = of('Validate the assumption');
+      expect(validate.origin).toBe('simulation-aggregation');
+      expect(validate.reliance).toBeNull();
+      expect(validate.refs.sensitivityIds).toHaveLength(1);
+      expect(validate.refs.findingIds).toEqual([]);
+    });
+  });
+
+  it('keeps a repeat for a headline result that disagrees across runs, and gives a rare result its own advice', () => {
+    const base = richAnalysis();
+    const variants = (change: Partial<(typeof base.findings)[number]>, id: string) =>
+      base.findings.map((finding) => (finding.id === id ? { ...finding, ...change } : finding));
+    // The headline comparison itself is not stable: do not decide on it.
+    const unstableHeadline = analysisSchema.parse({
+      ...base,
+      findings: variants(
+        { classification: 'unstable', holdsIn: 5, interval: { lo: 0.24, hi: 0.76 } },
+        'f1',
+      ),
+    });
+    const repeat = recommend(gatherFacts(richInputs({ analysis: unstableHeadline }))).find(
+      (entry) => entry.text.startsWith('Do not decide on the unstable simulated result'),
+    );
+    expect(repeat).toMatchObject({
+      linkedFindingIds: ['f1'],
+      effort: 'low',
+      reversibility: 'easy',
+      impact: 'high',
+    });
+    // An ordering of groups is unstable as a matter of course: nothing is decided on it, so no repeat.
+    expect(
+      brief.recommendations.some((entry) => entry.text.startsWith('Do not decide on the unstable')),
+    ).toBe(false);
+    // A threshold that was never crossed is rare, which is not the same as disagreeing across seeds.
+    const rare = analysisSchema.parse({
+      ...base,
+      findings: [
+        ...base.findings,
+        {
+          id: 'f5',
+          kind: 'threshold-crossing',
+          variantId: 'proposed-change',
+          actorId: null,
+          statement:
+            'In 0 of 10 seeded runs, the share of simulated members looking for an alternative or resisting, counting each actor equally and not each member, reached at least 30 in 100 at some round under Proposed change.',
+          predicate: 'At some round the mean share is at least 0.3.',
+          holdsIn: 0,
+          of: 10,
+          interval: { lo: 0, hi: 0.28 },
+          classification: 'rare',
+        },
+      ],
+    });
+    const advice = recommend(gatherFacts(richInputs({ analysis: rare }))).find((entry) =>
+      entry.linkedFindingIds.includes('f5'),
+    )!;
+    expect(advice.text).toContain('so the runs agree that it is rare rather than disagree');
+    expect(advice.text).toContain('do not read its absence as safety');
+    expect(advice.text).not.toMatch(/unstable/u);
+    expect(advice.impact).toBe('medium');
+  });
+
+  it('still advises on a group from the totals over the runs when the runs lost their per-actor lists', () => {
+    const reduced = recommend(
+      gatherFacts(richInputs({ analysis: totalsOnly(richAnalysis()) })),
+    ).find((entry) => entry.text.startsWith('Mitigate or stage the change for “Subscribers”'));
+    expect(reduced?.text).toContain(
+      'more of its 30 simulated members ended up looking for an alternative or resisting',
+    );
+    expect(reduced?.linkedFindingIds).toEqual(['f2']);
   });
 
   it('says plainly that a group is one simulated member, instead of "1 more of its 1 members"', () => {
@@ -509,6 +639,21 @@ describe('the recommendations', () => {
     expect(plain.some((entry) => entry.text.startsWith('Mitigate'))).toBe(false);
   });
 
+  it('does not stand a mitigation on a finding about another response of the group', () => {
+    const other = richAnalysis();
+    other.findings = other.findings.map((finding) =>
+      finding.id === 'f2'
+        ? {
+            ...finding,
+            statement:
+              'In 9 of 10 seeded runs, the largest group of simulated members of Subscribers ended up adapting to limit the impact under Proposed change.',
+          }
+        : finding,
+    );
+    const advice = recommend(gatherFacts(richInputs({ analysis: other })));
+    expect(advice.some((entry) => entry.text.startsWith('Mitigate'))).toBe(false);
+  });
+
   it('raises a blocking critique to high impact, and ignores a critique that was accepted', () => {
     const blocking = critiquesFixture();
     blocking.critiques[0] = { ...blocking.critiques[0]!, severity: 'blocking' };
@@ -568,33 +713,89 @@ describe('the validation plan', () => {
   const target = (prefix: string) =>
     plan.find((experiment) => experiment.targets.some((entry) => entry.startsWith(prefix)));
 
-  it('covers the assumptions the result is sensitive to that nothing cited backs, and the unstable results', () => {
+  it('covers the premises of the answer, the assumptions the result is sensitive to, the open conflicts, what triggers a repeated responder and the actors nothing supports', () => {
+    // How large the change is in practice, and the assumption the runs were sensitive to about it.
+    expect(target('assumption: strength and timing of Proposed change')).toBeDefined();
     expect(target('sensitivity s1:')).toBeDefined();
-    expect(target('sensitivity s3:')).toBeDefined();
+    expect(target('sensitivity s3:')).toBe(target('assumption: strength and timing'));
     // Backed by a cited passage, robust, or inconclusive: not what to check first.
     expect(target('sensitivity s2:')).toBeUndefined();
     expect(target('sensitivity s4:')).toBeUndefined();
     expect(target('sensitivity s5:')).toBeUndefined();
-    expect(target('finding f4:')).toBeDefined();
+    // The sources that disagree, by name, and the outside actor that responded in most runs.
+    expect(target('conflict X1:')).toBeDefined();
+    expect(target('finding f3:')).toBeDefined();
     expect(target('evidence gap provider:')).toBeDefined();
-    expect(target('evidence gap rival-provider:')).toBeDefined();
+    // A group the answer names that stands for a population nobody counted gets its size counted.
+    const counted = target('assumption: the size of Resellers');
+    expect(counted?.question).toBe('How many members does “Resellers” have in fact?');
+    expect(counted?.measure).toContain('independent count');
+    // An ordering of groups is not something to repeat the runs for.
+    expect(target('finding f4:')).toBeUndefined();
+    expect(plan.some((experiment) => experiment.method.includes('more seeded runs'))).toBe(false);
   });
 
-  it('adapts the check to the trait: how long and how costly it is to switch, or how strongly the change lands', () => {
+  it('names the group and what would be observed in the scenario’s own words, with a comparison, an owner and a decision rule left to the person', () => {
+    expect(plan.length).toBeGreaterThanOrEqual(5);
+    for (const experiment of plan) {
+      expect(experiment.question.length, experiment.id).toBeGreaterThan(10);
+      expect(experiment.measure.length, experiment.id).toBeGreaterThan(20);
+      expect(experiment.comparison.length, experiment.id).toBeGreaterThan(10);
+      expect(experiment.method.length, experiment.id).toBeGreaterThan(10);
+      expect(experiment.ownerFunction, experiment.id).toMatch(/^[a-z ]+$/u);
+      expect(['low', 'medium', 'high']).toContain(experiment.effort);
+      expect(experiment.duration).toMatch(/week|day/u);
+      // The threshold is the person's to set: the check says so and supplies none.
+      expect(experiment.successSignal, experiment.id).toMatch(
+        /Decide beforehand|before the check starts|Before the check starts/u,
+      );
+    }
     const switching = target('sensitivity s1:')!;
     expect(switching.question).toBe(
       'How long and how costly is it for “Subscribers” to change what they use or do today?',
     );
-    expect(switching.method).toContain('survey');
-    expect(switching.method).toContain('data pull');
-    expect(switching.successSignal).toContain('assumed switching cost of 0.40');
-    expect(switching).toMatchObject({ effort: 'medium', duration: '2 to 4 weeks' });
-    const intensity = target('sensitivity s3:')!;
-    expect(intensity.question).toBe(INTENSITY_CHECK.question);
-    expect(intensity.method).toContain('pilot');
-    expect(intensity.method).toContain('A/B test');
-    expect(target('finding f4:')!.method).toContain('more seeded runs');
-    expect(target('evidence gap rival-provider:')!.method).toContain('Desk research');
+    expect(switching.measure).toContain('out-of-pocket cost');
+    expect(switching.measure).toContain('“Subscribers”');
+    expect(switching.ownerFunction).toBe('finance');
+    const strength = target('assumption: strength and timing')!;
+    // The scenario's own words for the change are quoted into the question.
+    expect(strength.question).toContain(
+      '“Monthly fee” (from “current fee” to “current fee plus a fixed amount”)',
+    );
+    const conflict = target('conflict X1:')!;
+    expect(conflict.question).toBe(
+      'Which figure holds for “monthly volume”: “Supplied notes.md” (“12”) or “Pasted address.md” (“15”)?',
+    );
+    expect(conflict.method).toContain('underlying data');
+    expect(conflict.ownerFunction).toBe('research and analytics');
+    const responder = target('finding f3:')!;
+    expect(responder.question).toContain('What would lead “Rival provider” to respond');
+    expect(responder.ownerFunction).toBe('strategy');
+    expect(responder.targets.some((entry) => entry.startsWith('evidence gap rival-provider'))).toBe(
+      true,
+    );
+  });
+
+  it('never asks the world to match an internal score or setting of the simulation', () => {
+    const text = plan
+      .flatMap((experiment) => [
+        experiment.question,
+        experiment.measure,
+        experiment.comparison,
+        experiment.method,
+        experiment.successSignal,
+      ])
+      .join('\n');
+    expect(text).not.toMatch(/in line with the (assumed|simulated)/iu);
+    expect(text).not.toMatch(/assumed (impact|sensitivity|switching cost|trust|openness|value)/iu);
+    expect(text).not.toMatch(/from -1 to 1|strength (of )?\d|\b0\.[0-9]+\b/u);
+    expect(text).not.toMatch(/matches? (the|a) (assumed|simulated)/iu);
+    // What replaces a setting is the observation.
+    expect(
+      plan.some((experiment) =>
+        /replaces? the (assumed|simulated)/iu.test(experiment.successSignal),
+      ),
+    ).toBe(true);
   });
 
   it('chooses the check for an actor nothing supports by the kind of actor', () => {
@@ -635,14 +836,13 @@ describe('the validation plan', () => {
 
   it('does not repeat a check: the same check for several results is one check with several targets', () => {
     const analysis = richAnalysis();
-    const unstable = analysis.findings.filter((entry) => entry.classification === 'unstable');
-    expect(unstable.length).toBeGreaterThan(0);
-    analysis.findings = [
-      ...analysis.findings,
-      ...[1, 2].map((index) => ({
-        ...unstable[0]!,
-        id: `extra-${index}`,
-        statement: `${unstable[0]!.statement} (another view ${index})`,
+    analysis.sensitivity = [
+      ...analysis.sensitivity,
+      ...['up', 'down'].map((direction, index) => ({
+        ...analysis.sensitivity[0]!,
+        id: `s1-${direction}`,
+        label: `Subscribers: cost of switching, ${direction}`,
+        shift: 0.12 + index / 100,
       })),
     ];
     const merged = validationPlan(gatherFacts(richInputs({ analysis })));
@@ -650,27 +850,69 @@ describe('the validation plan', () => {
       (experiment) => `${experiment.question}|${experiment.method}|${experiment.successSignal}`,
     );
     expect(new Set(texts).size).toBe(texts.length);
-    const repeated = merged.find((experiment) => experiment.question === UNSTABLE_CHECK.question)!;
-    expect(repeated.targets.filter((entry) => entry.startsWith('finding '))).toHaveLength(3);
+    const switching = merged.find(
+      (experiment) =>
+        experiment.question ===
+        TRAIT_CHECKS.switchingCost.question.replace('{group}', '“Subscribers”'),
+    )!;
+    expect(switching.targets.filter((entry) => entry.startsWith('sensitivity '))).toHaveLength(3);
     expect(merged.map((experiment) => experiment.id)).toEqual(
       merged.map((_, index) => `val-${index + 1}`),
     );
   });
 
-  it('gives each check a question, a method, a signal of success, an effort and a duration', () => {
-    for (const experiment of plan) {
-      expect(experiment.question.length).toBeGreaterThan(10);
-      expect(experiment.method.length).toBeGreaterThan(10);
-      expect(experiment.successSignal.length).toBeGreaterThan(10);
-      expect(['low', 'medium', 'high']).toContain(experiment.effort);
-      expect(experiment.duration).toMatch(/week/u);
-    }
+  it('repeats the analysis only for a headline result that disagrees across runs, never for an ordering of groups or a single event', () => {
+    const base = richAnalysis();
+    const weaken = (id: string) =>
+      analysisSchema.parse({
+        ...base,
+        findings: base.findings.map((finding) =>
+          finding.id === id
+            ? {
+                ...finding,
+                classification: 'unstable',
+                holdsIn: 5,
+                interval: { lo: 0.24, hi: 0.76 },
+              }
+            : finding,
+        ),
+      });
+    const headline = validationPlan(gatherFacts(richInputs({ analysis: weaken('f1') })));
+    const repeat = headline.find((experiment) => experiment.question === REPEAT_CHECK.question)!;
+    expect(repeat.targets[0]).toMatch(/^finding f1: /u);
+    expect(repeat.ownerFunction).toBe('research and analytics');
+    expect(repeat.method).toContain('more seeded runs');
+    expect(repeat.comparison).toContain('different first seed');
+    // The event, and the ordering that was already unstable, are only described by the runs.
+    const event = validationPlan(gatherFacts(richInputs({ analysis: weaken('f3') })));
+    expect(event.some((experiment) => experiment.question === REPEAT_CHECK.question)).toBe(false);
+    expect(plan.some((experiment) => experiment.question === REPEAT_CHECK.question)).toBe(false);
+  });
+
+  it('is not the same plan for different findings and evidence: the groups, conflicts and responders it names are the analysis’s own', () => {
+    const other = richInputs();
+    other.ledgerSummary = { conflicts: [], sufficiency: null };
+    other.analysis = analysisSchema.parse({
+      ...richAnalysis(),
+      sensitivity: [],
+      findings: richAnalysis().findings.filter((finding) => finding.id !== 'f3'),
+    });
+    const bare = validationPlan(gatherFacts(other));
+    const text = (list: typeof plan) => list.map((experiment) => experiment.question).join('\n');
+    expect(text(bare)).not.toBe(text(plan));
+    expect(text(bare)).not.toContain('monthly volume');
+    expect(text(bare)).not.toContain('respond to the change');
+    expect(text(plan)).toContain('monthly volume');
+    expect(text(plan)).toContain('respond to the change');
   });
 
   it('says that no check was generated, and that this is not validation, when there is nothing to check', () => {
+    // A baseline and nothing else was run: no change to premise, no group moved, nothing to repeat.
     const analysis = analysisSchema.parse({
       ...analysisFixture(),
-      findings: analysisFixture().findings.slice(0, 1),
+      config: { ...analysisFixture().config, variants: [analysisFixture().config.variants[0]] },
+      variants: [analysisFixture().variants[0]],
+      findings: [],
       sensitivity: [],
     });
     const evidenced = baseInputs({ analysis });
@@ -688,20 +930,32 @@ describe('the validation plan', () => {
   it('is worded without a prediction, an overclaim or a percentage, in every template', () => {
     const everything = [
       ...Object.values(TRAIT_CHECKS),
-      INTENSITY_CHECK,
+      STRENGTH_CHECK,
+      SPREAD_CHECK,
       POPULATION_CHECK,
-      UNSTABLE_CHECK,
+      CONFLICT_CHECK,
+      RESPONDER_CHECK,
+      REPEAT_CHECK,
+      DIRECTION_CHECK,
       GENERAL_GAP_CHECK,
       ...STAKEHOLDER_CATEGORIES.map(gapCheckFor),
     ];
     for (const check of everything) {
       expect(
         lintText(
-          [check.question, check.method, check.successSignal, check.measure, check.duration].join(
-            '\n',
-          ),
+          [
+            check.question,
+            check.measure,
+            check.comparison,
+            check.method,
+            check.decision,
+            check.gist,
+            check.duration,
+          ].join('\n'),
         ),
       ).toEqual([]);
+      // "Share" is kept for the simulated share of simulated members; what a check observes is a proportion.
+      expect(`${check.question} ${check.measure} ${check.comparison}`).not.toMatch(/\bshares?\b/iu);
     }
     expect(Object.keys(TRAIT_CHECKS)).toHaveLength(11);
   });

@@ -354,8 +354,12 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
           ).not.toHaveCount(0);
         }
       }
+      // The answer keeps its own statements behind "How this answer is made", so only what is on show counts.
       await expect(
-        statements.filter({ has: page.locator('.brief-origin-supplied-evidence') }).first(),
+        brief
+          .locator('li.brief-statement:visible')
+          .filter({ has: page.locator('.brief-origin-supplied-evidence') })
+          .first(),
       ).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await expectReadableText(page, `${pack.title}: the brief`);
@@ -386,7 +390,7 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
     expect(markdown.headers()['content-disposition']).toContain('attachment');
     const text = await markdown.text();
     expect(text).toContain('It does not predict the future');
-    expect(text).toContain('never a rate in a real population');
+    expect(text).toContain('none is a measured population rate');
     expect(text).toMatch(/\*\*Simulation aggregation/u);
 
     const json = await read('JSON');
@@ -405,7 +409,8 @@ async function journey(page: Page, pack: Pack): Promise<Outcome> {
 
   await test.step('inspect: the evidence and the assumption behind a statement', async () => {
     const brief = briefDocument(page);
-    const statements = brief.locator('li.brief-statement');
+    // The answer keeps its own statements behind "How this answer is made", so only what is on show counts.
+    const statements = brief.locator('li.brief-statement:visible');
     const evidence = statements
       .filter({ has: page.locator('.brief-origin-supplied-evidence') })
       .filter({ has: page.locator('details.brief-refs q') })
@@ -844,11 +849,13 @@ test.describe('what the product may not claim', () => {
     }
   });
 
-  test('lets through what the product says: simulated counts, seeded runs, and what others wrote', () => {
+  test('lets through what the product says: simulated counts and shares, seeded runs, and what others wrote', () => {
     for (const fine of [
       'About 22 simulated members ended up looking for an alternative or resisting under “Proposed change”.',
+      'The mean share of simulated members looking for an alternative or resisting was about 24 in 100 under “Proposed change” against 1 in 100 under “No change”, counting each simulated actor equally.',
+      'In 10 of 10 seeded runs, the share of simulated members looking for an alternative or resisting, counting each actor equally and not each member, reached at least 30 in 100 at some round.',
       'In 10 of 10 seeded runs, at least 30% of simulated members were looking for an alternative.',
-      'It does not predict the future, and the counts above are neither rates nor forecasts.',
+      'It does not predict the future, and the counts above are neither rates nor forecasts, and nor are the shares of simulated members.',
       'The poll gives “44%” and the partner’s notes give “16%”.',
       'Moving it by +0.25 changed the outcome measure by -0.03 on the same seeds.',
       'The finding held in 9 of 10 seeded runs (Wilson interval 0.60 to 0.98).',

@@ -191,14 +191,19 @@ export function briefFixture(overrides: Partial<DecisionBrief> = {}): DecisionBr
         targets: ['sensitivity s1: Subscribers: cost of switching, 0.2 higher'],
         question: 'How long and how costly is it for “Subscribers” to change?',
         method: 'A short survey and a few interviews, backed by a data pull.',
-        successSignal: 'Measured time and cost are in line with the assumed value of 0.40.',
+        successSignal:
+          'A cost and time you set beforehand from what a change must cost before it is worth acting on.',
         effort: 'medium',
         duration: '2 to 4 weeks',
+        measure:
+          'The time and the money it takes a “Subscribers” member to change, as they report it.',
+        comparison: 'Members of “Subscribers” who changed against those who did not.',
+        ownerFunction: 'Research and analytics',
       },
     ],
     limitations: [
       'Synthetic actors are not real people. They stand in for groups under declared assumptions.',
-      'Every count is a count of simulated members or of seeded runs. None is a rate.',
+      'Outcome counts are synthetic; other figures are model scores, seeded-run proportions or stated assumptions; none is a measured population rate.',
     ],
     fidelity: {
       engine: 'rules',
@@ -231,6 +236,13 @@ export function visualsFixture(overrides: Partial<BriefVisuals> = {}): BriefVisu
       mean: values[index] ?? 0,
       min: (values[index] ?? 0) - 1,
       max: (values[index] ?? 0) + 1,
+    }));
+  const shares = (values: number[]) =>
+    RESPONSE_CATEGORIES.map((category, index) => ({
+      category,
+      mean: values[index] ?? 0,
+      min: Math.max(0, (values[index] ?? 0) - 0.02),
+      max: (values[index] ?? 0) + 0.02,
     }));
   return {
     analysisId: 'analysis-1',
@@ -276,8 +288,11 @@ export function visualsFixture(overrides: Partial<BriefVisuals> = {}): BriefVisu
         kind: 'baseline',
         runs: 10,
         members: 43,
+        shares: shares([0.09, 0.18, 0.37, 0.27, 0.05, 0.04]),
+        adverseShare: { mean: 0.09, min: 0.06, max: 0.12 },
         responses: responses([3.9, 7.8, 16, 12, 2.3, 1.6]),
         adverse: { mean: 3.9, min: 1.8, max: 5.7 },
+        perRun: true,
         stanceMean: 0.12,
       },
       {
@@ -286,8 +301,11 @@ export function visualsFixture(overrides: Partial<BriefVisuals> = {}): BriefVisu
         kind: 'alternative',
         runs: 10,
         members: 43,
+        shares: shares([0.06, 0.11, 0.22, 0.17, 0.26, 0.18]),
+        adverseShare: { mean: 0.44, min: 0.4, max: 0.49 },
         responses: responses([2.4, 4.8, 9.6, 7.2, 11, 7.6]),
         adverse: { mean: 18.6, min: 17, max: 21 },
+        perRun: true,
         stanceMean: -0.2,
       },
     ],
@@ -296,6 +314,10 @@ export function visualsFixture(overrides: Partial<BriefVisuals> = {}): BriefVisu
         variantId: 'proposed-change',
         label: 'Proposed change',
         members: 43,
+        adverseShare: 0.44,
+        baselineAdverseShare: 0.09,
+        shareDelta: 0.35,
+        shareDeltaError: 0.02,
         adverseMean: 18.6,
         baselineAdverseMean: 3.9,
         adverseDelta: 14.7,

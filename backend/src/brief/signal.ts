@@ -84,7 +84,7 @@ function someGroupMoved(
   measure: VariantMeasure,
   baseline: VariantMeasure,
 ): boolean {
-  if (moves(pairRuns(measure.runs, baseline.runs), measure.members)) return true;
+  if (moves(pairRuns(measure.runs, baseline.runs), measure.members ?? 0)) return true;
   const totals = (variantId: string, actorId: string) =>
     analysis.variants
       .find((result) => result.variantId === variantId)

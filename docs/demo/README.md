@@ -135,7 +135,7 @@ decides."
 ### Do not say
 
 - That an example shows what Microsoft, AWS or any real company will do, or that any figure in it is real.
-- That "k of n runs" is a probability, or that a count of simulated members is a rate in a population.
+- That "k of n runs" is a probability, or that a count or a share of simulated members is a rate in a population.
 - That the actors are people, or that their traits were measured.
 - That rules mode is a language model. It is deterministic code, and it is labelled as such.
 - That a critic's silence means the analysis is right, that a "supported" label means a statement is

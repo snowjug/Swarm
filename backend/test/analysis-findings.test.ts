@@ -33,7 +33,13 @@ interface ActorState {
 function run(
   seed: number,
   states: Record<string, ActorState>,
-  extra: { stance?: number; events?: string[]; peak?: number } = {},
+  extra: {
+    stance?: number;
+    events?: string[];
+    /** Events written as who made them, for the findings that name the actor. */
+    made?: { kind: string; actorId: string }[];
+    peak?: number;
+  } = {},
 ): RunRecord {
   const byActor = Object.entries(states).map(([actorId, state]) => ({
     actorId,
@@ -51,7 +57,10 @@ function run(
     },
     actors: new Map(byActor.map((actor) => [actor.actorId, actor])),
     rounds: [],
-    eventKinds: extra.events ?? [],
+    eventKinds: extra.made
+      ? [...new Set(extra.made.map((event) => event.kind))]
+      : (extra.events ?? []),
+    ...(extra.made ? { events: extra.made } : {}),
     peakAdverse: extra.peak ?? 0,
   };
 }
@@ -207,9 +216,11 @@ describe('crossing a share at some round', () => {
     const findings = generateFindings(input({ baseline, 'proposed-change': proposed }));
     const finding = find(findings, 'threshold-crossing', 'proposed-change');
     expect(finding.holdsIn).toBe(12);
+    // The overall share gives each actor the same weight, so the statement says so, with its denominator.
     expect(finding.statement).toBe(
-      'In 12 of 30 seeded runs, at least 30% of simulated members were looking for an alternative or resisting at some round under Proposed change.',
+      'In 12 of 30 seeded runs, the share of simulated members looking for an alternative or resisting, counting each actor equally and not each member, reached at least 30 in 100 at some round under Proposed change.',
     );
+    expect(finding.predicate).toContain('each actor weighted equally, not each member');
     expect(finding.classification).toBe('unstable');
     expect(find(findings, 'threshold-crossing', 'baseline').holdsIn).toBe(0);
     const stricter = generateFindings(
@@ -217,7 +228,7 @@ describe('crossing a share at some round', () => {
     );
     const none = find(stricter, 'threshold-crossing', 'proposed-change');
     expect(none.holdsIn).toBe(0);
-    expect(none.statement).toContain('at least 50%');
+    expect(none.statement).toContain('reached at least 50 in 100');
   });
 });
 
@@ -313,6 +324,67 @@ describe('events that followed from the change', () => {
     expect(scrutiny.classification).toBe('repeatable');
     // The more frequent kind comes first.
     expect(events[0]).toBe(scrutiny);
+  });
+
+  it('names the actor that made each event, so that a repeated reaction is about one actor and not only a kind', () => {
+    const cast = [named('subscribers', 'Subscribers'), named('rival', 'Rival provider')];
+    const baseline = Array.from({ length: 30 }, (_, index) =>
+      run(index, { subscribers: { stance: 0 } }, { made: [] }),
+    );
+    const proposed = Array.from({ length: 30 }, (_, index) =>
+      run(
+        index,
+        { subscribers: { stance: -0.3 } },
+        {
+          made: [
+            ...(index < 28 ? [{ kind: 'counter-move', actorId: 'rival' }] : []),
+            ...(index < 5 ? [{ kind: 'enablement', actorId: 'subscribers' }] : []),
+          ],
+        },
+      ),
+    );
+    const findings = generateFindings(
+      input({ baseline, 'proposed-change': proposed }, { actors: cast }),
+    );
+    const events = findings.filter((item) => item.kind === 'second-order-event');
+    const counter = events.find((item) => item.statement.includes('counter-move'))!;
+    expect(counter.actorId).toBe('rival');
+    expect(counter.statement).toBe(
+      'In 28 of 30 seeded runs, a simulated “counter-move” event by Rival provider occurred under Proposed change (under No change: 0 of 30).',
+    );
+    expect(counter.predicate).toContain('by Rival provider');
+    // 28 of 30 has a lower bound of 0.79: mostly repeatable.
+    expect(counter.classification).toBe('mostly-repeatable');
+    // The same kind made by another actor is another finding with its own count.
+    const other = generateFindings(
+      input(
+        { baseline, 'proposed-change': proposed },
+        { actors: [...cast, named('partner', 'Partner')] },
+      ),
+    ).filter((item) => item.kind === 'second-order-event');
+    expect(new Set(other.map((item) => item.id)).size).toBe(other.length);
+  });
+
+  it('keeps one finding for each actor that made the same kind of event, and counts the baseline for that actor alone', () => {
+    const cast = [named('partner-a', 'Partner A'), named('partner-b', 'Partner B')];
+    const make = (count: (index: number) => string[]) =>
+      Array.from({ length: 10 }, (_, index) =>
+        run(
+          index,
+          { 'partner-a': { stance: 0 } },
+          { made: count(index).map((actorId) => ({ kind: 'enablement', actorId })) },
+        ),
+      );
+    const proposed = make((index) => (index < 8 ? ['partner-a'] : ['partner-b']));
+    const baseline = make((index) => (index < 2 ? ['partner-b'] : []));
+    const events = generateFindings(
+      input({ baseline, 'proposed-change': proposed }, { actors: cast }),
+    ).filter((item) => item.kind === 'second-order-event');
+    const a = events.find((item) => item.actorId === 'partner-a')!;
+    const b = events.find((item) => item.actorId === 'partner-b')!;
+    expect([a.holdsIn, b.holdsIn]).toEqual([8, 2]);
+    expect(a.statement).toContain('(under No change: 0 of 10)');
+    expect(b.statement).toContain('(under No change: 2 of 10)');
   });
 
   it('reports at most three kinds of event for a variant, and none when nothing occurred', () => {

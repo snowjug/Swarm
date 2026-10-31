@@ -758,7 +758,7 @@ test.describe('comparing scenarios on the page', () => {
     );
     // How often each kind of event occurred is among the findings, with the runs of the baseline alongside.
     await expect(results(page)).toContainText(
-      /seeded runs, a simulated “(counter-move|scrutiny|enablement)” event occurred under Proposed change \(under No change: \d+ of 10\)/u,
+      /seeded runs, a simulated “(counter-move|scrutiny|enablement)” event by .+ occurred under Proposed change \(under No change: \d+ of 10\)/u,
     );
     expect(problems).toEqual([]);
   });
@@ -1239,10 +1239,10 @@ test.describe('what a finished comparison feeds', () => {
       /Variants simulated: “No change” \(baseline\), “Proposed change” \(alternative, lands in round 2 at strength 0\.70 of 1\)/u,
     );
     expect(text('alternative-outcomes')).toMatch(
-      /Against “No change”, “Proposed change” left about [\d.]+ more of \d+ simulated members/u,
+      /Against “No change”, “Proposed change” (?:raised|lowered|left) the mean share of simulated members looking for an alternative or resisting/u,
     );
     expect(text('second-order')).toMatch(
-      /a simulated "(scrutiny|counter-move|enablement)" event occurred/u,
+      /a simulated "(scrutiny|counter-move|enablement)" event by .+ occurred/u,
     );
     expect(text('uncertainty')).toMatch(/Wilson interval/u);
     expect(brief.brief.recommendations.length).toBeGreaterThan(0);
