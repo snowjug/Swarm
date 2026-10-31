@@ -1,4 +1,9 @@
 import type { SourceProvenance } from './scenario.js';
+import { aiFirstSupport } from './examples/ai-first-support.js';
+import { copilotInTeams } from './examples/copilot-in-teams.js';
+import { ecommerceExperience } from './examples/ecommerce-experience.js';
+import { launchPricing } from './examples/launch-pricing.js';
+import { regionalPriceChange } from './examples/regional-price-change.js';
 
 /**
  * A worked example a person can start from. It is only a question and some evidence: everything else,
@@ -17,5 +22,11 @@ export interface ExampleScenario {
   urlSuggestion?: { url: string; why: string };
 }
 
-/** Filled by `shared/examples/*`. The order is the order the picker shows. */
-export const EXAMPLE_SCENARIOS: readonly ExampleScenario[] = [];
+/** The order is the order the picker shows. A custom scenario needs no entry: the entry form is that path. */
+export const EXAMPLE_SCENARIOS: readonly ExampleScenario[] = [
+  copilotInTeams,
+  regionalPriceChange,
+  ecommerceExperience,
+  aiFirstSupport,
+  launchPricing,
+];
