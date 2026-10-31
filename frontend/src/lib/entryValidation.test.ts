@@ -1,8 +1,61 @@
 import { describe, expect, it } from 'vitest';
-import { nameFromQuestion, validateEntry } from './entryValidation';
+import { scenarioFixture } from '../../../shared/lab-fixtures';
+import { entryInput, nameFromQuestion, validateEntry } from './entryValidation';
 
 const SOURCE =
   'A fictional notes file about a change, with enough characters to be accepted as source material for the scenario.';
+const settings = {
+  mode: 'local',
+  agentCount: 12,
+  rounds: 8,
+  seed: 42,
+  network: 'community',
+  intervention: null,
+} as const;
+const form = {
+  name: '',
+  question: 'What could happen if the opening hours change?',
+  documents: [{ name: 'notes.md', content: SOURCE }],
+  settings,
+  frame: null,
+};
+
+describe('what the entry form sends', () => {
+  it('is a guided project, named from the question when the person gave no name', () => {
+    const input = entryInput(form);
+    expect(input.workflow).toBe('guided');
+    expect(input.name).toBe('What could happen if the opening hours change?');
+    expect(entryInput({ ...form, name: 'Opening hours' }).name).toBe('Opening hours');
+    expect(entryInput({ ...form, name: '   ' }).name).toBe(input.name);
+  });
+
+  it('carries no scenario unless the person went through intake', () => {
+    expect('scenario' in entryInput(form)).toBe(false);
+    expect(validateEntry(entryInput(form)).data?.scenario).toBeUndefined();
+  });
+
+  it('sends the scenario read from the question, as the schema validates it', () => {
+    const frame = scenarioFixture();
+    const input = entryInput({ ...form, frame });
+    expect(input.scenario).toEqual(frame);
+    const result = validateEntry(input);
+    expect(result.error).toBeUndefined();
+    expect(result.data?.scenario?.decision).toBe(frame.decision);
+    expect(result.data?.scenario?.origin).toBe(frame.origin);
+  });
+
+  it('refuses a scenario that does not fit the schema, saying where', () => {
+    const frame = { ...scenarioFixture(), decision: 'x'.repeat(500) };
+    const result = validateEntry(entryInput({ ...form, frame }));
+    expect(result.error).toContain('scenario.decision');
+  });
+
+  it('keeps the documents and the run settings as they were entered', () => {
+    const result = validateEntry(entryInput(form));
+    expect(result.data?.documents).toHaveLength(1);
+    expect(result.data?.settings).toMatchObject({ agentCount: 12, rounds: 8, seed: 42 });
+  });
+});
 
 describe('a project name from the question', () => {
   it('is the question itself when it is short enough, with its spaces tidied', () => {

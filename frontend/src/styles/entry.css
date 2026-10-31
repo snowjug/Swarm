@@ -193,12 +193,18 @@
   font-size: var(--fs-lg);
   line-height: 1.55;
 }
+.evidence-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
 .source-input {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  border-top: 1px solid var(--border);
-  padding-top: 20px;
 }
 .source-input > .section-heading {
   align-items: baseline;

@@ -269,13 +269,34 @@
   }
 }
 @media (max-width: 640px) {
-  .pipeline {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* On a phone the question has to be on the first screen, so the introduction is shorter. */
+  .landing-hero {
+    gap: var(--space-3);
   }
-  .pipeline li:nth-child(2n)::after {
+  .landing-hero h1 {
+    font-size: 30px;
+  }
+  .hero-lede {
+    font-size: var(--fs-md);
+    line-height: 1.55;
+  }
+  .pipeline {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3) var(--space-2);
+    margin-top: var(--space-1);
+    padding-top: var(--space-3);
+  }
+  .pipeline li {
+    padding-right: 0;
+  }
+  .pipeline li:not(:last-child)::after {
     display: none;
   }
   .pipeline small {
     display: none;
+  }
+  .pipeline strong {
+    font-size: var(--fs-xs);
+    line-height: 1.3;
   }
 }

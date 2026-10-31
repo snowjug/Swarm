@@ -293,4 +293,17 @@ describe('entry console landing', () => {
     expect(() => renderLanding({ config: withIngestion })).not.toThrow();
     expect(renderLanding({ config: withIngestion }).match(/type="file"/gu)).toHaveLength(1);
   });
+
+  it('says where each document came from when it has a provenance, and keeps it on a duplicate', () => {
+    const project = projectFixture();
+    project.documents = [
+      { ...project.documents[0]!, provenance: { kind: 'sample' } },
+      { ...project.documents[0]!, id: 'doc-2', name: 'page.md', provenance: { kind: 'url' } },
+      { ...project.documents[0]!, id: 'doc-3', name: 'plain.md' },
+    ];
+    const text = visibleText(render(configFixture(), project));
+    expect(text).toContain('sample evidence');
+    expect(text).toContain('public web page');
+    expect(text.match(/uploaded file|pasted text|historical record/gu)).toBeNull();
+  });
 });

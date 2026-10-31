@@ -9,6 +9,7 @@ import {
 } from '../../../../shared/types';
 import type { AppConfig, CreateProjectInput } from '../../../../shared/types';
 import { api, errorMessage } from '../../api';
+import { SOURCE_KIND_LABELS } from '../../lib/product';
 import { Notice, Spinner } from '../ui';
 
 type DocumentInput = CreateProjectInput['documents'][number];
@@ -215,6 +216,9 @@ export function SourceInput({
           <summary>
             <FileText size={15} aria-hidden="true" />
             <span>{document.name}</span>
+            {document.provenance && (
+              <span className="mono muted">{SOURCE_KIND_LABELS[document.provenance.kind]}</span>
+            )}
             <span className="mono muted">
               {document.content.length.toLocaleString()} chars
               {document.pageCount ? ` · ${document.pageCount} pp` : ''}

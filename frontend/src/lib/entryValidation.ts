@@ -1,5 +1,32 @@
 import { createProjectSchema } from '../../../shared/types';
-import type { CreateProjectInput, ValidatedProjectInput } from '../../../shared/types';
+import type {
+  CreateProjectInput,
+  SimulationSettings,
+  ValidatedProjectInput,
+} from '../../../shared/types';
+import type { ScenarioFrame } from '../../../shared/scenario';
+
+/**
+ * What the entry form sends, before it is validated: a project name from the question when the person
+ * gave none, and the scenario read from the question when there is one. Nothing is sent as a scenario
+ * that the person did not go through intake for.
+ */
+export function entryInput(form: {
+  name: string;
+  question: string;
+  documents: CreateProjectInput['documents'];
+  settings: SimulationSettings;
+  frame: ScenarioFrame | null;
+}): CreateProjectInput {
+  return {
+    name: form.name.trim() ? form.name : nameFromQuestion(form.question),
+    question: form.question,
+    documents: form.documents,
+    settings: form.settings,
+    workflow: 'guided',
+    ...(form.frame ? { scenario: form.frame } : {}),
+  };
+}
 
 export function validateEntry(
   input: CreateProjectInput,

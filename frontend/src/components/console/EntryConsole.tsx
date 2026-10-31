@@ -12,7 +12,7 @@ import type {
   SimulationSettings,
 } from '../../../../shared/types';
 import { errorMessage } from '../../api';
-import { nameFromQuestion, validateEntry } from '../../lib/entryValidation';
+import { entryInput, validateEntry } from '../../lib/entryValidation';
 import type { UiMode } from '../../lib/mode';
 import { exampleEvidence, urlIngestionEnabled } from '../../lib/product';
 import { authText, modelReadiness, realModelLabel } from '../../lib/provider';
@@ -93,10 +93,11 @@ export function EntryConsole({
   const [question, setQuestion] = useState(initialProject?.question ?? '');
   const [frame, setFrame] = useState<ScenarioFrame | null>(null);
   const [documents, setDocuments] = useState<CreateProjectInput['documents']>(
-    initialProject?.documents.map(({ name, content, pageCount }) => ({
+    initialProject?.documents.map(({ name, content, pageCount, provenance }) => ({
       name,
       content,
       ...(pageCount ? { pageCount } : {}),
+      ...(provenance ? { provenance } : {}),
     })) ?? [],
   );
   const [settings, setSettings] = useState<SimulationSettings>(
@@ -180,14 +181,7 @@ export function EntryConsole({
       );
       return;
     }
-    const parsed = validateEntry({
-      name: name.trim() ? name : nameFromQuestion(question),
-      question,
-      documents,
-      settings,
-      workflow: 'guided',
-      ...(frame ? { scenario: frame } : {}),
-    });
+    const parsed = validateEntry(entryInput({ name, question, documents, settings, frame }));
     if (parsed.error) {
       setError(parsed.error);
       return;
@@ -284,24 +278,26 @@ export function EntryConsole({
             onFrame={setFrame}
             disabled={disabled}
           />
-          <SourceInput
-            config={config}
-            documents={documents}
-            onChange={setDocuments}
-            disabled={busy}
-            onPending={setReading}
-            errorResetRef={clearFileError}
-          />
-          {urlIngestionEnabled(config) && (
-            <UrlEvidence
-              disabled={disabled}
-              remainingDocuments={Math.max(0, maxDocuments - documents.length)}
-              onAdd={(document) => {
-                setDocuments((old) => [...old, document]);
-                setError(null);
-              }}
+          <div className="evidence-group">
+            <SourceInput
+              config={config}
+              documents={documents}
+              onChange={setDocuments}
+              disabled={busy}
+              onPending={setReading}
+              errorResetRef={clearFileError}
             />
-          )}
+            {urlIngestionEnabled(config) && (
+              <UrlEvidence
+                disabled={disabled}
+                remainingDocuments={Math.max(0, maxDocuments - documents.length)}
+                onAdd={(document) => {
+                  setDocuments((old) => [...old, document]);
+                  setError(null);
+                }}
+              />
+            )}
+          </div>
           <section className="form-section run-settings">
             <h3>Run settings</h3>
             <div className="field">
