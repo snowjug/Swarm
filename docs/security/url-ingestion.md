@@ -77,6 +77,7 @@ The addresses that are never connected to (`classifyAddress`):
 | **DNS rebinding**: a name that answers public, then private | The name is looked up once for each request, every answer is checked, and the connection is made to those answers through a lookup that returns only them. The connection never looks the name up again. Each redirect hop is checked and pinned too                            | `url-fetcher.test.ts` (connects to the address that was checked) | Behind a transparent egress proxy the connection is to the proxy, which does its own lookup: pinning cannot see past it                                                                                             |
 | **Redirects** to an internal address or another scheme      | Followed by hand, at most five. Each target goes through the whole check again (scheme, user name, host, port, allow list, name lookup). A redirect from https to http is not followed                                                                                          | `url-fetcher.test.ts` (judges every redirect target again)       | A page can send the reader to another public site, and the notes say so                                                                                                                                             |
 | **Large or endless answers**                                | At most `URL_INGEST_MAX_BYTES` (1.5 MB) are read, a declared length above it is refused before reading, and the read stops at the limit. A total time (12 s) and a silence limit (5 s) apply, so a server that drips one byte at a time is stopped                              | `url-fetcher.test.ts` (size, slow-loris, idle)                   | Requests are limited for each caller address, not for the server as a whole: many callers can hold many fetches open at once, each for at most the time limit                                                       |
+| **Many fetches at once**                                    | One caller: 10 requests a minute. The whole server: at most `URL_INGEST_CONCURRENCY` (8) pages at once and `URL_INGEST_QUEUE` (8) waiting in order for up to `URL_INGEST_QUEUE_WAIT_MS` (5 s); the rest get `503 URL_BUSY` and a `Retry-After`, naming nothing of the address   |
 | **Decompression bombs**                                     | `Accept-Encoding: identity` is sent. If a server compresses anyway (gzip, deflate or Brotli), the output is counted and the read stops at the same limit, so a few kilobytes that expand to gigabytes are refused                                                               | `url-fetcher.test.ts` (decompression bombs)                      | A `deflate` body without a zlib header is refused as damaged                                                                                                                                                        |
 | **A page that tries to run something**                      | It is only a string, scanned once by a small tokenizer (`extract.ts`). Nothing is evaluated, rendered, fetched or followed. Scripts, styles, templates, frames, drawings, form controls and comments are dropped; links keep their text and never their address                 | `url-extract.test.ts`                                            | A page can be built to be slow to scan: the amount of work is capped (150,000 tags, 400 levels of nesting, a bounded amount of text) and tested on pages made to be slow                                            |
 | **Hidden text**                                             | Elements with `hidden`, `aria-hidden="true"`, `display:none`, `visibility:hidden`, `opacity:0` or `font-size:0` are dropped, with everything inside them. Zero-width and bidirectional controls, the Unicode tag block and other control characters are removed from every text | `url-extract.test.ts`                                            | Text hidden by a style sheet or a class (`.sr-only`, off-screen positioning, white on white) cannot be seen without rendering the page, which is not done: it is kept                                               |
@@ -204,6 +205,7 @@ instead."
 | `URL_NO_TEXT`            | Fewer than 80 characters of readable text: the page may need JavaScript                                                  |
 | `URL_FETCH_FAILED`       | The name was not found, the connection failed, the certificate could not be verified, or the site answered with an error |
 | `URL_INGESTION_DISABLED` | `URL_INGESTION=off` (403)                                                                                                |
+| `URL_BUSY`               | The server is reading as many pages as it allows, and the line to wait is full or too slow (503)                         |
 
 The allowed types are `text/html`, `application/xhtml+xml`, `text/plain`, `text/markdown`, `text/csv` and
 `application/json`. The type is taken from what the site says and is not guessed.
@@ -217,6 +219,9 @@ The allowed types are `text/html`, `application/xhtml+xml`, `text/plain`, `text/
 | `URL_INGEST_MAX_BYTES`     | 1,500,000 | Most bytes read from a page, before and after decompression (10,000 to 5,000,000)                    |
 | `URL_INGEST_TIMEOUT_MS`    | 12,000    | The whole fetch: lookups, redirects, robots.txt and the page (1,000 to 25,000)                       |
 | `URL_INGEST_ALLOWED_HOSTS` | empty     | If set, only these hosts: `example.com` exactly, or `*.example.com` for its subdomains               |
+| `URL_INGEST_CONCURRENCY`   | 8         | Pages read at the same moment by this process, for every caller together (1 to 64)                   |
+| `URL_INGEST_QUEUE`         | 8         | Requests that may wait for one of those places; beyond that, `503 URL_BUSY` (0 to 64)                |
+| `URL_INGEST_QUEUE_WAIT_MS` | 5,000     | How long a request may wait for a place before it is refused the same way (100 to 15,000)            |
 
 There is deliberately **no setting that allows private or loopback addresses**. A test can allow loopback only
 through the constructor of the fetcher, which nothing in the configuration, the environment or a request can
@@ -256,12 +261,14 @@ reach, and then only loopback: every other private range stays refused (`url-fet
   see.
 - Prompt injection is reduced, not removed. What a page says can still shape what a model writes if the model
   follows it; actors and critics have no tools to turn that into an action.
-- The number of fetches in progress is not limited for the server as a whole, only for each caller address.
+- The limit on fetches in progress is for one process. Behind several replicas each keeps its own, so the
+  site as a whole may read that many pages for each replica at once. A fetch whose client has gone is not
+  stopped: it holds its place until the page arrives or the time is up, and then gives it back.
 
 ## Checking it
 
 ```
-node node_modules/vitest/vitest.mjs run backend/test/url-policy.test.ts backend/test/url-fetcher.test.ts backend/test/url-robots.test.ts backend/test/url-extract.test.ts backend/test/url-normalize.test.ts backend/test/url-provenance.test.ts backend/test/url-route.test.ts backend/test/url-config.test.ts backend/test/url-upload.test.ts
+node node_modules/vitest/vitest.mjs run backend/test/url-policy.test.ts backend/test/url-fetcher.test.ts backend/test/url-robots.test.ts backend/test/url-extract.test.ts backend/test/url-normalize.test.ts backend/test/url-provenance.test.ts backend/test/url-route.test.ts backend/test/url-limiter.test.ts backend/test/url-config.test.ts backend/test/url-upload.test.ts
 ```
 
 The fetcher tests talk only to servers on this machine, through the constructor's test option and a stub name
