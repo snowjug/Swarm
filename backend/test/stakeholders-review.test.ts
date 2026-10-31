@@ -391,6 +391,30 @@ describe('evidence', () => {
     );
     expect(invented.code).toBe('EVIDENCE_NOT_VERIFIED');
   });
+
+  it('keeps where a verified quotation came from and what it supports, which are the sources’ to say', async () => {
+    const target = base.stakeholders.find((s) => s.evidence.length > 0)!;
+    const rewrites = {
+      'the document it came from': { documentId: 'D99' },
+      'the name of that document': { documentName: 'A document never supplied to this project.md' },
+      'whether it supports or contradicts': { role: 'contradicts' as const },
+      'the conflict it belongs to': { conflictId: 'c-1' },
+    };
+    for (const [what, change] of Object.entries(rewrites)) {
+      const error = await refused(() =>
+        applyReview(
+          base,
+          review(base, (list) => {
+            const own = list.find((s) => s.id === target.id)!;
+            own.evidence = own.evidence.map((ref, at) => (at === 0 ? { ...ref, ...change } : ref));
+          }),
+          LATER,
+        ),
+      );
+      expect(error, what).toMatchObject({ code: 'EVIDENCE_ALTERED', statusCode: 400 });
+      expect(error.message).toContain('cannot be changed');
+    }
+  });
 });
 
 describe('merging', () => {

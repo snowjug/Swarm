@@ -450,6 +450,35 @@ describe('reviewing', () => {
     expect((await w.stakeholders()).revision).toBe(1);
   });
 
+  it('refuses a verified quotation that is moved to another document or turned to contradict', async () => {
+    const w = await world();
+    await w.discover();
+    const before = await w.stakeholders();
+    const cited = before.stakeholders!.stakeholders.findIndex((s) => s.evidence.length > 0);
+    expect(cited).toBeGreaterThanOrEqual(0);
+    const attempt = await w.call(
+      'PUT',
+      '/stakeholders',
+      await edited(w, (set) => {
+        const first = set.stakeholders[cited]!.evidence[0]!;
+        set.stakeholders[cited]!.evidence[0] = {
+          ...first,
+          documentId: 'D99',
+          documentName: 'A document never supplied to this project.md',
+          role: first.role === 'supports' ? 'contradicts' : 'supports',
+        };
+        set.stakeholders[cited]!.status = 'accepted';
+      }),
+    );
+    expect(attempt.statusCode, attempt.body).toBe(400);
+    expect(attempt.json().error.code).toBe('EVIDENCE_ALTERED');
+    const after = await w.stakeholders();
+    expect(after.revision).toBe(before.revision);
+    expect(after.stakeholders!.stakeholders[cited]!.evidence).toEqual(
+      before.stakeholders!.stakeholders[cited]!.evidence,
+    );
+  });
+
   it('lets a person build the list by hand, from nothing, once', async () => {
     const w = await world();
     const none = await w.call('PUT', '/stakeholders', {

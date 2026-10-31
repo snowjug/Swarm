@@ -209,10 +209,13 @@ the light, dark and high-contrast themes, on a desktop and on a phone.
 | Prioritise | Key (one actor of its own), standard or background (a cohort).                                                                                       |
 
 The server enforces what the screen offers: a stakeholder is never deleted; who found it cannot be changed;
-**evidence can be taken away but never added**; a merge is always visible in the record; an impact is marked
-as the person's only if they changed it; relations are assumptions whoever wrote them. A change made after
-approval **takes the approval away** until it is given again, and at least two stakeholders must remain to
-approve. Finding stakeholders again over a reviewed list asks for confirmation first.
+**evidence can be taken away but never added or rewritten**, because each cited quotation is compared whole
+(its passage, its document and the document's name, where it sits, its words and fingerprint, and whether it
+supports or contradicts), so a quotation cannot be moved to another source or turned round; a merge is always
+visible in the record; an impact is marked as the person's only if they changed it; relations are assumptions
+whoever wrote them. A change made after approval **takes the approval away** until it is given again, and at
+least two stakeholders must remain to approve. Finding stakeholders again over a reviewed list asks for
+confirmation first.
 
 ## Actors
 
@@ -309,10 +312,12 @@ no stakeholders yet; it is not an error.
 | `PUT  /actors`                | edit        | Edited actors and the revision you saw                                |
 
 A change made against an old revision is refused with `ARTIFACT_CONFLICT` (HTTP 409) and nothing is
-overwritten. Other refusals say what to do: `STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace
-your work), `STAKEHOLDERS_NOT_APPROVED`, `MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and
-`STAKEHOLDERS_BUSY` (one discovery or generation runs at a time for a project). Finding stakeholders and
-making actors are limited to ten a minute.
+overwritten. A review that rewrites a cited quotation (its document, the document's name, its position, its
+words or whether it supports or contradicts) is refused with `EVIDENCE_ALTERED`, and one that adds a quotation
+with `EVIDENCE_NOT_VERIFIED` (both HTTP 400, nothing is stored). Other refusals say what to do:
+`STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace your work), `STAKEHOLDERS_NOT_APPROVED`,
+`MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and `STAKEHOLDERS_BUSY` (one discovery or generation runs at a
+time for a project). Finding stakeholders and making actors are limited to ten a minute.
 
 Every change is recorded in the audit trail, in the same step as the change. The record holds **counts and
 the mode only**: never the question, the sources or a stakeholder's text.
