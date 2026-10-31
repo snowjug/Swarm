@@ -199,6 +199,19 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
 
   // Scenario Lab: one block per feature, each edited only by the feature that owns it.
   // [url-ingest audit]
+  // The host that was asked for, and nothing else: not the path, the query or anything the page said.
+  'POST /api/evidence/url': {
+    kind: 'request',
+    action: 'evidence.url.fetched',
+    scope: 'service',
+    detail: (request) => {
+      try {
+        return { host: new URL(String(body(request).url)).hostname.slice(0, 253) };
+      } catch {
+        return { host: null };
+      }
+    },
+  },
 
   // [scenario audit]
   // Recorded by the route itself, with counts and the way it was read: never the question.

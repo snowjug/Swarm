@@ -26,6 +26,13 @@ Back to the [README](../README.md). The evidence behind these statements is in [
   No arbitrary URL fetch, shell, code execution, plugins or filesystem tools are
   available to agents. Prompt boundaries reduce risk but do not prove immunity
   to prompt injection or hallucination.
+- A person may ask the server to read one public web page as evidence
+  (`POST /api/evidence/url`). That is the only place the server fetches an address it
+  was given: it refuses private, local and cloud-metadata addresses however they are
+  written, connects only to addresses it checked, re-checks every redirect, obeys
+  robots.txt, bounds size and time, and reads the page as text without running any of
+  it. What a page says is still untrusted and unverified
+  ([URL ingestion](./security/url-ingestion.md)).
 - Model output is schema-validated; agent/node/peer/citation IDs are checked.
   Valid citation IDs do not establish factual truth or semantic entailment.
 - Source citations (`S...`), synthetic memories (`M...`) and generated fictional

@@ -105,6 +105,8 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
 
   // Scenario Lab: one block per feature, each edited only by the feature that owns it.
   // [url-ingest policy]
+  // Reads a page from the public web for the caller, so it is open to whoever may start a project.
+  'POST /api/evidence/url': { kind: 'workspace', capability: 'create-project' },
 
   // [scenario policy]
   // Reading a question may call a model, so it is for someone who may create projects. A stored

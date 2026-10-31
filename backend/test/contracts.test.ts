@@ -3,6 +3,7 @@ import {
   createProjectSchema,
   documentInputSchema,
   MAX_DOCUMENT_CHARS,
+  MAX_DOCUMENTS,
   MAX_TOTAL_CHARS,
   settingsSchema,
 } from '../../shared/types.js';
@@ -21,7 +22,8 @@ describe('input contracts', () => {
       }).success,
     ).toBe(false);
     const input = fixtureInput();
-    const documents = [40_000, 40_000, 20_000].map((length, index) => ({
+    // Ten documents at most, 200,000 characters in all, and 40,000 for any one of them.
+    const documents = [40_000, 40_000, 40_000, 40_000, 40_000].map((length, index) => ({
       name: `notes-${index}.txt`,
       content: 'x'.repeat(length),
     }));
@@ -29,14 +31,45 @@ describe('input contracts', () => {
       MAX_TOTAL_CHARS,
     );
     expect(createProjectSchema.safeParse({ ...input, documents }).success).toBe(true);
-    documents[2]!.content += 'x';
+    documents[4]!.content += 'x';
     expect(createProjectSchema.safeParse({ ...input, documents }).success).toBe(false);
   });
 
-  it.each(['../../secret.md', '..\\secret.txt', 'program.exe', '.env', 'a\u0000.md', 'a\u007f.md'])(
-    'rejects unsafe/unsupported document names: %s',
+  it('takes up to ten documents, and CSV and JSON files among them', () => {
+    expect(MAX_DOCUMENTS).toBe(10);
+    expect(MAX_TOTAL_CHARS).toBe(200_000);
+    expect(MAX_DOCUMENT_CHARS).toBe(40_000);
+    const input = fixtureInput();
+    const ten = Array.from({ length: 10 }, (_, index) => ({
+      name: `${['a', 'b'][index % 2]}-${index}.${['csv', 'json', 'txt', 'md', 'pdf'][index % 5]}`,
+      content: sourceText,
+    }));
+    expect(createProjectSchema.safeParse({ ...input, documents: ten }).success).toBe(true);
+    expect(createProjectSchema.safeParse({ ...input, documents: [...ten, ten[0]] }).success).toBe(
+      false,
+    );
+  });
+
+  it.each([
+    '../../secret.md',
+    '..\\secret.txt',
+    'program.exe',
+    '.env',
+    'a\u0000.md',
+    'a\u007f.md',
+    'data.csv.exe',
+    'data.json.',
+    'data.xml',
+    'dir/data.csv',
+    'dir\\data.json',
+  ])('rejects unsafe/unsupported document names: %s', (name) =>
+    expect(documentInputSchema.safeParse({ name, content: sourceText }).success).toBe(false),
+  );
+
+  it.each(['prices.csv', 'PRICES.CSV', 'export.json', 'Data.Json', 'a b (1).csv'])(
+    'accepts the data file name %s',
     (name) =>
-      expect(documentInputSchema.safeParse({ name, content: sourceText }).success).toBe(false),
+      expect(documentInputSchema.safeParse({ name, content: sourceText }).success).toBe(true),
   );
 
   it('accepts locally extracted PDF text and bounded page metadata', () => {
@@ -64,9 +97,12 @@ describe('input contracts', () => {
   it('validates document counts, minimum useful text, and defaults', () => {
     const input = fixtureInput();
     expect(createProjectSchema.safeParse({ ...input, documents: [] }).success).toBe(false);
+    // Eleven is one more than a project may hold (it was six when the limit was five).
     expect(
-      createProjectSchema.safeParse({ ...input, documents: Array(6).fill(input.documents[0]) })
-        .success,
+      createProjectSchema.safeParse({
+        ...input,
+        documents: Array(MAX_DOCUMENTS + 1).fill(input.documents[0]),
+      }).success,
     ).toBe(false);
     expect(documentInputSchema.safeParse({ name: 'a.md', content: 'a'.repeat(79) }).success).toBe(
       false,

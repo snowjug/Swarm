@@ -9,6 +9,7 @@ import { retrieve } from '../knowledge/retrieval.js';
 import type { InteractionService } from '../orchestration/interaction.js';
 import type { Orchestrator } from '../orchestration/runner.js';
 import type { Repository } from '../storage/repository.js';
+import { attestEvidence } from './evidence.js';
 import { idempotencyOptions } from './idempotency.js';
 
 const projectParams = z.object({ id: z.uuid() });
@@ -39,7 +40,8 @@ export function projectRoutes(
     });
   });
 
-  app.post('/api/projects', { config: limit(20) }, async (request, reply) => {
+  const attested = { config: limit(20), preHandler: attestEvidence };
+  app.post('/api/projects', attested, async (request, reply) => {
     const input = createProjectSchema.parse(request.body);
     const principal = principalOf(request);
     const project = repository.create(input, { owner: ownerOf(principal) });

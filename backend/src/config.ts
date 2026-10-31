@@ -110,6 +110,20 @@ export interface ServerConfig {
    * it a limit of its own. 0 is no limit. Calls are those that completed; tokens are input and output.
    */
   modelBudget: { callLimit: number; tokenLimit: number };
+  /** Reading a public web page as evidence. See `docs/security/url-ingestion.md`. */
+  urlIngestion: UrlIngestionConfig;
+}
+
+export interface UrlIngestionConfig {
+  enabled: boolean;
+  /** The ports a page may be read from. */
+  allowedPorts: readonly number[];
+  /** The most that is read from one page, before and after decompression. */
+  maxBytes: number;
+  /** For the whole fetch: lookups, redirects, robots.txt and the page. */
+  timeoutMs: number;
+  /** Empty: any public host. Otherwise `example.com` exactly, or `*.example.com` for its subdomains. */
+  allowedHosts: readonly string[];
 }
 
 const syncedFolders: readonly [string, RegExp][] = [
@@ -194,7 +208,43 @@ const environmentSchema = z.object({
   JOB_LEASE_SECONDS: z.coerce.number().int().min(10).max(600).default(30),
   PROJECT_MODEL_CALL_LIMIT: z.coerce.number().int().min(0).max(MAX_BUDGET_LIMIT).default(0),
   PROJECT_MODEL_TOKEN_LIMIT: z.coerce.number().int().min(0).max(MAX_BUDGET_LIMIT).default(0),
+  URL_INGESTION: z.enum(['on', 'off', 'true', 'false', '1', '0']).default('on'),
+  URL_INGEST_ALLOWED_PORTS: z.string().trim().max(100).default('80,443'),
+  URL_INGEST_MAX_BYTES: z.coerce.number().int().min(10_000).max(5_000_000).default(1_500_000),
+  // Below the 30 s the server allows a request, so the fetch's own time limit is the one that applies.
+  URL_INGEST_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(25_000).default(12_000),
+  URL_INGEST_ALLOWED_HOSTS: z.string().trim().max(2_000).optional(),
 });
+
+function buildUrlIngestion(input: z.infer<typeof environmentSchema>): UrlIngestionConfig {
+  const ports = input.URL_INGEST_ALLOWED_PORTS.split(',').map((value) => value.trim());
+  if (
+    ports.length > 10 ||
+    ports.some((port) => !/^\d{1,5}$/u.test(port) || +port < 1 || +port > 65_535)
+  ) {
+    throw new Error(
+      'URL_INGEST_ALLOWED_PORTS must be a comma-separated list of at most ten ports between 1 and 65535.',
+    );
+  }
+  const hosts = (input.URL_INGEST_ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const hostName =
+    /^(?:\*\.)?[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/u;
+  if (hosts.length > 100 || hosts.some((host) => !hostName.test(host))) {
+    throw new Error(
+      'URL_INGEST_ALLOWED_HOSTS must be a comma-separated list of host names, such as example.com or *.example.com, not URLs.',
+    );
+  }
+  return {
+    enabled: !['off', 'false', '0'].includes(input.URL_INGESTION),
+    allowedPorts: [...new Set(ports.map(Number))],
+    maxBytes: input.URL_INGEST_MAX_BYTES,
+    timeoutMs: input.URL_INGEST_TIMEOUT_MS,
+    allowedHosts: hosts,
+  };
+}
 
 /** Microsoft publishes one signing-key set for all tenants; the token's own tenant is checked separately. */
 const ENTRA_JWKS = 'https://login.microsoftonline.com/common/discovery/v2.0/keys';
@@ -456,6 +506,7 @@ export function loadConfig(
       callLimit: input.PROJECT_MODEL_CALL_LIMIT,
       tokenLimit: input.PROJECT_MODEL_TOKEN_LIMIT,
     },
+    urlIngestion: buildUrlIngestion(input),
   };
 }
 
@@ -481,10 +532,11 @@ export function publicConfig(config: ServerConfig): AppConfig {
     },
     sourceUrl: config.sourceUrl,
     storage: { warning: config.storageWarning },
+    urlIngestion: config.urlIngestion.enabled,
     capabilities: {
       local: true,
       modelAssisted: configured,
-      fileTypes: ['txt', 'md', 'markdown', 'pdf'],
+      fileTypes: ['txt', 'md', 'markdown', 'pdf', 'csv', 'json'],
       pdf: true,
       webRetrieval: false,
       guidedConsole: true,
