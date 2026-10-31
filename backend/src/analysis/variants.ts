@@ -1,11 +1,18 @@
 import type { Variant } from '../../../shared/analysis.js';
-import type { ScenarioFrame } from '../../../shared/scenario.js';
+import type {
+  ScenarioAlternative,
+  ScenarioFrame,
+  ScenarioVariable,
+} from '../../../shared/scenario.js';
 
 /**
  * The scenarios a comparison runs when the person has not chosen their own: a baseline where nothing
  * changes, the proposed change, and one for each alternative the scenario names. How strongly each
  * change lands is not something the scenario states, so the intensities are system assumptions, said
- * so in each description, and a person can edit them before running.
+ * so in each description, and a person can edit them before running. An alternative states the same
+ * amount as the proposed change in other numbers (half of it, twice it) lands in proportion, capped
+ * at 1, so that a larger version is never milder than the change it enlarges; any other alternative
+ * has a middling intensity, because nothing says whether it is stronger or weaker.
  */
 export const PROPOSED_INTENSITY = 0.7;
 export const ALTERNATIVE_INTENSITY = 0.5;
@@ -13,6 +20,45 @@ export const CHANGE_ROUND = 2;
 
 const clip = (text: string, max: number): string =>
   text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
+
+const NUMBER = /\d[\d,]*(?:\.\d+)?|\.\d+/u;
+const NUMBERS = /\d[\d,]*(?:\.\d+)?|\.\d+/gu;
+
+/** What a stated amount says besides its number, so that "$1" is only compared with "$2" and never with "2%". */
+const shapeOf = (text: string): string =>
+  text.replace(NUMBERS, '#').replace(/\s+/gu, ' ').trim().toLowerCase();
+
+function numberIn(text: string | null): number | null {
+  const found = text === null ? null : NUMBER.exec(text)?.[0];
+  const value =
+    found === undefined || found === null ? Number.NaN : Number(found.replaceAll(',', ''));
+  return Number.isFinite(value) ? value : null;
+}
+
+/** How large a change is, in the unit its words state: the amount of an increase, or the gap between two stated values. */
+function sizeOf(change: ScenarioVariable): { size: number; shape: string } | null {
+  const to = numberIn(change.to);
+  if (to === null || change.to === null) return null;
+  const from = numberIn(change.from);
+  // Two values of one kind ("$10" and "$12") are a gap; "increased by $1" is the amount itself.
+  const gap = from !== null && change.from !== null && shapeOf(change.from) === shapeOf(change.to);
+  const size = gap ? Math.abs(to - from) : to;
+  return size > 0 ? { size, shape: shapeOf(change.to) } : null;
+}
+
+/** How many times the proposed change the alternative states, when both say it in the same kind of amount. */
+export function statedRatio(
+  alternative: Pick<ScenarioAlternative, 'changes'>,
+  scenario: Pick<ScenarioFrame, 'changes'> | null,
+): number | null {
+  for (const change of alternative.changes) {
+    const base = scenario?.changes.find((candidate) => candidate.name === change.name);
+    const own = sizeOf(change);
+    const reference = base ? sizeOf(base) : null;
+    if (own && reference && own.shape === reference.shape) return own.size / reference.size;
+  }
+  return null;
+}
 
 function uniqueId(wanted: string, used: Set<string>): string {
   let id = wanted;
@@ -53,18 +99,29 @@ export function autoVariants(scenario: ScenarioFrame | null): Variant[] {
     impactOverrides: {},
     traitEdits: [],
   };
-  const alternatives = (scenario?.alternatives ?? []).map((alternative): Variant => ({
-    id: uniqueId(alternative.id, used),
-    label: alternative.label,
-    kind: 'alternative',
-    description: clip(
-      `${alternative.description.trim()} Intensity ${ALTERNATIVE_INTENSITY} from round ${CHANGE_ROUND} is a system assumption (the proposed change is ${PROPOSED_INTENSITY}): edit it to say how much stronger or weaker this alternative is.`.trim(),
-      600,
-    ),
-    round: CHANGE_ROUND,
-    intensity: ALTERNATIVE_INTENSITY,
-    impactOverrides: {},
-    traitEdits: [],
-  }));
+  const alternatives = (scenario?.alternatives ?? []).map((alternative): Variant => {
+    const ratio = statedRatio(alternative, scenario);
+    const intensity =
+      ratio === null
+        ? ALTERNATIVE_INTENSITY
+        : Math.min(1, Math.max(0.05, Math.round(PROPOSED_INTENSITY * ratio * 100) / 100));
+    const basis =
+      ratio === null
+        ? `(the proposed change is ${PROPOSED_INTENSITY})`
+        : `(the proposed change is ${PROPOSED_INTENSITY}; this one is scaled by the amount the scenario states for it, ${Math.round(ratio * 100) / 100} times as much, and kept to 1 at most)`;
+    return {
+      id: uniqueId(alternative.id, used),
+      label: alternative.label,
+      kind: 'alternative',
+      description: clip(
+        `${alternative.description.trim()} Intensity ${intensity} from round ${CHANGE_ROUND} is a system assumption ${basis}: edit it to say how much stronger or weaker this alternative is.`.trim(),
+        600,
+      ),
+      round: CHANGE_ROUND,
+      intensity,
+      impactOverrides: {},
+      traitEdits: [],
+    };
+  });
   return [baseline, proposed, ...alternatives];
 }

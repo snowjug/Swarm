@@ -7,12 +7,13 @@ import {
   type RunOutcome,
   type Variant,
 } from '../../shared/analysis.js';
-import { actorFixture } from '../../shared/lab-fixtures.js';
+import { actorFixture, scenarioFixture } from '../../shared/lab-fixtures.js';
 import { MAX_TOTAL_RUNS, planRuns } from '../../shared/analysis-plan.js';
 import type { Actor } from '../../shared/stakeholders.js';
 import { AppError } from '../src/errors.js';
 import { runAnalysis, validateInputs, type AnalysisInputs } from '../src/analysis/runset.js';
 import { planPerturbations } from '../src/analysis/sensitivity.js';
+import { autoVariants } from '../src/analysis/variants.js';
 import { quantile } from '../src/analysis/stats.js';
 import { BASELINE, MILD, PROPOSED, clock, inputs, testCast } from './support/analysis-world.js';
 import { countingSimulator, stubSimulator } from './support/stub-simulator.js';
@@ -22,6 +23,53 @@ const stable = (analysis: Analysis) => ({
   ...analysis,
   completedAt: null,
   cost: { ...analysis.cost, wallMs: 0 },
+});
+
+describe('the scenarios suggested for a comparison', () => {
+  const change = (to: string, from: string | null = null) => ({
+    name: 'Price',
+    from,
+    to,
+    note: '',
+  });
+  const frame = (base: ReturnType<typeof change>, others: ReturnType<typeof change>[]) =>
+    scenarioFixture({
+      changes: [base],
+      alternatives: others.map((other, index) => ({
+        id: `option-${index + 1}`,
+        label: `Option ${index + 1}`,
+        description: 'Suggested.',
+        changes: [other],
+      })),
+    });
+  const intensities = (scenario: ReturnType<typeof frame>) =>
+    autoVariants(scenario).map((variant) => variant.intensity);
+
+  it('scales an alternative that states the same kind of amount, so that a larger one is never milder than the change', () => {
+    const scenario = frame(change('increased by $1'), [
+      change('increased by $0.50'),
+      change('increased by $2'),
+    ]);
+    expect(intensities(scenario)).toEqual([0, 0.7, 0.35, 1]);
+    const [, , smaller, larger] = autoVariants(scenario);
+    expect(smaller?.description).toContain('is a system assumption');
+    expect(smaller?.description).toContain('0.5 times as much');
+    expect(larger?.description).toContain('2 times as much');
+  });
+
+  it('reads two stated values as a gap, and compares nothing that is not the same kind of amount', () => {
+    expect(
+      intensities(frame(change('$12', '$10'), [change('$11', '$10'), change('$14', '$10')])),
+    ).toEqual([0, 0.7, 0.35, 1]);
+    // Percent against money, or a number with no matching change, says nothing about which is stronger.
+    expect(intensities(frame(change('increased by $1'), [change('increased by 2%')]))).toEqual([
+      0, 0.7, 0.5,
+    ]);
+    const unnamed = frame(change('increased by $1'), [
+      { name: 'Fee', from: null, to: 'increased by $5', note: '' },
+    ]);
+    expect(intensities(unnamed)).toEqual([0, 0.7, 0.5]);
+  });
 });
 
 describe('the stub simulator', () => {
