@@ -1,5 +1,6 @@
 import { Plus, Search } from 'lucide-react';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   STAKEHOLDER_CATEGORY_LABELS,
   STAKEHOLDER_CATEGORIES,
@@ -9,11 +10,12 @@ import {
 } from '../../../../shared/stakeholders';
 import { Notice, Spinner } from '../ui';
 import { StakeholderForm } from './StakeholderForm';
+import type { ReviewHooks } from './focus';
 import { EMPTY_DRAFT, addedStakeholder } from './review';
 
 export type FindMode = 'rules' | 'model';
 
-/** The truth about what is on this page, said before anything is shown. */
+/** The truth about what is on this page, said in full before anything is shown. */
 export function SyntheticNote() {
   return (
     <p className="stk-truth">
@@ -24,84 +26,111 @@ export function SyntheticNote() {
   );
 }
 
-/** How stakeholders can be found, what each costs and what each cannot do, and the means to start. */
-export function FindControls({
+/** The same truth in a line, for where the full note would push the main action away. */
+export function SyntheticLine() {
+  return (
+    <p className="stk-truth-line">
+      Actors are synthetic stand-ins, not real people: every number is an assumption you can change.
+    </p>
+  );
+}
+
+/** What each way of finding stakeholders costs and cannot do, said before the person chooses one. */
+export function FindExplanation({ model }: { model: ModelAvailability }) {
+  return (
+    <dl className="stk-how">
+      <div>
+        <dt>Reading the text for roles</dt>
+        <dd>
+          No model is used. Swarm looks for role words (customers, administrators, regulators and
+          the like), the groups your question names and the people and organisations in your source
+          graph, and quotes the sentence for each. It is always available, and it will miss groups
+          it has no word for.
+        </dd>
+      </div>
+      <div>
+        <dt>Asking the model</dt>
+        <dd>
+          Sends your source text to the model, which proposes stakeholders with quotes. Swarm checks
+          every quote against your sources: one it cannot find is dropped, and a stakeholder left
+          without a quote is marked inferred. If the model fails, Swarm reads the text for roles
+          instead and says so.
+          {!model.available && model.reason && (
+            <span className="stk-hint"> Not available here: {model.reason}</span>
+          )}
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+/**
+ * The ways to start finding stakeholders. With a model the model is the main one, since the project
+ * chose to use one; without, reading the text is. The one that sends text to a model says so first.
+ */
+export function FindButtons({
   model,
   working,
   pendingMode,
   allowed,
-  heading,
   onFind,
+  primary = true,
+  children,
 }: {
   model: ModelAvailability;
   working: boolean;
   pendingMode: FindMode | null;
   allowed: boolean;
-  heading?: string;
   onFind: (mode: FindMode) => void;
+  /** Whether the main way is the next thing to do, or only a way to start over. */
+  primary?: boolean;
+  /** Other ways forward, in the same row. */
+  children?: ReactNode;
 }) {
+  if (!allowed) {
+    return (
+      <p className="field-help">
+        You can read the stakeholders but not run this: it needs the right to run the project.
+      </p>
+    );
+  }
+  const rulesMain = primary && !model.available;
+  const modelMain = primary && model.available;
   return (
-    <div className="stk-find">
-      {heading && <h4>{heading}</h4>}
-      <dl className="stk-how">
-        <div>
-          <dt>Reading the text for roles</dt>
-          <dd>
-            No model is used. Swarm looks for role words (customers, administrators, regulators and
-            the like), the groups your question names and the people and organisations in your
-            source graph, and quotes the sentence for each. It is always available, and it will miss
-            groups it has no word for.
-          </dd>
-        </div>
-        <div>
-          <dt>Asking the model</dt>
-          <dd>
-            Sends your source text to the model, which proposes stakeholders with quotes. Swarm
-            checks every quote against your sources: one it cannot find is dropped, and a
-            stakeholder left without a quote is marked inferred. If the model fails, Swarm reads the
-            text for roles instead and says so.
-            {!model.available && model.reason && (
-              <span className="stk-hint"> Not available here: {model.reason}</span>
-            )}
-          </dd>
-        </div>
-      </dl>
-      {allowed ? (
-        <div className="stk-buttons">
+    <>
+      <div className="stk-buttons">
+        <button
+          className={`button ${rulesMain ? 'button-primary' : 'button-secondary'}`}
+          type="button"
+          disabled={working}
+          data-stk-focus={rulesMain ? 'primary' : undefined}
+          onClick={() => onFind('rules')}
+        >
+          {working && pendingMode === 'rules' ? (
+            <Spinner label="Reading your evidence" />
+          ) : (
+            <Search size={16} aria-hidden="true" />
+          )}{' '}
+          Find stakeholders by reading the text
+        </button>
+        {model.available && (
           <button
-            className={`button ${model.available ? 'button-secondary' : 'button-primary'}`}
+            className={`button ${modelMain ? 'button-primary' : 'button-secondary'}`}
             type="button"
             disabled={working}
-            onClick={() => onFind('rules')}
+            data-stk-focus={modelMain ? 'primary' : undefined}
+            onClick={() => onFind('model')}
           >
-            {working && pendingMode === 'rules' ? (
-              <Spinner label="Reading your evidence" />
+            {working && pendingMode === 'model' ? (
+              <Spinner label="Asking the model" />
             ) : (
               <Search size={16} aria-hidden="true" />
             )}{' '}
-            Find stakeholders by reading the text
+            Find stakeholders with the model
           </button>
-          {model.available && (
-            <button
-              className="button button-primary"
-              type="button"
-              disabled={working}
-              onClick={() => onFind('model')}
-            >
-              {working && pendingMode === 'model' ? (
-                <Spinner label="Asking the model" />
-              ) : (
-                <Search size={16} aria-hidden="true" />
-              )}{' '}
-              Find stakeholders with the model
-            </button>
-          )}
-        </div>
-      ) : (
-        <p className="field-help">
-          You can read the stakeholders but not run this: it needs the right to run the project.
-        </p>
-      )}
+        )}
+        {children}
+      </div>
       {working && (
         <p className="inline-pending" role="status">
           {pendingMode === 'model'
@@ -109,6 +138,22 @@ export function FindControls({
             : 'Reading your evidence for roles.'}
         </p>
       )}
+    </>
+  );
+}
+
+/** How stakeholders can be found, what each costs and cannot do, and the means to start. */
+export function FindControls(props: {
+  model: ModelAvailability;
+  working: boolean;
+  pendingMode: FindMode | null;
+  allowed: boolean;
+  onFind: (mode: FindMode) => void;
+}) {
+  return (
+    <div className="stk-find">
+      <FindExplanation model={props.model} />
+      <FindButtons {...props} primary={false} />
     </div>
   );
 }
@@ -152,6 +197,7 @@ export function AddStakeholder({
   open,
   busy,
   taken,
+  hooks,
   onOpen,
   onClose,
   onAdd,
@@ -159,6 +205,7 @@ export function AddStakeholder({
   open: boolean;
   busy: boolean;
   taken: readonly string[];
+  hooks: ReviewHooks;
   onOpen: () => void;
   onClose: () => void;
   onAdd: (stakeholder: Stakeholder) => Promise<boolean>;
@@ -167,7 +214,12 @@ export function AddStakeholder({
   if (!open) {
     return (
       <div className="stk-add">
-        <button className="button button-secondary button-small" type="button" onClick={onOpen}>
+        <button
+          className="button button-secondary button-small"
+          type="button"
+          data-stk-focus="add"
+          onClick={onOpen}
+        >
           <Plus size={14} aria-hidden="true" /> Add a stakeholder
         </button>
       </div>
@@ -178,16 +230,22 @@ export function AddStakeholder({
       <StakeholderForm
         key={key}
         heading="Add a stakeholder"
+        level={5}
         initial={EMPTY_DRAFT}
         submitLabel="Add stakeholder"
         busy={busy}
-        onCancel={onClose}
+        onCancel={() => {
+          onClose();
+          hooks.focus(['add']);
+        }}
         onSubmit={(draft) => {
-          void onAdd(addedStakeholder(draft, taken)).then((added) => {
-            if (added) {
-              setKey((old) => old + 1);
-              onClose();
-            }
+          const added = addedStakeholder(draft, taken);
+          void onAdd(added).then((saved) => {
+            if (!saved) return;
+            setKey((old) => old + 1);
+            onClose();
+            hooks.focus([`toggle:${added.id}`, 'add']);
+            hooks.say(`Added ${added.name}. It carries no evidence: it is your own.`);
           });
         }}
       />

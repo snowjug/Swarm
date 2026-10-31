@@ -1,4 +1,4 @@
-import { FileText } from 'lucide-react';
+import { FileText, TriangleAlert } from 'lucide-react';
 import type { EvidenceRef } from '../../../../shared/evidence';
 
 /** The passages behind a stakeholder: each quote word for word, with the passage it was taken from. */
@@ -10,12 +10,19 @@ export function EvidenceList({
   /** What to say when there is none, since that depends on who proposed the stakeholder. */
   empty: string;
 }) {
-  if (evidence.length === 0) return <p className="stk-no-evidence">{empty}</p>;
+  if (evidence.length === 0) {
+    return (
+      <p className="stk-no-evidence">
+        <TriangleAlert size={14} aria-hidden="true" /> <strong>Assumption, not evidence.</strong>{' '}
+        {empty}
+      </p>
+    );
+  }
   return (
-    <details className="stk-evidence">
-      <summary>
+    <div className="stk-evidence">
+      <p className="stk-label">
         Evidence ({evidence.length}) <span className="stk-hint">quotes from your sources</span>
-      </summary>
+      </p>
       <ul>
         {evidence.map((ref, index) => (
           <li key={`${ref.passageId}-${index}`}>
@@ -31,6 +38,6 @@ export function EvidenceList({
           </li>
         ))}
       </ul>
-    </details>
+    </div>
   );
 }

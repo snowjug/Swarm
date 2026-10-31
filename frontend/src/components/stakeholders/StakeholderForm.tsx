@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import {
   STAKEHOLDER_CATEGORIES,
@@ -11,6 +11,7 @@ import { draftProblems, type StakeholderDraft } from './review';
 /**
  * The fields of a stakeholder the person may change, as a form. It checks them as they are sent, says
  * what is wrong beside the field, and makes no request itself: `onSubmit` is handed the valid draft.
+ * It opens with focus in the name, since it only opens because the person asked for it.
  */
 export function StakeholderForm({
   initial,
@@ -19,6 +20,7 @@ export function StakeholderForm({
   onSubmit,
   onCancel,
   heading,
+  level = 4,
 }: {
   initial: StakeholderDraft;
   submitLabel: string;
@@ -26,11 +28,18 @@ export function StakeholderForm({
   onSubmit: (draft: StakeholderDraft) => void;
   onCancel: () => void;
   heading: string;
+  /** The heading level, one below the heading of the place the form opens in. */
+  level?: 4 | 5 | 6;
 }) {
   const id = useId();
+  const nameField = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState(initial);
   const [shown, setShown] = useState(false);
   const problems = draftProblems(draft);
+  const Heading = `h${level}` as const;
+  useEffect(() => {
+    nameField.current?.focus();
+  }, []);
   const set = <K extends keyof StakeholderDraft>(key: K, value: StakeholderDraft[K]): void =>
     setDraft((old) => ({ ...old, [key]: value }));
 
@@ -46,11 +55,12 @@ export function StakeholderForm({
 
   return (
     <form className="stk-form view-stack" noValidate onSubmit={submit} aria-label={heading}>
-      <h4>{heading}</h4>
+      <Heading>{heading}</Heading>
       <div className="field">
         <label htmlFor={`${id}-name`}>Name</label>
         <input
           id={`${id}-name`}
+          ref={nameField}
           value={draft.name}
           maxLength={160}
           autoComplete="off"

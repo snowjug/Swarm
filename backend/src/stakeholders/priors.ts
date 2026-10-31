@@ -62,7 +62,8 @@ export const CATEGORY_RELEVANCE: Readonly<Record<StakeholderCategory, string>> =
   regulator: 'Sets or enforces rules that the change has to meet.',
   governance: 'Checks, approves or audits the change.',
   operations: 'Carries out or supports the change day to day.',
-  other: 'Is named in the evidence; how it relates to the change has not been analysed.',
+  other:
+    'Is named in the question or the evidence; how it relates to the change has not been analysed.',
 };
 
 /** What an actor of this category is assumed to want, in general terms. */
