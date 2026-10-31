@@ -217,7 +217,10 @@ entry holds counts, never a name or a quote.
   `uncertainty`, `origin`, `status`, `mergedFrom[]`), `relations[]`, `discovery` (`mode`, `model`, `generatedAt`,
   `note`), `gaps[]` and `approvedAt`. An actor holds `kind` (`key` or `cohort`), `size`, `sampleSize`, its
   objectives, constraints and so on, and `traits`, each trait with its `value`, `spread`, `origin` (`evidence`,
-  `user`, `system-assumption` or `model`) and `rationale`. The shapes are in
+  `user`, `system-assumption` or `model`) and `rationale`. The `impact` trait may also carry a `direction`
+  (`origin` and `passageIds`): what its sign rests on when that is not what its number rests on. A cited
+  passage gives a direction and never a size, so an impact read from the wording of cited sentences has the
+  number's `origin` `system-assumption` and `direction.origin` `evidence`. The shapes are in
   [shared/stakeholders.ts](../shared/stakeholders.ts).
 - **Finding.** `POST .../stakeholders/discover` takes `{ "mode"?: "rules" | "model", "confirm"?: boolean }`
   (rules by default; 10 a minute) and answers 201 with the set. `"model"` needs a project made in
@@ -228,8 +231,10 @@ entry holds counts, never a name or a quote.
 - **Reviewing.** `PUT .../stakeholders` takes `{ "stakeholders", "relations"?, "expectedRevision" }` (120 a
   minute): the whole set as the person now wants it, and `0` as the revision when building a set by hand. The
   server allows accepting, editing, merging, removing, adding and prioritising, and nothing else: a stakeholder
-  is never deleted (`400 STAKEHOLDER_MISSING`), who found it and its evidence are the sources' and not the
-  person's (`STAKEHOLDER_ORIGIN_LOCKED`), a merge names a removed stakeholder and the one it went into
+  is never deleted (`400 STAKEHOLDER_MISSING`), who found it is the sources' and not the person's
+  (`STAKEHOLDER_ORIGIN_LOCKED`), nor is its evidence: a quotation can be taken away but not added
+  (`EVIDENCE_NOT_VERIFIED`) and no field of it can be rewritten, whole reference by whole reference
+  (`EVIDENCE_ALTERED`), a merge names a removed stakeholder and the one it went into
   (`MERGE_INVALID`), and any change to an approved set takes the approval away. Other refusals:
   `STAKEHOLDER_ID_DUPLICATE`, `STATUS_INVALID`, `RELATION_INVALID`, and `409 STAKEHOLDERS_NOT_FOUND` for a
   review of a set that does not exist.
