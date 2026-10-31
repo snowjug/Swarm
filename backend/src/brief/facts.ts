@@ -60,7 +60,10 @@ export interface Facts {
   scenario: ScenarioFrame | null;
   /** Stakeholders the person has not removed. */
   stakeholders: Stakeholder[];
+  /** Removed, and not merged into another: the only ones that left the list because the person removed them. */
   removedStakeholders: Stakeholder[];
+  /** Names that were merged into another stakeholder, whether by the rules that found them or by the person. */
+  mergedStakeholders: { stakeholder: Stakeholder; into: Stakeholder }[];
   critiques: Critique[];
   /** Said when critiques on file belong to another analysis and so are not counted. */
   critiqueNote: string | null;
@@ -97,11 +100,17 @@ const fingerprint = (actor: Actor): string =>
 
 export function gatherFacts(inputs: BriefInputs): Facts {
   const { analysis } = inputs;
-  const stakeholders = (inputs.stakeholders?.stakeholders ?? []).filter(
-    (stakeholder) => stakeholder.status !== 'removed',
+  const all = inputs.stakeholders?.stakeholders ?? [];
+  const stakeholders = all.filter((stakeholder) => stakeholder.status !== 'removed');
+  const mergedStakeholders = all.flatMap((into) =>
+    into.mergedFrom.flatMap((id) => {
+      const stakeholder = all.find((candidate) => candidate.id === id);
+      return stakeholder?.status === 'removed' ? [{ stakeholder, into }] : [];
+    }),
   );
-  const removedStakeholders = (inputs.stakeholders?.stakeholders ?? []).filter(
-    (stakeholder) => stakeholder.status === 'removed',
+  const merged = new Set(mergedStakeholders.map((entry) => entry.stakeholder.id));
+  const removedStakeholders = all.filter(
+    (stakeholder) => stakeholder.status === 'removed' && !merged.has(stakeholder.id),
   );
   const forThisAnalysis =
     inputs.critiques !== null &&
@@ -131,6 +140,7 @@ export function gatherFacts(inputs: BriefInputs): Facts {
     scenario: inputs.scenario,
     stakeholders,
     removedStakeholders,
+    mergedStakeholders,
     critiques,
     critiqueNote:
       inputs.critiques !== null && !forThisAnalysis

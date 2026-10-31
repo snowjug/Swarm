@@ -694,6 +694,8 @@ describe('what the page says about itself', () => {
     const levels = [...html.matchAll(/<h([1-6])\b/gu)].map((match) => Number(match[1]));
     expect(levels.filter((level) => level === 2)).toHaveLength(1);
     expect(levels.filter((level) => level < 2)).toEqual([]);
+    // A level-five heading has no size of its own in the stylesheet and a browser's default is under 11px.
+    expect(Math.max(...levels)).toBeLessThanOrEqual(4);
     for (let index = 1; index < levels.length; index += 1) {
       expect(levels[index]! - levels[index - 1]!).toBeLessThanOrEqual(1);
     }

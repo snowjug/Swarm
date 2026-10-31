@@ -10,6 +10,11 @@ const signinPort = Number(process.env.E2E_SIGNIN_PORT || 3114);
 const signinIdpPort = Number(process.env.E2E_SIGNIN_IDP_PORT || 3115);
 const labPort = Number(process.env.E2E_LAB_PORT || 3116);
 const providerPort = Number(process.env.E2E_PROVIDER_PORT || 11999);
+const labWebPort = Number(process.env.E2E_LAB_WEB_PORT || 3117);
+const labWebFixturePort = Number(process.env.E2E_LAB_WEB_FIXTURE_PORT || 3118);
+// Where the examples spec finds its server and the fixture web server behind it; workers inherit them.
+process.env.E2E_LAB_WEB_URL ??= `http://127.0.0.1:${labWebPort}`;
+process.env.E2E_LAB_WEB_FIXTURE_URL ??= `http://127.0.0.1:${labWebFixturePort}`;
 // One throwaway root per run: the runner creates it and workers inherit it through the environment,
 // so re-loading this file in a worker never creates another directory.
 const dataRoot = (process.env.E2E_DATA_ROOT ??= mkdtempSync(join(tmpdir(), 'swarm-e2e-')));
@@ -74,7 +79,8 @@ export default defineConfig({
     },
     {
       // The scenario-lab journey in rules mode: intake, evidence, stakeholders, actors, analysis,
-      // critics and the brief, on a server of its own.
+      // critics and the brief, on a server of its own. examples.spec.ts runs on the server with the
+      // fixture web instead (E2E_LAB_WEB_URL), because it adds public pages as evidence.
       name: 'lab',
       testMatch: /lab\/.*\.spec\.ts/u,
       use: { baseURL: `http://127.0.0.1:${labPort}` },
@@ -84,6 +90,19 @@ export default defineConfig({
     server(localPort, 'local', { AI_PROVIDER: 'none' }),
     server(journeyPort, 'journey', { AI_PROVIDER: 'none' }),
     server(labPort, 'lab', { AI_PROVIDER: 'none' }),
+    {
+      // The examples in rules mode, with a web of fixture pages for "Add a public web page": the real
+      // application and fetcher, a lookup that is a table and a connection that ends on this machine
+      // (backend/test/support/lab-e2e-server.ts). No page on the internet is reached.
+      command: 'node --import tsx backend/test/support/lab-e2e-server.ts',
+      url: `http://127.0.0.1:${labWebPort}/api/health`,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      env: {
+        LAB_E2E_PORT: String(labWebPort),
+        LAB_E2E_FIXTURE_PORT: String(labWebFixturePort),
+      },
+    },
     {
       command: 'node --import tsx backend/test/support/signin-e2e-server.ts',
       url: `http://127.0.0.1:${signinPort}/api/health`,
