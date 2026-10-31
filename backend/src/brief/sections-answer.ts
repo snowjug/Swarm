@@ -18,7 +18,9 @@ import { documentOrigin, provenanceLine, uniqueRefs } from './evidence.js';
 import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
 import {
+  NO_NET_DIFFERENCE,
   aboutAdverseShare,
+  pairedRunsWords,
   type GroupShift,
   type Headline,
   type SharePairing,
@@ -34,6 +36,7 @@ import {
   listed,
   perHundred,
   plural,
+  signed,
   traitLabel,
 } from './text.js';
 import {
@@ -55,6 +58,10 @@ const CLASS_WORDS = {
 
 export const classWords = (classification: keyof typeof CLASS_WORDS): string =>
   CLASS_WORDS[classification];
+
+/** The first doubt, shortened for the headline, where no stakeholder has a direction: a long scenario name must not push it out. */
+const UNDIRECTED_HEADLINE_CAVEAT =
+  'no stakeholder has an expected direction of impact, so the difference comes from an assumed spread among members and not from anyone being helped or harmed';
 
 const engineWords = (facts: Facts): string =>
   facts.analysis.fidelity.engine === 'rules'
@@ -172,12 +179,27 @@ function shareSteadiness(pairing: SharePairing): {
   of: number;
   classification: Finding['classification'];
 } {
-  const holdsIn = pairing.delta >= 0 ? pairing.higher : pairing.lower;
+  // A share that did not move is steady when it was the same in the paired runs: a tie is not a rare rise.
+  const holdsIn =
+    Math.abs(pairing.delta) < NO_NET_DIFFERENCE
+      ? pairing.equal
+      : pairing.delta > 0
+        ? pairing.higher
+        : pairing.lower;
   return {
     holdsIn,
     of: pairing.pairs,
     classification: classifyStability(holdsIn, pairing.pairs),
   };
+}
+
+/**
+ * What the overall stance did where it does not point the way the share does: the share is the
+ * answer's measure, and a change that leaves it alone can still make members more or less favourable.
+ */
+function stanceNote(pairing: SharePairing | null): string {
+  if (!pairing || pairing.pairs === 0 || stancePointsTheSameWay(pairing)) return '';
+  return `The overall final stance, a different measure, was ${pairing.stanceDelta > 0 ? 'more' : 'less'} favourable under the change (mean paired difference ${signed(pairing.stanceDelta)} on the scale from -1 to 1).`;
 }
 
 /** How far the finding about the direction against the baseline held across seeded runs. */
@@ -200,7 +222,7 @@ function addStability(
     const steady = shareSteadiness(pairing);
     writer.add({
       origin: 'simulation-aggregation',
-      text: `Stability: the share looking for an alternative or resisting was ${pairing.delta >= 0 ? 'higher' : 'lower'} under the change in ${steady.holdsIn} of ${steady.of} paired seeded simulated runs, which the analysis would class as ${classWords(steady.classification)}. The overall stance, a different measure, does not point the same way: ${embed(finding.statement, 200)} It is stated here and does not rate the share.${reading}`,
+      text: `Stability: the share of simulated members looking for an alternative or resisting was ${pairedRunsWords(pairing)}, which the analysis would class as ${classWords(steady.classification)}. The overall stance, a different measure, does not point the same way: ${embed(finding.statement, 200)} It is stated here and does not rate the share.${reading}`,
       refs: { findingIds: [finding.id], variantIds: variantIdsOf(headline) },
       reliance: relianceOfFinding(steady.classification, facts.evidencedOverall()),
     });
@@ -514,13 +536,10 @@ function answerFirst(
   let comparison: string;
   if (baseline && pairing && pairing.pairs > 0) {
     const change =
-      Math.abs(pairing.delta) < 0.0005
+      Math.abs(pairing.delta) < NO_NET_DIFFERENCE
         ? 'no net difference in the mean'
         : `${perHundred(Math.abs(pairing.delta))} in 100 ${pairing.delta > 0 ? 'more' : 'fewer'} (paired standard error ${perHundred(pairing.standardError)})`;
-    const runsClause =
-      pairing.delta >= 0
-        ? `higher under the change in ${pairing.higher} of ${pairing.pairs} paired runs`
-        : `lower under the change in ${pairing.lower} of ${pairing.pairs} paired runs`;
+    const runsClause = pairedRunsWords(pairing);
     comparison = `With ${engineWords(facts)}, on the same ${pairing.pairs} seeded runs and counting each of the ${facts.analysis.actors.length} simulated actors equally, not each simulated member, the mean share of simulated members looking for an alternative or resisting was about ${perHundred(pairing.variantMean)} in 100 under ${here} against ${perHundred(pairing.baselineMean)} in 100 under ${there}: ${change}, ${runsClause}.`;
   } else if (baseline) {
     comparison = `With ${engineWords(facts)}, ${here} could not be paired with ${there} on the same seeded runs, so no paired comparison is stated; the mean share of simulated members ending up looking for an alternative or resisting under ${here} was about ${perHundred(variant.share.mean)} in 100, counting each simulated actor equally.`;
@@ -600,12 +619,16 @@ function answerFirst(
   const names = named.map((group) =>
     embed(facts.actorById.get(group.actorId)?.name ?? group.actorId, 40),
   );
+  const groupsLine = names.length > 0 ? `The groups moved most were ${listed(names)}.` : '';
+  // Where no one has a direction, that is what the number rests on: it is kept ahead of the group names, and short.
+  const caveatLine = doubts[0]
+    ? `Biggest open caveat: ${facts.signal.undirected ? UNDIRECTED_HEADLINE_CAVEAT : doubts[0].text}.`
+    : '';
   return fit(
-    [
-      comparison,
-      names.length > 0 ? `The groups moved most were ${listed(names)}.` : '',
-      doubts[0] ? `Biggest open caveat: ${doubts[0].text}.` : '',
-    ].filter((part) => part !== ''),
+    (facts.signal.undirected
+      ? [comparison, caveatLine, stanceNote(pairing), groupsLine]
+      : [comparison, stanceNote(pairing), groupsLine, caveatLine]
+    ).filter((part) => part !== ''),
     700,
   );
 }

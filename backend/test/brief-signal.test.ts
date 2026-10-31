@@ -24,7 +24,8 @@ import { buildBrief } from '../src/brief/build.js';
 import { briefHtml, briefJson, briefMarkdown, type BriefExportInput } from '../src/brief/export.js';
 import { gatherFacts, type BriefInputs } from '../src/brief/facts.js';
 import { lintBrief, lintText } from '../src/brief/lint.js';
-import { SAY_DIRECTION, SAY_DIRECTION_UNDIRECTED } from '../src/brief/recommend.js';
+import { pairShares, pairedRunsWords } from '../src/brief/measures.js';
+import { SAY_DIRECTION, SAY_DIRECTION_UNDIRECTED, advise } from '../src/brief/recommend.js';
 import { isAboutTheSame, UNDIRECTED_READING_NOTE } from '../src/brief/signal.js';
 import { briefVisuals } from '../src/brief/visuals.js';
 import { fixtureInput, testConfig } from './fixtures.js';
@@ -773,6 +774,122 @@ describe('what is called no difference', () => {
   });
 });
 
+describe('a change that helps a group and leaves the share looking for an alternative where it was', () => {
+  const MORE_FAVOURABLE =
+    'In 10 of 10 seeded runs, simulated members ended up more favourable under Proposed change than under No change on the same seed (overall stance higher by more than 0.01).';
+  const helped = () => {
+    const base = analysisWith({
+      impact: 0,
+      overrides: { subscribers: 0.8 },
+      baselineAdverse: 0.05,
+      changeAdverse: 0.05,
+      changeStance: 0.5,
+      finding: 'none',
+      moved: { actorId: 'subscribers', adverse: 0.05, stance: 0.9 },
+    });
+    return analysisSchema.parse({
+      ...base,
+      findings: [
+        directionFinding('direction-higher', MORE_FAVOURABLE, 10, 'repeatable'),
+        directionFinding(
+          'direction-subscribers',
+          MORE_FAVOURABLE.replace('simulated members', 'simulated Subscribers'),
+          10,
+          'repeatable',
+          'subscribers',
+        ),
+        ...base.findings,
+      ],
+    });
+  };
+
+  it('calls a tie in every paired run a steady result, not a rare rise to be repeated, and says what the stance did', () => {
+    const brief = buildBrief(inputsFor(helped()));
+    expect(brief.signal).toBe('clear');
+    const executive = section(brief, 'executive-answer').statements;
+    const stability = executive.find((statement) => statement.text.startsWith('Stability'))!;
+    expect(stability.text).toContain(
+      'the same with the change as without it in all 10 paired runs',
+    );
+    expect(stability.text).not.toMatch(/\brare\b|repeat the analysis/u);
+    const conditional = executive.find((statement) => statement.text.startsWith('Recommendation'))!;
+    expect(conditional.text).not.toContain('do not decide');
+    expect(conditional.text).toContain('build on the favourable response of “Subscribers”');
+    expect(brief.headline).toContain('no net difference in the mean');
+    expect(brief.headline).toContain(
+      'the same with the change as without it in all 10 paired runs',
+    );
+    expect(brief.headline).toContain(
+      'The overall final stance, a different measure, was more favourable under the change',
+    );
+    expect(lintBrief(brief)).toEqual([]);
+  });
+
+  it('plans a check of the benefit that the advice builds on', () => {
+    const brief = buildBrief(inputsFor(helped()));
+    expect(brief.recommendations.some((entry) => entry.text.startsWith('Build on'))).toBe(true);
+    const check = brief.validationPlan.find((experiment) =>
+      experiment.question.startsWith('Is “Subscribers” harmed, helped or unaffected'),
+    )!;
+    expect(check).toBeDefined();
+    expect(check.targets[0]).toContain(
+      'assumed helped (set by the scenario that proposes the change)',
+    );
+  });
+
+  it('keeps a tie out of the count of rises: the paired runs are divided into higher, lower and the same', () => {
+    const quiet = pairShares(helped().variants[1]!.runs, helped().variants[0]!.runs);
+    expect(quiet).toMatchObject({ pairs: 10, higher: 0, lower: 0, equal: 10 });
+    expect(pairedRunsWords(quiet)).toBe(
+      'the same with the change as without it in all 10 paired runs',
+    );
+  });
+});
+
+describe('when the proposed change comes out about the same and another scenario helps a group', () => {
+  const world = () => {
+    const base = withScenarios(analysisWith({ baselineAdverse: 0.1, changeAdverse: 0.12 }), [
+      { id: 'option-b', label: 'Option B', adverse: 0.1, stance: 0.6, finding: 'same' },
+    ]);
+    return analysisSchema.parse({
+      ...base,
+      config: {
+        ...base.config,
+        variants: base.config.variants.map((variant) =>
+          variant.id === 'option-b'
+            ? { ...variant, impactOverrides: { subscribers: 0.9 } }
+            : variant,
+        ),
+      },
+      findings: [
+        ...base.findings.filter((finding) => finding.variantId !== 'option-b'),
+        {
+          ...directionFinding(
+            'direction-option-b-subscribers',
+            'In 10 of 10 seeded runs, simulated Subscribers ended up more favourable under Option B than under No change on the same seed (overall stance higher by more than 0.01).',
+            10,
+            'repeatable',
+            'subscribers',
+          ),
+          variantId: 'option-b',
+        },
+      ],
+    });
+  };
+
+  it('keeps the proposed change free of advice and gives the helped scenario advice of its own', () => {
+    const facts = gatherFacts(inputsFor(world()));
+    expect(facts.signal.state).toBe('no-difference');
+    const advice = advise(facts);
+    const buildOn = advice.filter((entry) => entry.kind === 'build-on');
+    expect(buildOn).toHaveLength(1);
+    expect(buildOn[0]!.text).toContain('under “Option B”');
+    expect(buildOn[0]!.refs.variantIds).toContain('option-b');
+    expect(buildOn[0]!.linkedFindingIds).toEqual(['direction-option-b-subscribers']);
+    expect(advice.some((entry) => entry.kind === 'mitigate')).toBe(false);
+  });
+});
+
 describe('when nobody has an expected direction but the members of a group can still move', () => {
   const spread = (settings: Settings = {}) =>
     analysisWith({ impact: 0, impactSpread: 0.15, ...settings });
@@ -789,6 +906,29 @@ describe('when nobody has an expected direction but the members of a group can s
     expect(note?.origin).toBe('unresolved-uncertainty');
     expect(note?.text).toBe(`${BRIEF_READING_NOTES['no-difference']} ${UNDIRECTED_READING_NOTE}`);
     expect(lintBrief(brief)).toEqual([]);
+  });
+
+  it('keeps the missing direction in the headline however long the names of the scenarios are', () => {
+    const analysis = spread({ finding: 'lower', changeAdverse: 0.45 });
+    const named = (analysisWith: Analysis, length: number): Analysis =>
+      analysisSchema.parse({
+        ...analysisWith,
+        config: {
+          ...analysisWith.config,
+          variants: analysisWith.config.variants.map((variant) => ({
+            ...variant,
+            label: `${variant.label} `.padEnd(length, 'x'),
+          })),
+        },
+      });
+    for (const length of [20, 115]) {
+      const { headline } = buildBrief(inputsFor(named(analysis, length)));
+      expect(headline.length).toBeLessThanOrEqual(700);
+      expect(headline).toContain(
+        'Biggest open caveat: no stakeholder has an expected direction of impact',
+      );
+      expect(headline).toMatch(COUNTS);
+    }
   });
 
   it('keeps the limitation that nobody has a direction after the one that says what was found, and says nothing of nothing moving', () => {

@@ -12,7 +12,14 @@ import {
 } from '../../../shared/stakeholders.js';
 import { MATERIAL_SHIFT, ROBUST_SHIFT } from '../analysis/sensitivity.js';
 import type { Facts } from './facts.js';
-import { aboutAdverseShare, actorMeasure, findingsFor, pairShares } from './measures.js';
+import {
+  NO_NET_DIFFERENCE,
+  aboutAdverseShare,
+  actorMeasure,
+  findingsFor,
+  pairShares,
+  pairedRunsWords,
+} from './measures.js';
 import { readingNote } from './signal.js';
 import { impactOwner, sensitivityContext } from './assumptions.js';
 import {
@@ -202,13 +209,10 @@ export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
       continue;
     }
     const moved =
-      Math.abs(pairing.delta) < 0.0005
+      Math.abs(pairing.delta) < NO_NET_DIFFERENCE
         ? `left the mean share of simulated members looking for an alternative or resisting where it was`
         : `${pairing.delta > 0 ? 'raised' : 'lowered'} the mean share of simulated members looking for an alternative or resisting`;
-    const runsClause =
-      pairing.delta >= 0
-        ? `higher under the change in ${pairing.higher} of ${pairing.pairs} paired runs`
-        : `lower under the change in ${pairing.lower} of ${pairing.pairs} paired runs`;
+    const runsClause = pairedRunsWords(pairing);
     // The same difference in sampled members, when the stored analysis can add them up.
     const countDelta =
       measure.adverseCount && baseline.adverseCount

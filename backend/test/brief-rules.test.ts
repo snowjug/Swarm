@@ -30,6 +30,7 @@ import {
   SPREAD_CHECK,
   STRENGTH_CHECK,
   TRAIT_CHECKS,
+  concernMeasure,
   gapCheckFor,
   planChecks,
   validationPlan,
@@ -714,7 +715,7 @@ describe('the validation plan', () => {
   const target = (prefix: string) =>
     plan.find((experiment) => experiment.targets.some((entry) => entry.startsWith(prefix)));
 
-  it('asks about the outcome that the evidence records for a group, and not only whether it switches', () => {
+  it('points to what the evidence says about a group without calling a passage an outcome, and not only whether it switches', () => {
     const quote = richStakeholders()
       .stakeholders.find((entry) => entry.id === 'subscribers')!
       .evidence.find((ref) => ref.role === 'supports')!.quote!;
@@ -722,13 +723,26 @@ describe('the validation plan', () => {
       experiment.question.startsWith('Is “Subscribers” harmed'),
     )!;
     expect(check.measure).toContain(`“${quote.slice(0, 40)}`);
-    expect(check.measure).toContain('whether they also start using an alternative');
+    // The passage is context: someone who knows the group makes it countable before the check starts.
+    expect(check.measure).toContain('made into something countable by someone who knows the group');
+    expect(check.measure).toContain('a passage may state a worry, not an observation');
+    expect(check.measure).toContain('start using an alternative');
+    expect(check.measure).not.toMatch(/outcome that the evidence records/u);
     // A group that cites nothing keeps the general measure, which names no outcome of its own.
     const bare = validationPlan(gatherFacts(baseInputs()));
     const general = bare.find((experiment) =>
       experiment.question.includes('harmed, helped or unaffected'),
     );
-    expect(general?.measure ?? '').not.toContain('the evidence records');
+    expect(general?.measure ?? '').not.toContain('what the evidence for');
+  });
+
+  it('keeps a measure that quotes a passage within the stored bound, whatever the lengths of the name and the passage', () => {
+    const name = '“' + 'N'.repeat(60) + '”';
+    for (const length of [10, 200, 5000]) {
+      const measure = concernMeasure(name, 'worry about the change '.repeat(300).slice(0, length));
+      expect(measure.length).toBeLessThanOrEqual(400);
+      expect(measure).toContain('and the proportion who start using an alternative');
+    }
   });
 
   it('plans a check for a sensitive assumption that nothing cited backs and for none that a passage backs, whatever else is in the plan', () => {

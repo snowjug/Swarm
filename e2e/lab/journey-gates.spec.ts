@@ -538,7 +538,10 @@ test.describe('what is locked at each point of the way, and what the page says a
         await page.goto(`/?project=${ids[level]}`);
         await nextBar(page).getByRole('button', { name: button }).click();
         await expect(workbench(page, opens)).toBeVisible();
-        await expect(workbench(page, opens)).toBeFocused();
+        // The brief is what the person came for, so Report hands focus on to the brief itself.
+        await expect(
+          opens === 'Report' ? page.locator('#report-brief') : workbench(page, opens),
+        ).toBeFocused();
         await expect(stageButton(page, opens)).toHaveAttribute('aria-current', 'step');
         // Where the work of that step is done, the stage says what to do, and the bar steps aside;
         // from the comparison's brief it offers the way back.
@@ -710,7 +713,7 @@ test.describe('how a person unlocks the next stage', () => {
 
     // On to the brief, and writing it in the page: the stage and the path follow it.
     await nextBar(page).getByRole('button', { name: 'See the decision brief' }).click();
-    await expect(workbench(page, 'Report')).toBeFocused();
+    await expect(page.locator('#report-brief')).toBeFocused();
     await page.getByRole('button', { name: 'Generate decision brief' }).click();
     await expect(stageButton(page, 'Report')).toContainText('brief written');
     await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText([
@@ -794,7 +797,7 @@ test.describe('the next step from the keyboard', () => {
     ).toBeGreaterThanOrEqual(2);
 
     await page.keyboard.press('Enter');
-    await expect(workbench(page, 'Report')).toBeFocused();
+    await expect(page.locator('#report-brief')).toBeFocused();
     await expect(page.locator('body')).not.toBeFocused();
 
     // Back the same way: the button now says where it goes, and Space takes it too.

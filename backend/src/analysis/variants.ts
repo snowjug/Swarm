@@ -1,3 +1,4 @@
+import { USER_SET_NOTE, isSetByPerson } from '../../../shared/analysis-plan.js';
 import type { Variant } from '../../../shared/analysis.js';
 import type {
   ScenarioAlternative,
@@ -124,4 +125,34 @@ export function autoVariants(scenario: ScenarioFrame | null): Variant[] {
     };
   });
   return [baseline, proposed, ...alternatives];
+}
+
+/** The sentence a system-made description has about its own strength and timing. */
+const ASSUMPTION_SENTENCE = /\s*Intensity [\d.]+ from round \d+ [^]*$/u;
+
+/**
+ * Says in a scenario's own description that a person chose how strongly and when it lands, from what
+ * was submitted and not from what its text happens to say: a scenario the system did not offer, or one
+ * whose strength or timing differs from the offer, was set by a person. The brief and the sensitivity
+ * step name the source from that note, so a request that changes the numbers and keeps the system's
+ * wording is not left labelled as a system assumption. The baseline has no strength to attribute.
+ */
+export function attributeSettings(
+  submitted: readonly Variant[],
+  scenario: ScenarioFrame | null,
+): Variant[] {
+  const offered = new Map(autoVariants(scenario).map((variant) => [variant.id, variant]));
+  return submitted.map((variant) => {
+    if (variant.kind === 'baseline' || isSetByPerson(variant)) return variant;
+    const offer = offered.get(variant.id);
+    if (offer && offer.intensity === variant.intensity && offer.round === variant.round) {
+      return variant;
+    }
+    const note = `Intensity ${variant.intensity} from round ${variant.round} ${USER_SET_NOTE}.`;
+    const base = clip(
+      variant.description.replace(ASSUMPTION_SENTENCE, '').trim(),
+      600 - note.length - 1,
+    );
+    return { ...variant, description: `${base ? `${base} ` : ''}${note}` };
+  });
 }

@@ -27,7 +27,7 @@ import {
 } from './runset.js';
 import { planPerturbations } from './sensitivity.js';
 import { round4 } from './stats.js';
-import { autoVariants } from './variants.js';
+import { attributeSettings, autoVariants } from './variants.js';
 
 export interface AnalysisServiceOptions {
   /** The engine that runs one scenario on one seed: the population simulator, unless a test supplies another. */
@@ -269,7 +269,10 @@ export class AnalysisService {
         createdAt: new Date(this.now()).toISOString(),
         actors: actors.data.actors,
         relations: actors.data.relations,
-        variants: input.variants === 'auto' ? autoVariants(scenario?.data ?? null) : input.variants,
+        variants:
+          input.variants === 'auto'
+            ? autoVariants(scenario?.data ?? null)
+            : attributeSettings(input.variants, scenario?.data ?? null),
         runsPerVariant: input.runsPerVariant,
         baseSeed: input.baseSeed ?? this.repository.get(projectId).settings.seed,
         rounds: input.rounds ?? DEFAULT_ROUNDS,

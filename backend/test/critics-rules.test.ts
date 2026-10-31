@@ -900,6 +900,30 @@ const CASES: Case[] = [
       ]),
     expected: none,
   },
+  {
+    name: 'bias: confident wording and a percentage inside a quotation are the source’s own',
+    edit: (i) =>
+      withStatements(i, [
+        {
+          id: 'st-1',
+          text: 'Staff worry that “customers will drive away, as 12% did before”.',
+          origin: 'inferred-stakeholder',
+        },
+      ]),
+    expected: none,
+  },
+  {
+    name: 'bias: confident wording beside a quotation is still found',
+    edit: (i) =>
+      withStatements(i, [
+        {
+          id: 'st-1',
+          text: 'Staff worry about “drive away”, and the change will win.',
+          origin: 'inferred-stakeholder',
+        },
+      ]),
+    expected: { 'bias-confident-wording': ['bias', 'minor'] },
+  },
   // recommendation
   {
     name: 'recommendation: tied to no finding of this analysis',

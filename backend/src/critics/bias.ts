@@ -1,5 +1,6 @@
 import type { BriefSectionId, DecisionBrief, StatementOrigin } from '../../../shared/brief.js';
 import type { Critique } from '../../../shared/critique.js';
+import { ownWords } from '../brief/lint.js';
 import { clip, draft, fixed, plural, whole } from './text.js';
 import type { Resolved, RoleCritic } from './types.js';
 
@@ -125,16 +126,18 @@ function briefPieces(brief: DecisionBrief): Piece[] {
 const excerpt = (text: string, index: number, length: number): string =>
   clip(text.slice(Math.max(0, index - 40), index + length + 40), 100);
 
+/** The brief's own words: text it quotes from a source or a person is theirs, and the wording guard skips it too. */
 function confidentWording(input: Resolved): Critique[] {
   if (!input.brief) return [];
   const hits: { where: string; word: string; snippet: string }[] = [];
   for (const piece of briefPieces(input.brief)) {
-    for (const match of piece.text.matchAll(CONFIDENT)) {
-      if (NEGATED.test(piece.text.slice(Math.max(0, match.index - 30), match.index))) continue;
+    const own = ownWords(piece.text);
+    for (const match of own.matchAll(CONFIDENT)) {
+      if (NEGATED.test(own.slice(Math.max(0, match.index - 30), match.index))) continue;
       hits.push({
         where: piece.where,
         word: match[0].toLowerCase(),
-        snippet: excerpt(piece.text, match.index, match[0].length),
+        snippet: excerpt(own, match.index, match[0].length),
       });
     }
   }
@@ -159,9 +162,10 @@ function realWorldPercentages(input: Resolved): Critique[] {
   const hits: { where: string; snippet: string }[] = [];
   for (const piece of briefPieces(input.brief)) {
     if (!piece.figures || (piece.origin && OWN_FIGURES.includes(piece.origin))) continue;
-    if (SIMULATION_MARKER.test(piece.text)) continue;
-    for (const match of piece.text.matchAll(PERCENT)) {
-      hits.push({ where: piece.where, snippet: excerpt(piece.text, match.index, match[0].length) });
+    const own = ownWords(piece.text);
+    if (SIMULATION_MARKER.test(own)) continue;
+    for (const match of own.matchAll(PERCENT)) {
+      hits.push({ where: piece.where, snippet: excerpt(own, match.index, match[0].length) });
     }
   }
   if (hits.length === 0) return [];

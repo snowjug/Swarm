@@ -24,7 +24,10 @@ happen.
    other alternative, which states nothing comparable, has the middling intensity 0.5. Either way the
    description says how the intensity was reached. When a person edits an intensity or a round, or adds a
    scenario of their own, the description is rewritten from the values they gave to say that the
-   intensity "was set by you".
+   intensity "was set by you". The server makes the same note from what it receives, so that a request
+   that changes the numbers and keeps the system's wording is attributed correctly too: a scenario that
+   the system did not offer, or whose intensity or round is not the one offered, gets the note, and one
+   that is as it was offered does not.
 2. **Seeds.** Run `i` of every scenario uses the seed `baseSeed + i`. The same seeds are used for every
    scenario, so the runs can be paired: a run of the change shares its randomness with the run of the
    baseline that has the same seed, and a difference between them is the effect of the change and not

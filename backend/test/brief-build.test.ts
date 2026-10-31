@@ -724,9 +724,7 @@ describe('the assumptions', () => {
       buildBrief(baseInputs({ analysis: parted })),
       'executive-answer',
     ).statements.find((statement) => statement.text.startsWith('Stability'))!;
-    expect(stability.text).toContain(
-      'was higher under the change in 10 of 10 paired seeded simulated runs',
-    );
+    expect(stability.text).toContain('was higher under the change in 10 of 10 paired runs');
     expect(stability.text).toContain(
       'The overall stance, a different measure, does not point the same way',
     );

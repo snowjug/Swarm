@@ -66,8 +66,11 @@ origin and references:
    analysis.
 3. The headline comparison, in the engine's own measure: the mean share of simulated members looking
    for an alternative or resisting under the change and under the baseline, every group counting
-   equally, the paired difference with its standard error, and in how many paired runs the share was
-   higher under the change.
+   equally, the paired difference with its standard error, and how the paired runs divided: higher under
+   the change in so many, lower in so many, or the same in all of them. A share that did not move
+   is steady when it was the same in every pair; a tie is never counted as a rare rise, and the analysis
+   is not repeated for it. Where the overall stance, a different measure, moved while the share did not
+   (or the other way), the headline says what the stance did.
 4. The groups moved most, each with its own share against its share under the baseline. They are
    ranked by that share and never by member counts.
 5. Up to three doubts that could change the answer, the biggest first, from the sensitivity rows, the
@@ -81,7 +84,9 @@ origin and references:
 8. What the brief does not tell you: how many real people act this way, how fast, or whether the
    assumptions hold.
 
-The headline repeats the comparison, the groups moved most and the biggest doubt in one paragraph.
+The headline repeats the comparison, the groups moved most and the biggest doubt in one paragraph. When
+nobody has a direction of impact, the doubt is kept ahead of the names of the groups, in a short form,
+so that the length of a scenario's name cannot push it out.
 When the comparison cannot be read as a result, the answer says so first instead (see below), and
 the order above applies to the `clear` state.
 
@@ -268,8 +273,10 @@ When it holds for the proposed change, the headline says that there is no measur
 these assumptions between the proposed change and no change, leads with how often the two ended up
 about the same instead of with counts, and keeps the main caveat after it. It says that this is a
 result about the assumptions, not about the world. No mitigation and no building-on recommendation is
-made, no first-order effect, risk or opportunity is singled out for the proposed change, and the first
-limitation says what the result does not show. The notice, the note and the limitation say that it is
+made for the proposed change, no first-order effect, risk or opportunity is singled out for it, and the
+first limitation says what the result does not show. A different scenario whose own findings show a
+repeatable, favourable response of a group set as helped still gets advice to build on it, naming that
+scenario, because the result is said of the proposed change only. The notice, the note and the limitation say that it is
 said of the proposed change only, and none of them calls a difference noise. **Every other scenario is
 read against no change on its own findings** in "Alternative outcomes": one whose own findings say it
 ended up about the same is worded so (stance, "which the comparison reads as about the same"), and any
@@ -316,7 +323,10 @@ from a few generic rules that know nothing about the subject:
   A headline result that seldom or never held is its own case: the runs agree that it is rare, which
   is not the same as disagreeing, so the advice is not to plan around it and not to read its absence
   as safety.
-- A favourable, repeatable finding for a benefited group: build on it.
+- A favourable, repeatable finding for a benefited group: build on it. The group counts as helped by the
+  scenario the finding is about, and its own stance has to have moved up, whatever its share looking for an
+  alternative did. Where the proposed change came out about the same, an alternative whose own findings
+  show such a response still gets this advice, naming that alternative; the proposed change gets none.
 - Serious critiques that are not yet closed (anything but accepted: open, responded or disputed):
   resolve them first.
 
@@ -380,9 +390,13 @@ to match an internal score, a setting such as the strength of the change, or a s
 produced. The check of the size, reach and timing of the change sets them from what was delivered
 and not from the reaction that was seen, and compares the simulated reaction with the observed one
 only for a group or a period that was not used to set them: a pilot that tunes a setting is not also
-the test of it. The check of how the change lands on a group measures the outcome that group's own
-evidence is about: it quotes the concern the group cites, and a group that cites nothing keeps a
-general measure that names no outcome of its own.
+the test of it. The check of how the change lands on a group points to what that group's own evidence
+says: it quotes the passage the group cites, as context and not as an outcome, because a passage can
+state a worry, a gap in the data or a proposal and not something that was seen, and it says that someone
+who knows the group makes it countable before the check starts. It asks, beside that, who starts using
+an alternative, reduces their use or formally objects. A group that cites nothing keeps a general
+measure that names no outcome of its own. The check is also made for a group that the advice builds on
+because it is helped, since a benefit that nothing measured is not something to build on yet.
 Checks that settle the same premise are merged. The method is a generic real-world check (a survey,
 interviews, a data pull, an expert review or a staged rollout) filled in with the groups, the change
 and the sources of this analysis, so two analyses of different questions get visibly different plans.

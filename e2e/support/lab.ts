@@ -359,7 +359,7 @@ export const comparisonPanel = (page: Page): Locator =>
 export const reviewPanel = (page: Page): Locator =>
   page.getByRole('region', { name: 'Independent review', exact: true });
 export const briefDocument = (page: Page): Locator =>
-  page.getByRole('article', { name: 'Decision brief' });
+  page.getByRole('article', { name: 'Decision brief', exact: true });
 
 export async function getJson<T>(page: Page, path: string): Promise<T> {
   const response = await page.request.get(path);

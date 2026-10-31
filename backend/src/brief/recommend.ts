@@ -1,22 +1,16 @@
 import type { Finding } from '../../../shared/analysis.js';
 import type { BriefRefs, Recommendation, StatementOrigin } from '../../../shared/brief.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
-import { effectiveTrait } from '../../../shared/signal.js';
 import { EXTERNAL_RESPONDER_CATEGORIES, type Actor } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
-import { aboutAdverseShare, groupShifts } from './measures.js';
-import {
-  LEVEL_WEIGHT,
-  OWNER_BY_CATEGORY,
-  directionOfImpact,
-  levelOfSize,
-  type Reliance,
-} from './rules.js';
+import { aboutAdverseShare } from './measures.js';
+import { LEVEL_WEIGHT, OWNER_BY_CATEGORY, levelOfSize, type Reliance } from './rules.js';
 import { approx, clip, embed, listed, plural, signed, traitLabel } from './text.js';
 import {
   REPEAT_CHECK,
   checkForGap,
   checkForRow,
+  favourableLeads,
   openConflicts,
   rareFindings,
   unevidencedKeyActors,
@@ -426,36 +420,22 @@ function rarities(facts: Facts): Candidate[] {
     }));
 }
 
-function opportunities(facts: Facts): Candidate[] {
-  const { baseline, analysis } = facts;
+/**
+ * Build-on advice for a group that a scenario helps. For the change that is proposed it needs the
+ * comparison to be readable; where that comparison found no difference, an alternative still gets
+ * advice on its own findings, never on the proposed change's.
+ */
+function opportunities(facts: Facts, besides: string | null = null): Candidate[] {
+  const { baseline } = facts;
   if (!baseline) return [];
   const found: Candidate[] = [];
-  const seen = new Set<string>();
-  const ordered = [...analysis.findings].sort(
-    (a, b) => b.interval.lo - a.interval.lo || (a.id < b.id ? -1 : 1),
-  );
-  for (const finding of ordered) {
-    const actor = facts.actorById.get(finding.actorId ?? '');
-    const variant = facts.measures.find((measure) => measure.variant.id === finding.variantId);
-    if (!actor || !variant || variant.variant.kind !== 'alternative' || !repeatable(finding)) {
-      continue;
-    }
-    // Whether the group is helped is read as the scenario that the finding is about ran it.
-    if (
-      directionOfImpact(effectiveTrait(actor, variant.variant, 'impact')) !== 'benefited' ||
-      seen.has(actor.id)
-    ) {
-      continue;
-    }
-    const shift = groupShifts(variant, baseline).find((entry) => entry.actorId === actor.id);
-    if (!shift || shift.stanceDelta === null || shift.stanceDelta <= 0) continue;
-    seen.add(actor.id);
+  for (const { actor, finding, variant, shift } of favourableLeads(facts, besides)) {
     const subject = embed(actor.name, 60);
     found.push({
       kind: 'build-on',
-      text: `Build on the favourable response of ${subject}: its simulated members moved toward going along or accepting under ${embed(variant.variant.label, 60)} (mean final stance ${signed(shift.stanceDelta)} against the baseline), and the finding held in ${finding.holdsIn} of ${finding.of} seeded runs.`,
+      text: `Build on the favourable response of ${subject}: its simulated members moved toward going along or accepting under ${embed(variant.variant.label, 60)} (mean final stance ${signed(shift.stanceDelta ?? 0)} against the baseline), and the finding held in ${finding.holdsIn} of ${finding.of} seeded runs.`,
       linkedFindingIds: [finding.id],
-      impact: levelOfSize(shift.stanceDelta),
+      impact: levelOfSize(shift.stanceDelta ?? 0),
       effort: 'low',
       reversibility: 'easy',
       horizon: 'At announcement',
@@ -568,7 +548,11 @@ export function advise(facts: Facts): Advice[] {
     ...conflicts(facts),
     ...responses(facts),
     ...(state === 'no-direction' ? [] : [...repeats(facts), ...rarities(facts)]),
-    ...(state === 'clear' ? opportunities(facts) : []),
+    ...(state === 'clear'
+      ? opportunities(facts)
+      : state === 'no-difference'
+        ? opportunities(facts, facts.headline?.variant.variant.id ?? null)
+        : []),
     ...critiqueActions(facts),
   ].map((candidate, order) => ({ candidate, order }));
   const ordered = candidates

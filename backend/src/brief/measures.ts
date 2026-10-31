@@ -233,6 +233,8 @@ export interface SharePairing {
   /** Pairs in which the share is higher under the variant, and in which it is lower. */
   higher: number;
   lower: number;
+  /** Pairs in which the share is the same under both. */
+  equal: number;
   /** The share under each, a mean over the paired seeds. */
   variantMean: number;
   baselineMean: number;
@@ -270,12 +272,32 @@ export function pairShares(
     pairs: differences.length,
     higher,
     lower,
+    equal: differences.length - higher - lower,
     variantMean: mean(after),
     baselineMean: mean(before),
     delta: mean(differences),
     standardError: standardError(differences),
     stanceDelta: mean(stances),
   };
+}
+
+/** A mean difference smaller than this, in a share, is read as no net difference. */
+export const NO_NET_DIFFERENCE = 0.0005;
+
+/**
+ * How the paired runs divided, in words: the same in every pair, higher and lower about alike around
+ * no net difference, or mostly one way. A tie is not a rare rise, so it is never counted as one.
+ */
+export function pairedRunsWords(pairing: SharePairing): string {
+  if (pairing.pairs > 0 && pairing.equal === pairing.pairs) {
+    return `the same with the change as without it in all ${pairing.pairs} paired runs`;
+  }
+  if (Math.abs(pairing.delta) < NO_NET_DIFFERENCE) {
+    return `higher under the change in ${pairing.higher}, lower in ${pairing.lower} and the same in ${pairing.equal} of ${pairing.pairs} paired runs`;
+  }
+  return pairing.delta > 0
+    ? `higher under the change in ${pairing.higher} of ${pairing.pairs} paired runs`
+    : `lower under the change in ${pairing.lower} of ${pairing.pairs} paired runs`;
 }
 
 export interface Pairing {

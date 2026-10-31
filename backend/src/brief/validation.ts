@@ -1,5 +1,6 @@
 import type { Finding, SensitivityRow } from '../../../shared/analysis.js';
 import type { BriefRefs, ValidationExperiment } from '../../../shared/brief.js';
+import { effectiveTrait } from '../../../shared/signal.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
   TRAIT_KEYS,
@@ -8,8 +9,13 @@ import {
   type TraitKey,
 } from '../../../shared/stakeholders.js';
 import type { Facts } from './facts.js';
-import { aboutAdverseShare } from './measures.js';
-import { OWNER_BY_CATEGORY, type Level } from './rules.js';
+import {
+  aboutAdverseShare,
+  groupShifts,
+  type GroupShift,
+  type VariantMeasure,
+} from './measures.js';
+import { OWNER_BY_CATEGORY, directionOfImpact, type Level } from './rules.js';
 import { clip, embed } from './text.js';
 
 /**
@@ -517,6 +523,51 @@ export function sizedLeads(facts: Facts, limit: number): Actor[] {
     .slice(0, limit);
 }
 
+const repeats = (finding: Finding): boolean =>
+  finding.classification === 'repeatable' || finding.classification === 'mostly-repeatable';
+
+/** A group that a scenario helps and whose members repeatably moved toward going along: what advice to build on rests on. */
+export interface FavourableLead {
+  actor: Actor;
+  /** The finding that holds the move, the steadiest first. */
+  finding: Finding;
+  variant: VariantMeasure;
+  shift: GroupShift;
+}
+
+/**
+ * Whether a group is helped is read as the scenario that the finding is about ran it, and its own
+ * stance has to have moved up, whatever its share looking for an alternative did.
+ */
+export function favourableLeads(facts: Facts, besides: string | null = null): FavourableLead[] {
+  const { baseline, analysis } = facts;
+  if (!baseline) return [];
+  const found: FavourableLead[] = [];
+  const seen = new Set<string>();
+  const ordered = [...analysis.findings].sort(
+    (a, b) => b.interval.lo - a.interval.lo || (a.id < b.id ? -1 : 1),
+  );
+  for (const finding of ordered) {
+    if (finding.variantId === besides) continue;
+    const actor = facts.actorById.get(finding.actorId ?? '');
+    const variant = facts.measures.find((measure) => measure.variant.id === finding.variantId);
+    if (!actor || !variant || variant.variant.kind !== 'alternative' || !repeats(finding)) {
+      continue;
+    }
+    if (
+      directionOfImpact(effectiveTrait(actor, variant.variant, 'impact')) !== 'benefited' ||
+      seen.has(actor.id)
+    ) {
+      continue;
+    }
+    const shift = groupShifts(variant, baseline).find((entry) => entry.actorId === actor.id);
+    if (!shift || shift.stanceDelta === null || shift.stanceDelta <= 0) continue;
+    seen.add(actor.id);
+    found.push({ actor, finding, variant, shift });
+  }
+  return found;
+}
+
 /** The scenario's own words for the change and the system it affects, quoted. */
 export function wordsOf(facts: Facts): Pick<Slots, 'change' | 'system'> {
   const change = facts.scenario?.changes[0];
@@ -535,6 +586,20 @@ export function wordsOf(facts: Facts): Pick<Slots, 'change' | 'system'> {
 export const MAX_EXPERIMENTS = 8;
 /** The most results one check may be for: the same bound as the stored document's. */
 const MAX_TARGETS = 6;
+/** The longest a check's measure may be: the stored document's bound. */
+const MEASURE_MAX = 400;
+
+/**
+ * What to observe for a group whose own evidence is quoted. The quotation is context and not the
+ * outcome: a passage can state a worry, a gap in the data or a proposal, so someone who knows the group
+ * has to say what to count before the check starts. The quotation is shortened to what the rest leaves.
+ */
+export function concernMeasure(group: string, concern: string): string {
+  const frame = (quote: string): string =>
+    `For ${group}: what the evidence for them points to, ${quote}, made into something countable by someone who knows the group before the check starts (a passage may state a worry, not an observation); and the proportion who start using an alternative, reduce their use or formally object.`;
+  const room = MEASURE_MAX - frame('').length;
+  return frame(embed(concern, Math.max(20, Math.min(100, room - 2))));
+}
 
 /** A check as the plan holds it, with what the rest of the brief needs to refer to it. */
 export interface PlannedCheck extends ValidationExperiment {
@@ -602,7 +667,7 @@ function assemble({ check, slots, owner, targets, keys, refs }: Made): Omit<Plan
     successSignal: say(check.decision, 300),
     effort: check.effort,
     duration: check.duration,
-    measure: say(check.measure, 400),
+    measure: say(check.measure, MEASURE_MAX),
     comparison: say(check.comparison, 300),
     ownerFunction: clip(owner, 120),
     keys,
@@ -678,19 +743,31 @@ export function planChecks(facts: Facts): PlannedCheck[] {
       },
     });
   }
-  lead.forEach((actor, index) => {
-    // What the evidence records about the group is what to observe, so a group that worries about
-    // something other than leaving is asked about that and not only about whether it switches.
+  // The groups the answer names for how far their share moved, then a group that the advice builds on
+  // because it is helped: a benefit that nothing measured is not something to build on yet.
+  const helped =
+    state === 'clear' && headline
+      ? favourableLeads(facts)
+          .filter(
+            (entry) =>
+              entry.variant.variant.id === headline.variant.variant.id &&
+              !lead.some((actor) => actor.id === entry.actor.id),
+          )
+          .slice(0, 1)
+          .map((entry) => entry.actor)
+      : [];
+  [...lead, ...helped].forEach((actor, index) => {
+    // What the evidence says about the group points to what to observe, so a group that worries about
+    // something other than leaving is asked about that and not only about whether it switches. A
+    // passage can state a worry, a gap or a proposal and not an outcome that was seen, so the quote is
+    // context and someone who knows the group has to say what to count.
     const cited = facts.evidence.has(actor.stakeholderId)
       ? facts.evidence.forStakeholder(actor.stakeholderId)
       : facts.evidence.forActor(actor);
     const concern = (cited.find((ref) => ref.role === 'supports' && ref.quote) ?? cited[0])?.quote;
     add(`impact:${actor.id}`, index === 0 ? 2 : 5, PLACE.impact, {
       check: concern
-        ? {
-            ...TRAIT_CHECKS.impact,
-            measure: `In the weeks after the change, the outcome that the evidence records for {group}, ${embed(concern, 110)}: how often it happens or how much it costs them, and whether they also start using an alternative to {system}, reduce their use of it or formally object, and what they say they lose or gain.`,
-          }
+        ? { ...TRAIT_CHECKS.impact, measure: concernMeasure(groupName(actor), concern) }
         : TRAIT_CHECKS.impact,
       slots: { ...words, group: groupName(actor) },
       owner: ownerOf(actor),

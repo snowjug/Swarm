@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { analysisSchema, type Analysis, type Variant } from '../../shared/analysis.js';
 import type { AnalysisList } from '../../shared/analysis-plan.js';
+import { isSetByPerson } from '../../shared/analysis-plan.js';
 import {
   FIXTURE_VARIANTS,
   actorSetFixture,
@@ -204,6 +205,60 @@ describe('starting a comparison', () => {
     ]);
     expect(done.sensitivity.length).toBeGreaterThan(0);
     expect(done.sensitivity.length).toBeLessThanOrEqual(12);
+  });
+
+  it('records that a person set the strength or timing of a scenario from what was submitted, whatever its description says', async () => {
+    const { start, withActors, finished } = await world();
+    withActors();
+    const response = await start({
+      variants: [
+        FIXTURE_VARIANTS[0]!,
+        // The numbers changed, and the wording is the system's: the person still set them.
+        { ...FIXTURE_VARIANTS[1]!, intensity: 0.3, round: 4 },
+        // Not a scenario the system offered.
+        { ...FIXTURE_VARIANTS[1]!, id: 'my-own', label: 'My own', description: 'Something else.' },
+      ],
+      runsPerVariant: 3,
+      sensitivity: false,
+    });
+    expect(response.statusCode, response.body).toBe(202);
+    const { config } = await finished((response.json().analysis as Analysis).id);
+    const [baseline, changed, own] = config.variants;
+    expect(baseline).toEqual(FIXTURE_VARIANTS[0]);
+    expect(changed!.description).toBe(
+      'The fee rises by the proposed amount. Intensity 0.3 from round 4 was set by you.',
+    );
+    expect(own!.description).toBe('Something else. Intensity 0.7 from round 2 was set by you.');
+    expect(isSetByPerson(changed!) && isSetByPerson(own!)).toBe(true);
+  });
+
+  it('leaves the scenarios the system offered as they are, and keeps the note whole in a long description', async () => {
+    const { start, withActors, finished } = await world();
+    withActors();
+    const offered = await start({
+      variants: FIXTURE_VARIANTS,
+      runsPerVariant: 3,
+      sensitivity: false,
+    });
+    expect(offered.statusCode, offered.body).toBe(202);
+    const kept = await finished((offered.json().analysis as Analysis).id);
+    expect(kept.config.variants).toEqual(FIXTURE_VARIANTS);
+    expect(kept.config.variants.some(isSetByPerson)).toBe(false);
+
+    const long = await start({
+      variants: [
+        FIXTURE_VARIANTS[0]!,
+        { ...FIXTURE_VARIANTS[1]!, intensity: 0.2, description: 'w'.repeat(600) },
+      ],
+      runsPerVariant: 3,
+      sensitivity: false,
+    });
+    expect(long.statusCode, long.body).toBe(202);
+    const { config } = await finished((long.json().analysis as Analysis).id);
+    expect(config.variants[1]!.description.length).toBeLessThanOrEqual(600);
+    expect(
+      config.variants[1]!.description.endsWith('Intensity 0.2 from round 2 was set by you.'),
+    ).toBe(true);
   });
 
   it('refuses a bad request in plain words and starts nothing', async () => {

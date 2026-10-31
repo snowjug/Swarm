@@ -156,7 +156,7 @@ const responseBox = (form: Locator): Locator => form.getByLabel('Your response',
 async function openReport(page: Page, id: string): Promise<void> {
   await page.goto(`/?project=${id}`);
   await openStage(page, /Report/u);
-  await expect(page.getByRole('article', { name: 'Decision brief' })).toBeVisible();
+  await expect(page.getByRole('article', { name: 'Decision brief', exact: true })).toBeVisible();
   await expect(reviewPanel(page)).toBeVisible();
 }
 
