@@ -9,6 +9,7 @@ import {
 } from '../../../../shared/types';
 import type { AppConfig, CreateProjectInput } from '../../../../shared/types';
 import { api, errorMessage } from '../../api';
+import { evidenceApi } from '../../api/evidence';
 import { Notice, Spinner } from '../ui';
 
 type DocumentInput = CreateProjectInput['documents'][number];
@@ -80,20 +81,31 @@ export function SourceInput({
         setReading(file.name);
         try {
           const pdf = /\.pdf$/iu.test(file.name);
-          if (!pdf && !/\.(txt|md|markdown)$/iu.test(file.name))
+          // A CSV or JSON file is read to text by the server, as a PDF is.
+          const table = /\.(csv|json)$/iu.test(file.name);
+          if (!pdf && !table && !/\.(txt|md|markdown)$/iu.test(file.name))
             throw new Error('Use UTF-8 TXT, Markdown, or a text-based PDF.');
           if (pdf && !config?.capabilities.pdf)
             throw new Error('PDF extraction is unavailable on this server.');
           if (pdf && file.size > (limits?.maxPdfBytes ?? 2_000_000))
             throw new Error('PDF files must be at most 2 MB before extraction.');
-          if (!pdf && file.size > maxChars * 4)
+          if (table && file.size > (limits?.maxPdfBytes ?? 2_000_000))
+            throw new Error('CSV and JSON files must be at most 2 MB.');
+          if (!pdf && !table && file.size > maxChars * 4)
             throw new Error(
               `Text sources must be at most ${maxChars.toLocaleString()} characters.`,
             );
           const bytes = new Uint8Array(await file.arrayBuffer());
           if (request.signal.aborted) return;
           let document: DocumentInput;
-          if (pdf) {
+          if (table) {
+            const read = await evidenceApi.extractDataFile(
+              file.name,
+              base64(bytes),
+              request.signal,
+            );
+            document = { name: read.name, content: read.content };
+          } else if (pdf) {
             const extracted = await api.extractPdf(file.name, base64(bytes), request.signal);
             document = {
               name: extracted.name,
@@ -195,7 +207,7 @@ export function SourceInput({
             className="sr-only"
             type="file"
             multiple
-            accept=".txt,.md,.markdown,.pdf"
+            accept=".txt,.md,.markdown,.pdf,.csv,.json"
             disabled={disabled || Boolean(reading) || documents.length >= maxDocuments}
             onChange={(event) => void addFiles(event.target.files)}
           />

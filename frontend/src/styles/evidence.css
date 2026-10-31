@@ -1,1 +1,86 @@
 /* Evidence input: pasted text, files, and public web addresses. Owned by one feature; use the theme tokens, never raw colours. */
+.url-evidence {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.url-evidence h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 12px/1.5 var(--mono);
+  font-weight: 500;
+}
+.url-evidence-help {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.url-evidence-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.url-evidence-form > .field {
+  flex: 1 1 260px;
+}
+.url-evidence-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--panel);
+}
+.url-evidence-preview h4 {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.url-evidence-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+}
+.url-evidence-facts > div {
+  min-width: 0;
+}
+.url-evidence-facts dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.url-evidence-facts dd {
+  margin: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.url-evidence-excerpt {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 3px solid var(--border);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.url-evidence-notes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.url-evidence-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
