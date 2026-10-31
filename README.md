@@ -52,12 +52,15 @@ records why it is built this way.
 | 10  | **Uncertainty and sensitivity** | Each finding is "holds in k of n seeded runs" with a 95% interval and a stability class. Sensitivity moves one assumption at a time on the same seeds and compares the shift with the noise                                              |
 | 11  | **Independent critique**        | Seven critics (evidence, assumption, methodology, stakeholder coverage, bias, recommendation, adversarial) challenge the analysis. They never edit it. You respond, accept or dispute, and the disagreement stays visible                |
 | 12  | **Decision-ready analysis**     | An answer-first brief in 17 sections, assembled from data. Every statement carries one of ten origins and the ids it rests on                                                                                                            |
-| 13  | **Recommendations**             | Each follows from at least one finding, with priority, impact, effort, reversibility, horizon, an owner function, leading indicators and how to check it                                                                                 |
-| 14  | **Real-world validation plan**  | Experiments that would test what the result depends on most: the question, the method, the success signal, the effort and the duration                                                                                                   |
+| 13  | **Recommendations**             | Each rests on the findings, evidence or critiques it names, with the origin it can stand behind, priority, impact, effort, reversibility, horizon, an owner function, leading indicators and how to check it                             |
+| 14  | **Real-world validation plan**  | Checks of what the headline depends on, each in the scenario's own words: what to observe, what to compare it with, the method, a decision rule left for you to set, who runs it, the effort and the duration                            |
 
 **Reading a result honestly.** Four rules cover most of it.
 
-1. A number is a count of simulated members or of seeded runs, never a rate in a real population.
+1. Outcome counts are synthetic; other figures are model scores, seeded-run proportions or stated
+   assumptions; none is a measured population rate. The brief leads with a share of simulated members,
+   every group counting equally, because the count of simulated members depends on how many members
+   were sampled for each group: a numerical resolution, not a population.
 2. "Holds in k of n seeded runs" measures how repeatable the simulation is under its own
    assumptions. It is not the probability that the event happens.
 3. An outcome is exactly as well founded as the assumptions it ran on. The sensitivity view shows

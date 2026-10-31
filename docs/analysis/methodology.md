@@ -7,9 +7,10 @@ be relied on. It is built on the `Simulator` type in [shared/analysis.ts](../../
 the engine behind that type is injected, so everything here holds for any simulator that returns the
 same outcome for the same specification and seed.
 
-Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior. Every
-number below is a count of simulated members or of seeded runs. None is a rate of anything real, and
-none is a probability that something will happen.
+Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior. Outcome
+counts are synthetic; other figures are model scores, seeded-run proportions or stated assumptions;
+none is a measured population rate of anything real, and none is a probability that something will
+happen.
 
 ## What a comparison does
 
@@ -43,9 +44,15 @@ its events.
 
 A document may not exceed 2,000,000 bytes (`MAX_ARTIFACT_BYTES`). When the per-actor results of every
 run would take it past 90% of that, the per-run `byActor` lists are left empty, the per-actor totals
-over the runs of each scenario (`variants[].actors`) are kept, and a caveat says so. Every finding
-was counted from the full results before this was done. For 200 runs of 8 scenarios of 60 actors the
-document stays under the limit.
+over the runs of each scenario (`variants[].actors`: each actor's members, mean share in each
+response and mean stance) are kept, and a caveat says so. Every finding was counted from the full
+results before this was done. For 200 runs of 8 scenarios of 60 actors the document stays under the
+limit. Whatever is kept per run, the overall final response shares and stance, give every actor equal
+weight and are never dropped, so the headline comparison of the decision brief can always be paired
+run by run. The brief reads the totals where the per-run lists are empty, states no figure that
+needs each run's own per-actor result (such as how many paired runs had one group worse), and says
+why; it never reads an absent list as a group with no members (see
+[the decision brief](brief.md#when-the-analysis-kept-less-than-every-run)).
 
 ## Findings
 
@@ -56,13 +63,13 @@ simulated members and seeded runs, for example: "In 27 of 30 seeded runs, the la
 simulated members of Subscribers ended up looking for an alternative or resisting under Proposed
 change."
 
-| Kind                    | True of a run when                                                                                                                                                                                                                                   |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `majority-response`     | The largest of four response groups of an actor's members is the stated one (switch or resist, adapt, wait, or adopt or accept with conditions). Ties go to the more adverse group. The stated group is the one that was largest in most runs.       |
-| `direction-vs-baseline` | The overall final stance is lower (or higher, or within 0.01) than under the baseline **on the same seed**. The direction tested is that of the mean paired difference. A difference under 0.01 on the scale from -1 to 1 is not called a direction. |
-| `threshold-crossing`    | At some round, the share of all simulated members (each actor weighted equally) in switch or resist reached 30%. The threshold is a parameter of the generator, stated in the predicate.                                                             |
-| `ordering`              | An actor had the least favourable change in stance against the baseline of the same seed (the first); and the three actors with the least favourable changes were the same three in the same order.                                                  |
-| `second-order-event`    | At least one event of a kind (for example "counter-move") occurred in the run. The statement also gives how many baseline runs had it.                                                                                                               |
+| Kind                    | True of a run when                                                                                                                                                                                                                                                                                                                                 |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `majority-response`     | The largest of four response groups of an actor's members is the stated one (switch or resist, adapt, wait, or adopt or accept with conditions). Ties go to the more adverse group. The stated group is the one that was largest in most runs.                                                                                                     |
+| `direction-vs-baseline` | The overall final stance is lower (or higher, or within 0.01) than under the baseline **on the same seed**. The direction tested is that of the mean paired difference. A difference under 0.01 on the scale from -1 to 1 is not called a direction.                                                                                               |
+| `threshold-crossing`    | At some round, the share of simulated members in switch or resist, **counting each actor equally and not each member**, reached 30 in 100. The statement names this weighting with the denominator, and the predicate tests the same equal-weight mean the engine reports. The threshold is a parameter of the generator, stated in the predicate. |
+| `ordering`              | An actor had the least favourable change in stance against the baseline of the same seed (the first); and the three actors with the least favourable changes were the same three in the same order.                                                                                                                                                |
+| `second-order-event`    | At least one event of a kind (for example "counter-move") by an actor occurred in the run. There is one finding for each kind and acting actor, so the statement names who acted ("a simulated counter-move event by this actor occurred"), and it also gives how many baseline runs had it.                                                       |
 
 At most 40 findings are kept, most important first: comparisons with the baseline, then thresholds,
 orderings, events and last the response of each actor; within a kind the change before its
@@ -130,6 +137,25 @@ model is, or how well the assumptions were chosen. A finding can be repeatable a
 every run shares the same assumptions; sensitivity (below) is what shows how much the result depends
 on them.
 
+### Reading a repeatability interval
+
+The interval is a description of the share of these seeded runs in which a statement held. It is a
+95% interval for a share that was fixed before the runs only when the statement was: the threshold
+test is, because the threshold is a parameter of the generator. A direction, a largest response, an
+ordering or a most frequent event is named after the runs were seen (the generator picks the value
+that occurred most often), so its interval is **descriptive of these runs** and is not an
+unconditional 95% coverage claim; the brief says so wherever it shows one. The classes are
+conventions applied to the same share.
+
+**Rare is not unstable.** A finding in `rare` held in almost none of the seeded runs (its upper
+bound is under 0.20): the runs agree that it seldom happens in the simulation, which is a different
+thing from disagreeing. The brief gives it its own wording and advice: do not plan around it as
+likely, do not read its absence as safety, and test the assumptions that keep it from happening, for
+example the strength of the change. An `unstable` finding is one the runs disagree about, so it is
+not relied on, and the advice is to repeat the analysis with more runs or to narrow the question.
+With few runs a finding that never held (0 of 12) is still `unstable`, because twelve runs cannot
+show that it is rare; the brief says it was too few to call it rare.
+
 ## Sensitivity
 
 One declared assumption of the proposed change (the first alternative) is moved at a time and the
@@ -153,6 +179,12 @@ and `standardError` is the standard deviation of those paired differences divide
 | `assumption-sensitive` | \|shift\| is more than 2 standard errors and at least 0.05   |
 | `robust`               | \|shift\| is under 0.02 and the standard error is under 0.01 |
 | `inconclusive`         | otherwise                                                    |
+
+`robust` means the shift is **below the chosen materiality threshold of 0.02 on this measure** (and
+measured closely). It does not mean that the shift is within noise: a shift of 0.015 with a standard
+error of 0.003 is five standard errors from zero and is still called robust, because it is too small
+to matter for a decision. The brief says that, and prints a shift or an error below 0.01 with enough
+decimals to show that it is not zero.
 
 Each row records where the moved assumption came from (`assumptionOrigin`): a trait's own origin
 (evidence, user, system assumption or model), "system assumption" for a spread, and for the intensity

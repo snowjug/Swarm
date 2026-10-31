@@ -146,9 +146,13 @@ method is in [Stakeholders and actors](./stakeholders.md), and how the panel beh
 A comparison does not say what will happen. It says what happened in a simulation of synthetic actors,
 repeated over many seeds, under assumptions that the page lists.
 
-- **Counts are simulated counts.** Every figure is a number of simulated members, or of seeded runs.
-  None is a conversion, churn, share, adoption or sentiment rate in a real population. How many people a
-  group stands for is an assumption, not a measurement.
+- **Counts are synthetic, and the brief leads with a share.** Outcome counts are numbers of simulated
+  members or of seeded runs; other figures are model scores, seeded-run proportions or stated
+  assumptions. None is a conversion, churn, share, adoption or sentiment rate in a real population.
+  The brief leads with the mean share of simulated members looking for an alternative or resisting,
+  every group counting equally, written as members in every 100, because the number of simulated
+  members depends on how many were sampled for each group. How many people a group stands for is an
+  assumption, not a measurement.
 - **Assumptions are labelled, and some are the system's.** Each trait and each scenario says where its
   value came from: the evidence (with a cited passage), you, the system's default for the category, a
   model, or the scenario. How strongly a change lands is a system assumption unless it says it was set
@@ -180,9 +184,13 @@ repeated over many seeds, under assumptions that the page lists.
   if the model fails or takes more than 170 seconds, the rules criticisms are shown with a note that says
   why, and a project that runs without a model says so beside the disabled box. Neither is a measure of
   confidence, and neither can tell whether a source is true.
-- **The decision brief puts the answer first, then what it rests on.** Its recommendations each name the
-  findings they follow from, and its **validation plan** lists the real-world checks that would settle
-  what the result depends on most: run them before acting on any recommendation. Every statement in the
+- **The decision brief puts the answer first, then what it rests on.** Its first section gives the
+  decision, a recommendation that depends on conditions, the comparison of the change with no change in
+  one measure, the groups it moves most, the three doubts that could change it and what would settle
+  them. Its recommendations each name the findings, evidence or critiques they follow from, and its
+  **validation plan** lists the real-world checks that would settle what the result depends on most,
+  each saying what to observe, what to compare it with and who runs it, and leaving the decision
+  threshold for you to set: run them before acting on any recommendation. Every statement in the
   brief carries one of ten origins (supplied or retrieved evidence, a user or system assumption, an
   inferred stakeholder, actor behaviour, a simulation aggregation, a model interpretation, a historical
   comparison, or unresolved uncertainty), and the limitations section says what the analysis cannot tell
