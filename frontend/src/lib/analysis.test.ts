@@ -25,7 +25,9 @@ import {
   estimateWallText,
   holdsText,
   intervalText,
+  noiseText,
   percentText,
+  pointsText,
   quantile,
   rankFindings,
   sensitivityView,
@@ -52,6 +54,14 @@ const finding = (patch: Partial<Finding> = {}): Finding => ({
   ...patch,
 });
 
+describe('the noise of a sensitivity shift', () => {
+  it('says that a noise that rounds to nothing is under a point, not that there is none', () => {
+    expect(noiseText(0.004)).toBe('noise under 1 point');
+    expect(noiseText(0.014)).toBe('noise about 1 point');
+    expect(noiseText(0.031)).toBe('noise about 3 points');
+  });
+});
+
 describe('numbers shown as simulated shares', () => {
   it('rounds shares to whole points and signs the shifts', () => {
     expect(percentText(0.456)).toBe('46%');
@@ -59,6 +69,9 @@ describe('numbers shown as simulated shares', () => {
     expect(signedPoints(0.124)).toBe('+12');
     expect(signedPoints(-0.07)).toBe('-7');
     expect(signedPoints(0)).toBe('0');
+    expect(pointsText(0.124)).toBe('+12 points');
+    expect(pointsText(-0.014)).toBe('-1 point');
+    expect(pointsText(0.004)).toBe('0 points');
     expect(signedNumber(0.5)).toBe('+0.50');
     expect(signedNumber(-0.123)).toBe('-0.12');
     expect(
@@ -215,7 +228,7 @@ describe('reading a chain of events back', () => {
     expect(steps[0]).toMatchObject({
       round: 3,
       actor: 'Rival provider',
-      because: [{ kind: 'signal', text: 'the “adverse-share” signal' }],
+      because: [{ kind: 'signal', text: 'the simulated “adverse-share” signal' }],
     });
     expect(steps[1]!.because).toEqual([{ kind: 'event', text: 'the counter-move in round 3' }]);
   });
@@ -238,10 +251,18 @@ describe('editing a scenario', () => {
     expect(edited).not.toContain('system assumption');
   });
 
-  it('is left alone for a scenario the system did not make', () => {
+  it('is left alone for a scenario the system did not make, which says nothing about its values', () => {
     expect(describeEdit({ description: 'Mine.', intensity: 0.9, round: 2 }, undefined)).toBe(
       'Mine.',
     );
+  });
+
+  it('says the values a person gave a scenario they added, not the ones it started with', () => {
+    const added = 'Added by you. Intensity 0.5 from round 2 was set by you.';
+    expect(describeEdit({ description: added, intensity: 0.3, round: 5 }, undefined)).toBe(
+      'Added by you. Intensity 0.3 from round 5 was set by you.',
+    );
+    expect(describeEdit({ description: added, intensity: 0.5, round: 2 }, undefined)).toBe(added);
   });
 });
 
