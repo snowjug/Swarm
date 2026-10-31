@@ -20,19 +20,44 @@ export interface Sentence {
   start: number;
 }
 
-/** The sentences of a passage. A sentence ends at . ! ? followed by a space, and at a line break. */
+const SPACE = /\s/u;
+const isTerminator = (char: string): boolean => char === '.' || char === '!' || char === '?';
+const isSpace = (char: string): boolean => SPACE.test(char);
+
+/**
+ * The sentences of a passage. A sentence ends after a run of . ! ? that is followed by white space or by
+ * the end of the text, and before a run of line breaks. It is one pass over the text with no
+ * backtracking: a long run of full stops must cost no more than a long run of letters.
+ */
 export function sentencesOf(text: string): Sentence[] {
   const found: Sentence[] = [];
   let from = 0;
   const push = (end: number): void => {
     const raw = text.slice(from, end);
     const trimmed = raw.trim();
-    if (trimmed) found.push({ text: trimmed, start: from + raw.indexOf(trimmed) });
+    if (trimmed) found.push({ text: trimmed, start: from + raw.length - raw.trimStart().length });
   };
-  for (const match of text.matchAll(/[.!?]+(?=\s|$)|\n+/gu)) {
-    const index = match.index;
-    push(match[0].startsWith('\n') ? index : index + match[0].length);
-    from = index + match[0].length;
+  let at = 0;
+  while (at < text.length) {
+    const char = text.charAt(at);
+    if (char === '\n') {
+      let end = at + 1;
+      while (text.charAt(end) === '\n') end += 1;
+      push(at);
+      from = end;
+      at = end;
+    } else if (isTerminator(char)) {
+      let end = at + 1;
+      while (isTerminator(text.charAt(end))) end += 1;
+      // "3.14" and "a.b" are not the end of a sentence: only a run that white space or the end follows.
+      if (end === text.length || isSpace(text.charAt(end))) {
+        push(end);
+        from = end;
+      }
+      at = end;
+    } else {
+      at += 1;
+    }
   }
   push(text.length);
   return found;
@@ -162,8 +187,7 @@ const keyOfWords = (words: readonly Word[]): string =>
     .replace(/\bend user$/u, 'user');
 
 /** Every phrase in a sentence that names a group by one of the vocabulary's role nouns. */
-export function phrasesOf(sentence: string): Phrase[] {
-  const words = wordsOf(sentence);
+export function phrasesOf(sentence: string, words: Word[] = wordsOf(sentence)): Phrase[] {
   const found: Phrase[] = [];
   for (let index = 0; index < words.length; index += 1) {
     const at = headAt(sentence, words, index);
@@ -259,6 +283,42 @@ export interface Mention {
   quote: string;
 }
 
+/** A sentence of a passage, with what reading it for groups needs, worked out once. */
+interface Analysed extends Sentence {
+  lowered: string;
+  /** It speaks to an AI system, so it is data about the document and is never read as description. */
+  suspicious: boolean;
+  words: Word[];
+  phrases: Phrase[];
+}
+
+const analysed = new WeakMap<EvidenceChunk, Analysed[]>();
+
+/**
+ * The sentences of a passage, each cut into words and phrases. A passage is read many times in one
+ * discovery (once for the role nouns and again for every name the question and the graph add), and
+ * each reading would otherwise cut every sentence again: a graph of forty people and organisations
+ * over a large project took seconds. A passage is never changed, so what is worked out is kept for
+ * as long as the passage is.
+ */
+function analyse(passage: EvidenceChunk): Analysed[] {
+  let found = analysed.get(passage);
+  if (!found) {
+    found = sentencesOf(passage.text).map((sentence) => {
+      const words = wordsOf(sentence.text);
+      return {
+        ...sentence,
+        lowered: sentence.text.toLowerCase(),
+        suspicious: inspectText(sentence.text).suspicious,
+        words,
+        phrases: phrasesOf(sentence.text, words),
+      };
+    });
+    analysed.set(passage, found);
+  }
+  return found;
+}
+
 /**
  * Every place the passages name a group with one of the vocabulary's role nouns. A sentence that
  * speaks to an AI system is skipped: it is data about the document, not a description of the world.
@@ -273,11 +333,11 @@ export function findMentions(passages: readonly EvidenceChunk[]): Mention[] {
     const before = previous.get(passage.documentId);
     previous.set(passage.documentId, passage);
     const overlap = before ? Math.max(0, before.end - passage.start) : 0;
-    for (const sentence of sentencesOf(passage.text)) {
-      if (inspectText(sentence.text).suspicious) continue;
-      for (const phrase of phrasesOf(sentence.text)) {
+    for (const sentence of analyse(passage)) {
+      if (sentence.suspicious) continue;
+      for (const phrase of sentence.phrases) {
         if (sentence.start + phrase.end <= overlap) continue;
-        const mark = `${phrase.key}|${sentence.text.toLowerCase()}`;
+        const mark = `${phrase.key}|${sentence.lowered}`;
         if (seen.has(mark)) continue;
         seen.add(mark);
         mentions.push({
@@ -342,11 +402,9 @@ export function occurrencesOf(
   let sentences = 0;
   if (wanted.length === 0) return { found, sentences };
   for (const passage of passages) {
-    for (const sentence of sentencesOf(passage.text)) {
-      const lowered = sentence.text.toLowerCase();
-      if (seen.has(lowered) || inspectText(sentence.text).suspicious) continue;
-      const words = wordsOf(sentence.text);
-      const phrases = phrasesOf(sentence.text);
+    for (const sentence of analyse(passage)) {
+      if (seen.has(sentence.lowered) || sentence.suspicious) continue;
+      const { words, phrases } = sentence;
       const at = words.findIndex((_, index) => {
         const first = words[index];
         const last = words[index + wanted.length - 1];
@@ -362,7 +420,7 @@ export function occurrencesOf(
       const first = words[at];
       const last = words[at + wanted.length - 1];
       if (at < 0 || !first || !last) continue;
-      seen.add(lowered);
+      seen.add(sentence.lowered);
       sentences += 1;
       if (found.length < limit) {
         found.push({

@@ -357,9 +357,6 @@ function chooseQuotes(candidate: Candidate, read: (sentence: string) => Tone): O
     .map((reading) => reading.occurrence);
 }
 
-const endsWith = (words: readonly string[], tail: readonly string[]): boolean =>
-  tail.every((word, offset) => words[words.length - tail.length + offset] === word);
-
 /**
  * Folds a group named two ways into one, but only when it is certain they are the same: one name is
  * the other with describing words in front ("Analyst" and "Independent analyst"), both are in the
@@ -375,20 +372,37 @@ function mergeNames(
     (candidate) =>
       candidate.origin === 'rules' && candidate.graphKind === null && candidate.marks.size > 0,
   );
-  const wordsOfKey = (candidate: Candidate): string[] => candidate.key.split(' ');
+  const wordCount = new Map(pool.map((candidate) => [candidate, candidate.key.split(' ').length]));
+  // The longer names a name could be the tail of, found by the tail they would have, so that a
+  // thousand different names that end in the same word are not compared with one another.
+  const endingWith = new Map<string, Candidate[]>();
+  for (const candidate of pool) {
+    const words = candidate.key.split(' ');
+    for (let from = 1; from < words.length; from += 1) {
+      const tail = words.slice(from).join(' ');
+      const group = endingWith.get(tail);
+      if (group) group.push(candidate);
+      else endingWith.set(tail, [candidate]);
+    }
+  }
+  // A category can change as names are folded, since the words around a name count for it.
+  const categories = new Map<Candidate, StakeholderCategory>();
+  const categoryNow = (candidate: Candidate): StakeholderCategory => {
+    let category = categories.get(candidate);
+    if (category === undefined) {
+      category = categoryOf(candidate);
+      categories.set(candidate, category);
+    }
+    return category;
+  };
   const gone = new Set<Candidate>();
   const shortestFirst = [...pool].sort(
-    (a, b) => wordsOfKey(a).length - wordsOfKey(b).length || a.key.localeCompare(b.key),
+    (a, b) => (wordCount.get(a) ?? 0) - (wordCount.get(b) ?? 0) || a.key.localeCompare(b.key),
   );
   for (const short of shortestFirst) {
     if (gone.has(short)) continue;
-    const longer = pool.filter(
-      (other) =>
-        other !== short &&
-        !gone.has(other) &&
-        wordsOfKey(other).length > wordsOfKey(short).length &&
-        categoryOf(other) === categoryOf(short) &&
-        endsWith(wordsOfKey(other), wordsOfKey(short)),
+    const longer = (endingWith.get(short.key) ?? []).filter(
+      (other) => !gone.has(other) && categoryNow(other) === categoryNow(short),
     );
     const only = longer.length === 1 ? longer[0] : undefined;
     if (!only) continue;
@@ -404,6 +418,7 @@ function mergeNames(
       }
     }
     for (const cue of Object.keys(keep.cues) as ContextCue[]) keep.cues[cue] += drop.cues[cue];
+    categories.delete(keep);
     keep.absorbed.push(drop, ...drop.absorbed);
     gone.add(drop);
   }
