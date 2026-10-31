@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { MAX_DOCUMENTS } from '../../shared/types';
 import {
   apiContext,
   expectNoAxeViolations,
@@ -103,7 +104,7 @@ test.describe('the example picker', () => {
     await picker(page).getByRole('button').first().click();
     await expect(question(page)).toBeFocused();
     expect((await question(page).inputValue()).length).toBeGreaterThanOrEqual(10);
-    await expect(page.getByText(/[1-9]\d*\/5 FILES/u)).toBeVisible();
+    await expect(page.getByText(new RegExp(`[1-9]\\d*/${MAX_DOCUMENTS} FILES`, 'u'))).toBeVisible();
     await expect(
       page.getByRole('status').filter({ hasText: /Example loaded|Fictional starter INPUT/u }),
     ).toBeVisible();

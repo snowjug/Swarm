@@ -4,6 +4,20 @@ import { evidenceApi, type UrlEvidenceResult } from '../../api/evidence';
 
 export type UrlEvidenceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
+/**
+ * Enter in the address field fetches the page. The field sits inside the entry form, so the key must
+ * never be left to submit that form, which would build the whole project.
+ */
+export function fetchOnEnter(
+  event: Pick<KeyboardEvent, 'key' | 'isComposing' | 'preventDefault'>,
+  canFetch: boolean,
+  fetchPage: () => void,
+): void {
+  if (event.key !== 'Enter' || event.isComposing) return;
+  event.preventDefault();
+  if (canFetch) fetchPage();
+}
+
 export interface UrlEvidenceState {
   address: string;
   status: UrlEvidenceStatus;

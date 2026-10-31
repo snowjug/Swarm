@@ -1,6 +1,8 @@
 # Demo script
 
-Ten minutes. It uses the [demonstration packs](../demo/README.md), which are fictional. Start the
+Ten minutes. It walks the engine's evidence layer on the [older demonstration packs](../demo/README.md#the-older-source-packs),
+which are fictional. For the scenario lab (a question to a decision brief on the generic pipeline, with
+the four flagship demos) use the [demo guide](../demo/README.md#the-ten-minute-script) instead. Start the
 app as the [README](../../README.md#quick-start) describes. Rules mode needs nothing; with a model
 configured, every stage calls the model and the evidence ledger also shows classified statements.
 

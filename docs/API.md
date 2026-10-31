@@ -11,11 +11,11 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET          | `/api/health`                                                                   | Actual process/storage/queue readiness, not model connectivity                                                                                                                                                                                                                                                                                                    |
 | GET          | `/api/health/live`                                                              | Liveness: `{ "status": "live" }`, or 503 `broken` when the database connection is lost for good (a restart cures it)                                                                                                                                                                                                                                              |
 | GET          | `/api/health/ready`                                                             | Readiness: 200 `ready`, or 503 `not-ready` with the check that failed (`database`); nothing else, no sign-in, and for any `Host` (a platform probe sends its own address)                                                                                                                                                                                         |
-| GET          | `/api/config`                                                                   | Safe capabilities, limits and provider status; no key or private endpoint                                                                                                                                                                                                                                                                                         |
+| GET          | `/api/config`                                                                   | Safe capabilities, limits and provider status, and whether reading a public web page is on (`urlIngestion`); no key or private endpoint                                                                                                                                                                                                                           |
 | GET          | `/api/provider/status`                                                          | Mode, provider, model, auth type, connectivity, call and token counters, last error code; never a host, key or token                                                                                                                                                                                                                                              |
 | POST         | `/api/provider/check`                                                           | One explicit real model round trip (rate limited); 503 when no provider is configured, never a local fallback                                                                                                                                                                                                                                                     |
-| GET / POST   | `/api/projects`                                                                 | Paginated history / validated draft creation                                                                                                                                                                                                                                                                                                                      |
-| GET / DELETE | `/api/projects/:id`                                                             | Full persisted detail / delete non-active experiment                                                                                                                                                                                                                                                                                                              |
+| GET / POST   | `/api/projects`                                                                 | Paginated history / validated draft creation. The body takes `name`, `question`, `documents` (each may carry a `provenance`), `workflow` (`quick` or `guided`), `settings` and an optional `scenario` frame from intake, which is stored with the project as its scenario                                                                                         |
+| GET / DELETE | `/api/projects/:id`                                                             | Full persisted detail, with `lab` (how far the scenario lab has come: `scenario`, `stakeholders`, `actors`, `analysis`, `critiques`, `brief`) / delete non-active experiment                                                                                                                                                                                      |
 | POST         | `/api/projects/:id/run`                                                         | Queue a draft/failed/cancelled experiment; returns 202                                                                                                                                                                                                                                                                                                            |
 | POST         | `/api/projects/:id/steps/:step`                                                 | Queue `knowledge`, `environment`, `simulation` or `report`, with real prerequisites; returns 202                                                                                                                                                                                                                                                                  |
 | PATCH        | `/api/projects/:id/environment`                                                 | Edit a prepared environment before simulation begins                                                                                                                                                                                                                                                                                                              |
@@ -63,6 +63,20 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors); see Comparing scenarios                                                                                                                                                                                                                                         |
 | GET          | `/api/projects/:id/analysis/:aid`                                               | One comparison in full, with its progress while it runs                                                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/analysis/:aid/cancel`                                        | Ask a running comparison to stop at its next run                                                                                                                                                                                                                                                                                                                  |
+| POST         | `/api/scenario/parse`                                                           | Read a "What could happen if…?" question into an editable scenario frame, `{ frame, notes, mode, model }`; a model reads it when the server has a provider, and the rules otherwise; stores nothing. See Scenario intake                                                                                                                                          |
+| GET / PUT    | `/api/projects/:id/scenario`                                                    | The project's scenario frame and its revision (`scenario` is `null` until there is one) / replace it (`{ scenario, expectedRevision? }`)                                                                                                                                                                                                                          |
+| GET          | `/api/projects/:id/stakeholders`                                                | The stakeholder set, its revision, whether a model may be used, and what the caller may do (`{ stakeholders, revision, model, may }`). `stakeholders` is `null` until someone looks for them                                                                                                                                                                      |
+| POST         | `/api/projects/:id/stakeholders/discover`                                       | Find stakeholders by reading the text (`{ "mode": "rules" }`, the default) or with the project's model (`"model"`); returns 201 with the set. A reviewed list is replaced only with `{ "confirm": true }`                                                                                                                                                         |
+| PUT          | `/api/projects/:id/stakeholders`                                                | Save a review: the whole set as the person now wants it, `{ stakeholders, relations?, expectedRevision }`. A stakeholder is never deleted, only marked removed; a change to an approved set takes the approval away                                                                                                                                               |
+| POST         | `/api/projects/:id/stakeholders/approve`                                        | Approve the set (`{ expectedRevision }`). At least two stakeholders must remain. Proposed ones become accepted                                                                                                                                                                                                                                                    |
+| GET          | `/api/projects/:id/actors`                                                      | The synthetic actors made from the approved set, with `stale` (the stakeholders changed after they were made), `model` and `may`                                                                                                                                                                                                                                  |
+| POST         | `/api/projects/:id/actors/generate`                                             | Make the actors from the approved set (`{ model?, confirm? }`); returns 201. Actors the person has edited are replaced only with `confirm`                                                                                                                                                                                                                        |
+| PUT          | `/api/projects/:id/actors`                                                      | Save edited actors (`{ actors, expectedRevision }`): sizes, traits, objectives and so on. The cast cannot gain or lose an actor here                                                                                                                                                                                                                              |
+| GET          | `/api/projects/:id/critiques`                                                   | The independent review of the newest finished comparison (`{ critiques, analysis, may, model }`; `critiques` is `null` until one has been run)                                                                                                                                                                                                                    |
+| POST         | `/api/projects/:id/critiques/run`                                               | Run the review (`{ analysisId?, useModel? }`): fixed rules always, a model's extra critiques only when asked for. Answers with the review as it now is                                                                                                                                                                                                            |
+| PUT          | `/api/projects/:id/critiques/:cid/response`                                     | Respond to one critique (`{ text, status: "responded" \| "accepted" \| "disputed", remainingDisagreement? }`)                                                                                                                                                                                                                                                     |
+| GET / POST   | `/api/projects/:id/brief`                                                       | The decision brief with the charts' data worked out from the analysis, and whether it is out of date (`{ brief, visuals, latestAnalysis, changedSince, may }`) / write it from a finished comparison (`{ analysisId? }`, 201)                                                                                                                                     |
+| GET          | `/api/projects/:id/brief/export?format=md`, `json` or `html`                    | The brief as Markdown or JSON (attachments) or as a printable page served with a policy that lets it load and run nothing; 20 a minute                                                                                                                                                                                                                            |
 
 Search with no matching terms returns an empty list, not arbitrary “relevant”
 sources. Empty-query browsing is a distinct unranked operation (scores are zero).
@@ -149,6 +163,135 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   is reproducible from its seeds and is run again, not resumed.
 - **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only.
 
+### Scenario intake and the stored scenario
+
+- **Reading a question.** `POST /api/scenario/parse` takes `{ "question", "documents"? }` and nothing
+  else: the question is 3 to 2,000 characters, and up to 10 documents each give `{ "name", "characters",
+"excerpt"? }`. An `excerpt` is at most the first 5,000 characters of a document. It is inspected in
+  memory for text that addresses an AI model, and is never stored, logged or sent to a model. The body
+  may be 300,000 bytes, a caller may read 10 questions a minute, and it needs the right to create a
+  project in the workspace, because no project exists yet. The answer is
+  `{ "frame", "notes", "mode": "rules" | "model", "model": "<name>" | null }`. When the server has a
+  provider configured a model reads the question, and is told the question and each document's name and
+  size, never its text, in three calls at most. If it fails, or its reply does not pass the checks, the
+  rules read it and a note says why. Nothing is stored. The audit entry `scenario.parsed` holds counts.
+- **The frame.** `ScenarioFrame` is in [shared/scenario.ts](../shared/scenario.ts) and is the same for
+  any question: `decision`, `system`, `geography`, `horizon`, `changes[]` (`name`, `from`, `to`, `note`),
+  `baseline`, `alternatives[]` (`id`, `label`, `description`, `changes[]`; at most 6), `requestedDecision`,
+  `desiredOutput`, `evidenceAvailable[]`, `evidenceMissing[]`, `assumptions[]` (`id`, `text`, `origin`
+  `"user"` or `"system"`; at most 15), `likelyStakeholders[]`, `ambiguities[]` (`field`, `message`,
+  `question`; the reading asks at most three) and `origin` (`"rules"`, `"model"` or `"user"`). Every field
+  can be edited, and `origin` says how the first version was made, never that it is right. See
+  [scenario-intake.md](./scenario-intake.md).
+- **Keeping it.** Send the frame with `POST /api/projects` (as `scenario`), or save it later with
+  `PUT /api/projects/:id/scenario` and `{ "scenario", "expectedRevision"? }`. `PUT` answers
+  `{ "scenario", "revision" }`, and `GET` answers `{ "scenario": null, "revision": 0 }` for a project that has
+  none. The frame must name a decision, and its alternatives and assumptions need ids of their own. Reading
+  needs `read`, saving needs `edit` and is limited to 60 a minute, and a stale `expectedRevision` is
+  `409 ARTIFACT_CONFLICT`. The audit entry `scenario.edited` holds counts.
+- **Provenance of a document.** A document may carry `provenance`:
+  `{ "kind": "upload" | "paste" | "url" | "sample" | "historical", "url"?, "finalUrl"?, "retrievedAt"?,
+"contentType"?, "sha256"?, "title"?, "license"?, "asOf"?, "fetchedByServer"? }`. `fetchedByServer` is the
+  server's to set: a document that claims it keeps the claim only for text this server fetched for this
+  caller in the last hour, and is otherwise recorded as pasted text. Everything else in a brief that says
+  where evidence came from is read from this.
+
+### Stakeholders and actors
+
+Reading needs `read`. Finding stakeholders and making actors need `run`, because they may ask a model. Saving
+a review, approving and editing actors need `edit`. The method is in
+[stakeholders.md](./stakeholders.md). Every change is written with its audit entry in one transaction, and the
+entry holds counts, never a name or a quote.
+
+- **Looking.** `GET .../stakeholders` answers `{ "stakeholders": StakeholderSet | null, "revision": n | null,
+"model": { "available", "reason" }, "may": { "edit", "run" } }`. `GET .../actors` answers
+  `{ "actors": ActorSet | null, "revision", "stale", "model", "may" }`. A set holds `stakeholders[]` (`id`,
+  `name`, `category`, `priority`, `populationSize`, `expectedImpact`, `evidence[]`, `assumptions[]`,
+  `uncertainty`, `origin`, `status`, `mergedFrom[]`), `relations[]`, `discovery` (`mode`, `model`, `generatedAt`,
+  `note`), `gaps[]` and `approvedAt`. An actor holds `kind` (`key` or `cohort`), `size`, `sampleSize`, its
+  objectives, constraints and so on, and `traits`, each trait with its `value`, `spread`, `origin` (`evidence`,
+  `user`, `system-assumption` or `model`) and `rationale`. The shapes are in
+  [shared/stakeholders.ts](../shared/stakeholders.ts).
+- **Finding.** `POST .../stakeholders/discover` takes `{ "mode"?: "rules" | "model", "confirm"?: boolean }`
+  (rules by default; 10 a minute) and answers 201 with the set. `"model"` needs a project made in
+  model-assisted mode and a configured provider (`409 MODEL_NOT_AVAILABLE` says why not), is allowed 170
+  seconds, and falls back to reading the text if the model fails, saying so in `discovery.note`. One
+  discovery or generation runs at a time for a project (`409 STAKEHOLDERS_BUSY`). A list the person has
+  reviewed is replaced only with `confirm` (`409 STAKEHOLDERS_REVIEWED`).
+- **Reviewing.** `PUT .../stakeholders` takes `{ "stakeholders", "relations"?, "expectedRevision" }` (120 a
+  minute): the whole set as the person now wants it, and `0` as the revision when building a set by hand. The
+  server allows accepting, editing, merging, removing, adding and prioritising, and nothing else: a stakeholder
+  is never deleted (`400 STAKEHOLDER_MISSING`), who found it and its evidence are the sources' and not the
+  person's (`STAKEHOLDER_ORIGIN_LOCKED`), a merge names a removed stakeholder and the one it went into
+  (`MERGE_INVALID`), and any change to an approved set takes the approval away. Other refusals:
+  `STAKEHOLDER_ID_DUPLICATE`, `STATUS_INVALID`, `RELATION_INVALID`, and `409 STAKEHOLDERS_NOT_FOUND` for a
+  review of a set that does not exist.
+- **Approving.** `POST .../stakeholders/approve` takes `{ "expectedRevision" }` (30 a minute). It needs two
+  stakeholders left (`409 STAKEHOLDERS_TOO_FEW`) and turns the ones still proposed into accepted.
+- **Making actors.** `POST .../actors/generate` takes `{ "model"?: boolean, "confirm"?: boolean }` (10 a minute)
+  and answers 201. It needs an approved set (`409 STAKEHOLDERS_NOT_APPROVED`), replaces actors the person has
+  edited only with `confirm` (`409 ACTORS_EDITED`), and with `"model": true` lets a model read the key actors
+  against the evidence, so the traits it sets are labelled as the model's; if it fails the category priors stand.
+- **Editing actors.** `PUT .../actors` takes `{ "actors", "expectedRevision" }` (120 a minute). A trait the
+  person moves becomes theirs, whatever the request says. The cast cannot gain or lose an actor, change a
+  kind or a category, make a key actor larger than one, or simulate more members than a cohort stands for
+  (`400 ACTORS_CHANGED`, `ACTOR_INVALID`; `409 ACTORS_NOT_FOUND` when there are none).
+- **Stale writes.** A write made on an old revision is `409 ARTIFACT_CONFLICT`, and nothing is overwritten.
+- **Audit.** `stakeholders.discovered`, `stakeholders.edited`, `stakeholders.approved`, `actors.generated` and
+  `actors.edited`.
+
+### Independent review
+
+Anyone who can read the project reads the review. Running it needs `run` and responding needs `edit`. The
+critics and what each checks are in [analysis/critics.md](./analysis/critics.md); a critic never edits the
+analysis, the stakeholders, the actors or the brief.
+
+- **Reading.** `GET .../critiques` answers `{ "critiques": CritiqueSet | null, "analysis": { "id",
+"completedAt" } | null, "may": { "run", "respond" }, "model": { "available" } }`. `analysis` is the newest
+  finished comparison, so a review of an older one can be called out of date. A set holds `analysisId`,
+  `generatedAt`, `mode` (`rules`, `model` or `both`), `notes[]` and `critiques[]`: each has an `id`, a `role`
+  (`evidence`, `assumption`, `methodology`, `stakeholder-coverage`, `bias`, `recommendation` or
+  `adversarial`), a `target`, a `severity` (`note`, `minor`, `major` or `blocking`), an `objection`, its `basis`,
+  `evidence`, `origin` (`rules` or `model`), `status` (`open`, `responded`, `accepted` or `disputed`), any
+  `response`, what disagreement `remains`, `impactOnConclusion` and perhaps a `requestedAction`.
+- **Running.** `POST .../critiques/run` takes `{ "analysisId"?, "useModel"?: boolean }` (6 a minute) and answers
+  with the review as it now is. It reviews the newest finished comparison unless an id is given, and refuses
+  without one (`409 ANALYSIS_NOT_READY`). The rules run every time. With `useModel` and a configured provider, a
+  digest of the analysis goes to the model for extra critiques, which are validated and dropped if they name
+  something the model was not given; a failure is said in `notes`, and the rules' critiques are kept. A review is
+  allowed three minutes, and one runs at a time for a project (`409 CRITIQUES_RUNNING`). Running again keeps a
+  person's earlier responses to critiques with the same id.
+- **Responding.** `PUT .../critiques/:cid/response` takes `{ "text", "status": "responded" | "accepted" |
+"disputed", "remainingDisagreement"? }` (60 a minute) and answers with the review. `accepted` means the
+  objection stands and its impact applies. An unknown critique is `404 CRITIQUE_NOT_FOUND`.
+- **Audit.** `critiques.run` (counts, and whether a model was asked for and failed) and `critique.responded`
+  (the critique's id, its role and the status).
+
+### Decision brief
+
+The brief is assembled by rules from the project's scenario, stakeholders, actors, comparison, critiques and
+sources, and stored as one document; no model words any of it. Its sections, the ten origins and the rules
+are in [analysis/brief.md](./analysis/brief.md). Reading needs `read`, generating needs `edit` and exporting
+needs `export`.
+
+- **Reading.** `GET .../brief` answers `{ "brief": DecisionBrief | null, "visuals": BriefVisuals | null,
+"latestAnalysis": { "id", "completedAt" } | null, "changedSince": [...], "may": { "generate", "export" } }`.
+  `brief` holds `generatedAt`, `analysisId`, `question`, `headline`, the 17 `sections[]` (each `statements[]`
+  with an `id`, `text`, one `origin`, the `refs` it rests on and a `reliance`), `recommendations[]`,
+  `validationPlan[]`, `limitations[]`, `fidelity`, `methodology`, `openCritiques`, `generatedBy`, `signal`
+  (`clear`, `no-direction` or `no-difference`, which says whether the comparison can be read as a result about
+  the change) and `inputRevisions`. `visuals` is worked out from the comparison each time, so it always agrees
+  with it. `changedSince` names the inputs that changed after the brief was made and is empty when it is
+  current.
+- **Writing.** `POST .../brief` takes `{ "analysisId"?: string }` (20 a minute), uses the newest finished
+  comparison unless one is named, replaces any earlier brief and answers 201 with the view. Refusals:
+  `409 NO_ANALYSIS`, `409 ANALYSIS_NOT_COMPLETED`, `409 ANALYSIS_EMPTY`, `404 ANALYSIS_NOT_FOUND`.
+- **Exporting.** `GET .../brief/export?format=md|json|html` (20 a minute; `md` is the default) answers a
+  Markdown or JSON attachment, or a printable page (`inline`, with a `Content-Security-Policy` of
+  `default-src 'none'`, so it can load and run nothing). All three say that the brief explores scenarios and
+  does not predict. Another format is `400`, and exporting before one is written is `409 BRIEF_NOT_GENERATED`.
+- **Audit.** `brief.generated` and `brief.exported`.
+
 ## Authentication
 
 With `AUTH_MODE=none` (the default) there is no sign-in, and the one local user owns everything. With
@@ -193,10 +336,17 @@ URL or remote URL. The response contains extracted `content`, `pageCount` and
 `.csv` or `.json` file (up to 2 MB, UTF-8) as readable text on the server and returns
 `{ name, content, bytes, notes }`.
 
-Reading a public web page: `POST /api/evidence/url` with `{ "url": "https://…" }` returns
+Reading a public web page: `POST /api/evidence/url` with `{ "url": "https://…" }` (the body may be 8 KB;
+10 a minute; needs the right to create a project in the workspace) returns
 `{ "document": { "name", "content", "provenance" }, "notes": [...] }`, a document that can be sent
-as one of a project's `documents`. A failure is a 4xx with a code that starts `URL_` and a message that ends
-with "You can paste the text instead." What is fetched, how, and what is not promised is in
+as one of a project's `documents`. `provenance` is `{ "kind": "url", "url", "finalUrl", "retrievedAt",
+"contentType", "sha256", "title", "fetchedByServer": true }`, with secret-looking query values removed from
+both addresses. A failure is a 4xx with a code that starts `URL_` and a message that ends
+with "You can paste the text instead.": `400 URL_INVALID` for something that is not a web address Swarm can
+read, `403 URL_INGESTION_DISABLED` when `URL_INGESTION=off`, and `422` for the rest (`URL_BLOCKED`,
+`URL_PORT_NOT_ALLOWED`, `URL_UNSUPPORTED_TYPE`, `URL_TOO_LARGE`, `URL_TIMEOUT`, `URL_TOO_MANY_REDIRECTS`,
+`URL_ROBOTS_DISALLOWED`, `URL_NO_TEXT`, `URL_FETCH_FAILED`). The audit entry `evidence.url.fetched` holds the
+host and nothing else. What is fetched, how, and what is not promised is in
 [URL ingestion](./security/url-ingestion.md).
 
 Surveys take `{ "kind": "state" | "interview", "question": "...", "agentIds": [...] }`.

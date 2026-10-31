@@ -27,6 +27,14 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - An offline evaluation with hash-pinned labelled sets, a dev/test split, and floors that fail the
   build on a regression.
 - Six synthetic demonstration packs, each checked by a test.
+- The scenario lab ([ADR 0014](../adr/0014-scenario-lab.md)): any "what could happen if…?" question
+  through an editable scenario, stakeholders found in the evidence and approved by a person, synthetic
+  actors whose every trait says where it came from, repeated seeded runs of a rules engine with
+  findings, 95% intervals and one-at-a-time sensitivity, seven independent critics that never edit,
+  and an answer-first decision brief whose statements carry one of ten origins, with recommendations
+  and a validation plan. One public web page can be read as evidence, under an address policy. It runs
+  in rules mode with no model, five worked examples go through it end to end in a test, and none of it
+  has been compared with what really happened.
 - Light, dark and high-contrast themes that follow the device until a choice is made; the contrast of
   every declared text colour is computed in each theme, and axe-core is run on the demonstration in each.
 - Report Studio: a person opens the generated report as a copy and edits it section by section, every
@@ -64,7 +72,8 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - Anything deployed in Azure beyond the model: no host, no database server, no monitoring resource,
   no dashboards or alerts (written, not created).
 
-- Quantitative analysis (sensitivity, intervals) of simulation results.
+- Historical backtesting of the lab's results, a model run repeated many times (a model's run-to-run
+  variation is unmeasured), Word or slide exports of the brief, and hosted execution of long analyses.
 - A Fluent UI component library; Storybook.
 - A model-in-the-loop regression suite, and any evaluation on real documents.
 - The persistent Azure development machine: prepared but not provisioned, awaiting approval for

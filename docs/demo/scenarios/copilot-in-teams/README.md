@@ -63,7 +63,7 @@ period; left off by default.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Try an example**, **Copilot in Teams**. Say: "Swarm
+**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **Copilot in Teams**. Say: "Swarm
 explores scenarios. It does not guarantee or precisely predict real-world behavior. This question is
 about a deeper, default-on assistant in a chat and meetings app. Everything in it is invented: five
 short documents about an imaginary firm, each labelled synthetic." Point at the question and at the

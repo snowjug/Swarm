@@ -68,7 +68,7 @@ move part of the workload to the second region; negotiate a commitment through t
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Try an example**, **Regional cloud price change**.
+**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **Regional cloud price change**.
 Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.
 AWS is in the question; the documents describe an invented company reading an invented notice. Every
 price is made up, and each document says so." Point at the question and at the sample provenance
