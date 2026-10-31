@@ -8,11 +8,13 @@
  *   npm run db:drill -- --from postgres://swarm@host:5432/swarm
  *   npm run db:drill -- --from ./data/swarm-lab.sqlite --keep ./drill
  *
- * The database it is pointed at is only read. A SQLite file is read as a consistent snapshot, so it
- * may be in use; a PostgreSQL server is read as it is, so point it at a restored copy or a quiet
- * moment. `--from-entra` authenticates to PostgreSQL with a Microsoft Entra token instead of a
- * password. The scratch databases hold a copy of the data and are deleted, unless `--keep` names a
- * folder for them. The target is never printed, because a URL can hold a password.
+ * The database it is pointed at is only read. A SQLite file is read as a consistent snapshot
+ * (`VACUUM INTO`) and a PostgreSQL server in one read-only transaction on a single snapshot, so either
+ * may be in use; the digests and the backup come from the same snapshot. A PostgreSQL server is still
+ * read in full, so prefer a quiet moment. `--from-entra` authenticates to PostgreSQL with a Microsoft
+ * Entra token instead of a password. The scratch databases hold a copy of the data and are deleted,
+ * unless `--keep` names a folder for them. The target is never printed, because a URL can hold a
+ * password.
  *
  * This rehearses the logical path (SQLite and PostgreSQL through `db:copy`). It does not rehearse
  * restoring a hosted PostgreSQL server to a point in time, which is the platform's own and has to be

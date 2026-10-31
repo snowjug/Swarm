@@ -2,10 +2,19 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { copyDatabase } from '../src/storage/copy.js';
+import {
+  actorSetFixture,
+  analysisFixture,
+  scenarioFixture,
+  stakeholderSetFixture,
+} from '../../shared/lab-fixtures.js';
+import { BriefService } from '../src/brief/service.js';
+import { copyDatabase, TABLES } from '../src/storage/copy.js';
 import { Repository } from '../src/storage/repository.js';
-import type { SqlDatabase, SqlRow, SqlStatement } from '../src/storage/sql.js';
+import type { SqlDatabase, SqlRow } from '../src/storage/sql.js';
 import { fixtureInput } from './fixtures.js';
+import { critiquesFixture } from './support/brief-world.js';
+import { around, sessionsSeen, writtenDuringRead } from './support/concurrent-database.js';
 import { populated as populate, type Instance } from './support/populated-world.js';
 
 const rawOf = (repository: Repository): SqlDatabase =>
@@ -26,6 +35,12 @@ const populated = (): Promise<Repository> => populate(applications);
 const keep = (repository: Repository): Repository => {
   repositories.push(repository);
   return repository;
+};
+
+const workDirectory = (): string => {
+  const directory = mkdtempSync(join(tmpdir(), 'swarm-copy-'));
+  directories.push(directory);
+  return directory;
 };
 
 const DATA_TABLES = [
@@ -123,31 +138,16 @@ describe('copying a database', () => {
     const destination = keep(new Repository('pglite:memory'));
     const real = rawOf(destination);
     let inserts = 0;
-    const failing: SqlDatabase = {
-      get dialect() {
-        return real.dialect;
-      },
-      get inTransaction() {
-        return real.inTransaction;
-      },
-      get broken() {
-        return real.broken;
-      },
-      exec: (sql) => real.exec(sql),
-      transaction: (operation) => real.transaction(operation),
-      close: () => real.close(),
-      prepare: (sql): SqlStatement => {
-        const statement = real.prepare(sql);
-        if (!/^INSERT INTO chunks/u.test(sql)) return statement;
-        return {
-          ...statement,
-          run: () => {
-            inserts++;
-            throw new Error('disk full');
-          },
-        };
-      },
-    };
+    const failing = around(real, (sql) =>
+      /^INSERT INTO chunks/u.test(sql)
+        ? {
+            run: () => {
+              inserts++;
+              throw new Error('disk full');
+            },
+          }
+        : undefined,
+    );
     expect(() => copyDatabase(rawOf(source), failing)).toThrow('disk full');
     expect(inserts).toBe(1);
     for (const rows of Object.values(dump(real))) expect(rows).toEqual([]);
@@ -184,5 +184,136 @@ describe('copying a database', () => {
     ).toEqual({
       count: 0,
     });
+  });
+});
+
+describe('copying a database that is being written to', () => {
+  // The application does not stop for a backup. A second connection to the same file stands for it
+  // (another process, in life) and changes the database while the copy is being read.
+  const inUse = () => {
+    const path = join(workDirectory(), 'live.sqlite');
+    return { application: keep(new Repository(path)), other: keep(new Repository(path)) };
+  };
+  const castOf = (name: string) => {
+    const cast = actorSetFixture();
+    return { ...cast, actors: cast.actors.map((actor) => ({ ...actor, name })) };
+  };
+
+  it('takes one moment of it: a change committed part-way is in the copy whole or not at all', () => {
+    const { application, other } = inUse();
+    const project = application.create(fixtureInput({ name: 'Before the change' }));
+    application.artifacts.put(project.id, 'actors', 'default', castOf('Before the change'));
+    const destination = keep(new Repository(':memory:'));
+
+    const report = copyDatabase(
+      writtenDuringRead(rawOf(application), () =>
+        other.atomic(() => {
+          other.update(project.id, { name: 'After the change' });
+          other.artifacts.put(project.id, 'actors', 'default', castOf('After the change'));
+          other.audit.record({
+            actor: 'someone',
+            action: 'project.edited',
+            targetType: 'project',
+            targetId: project.id,
+            projectId: project.id,
+          });
+        }),
+      ),
+      rawOf(destination),
+    );
+
+    // The change was committed while the copy was being read, and the copy held nobody back...
+    expect(application.get(project.id).name).toBe('After the change');
+    expect(application.artifacts.get(project.id, 'actors')!.revision).toBe(2);
+    // ...and what was copied is the moment before it: the project and its cast agree.
+    expect(destination.get(project.id).name).toBe('Before the change');
+    const cast = destination.artifacts.get(project.id, 'actors')!;
+    expect(cast.revision).toBe(1);
+    expect(cast.data.actors.map((actor) => actor.name)).toEqual(
+      castOf('Before the change').actors.map((actor) => actor.name),
+    );
+    const actions = destination.audit.list({ limit: 100 }).map((event) => event.action);
+    expect(actions).not.toContain('project.edited');
+    expect(report.auditChainIntact).toBe(true);
+  });
+
+  it('copies a project that is deleted part-way as the whole project it was, not as an empty shell', () => {
+    const { application, other } = inUse();
+    const project = application.create(fixtureInput());
+    application.artifacts.put(project.id, 'actors', 'default', actorSetFixture());
+    const destination = keep(new Repository(':memory:'));
+
+    const report = copyDatabase(
+      writtenDuringRead(rawOf(application), () => other.delete(project.id)),
+      rawOf(destination),
+    );
+
+    // The deletion went through, with everything that belongs to the project, while it was copied...
+    expect(application.count()).toBe(0);
+    expect(rawOf(application).prepare('SELECT COUNT(*) AS count FROM chunks').get()).toEqual({
+      count: 0,
+    });
+    expect(application.artifacts.get(project.id, 'actors')).toBeNull();
+    // ...and the copy has the project as it was a moment before, and all of it.
+    expect(destination.count()).toBe(1);
+    expect(destination.chunks(project.id).length).toBeGreaterThan(0);
+    expect(destination.artifacts.get(project.id, 'actors')).not.toBeNull();
+    expect(report.tables.project_members).toBe(1);
+    expect(report.auditChainIntact).toBe(true);
+  });
+});
+
+describe('copying a PostgreSQL database', () => {
+  it('reads every table of it inside one read-only repeatable-read transaction', async () => {
+    const postgres = keep(new Repository('pglite:memory'));
+    copyDatabase(rawOf(await populated()), rawOf(postgres));
+    const { database, seen } = sessionsSeen(rawOf(postgres));
+    // A file, so that the destination has a connection of its own whichever database the tests run on.
+    const backup = keep(new Repository(join(workDirectory(), 'swarm.sqlite')));
+    copyDatabase(database, rawOf(backup));
+
+    expect(seen).toHaveLength(TABLES.length);
+    for (const state of seen) {
+      expect(state).toMatchObject({ isolation: 'repeatable read', read_only: 'on' });
+    }
+    // One snapshot: it did not move between the first table and the last.
+    expect(new Set(seen.map((state) => state.snapshot)).size).toBe(1);
+  });
+});
+
+describe('copying what a project carries', () => {
+  const KINDS = ['scenario', 'stakeholders', 'actors', 'analysis', 'critiques', 'brief'] as const;
+
+  it('moves every kind of lab artifact with its revision and times, in either direction, and deleting the project takes them', () => {
+    const from = keep(new Repository(':memory:'));
+    const project = from.create(fixtureInput({ workflow: 'guided' }));
+    from.artifacts.put(project.id, 'scenario', 'default', scenarioFixture());
+    from.artifacts.put(project.id, 'stakeholders', 'default', stakeholderSetFixture());
+    from.artifacts.put(project.id, 'actors', 'default', actorSetFixture());
+    from.artifacts.put(project.id, 'analysis', 'analysis-1', analysisFixture({ id: 'analysis-1' }));
+    from.artifacts.put(project.id, 'critiques', 'default', critiquesFixture());
+    new BriefService(from).generate(project.id);
+    // One of them has been written twice, so that a revision other than the first has to travel.
+    from.artifacts.put(project.id, 'actors', 'default', actorSetFixture());
+
+    const there = keep(new Repository('pglite:memory'));
+    const back = keep(new Repository(join(workDirectory(), 'back.sqlite')));
+    expect(copyDatabase(rawOf(from), rawOf(there)).tables.project_artifacts).toBe(KINDS.length);
+    copyDatabase(rawOf(there), rawOf(back));
+
+    for (const kind of KINDS) {
+      const original = from.artifacts.list(project.id, kind);
+      expect(original, kind).not.toEqual([]);
+      expect(there.artifacts.list(project.id, kind), kind).toEqual(original);
+      expect(back.artifacts.list(project.id, kind), kind).toEqual(original);
+    }
+    expect(back.artifacts.get(project.id, 'actors')!.revision).toBe(2);
+
+    back.delete(project.id);
+    there.delete(project.id);
+    for (const kind of KINDS) {
+      expect(back.artifacts.list(project.id, kind), kind).toEqual([]);
+      expect(there.artifacts.list(project.id, kind), kind).toEqual([]);
+    }
   });
 });

@@ -6,9 +6,11 @@
  *   npm run db:copy -- --from postgres://swarm@host:5432/swarm --to ./backup/swarm.sqlite
  *
  * The destination must be empty; the copy is one transaction and is checked (row counts, and the
- * audit chain) before it is kept. A PostgreSQL password comes from the URL or from PGPASSWORD, and
- * `--from-entra` / `--to-entra` authenticate with a Microsoft Entra token instead. Targets are
- * never printed, because a URL can hold a password.
+ * audit chain) before it is kept. The source is read as one snapshot, so it may be in use: the copy is
+ * the database as it was when the copy began, and what is written to the source afterwards is not in
+ * it. A PostgreSQL password comes from the URL or from PGPASSWORD, and `--from-entra` / `--to-entra`
+ * authenticate with a Microsoft Entra token instead. Targets are never printed, because a URL can
+ * hold a password.
  */
 import { copyDatabase } from '../../backend/src/storage/copy.js';
 import { migrate } from '../../backend/src/storage/migrations.js';
@@ -45,6 +47,9 @@ try {
     }
     console.log(
       `Done. Row counts match and the audit chain ${report.auditChainIntact ? 'verifies' : 'DOES NOT VERIFY'}.`,
+    );
+    console.log(
+      'The source was read as one snapshot: what was written to it after the copy began is not in the copy.',
     );
   } finally {
     source.close();
