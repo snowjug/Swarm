@@ -46,6 +46,7 @@ import { guidedRoutes } from './routes/guided.js';
 // [critics imports]
 
 // [brief imports]
+import { briefRoutes } from './routes/brief.js';
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
 
@@ -353,6 +354,7 @@ export async function buildApp(options: AppOptions) {
   // [critics routes]
 
   // [brief routes]
+  briefRoutes(app, repository, config.rateLimitScale);
 
   const frontend = resolve(process.cwd(), 'frontend', 'dist');
   if (existsSync(resolve(frontend, 'index.html'))) {

@@ -209,6 +209,21 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   // [critics audit]
 
   // [brief audit]
+  // Ids and a format only: never a question, a statement, a name or a passage.
+  'GET /api/projects/:id/brief': reads(
+    'Reads the stored brief; making it and handing it over are recorded.',
+  ),
+  'POST /api/projects/:id/brief': { kind: 'request', action: 'brief.generated' },
+  'GET /api/projects/:id/brief/export': {
+    kind: 'request',
+    action: 'brief.exported',
+    detail: (request) => ({
+      format:
+        query(request).format === 'json' || query(request).format === 'html'
+          ? String(query(request).format)
+          : 'md',
+    }),
+  },
 };
 
 /**
