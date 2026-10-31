@@ -8,7 +8,7 @@ A software company (invented) that sells a project-planning tool to teams is pre
 
 ## What has been said so far
 
-The head of product owns the plan design and wants the extra reporting priced as a premium. The chief financial officer wants better revenue per customer after a year of slower growth. Marketing managers worry that the free trial is the main way small teams find the product. Sales staff say larger prospects already ask for demos and rarely use the trial. Customer success managers expect existing customers to ask whether their price would rise.
+The head of product owns the plan design and wants the extra reporting priced as a premium. The chief financial officer wants better revenue per customer after a year of slower growth, which the board and investors have noticed. Marketing managers worry that the free trial is the main way small teams find the product. Sales staff say larger prospects already ask for demos and rarely use the trial. Customer success managers expect existing customers to ask whether their price would rise.
 
 The support team handles trial users at a cost that has not been measured separately. Channel partners who resell the product to small businesses ask for notice and for a margin that still works at the higher price. Procurement teams at larger customers usually compare quotes and look for price locks.
 
