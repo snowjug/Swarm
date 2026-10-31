@@ -12,8 +12,11 @@ stated, and none of it is a measurement of real people.
 The default UI is a technical five-stage console, not a one-click replay. It has light, dark and
 high-contrast themes (see [Themes](#themes)).
 On wide screens a single **Graph / Split / Workbench** control switches the working
-layout (on narrow screens it becomes a two-way **Graph | Workbench** pane switch);
-the graph, inspectors and the collapsible, in-flow operation log show actual
+layout (on narrow screens it becomes a two-way **Graph | Workbench** pane switch). Each stage opens in the
+view that suits it: Graph Build and Interaction in **Split**, with the graph or the report beside the stage;
+Env Setup in the **Workbench**, because the stakeholders and the actors need the whole width, so approving
+moves nothing; Simulation once there are actors, and Report once a comparison has finished, also in the
+Workbench. A view you choose is kept. The graph, inspectors and the collapsible, in-flow operation log show actual
 persisted data and never overlay stage content. No example results, actors
 or counters are preloaded. A fictional starter fills editable input only.
 
@@ -22,16 +25,22 @@ or counters are preloaded. A fictional starter fills editable input only.
 Every question goes through the same steps. An example only fills in a question and its evidence; the
 scenario, the stakeholders and the results are made the same way as for a question of your own.
 
-1. **Ask.** On the first screen type a what-if question (one or two sentences), or choose an example. You
+1. **Ask.** On the first screen type a what-if question (one or two sentences), or choose an example (a card
+   is **Use this example: <title>**; once one is loaded the cards fold into one line, "Example loaded: …",
+   and **Change example** brings them back). You
    can press **Understand my question** to see how Swarm reads it into a scenario (what changes, what is
-   affected, what is expected without the change, the options to compare) and correct it. Rules on the
+   affected, what is expected without the change, the options to compare) and correct it: add, remove or
+   edit the alternatives and the changes, and the decision. Press **Use this scenario** to keep it or
+   **Discard** to drop it; those two buttons stay at the foot of the screen while the review is open. Rules on the
    server read it and it goes nowhere else, unless you chose **Model assisted** under **Run settings**:
    then it is sent to the model provider, and if that fails or takes more than 170 seconds the rules read
    it and a note says so. Nothing runs until you start, and you can skip this.
 2. **Add evidence.** Attach TXT, MD or text-based PDF files, paste text, or add a public web page (the
    server fetches its text; it does not run scripts, sign in or read private networks, and it does not
    check that the page is true). Up to ten documents. Every document keeps where it came from.
-3. **Build Graph.** This saves a draft and starts Graph Build only: no environment, simulation or report
+3. **Build Graph.** Once the question is ten characters or more, **Build Graph** stays at the foot of the
+   screen with a line beside it: "N documents attached · ready to build", or what is still missing. This saves
+   a draft and starts Graph Build only: no environment, simulation or report
    runs until you ask. Graph Build shows what was read from the evidence, with citations.
 4. **Stakeholders and actors** (the **Env Setup** stage, at the top). Swarm proposes who is affected,
    with the sources it found for each: by reading the text for roles with no model, or, only in a
@@ -47,7 +56,9 @@ scenario, the stakeholders and the results are made the same way as for a questi
 6. **Decision brief and independent review** (the **Report** stage, at the top). **Generate decision
    brief** writes the answer-first document from the comparison, by rules. **Run independent review** has
    critics check the work; you can respond to each criticism. The brief exports as Markdown, JSON and a
-   printable page. See [the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
+   printable page. A **Jump to** bar keeps the brief, the review and the detailed report one link away
+   (see [Moving around the Report page](#moving-around-the-report-page)). See [the brief](./analysis/brief.md)
+   and [the critics](./analysis/critics.md).
 7. **Interaction** is the engine's stage for asking questions of its detailed report.
 
 Below the comparison, the Simulation stage also keeps the engine's **Deep dive (optional)**: a slower,
@@ -99,18 +110,24 @@ stakeholders are not ticked, and neither is a stopped comparison.
 ## Reviewing the stakeholders and the actors
 
 In **Env Setup** the **Stakeholders and actors** panel is at the top. It is small until you ask for more, so
-that the stage's own **Start Simulation** button stays on the screen. This is what you meet, in order:
+that the stage's own buttons stay on the screen. Env Setup opens in the full-width Workbench, and approving
+does not change the view. This is what you meet, in order:
 
 1. **Before anything is found** the panel holds one line (actors are synthetic stand-ins, not real people),
    **Find stakeholders by reading the text**, and **Or add stakeholders yourself**. In a project made in
    **Model assisted** mode on a server with a provider there is also **Find stakeholders with the model**,
-   which is then the main button. **How stakeholders are found** says what each way costs and cannot do.
+   which is then the main button. A group that the model proposes without a quote that can be checked is kept
+   (marked **inferred**) only if your question or scenario names it; otherwise it is dropped and the note
+   says so. **How stakeholders are found** says what each way costs and cannot do.
 2. **After finding**, the list opens under four counts: **found**, **need review**, **approved** and
    **actors**. A line says how the stakeholders were found ("Found by reading the text, not by a model", or
    by which model), and a note says how many have a direction of impact read from the wording. One button
-   says what to do next and changes as you go: **Review N stakeholders**, then **Approve stakeholders and
-   create actors**, then **Review the N actors**. **Stakeholders** and **Actors** are toggles that open and shut the
-   list and the actors.
+   says what to do next and changes as you go. While the list is open and some stakeholders still need
+   review, it is **Go to approval**, which takes you to **Approve stakeholders and create actors** at the
+   foot of the list; with the list shut it is **Review N stakeholders**. When everything has been looked at
+   it is **Approve and create actors** (a shortcut to the approval card while the list is open, where the
+   card's own button is the main one), and afterwards **Review the N actors**. **Stakeholders** and
+   **Actors** are toggles that open and shut the list and the actors.
 3. **A row** is one line to scan, key actors first: the name, whether it is a key actor (one actor of its
    own) or a cohort (a group of simulated members), its category, the direction of impact in words ("Impact:
    mixed · read from the wording"), its uncertainty, whether it cites quotes ("4 cited quotes") or is an
@@ -118,7 +135,8 @@ that the stage's own **Start Simulation** button stays on the screen. This is wh
    the quotes it rests on, word for word, each with the passage and the document it comes from, and what is
    assumed, marked as an assumption in words. Its buttons are **Accept**, **Edit**, **Merge** (into another
    stakeholder) and **Remove**, and a **Priority** menu (**Key actor**, **Standard cohort** or **Background
-   cohort**). Nothing is deleted: a
+   cohort**). A cited quotation can be taken away but not rewritten, moved to another source or added: the
+   server refuses an altered or invented one. Nothing is deleted: a
    removed or merged stakeholder moves to **Removed**, where **Restore** or **Undo the merge** brings it
    back. **Add a stakeholder** adds one of your own; it carries no evidence, says so and is marked "Added by
    you". **Perspectives that may be missing** lists the kinds of stakeholder that nobody was found for: a
@@ -133,7 +151,9 @@ that the stage's own **Start Simulation** button stays on the screen. This is wh
    "Changed by you; not saved yet". **Save changes to the actors** keeps it, and the actor is then "Edited by
    you"; **Discard unsaved changes** drops it, and **Reset all actors…** makes every actor again from the
    approved list after you confirm. If you change the stakeholders later, the page says the actors are out
-   of date.
+   of date, and a comparison will not start on a list that is no longer approved or on actors that do not
+   match it: the server answers in words, "approve them and make the actors again", and you do that in
+   Env Setup.
 
 The rules read the groups that the text names with a role word, and read a direction of impact only where a
 cited sentence has a word of concern or welcome. The others stay unclear until you say who is helped or
@@ -141,6 +161,12 @@ harmed, which is what the warning before a comparison means when it says that no
 direction of impact. The
 method is in [Stakeholders and actors](./stakeholders.md), and how the panel behaves is in
 [UX.md](./UX.md#the-stakeholder-review).
+
+Under the panel, Env Setup keeps **Deep dive (optional): fixed proxies**. It is the setup for the slower,
+agent-by-agent simulation, which runs on a small fixed set of fictional proxies; it is separate from the
+stakeholder actors above, and the comparison does not need it. Its status reads "Fixed proxies · pending" or
+"· ready", and its buttons (**Prepare fictional environment**, **Save environment**, **Start Simulation**) are
+secondary, so that the stakeholder step has the stage's one main button.
 
 ## Reading the results
 
@@ -191,7 +217,8 @@ repeated over many seeds, under assumptions that the page lists.
   confidence, and neither can tell whether a source is true.
 - **The decision brief puts the answer first, then what it rests on.** Its first section gives the
   decision, a recommendation that depends on conditions, the comparison of the change with no change in
-  one measure, the groups it moves most, the three doubts that could change it and what would settle
+  one measure (the paired difference, its standard error and in how many paired runs the share was higher
+  under the change), the groups it moves most, the three doubts that could change it and what would settle
   them. Its recommendations each name the findings, evidence or critiques they follow from, and its
   **validation plan** lists the real-world checks that would settle what the result depends on most,
   each saying what to observe, what to compare it with and who runs it, and leaving the decision
@@ -199,7 +226,38 @@ repeated over many seeds, under assumptions that the page lists.
   brief carries one of ten origins (supplied or retrieved evidence, a user or system assumption, an
   inferred stakeholder, actor behaviour, a simulation aggregation, a model interpretation, a historical
   comparison, or unresolved uncertainty), and the limitations section says what the analysis cannot tell
-  you.
+  you. "No difference" is said only of the proposed change; another scenario is read on its own findings.
+  A sensitivity row moves the value that governs the run (the scenario's own override or edit of an actor's
+  trait when it has one, otherwise the actor's own), and says when that value is the scenario's.
+
+## Moving around the Report page
+
+The Report stage is a page to read, and it keeps its way around in view.
+
+- **Jump to.** A bar under the header stays in view and has three links: **Decision brief**, **Independent
+  review** and **Detailed report and studio**. The review's link says where the review stands: "not run
+  yet", "no analysis to review yet", "N not yet closed", "all N closed" or "no criticism raised" (the last
+  three may end ", of an earlier analysis"), or "could not be read". On a phone the bar reads Brief, Review
+  and Details.
+- **The brief opens on its answer.** Its sections are collapsible. These are open when you arrive: the
+  executive answer, the decision evaluated, the main reaction patterns, the alternative outcomes, the
+  first-order and second-order effects, the behavioural drivers, the risks and opportunities, the
+  prioritised recommendations and the validation plan. These are closed, and one click away in the contents
+  with all the others: the evidence base, the stakeholder landscape, the assumptions, the uncertainty and
+  sensitivity, the sources, the limitations and the technical appendix. A section's heading says how many
+  statements it holds; choose it to open or close the section. The contents has **Expand all sections** and
+  **Collapse all sections**, and each section ends with **Back to contents**. A closed section is still in the
+  page, so find in the page and a screen reader reach it, and an address ending `#brief-<section>` opens it.
+- **Printing.** Press Ctrl+P (Cmd+P on a Mac) on this stage: the page prints the project's name and
+  question, the whole brief, whatever is closed on the screen, and the review, without the application
+  around them. The **Markdown**, **JSON** and **Printable** exports are unchanged and hold everything.
+- **When it is out of date.** "This brief may be out of date" says what changed since it was made. If the
+  scenario, the stakeholders or the actors changed after the comparison ran, run the comparison again in
+  Simulation and then generate the brief again; if only the review changed, or a newer comparison exists,
+  generate the brief again. "This review may be out of date" appears when the comparison the review reads
+  was run before the scenario, the stakeholders or the actors changed: run the comparison again, then the
+  review again. If someone else has changed the review while you were writing a response, the page reads it
+  again and keeps your words.
 
 ## The five stages in detail
 
@@ -232,7 +290,10 @@ repeated over many seeds, under assumptions that the page lists.
    partial failures. Neither is a survey of real people. The analyst's answers carry a grounding label; when the
    passage an answer cites is one half of a conflict between sources, the answer says so, and an answer that
    states only one side of a disputed figure is marked **Cited, with figures to check**, naming both documents
-   and both figures ([ADR 0012](./adr/0012-answers-and-disputed-sources.md)).
+   and both figures ([ADR 0012](./adr/0012-answers-and-disputed-sources.md)). In the **Any fictional agent**
+   tab the choice of agent lists the proxies of the agent-by-agent deep dive, grouped as "Deep-dive proxies
+   (N)"; they are not every actor approved in Env Setup. Report chat answers from the report, and Env Setup
+   shows each actor's traits.
 
 Each execution stage stops at **ready** and waits for the next explicit action.
 Later stages cannot bypass prerequisites. Cancellation stops owned work before
@@ -257,8 +318,10 @@ control: open it with the keyboard and change it with the arrow keys.
 The first screen leads with the question "What could happen if…?", the sentence that Swarm explores
 scenarios and does not guarantee or precisely predict real-world behavior, and the path from
 evidence to a decision. The question is the first field; examples fill in a question and its
-evidence, nothing more. In a project, a journey strip shows where you are on the twelve steps from
-Question to Export and marks a step done only when the project's own record shows it, and each stage
+evidence, nothing more, and once one is loaded its six cards fold into one line so that the question and the
+evidence are what is on the screen. In a project, a journey strip shows where you are on the twelve steps from
+Question to Export and marks a step done only when the project's own record shows it (a screen reader hears
+every step's name at every width), and each stage
 button carries a line of plain help under its engine name and, if the stage is locked, what it needs
 (see [What opens each stage](#what-opens-each-stage)).
 
@@ -271,7 +334,10 @@ choice is kept in this browser (local storage, the key `swarm.mode`, holding onl
 [UX.md](./UX.md).
 
 On a phone the header scrolls away with the page instead of staying at the top, the examples and the
-project tools are one row that scrolls sideways, and the five stages stay in one row.
+project tools are one row that scrolls sideways, the five stages stay in one row, and every control is at
+least 44 pixels high so that a finger can reach it. A button that stands alone is as wide as its words on a
+desktop and as wide as the screen on a phone. The audit log names every action in plain words ("Stakeholders
+found", "Decision brief generated"), and shows the recorded code under the name only when it differs.
 
 ## What-if loop: pause, resume, intervene, branch, compare
 
@@ -304,7 +370,9 @@ behavior:
 readable in the new console, without invented ontology, operation traces or
 unrecorded second-platform results. Duplicate a historical project to use the
 guided workflow. Completed scenarios are read-only apart from follow-up history;
-duplicate inputs to run another scenario.
+duplicate inputs to run another scenario. In the History drawer each saved project is a card with an
+**Open** button (its accessible name is "Open <project name>"), a small **Compare** beside it for a guided
+project that has a saved round, and a delete control that asks before it deletes.
 
 ## Grounding review (model-assisted reports)
 

@@ -150,8 +150,11 @@ seconds when a first reply had to be repaired. The page shows that it is reading
 mode is "Model assisted"). The line under "Understand my question" says which applies: that rules on this
 server read the question and it goes nowhere else, or that it is sent to the model provider this server uses.
 The person chooses "Understand my question", sees an editable form with plain labelled fields and add and remove rows, answers or
-skips the questions back, reads the notes, and chooses "Use this scenario", which calls `onFrame`.
-Every step is optional, nothing is sent until the person asks, and nothing is kept until they say so.
+skips the questions back, reads the notes, and chooses "Use this scenario", which calls `onFrame`. The review
+opens with focus on its heading, and its "Use this scenario" and "Discard" buttons stay at the foot of the screen
+until the end of the review, so that a long scenario never hides the choice (`e2e/lab/intake.spec.ts` and
+`entry-screen.spec.ts` hold the edits and the bar). Every step is optional, nothing is sent until the person
+asks, and nothing is kept until they say so.
 It works with the keyboard, and does not submit the form it sits in.
 
 ## What was observed with a real model
