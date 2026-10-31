@@ -8,7 +8,7 @@ import type { Facts } from './facts.js';
 import { actorMeasure, findingsFor, pairRuns } from './measures.js';
 import { directionOf } from './rules.js';
 import { readingNote } from './signal.js';
-import { sensitivityContext } from './assumptions.js';
+import { impactOwner, sensitivityContext } from './assumptions.js';
 import { approx, decimals, embed, listed, plural, signed } from './text.js';
 import { classWords } from './sections-answer.js';
 import { sectionWriter, type Tally } from './writer.js';
@@ -226,12 +226,7 @@ export function firstOrder(facts: Facts, tally: Tally): BriefSection {
     if (!measure) continue;
     const base = baseline ? actorMeasure(baseline.runs, actor.id) : null;
     const own = findingsFor(analysis, { variantId: variant.variant.id, actorId: actor.id });
-    const owner =
-      actor.traits.impact.origin === 'user'
-        ? 'set by a person'
-        : actor.traits.impact.origin === 'evidence'
-          ? 'labelled as resting on evidence'
-          : 'an assumption';
+    const owner = impactOwner(actor, facts.evidence);
     writer.add({
       origin: 'actor-behavior',
       text: `Simulated ${embed(actor.name, 60)} (${STAKEHOLDER_CATEGORY_LABELS[actor.category]}) is set as ${directionOf(actor)} by the change (impact ${signed(actor.traits.impact.value)}, ${owner}). Under ${embed(variant.variant.label, 60)} its mean final stance was ${decimals(measure.stance)}${base && baseline ? `, against ${decimals(base.stance)} under ${embed(baseline.variant.label, 60)}` : ''}; about ${approx(measure.adverse)} of ${measure.members} simulated ${plural(measure.members, 'member')} ended up looking for an alternative or resisting.`,

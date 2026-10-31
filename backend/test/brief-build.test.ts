@@ -548,6 +548,74 @@ describe('the assumptions', () => {
     ).toBe(true);
   });
 
+  it('reads an impact that rests on a cited passage as an assumption about its size, and shows the passage for its direction only', () => {
+    const impact = (origin: 'evidence' | 'system-assumption') => ({
+      id: 's6',
+      target: { kind: 'trait' as const, actorId: 'subscribers', trait: 'impact' },
+      label: 'Subscribers: how the change lands on them (impact), 0.2 lower',
+      perturbation: -0.2,
+      metric: 'Share ending in switch or resist',
+      baseMean: 0.45,
+      shift: 0.2,
+      standardError: 0.01,
+      classification: 'assumption-sensitive' as const,
+      assumptionOrigin: origin,
+    });
+    const made = (cited: boolean) => {
+      const given = richInputs();
+      // Saved before size and direction were told apart: the whole impact labelled evidence.
+      const actors = given.analysis.actors.map((actor) =>
+        actor.id === 'subscribers'
+          ? {
+              ...actor,
+              traits: { ...actor.traits, impact: { ...actor.traits.impact, origin: 'evidence' } },
+            }
+          : actor,
+      );
+      given.analysis = analysisSchema.parse({
+        ...given.analysis,
+        actors,
+        sensitivity: [...given.analysis.sensitivity, impact('evidence')],
+      });
+      if (!cited) {
+        given.stakeholders = {
+          ...given.stakeholders!,
+          stakeholders: given.stakeholders!.stakeholders.map((stakeholder) =>
+            stakeholder.id === 'subscribers' ? { ...stakeholder, evidence: [] } : stakeholder,
+          ),
+        };
+      }
+      const brief = buildBrief(given);
+      const row = sectionOf(brief, 'assumptions').statements.find((statement) =>
+        statement.refs.sensitivityIds.includes('s6'),
+      )!;
+      const first = sectionOf(brief, 'first-order').statements.find((statement) =>
+        statement.text.startsWith('Simulated “Subscribers”'),
+      )!;
+      return { row, first };
+    };
+    const backed = made(true);
+    expect(backed.row.origin).toBe('system-assumption');
+    expect(backed.row.refs.evidence).toEqual([]);
+    expect(backed.row.text).toContain('Subscribers”: impact is set at -0.60');
+    expect(backed.row.text).toContain(
+      'only its direction rests on a cited passage, which gives no size',
+    );
+    expect(backed.first.text).toContain(
+      'impact -0.60, the direction rests on a cited passage and the size is an assumption',
+    );
+    const gone = made(false);
+    expect(gone.row.origin).toBe('system-assumption');
+    expect(gone.row.text).toContain(
+      'its direction was labelled as resting on evidence, but no passage is cited for it now',
+    );
+    expect(gone.row.text).not.toContain('rests on a cited passage');
+    expect(gone.first.text).toContain(
+      'the direction is labelled as resting on evidence but no passage is cited for it now',
+    );
+    expect(gone.first.text).not.toContain('labelled as resting on evidence,');
+  });
+
   it('says that a strength or a round the person set is theirs, and leaves the rest to the system', () => {
     const base = analysisFixture();
     const analysis = analysisFixture({
