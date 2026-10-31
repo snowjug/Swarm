@@ -309,6 +309,23 @@ describe('the recommendations', () => {
     expect(critique[0]?.impact).toBe('medium');
   });
 
+  it('says plainly that a group is one simulated member, instead of "1 more of its 1 members"', () => {
+    const analysis = clone(richAnalysis());
+    for (const variant of analysis.variants) {
+      for (const run of variant.runs) {
+        for (const entry of run.byActor) if (entry.actorId === 'subscribers') entry.members = 1;
+      }
+    }
+    const single = buildBrief(richInputs({ analysis })).recommendations.find((recommendation) =>
+      recommendation.text.startsWith('Mitigate or stage the change for “Subscribers”'),
+    );
+    expect(single?.text).toContain(
+      'its one simulated member ended up looking for an alternative or resisting more often under',
+    );
+    expect(single?.text).toMatch(/in \d+ of \d+ paired runs/u);
+    expect(single?.text).not.toMatch(/of its 1 simulated members/u);
+  });
+
   it('are ordered by impact times repeatability divided by effort, ties to the higher impact then the lower effort', () => {
     const weight = { low: 1, medium: 2, high: 3 } as const;
     const lower = new Map(
@@ -483,6 +500,30 @@ describe('the validation plan', () => {
     expect(many.length).toBeLessThanOrEqual(8);
     expect(many.map((experiment) => experiment.id)).toEqual(
       many.map((_, index) => `val-${index + 1}`),
+    );
+  });
+
+  it('does not repeat a check: the same check for several results is one check with several targets', () => {
+    const analysis = richAnalysis();
+    const unstable = analysis.findings.filter((entry) => entry.classification === 'unstable');
+    expect(unstable.length).toBeGreaterThan(0);
+    analysis.findings = [
+      ...analysis.findings,
+      ...[1, 2].map((index) => ({
+        ...unstable[0]!,
+        id: `extra-${index}`,
+        statement: `${unstable[0]!.statement} (another view ${index})`,
+      })),
+    ];
+    const merged = validationPlan(gatherFacts(richInputs({ analysis })));
+    const texts = merged.map(
+      (experiment) => `${experiment.question}|${experiment.method}|${experiment.successSignal}`,
+    );
+    expect(new Set(texts).size).toBe(texts.length);
+    const repeated = merged.find((experiment) => experiment.question === UNSTABLE_CHECK.question)!;
+    expect(repeated.targets.filter((entry) => entry.startsWith('finding '))).toHaveLength(3);
+    expect(merged.map((experiment) => experiment.id)).toEqual(
+      merged.map((_, index) => `val-${index + 1}`),
     );
   });
 

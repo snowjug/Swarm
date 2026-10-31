@@ -120,10 +120,10 @@ Raised only when a brief exists for the analysis being reviewed.
 
 ### Adversarial: what would have to be true for the conclusion to be wrong?
 
-| Id                               | Raised when                                                                                                     | Severity                                     |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `adversarial-gap-<row>`          | One tested change in an assumption covers at least a quarter of the gap between no change and a proposed change | by the share covered, below                  |
-| `adversarial-unstable-<finding>` | A finding is `unstable` (the first six)                                                                         | `major` for a headline finding, else `minor` |
+| Id                               | Raised when                                                                                                     | Severity                                                                                         |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `adversarial-gap-<row>`          | One tested change in an assumption covers at least a quarter of the gap between no change and a proposed change | by the share covered, below                                                                      |
+| `adversarial-unstable-<finding>` | A finding is `unstable` (the first six)                                                                         | `major` for a headline finding that is not an ordering of groups or a single event, else `minor` |
 
 The gap is recomputed from the runs, on the headline measure that the sensitivity rows are about:
 the mean share of simulated members ending in "switch" or "resist" under the proposed variant minus

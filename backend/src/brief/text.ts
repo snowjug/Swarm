@@ -13,7 +13,10 @@ export function oneLine(text: string): string {
 
 export function clip(text: string, max: number): string {
   if (text.length <= max) return text;
-  return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+  const hard = text.slice(0, Math.max(0, max - 1));
+  // A word is not cut in two when ending at the last space loses no more than a fifth of the room.
+  const space = hard.lastIndexOf(' ');
+  return `${(space >= max * 0.8 ? hard.slice(0, space) : hard).trimEnd()}…`;
 }
 
 /**

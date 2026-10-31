@@ -927,6 +927,24 @@ const CASES: Case[] = [
       ]),
     expected: { 'adversarial-unstable-f2': ['adversarial', 'major'] },
   },
+  {
+    name: 'adversarial: an unstable ordering of groups, or an unstable event, is raised but not as a major objection',
+    edit: (i) =>
+      withFindings(i, [
+        headline(i),
+        finding('f2', { kind: 'ordering', actorId: null, interval: { lo: 0.4, hi: 0.7 } }),
+        finding('f3', {
+          kind: 'second-order-event',
+          actorId: null,
+          interval: { lo: 0.4, hi: 0.7 },
+        }),
+      ]),
+    expected: {
+      'adversarial-unstable-f2': ['adversarial', 'minor'],
+      'adversarial-unstable-f3': ['adversarial', 'minor'],
+      'methodology-unstable-findings': ['methodology', 'major'],
+    },
+  },
 ];
 
 describe('the rules critics, each on a fixture made to trigger it', () => {

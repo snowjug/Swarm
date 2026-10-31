@@ -121,9 +121,14 @@ function mitigations(facts: Facts): Candidate[] {
     const related = analysis.findings.filter(
       (candidate) => candidate.actorId === actor.id && candidate.variantId === variant.variant.id,
     );
+    const where = `${embed(variant.variant.label, 60)} than under ${embed(baseline.variant.label, 60)}`;
+    const how =
+      members === 1
+        ? `its one simulated member ended up looking for an alternative or resisting more often under ${where}, in ${pairing.worse} of ${pairing.pairs} paired runs`
+        : `about ${approx(pairing.adverseDelta)} more of its ${members} simulated members ended up looking for an alternative or resisting under ${where}`;
     found.push({
       kind: 'mitigate',
-      text: `Mitigate or stage the change for ${embed(actor.name, 60)}: about ${approx(pairing.adverseDelta)} more of its ${members} simulated members ended up looking for an alternative or resisting under ${embed(variant.variant.label, 60)} than under ${embed(baseline.variant.label, 60)}, and the finding held in ${finding.holdsIn} of ${finding.of} seeded runs.`,
+      text: `Mitigate or stage the change for ${embed(actor.name, 60)}: ${how}, and the finding held in ${finding.holdsIn} of ${finding.of} seeded runs.`,
       linkedFindingIds: idsOf([finding, ...related]),
       impact: levelOfSize(pairing.adverseDelta / members),
       effort: 'medium',

@@ -1,4 +1,9 @@
-import type { Analysis, RunSummary, SensitivityRow } from '../../../shared/analysis.js';
+import type {
+  Analysis,
+  FindingKind,
+  RunSummary,
+  SensitivityRow,
+} from '../../../shared/analysis.js';
 import type { Critique } from '../../../shared/critique.js';
 import { byText, clip, draft, fixed, signed, stableId } from './text.js';
 import type { Resolved, RoleCritic } from './types.js';
@@ -14,6 +19,12 @@ const BASE_TOLERANCE = 0.05;
 const WORTH_RAISING = 0.25;
 /** Unstable findings are raised one by one up to this many; the methodology critic counts the rest. */
 const MAX_UNSTABLE = 6;
+/**
+ * Findings that say in what order groups fared, or that a particular event happened, rather than
+ * whether the change moved anyone. Being unstable is expected of them (one exact ordering of three
+ * groups seldom repeats), so it is raised but not as a major objection to the conclusion.
+ */
+const DESCRIPTIVE: ReadonlySet<FindingKind> = new Set(['ordering', 'second-order-event']);
 
 const adverseShare = (run: RunSummary): number =>
   run.responseShares.switch + run.responseShares.resist;
@@ -120,7 +131,7 @@ function unstableFindings(input: Resolved): Critique[] {
         id: stableId('adversarial-unstable', finding.id),
         role: ROLE,
         target: { kind: 'finding', id: finding.id },
-        severity: finding.actorId === null ? 'major' : 'minor',
+        severity: finding.actorId === null && !DESCRIPTIVE.has(finding.kind) ? 'major' : 'minor',
         objection: `The finding "${clip(finding.statement, 220)}" holds in ${finding.holdsIn} of ${finding.of} seeded runs and does not hold in the other ${Math.max(0, finding.of - finding.holdsIn)}, so a conclusion that rests on it would be wrong in those runs.`,
         basis: [
           `Test applied to each run: ${finding.predicate}`,

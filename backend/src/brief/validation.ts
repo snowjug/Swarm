@@ -263,6 +263,8 @@ export function unevidencedKeyActors(facts: Facts): Actor[] {
 }
 
 export const MAX_EXPERIMENTS = 8;
+/** The most results one check may be for: the same bound as the stored document's. */
+const MAX_TARGETS = 6;
 
 /**
  * The checks that would settle what the result most depends on, in this order: the assumptions the
@@ -274,12 +276,26 @@ export const MAX_EXPERIMENTS = 8;
 export function validationPlan(facts: Facts): ValidationExperiment[] {
   const plan: ValidationExperiment[] = [];
   const add = (target: string, check: Check, group: string, value: string): void => {
+    const question = clip(fill(check.question, group, value), 300);
+    const method = clip(fill(check.method, group, value), 400);
+    const successSignal = clip(fill(check.successSignal, group, value), 300);
+    // The same check for several results is one check with several targets, not the same text repeated.
+    const same = plan.find(
+      (experiment) =>
+        experiment.question === question &&
+        experiment.method === method &&
+        experiment.successSignal === successSignal,
+    );
+    if (same) {
+      if (same.targets.length < MAX_TARGETS) same.targets.push(clip(target, 120));
+      return;
+    }
     plan.push({
       id: `val-${plan.length + 1}`,
       targets: [clip(target, 120)],
-      question: clip(fill(check.question, group, value), 300),
-      method: clip(fill(check.method, group, value), 400),
-      successSignal: clip(fill(check.successSignal, group, value), 300),
+      question,
+      method,
+      successSignal,
       effort: check.effort,
       duration: check.duration,
     });
