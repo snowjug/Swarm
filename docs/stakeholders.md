@@ -105,11 +105,17 @@ stakeholders with a passage id and a **verbatim quote** for each.
 The reply is never trusted as it arrives:
 
 - it must have the expected shape, with one repair attempt if it does not;
-- a reply that repeats text planted in the sources is refused;
+- a reply that repeats text planted in the sources is refused: a code, a quoted phrase, or the name that an
+  instruction gives ("the group named …"). The check looks for text that addresses an AI system or dictates
+  what the answer or the stakeholder list says, and it is a heuristic: an instruction worded in a way it does
+  not know is not recognised;
 - **each quote is checked, character by character, against the passage it names**. A quote that cannot be
   found, or names a passage that was not supplied, is dropped;
-- a stakeholder left with no verified quote is marked **inferred**, with high uncertainty and an
-  assumption saying so;
+- a stakeholder left with no verified quote is kept, marked **inferred**, with high uncertainty and an
+  assumption saying so, **only when the person's own question or scenario names that group**. Any other
+  stakeholder with nothing quoted is dropped, and the note says how many and why: all it would rest on is the
+  model's word, which text in a source can have dictated, so it is never put in the list as if found. When
+  nothing that the model proposed can be kept, discovery falls back to reading the text, with that reason;
 - categories outside the list become _other_, identifiers are made unique, at most 25 are kept (at most
   eight of them key), and a scenario's named stakeholders that the model left out are added back.
 
