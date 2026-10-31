@@ -796,6 +796,8 @@ describe('the validation plan', () => {
           ].join('\n'),
         ),
       ).toEqual([]);
+      // "Share" is kept for the simulated share of simulated members; what a check observes is a proportion.
+      expect(`${check.question} ${check.measure} ${check.comparison}`).not.toMatch(/\bshares?\b/iu);
     }
     expect(Object.keys(TRAIT_CHECKS)).toHaveLength(11);
   });

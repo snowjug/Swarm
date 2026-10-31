@@ -119,7 +119,7 @@ export function reactionPatterns(facts: Facts, tally: Tally): BriefSection {
     }).slice(0, 4)) {
       writer.add({
         origin: 'simulation-aggregation',
-        text: `Finding: ${embed(finding.statement, 240)} ${stabilityText(finding)}.`,
+        text: `Finding: ${embed(finding.statement, 300)} ${stabilityText(finding)}.`,
         refs: { findingIds: [finding.id], variantIds: [finding.variantId] },
         reliance: facts.relianceOf([finding]),
       });
@@ -234,7 +234,7 @@ export function alternativeOutcomes(facts: Facts, tally: Tally): BriefSection {
     .slice(0, 4)) {
     writer.add({
       origin: 'simulation-aggregation',
-      text: `Finding: ${embed(finding.statement, 240)} ${stabilityText(finding)}.`,
+      text: `Finding: ${embed(finding.statement, 300)} ${stabilityText(finding)}.`,
       refs: { findingIds: [finding.id], variantIds: [finding.variantId] },
       reliance: facts.relianceOf([finding]),
     });
@@ -329,7 +329,7 @@ export function secondOrder(facts: Facts, tally: Tally): BriefSection {
     const outside = actor && EXTERNAL_RESPONDER_CATEGORIES.includes(actor.category);
     writer.add({
       origin: 'simulation-aggregation',
-      text: `Across seeded simulated runs: ${embed(finding.statement, 220)} ${stabilityText(finding)}.${outside ? ` This is a response by an actor outside the organisation (${STAKEHOLDER_CATEGORY_LABELS[actor.category].toLowerCase()}).` : ''}`,
+      text: `Across seeded simulated runs: ${embed(finding.statement, 280)} ${stabilityText(finding)}.${outside ? ` This is a response by an actor outside the organisation (${STAKEHOLDER_CATEGORY_LABELS[actor.category].toLowerCase()}).` : ''}`,
       refs: {
         findingIds: [finding.id],
         variantIds: [finding.variantId],

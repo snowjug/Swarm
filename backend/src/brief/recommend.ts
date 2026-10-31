@@ -339,7 +339,7 @@ function responses(facts: Facts): Candidate[] {
     const subject = embed(actor.name, 60);
     found.push({
       kind: 'prepare-response',
-      text: `Prepare a response to how ${subject} could react: in simulated runs ${embed(finding.statement, 200)}. What would trigger it, and how soon, follows from assumed traits and is open to check in the world.`,
+      text: `Prepare a response to how ${subject} could react: in simulated runs ${embed(finding.statement, 260)}. What would trigger it, and how soon, follows from assumed traits and is open to check in the world.`,
       linkedFindingIds: [finding.id],
       impact: 'medium',
       effort: 'medium',
@@ -375,8 +375,8 @@ function repeats(facts: Facts): Candidate[] {
       kind: 'repeat',
       text:
         finding.holdsIn === 0
-          ? `The simulated result ${embed(finding.statement, 140)} held in none of ${finding.of} seeded runs, which is too few to call it rare: repeat the analysis with more runs before relying on its absence.`
-          : `Do not decide on the unstable simulated result ${embed(finding.statement, 140)}, which held in ${finding.holdsIn} of ${finding.of} seeded runs: repeat the analysis with more runs, or narrow the question, before relying on it.`,
+          ? `The simulated result ${embed(finding.statement, 260)} held in none of ${finding.of} seeded runs, which is too few to call it rare: repeat the analysis with more runs before relying on its absence.`
+          : `Do not decide on the unstable simulated result ${embed(finding.statement, 260)}, which held in ${finding.holdsIn} of ${finding.of} seeded runs: repeat the analysis with more runs, or narrow the question, before relying on it.`,
       linkedFindingIds: [finding.id],
       impact: finding.kind === 'direction-vs-baseline' ? 'high' : 'medium',
       effort: 'low',
@@ -400,7 +400,7 @@ function rarities(facts: Facts): Candidate[] {
     .slice(0, 1)
     .map((finding): Candidate => ({
       kind: 'rare',
-      text: `The simulated result ${embed(finding.statement, 130)} held in ${finding.holdsIn} of ${finding.of} seeded runs, so the runs agree that it is rare rather than disagree. Do not plan around it as likely, and do not read its absence as safety: test the assumptions that keep it from happening, such as the strength of the change.`,
+      text: `The simulated result ${embed(finding.statement, 230)} held in ${finding.holdsIn} of ${finding.of} seeded runs, so the runs agree that it is rare rather than disagree. Do not plan around it as likely, and do not read its absence as safety: test the assumptions that keep it from happening, such as the strength of the change.`,
       linkedFindingIds: [finding.id],
       impact: finding.kind === 'threshold-crossing' ? 'medium' : 'low',
       effort: 'low',

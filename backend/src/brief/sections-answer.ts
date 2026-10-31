@@ -106,7 +106,7 @@ function caveatOf(facts: Facts): { text: string; refs: Partial<BriefRefs> } {
 }
 
 export const NOT_TOLD =
-  'What this does not tell you: how many real people act this way, how fast, or whether the assumptions behind the simulation hold. Simulated members are synthetic stand-ins for groups; the figures above, counts or shares, are neither rates nor forecasts.';
+  'What this does not tell you: how many real people act this way, how fast, or whether the assumptions behind the simulation hold. Simulated members are synthetic stand-ins for groups; the counts above are neither rates nor forecasts, and nor are the shares of simulated members.';
 
 /** The same line when the comparison cannot be read as a result about the change, and there are no counts above it to qualify. */
 export const NOT_TOLD_BY_SIGNAL: Record<BriefSignal, string> = {
@@ -154,7 +154,7 @@ function addStability(
   if (finding) {
     writer.add({
       origin: 'simulation-aggregation',
-      text: `Stability: the finding ${embed(finding.statement, 200)} held in ${finding.holdsIn} of ${finding.of} seeded simulated runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}), which the analysis classes as ${classWords(finding.classification)}. There is no confidence score.${CHOSEN_AFTER.has(finding.kind) ? CHOSEN_AFTER_NOTE : ''}${reading}`,
+      text: `Stability: the finding ${embed(finding.statement, 260)} held in ${finding.holdsIn} of ${finding.of} seeded simulated runs (Wilson interval ${decimals(finding.interval.lo)} to ${decimals(finding.interval.hi)}), which the analysis classes as ${classWords(finding.classification)}. There is no confidence score.${CHOSEN_AFTER.has(finding.kind) ? CHOSEN_AFTER_NOTE : ''}${reading}`,
       refs: { findingIds: [finding.id] },
       reliance: facts.relianceOf([finding]),
     });

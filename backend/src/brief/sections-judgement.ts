@@ -69,8 +69,8 @@ export function uncertainty(facts: Facts, tally: Tally): BriefSection {
       origin: 'simulation-aggregation',
       text:
         finding.classification === 'rare'
-          ? `Rare simulated result: ${embed(finding.statement, 200)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (${intervalWords(finding)}): the runs agree that it seldom happens in the simulation, which is different from disagreeing; do not read its absence as safety, and test the assumptions that keep it from happening.`
-          : `Unstable simulated result: ${embed(finding.statement, 200)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (${intervalWords(finding)}); do not rely on it.`,
+          ? `Rare simulated result: ${embed(finding.statement, 260)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (${intervalWords(finding)}): the runs agree that it seldom happens in the simulation, which is different from disagreeing; do not read its absence as safety, and test the assumptions that keep it from happening.`
+          : `Unstable simulated result: ${embed(finding.statement, 260)} It held in ${finding.holdsIn} of ${finding.of} seeded runs (${intervalWords(finding)}); do not rely on it.`,
       refs: { findingIds: [finding.id], variantIds: [finding.variantId] },
       reliance: 'low',
     });

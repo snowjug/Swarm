@@ -70,7 +70,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   priorStance: {
     question: 'Where does {group} stand on the change in {change} before it happens?',
     measure:
-      'The share of {group} who say, in a short survey or in interviews, that they support it, oppose it or have no view, before any change.',
+      'The proportion of {group} who say, in a short survey or in interviews, that they support it, oppose it or have no view, before any change.',
     comparison:
       'The same question put to a comparable group at the same time, and to {group} again after the change.',
     method: 'A short survey or a handful of interviews with members of the group.',
@@ -82,7 +82,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   impact: {
     question: 'Is {group} harmed, helped or unaffected by the change in {change}, and by how much?',
     measure:
-      'The share of {group} who, in the weeks after the change, start using an alternative to {system}, reduce their use of it or formally object (complain, appeal or ask for a reversal), and what they say they lose or gain.',
+      'The proportion of {group} who, in the weeks after the change, start using an alternative to {system}, reduce their use of it or formally object (complain, appeal or ask for a reversal), and what they say they lose or gain.',
     comparison:
       'A comparable group of {group} that is not exposed to the change, or the same group in the weeks before it.',
     method:
@@ -95,7 +95,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   influence: {
     question: 'How far do other groups follow what {group} does?',
     measure:
-      'In past cases, the share of other groups, and of their members, who changed what they do within weeks of {group} changing.',
+      'In past cases, the proportion of other groups, and of their members, who changed what they do within weeks of {group} changing.',
     comparison: 'Cases where {group} did not change.',
     method:
       'Expert review, plus a data pull of who follows or refers to the group (for example referrals, mentions or dependencies).',
@@ -107,7 +107,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   openness: {
     question: 'How readily does {group} move toward what others do?',
     measure:
-      'In past cases where others changed behaviour, the share of {group} who followed, and the number of weeks they took.',
+      'In past cases where others changed behaviour, the proportion of {group} who followed, and the number of weeks they took.',
     comparison: 'Cases where others changed and {group} did not follow.',
     method:
       'A data pull of past cases where others changed behaviour, plus a few interviews with members of the group.',
@@ -119,7 +119,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   sensitivity: {
     question: 'How strongly does {group} respond to a change like the one in {change}?',
     measure:
-      'The size of the reaction of {group} to comparable past changes, as the share who changed what they do for each step of change.',
+      'The size of the reaction of {group} to comparable past changes, as the proportion who changed what they do for each step of change.',
     comparison: 'The same group in periods without a comparable change.',
     method:
       'A small staged rollout or an A/B test with a comparison group, or past data on reactions to comparable changes.',
@@ -131,7 +131,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   riskTolerance: {
     question: 'How much uncertainty or loss is {group} ready to accept?',
     measure:
-      'In past decisions taken under uncertainty, the share of {group} who took the riskier option.',
+      'In past decisions taken under uncertainty, the proportion of {group} who took the riskier option.',
     comparison: 'Other groups facing the same choices.',
     method:
       'A survey with scenario questions, or interviews about past decisions taken under uncertainty.',
@@ -143,7 +143,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   switchingCost: {
     question: 'How long and how costly is it for {group} to change what they use or do today?',
     measure:
-      'The elapsed time and the out-of-pocket cost, from records of past moves by {group}, and the share who moved within a month.',
+      'The elapsed time and the out-of-pocket cost, from records of past moves by {group}, and the proportion who moved within a month.',
     comparison: 'Moves made by other groups of similar size, or by {group} in earlier years.',
     method:
       'A short survey and a few interviews with members of the group, backed by a data pull of how often and how quickly they changed in the past.',
@@ -168,7 +168,7 @@ export const TRAIT_CHECKS: Record<TraitKey, Check> = {
   adoptionTendency: {
     question: 'How ready is {group} to take up something new?',
     measure:
-      'The share of {group} who took up comparable changes within a set number of weeks of their start.',
+      'The proportion of {group} who took up comparable changes within a set number of weeks of their start.',
     comparison: 'Other groups offered the same changes.',
     method: 'A data pull of past take-up of comparable changes, plus a few interviews.',
     decision: `${SET_BY_YOU} Decide what take-up would show the group to be ready.`,
@@ -204,7 +204,7 @@ export const STRENGTH_CHECK: Check = {
   question:
     'How large is the change in {change} in practice, and how widely and how soon does it reach the groups it affects?',
   measure:
-    'For each affected group, and first for the groups the answer names: what the change amounts to as the group experiences it, the share of the group it reaches, and the number of weeks before they see it.',
+    'For each affected group, and first for the groups the answer names: what the change amounts to as the group experiences it, the proportion of the group it reaches, and the number of weeks before they see it.',
   comparison:
     'What was assumed when the simulation was set up for the size, reach and timing of the change, written in the same terms.',
   method:
@@ -219,7 +219,7 @@ export const STRENGTH_CHECK: Check = {
 export const SPREAD_CHECK: Check = {
   question: 'How much do members of {group} differ from one another in how they react?',
   measure:
-    'The spread, across members of {group}, of the reaction to a comparable change: the share who react strongly against the share who hardly react.',
+    'The spread, across members of {group}, of the reaction to a comparable change: the proportion who react strongly against the proportion who hardly react.',
   comparison: 'The same measure for another group that experienced the same change.',
   method:
     'A data pull of past reactions by individual members or sub-groups, plus a few interviews.',
@@ -345,7 +345,7 @@ const GAP_CHECKS: { categories: readonly StakeholderCategory[]; check: Check }[]
 export const GENERAL_GAP_CHECK: Check = {
   question: 'What do members of {group} actually think and need about the change in {change}?',
   measure:
-    'What members of {group} report about the change: the share who say it helps, harms or does not affect them, with the quoted passages attached to the stakeholder record.',
+    'What members of {group} report about the change: the proportion who say it helps, harms or does not affect them, with the quoted passages attached to the stakeholder record.',
   comparison: 'A comparable group that the change does not affect.',
   method: 'Interviews with a few members, followed by a short survey.',
   decision:
