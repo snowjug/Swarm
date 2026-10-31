@@ -1,3 +1,4 @@
+import type { Variant } from '../../../shared/analysis.js';
 import type { BriefRefs, BriefSection, BriefSignal } from '../../../shared/brief.js';
 import { CRITIC_ROLE_LABELS } from '../../../shared/critique.js';
 import { NO_DIRECTION_NOTICE } from '../../../shared/signal.js';
@@ -8,7 +9,7 @@ import type { Facts } from './facts.js';
 import { landscape } from './landscape.js';
 import type { Headline } from './measures.js';
 import { relianceOfEvidence } from './rules.js';
-import { clip, decimals, embed, listed, plural, whole } from './text.js';
+import { clip, decimals, embed, listed, plural, traitLabel, whole } from './text.js';
 import { sectionWriter, type SectionWriter, type Tally } from './writer.js';
 
 const CLASS_WORDS = {
@@ -273,11 +274,27 @@ export function decision(facts: Facts, tally: Tally): BriefSection {
     }
   }
   const variants = facts.analysis.config.variants;
+  const actorName = (id: string): string => embed(facts.actorById.get(id)?.name ?? id, 60);
+  /** What a variant sets for particular actors, which is what an intervention is, so that it is not only a label. */
+  const sets = (variant: Variant): string => {
+    const changes = [
+      ...Object.entries(variant.impactOverrides).map(
+        ([id, value]) => `the impact on ${actorName(id)} to ${decimals(value)}`,
+      ),
+      ...variant.traitEdits.map(
+        (edit) =>
+          `the ${traitLabel(edit.trait)} of ${actorName(edit.actorId)} to ${decimals(edit.value)}`,
+      ),
+    ];
+    if (changes.length === 0) return '';
+    const more = changes.length > 3 ? ` and ${changes.length - 3} more` : '';
+    return `; it sets ${listed(changes.slice(0, 3))}${more}`;
+  };
   const described = variants
     .slice(0, 6)
     .map(
       (variant) =>
-        `${embed(variant.label, 60)} (${variant.kind}${variant.kind === 'alternative' ? `, lands in round ${variant.round} at strength ${decimals(variant.intensity)} of 1` : ''})`,
+        `${embed(variant.label, 60)} (${variant.kind}${variant.kind === 'alternative' ? `, lands in round ${variant.round} at strength ${decimals(variant.intensity)} of 1` : ''}${sets(variant)})`,
     );
   writer.add({
     origin: 'system-assumption',

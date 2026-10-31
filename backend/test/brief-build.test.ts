@@ -705,6 +705,37 @@ describe('the limitations and the appendix', () => {
     );
   });
 
+  it('names what a variant sets for particular actors, so that an intervention is not only a label', () => {
+    const analysis = richAnalysis();
+    const [subscribers, other] = analysis.actors;
+    const withIntervention = buildBrief(
+      richInputs({
+        analysis: {
+          ...analysis,
+          config: {
+            ...analysis.config,
+            variants: analysis.config.variants.map((variant) =>
+              variant.kind === 'baseline'
+                ? variant
+                : {
+                    ...variant,
+                    impactOverrides: { [subscribers!.id]: 0 },
+                    traitEdits: [{ actorId: other!.id, trait: 'switchingCost', value: 0.9 }],
+                  },
+            ),
+          },
+        },
+      }),
+    );
+    const decision = textOf(withIntervention, 'decision');
+    expect(decision).toContain(
+      `lands in round 2 at strength 0.70 of 1; it sets the impact on “${subscribers!.name}” to 0.00 and the switching cost of “${other!.name}” to 0.90)`,
+    );
+    // The baseline sets nothing, and nothing is said where nothing is set.
+    expect(decision).toContain('“No change” (baseline)');
+    expect(textOf(brief, 'decision')).not.toContain('it sets');
+  });
+
   it('gives the seeds, the variants with their strength, the rounds, the cost and every trait with its origin', () => {
     const appendix = textOf(brief, 'technical-appendix');
     expect(appendix).toContain('2 variants, each run 10 times over 8 rounds, from base seed 100');
