@@ -90,17 +90,19 @@ pack: tests check for the obvious forms of it.
    rehearsal projects do not mix with real ones.
 2. Read the header chip. With no model configured it says `LOCAL / RULES MODE`. With a model it
    says `REAL AZURE AI` and `connected` after **Verify connection**. Say which one you are in.
-3. Choose **Try an example** on the entry page. It fills the question and the documents, with their
+3. Choose **Use this example** on a card in **Not sure what to ask? Try an example**, on the entry page. It fills the question and the documents, with their
    provenance, and focuses the first action. Choosing an example only fills the form.
 4. Rehearse the example you will show once end to end. A run in rules mode takes seconds; a model
    run takes minutes.
 
-The scripts below name buttons and stages as the interface specification gives them (**Try an
-example**, **Understand my question**, **Use this scenario**, **Find stakeholders**, **Approve
-stakeholders and create actors**, **Compare scenarios**, **Run independent review**, **Generate
-decision brief**). If a label has moved in the build you are showing, the step is the same. A journey
-test that runs every example through the real interface (`e2e/lab/examples.spec.ts`) is a planned
-follow-up and does not exist yet, so rehearse the example you will show before you rely on a script.
+The scripts below name buttons and stages as the interface gives them (**Use this example**,
+**Understand my question**, **Use this scenario**, **Find stakeholders** (which is **Find stakeholders by
+reading the text** or **with the model**), **Approve stakeholders and create actors**, **Compare
+scenarios**, **Run independent review**, **Generate decision brief**). If a label has moved in the build you
+are showing, the step is the same. The [demo guide](../README.md) has the ten-minute script across the
+flagship examples. A journey test that runs every example through the real interface
+(`e2e/lab/examples.spec.ts`) does not exist, so rehearse the example you will show before you rely on a
+script.
 
 ## Screens and what to point at
 
@@ -186,10 +188,12 @@ view: it shows which assumptions the result depends on and which of them have no
 
 Rules mode needs no network and no model. Use it, and say so.
 
-What has been checked, and what has not: the packs pass their tests, and each was run through the
-evidence pipeline that exists today in rules mode, where it completes and the ledger reports the
-conflicts listed above. The scenario, stakeholder, analysis, critic and brief steps each have a rules
-path by specification, but the scripts have not yet been rehearsed against the merged interface.
+What has been checked, and what has not: the packs pass their tests, and `backend/test/lab-journey.test.ts`
+walks every example, and a question that no example knows, from the question to the brief through the
+routes the pages use, in rules mode with no model, checking that it completes and that the brief carries
+its origins, recommendations and validation plan. The scenario, stakeholder, analysis, critic and brief
+steps each have a rules path. No browser test walks the examples through the pages, so rehearse the one
+you will show.
 
 - Leave `AI_PROVIDER` as `none` (the default), or choose local rules when you create the project.
   The header chip reads `LOCAL / RULES MODE`.
@@ -212,8 +216,8 @@ nearest fallback; the [presenter guide](../presentation.md#if-something-fails) h
 The examples live in the application (`shared/examples`), so choosing one always starts from the
 same text. There is nothing to restore.
 
-- A rehearsal is an ordinary project. Open the history drawer and choose **Delete permanently**, or
-  leave it and start another.
+- A rehearsal is an ordinary project. Open **History**, choose the trash-can button on its card (named
+  **Delete** and the project's name), then **Delete permanently**, or leave it and start another.
 - For a clean machine, start the server with an empty `DATA_DIR`.
 - The audit log is append-only by design: a rehearsal stays in it, as ordinary entries with
   identifiers and counts and no document text.

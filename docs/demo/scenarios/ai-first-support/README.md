@@ -69,7 +69,7 @@ first screen; premium and enterprise customers left out at first.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Try an example**, **AI-first support**. Say: "Swarm
+**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **AI-first support**. Say: "Swarm
 explores scenarios. It does not guarantee or precisely predict real-world behavior. This is an
 invented software company and invented evidence, and each document says so." Point at the question
 and the sample provenance with the licence `Synthetic, CC0`.

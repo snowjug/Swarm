@@ -81,7 +81,7 @@ asks for an account.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Try an example**, **Online store: delivery and
+**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **Online store: delivery and
 checkout**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
 behavior. This is an invented online bookshop and invented evidence, and each document says so."
 Point at the question and the sample provenance with the licence `Synthetic, CC0`.
