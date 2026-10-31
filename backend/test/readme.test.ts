@@ -233,23 +233,78 @@ describe('README commands and variables exist', () => {
 });
 
 describe('links and images resolve', () => {
-  const link = /!?\[[^\]]*\]\(([^)\s]+)\)/gu;
+  /**
+   * Where each link of a Markdown text points: the target of `[text](target)`, and the target of each
+   * definition `[label]: target` that a `[text][label]` link refers to.
+   */
+  const targetsOf = (markdown: string): string[] => {
+    const text = prose(markdown);
+    return [
+      ...[...text.matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/gu)].map((m) => m[1] ?? ''),
+      ...[...text.matchAll(/^ {0,3}\[[^\]]+\]:[ \t]*<?([^\s>]+)>?/gmu)].map((m) => m[1] ?? ''),
+    ];
+  };
 
-  it('points every relative link at a file that exists, and every anchor at a real heading', () => {
-    for (const file of docFiles()) {
-      const dir = dirname(join(root, file));
-      for (const match of prose(read(file)).matchAll(link)) {
-        const target = match[1] ?? '';
-        if (/^(?:[a-z][a-z0-9+.-]*:|#)/iu.test(target) && !target.startsWith('#')) continue;
-        const [path = '', anchor] = target.split('#');
-        const resolved = path === '' ? join(root, file) : resolve(dir, path);
-        expect(() => statSync(resolved), `${file}: ${target}`).not.toThrow();
-        if (anchor && resolved.endsWith('.md')) {
-          const slugs = headings(readFileSync(resolved, 'utf8')).map(slug);
-          expect(slugs, `${file}: #${anchor} in ${relative(root, resolved)}`).toContain(anchor);
-        }
+  const labelOf = (text: string): string => text.trim().replace(/\s+/gu, ' ').toLowerCase();
+
+  /** The links of a document that lead nowhere: a file, a heading or a definition that is not there. */
+  const brokenLinks = (file: string, markdown: string): string[] => {
+    const broken: string[] = [];
+    const dir = dirname(join(root, file));
+    for (const target of targetsOf(markdown)) {
+      if (/^(?:[a-z][a-z0-9+.-]*:|#)/iu.test(target) && !target.startsWith('#')) continue;
+      const [path = '', anchor] = target.split('#');
+      const resolved = path === '' ? join(root, file) : resolve(dir, path);
+      try {
+        statSync(resolved);
+      } catch {
+        broken.push(`${file}: ${target} is not a file`);
+        continue;
+      }
+      if (anchor && resolved.endsWith('.md')) {
+        const slugs = headings(readFileSync(resolved, 'utf8')).map(slug);
+        if (!slugs.includes(anchor))
+          broken.push(`${file}: #${anchor} in ${relative(root, resolved)}`);
       }
     }
+    // `[text][label]` and `[label][]` mean nothing unless a definition of the label is there.
+    const text = prose(markdown).replace(/`[^`\n]*`/gu, '');
+    const defined = new Set(
+      [...text.matchAll(/^ {0,3}\[([^\]]+)\]:/gmu)].map((match) => labelOf(match[1] ?? '')),
+    );
+    for (const match of text.matchAll(/!?\[([^\]]*)\]\[([^\]]*)\]/gu)) {
+      const label = labelOf(match[2] || match[1] || '');
+      if (!defined.has(label)) broken.push(`${file}: [${label}] has no definition`);
+    }
+    return broken;
+  };
+
+  it('points every relative link at a file that exists, and every anchor at a real heading', () => {
+    for (const file of docFiles()) expect(brokenLinks(file, read(file)), file).toEqual([]);
+  });
+
+  it('finds a broken link in every way one can be written, so that the check above cannot pass by not looking', () => {
+    const broken = (markdown: string) => brokenLinks('README.md', `${readme}\n\n${markdown}\n`);
+    expect(broken('[gone](./docs/no-such-file.md)')).toEqual([
+      'README.md: ./docs/no-such-file.md is not a file',
+    ]);
+    expect(broken('[gone][guide]\n\n[guide]: ./docs/no-such-file.md')).toEqual([
+      'README.md: ./docs/no-such-file.md is not a file',
+    ]);
+    expect(broken('[gone][]\n\n[Gone]: <./docs/no-such-file.md> "A title"')).toEqual([
+      'README.md: ./docs/no-such-file.md is not a file',
+    ]);
+    expect(broken('[heading][ux]\n\n[ux]: ./docs/UX.md#no-such-heading')).toEqual([
+      'README.md: #no-such-heading in docs/UX.md',
+    ]);
+    expect(broken('[nowhere][undefined label]')).toEqual([
+      'README.md: [undefined label] has no definition',
+    ]);
+    // Definitions that lead somewhere, and brackets that are code, are fine.
+    expect(broken('[ux][UX guide]\n\n[ux guide]: ./docs/UX.md\n\n`rows[0][1]` is code.')).toEqual(
+      [],
+    );
+    expect(broken('```\n[fenced]: ./docs/no-such-file.md\n```')).toEqual([]);
   });
 
   it('keeps screenshots small and as PNG files', () => {
@@ -292,14 +347,90 @@ describe('README keeps private identifiers and over-claims out', () => {
     for (const [file, text] of sources) expect(text, file).not.toMatch(/mirofish/iu);
   });
 
+  // A list of phrasings, not a proof that no unsupported claim is made: it catches the plain ones and
+  // is meant to be added to when another slips through. A denial before the phrase (`does not predict`,
+  // `never a forecast`) is what the README says about itself, and is let through.
+  const REAL_WORLD =
+    'real[- ]world|actual|future|outcomes?|adoption|conversion|churn|revenue|sales|demand|sentiment|share|behaviou?r|customers?|users?|markets?|results?';
+  const OVERCLAIMS: readonly [string, RegExp][] = [
+    [
+      'readiness or security',
+      /\b(?:production[- ]ready|enterprise[- ]ready|fully secure|completely secure|is secure|bug[- ]free)\b/iu,
+    ],
+    [
+      'a guarantee',
+      /\bguarantee[sd]? (?:accuracy|safety|security|correctness|results?|outcomes?)\b/iu,
+    ],
+    ['a near-perfect figure', /\b(?:100|99)\s*%/u],
+    [
+      'a prediction of the real world',
+      new RegExp(
+        `\\b(?:predict|forecast|foresee)(?:s|ed|ing)?\\b[^.!?\\n|]{0,80}?\\b(?:${REAL_WORLD})\\b`,
+        'iu',
+      ),
+    ],
+    [
+      'an accurate prediction',
+      /\b(?:accurate|reliable|precise|calibrated|trustworthy)\s+(?:predict\w*|forecast\w*|projections?)\b/iu,
+    ],
+    [
+      'knowing what happens',
+      /\b(?:tells?|shows?|knows?|reveals?)\b[^.!?\n|]{0,20}\bwhat (?:will|is going to|is certain to) happen\b/iu,
+    ],
+    [
+      'a real-world rate',
+      /\b(?:real[- ]world|actual)\s+(?:adoption|conversion|churn|retention|sentiment)\b/iu,
+    ],
+  ];
+  const DENIAL =
+    /\b(?:not|never|no|cannot|can[’']t|does[’']?n[’']?t|do[’']?n[’']?t|is[’']?n[’']?t|are[’']?n[’']?t|without|neither|nor)\b/iu;
+
+  /** What a text claims that the evidence does not support: the sentences of its prose that match, and what each is. */
+  const overclaimsIn = (markdown: string): string[] =>
+    prose(markdown)
+      .split(/(?<=[.!?])\s+|\n+|\|/u)
+      .flatMap((sentence) =>
+        OVERCLAIMS.flatMap(([what, pattern]) => {
+          const found = pattern.exec(sentence);
+          if (!found) return [];
+          const before = sentence.slice(Math.max(0, found.index - 40), found.index);
+          return DENIAL.test(before) ? [] : [`${what}: ${sentence.trim()}`];
+        }),
+      );
+
   it('makes no claim the evidence does not support', () => {
-    const withoutNotice = readme.replace(
+    for (const [file, text] of sources) expect(overclaimsIn(text), file).toEqual([]);
+  });
+
+  it('catches a claim of prediction or accuracy however it is put, and lets what the README says about itself through', () => {
+    for (const claim of [
+      'Swarm accurately predicts real-world adoption and conversion.',
+      'Swarm forecasts how customers will behave.',
+      'It predicts what your users will do next.',
+      'Use it to foresee market outcomes.',
+      'You get reliable forecasts of demand.',
+      'The simulation tells you what will happen.',
+      'Every result is 100% accurate.',
+      'Swarm predicts the future of your business.',
+      'It shows real-world conversion rates, and never fails.',
+      'Swarm is production-ready.',
+    ]) {
+      // Appended to the README itself, so that it is the claim and nothing else that is found.
+      expect(overclaimsIn(`${readme}\n\n${claim}\n`), claim).toEqual(
+        expect.arrayContaining([expect.stringContaining(claim)]),
+      );
+      expect(overclaimsIn(readme), claim).toEqual([]);
+    }
+    for (const saying of [
       'Swarm explores possible scenarios. It does not predict the future.',
-      '',
-    );
-    const overclaims =
-      /\b(?:production[- ]ready|enterprise[- ]ready|fully secure|completely secure|is secure|guarantees?d? (?:accuracy|safety|security|correctness)|(?:100|99)%|predicts? the future|accurate forecasts?|bug[- ]free)\b/iu;
-    expect(overclaims.exec(withoutNotice)?.[0] ?? null).toBeNull();
+      'A forecast. It never claims to predict, and its wording and exports say so.',
+      'Treat every result as a hypothesis about a scenario, never as a forecast.',
+      'These are hypothetical scenarios, not predictions.',
+      'The counts are simulated members, not real-world conversion.',
+      'No part of it forecasts what customers do.',
+    ]) {
+      expect(overclaimsIn(saying), saying).toEqual([]);
+    }
   });
 });
 
