@@ -28,6 +28,8 @@ import {
 import type { ProjectDetail } from '../../../../shared/types';
 import { useCritiques, type CritiquesState } from '../../hooks/useCritiques';
 import {
+  LEAD_EXPLANATION,
+  LEAD_HEADING,
   ORIGIN_VIEW,
   RESPONSE_ACTIONS,
   SEVERITY_VIEW,
@@ -36,9 +38,11 @@ import {
   groupByRole,
   impactHeading,
   isOutOfDate,
+  leadCritique,
   modeText,
   summarise,
   targetLabel,
+  withoutLead,
 } from '../../lib/critics';
 import { EmptyPanel, Notice, Spinner } from '../ui';
 
@@ -253,6 +257,12 @@ function CritiqueCard({
           <dt>{impactHeading(critique.status)}</dt>
           <dd>{critique.impactOnConclusion || 'No effect on the conclusion was stated.'}</dd>
         </div>
+        {critique.requestedAction && (
+          <div className="critic-action">
+            <dt>Requested action</dt>
+            <dd>{critique.requestedAction}</dd>
+          </div>
+        )}
         {critique.response && (
           <div className="critic-response">
             <dt>
@@ -279,6 +289,29 @@ function CritiqueCard({
         />
       )}
     </article>
+  );
+}
+
+/** The criticism that nothing in the comparison is about the change, shown above everything else. */
+function LeadCritique({
+  critique,
+  state,
+  canRespond,
+}: {
+  critique: Critique;
+  state: CritiquesState;
+  canRespond: boolean;
+}) {
+  const titleId = useId();
+  return (
+    <section className="critic-lead" aria-labelledby={titleId}>
+      <header className="critic-lead-head">
+        <span className="eyebrow">Read this first</span>
+        <h3 id={titleId}>{LEAD_HEADING}</h3>
+        <p>{LEAD_EXPLANATION}</p>
+      </header>
+      <CritiqueCard critique={critique} state={state} canRespond={canRespond} />
+    </section>
   );
 }
 
@@ -428,6 +461,7 @@ export function CriticReview({ state }: { state: CritiquesState }) {
     );
   } else {
     const set = view.critiques;
+    const lead = set ? leadCritique(set.critiques) : null;
     body = (
       <>
         {isOutOfDate(view) && (
@@ -436,6 +470,7 @@ export function CriticReview({ state }: { state: CritiquesState }) {
             criticisms that come back unchanged are kept.
           </Notice>
         )}
+        {lead && <LeadCritique critique={lead} state={state} canRespond={view.may.respond} />}
         {set?.notes && set.notes.length > 0 && (
           <Notice tone="info" title="About how this review was made">
             {set.notes.join('\n')}
@@ -455,7 +490,7 @@ export function CriticReview({ state }: { state: CritiquesState }) {
         {set ? (
           <>
             <Summary set={set} />
-            {groupByRole(set.critiques).map((group) => (
+            {groupByRole(withoutLead(set.critiques)).map((group) => (
               <section
                 key={group.role}
                 className="critic-group"

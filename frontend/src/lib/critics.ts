@@ -1,4 +1,5 @@
 import {
+  CHANGE_CANNOT_MOVE_ID,
   CRITIC_ROLES,
   CRITIC_ROLE_LABELS,
   CRITIC_ROLE_QUESTIONS,
@@ -108,6 +109,19 @@ export function groupByRole(critiques: readonly Critique[]): RoleGroup[] {
         ];
   });
 }
+
+/** What the page says above the criticism that the change cannot move anyone, which is read first. */
+export const LEAD_HEADING = 'This comparison cannot say anything about the change';
+export const LEAD_EXPLANATION =
+  'Until this is settled, read nothing into these results: a difference from no change is noise, and so is “about the same”.';
+
+/** The criticism that no scenario can move anyone, if the review holds it: it leads the page. */
+export const leadCritique = (critiques: readonly Critique[]): Critique | null =>
+  critiques.find((critique) => critique.id === CHANGE_CANNOT_MOVE_ID) ?? null;
+
+/** Every other criticism, in the order the server gave them, so that the lead is not shown twice. */
+export const withoutLead = (critiques: readonly Critique[]): Critique[] =>
+  critiques.filter((critique) => critique.id !== CHANGE_CANNOT_MOVE_ID);
 
 export function targetLabel(target: Critique['target']): string {
   switch (target.kind) {

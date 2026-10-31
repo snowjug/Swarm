@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { CRITIC_ROLE_QUESTIONS } from '../../../../shared/critique';
+import { CHANGE_CANNOT_MOVE_ID, CRITIC_ROLE_QUESTIONS } from '../../../../shared/critique';
 import { critiqueFixture, setFixture, stateFixture, viewFixture } from '../../test/critics';
 import { expectNoSecretLikeText, visibleText } from '../../test/provider';
 import { projectFixture } from '../../test/project';
+import { LEAD_EXPLANATION, LEAD_HEADING } from '../../lib/critics';
 import { CriticPanel, CriticReview } from './CriticPanel';
 
 const render = (patch: Parameters<typeof stateFixture>[0] = {}) =>
@@ -400,6 +401,153 @@ describe('the independent review', () => {
       );
       // What was said is still shown to them.
       expect(visibleText(html)).toContain('The conclusion could be wrong');
+    });
+  });
+
+  describe('a comparison that cannot say anything about the change', () => {
+    const OBJECTION =
+      'No stakeholder has an expected direction of impact, so the change cannot move anyone in the simulation and every difference from no change is noise.';
+    const ACTION =
+      'Say who is helped or harmed in the stakeholder review, or read the evidence with a model, before reading anything into the results.';
+    const lead = (change: Parameters<typeof critiqueFixture>[0] = {}) =>
+      critiqueFixture({
+        id: CHANGE_CANNOT_MOVE_ID,
+        role: 'methodology',
+        severity: 'major',
+        objection: OBJECTION,
+        basis: ['Actors with an expected direction of impact: 0 of 25.'],
+        impactOnConclusion:
+          'If this stands, nothing in this comparison is about the change, and the conclusions do not follow.',
+        requestedAction: ACTION,
+        ...change,
+      });
+    const others = () => [
+      critiqueFixture({
+        id: 'evidence-single-source',
+        role: 'evidence',
+        severity: 'major',
+        objection: 'Most cited passages come from one document.',
+      }),
+      critiqueFixture(),
+    ];
+    const vacuous = (change: Parameters<typeof critiqueFixture>[0] = {}) =>
+      viewFixture({ critiques: setFixture([...others(), lead(change)]) });
+
+    it('leads the page with it, above the run controls, the summary and every critic', () => {
+      const html = render({ view: vacuous() });
+      const at = (text: string) => html.indexOf(text);
+      expect(at('Read this first')).toBeGreaterThan(-1);
+      expect(at(LEAD_HEADING)).toBeGreaterThan(-1);
+      expect(at(LEAD_HEADING)).toBeLessThan(at('Run the review again'));
+      expect(at(LEAD_HEADING)).toBeLessThan(at('What the review found'));
+      expect(at(LEAD_HEADING)).toBeLessThan(at(CRITIC_ROLE_QUESTIONS.evidence));
+      expect(at(LEAD_HEADING)).toBeLessThan(at(CRITIC_ROLE_QUESTIONS.methodology));
+      const text = visibleText(html);
+      expect(text).toContain(LEAD_EXPLANATION);
+      expect(text).toContain('read nothing into these results');
+    });
+
+    it('says what is wrong, what it rests on and what it does to the conclusion', () => {
+      const text = visibleText(render({ view: vacuous() }));
+      expect(text).toContain(OBJECTION);
+      expect(text).toContain('Actors with an expected direction of impact: 0 of 25.');
+      expect(text).toContain('and the conclusions do not follow');
+      expect(text).toContain('Major');
+    });
+
+    it('asks for the action it requests, in a row of its own', () => {
+      const html = render({ view: vacuous() });
+      expect(html).toContain('class="critic-action"');
+      expect(visibleText(html)).toContain(`Requested action ${ACTION}`);
+    });
+
+    it('shows it once: it is not repeated in the group of the critic that raised it', () => {
+      const html = render({ view: vacuous() });
+      expect(html.split(OBJECTION)).toHaveLength(2);
+      expect(html.split('critic-lead"')).toHaveLength(2);
+      // The other methodology criticism is still in its group.
+      const headings = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gu)].map((m) =>
+        visibleText(m[1] ?? ''),
+      );
+      expect(headings).toContain(CRITIC_ROLE_QUESTIONS.methodology);
+    });
+
+    it('leaves out a critic whose only criticism is the lead', () => {
+      const html = render({ view: viewFixture({ critiques: setFixture([lead()]) }) });
+      const headings = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gu)].map((m) =>
+        visibleText(m[1] ?? ''),
+      );
+      expect(headings).toContain(LEAD_HEADING);
+      expect(headings).not.toContain(CRITIC_ROLE_QUESTIONS.methodology);
+    });
+
+    it('counts it with the others, and keeps one response form on it', () => {
+      const html = render({ view: vacuous() });
+      const text = visibleText(html);
+      expect(text).toContain('3 criticisms raised against this analysis');
+      const severities =
+        html.match(/<ul[^>]*aria-label="Criticisms by severity"[\s\S]*?<\/ul>/u)?.[0] ?? '';
+      expect(visibleText(severities)).toBe('Blocking 0 Major 2 Minor 1 Note 0');
+      expect(html.match(/<form/gu)).toHaveLength(3);
+      expect(html.match(/aria-label="Respond to: The analysis as a whole"/gu)).toHaveLength(3);
+    });
+
+    it('keeps it on top once it is accepted, with what was said', () => {
+      const html = render({
+        view: vacuous({
+          status: 'accepted',
+          response: {
+            text: 'We will say who is helped or harmed first.',
+            by: 'user',
+            at: '2026-02-03T10:00:00.000Z',
+          },
+        }),
+      });
+      const text = visibleText(html);
+      expect(html.indexOf(LEAD_HEADING)).toBeLessThan(html.indexOf('What the review found'));
+      expect(text).toContain('Accepted: this applies to the conclusion');
+      expect(text).toContain('We will say who is helped or harmed first.');
+    });
+
+    it('is still shown to someone who may not respond, without a form', () => {
+      const html = render({
+        view: viewFixture({
+          critiques: setFixture([lead()]),
+          may: { run: true, respond: false },
+        }),
+      });
+      expect(visibleText(html)).toContain(LEAD_HEADING);
+      expect(visibleText(html)).toContain(OBJECTION);
+      expect(html).not.toContain('<form');
+    });
+
+    it('says nothing of the kind where the review does not hold it', () => {
+      const text = visibleText(render({ view: populated() }));
+      expect(text).not.toContain('Read this first');
+      expect(text).not.toContain(LEAD_HEADING);
+      expect(text).not.toContain('Requested action');
+    });
+
+    it('shows a requested action on any criticism that has one, and on no other', () => {
+      const html = render({
+        view: viewFixture({
+          critiques: setFixture([
+            critiqueFixture({
+              id: 'assumption-no-registered-effect',
+              role: 'assumption',
+              severity: 'major',
+              target: { kind: 'finding', id: 'f1' },
+              objection: 'The comparison found no repeatable difference from no change.',
+              requestedAction:
+                'Raise the intensity of the change, or check the impact each actor is given, then compare again.',
+            }),
+            critiqueFixture(),
+          ]),
+        }),
+      });
+      expect(html.match(/class="critic-action"/gu)).toHaveLength(1);
+      expect(visibleText(html)).toContain('Raise the intensity of the change');
+      expect(html).not.toContain('Read this first');
     });
   });
 
