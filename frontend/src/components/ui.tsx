@@ -53,16 +53,20 @@ export function EmptyPanel({
   children,
   icon,
   action,
+  level = 3,
 }: {
   title: string;
   children: ReactNode;
   icon?: ReactNode;
   action?: ReactNode;
+  /** The heading level that follows the heading above the panel without skipping one. */
+  level?: 2 | 3 | 4;
 }) {
+  const Heading = `h${level}` as const;
   return (
     <div className="empty-panel">
       <div className="empty-icon">{icon || <FileText size={25} aria-hidden="true" />}</div>
-      <h3>{title}</h3>
+      <Heading>{title}</Heading>
       <p>{children}</p>
       {action}
     </div>

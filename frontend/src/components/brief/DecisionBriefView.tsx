@@ -88,6 +88,7 @@ export function BriefPanel({
       <section className="brief brief-state" aria-label="Decision brief">
         <EmptyPanel
           title="No decision brief yet"
+          level={2}
           icon={<ListChecks size={25} aria-hidden="true" />}
           action={
             onNavigate ? (
@@ -114,6 +115,7 @@ export function BriefPanel({
       {failure}
       <EmptyPanel
         title="Make the decision brief"
+        level={2}
         icon={<FilePlus2 size={25} aria-hidden="true" />}
         action={
           view.may.generate ? (

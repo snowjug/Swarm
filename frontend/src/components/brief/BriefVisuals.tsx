@@ -78,7 +78,7 @@ function StakeholderMap({ visuals }: { visuals: BriefVisuals }) {
       <div className="brief-map">
         {groups.map((group) => (
           <section className="brief-map-group" key={group.category} aria-label={group.label}>
-            <h5>{group.label}</h5>
+            <h4>{group.label}</h4>
             <ul>
               {group.stakeholders.map((entry) => {
                 const Icon = DIRECTION_ICONS[entry.direction];
@@ -209,7 +209,7 @@ function ScenarioComparison({ visuals, signal }: { visuals: BriefVisuals; signal
       ) : null}
       {rows.map((row) => (
         <div className="brief-compare" key={row.variantId}>
-          <h5>{row.label}</h5>
+          <h4>{row.label}</h4>
           {row.baselineAdverseMean !== null ? (
             <div className="brief-bar-row">
               <div className="brief-bar-label">{baselineLabel}</div>

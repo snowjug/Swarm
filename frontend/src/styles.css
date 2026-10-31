@@ -737,8 +737,14 @@ legend {
   border-radius: var(--radius-md);
   background: var(--surface-inset);
 }
-.empty-panel h3 {
+.empty-panel h2,
+.empty-panel h3,
+.empty-panel h4 {
   color: var(--t-fg-414b56);
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 630;
+  letter-spacing: normal;
 }
 .empty-panel p {
   max-width: 460px;

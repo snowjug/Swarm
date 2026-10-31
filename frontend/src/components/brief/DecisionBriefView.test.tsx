@@ -228,12 +228,12 @@ describe('the sections', () => {
   });
 
   it('numbers the sections, and gives each a heading that names it', () => {
-    const headings = tags(html, 'h4').map((entry) => entry.text);
+    const headings = tags(html, 'h3').map((entry) => entry.text);
     expect(headings[0]).toBe('Executive answer');
     expect(headings[1]).toBe('2. Decision evaluated');
     expect(headings).toHaveLength(17);
     expect(headings.at(-1)).toBe('17. Technical appendix');
-    expect(tags(html, 'h3').map((entry) => entry.text)).toEqual(['Decision brief']);
+    expect(tags(html, 'h2').map((entry) => entry.text)).toEqual(['Decision brief']);
   });
 
   it('labels every statement with where it comes from, and how far to rely on it where that applies', () => {
@@ -689,11 +689,11 @@ describe('what the page says about itself', () => {
     expect(text).not.toMatch(/\d\s?%/u);
   });
 
-  it('has one level-three heading, level-four headings for sections, and no heading skipped', () => {
+  it('has one level-two heading, level-three headings for sections, and no heading skipped', () => {
     const html = document();
     const levels = [...html.matchAll(/<h([1-6])\b/gu)].map((match) => Number(match[1]));
-    expect(levels.filter((level) => level === 3)).toHaveLength(1);
-    expect(levels.filter((level) => level < 3)).toEqual([]);
+    expect(levels.filter((level) => level === 2)).toHaveLength(1);
+    expect(levels.filter((level) => level < 2)).toEqual([]);
     for (let index = 1; index < levels.length; index += 1) {
       expect(levels[index]! - levels[index - 1]!).toBeLessThanOrEqual(1);
     }

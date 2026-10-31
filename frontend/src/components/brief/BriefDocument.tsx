@@ -42,7 +42,7 @@ function ExecutiveCard({
       tabIndex={-1}
     >
       <span className="eyebrow">1 / EXECUTIVE ANSWER</span>
-      <h4 id="brief-answer-title">Executive answer</h4>
+      <h3 id="brief-answer-title">Executive answer</h3>
       <p className="brief-headline">{brief.headline}</p>
       <p className="brief-badges">
         {answer ? <OriginBadge origin={answer.origin} /> : null}
@@ -113,9 +113,9 @@ function Section({
   );
   return (
     <section className="brief-section" id={id} aria-labelledby={`${id}-title`} tabIndex={-1}>
-      <h4 id={`${id}-title`}>
+      <h3 id={`${id}-title`}>
         <span className="mono">{index + 1}.</span> {section.title}
-      </h4>
+      </h3>
       <SectionVisuals kinds={section.visuals} visuals={visuals} signal={brief.signal} />
       <BriefStatementList statements={statements} visuals={visuals} />
       {section.id === 'recommendations' ? (
@@ -153,7 +153,7 @@ export function BriefDocument({
       <header className="brief-head">
         <div>
           <span className="eyebrow">DECISION BRIEF</span>
-          <h3 id="brief-title">Decision brief</h3>
+          <h2 id="brief-title">Decision brief</h2>
           <p className="field-help">
             Assembled by rules from this project’s analysis, stakeholders, scenario and sources on{' '}
             <time dateTime={brief.generatedAt}>{dateTime(brief.generatedAt)}</time>. It describes

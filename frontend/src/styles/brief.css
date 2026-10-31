@@ -6,9 +6,9 @@
   min-width: 0;
   color: var(--text);
 }
+.brief h2,
 .brief h3,
-.brief h4,
-.brief h5 {
+.brief h4 {
   margin: 0;
   line-height: 1.35;
 }
@@ -36,7 +36,7 @@
   flex: 1 1 320px;
   min-width: 0;
 }
-.brief-head h3 {
+.brief-head h2 {
   font-size: 20px;
 }
 .brief-head p {
@@ -63,7 +63,7 @@
   background: var(--panel);
   scroll-margin-top: 90px;
 }
-.brief-answer h4 {
+.brief-answer h3 {
   font-size: 16px;
 }
 .brief-headline {
@@ -245,7 +245,7 @@
   background: var(--panel);
   scroll-margin-top: 90px;
 }
-.brief-section > h4 {
+.brief-section > h3 {
   padding-bottom: 6px;
   border-bottom: 1px solid var(--border-soft);
   font-size: 16px;
@@ -325,7 +325,7 @@
   border-radius: 3px;
   background: var(--panel);
 }
-.brief-map-group h5 {
+.brief-map-group h4 {
   margin-bottom: 6px;
   font-size: 13px;
 }
