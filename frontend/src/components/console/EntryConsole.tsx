@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { ArrowRight, CheckCircle2, Circle, History, Info, TriangleAlert } from 'lucide-react';
 import { EXAMPLE_SCENARIOS, type ExampleScenario } from '../../../../shared/example-scenarios';
@@ -20,7 +20,8 @@ import { ScenarioIntake } from '../intake/ScenarioIntake';
 import { UrlEvidence } from '../evidence/UrlEvidence';
 import { SourceInput } from './SourceInput';
 import { DemoWorkspace, type DemoHistory } from './DemoWorkspace';
-import { ExamplePicker } from './ExamplePicker';
+import { entryReadiness } from './entryReadiness';
+import { ExamplePicker, STARTER, type LoadedExample } from './ExamplePicker';
 import { LandingHero } from './LandingHero';
 import { Notice, Spinner } from '../ui';
 
@@ -112,9 +113,11 @@ export function EntryConsole({
   );
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState<{ title: string; evidence: string | null } | null>(null);
+  const [loaded, setLoaded] = useState<LoadedExample | null>(null);
   const validationId = useId();
   const questionHelpId = useId();
+  const statusId = useId();
+  const noteId = useId();
   const clearFileError = useRef<(() => void) | null>(null);
   const questionField = useRef<HTMLTextAreaElement>(null);
   const modelAvailable = Boolean(config?.capabilities.modelAssisted && config.provider.configured);
@@ -129,6 +132,10 @@ export function EntryConsole({
   const maxDocuments = config?.limits.maxDocuments ?? MAX_DOCUMENTS;
   const disabled = busy || reading;
   const readiness = modelReadiness(modelAvailable, connectivity);
+  const ready = useMemo(
+    () => entryReadiness(entryInput({ name, question, documents, settings, frame })),
+    [name, question, documents, settings, frame],
+  );
 
   // An example brings a question and evidence, and nothing else: the structure read from an earlier
   // question no longer fits, and the first thing to do is to read what was filled in.
@@ -136,7 +143,7 @@ export function EntryConsole({
     name: string;
     question: string;
     documents: CreateProjectInput['documents'];
-    notice: { title: string; evidence: string | null };
+    notice: LoadedExample;
   }) => {
     setName(next.name);
     setQuestion(next.question);
@@ -155,14 +162,14 @@ export function EntryConsole({
         content,
         provenance,
       })),
-      notice: { title: example.title, evidence: exampleEvidence(example) },
+      notice: { kind: 'example', title: example.title, evidence: exampleEvidence(example) },
     });
   const chooseStarter = () =>
     fill({
       name: starter.name,
       question: starter.question,
       documents: starter.documents,
-      notice: { title: 'Fictional starter input', evidence: null },
+      notice: { kind: 'starter', title: STARTER.title, evidence: STARTER.evidence },
     });
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -231,18 +238,6 @@ export function EntryConsole({
               Duplicating inputs only. No graphs, agents, simulation results or reports are copied.
             </Notice>
           )}
-          {loaded && (
-            <Notice
-              tone={loaded.evidence ? 'info' : 'warning'}
-              title={
-                loaded.evidence ? `Example loaded: ${loaded.title}` : 'Fictional starter INPUT'
-              }
-            >
-              {loaded.evidence
-                ? `The question and evidence (${loaded.evidence}) came from this example. Read them, change what you like, then build. No results come with an example.`
-                : 'This editable input is invented for learning the workflow. No prerecorded outputs or case-study results are included.'}
-            </Notice>
-          )}
           <section className="form-section question-section">
             <div className="field">
               <label htmlFor="project-question">Your what-if question</label>
@@ -268,6 +263,7 @@ export function EntryConsole({
             <ExamplePicker
               examples={examples}
               disabled={disabled}
+              loaded={loaded}
               onPick={chooseExample}
               onStarter={chooseStarter}
             />
@@ -439,30 +435,36 @@ export function EntryConsole({
               uses community links. Model outputs may vary even with the same seed.
             </p>
           </section>
-          <div id={validationId} aria-live="polite" aria-atomic="true">
-            {error && (
-              <Notice tone="error" title="Cannot build this project">
-                {error}
-              </Notice>
-            )}
-          </div>
-          <div className="entry-submit">
-            <button
-              className="button button-primary"
-              type="submit"
-              disabled={disabled || !config?.capabilities.guidedConsole}
-            >
-              {busy ? (
-                <Spinner label="Creating and starting Graph Build" />
-              ) : (
-                <ArrowRight size={16} aria-hidden="true" />
+          <p className="field-help entry-submit-note" id={noteId}>
+            Saves a draft, then starts Graph Build only. No environment, simulation or report runs
+            until you request it.
+          </p>
+          <div className={`entry-submit-bar${ready.asked ? ' is-sticky' : ''}`}>
+            <div id={validationId} aria-live="polite" aria-atomic="true">
+              {error && (
+                <Notice tone="error" title="Cannot build this project">
+                  {error}
+                </Notice>
               )}
-              {busy ? 'Submitting…' : 'Build Graph'}
-            </button>
-            <small className="muted">
-              Saves a draft, then starts Graph Build only. No environment, simulation or report runs
-              until you request it.
-            </small>
+            </div>
+            <div className="entry-submit">
+              <button
+                className="button button-primary"
+                type="submit"
+                aria-describedby={`${statusId} ${noteId}`}
+                disabled={disabled || !config?.capabilities.guidedConsole}
+              >
+                {busy ? (
+                  <Spinner label="Creating and starting Graph Build" />
+                ) : (
+                  <ArrowRight size={16} aria-hidden="true" />
+                )}
+                {busy ? 'Submitting…' : 'Build Graph'}
+              </button>
+              <p className={`entry-status${ready.ready ? ' is-ready' : ''}`} id={statusId}>
+                {ready.text}
+              </p>
+            </div>
           </div>
         </form>
         <aside className="entry-aside" aria-label="About this console">

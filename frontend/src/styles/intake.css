@@ -1,9 +1,10 @@
 /* Scenario intake: the question, and the structure behind it. Owned by one feature; use the theme tokens, never raw colours. */
 .intake {
+  --intake-pad: 16px;
   display: grid;
   gap: 12px;
   min-width: 0;
-  padding: 16px;
+  padding: var(--intake-pad);
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--panel);
@@ -41,6 +42,30 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+}
+/* A scenario that is open for checking is long. The choice to use it or to drop it stays at the foot of
+   the screen until the end of the review, where it rests, with what is wrong with it if it cannot be
+   used; it is sticky, not fixed, so it never covers a field that takes focus. */
+.intake-review > .intake-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 calc(var(--intake-pad) * -1);
+  padding: var(--space-3) var(--intake-pad);
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.intake-bar > [aria-live] {
+  max-height: 40vh;
+  overflow-y: auto;
+}
+.intake-bar > [aria-live]:empty {
+  display: none;
+}
+.intake-review :is(input, textarea, select, summary, button, a[href]):not(.intake-bar *) {
+  scroll-margin-bottom: 90px;
 }
 .intake-summary-head {
   display: flex;
@@ -233,7 +258,7 @@
 }
 @media (max-width: 640px) {
   .intake {
-    padding: 12px;
+    --intake-pad: 12px;
   }
   .intake-pair {
     grid-template-columns: minmax(0, 1fr);
@@ -246,6 +271,17 @@
   }
   .intake-actions .button {
     flex: 1 1 100%;
+  }
+  /* The two choices of a review sit side by side, so that the bar that stays on the screen is one row. */
+  .intake-bar .intake-actions {
+    flex-wrap: nowrap;
+  }
+  .intake-bar .intake-actions .button {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .intake-bar .intake-actions .button-primary {
+    flex-grow: 2;
   }
 }
 @media (forced-colors: active) {

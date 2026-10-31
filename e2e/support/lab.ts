@@ -231,9 +231,11 @@ export const urlPanel = (page: Page): Locator =>
   page.getByRole('region', { name: 'Add a public web page' });
 
 export async function chooseExample(page: Page, example: ExampleScenario): Promise<void> {
-  await examplePicker(page)
-    .getByRole('button', { name: `Use this example: ${example.title}` })
-    .click();
+  const picker = examplePicker(page);
+  // Once an example has been loaded the cards give way to a line, and "Change example" brings them back.
+  const change = picker.getByRole('button', { name: 'Change example' });
+  if (await change.count()) await change.click();
+  await picker.getByRole('button', { name: `Use this example: ${example.title}` }).click();
   await expect(questionField(page)).toHaveValue(example.question);
   await expect(
     page.getByRole('status').filter({ hasText: `Example loaded: ${example.title}` }),

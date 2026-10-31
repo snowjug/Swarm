@@ -59,29 +59,36 @@ export function IntakeReview({
         onSkip={(index) => onChange(skipQuestion(frame, index))}
       />
       <IntakeEditor frame={frame} disabled={disabled} onChange={onChange} />
-      <div aria-live="polite">
-        {problems.length > 0 && (
-          <Notice tone="error" title="This scenario cannot be used yet">
-            <ul className="intake-plain">
-              {problems.map((problem) => (
-                <li key={problem}>{problem}</li>
-              ))}
-            </ul>
-          </Notice>
-        )}
-      </div>
-      <div className="intake-actions">
-        <button type="button" className="button button-primary" disabled={disabled} onClick={onUse}>
-          Use this scenario
-        </button>
-        <button
-          type="button"
-          className="button button-secondary"
-          disabled={disabled}
-          onClick={onDiscard}
-        >
-          Discard
-        </button>
+      <div className="intake-bar">
+        <div aria-live="polite">
+          {problems.length > 0 && (
+            <Notice tone="error" title="This scenario cannot be used yet">
+              <ul className="intake-plain">
+                {problems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+            </Notice>
+          )}
+        </div>
+        <div className="intake-actions">
+          <button
+            type="button"
+            className="button button-primary"
+            disabled={disabled}
+            onClick={onUse}
+          >
+            Use this scenario
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={disabled}
+            onClick={onDiscard}
+          >
+            Discard
+          </button>
+        </div>
       </div>
       <p className="field-help">
         The scenario is kept with your experiment when you create it. If you do not use it, the
