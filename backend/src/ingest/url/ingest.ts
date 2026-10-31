@@ -142,13 +142,20 @@ function explain(failure: UrlFailure, host: string | null, settings: UrlIngestSe
   }
 }
 
+/** True for the marks that cannot begin or end a file name: a dot, a hyphen or a space. */
+const isEdgeMark = (character: string | undefined): boolean =>
+  character === '.' || character === '-' || (character !== undefined && /\s/u.test(character));
+
 /** A file name for the document that cannot be anything but a name: letters, digits and a few marks. */
 export function documentName(title: string | null, host: string): string {
   const raw = title ? `${host} - ${title}` : host;
-  const cleaned = raw
-    .replace(/[^\p{L}\p{M}\p{N} ._()-]+/gu, ' ')
-    .replace(/\s+/gu, ' ')
-    .replace(/^[.\s-]+|[.\s-]+$/gu, '');
+  const squeezed = raw.replace(/[^\p{L}\p{M}\p{N} ._()-]+/gu, ' ').replace(/\s+/gu, ' ');
+  // A loop, not `/[.\s-]+$/`: a pattern anchored at the end is tried again from every mark of a long run.
+  let start = 0;
+  let end = squeezed.length;
+  while (start < end && isEdgeMark(squeezed[start])) start += 1;
+  while (end > start && isEdgeMark(squeezed[end - 1])) end -= 1;
+  const cleaned = squeezed.slice(start, end);
   return `${cleaned.slice(0, 100).trim() || 'web page'}.txt`;
 }
 
