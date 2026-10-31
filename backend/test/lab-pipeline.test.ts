@@ -161,4 +161,30 @@ describe('from a finished comparison to the decision brief', () => {
     const html = await app.inject(`${base}/brief/export?format=html`);
     expect(html.headers['content-security-policy']).toContain("default-src 'none'");
   });
+
+  it('still reviews and reports a comparison whose per-run detail was dropped to fit the size limit', async () => {
+    const { app, repository, project, base, compare } = await world();
+    const analysis = await compare({ runsPerVariant: 10, baseSeed: 31, sensitivity: true });
+    expect(analysis.status).toBe('completed');
+    const compacted = {
+      ...analysis,
+      variants: analysis.variants.map((variant) => ({
+        ...variant,
+        runs: variant.runs.map((run) => ({ ...run, byActor: [] })),
+      })),
+    };
+    repository.artifacts.put(project.id, 'analysis', analysis.id, compacted);
+
+    const review = await app.inject({ method: 'POST', url: `${base}/critiques/run`, payload: {} });
+    expect(review.statusCode, review.body).toBeLessThan(300);
+    const made = await app.inject({ method: 'POST', url: `${base}/brief`, payload: {} });
+    expect(made.statusCode, made.body).toBe(201);
+    const { brief, visuals } = made.json() as BriefView;
+    expect(brief?.sections).toHaveLength(BRIEF_SECTION_IDS.length);
+    expect(visuals?.outcomeDistribution.length).toBeGreaterThan(0);
+    for (const format of ['md', 'json', 'html'] as const) {
+      const exported = await app.inject(`${base}/brief/export?format=${format}`);
+      expect(exported.statusCode, format).toBe(200);
+    }
+  });
 });
