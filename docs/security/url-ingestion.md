@@ -30,7 +30,8 @@ call it (`auth/policy.ts`). It is limited to 10 requests a minute for each calle
 3. **robots.txt is read** through the same fetcher, and obeyed (RFC 9309).
 4. **The page is requested** with a fixed set of headers, and read within a size and a time.
 5. **Each redirect is followed by hand** and goes through steps 1 to 4 again.
-6. **The body becomes text** without running anything (`extract.ts`, `normalize.ts`).
+6. **The body becomes text** without running anything (`extract.ts`, `boilerplate.ts`, `normalize.ts`).
+   For a web page that means its own text, not its menus (see [What is kept of a web page](#what-is-kept-of-a-web-page)).
 7. **The text becomes a document** with provenance, and notes that a person should read
    (`ingest.ts`, `provenance.ts`).
 8. **The audit log records `evidence.url.fetched` with the host that was asked for**, and nothing else.
@@ -82,6 +83,85 @@ The addresses that are never connected to (`classifyAddress`):
 | **Claiming to be a retrieved page**                         | `fetchedByServer` is set only here. The server remembers the hash of each page it fetched for a person for an hour; a project created with a document that claims to be fetched keeps it only for that exact text and person, and otherwise the document is pasted text         | `url-provenance.test.ts`, `url-route.test.ts`                    | The memory is in the process: after a restart, or on another replica, a real page is counted as pasted. That says less, never more                                                                                  |
 | **A page that is wrong**                                    | Labelled "retrieved public evidence" with its address, time, type and a hash of the text; the document says if it was cut                                                                                                                                                       | `url-route.test.ts`                                              | Swarm does not know whether a page is true, current, complete or the same for everyone                                                                                                                              |
 
+## What is kept of a web page
+
+A web page is its own text with page furniture around it: menus, side panels, footers, cookie notices, share
+buttons, the markers and edit links of an encyclopedia. A browser shows all of it. Swarm keeps the page's own
+text, so that what is read from a page, and later cited from it, is what a person would read.
+
+**This is a guess from how the page is built** (`extract.ts`, `boilerplate.ts`), by conventions most pages
+follow. No site is treated differently from another. It can leave out something that matters, and it can keep
+something that does not. The notes say so whenever anything was left out, and **the person can always paste
+the text instead**.
+
+### What is never read
+
+Scripts, styles, `noscript`, templates, frames, objects, drawings, form controls, comments, and anything marked
+`hidden`, `aria-hidden="true"`, `display:none`, `visibility:hidden`, `opacity:0` or `font-size:0`. That has not
+changed, and it does not depend on anything below.
+
+### What is left out as furniture
+
+| Kind                | What                                                                                                                                                                                                                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Elements            | `nav`, `aside`, `footer`, `dialog`, `search`, and a `header` that is not inside an `article`, `main` or `section` (inside one of them it is the heading of that part and stays)                                                                                                                                                    |
+| Roles               | `navigation`, `banner`, `contentinfo`, `complementary`, `search`, `menu`, `menubar`, `dialog`, `alertdialog`, `doc-noteref`, `doc-backlink`, on any element                                                                                                                                                                        |
+| Class names or ids  | `sidebar`, `navbar`, `navbox`, `nav`, `navigation`, `toc`, `breadcrumb`, `breadcrumbs`, `skip-link`, `skip-links`, `skiplink`, `cookie-banner`, `cookie-notice`, `cookie-consent`, `cookie-bar`, `cookiebanner`, `consent-banner`, `gdpr-banner`, `modal`, `popup`, `advert`, `adverts`, `advertisement`, `ad-slot`, `adsbygoogle` |
+| Class names only    | `cookie`, `cookies`, `consent`, `share`, `sharing`, `social`, `newsletter`, `subscribe`, `noprint`, `no-print`, `headerlink`, `footnote-ref`, `hatnote`, `mw-editsection`, `mw-jump-link`, `mw-portlet-lang`, `editsection`, `catlinks`, `printfooter`, `reflist`                                                                  |
+| Only on one element | the class `reference` on a `sup` (the marker of a citation) and the class `references` on an `ol` (the list of citations)                                                                                                                                                                                                          |
+
+- A name counts only **whole**: `sidebar` is a side panel, `sidebar-layout` and `sidebars` are not. Names are
+  compared in lower case, and each class of an element is a name of its own.
+- An **id** is read only on a `div`, `ul`, `ol`, `table` or `form`, and only the names in the third row. A
+  heading or a section often gets an id made from its own words (`share`, `references`), and what is under it
+  is not furniture.
+- `reference` and `references` are read only on those elements: a documentation generator puts `reference` on
+  every link, and the text of a link is the page's.
+- **Never left out, whatever it is called:** `html`, `body`, `main`, `article`, and any element with the role
+  `main`.
+- Everything inside furniture is left out with it. The cells of a table that is left out leave no stray `|`
+  behind.
+
+### The main region
+
+If the page has a `main` element or an element with the role `main`, and it holds a substantial part of the
+text, **only the text inside it is kept**. Without one, the `article` elements stand in for it: those that are
+not inside another, and each at least a quarter the size of the largest, so that a story is not read together
+with the teasers of others. Of several `main` regions the largest is used.
+
+A region is substantial when it has at least 400 characters and at least a quarter of the page's text outside
+its furniture, or at least 200 characters and at least half of it. A `main` of a few words, or one that holds
+only a small part of the page, is not the page's text: then the page is read as a whole, minus its furniture.
+A page with 2,000 or more regions is read that way too, without choosing one.
+
+### When that leaves too little
+
+If what is kept is under 200 characters while the page shows at least twice as much, and at least 80 characters
+more, **the page is read whole**, as it was read before furniture was told apart, and the notes say so. A site
+that puts its content in an element called `sidebar` does not become an empty document.
+
+### What does not change
+
+- The title, the description and the facts for machines (JSON-LD) are read wherever they are in the page,
+  including inside furniture.
+- The caps on tags (150,000), nesting (400 levels), attributes (40 to a tag, 2,000 characters each) and text
+  (200,000 characters) are the same, and a page is read in time that grows in step with its size. Pages built
+  to be slow are tested for that (`url-extract.test.ts`).
+- `sha256` is of the text that is returned, and a quote that is cited later is a quote of that text.
+
+What a person sees in the notes:
+
+- Something left out, with a main region: "Swarm kept the main text of the page and left out its menus, side
+  panels, footers and similar parts. It decides this from how the page is built, so it can leave out something
+  that matters. You can paste the text instead."
+- Something left out, without one: "Swarm left out the menus, side panels, footers and similar parts of the
+  page. It decides this from how the page is built, so it can leave out something that matters. You can paste
+  the text instead."
+- The whole page read: "Swarm could not tell the page's own text from its menus and side panels, so it kept
+  everything the page shows, menus included. Some of it may not be what the page is about. You can paste the
+  text instead."
+- Nothing left out, and a file that is not a web page: no note about this.
+
 ## What the document is
 
 The route returns `{ document: { name, content, provenance }, notes }`.
@@ -97,9 +177,9 @@ fetchedByServer: true }`. The addresses have no fragment and have the value of a
   like a secret replaced by `[redacted]` (`token`, `key`, `api_key`, `secret`, `password`, `auth`, `sig`,
   `signature`, `session`, `code`, `access_token`, `x-amz-*` and similar). `sha256` is of the text as it is
   stored.
-- **`notes`** say that this is retrieved evidence that Swarm has not checked, whether the page was cut,
-  whether structured data is included, whether the address sent the reader to another site, and whether the
-  text reads like instructions to an AI.
+- **`notes`** say that this is retrieved evidence that Swarm has not checked, whether the page's menus and the
+  like were left out (and that this is a guess), whether the page was cut, whether structured data is included,
+  whether the address sent the reader to another site, and whether the text reads like instructions to an AI.
 - The **name** is made from the host and the title with only letters, digits and a few marks, so it is always a
   valid document name.
 
@@ -163,6 +243,11 @@ reach, and then only loopback: every other private range stays refused (`url-fet
 - No JavaScript is run, so a page that builds its content in the browser yields nothing: the person is told to
   paste the content instead.
 - Text hidden by a style sheet cannot be told from text that is shown.
+- Which part of a web page is its own text is a guess from its markup (see [What is kept of a web
+  page](#what-is-kept-of-a-web-page)). It goes wrong both ways: a `div` called `share` that holds real text is
+  left out, while a footnote that a page shows inside its sentences, a list of related stories or a comment
+  section inside the main region is kept, and a heading whose list was left out stays. Names are matched whole,
+  so `site-footer` is not `footer`.
 - No PDFs, images or other types are read from an address; no authenticated pages; no crawling.
 - A network-specific NAT64 prefix, an ISATAP address and an egress proxy are outside what an address check can
   see.
