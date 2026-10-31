@@ -26,6 +26,12 @@ export interface SqlDatabase {
   prepare(sql: string): SqlStatement;
   /** Runs `operation` as one transaction: every change is saved, or none. Not re-entrant. */
   transaction<T>(operation: () => T): T;
+  /**
+   * Runs `operation` against one snapshot of the database: everything it reads is as of one moment,
+   * whatever others commit meanwhile, and it neither waits for writers nor makes them wait. The
+   * operation must only read. Inside a transaction or another snapshot it takes part in that one.
+   */
+  readSnapshot<T>(operation: () => T): T;
   close(): void;
 }
 
@@ -34,6 +40,7 @@ export class SqliteDatabase implements SqlDatabase {
   readonly dialect = 'sqlite' as const;
   readonly broken = false;
   inTransaction = false;
+  private snapshotting = false;
   private closed = false;
 
   constructor(private readonly database: DatabaseSync) {}
@@ -58,6 +65,20 @@ export class SqliteDatabase implements SqlDatabase {
       throw error;
     } finally {
       this.inTransaction = false;
+    }
+  }
+
+  /** In write-ahead mode, which every file is opened in, a reader sees the database as of its first read. */
+  readSnapshot<T>(operation: () => T): T {
+    if (this.inTransaction || this.snapshotting) return operation();
+    this.database.exec('BEGIN');
+    this.snapshotting = true;
+    try {
+      return operation();
+    } finally {
+      this.snapshotting = false;
+      // A failure can end the transaction on its own, and the error that is being thrown is the one to report.
+      if (this.database.isTransaction) this.database.exec('ROLLBACK');
     }
   }
 
