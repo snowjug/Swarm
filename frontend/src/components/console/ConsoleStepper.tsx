@@ -2,7 +2,14 @@ import { Check } from 'lucide-react';
 import type { ConsoleStep } from '../../../../shared/guided';
 import type { ProjectDetail } from '../../../../shared/types';
 import type { UiMode } from '../../lib/mode';
-import { stepAvailable, stepHelp, stepLabels, stepOrder, stepStatus } from '../../lib/console';
+import {
+  stepAvailable,
+  stepHelp,
+  stepLabels,
+  stepOrder,
+  stepStatus,
+  stepStatusLabel,
+} from '../../lib/console';
 import { Spinner } from '../ui';
 
 export function ConsoleStepper({
@@ -35,7 +42,7 @@ export function ConsoleStepper({
               {status === 'ready' ? <Check size={13} /> : index + 1}
             </span>
             <span>
-              <strong>{stepLabels[item]}</strong> <small>{status ?? 'historical view'}</small>
+              <strong>{stepLabels[item]}</strong> <small>{stepStatusLabel(project, item)}</small>
               <span className="sr-only">
                 , step {index + 1} of 5{!enabled ? ', prerequisite not ready' : ''}
               </span>

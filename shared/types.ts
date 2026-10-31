@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { GroundingReview } from './grounding.js';
 import type { GuidedConsoleState } from './guided.js';
+import type { LabProgress } from './lab.js';
 import { scenarioInputSchema, sourceProvenanceSchema, type SourceProvenance } from './scenario.js';
 
 export const APP_VERSION = '0.3.0';
@@ -285,6 +286,11 @@ export interface ProjectDetail extends ProjectSummary {
   events: JobEvent[];
   execution: ExecutionInfo | null;
   console: GuidedConsoleState | null;
+  /**
+   * How far the project is along the lab's path. Only the route that reads one project fills it in,
+   * so a project that was just made, run or copied does not carry it until it is read again.
+   */
+  lab?: LabProgress;
 }
 
 export type ChatGroundingStatus = 'cited' | 'caveated' | 'abstained' | 'uncited';

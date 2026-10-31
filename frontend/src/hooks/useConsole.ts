@@ -13,7 +13,7 @@ import type {
   ProjectSummary,
 } from '../../../shared/types';
 import { api, errorMessage } from '../api';
-import { needsPolling } from '../lib/console';
+import { keepLab, needsPolling } from '../lib/console';
 
 interface Resource<T> {
   data: T | null;
@@ -182,7 +182,12 @@ export function useConsole() {
   const put = useCallback((project: ProjectDetail) => {
     if (!alive.current) return;
     if (selected.current === project.id)
-      setDetail({ id: project.id, data: project, loading: false, error: null });
+      setDetail((old) => ({
+        id: project.id,
+        data: keepLab(project, old.id === project.id ? old.data : null),
+        loading: false,
+        error: null,
+      }));
     setHistory((old) => {
       if (!old.data) return old;
       const existed = old.data.projects.some((item) => item.id === project.id);

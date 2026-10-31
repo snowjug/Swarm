@@ -117,7 +117,10 @@ export function SimulationStage({
   onIntervention: (value: Intervention | null) => Promise<void>;
   onBranch: () => void;
   onCompare: () => void;
-  /** Shown under the stage heading, above the run controls: where a feature adds its panel. */
+  /**
+   * Shown under the stage label, above the run controls: where a feature adds its panel. When there
+   * is one, it is the comparison, and the controls below it are said to be an optional deep dive.
+   */
   lead?: ReactNode;
 }) {
   const guided = isGuided(project);
@@ -131,11 +134,24 @@ export function SimulationStage({
   const local = project.mode === 'local';
   return (
     <div className="stage-content view-stack">
-      <div>
-        <span className="eyebrow">03 / SIMULATION</span>
-        <h2>Observe recorded behavior</h2>
-      </div>
-      {lead}
+      {lead ? (
+        <>
+          <span className="eyebrow">03 / SIMULATION</span>
+          {lead}
+          <div className="deep-dive">
+            <h2>Deep dive (optional): agent-by-agent simulation</h2>
+            <p className="field-help">
+              A slower second look at the key actors, one agent at a time; it does not replace the
+              comparison above, and the decision brief does not wait for it.
+            </p>
+          </div>
+        </>
+      ) : (
+        <div>
+          <span className="eyebrow">03 / SIMULATION</span>
+          <h2>Observe recorded behavior</h2>
+        </div>
+      )}
       <div className="stage-actions primary-stage-actions">
         {(!whatIf || !hasCheckpoint(project)) && (
           <RunStepButton

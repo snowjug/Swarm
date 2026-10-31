@@ -6,6 +6,7 @@ import { AppError } from '../errors.js';
 import { markdownExport } from '../export.js';
 import { LedgerService } from '../grounding/service.js';
 import { retrieve } from '../knowledge/retrieval.js';
+import { labProgress } from '../lab/progress.js';
 import type { InteractionService } from '../orchestration/interaction.js';
 import type { Orchestrator } from '../orchestration/runner.js';
 import type { Repository } from '../storage/repository.js';
@@ -57,8 +58,11 @@ export function projectRoutes(
     return reply.code(201).send(project);
   });
 
+  // The one place that adds how far the project has come: it is not part of the stored record, and a
+  // list, an export or a copy has no use for it.
   app.get('/api/projects/:id', async (request) => {
-    return repository.get(projectParams.parse(request.params).id);
+    const project = repository.get(projectParams.parse(request.params).id);
+    return { ...project, lab: labProgress(repository.artifacts, project.id) };
   });
 
   app.post('/api/projects/:id/run', { config: limit(6) }, async (request, reply) => {

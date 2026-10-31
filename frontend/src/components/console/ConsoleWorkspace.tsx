@@ -14,9 +14,12 @@ import type {
   ProjectSummary,
 } from '../../../../shared/types';
 import {
+  defaultView,
   initialStep,
   isBusy,
   isGuided,
+  labPollingNeeded,
+  nextStep,
   stepAvailable,
   stepLabels,
   stepStatus,
@@ -43,11 +46,13 @@ import { BranchBanner } from './BranchBanner';
 import { CompareView } from './CompareView';
 import { ReportStudio } from '../studio/ReportStudio';
 import { useBudget } from '../../hooks/useBudget';
+import { useLabRefresh } from '../../hooks/useLabRefresh';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { ConsoleViewControls, CONSOLE_NARROW_QUERY } from './ConsoleViewControls';
 import type { ConsoleView } from './ConsoleViewControls';
 import { ConsoleStepper } from './ConsoleStepper';
 import { JourneyStrip } from './JourneyStrip';
+import { NextStepBar } from './NextStepBar';
 import { useJsonSnapshotExport } from '../../hooks/useJsonSnapshotExport';
 import { JsonSnapshotExportButton, JsonSnapshotExportError } from './JsonSnapshotExport';
 import type { UiMode } from '../../lib/mode';
@@ -103,7 +108,9 @@ export function ConsoleWorkspace({
 }) {
   const [step, setStep] = useState<ConsoleStep>(() => initialStep(project));
   const snapshotExport = useJsonSnapshotExport(project.id);
-  const [view, setView] = useState<ConsoleView>('split');
+  // What the person chose, once they have; until then the view that suits the project.
+  const [chosenView, setChosenView] = useState<ConsoleView | null>(null);
+  const view: ConsoleView = chosenView ?? defaultView(project);
   const narrow = useMediaQuery(CONSOLE_NARROW_QUERY);
   const effectiveView = narrow && view === 'split' ? 'workbench' : view;
   const [inspection, setInspection] = useState<Inspection | null>(null);
@@ -127,7 +134,7 @@ export function ConsoleWorkspace({
     setStudioOpen(false);
   };
   const changeView = (next: ConsoleView) => {
-    setView(next);
+    setChosenView(next);
     setComparisonOpen(false);
     setStudioOpen(false);
     onCloseComparison();
@@ -139,11 +146,11 @@ export function ConsoleWorkspace({
     setComparisonOpen(false);
     setStudioOpen(false);
     onCloseComparison();
-    if (narrow) setView('workbench');
+    if (narrow) setChosenView('workbench');
   };
   const run = (next: ExecutionStep) => {
     setStep(next);
-    if (narrow) setView('workbench');
+    if (narrow) setChosenView('workbench');
     void onRun(next).catch(() => {
       // The operation hook displays the API error and refreshes persisted state.
     });
@@ -153,6 +160,13 @@ export function ConsoleWorkspace({
       // The operation hook displays cancellation errors.
     });
   };
+  useLabRefresh({
+    step,
+    enabled: guided,
+    polling: labPollingNeeded(project, step),
+    refresh: onRefresh,
+  });
+  const move = guided && !comparing && !studioOpen ? nextStep(step, project.lab) : null;
   const inspect = (selection: Inspection) => setInspection(selection);
   let stage;
   switch (step) {
@@ -375,13 +389,20 @@ export function ConsoleWorkspace({
           onCompare={compare}
         />
       )}
+      {move && <NextStepBar move={move} onNavigate={navigate} />}
       {guided && step === 'report' && !comparing && !studioOpen && (
         <>
           <div className="seam-stack">
             <DecisionBriefView project={project} />
             <CriticPanel project={project} />
           </div>
-          <h2 className="detailed-report-heading">Detailed report</h2>
+          <div className="detailed-report">
+            <h2>Detailed report</h2>
+            <p className="field-help">
+              The report and evidence trail of the optional agent-by-agent deep dive. The decision
+              brief above comes from the comparison and does not depend on it.
+            </p>
+          </div>
         </>
       )}
       {comparing ? (

@@ -46,6 +46,18 @@ export class ApiError extends Error {
   }
 }
 
+const changeListeners = new Set<(path: string) => void>();
+
+/**
+ * Tells `listener` the path of every change (a POST, PUT, PATCH or DELETE) that the server accepted,
+ * so that a page that shows what those changes alter can read it again without each place that makes
+ * one having to know. Returns the function that stops it.
+ */
+export function onAcceptedChange(listener: (path: string) => void): () => void {
+  changeListeners.add(listener);
+  return () => void changeListeners.delete(listener);
+}
+
 async function checkedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const timeout = AbortSignal.timeout(180_000);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
@@ -89,6 +101,7 @@ async function checkedFetch(path: string, init: RequestInit = {}): Promise<Respo
       body?.error?.requestId,
     );
   }
+  if (unsafe) for (const listener of changeListeners) listener(path);
   return response;
 }
 

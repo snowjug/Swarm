@@ -32,6 +32,8 @@ const row = z.object({
 
 const KEY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/u;
 
+const keyRow = z.object({ artifact_key: z.string() });
+
 const conflict = (kind: string, key: string): AppError =>
   new AppError(
     409,
@@ -72,6 +74,21 @@ export class ArtifactStore {
       )
       .all(projectId, kind)
       .map((found) => this.decode(kind, row.parse(found)));
+  }
+
+  /**
+   * The keys of the documents of a kind, newest first, without reading any of them. For a caller that
+   * needs to know whether there are any, or to look at the newest and stop, where `list` would read
+   * and check every one.
+   */
+  keys(projectId: string, kind: ArtifactKind): string[] {
+    return this.database
+      .prepare(
+        `SELECT artifact_key FROM project_artifacts WHERE project_id = ? AND kind = ?
+         ORDER BY created_at DESC, artifact_key DESC`,
+      )
+      .all(projectId, kind)
+      .map((found) => keyRow.parse(found).artifact_key);
   }
 
   /**
