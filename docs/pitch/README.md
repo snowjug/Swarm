@@ -5,7 +5,8 @@ persuade: every figure names the test or the run behind it, and every limit is s
 claim it limits.
 
 Swarm runs locally and has been demonstrated end to end against a real Azure model. It is not hosted,
-it has no browser sign-in, and it is not ready for production use. None of these documents says
+its browser sign-in has only been exercised against a test identity provider, and it is not ready
+for production use. None of these documents says
 otherwise. Read [the production-readiness gates](../production-readiness.md) beside them.
 
 | Document                                                                | For whom              | What it answers                                                       |

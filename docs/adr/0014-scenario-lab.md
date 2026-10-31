@@ -15,8 +15,9 @@ without making any one domain (a price, a product, a market) special.
 1. **Artifacts, not new tables.** Everything a project carries beyond its own record is one validated
    JSON document in `project_artifacts` (project, kind, key, revision): `scenario`, `stakeholders`,
    `actors`, `analysis`, `critiques`, `brief`. The schemas are in `shared/` and are the contract between
-   features; a write is checked against its kind, a stale write is refused by revision, documents are
-   copied to branches and go with their project, and the table is in the backup copy list.
+   features; a write is checked against its kind, a stale write is refused by revision, a branch
+   inherits the `scenario` (the other documents belong to the run that made them), and the table is in
+   the backup copy list.
 2. **Evidence has provenance.** A document can say it was uploaded, pasted, a sample, or fetched from a
    public page (address with secret query values removed, final address, retrieval time, content hash).
    `fetchedByServer` can only be set by the server that did the fetch.
