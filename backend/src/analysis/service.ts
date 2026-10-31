@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { ZodError } from 'zod';
 import type { Analysis, Simulator } from '../../../shared/analysis.js';
 import {
   DEFAULT_ROUNDS,
@@ -365,19 +366,28 @@ export class AnalysisService {
   }
 
   private failed(base: Analysis, progress: Analysis['progress'], error: unknown): Analysis {
+    // The engine refusing the cast or a scenario is something a person can act on; it is said without
+    // the engine's own words, which name fields and may quote what they wrote.
+    const refused = error instanceof ZodError;
     const known = error instanceof AppError;
-    if (!known) this.options.onFault?.('ANALYSIS_FAILED');
+    if (!known) this.options.onFault?.(refused ? 'SPEC_NOT_ACCEPTED' : 'ANALYSIS_FAILED');
     return {
       ...base,
       status: 'failed',
       completedAt: new Date(this.now()).toISOString(),
       progress,
-      error: {
-        code: known ? error.code : 'ANALYSIS_FAILED',
-        message: known
-          ? error.message.slice(0, 400)
-          : 'The comparison stopped because of an internal error. Run it again: the same seeds give the same runs.',
-      },
+      error: refused
+        ? {
+            code: 'SPEC_NOT_ACCEPTED',
+            message:
+              'The simulation engine did not accept the actors or one of the scenarios. Check the actors in the Env Setup step and the scenarios here, then run it again.',
+          }
+        : {
+            code: known ? error.code : 'ANALYSIS_FAILED',
+            message: known
+              ? error.message.slice(0, 400)
+              : 'The comparison stopped because of an internal error. Run it again: the same seeds give the same runs.',
+          },
     };
   }
 

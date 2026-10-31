@@ -25,7 +25,16 @@ export function analysisRoutes(
   options: AnalysisServiceOptions,
   rateScale = 1,
 ): AnalysisService {
-  const service = new AnalysisService(repository, { simulator: unwiredSimulator, ...options });
+  const service = new AnalysisService(repository, {
+    simulator: unwiredSimulator,
+    // A code only: never what the engine said, which may hold what a person wrote.
+    onFault: (code) =>
+      app.log.error(
+        { code },
+        'A scenario comparison failed or could not be saved. Inspect its saved state.',
+      ),
+    ...options,
+  });
   service.recoverInterrupted();
   // Before the database is closed, so that nothing is left running that would write to it.
   app.addHook('preClose', async () => service.stop());

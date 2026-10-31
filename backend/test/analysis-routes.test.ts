@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { analysisSchema, type Analysis, type Variant } from '../../shared/analysis.js';
 import type { AnalysisList } from '../../shared/analysis-plan.js';
 import {
@@ -313,19 +314,50 @@ describe('starting a comparison', () => {
     expect(failed.completedAt).not.toBeNull();
   });
 
-  it('shows an unexpected failure without what the engine said', async () => {
+  it('says that the engine did not accept the actors or a scenario, without quoting the engine', async () => {
     const { start, withActors, finished } = await world({
       simulator: () => {
-        throw new Error('secret detail zq-canary-9931 from deep inside');
+        // A real validation failure, as the engine's own check of the specification would raise it.
+        return z.object({ traits: z.number() }).parse({ traits: 'zq-canary-4417' }) as never;
       },
     });
     withActors();
     const started = (await start({})).json().analysis as Analysis;
     const failed = await finished(started.id);
     expect(failed.status).toBe('failed');
+    expect(failed.error!.code).toBe('SPEC_NOT_ACCEPTED');
+    expect(failed.error!.message).toContain('did not accept the actors or one of the scenarios');
+    expect(JSON.stringify(failed)).not.toContain('zq-canary-4417');
+    expect(JSON.stringify(failed.error)).not.toContain('traits');
+  });
+
+  it('shows an unexpected failure without what the engine said, and logs only a code', async () => {
+    const lines: string[] = [];
+    const instance = await buildApp({
+      config: testConfig({ LOG_LEVEL: 'error' }),
+      logStream: { write: (line) => void lines.push(line) },
+      analysis: {
+        simulator: () => {
+          throw new Error('secret detail zq-canary-9931 from deep inside');
+        },
+      },
+    });
+    applications.push(instance);
+    const project = instance.repository.create(fixtureInput({ workflow: 'guided' }));
+    instance.repository.artifacts.put(project.id, 'actors', 'default', actorSetFixture());
+    const url = `/api/projects/${project.id}/analysis`;
+    const started = (await instance.app.inject({ method: 'POST', url, payload: {} })).json()
+      .analysis as Analysis;
+    const failed = await until(
+      async () => (await instance.app.inject(`${url}/${started.id}`)).json().analysis as Analysis,
+      (value) => value.status === 'failed',
+    );
     expect(failed.error!.code).toBe('ANALYSIS_FAILED');
     expect(JSON.stringify(failed)).not.toContain('zq-canary-9931');
     expect(failed.error!.message).toContain('Run it again');
+    const logged = lines.join('');
+    expect(logged).toContain('ANALYSIS_FAILED');
+    expect(logged).not.toContain('zq-canary-9931');
   });
 });
 
