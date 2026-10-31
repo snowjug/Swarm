@@ -49,6 +49,11 @@ describe('the wording guard', () => {
   it.each([
     ['It will rise.', 'prediction'],
     ['They WILL leave.', 'prediction'],
+    ['Real-world adoption is certain to rise.', 'prediction'],
+    ['The fee is expected to rise.', 'prediction'],
+    ['Members shall leave.', 'prediction'],
+    ['Providers are bound to follow.', 'prediction'],
+    ['Simulated members are likely to leave.', 'prediction'],
     ['This is certainly true.', 'overclaim'],
     ['We guarantee it.', 'overclaim'],
     ['A guaranteed result.', 'overclaim'],
@@ -59,6 +64,7 @@ describe('the wording guard', () => {
     ['58 percent of users left.', 'percentage'],
     ['About 12.5 per cent of them.', 'percentage'],
     ['A share of 0,5 % of people.', 'percentage'],
+    ['Simulated counts show conversion increased by 18 real customers.', 'real-world-claim'],
   ])('flags “%s” as %s', (text, rule) => {
     expect(lintText(text).map((issue) => issue.rule)).toContain(rule);
   });
@@ -69,6 +75,9 @@ describe('the wording guard', () => {
     'About 12 of 43 simulated members.',
     'The percentage sign is not used here.',
     'A proof of concept is a different thing.',
+    'Expected effect on it: unclear.',
+    'Intensity is set to 0.7 for the change.',
+    'The group was not certain of the date.',
   ])('allows “%s”', (text) => {
     expect(lintText(text)).toEqual([]);
   });
