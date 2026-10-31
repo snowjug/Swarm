@@ -185,15 +185,15 @@ review", "0 approved", "0 actors"), so that a screen reader says them as they ar
 stakeholders that nobody has accepted, edited or added yet; _approved_ is the whole list once it has been
 approved. The one button says what it will do and changes as the work goes on:
 
-| Where the person has got to   | The button                                                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Nothing found yet             | _Find stakeholders by reading the text_ (or _with the model_ when the project has one, which is then the main way) |
-| Some stakeholders need review | _Review N stakeholders_, which opens the list at the first                                                         |
-| Every one is checked          | _Approve and create actors_                                                                                        |
-| Approved, no actors yet       | _Make the actors_                                                                                                  |
-| Actors exist                  | _Review the N actors_, which is a way to look and not the next step                                                |
-| Fewer than two stakeholders   | _Add a stakeholder_                                                                                                |
-| A person who may only read    | _Read the N stakeholders_, which opens the list; there is nothing to approve                                       |
+| Where the person has got to   | The button                                                                                                                                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing found yet             | _Find stakeholders by reading the text_ (or _with the model_ when the project has one, which is then the main way)                                                                                                  |
+| Some stakeholders need review | _Review N stakeholders_, which opens the list at the first. While the list is open the person is reading, and the button is _Go to approval_ (secondary), which moves focus to the approval at the foot of the list |
+| Every one is checked          | _Approve and create actors_ (_Approve stakeholders_ when actors the person edited are kept). With the list open it is a secondary shortcut, and the approval card's own button is the main one                      |
+| Approved, no actors yet       | _Make the actors_                                                                                                                                                                                                   |
+| Actors exist                  | _Review the N actors_, which is a way to look and not the next step                                                                                                                                                 |
+| Fewer than two stakeholders   | _Add a stakeholder_                                                                                                                                                                                                 |
+| A person who may only read    | _Read the N stakeholders_, which opens the list; there is nothing to approve                                                                                                                                        |
 
 When a model is available, approving and making actors open the approval card first, so that the choice of
 letting the model read the key actors, which sends the source text, is never skipped.
@@ -219,7 +219,7 @@ What a change takes away, the panel replaces: an accepted row loses its _Accept_
 the list, an added one appears, and approving replaces the button that was pressed. Each change is said to a
 screen reader and focus goes to the row, its neighbour or the next step, never back to the top of the page.
 Headings run in order under the stage's (the panel's title is a third-level heading, its parts the fourth
-and the rows the fifth), every control has a name, and every target is at least 24 pixels. It is checked in
+and the rows the fifth), every control has a name, and every target is at least 24 pixels (44 on a phone). It is checked in
 the light, dark and high-contrast themes, on a desktop and on a phone.
 
 ### What a person can do

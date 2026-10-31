@@ -21,19 +21,27 @@ and can ask a what-if question at once.
   The project name is optional: when it is empty, it is the start of the question
   (`nameFromQuestion` in `lib/entryValidation.ts`).
 - **Examples** (`ExamplePicker.tsx`) are read from `EXAMPLE_SCENARIOS` in
-  `shared/example-scenarios.ts`. Choosing one fills the project name, the question and the
-  documents with their provenance, clears any scenario read from an earlier question, says what was
-  loaded, and moves focus to the question. An example brings a question and evidence, nothing
-  else: no scenario, stakeholder or result comes with it. With an empty list the picker still
-  offers the fictional starter input, so it is never an empty box. On a phone the examples sit in
-  one row that scrolls sideways, so that six of them do not push the evidence far down the page.
+  `shared/example-scenarios.ts`, and the fictional starter is one more card, so the picker is never an
+  empty box. Each card's button is named "Use this example: <title>" (the last is **Use this example:
+  Fictional library hours**). Choosing one fills the project name, the question and the documents with
+  their provenance, clears any scenario read from an earlier question, says what was loaded, and moves
+  focus to the question. An example brings a question and evidence, nothing else: no scenario,
+  stakeholder or result comes with it. Once something is loaded the cards fold into one line, "Example
+  loaded: <title> (N documents · sample evidence)" (the starter says "Fictional starter INPUT loaded: …"
+  and that its input is invented), so that the question and the evidence are what is on the screen.
+  **Change example** brings the cards back and puts focus on the first; **Keep “<title>”** folds them
+  again. On a phone the cards sit in one row that scrolls sideways, so that six of them do not push the
+  evidence far down the page.
 - **The scenario** is read by `ScenarioIntake`, mounted between the question and the evidence. The
   frame it returns is held in the entry form and sent as `scenario` in the create request when
   present; the request is validated with the same schema as any other. Rules on the server read the
   question and it goes nowhere else, unless the form's mode is **Model assisted**: then the page asks
   for a model (`useModel`) and the question goes to the provider. The line under the button says which
   of the two applies, and a model that fails or takes more than 170 seconds ends in a reading by rules
-  with a note.
+  with a note. What was read opens as a review that a person checks and edits (**Check and edit the
+  scenario**: alternatives and changes can be added, removed or edited, and so can the decision). Its
+  **Use this scenario** and **Discard** buttons sit in a bar that stays in reach until the end of the
+  review; focus goes to the review's heading when it appears.
 - **Evidence** is `SourceInput` (files and pasted text) and, when the server reports
   `urlIngestion: true`, the `UrlEvidence` panel (a plain `div`, not a form: it sits inside the entry
   form, and Enter in its address field fetches the page and never submits the form around it). A
@@ -42,6 +50,15 @@ and can ask a what-if question at once.
 - **Run settings** (mode, fictional proxies, rounds, random seed) stay visible under the evidence, in
   a quiet group. They were not put behind a disclosure because the end-to-end specs fill them in
   directly.
+- **Building** is one button, **Build Graph**, in a bar at the foot of the form that stays in reach
+  (sticky inside the form, never fixed) once the question has ten characters. Beside it a line says where
+  the form stands, from the same rules that accept or refuse the form when it is sent
+  (`components/console/entryReadiness.ts`): "N documents attached · ready to build", or what is still
+  missing ("Write your question first: 10 characters or more", "No documents attached yet · attach at
+  least one to build"). An error from the server ("Cannot build this project") appears in that bar. A
+  note above the bar says what the button does and does not: it saves a draft and starts Graph Build only.
+  While a scenario is being checked the bar stops sticking, because the review has its own; a field that
+  takes focus is scrolled clear of the bar, and on a phone with its keyboard open the bar is one row.
 - Below the form: the recorded demonstration workspace, which is unchanged.
 
 ## Guided and Advanced
@@ -76,10 +93,31 @@ specs click them directly. Not done: a Guided mode that hides technical controls
 - **Help** under each step (`stepHelp` in `lib/console.ts`): Understand the evidence; Review
   stakeholders and actors; Run and compare scenarios; Decision brief; Ask questions.
 - **Project tools** groups Audit log, Access (when people sign in), Budget (model projects),
-  Duplicate as guided and Export JSON.
+  Duplicate as guided and Export JSON. The audit log names every action in plain words ("Stakeholders
+  found", "Decision brief generated", "Public web page refused", "Signed in"), and shows the recorded
+  code under the label only when it differs from it (`lib/audit.ts`; `audit.test.ts` reads the backend
+  for every action it records and fails when one has no label, so there are no unlabelled entries).
 - **A project opens at the stage the engine is at**, which for a project made in the lab is usually
   Graph Build, whatever the lab has done since. The next step bar below is what says where the work
   has got to.
+- **A stage opens in the view that suits it** (`defaultView` in `lib/console.ts`). The console has a
+  report-or-graph pane, a workbench and both beside each other; the control named "Console view" says
+  **Graph** (or **Report**), **Split** and **Workbench**. Graph Build and Interaction open in Split, so that
+  the graph, or the report, sits beside the stage. Env Setup opens in the Workbench, because the
+  stakeholders and actors are tables that need the whole width, so approving the stakeholders moves
+  nothing. Simulation opens in the Workbench once there are actors, and Report once a comparison has
+  finished; before that, and for a guided project with only the engine's own record, they open in Split
+  with the engine's graph and report reader beside them. The view does not change while the person works
+  in a stage, and one the person chose is kept when they move on. Under 900px there is one pane at a
+  time (the control is named "Console pane"): Split shows the Workbench, and a pane the person opened on
+  its own (the graph) is let go of when they move to another stage, so that a narrow screen does not pin
+  the Workbench for good.
+- **Interaction**'s tab **Any fictional agent** lists the proxies of the agent-by-agent deep dive, in a
+  group named "Deep-dive proxies (N)", with a line saying that these are not every actor approved in Env
+  Setup: Report chat answers from the report, and Env Setup shows each actor's traits.
+- **History** lists each saved project as a card with an **Open** button (named "Open <project name>", so
+  that an icon is not the only cue), a small **Compare** beside it for a guided project that has a saved
+  round, and a delete control that asks before it deletes.
 
 ### What opens a stage, and what the page says when it is locked
 
@@ -122,7 +160,10 @@ panels keep their own state. So the workspace looks for the change itself (`labW
 These reads are quiet: the refresh button does not spin and a screen reader is told nothing. Nothing
 is read in Interaction. A comparison started again after one has finished is not noticed until
 Simulation or Report is opened again or Refresh is pressed; the page then shows what the server
-says, which is that the newest comparison, if it is running, decides.
+says, which is that the newest comparison, if it is running, decides. The brief and the review in the
+Report stage also read again when the lab's record changes and when **Refresh project from server** is
+pressed (`briefRefreshToken` and `reviewRefreshToken` in `ReportSeam`), so that a change made in another
+tab shows up as a notice that the brief is out of date and not as a silent difference.
 
 ### The next step
 
@@ -144,7 +185,8 @@ The bar offers a stage only when it can be opened (Env Setup needs a built graph
 before the lab has recorded anything: until then the stage's own button leads on. The button names
 what it does and never a stage's name, so that it is not mistaken for the stage list. Following it
 moves focus to the stage it opens (the region named "<name> workbench", which takes focus without
-being a tab stop) and, if only the graph was showing, shows the workbench; the keyboard then
+being a tab stop) and, if only the graph or the report was showing, gives that pane up so that the stage
+opens in its own view; the keyboard then
 continues inside the stage. Where the work is more than a click, the stage still has its own
 primary button: the bar only says where to go.
 
@@ -152,7 +194,9 @@ primary button: the bar only says where to go.
 
 `JourneyStrip` shows twelve steps: Question, Evidence, Stakeholders, Actors, Scenarios, Run,
 Progress, Results, Explore, Change, Compare, Export. It follows the stage in view and is not
-navigation. A step is marked done only when the project's own record shows it, by the engine's
+navigation. Every step's name is read by a screen reader at every width, with whether it is done and
+which is in view; below 1500px the names are hidden from the eye, not removed. A step is marked done
+only when the project's own record shows it, by the engine's
 record or the lab's (`journeyItems` in `lib/console.ts`):
 
 | Step         | Done when                                                                       |
@@ -191,9 +235,15 @@ push the engine's own **Start Simulation** button off the screen, and the browse
   list and the actors. Finding opens the list and moves focus to its heading; approving shuts it and moves
   focus to the next step's button.
 - **One next step.** The button says what it will do (`nextAction` in `review.ts`): **Review N
-  stakeholders**, **Add a stakeholder** when there are fewer than two, **Approve and create actors**, **Make
-  the actors**, **Review the N actors** (a way to look, not the next step) or **Read the N stakeholders**
-  for a person who may only read. It is one element from step to step, so focus stays on it as its label
+  stakeholders**, **Add a stakeholder** when there are fewer than two, **Approve and create actors**
+  (**Approve stakeholders** when actors a person edited are kept), **Make the actors**, **Review the N
+  actors** (a way to look, not the next step) or **Read the N stakeholders** for a person who may only
+  read. The panel has one main (orange) button at a time. While the list is open and some stakeholders
+  still need review, the person is reading and the way on is the approval at the foot of the list, so the
+  bar offers a secondary **Go to approval**, which moves focus to **Approve stakeholders and create
+  actors**. Once everything is reviewed and the list is open, the bar's **Approve and create actors**
+  is a secondary shortcut and the approval card's button is the main one; with the list shut the bar's
+  button is the main one. It is one element from step to step, so focus stays on it as its label
   changes.
 - **Rows to scan.** A stakeholder is one line, key actors first and then the cohorts, in an order that never
   depends on the review status, so a row does not move when it is accepted: the name and role, the direction
@@ -208,11 +258,68 @@ push the engine's own **Start Simulation** button off the screen, and the browse
   pressed. Each change is said to a screen reader and focus goes to the row, its neighbour or the next step
   (`focus.ts`), never back to the top of the page.
 - **Headings and targets.** The panel's title is a third-level heading, its parts the fourth and the rows the
-  fifth. Every control has a name, and on a phone the counts come before the buttons.
+  fifth. Every control has a name, and on a phone the counts come before the buttons and every toggle, row and
+  disclosure is at least 44px high.
+- **The fixed proxies are a deep dive, not a step.** Under the panel Env Setup has a heading "Deep dive
+  (optional): fixed proxies" and a line saying that the setup for the slower agent-by-agent simulation runs
+  on a small fixed set of fictional proxies, that it is separate from the stakeholder actors above, and that
+  the comparison does not need it. Its status reads "Fixed proxies · pending" or "· ready", and its buttons
+  (**Prepare fictional environment**, **Save environment**, **Review saved checkpoint recovery**, and
+  **Start Simulation**) are secondary, so that the stakeholder step has the page's one main button. The
+  Simulation stage frames the engine's own run the same way, as "Deep dive (optional): agent-by-agent
+  simulation" below the comparison, with **Start Simulation**, **Generate Report** and **Inspect report
+  stage** secondary. A project with no stakeholder panel (the engine's own record only) keeps them as the
+  main action.
+- **The actors' traits** are a table of four columns; when its own pane is narrower than 640px (the split
+  view, or a phone) each trait is stacked, so that the reason is never squeezed into a strip.
 
 `e2e/lab/stakeholders.spec.ts` holds this at desktop, laptop and phone size, from the keyboard alone and in
 all three themes. The method is in [stakeholders.md](./stakeholders.md#reviewing) and the steps are in the
 [user guide](./USER_GUIDE.md#reviewing-the-stakeholders-and-the-actors).
+
+### The Report stage
+
+The Report stage is a page to read, not a stack to scroll through. `ReportSeam` puts three things in
+order: a bar, the decision brief (`DecisionBriefView`) and the independent review (`CriticPanel`); the
+engine's own report follows under the heading "Detailed report".
+
+- **A bar that stays in view.** The navigation named "Jump within the report" sticks under the header and
+  has three links: **Decision brief**, **Independent review** and **Detailed report and studio**. The
+  review's link says where the review stands, from what the page has already read and with no request of
+  its own (`reviewStatus`): "not run yet", "no analysis to review yet", "N not yet closed" (a criticism is
+  closed when it has been accepted, as the brief counts it), "all N closed", "no criticism raised" (the last
+  three may end ", of an earlier analysis") or "could not be read". On a phone the words read Brief, Review
+  and Details to the eye, and the accessible names stay whole. A link scrolls to its target without leaving
+  it under the bar or the header.
+- **The brief is a document with a contents.** Its sections are native collapsible `details`, so they work
+  from the keyboard and without script, and what is closed is still in the page: find in the page, print and
+  a screen reader all reach it. These are open when the report opens: the executive answer, the decision
+  evaluated, the main reaction patterns, alternative outcomes, first-order and second-order effects,
+  behavioural drivers, risks and opportunities, the prioritised recommendations and the validation plan.
+  These are closed until wanted, and listed in the contents with the others: the evidence base, the
+  stakeholder landscape, the assumptions, uncertainty and sensitivity, the sources, the limitations and the
+  technical appendix. A heading is the toggle and says how many statements the section holds ("N
+  statements"). The contents card has **Expand all sections** and **Collapse all sections**, each section
+  has **Back to contents**, and an address of the form `#brief-<id>` or `#brief-<number>` opens its section
+  before it scrolls to it. A test holds the page with the reference closed to under 60% of the height it
+  has with everything open. The Markdown, JSON and printable exports are unchanged and still contain
+  everything.
+- **Printing** (Ctrl+P on this stage) prints the project's name and question, the whole brief, whatever is
+  closed on the screen, and the review. It leaves out the application's header and footer, the journey, the
+  bar, the contents, the review's controls, the detailed report, and the "Show this as a table" copies of
+  charts (the one chart with no visible numbers keeps its table). The other stages print as they always did.
+- **What is current.** The page says when a brief or a review no longer matches what it was made from. A
+  comparison records the revision of the scenario, the stakeholders and the actors it ran on. When any of
+  them has changed since, the brief says so and asks for the comparison to be run again and then the brief
+  written again; when only the review changed, or a newer comparison exists, it asks only for the brief to
+  be written again. A review of an earlier comparison says so, and the exports carry the same notice. A
+  response to a criticism carries the revision of the review it answers and is refused (409
+  `CRITIQUES_CHANGED`) when another person changed it; the page then reads the review again and keeps the
+  words that were typed ([the brief](./analysis/brief.md#reading-it), [the review](./analysis/critics.md),
+  [the API](./API.md#independent-review)).
+
+`e2e/lab/report-page.spec.ts` holds the first three at desktop, laptop and phone size, and
+`e2e/lab/freshness.spec.ts` the last.
 
 ## Seams: where a feature adds a panel
 
@@ -225,11 +332,12 @@ for one that has nothing to show.
 | `UrlEvidence`       | Entry form, under the evidence                        | onAdd, disabled, remainingDocuments                     | `urlIngestion: true` |
 | `StakeholderPanel`  | Env Setup, under the stage heading                    | project, onChanged                                      | Guided projects      |
 | `AnalysisPanel`     | Simulation, under the heading, above the run controls | project                                                 | Guided projects      |
-| `DecisionBriefView` | Report, above the report, full width                  | project                                                 | Guided projects      |
+| `DecisionBriefView` | Report, under the jump bar, above the report          | project                                                 | Guided projects      |
 | `CriticPanel`       | Report, after the brief                               | project                                                 | Guided projects      |
 
-The Report seams sit in a stack (`.seam-stack`) above the existing report. When the stack has
-content, the heading "Detailed report" appears between it and the report; when it is empty, neither
+The Report seams (`ReportSeam`) are a jump bar, then a stack (`.seam-stack`) above the existing report;
+the review is read once, by the seam, so that the bar and the panel show the same read. When the stack
+has content, the heading "Detailed report" appears between it and the report; when it is empty, neither
 takes any room. `onChanged` of the stakeholder panel refreshes the project from the server.
 
 To add a panel at a seam:
@@ -303,24 +411,29 @@ their own sizes where they were not part of this work.
 
 The shell changes layout at these widths:
 
-- 1499px: the journey keeps numbers and names only the current step; at 1500px and wider all twelve
-  names show.
+- 1499px: the journey keeps numbers and draws the name of only the current step; at 1500px and wider
+  all twelve names show. The names of the others stay in the page for a screen reader.
 - 1199px: the header, which is one row from 1200px, takes two rows or, with a project's back
   button, sometimes three.
 - 1120px: the stage list and the view control take their own rows. 1100px: the hero is one column
   and the path takes two rows of four. 1050px: the form and the side column stack.
-- 900px: the console shows one pane at a time (Graph | Workbench), the header drops "LOCAL · SINGLE
-  USER" and "/ CONSOLE" to save a row, and the project tools take their own row.
+- 900px: the console shows one pane at a time (Graph | Workbench; a Split view shows the Workbench), the
+  header drops "LOCAL · SINGLE USER" and "/ CONSOLE" to save a row, and the project tools take their own
+  row.
 - 700px: the header's padding tightens.
-- 640px (phone): 44px touch targets. The header is not sticky and its controls flow after the brand
-  in the order of the page, with the model chip on a row of its own. The path runs on like a
+- 640px (phone): 44px touch targets. Every custom control has one: the stakeholder toggles and rows, the
+  disclosures of the intake, the comparison, the brief and the review, the brief's contents links, the
+  entries of the history and the review's checkbox. The header is not sticky and its controls flow after
+  the brand in the order of the page, with the model chip on a row of its own. The path runs on like a
   sentence and wraps between whole steps. The examples and the project tools are one row each that
   scrolls sideways. The five stage names share the width by what they need, so none is broken in
-  two.
+  two. A button that stands alone is as wide as its words on a desktop and takes the whole column on a
+  phone. The Report page's bar reads Brief, Review and Details.
 - 470px and 390px: the form's groups become one column.
 
 No page scrolls sideways at 390px; the end-to-end specs check it. Pointer targets are at least 24px,
-and 44px on a phone.
+and 44px on a phone (`shell.spec.ts` measures them in the first stage, the stakeholders, the comparison,
+the report and the dialogs). The actors' traits stack by the width of their own pane, not the window's.
 
 ## Accessibility rules
 
@@ -337,6 +450,10 @@ and 44px on a phone.
   phone the header scrolls away instead of keeping a quarter of the screen.
 - A control that moves the person to another stage moves focus to that stage, so that it is never
   lost to the page when the control goes away.
+- Under forced colours (Windows high contrast) the fills that tell the stage in view and the chosen mode
+  apart are gone, so each stage and each choice has a plain 2px edge; the current one has a 3px double edge
+  in the system's highlight colour, which says it by its shape as well as its colour, and a stage that
+  cannot be opened has a dashed one.
 - A locked stage says that it is locked in words and says what it needs; the reason is also in the
   accessible name, in both modes.
 - Changes of state that a person must hear about are in a `role="status"` or `role="alert"` region.
@@ -344,15 +461,16 @@ and 44px on a phone.
 ## Guards
 
 - `frontend/src/lib/console.test.ts`: what opens each stage, the label and the lock under it, the
-  journey, and the next step for every state of the record.
+  journey, the view each stage opens in, and the next step for every state of the record.
 - `ConsoleWorkspace.test.tsx` and `ConsoleAccessibility.test.tsx`: what the workspace renders from
-  the record, and the stage names and their hidden context.
+  the record (including the view it starts in), and the stage names and their hidden context.
 - `e2e/lab/journey-gates.spec.ts`: projects made through the API at each point of the way (nothing,
   graph built, stakeholders proposed, approved, actors, a comparison stopped, finished, reviewed,
   brief written) and read in the browser: what is locked and why, the path, the next step and where
   it leads, a comparison started, stopped and finished in the page, and the brief written there,
   each without a reload or a press of Refresh (these fail if the workspace stops looking for the
-  change), Guided and Advanced, the keyboard and focus, a reload, three themes on a laptop and a
+  change), Guided and Advanced, the keyboard and focus, a reload, the view each stage opens in and a narrow
+  screen that does not keep the Workbench for good, three themes on a laptop and a
   phone, and the phone's header and stage names. `e2e/lab/shell.spec.ts` covers the first screen, the
   examples, the modes and the workspace in every theme.
 - `e2e/lab/stakeholders.spec.ts`: the stakeholder review through the real screens, for three examples, with
@@ -361,6 +479,19 @@ and 44px on a phone.
   not say. `e2e/lab/examples.spec.ts`: the flagship demonstrations and a question of the person's own, from
   the first screen to the exported brief, in the page. `e2e/lab/deep-dive.spec.ts`: the engine's own stages
   on the approved actors, with the report below the brief.
+- `e2e/lab/entry-screen.spec.ts` and `e2e/lab/intake.spec.ts`: the first screen (the bar that keeps Build
+  Graph in reach, the folded cards, the starter card, the scenario's own bar) and the edits to the scenario
+  that was read. `components/console/ExamplePicker.test.tsx`, `entryReadiness.test.ts` and
+  `components/intake/ScenarioIntake.interaction.test.tsx` hold the same at the component.
+- `e2e/lab/report-page.spec.ts`: the Report page (open and closed sections, the contents, the addresses
+  that open a section, the bar, the review's status, printing, axe) and `e2e/lab/freshness.spec.ts` (what a
+  change made in another tab or on the same page does to the brief and the review).
+  `components/brief/ReportSeam.test.tsx`, `reportNavigation.test.ts` and `components/critics/reviewStatus.test.ts`
+  hold the bar, the choice of what is open and the review's words at the component.
+- `frontend/src/test/accessibility.test.ts` and `components/brief/briefStyles.test.ts`: no text below 12px in
+  any stylesheet, readable pairs in every theme, and the brief's layouts for a narrow screen and for print.
+  `components/console/HistoryDrawer.test.tsx` and `lib/audit.test.ts`: a saved project opens by a button that
+  says so, and every action the backend records has a plain label.
 
 ## Not done
 
@@ -373,6 +504,8 @@ and 44px on a phone.
   quiet group. Putting them behind a disclosure needs the specs that fill them in to change.
 - The names and reasons of the stages were checked with accessible-name queries, axe and keyboard
   tests, not with a screen reader.
-- Windows forced-colours mode has rules but was not exercised in a browser.
+- Windows forced-colours mode has rules, and `e2e/lab/shell.spec.ts` reads the computed edges of the stages
+  and of the Guided and Advanced choice under the browser's emulation of forced colours; Windows high
+  contrast itself was not tried.
 - The older stylesheets (stages, report, charts, ledger, studio and others) were not restyled; only
   the shared radii, the focus and the colour palette reach them.

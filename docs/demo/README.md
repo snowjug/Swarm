@@ -48,26 +48,27 @@ Allow ten minutes.
 
 Demo 1 is the full walk. Demos 2 to 4 show what changes when the input changes, and the pipeline does
 not. The labels are the ones in the interface (**Use this example**, **Understand my question**, **Use
-this scenario**, **Build Graph**, **Find stakeholders by reading the text**, **Approve stakeholders
-and create actors**, **Compare scenarios**, **Generate decision brief**, **Run independent review**).
+this scenario**, **Build Graph**, **Find stakeholders by reading the text**, **Go to approval**,
+**Approve stakeholders and create actors**, **Compare scenarios**, **Generate decision brief**, **Run
+independent review**).
 
-| Time          | Where                                 | Click                                                                                                                                                                     | Point at                                                                                                                                                                                    |
-| ------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0:00 to 0:45  | First screen                          | Nothing                                                                                                                                                                   | The one-line question, the sentence about not predicting, the eight-step path                                                                                                               |
-| 0:45 to 1:45  | Demo 1: the question and the evidence | **Use this example** on **Copilot in Teams**, then **Understand my question**, **Use this scenario**                                                                      | The five documents and their provenance (**provenance**); the scenario form: baseline, alternatives, who made each assumption (**assumptions**)                                             |
-| 1:45 to 3:15  | Demo 1: stakeholders and actors       | **Build Graph**, then **Env Setup**, **Find stakeholders by reading the text**, open one row, then **Approve stakeholders and create actors** and **Review the N actors** | The four counts and the note on how they were found; a row opened to its cited quotes; the uncertainty; the kinds nobody was found for (**uncertainty**); each trait's origin badge         |
-| 3:15 to 4:45  | Demo 1: the comparison                | **Simulation**, **Compare scenarios**                                                                                                                                     | Baseline against change; what held across the seeded runs, with its interval and class; the assumptions the result moves with; one chain of second-order effects (**second-order effects**) |
-| 4:45 to 6:15  | Demo 1: the brief and the review      | **See the decision brief** (the Report stage unlocks by itself), **Generate decision brief**, then **Run independent review**                                             | The executive answer and its caveat; the origin chip on each statement; the validation plan (**validation plan**); one objection and its basis (**the independent critic**)                 |
-| 6:15 to 7:15  | Demo 2: a different subject           | **History**, open the prepared project; or **Use this example** on **Regional cloud price change** and **Understand my question**                                         | The open points the question leaves ($1 with no unit, date or scope); the different stakeholders; "nothing in the engine knows AWS"                                                         |
-| 7:15 to 8:45  | Demo 3: a public page                 | **Use this example** on **Online store: delivery and checkout**; in **Add a public web page**, **Fetch page**, **Add as evidence**                                        | The title, site, size and retrieval time; the document's own label as a retrieved page; then type a private address and read the refusal                                                    |
-| 8:45 to 9:30  | Demo 4: the audience's question       | Type it; add a public page; **Understand my question**; in the stakeholder review keep or add at least two stakeholders before approving                                  | What the reading made of it; how thin evidence shows as gaps and a warning, not as confident output                                                                                         |
-| 9:30 to 10:00 | Close                                 | **Markdown**, **JSON** or **Printable** on the brief                                                                                                                      | The limitations section; "It supports a person's analysis. It does not make the decision."                                                                                                  |
+| Time          | Where                                 | Click                                                                                                                                                                                         | Point at                                                                                                                                                                                                         |
+| ------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0:00 to 0:45  | First screen                          | Nothing                                                                                                                                                                                       | The one-line question, the sentence about not predicting, the eight-step path                                                                                                                                    |
+| 0:45 to 1:45  | Demo 1: the question and the evidence | **Use this example** on **Copilot in Teams** (the cards fold into the line "Example loaded: …"), then **Understand my question**, **Use this scenario**                                       | The five documents and their provenance (**provenance**); the scenario form: baseline, alternatives, who made each assumption (**assumptions**)                                                                  |
+| 1:45 to 3:15  | Demo 1: stakeholders and actors       | **Build Graph**, then **Env Setup**, **Find stakeholders by reading the text**, open one row, then **Go to approval**, **Approve stakeholders and create actors** and **Review the N actors** | The four counts and the note on how they were found; a row opened to its cited quotes; the uncertainty; the kinds nobody was found for (**uncertainty**); each trait's origin badge                              |
+| 3:15 to 4:45  | Demo 1: the comparison                | **Simulation**, **Compare scenarios**                                                                                                                                                         | Baseline against change; what held across the seeded runs, with its interval and class; the assumptions the result moves with; one chain of second-order effects (**second-order effects**)                      |
+| 4:45 to 6:15  | Demo 1: the brief and the review      | **See the decision brief** (the Report stage unlocks by itself), **Generate decision brief**, then the **Independent review** link in the **Jump to** bar and **Run independent review**      | The executive answer and its caveat; the origin chip on each statement; the validation plan, open just after the recommendations (**validation plan**); one objection and its basis (**the independent critic**) |
+| 6:15 to 7:15  | Demo 2: a different subject           | **History**, **Open** on the prepared project; or **Use this example** on **Regional cloud price change** and **Understand my question**                                                      | The open points the question leaves ($1 with no unit, date or scope); the different stakeholders; "nothing in the engine knows AWS"                                                                              |
+| 7:15 to 8:45  | Demo 3: a public page                 | **Use this example** on **Online store: delivery and checkout**; in **Add a public web page**, **Fetch page**, **Add as evidence**                                                            | The title, site, size and retrieval time; the document's own label as a retrieved page; then type a private address and read the refusal                                                                         |
+| 8:45 to 9:30  | Demo 4: the audience's question       | Type it; add a public page; **Understand my question**; in the stakeholder review keep or add at least two stakeholders before approving                                                      | What the reading made of it; how thin evidence shows as gaps and a warning, not as confident output                                                                                                              |
+| 9:30 to 10:00 | Close                                 | **Markdown**, **JSON** or **Printable** on the brief (Ctrl+P on the Report stage prints the whole brief and the review)                                                                       | The limitations section, closed until opened from the contents; "It supports a person's analysis. It does not make the decision."                                                                                |
 
 ### What to say, segment by segment
 
 **0:00, the first screen.** "Swarm answers one question: what could happen if something changes. It
-explores scenarios. It does not predict the future, and every number you will see is a count of
-simulated members or of seeded runs, never a real-world rate."
+explores scenarios. It does not predict the future, and every figure you will see comes from simulated
+members and seeded runs under stated assumptions, never from a real-world rate."
 
 **0:45, the question and the evidence.** "These five documents are invented, and each says so. Every
 document keeps where it came from. The scenario form is Swarm's reading of my question, made explicit
@@ -80,11 +81,12 @@ are not people. Rules mode reads for role words, so it finds the groups a text n
 this note says how many of them it could read a direction of impact for. Where it could not, nobody
 is assumed to be helped or harmed in that group, and I would set it here, with my reasons." Open one row to show its quotes, word
 for word, with the passage they come from, and what is assumed. "Every number an actor runs on says
-where it came from, and I can change it." Approve, open the actors, and move one trait's slider: its
+where it came from, and I can change it." **Go to approval**, then **Approve stakeholders and create actors**: the list shuts and focus moves to **Review the N actors**. Open the actors, and move one trait's slider: its
 badge becomes yours at once, and **Save changes to the actors** keeps it.
 
 **3:15, the comparison.** "A single run is never the answer. The baseline and each alternative run many
-times on the same seeds. 'Holds in k of n runs' measures how repeatable this simulation is under its own
+times on the same seeds, and the difference is paired by seed, so it is the change and not the noise.
+'Holds in k of n runs' measures how repeatable this simulation is under its own
 assumptions. It is not the probability of the event." Point at a finding with a weak class and say that
 it is not to be relied on. Point at the assumptions with no evidence behind them: "this is what we would
 test first". Read the chain of second-order effects if the run has one, and say that competitor,
@@ -94,9 +96,19 @@ Read the line that says how far to rely on the result.
 **4:45, the brief and the review.** "Every statement carries one of ten origins and the ids it rests
 on: supplied evidence, retrieved public evidence, a user or system assumption, an inferred stakeholder,
 actor behaviour, a simulation aggregation, a model's interpretation, a historical comparison or
-unresolved uncertainty. Nothing is unsourced." Point at where two sources disagree, if the brief lists
-one: "Swarm shows both and picks neither." Show the validation plan: "this is what we would check in the
-real world before acting". Then run the review: "seven critics challenge the analysis and never edit
+unresolved uncertainty. Nothing is unsourced." Read the executive answer first, in its order: the
+decision that was evaluated, the recommendation and the conditions it depends on, the headline comparison
+(the mean share of simulated members looking for an alternative or resisting, under the change and under no
+change, every actor counting equally, with the paired difference and in how many paired runs it was higher
+under the change), the groups moved most, the doubts that could change it and what would settle them. Say
+what it is: "simulated members under stated assumptions, not a rate in a population". The reference
+sections (the evidence base, the stakeholder landscape, the assumptions, the uncertainty and sensitivity,
+the sources, the limitations and the technical appendix) are closed so that the page is a few screens: open
+one from the contents, or **Expand all sections**. Point at where two sources disagree, if the brief lists
+one in the evidence base: "Swarm shows both and picks neither." Show the validation plan, which is open just
+after the recommendations: "this is what we would check in the real world before acting: what to observe,
+what to compare it with, how, and who runs it; the decision rule is left to me". Then choose **Independent
+review** in the **Jump to** bar and run the review: "seven critics challenge the analysis and never edit
 it". Read one objection with its basis, then respond, accept or dispute it: "the disagreement stays
 visible".
 
@@ -124,14 +136,14 @@ decides."
 
 ### The six things to point at
 
-| Point at                   | Where                                                                                                                                      | Say                                                                                                       |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| **Provenance**             | The document list, the stakeholder quotes, the origin chip on a brief statement and its **What this rests on**, **Sources and provenance** | "Every statement names where it came from, and invented evidence says so."                                |
-| **Assumptions**            | The scenario form, the actor traits, the brief's assumptions                                                                               | "Every number an actor runs on is an assumption with an origin, and it is mine to edit."                  |
-| **Uncertainty**            | The interval and class on each finding, the sensitivity list, the stakeholders' uncertainty chips, **Uncertainty and sensitivity**         | "'Holds in k of n runs' is repeatability under assumptions. This finding is unstable: do not rely on it." |
-| **Second-order effects**   | The chain read from one typical run, **Second-order and competitor effects**                                                               | "Competitors, partners and regulators react by generic rules after a lag, not by a script."               |
-| **The independent critic** | **Independent review**                                                                                                                     | "A critic challenges. It never edits the analysis, and its silence would not mean the analysis is right." |
-| **The validation plan**    | **Validation plan**, the recommendations' own checks                                                                                       | "Swarm ends by saying what to measure in the real world, because a simulation cannot settle it."          |
+| Point at                   | Where                                                                                                                                                                              | Say                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Provenance**             | The document list, the stakeholder quotes, the origin chip on a brief statement and its **What this rests on**, **Sources and provenance** (closed until opened from the contents) | "Every statement names where it came from, and invented evidence says so."                                |
+| **Assumptions**            | The scenario form, the actor traits, the brief's assumptions                                                                                                                       | "Every number an actor runs on is an assumption with an origin, and it is mine to edit."                  |
+| **Uncertainty**            | The interval and class on each finding, the sensitivity list, the stakeholders' uncertainty chips, **Uncertainty and sensitivity** (closed until opened from the contents)         | "'Holds in k of n runs' is repeatability under assumptions. This finding is unstable: do not rely on it." |
+| **Second-order effects**   | The chain read from one typical run, **Second-order and competitor effects**                                                                                                       | "Competitors, partners and regulators react by generic rules after a lag, not by a script."               |
+| **The independent critic** | **Independent review** (the **Jump to** bar links to it and says where it stands)                                                                                                  | "A critic challenges. It never edits the analysis, and its silence would not mean the analysis is right." |
+| **The validation plan**    | **Validation plan** (open, right after the recommendations), the recommendations' own checks                                                                                       | "Swarm ends by saying what to measure in the real world, because a simulation cannot settle it."          |
 
 ### Do not say
 

@@ -9,7 +9,9 @@ entries (2.24+). No `.env` is necessary for the local rules engine:
 docker compose up --build -d
 ```
 
-Open <http://127.0.0.1:3001>. The image builds the frontend/backend, runs as a
+Open <http://127.0.0.1:3001>. The image builds the frontend/backend (`npm run build`, which also writes a
+Brotli and a gzip copy of each text asset of the console for the server to send to a browser that accepts
+them), runs as a
 non-root user, serves one port, and persists SQLite in the `swarm-data` named
 volume. Compose publishes only on loopback, drops Linux capabilities and limits
 container CPU/memory. `docker compose down` retains the named data volume.

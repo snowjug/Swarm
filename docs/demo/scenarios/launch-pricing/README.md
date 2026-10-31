@@ -81,21 +81,23 @@ source. The ledger later compares sources and shows where they disagree."
 **1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
 the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
 and the prompt about roles nobody was found for. Say: "Roles, with the passage shown. They are not real
-people." **Approve stakeholders and create actors**, **Review the N actors**; point at a trait and its
-origin badge.
+people." **Go to approval**, **Approve stakeholders and create actors**, **Review the N actors**; point at a
+trait and its origin badge.
 
 **2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
 the proposed change, the spread across the seeded runs, one finding with "N of 30 seeded runs" and its
-stability chip, and the sensitivity view. Say: "This counts simulated runs. It is not a conversion
-rate."
+stability chip, and the sensitivity view. Say: "These are simulated members and seeded runs. They are not a
+conversion rate."
 
 **3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips. In the evidence base, open the source conflict (34% against 60%) and say:
-"Finance's funnel and the sales leads disagree on how many customers started with a trial. Swarm shows
-both and does not pick one." Show the uncertainty about prices above $34 and the validation plan.
+answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
+was built with one source conflict, so open it, find it (34% against 60%) and say: "Finance's funnel and the
+sales leads disagree on how many customers started with a trial. Swarm shows both and does not pick one."
+Then look for the uncertainty about prices above $34, and at the validation plan (open, right after the
+recommendations).
 
-**4:30 One objection (20 s).** Run the independent review and read one objection with its basis.
-Say: "A critic challenges and never edits. I can respond, accept or dispute it."
+**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
+objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute it."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table and a plan
 to check them. It supports a person's analysis; it does not make the decision."
@@ -129,10 +131,11 @@ generic rules, not from a script written for this example.
 evidence behind it. Say: "This is what we would test first, and the validation plan says how."
 
 **7:30 to 9:00 Review and brief.** Run the independent review. Read one evidence objection and one
-assumption objection, and respond to one. In the brief, show the assumptions, uncertainty,
-recommendations (each linked to a finding, with an owner function and a validation step) and the
-validation plan. Say that a staged price test with named measures is the kind of check the plan
-proposes, and that the evidence has none above $34.
+assumption objection, and respond to one. In the brief, look at the recommendations (each resting on the
+findings it cites, with an owner function and a way to check it) and the validation plan, which are open,
+and at the assumptions and uncertainty, which are closed until opened from the contents. Say that a staged
+price test with named measures is the kind of check a validation plan should propose, and check whether
+yours does; the evidence has none above $34.
 
 **9:00 to 10:00 Exports and questions.** Export Markdown, JSON or the printable page. Ask the analyst
 one question the sources answer ("What share of new paid accounts began with a free trial?") and one
@@ -156,7 +159,7 @@ counting. That is a check on the accounts' own data, and the validation plan is 
 **"Does it tell us the right price?"** No. It explores how different roles might react to a stated
 change, under assumptions you can read and edit, and says which assumptions the result depends on.
 
-**"Would customers leave?"** The pack has no evidence on that. Any such finding in the analysis is a
-count of simulated runs, not a rate in the real world, and the brief labels its origin.
+**"Would customers leave?"** The pack has no evidence on that. Any such finding in the analysis is about
+simulated members and seeded runs, not a rate in the real world, and the brief labels its origin.
 
 **"Is this our company?"** No. The company, the plans, the prices and the competitors are invented.
