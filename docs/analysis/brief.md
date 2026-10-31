@@ -229,8 +229,10 @@ Every recommendation carries its impact, effort, reversibility, a time horizon, 
 leading indicators, the assumptions it depends on and how to check it before committing. They come
 from a few generic rules that know nothing about the subject:
 
-- An adverse, repeatable finding for a harmed group the answer names: mitigate, or stage the change.
-  Only the proposed change is mitigated, and the groups come in the order the answer names them.
+- A repeatable finding that a harmed group the answer names ended up looking for an alternative or
+  resisting as its largest response: mitigate, or stage the change. A finding about another response
+  of the group does not stand for it. Only the proposed change is mitigated, and the groups come in
+  the order the answer names them.
 - An assumption the result is sensitive to that nothing cited backs: validate it first.
 - Key actors, or evidence the question named, that nothing cited supports: collect evidence.
 - Sources that disagree: resolve the conflicts, by getting the underlying data from the owner of each
