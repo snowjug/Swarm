@@ -50,6 +50,10 @@ const REFUSED = [
   'An adoption rate of 40% is reached within a year.',
   'About 12 per cent of them.',
   'Simulated counts show churn of 18 percent of real users.',
+  // The product's own claim that a simulated count is an actual one, or a forecast in a verb.
+  'The simulation shows 18 customers actually left.',
+  'Analysts forecast a rise in adoption.',
+  'Researchers anticipate a decline in sales.',
 ];
 
 /** What the product says about itself and its figures, and what others wrote: none of it a claim. */
@@ -59,6 +63,7 @@ const ALLOWED = [
   'None is a rate, a share of a real population, a forecast or a measurement.',
   'It does not predict the future, and the counts above are neither rates nor forecasts.',
   'Swarm does not predict conversion or churn.',
+  'Nothing here forecasts a rise in adoption, and the brief does not really predict the outcome.',
   'These counts are not 18 real customers.',
   'The 18 simulated members are not 18 real customers.',
   'No share of a real population is measured.',

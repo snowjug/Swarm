@@ -36,12 +36,24 @@ const FORECAST_PHRASE = new RegExp(
   'giu',
 );
 
+/**
+ * A verb of forecast with what is forecast: "analysts forecast a rise", "predicts that". Where it is
+ * denied ("does not predict the future", "nothing here forecasts a rise") it is a disclaimer, not a forecast.
+ */
+const FORECAST_VERB = new RegExp(
+  String.raw`(?<!\b(?:not|never|neither|nor|cannot|nothing|nobody|without|no|\p{L}+n['’]t)\s+(?:\p{L}+\s+)?)` +
+    String.raw`\b(?:forecast(?:s|ed|ing)?|predict(?:s|ed|ing)?|anticipate[sd]?|anticipating)\s+` +
+    String.raw`(?:a|an|the|that|more|less|further|continued|some|no)\b`,
+  'giu',
+);
+
 const PATTERNS: {
   rule: Exclude<WordingRule, 'real-world-claim' | 'missing-simulated'>;
   pattern: RegExp;
 }[] = [
   { rule: 'prediction', pattern: /\b(?:will|shall|won['’]t|going to)\b/giu },
   { rule: 'prediction', pattern: FORECAST_PHRASE },
+  { rule: 'prediction', pattern: FORECAST_VERB },
   {
     rule: 'overclaim',
     pattern:
@@ -129,6 +141,8 @@ const QUANTITY = new RegExp(String.raw`^(?:\d|(?:${NUMBER_WORDS})$)`, 'u');
 const OF_THE_SIMULATION =
   /^(?:simulated|simulation|simulations|synthetic|fictional|seeded|paired|modelled|modeled|virtual|assumed|assumption|assumptions|runs?|seeds?)$/u;
 const REAL = /^(?:real|actual|genuine|real-world)$/u;
+/** Words that put what follows in the world: "18 customers actually left". */
+const REALLY = /^(?:actually|really|truly|genuinely)$/u;
 const MEASURE = new RegExp(`^(?:${REAL_WORLD_MEASURES.join('|')})$`, 'u');
 const PEOPLE = new RegExp(`^(?:${REAL_PEOPLE.join('|')})$`, 'u');
 const DENIAL = /^(?:not|never|neither|nor|no|none|cannot|without|\p{L}+n['’]t)$/u;
@@ -194,7 +208,10 @@ function claimAt(words: readonly Word[], at: number): [number, number] | null {
       measure = other;
     }
   }
-  const realPeople = anyIn(words, at + 1, at + 3, REAL) && anyIn(words, at + 2, at + 5, PEOPLE);
+  const realPeople =
+    (anyIn(words, at + 1, at + 3, REAL) && anyIn(words, at + 2, at + 5, PEOPLE)) ||
+    // "18 customers actually left": the people are named first, and the word that puts them in the world comes after.
+    (PEOPLE.test(words[at + 1]?.text ?? '') && anyIn(words, at + 2, at + 3, REALLY));
   const realMeasure = measure >= 0 && anyIn(words, at + 1, at + 3, REAL);
   if (measure < 0 && !realPeople) return null;
   // "not 18 real customers": the sentence is saying what the figure is not.

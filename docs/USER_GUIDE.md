@@ -217,8 +217,8 @@ repeated over many seeds, under assumptions that the page lists.
   confidence, and neither can tell whether a source is true.
 - **The decision brief puts the answer first, then what it rests on.** Its first section gives the
   decision, a recommendation that depends on conditions, the comparison of the change with no change in
-  one measure (the paired difference, its standard error and in how many paired runs the share was higher
-  under the change), the groups it moves most, the three doubts that could change it and what would settle
+  one measure (the paired difference, its standard error and how the paired runs divided: in how many the
+  share was higher under the change, in how many lower, or the same in all), the groups it moves most, the three doubts that could change it and what would settle
   them. Its recommendations each name the findings, evidence or critiques they follow from, and its
   **validation plan** lists the real-world checks that would settle what the result depends on most,
   each saying what to observe, what to compare it with and who runs it, and leaving the decision

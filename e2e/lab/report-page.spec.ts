@@ -299,12 +299,22 @@ test.describe('printing the report', () => {
     const has = (words: string) => flat.includes(words.replace(/\s+/gu, ''));
     expect(totalPages).toBeGreaterThan(5);
 
-    // Every section is printed in full, though the screen had them all closed.
+    // Every section is printed in full, though the screen had them all closed: every statement of it,
+    // and not only the first. The recommendations and the checks are tables, not statements on the page.
     const brief = await briefOf(page, project);
-    for (const entry of brief.brief?.sections ?? []) {
-      const first = entry.statements[0]?.text;
-      if (first) expect(has(first.slice(0, 50)), `${entry.id}: ${first.slice(0, 50)}`).toBe(true);
+    const sections = brief.brief?.sections ?? [];
+    expect(sections.length).toBeGreaterThan(5);
+    let checked = 0;
+    for (const entry of sections) {
+      for (const statement of entry.statements) {
+        if (entry.id === 'recommendations' && statement.id.startsWith('rec-')) continue;
+        if (entry.id === 'validation-plan' && statement.id.startsWith('val-')) continue;
+        const start = statement.text.slice(0, 60);
+        expect(has(start), `${entry.id}/${statement.id}: ${start}`).toBe(true);
+        checked += 1;
+      }
     }
+    expect(checked).toBeGreaterThan(50);
     expect(has('Independent review')).toBe(true);
     expect(has('What the review found')).toBe(true);
     expect(has('Decision brief')).toBe(true);

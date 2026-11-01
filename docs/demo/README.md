@@ -99,8 +99,8 @@ actor behaviour, a simulation aggregation, a model's interpretation, a historica
 unresolved uncertainty. Nothing is unsourced." Read the executive answer first, in its order: the
 decision that was evaluated, the recommendation and the conditions it depends on, the headline comparison
 (the mean share of simulated members looking for an alternative or resisting, under the change and under no
-change, every actor counting equally, with the paired difference and in how many paired runs it was higher
-under the change), the groups moved most, the doubts that could change it and what would settle them. Say
+change, every actor counting equally, with the paired difference and how the paired runs divided: higher
+under the change in how many, lower in how many, or the same in all), the groups moved most, the doubts that could change it and what would settle them. Say
 what it is: "simulated members under stated assumptions, not a rate in a population". The reference
 sections (the evidence base, the stakeholder landscape, the assumptions, the uncertainty and sensitivity,
 the sources, the limitations and the technical appendix) are closed so that the page is a few screens: open

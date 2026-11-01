@@ -890,6 +890,40 @@ describe('when the proposed change comes out about the same and another scenario
     expect(advice.some((entry) => entry.kind === 'mitigate')).toBe(false);
   });
 
+  it('uses the alternative even when a finding for the proposed change would sort first', () => {
+    const analysis = world();
+    analysis.config.variants.find(
+      (variant) => variant.id === 'proposed-change',
+    )!.impactOverrides.subscribers = 0.8;
+    for (const run of analysis.variants.find((result) => result.variantId === 'proposed-change')!
+      .runs) {
+      run.byActor.find((actor) => actor.actorId === 'subscribers')!.stanceMean = 0.11;
+    }
+    // A repeatable finding about the same group under the proposed change, steadier than Option B's.
+    Object.assign(
+      analysis.findings.find((finding) => finding.id === 'f2')!,
+      {
+        id: 'a-proposed-wait',
+        statement:
+          'In 10 of 10 seeded runs, the largest group of simulated members of Subscribers ended up waiting and seeing under Proposed change.',
+        predicate: 'Waiting and seeing is the largest response group.',
+        holdsIn: 10,
+        interval: { lo: 0.9, hi: 1 },
+        classification: 'repeatable',
+      },
+    );
+    analysis.findings.find(
+      (finding) => finding.id === 'direction-option-b-subscribers',
+    )!.interval.lo = 0.72;
+    const facts = gatherFacts(inputsFor(analysis));
+    expect(facts.signal.state).toBe('no-difference');
+    const buildOn = advise(facts).filter((entry) => entry.kind === 'build-on');
+    expect(buildOn).toHaveLength(1);
+    expect(buildOn[0]!.refs.variantIds).toContain('option-b');
+    expect(buildOn[0]!.refs.variantIds).not.toContain('proposed-change');
+    expect(buildOn[0]!.text).toContain('under “Option B”');
+  });
+
   it('plans a check of the benefit in that scenario’s own words, which is not the proposed change’s premise', () => {
     const plan = planChecks(gatherFacts(inputsFor(world())));
     const check = plan.find(

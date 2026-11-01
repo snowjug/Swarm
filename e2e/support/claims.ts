@@ -14,6 +14,14 @@ const FUTURE = [
       String.raw`(?:certain|sure|bound|likely|unlikely|expected|projected|forecast(?:ed)?|predicted|guaranteed|poised|destined|slated|anticipated|set(?!\s+to\s+[+-]?\d))\s+to\b`,
     'iu',
   ),
+  // A verb of forecast with what is forecast ("analysts forecast a rise"), unless it is denied
+  // ("does not predict the future"), which is a disclaimer.
+  new RegExp(
+    String.raw`(?<!\b(?:not|never|neither|nor|cannot|nothing|nobody|without|no|\p{L}+n['’]t)\s+(?:\p{L}+\s+)?)` +
+      String.raw`\b(?:forecast(?:s|ed|ing)?|predict(?:s|ed|ing)?|anticipate[sd]?|anticipating)\s+` +
+      String.raw`(?:a|an|the|that|more|less|further|continued|some|no)\b`,
+    'iu',
+  ),
 ];
 
 const NUMBER_WORD =
@@ -23,6 +31,8 @@ const MEASURE =
 const OF_THE_SIMULATION =
   /^(?:simulated|simulation|simulations|synthetic|fictional|seeded|paired|modelled|modeled|virtual|assumed|assumption|assumptions|runs?|seeds?)$/u;
 const REAL = /^(?:real|actual|genuine|real-world)$/u;
+/** Words that put what follows in the world: "18 customers actually left". */
+const REALLY = /^(?:actually|really|truly|genuinely)$/u;
 const PEOPLE =
   /^(?:customers?|users?|people|persons?|members?|employees?|staff|subscribers?|shoppers?|buyers?|clients?|consumers?|patients?|residents?|citizens?|households?|voters?|workers?|students?|visitors?|respondents?|participants?)$/u;
 const DENIAL = /^(?:not|never|neither|nor|no|none|cannot|without|\p{L}+n['’]t)$/u;
@@ -72,8 +82,10 @@ function figureClaim(tokens: string[], at: number): boolean {
     }
   }
   const realWorld =
-    within(tokens, at + 1, at + 3, REAL) &&
-    (measure >= 0 || within(tokens, at + 2, at + 5, PEOPLE));
+    (within(tokens, at + 1, at + 3, REAL) &&
+      (measure >= 0 || within(tokens, at + 2, at + 5, PEOPLE))) ||
+    // "18 customers actually left": the people are named first, and the word that puts them in the world comes after.
+    (PEOPLE.test(tokens[at + 1] ?? '') && within(tokens, at + 2, at + 3, REALLY));
   if (!percent && measure < 0 && !realWorld) return false;
   // "not 18 real customers": the sentence says what the figure is not.
   let before = at - 1;

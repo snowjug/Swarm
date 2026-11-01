@@ -294,11 +294,18 @@ describe('a comparison saved before it recorded what it was made from', () => {
       'saved before Swarm recorded what a comparison is made from',
     );
 
-    // Every export says so before anything else.
+    // Every export says so before anything else, with the reason: that the comparison cannot be checked.
+    const reason = 'saved before Swarm recorded what a comparison is made from';
     for (const format of ['md', 'html', 'json']) {
       const { body } = await instance.app.inject(`${instance.base}/brief/export?format=${format}`);
       expect(body, format).toContain('may be out of date');
-      expect(body, format).toContain('saved before Swarm recorded what a comparison is made from');
+      if (format === 'json') {
+        expect(JSON.parse(body).warning, format).toContain(reason);
+      } else {
+        const headline = body.indexOf('In short');
+        expect(headline, format).toBeGreaterThan(0);
+        expect(body.slice(0, headline), format).toContain(reason);
+      }
     }
 
     // A comparison that records what it was made from, and a review and a brief of it, are current.
