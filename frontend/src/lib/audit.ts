@@ -17,6 +17,7 @@ const ACTION_LABELS: Readonly<Record<string, string>> = {
   'chat.asked': 'Question asked',
   'export.downloaded': 'Export downloaded',
   'ledger.built': 'Evidence ledger built',
+  'ledger.conflicts.found': 'Conflicts between sources added to the ledger',
   'claim.reviewed': 'Statement reviewed',
   'conflict.reviewed': 'Conflict reviewed',
   'access.refused': 'Access refused',
