@@ -770,8 +770,9 @@ describe('the validation plan', () => {
     expect(concernOf(staff, cited)).toBe(
       'Evaluate staff burden, patient rest and family access in separate measures.',
     );
-    // A group that no passage names keeps the first passage that supports it, and then the first cited.
-    expect(concernOf({ name: 'Visitors' } as Actor, cited)).toBe(cited[0]!.quote);
+    // A group that no passage names keeps the first passage that supports it and is not a gap, and then the first cited.
+    expect(concernOf({ name: 'Visitors' } as Actor, cited)).toBe(cited[1]!.quote);
+    expect(concernOf({ name: 'Visitors' } as Actor, [cited[0]!, cited[2]!])).toBe(cited[0]!.quote);
     expect(concernOf({ name: 'Visitors' } as Actor, [cited[2]!])).toBe(cited[2]!.quote);
     expect(concernOf(staff, [])).toBeUndefined();
     // A plural name finds the singular, and the name is read as words and not as a pattern.
@@ -781,7 +782,26 @@ describe('the validation plan', () => {
         passage({ quote: 'A subscriber leaves when the fee rises.' }),
       ]),
     ).toBe('A subscriber leaves when the fee rises.');
-    expect(concernOf({ name: '(.*)' } as Actor, cited)).toBe(cited[0]!.quote);
+    expect(concernOf({ name: '(.*)' } as Actor, cited)).toBe(cited[1]!.quote);
+    // A passage that says what nobody has counted comes after one that says something else, though it names the group.
+    const gapFirst = [
+      passage({
+        quote:
+          'No one has counted which patients receive visits, or whether staff would need overtime.',
+      }),
+      passage({
+        quote: 'Evaluate staff burden, patient rest and family access in separate measures.',
+      }),
+    ];
+    expect(concernOf(staff, gapFirst)).toBe(gapFirst[1]!.quote);
+    // Where every passage is such a gap, the first is kept as context, and one that names the group sooner comes first.
+    expect(concernOf(staff, [gapFirst[0]!])).toBe(gapFirst[0]!.quote);
+    expect(
+      concernOf(staff, [
+        passage({ quote: 'Patients and visitors say that staff are often interrupted.' }),
+        passage({ quote: 'Staff are often interrupted during handover.' }),
+      ]),
+    ).toBe('Staff are often interrupted during handover.');
   });
 
   it('plans a check for a sensitive assumption that nothing cited backs and for none that a passage backs, whatever else is in the plan', () => {

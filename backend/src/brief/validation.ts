@@ -600,20 +600,38 @@ export function wordsOf(facts: Facts): Pick<Slots, 'change' | 'system'> {
 /** A word without its plural, so that a group named in the plural is found in a passage that uses the singular. */
 const stem = (word: string): string => word.replace(/s$/u, '');
 
-/** Whether a passage names the group, by any word of the group's name. */
-function namesGroup(text: string, name: string): boolean {
+/** Where in a passage, counting its content words, the group is first named; -1 where it is not. */
+function whereNamed(text: string, name: string): number {
   const wanted = new Set(tokenize(name).map(stem));
-  return wanted.size > 0 && tokenize(text).some((word) => wanted.has(stem(word)));
+  return wanted.size === 0 ? -1 : tokenize(text).findIndex((word) => wanted.has(stem(word)));
 }
 
+/** A passage that says that something has not been counted or is not known: a gap, and not something that was seen. */
+const A_GAP =
+  /\b(?:no one|nobody|not (?:yet |been )*(?:counted|measured|known|tracked|recorded|collected)|has not|have not|unknown|unmeasured|no (?:data|figures?|records?|counts?))\b/iu;
+
 /**
- * The passage that says most about what the group is concerned with: one that names the group, else
- * the first that supports it, else the first cited. It is context for the check, not its outcome.
+ * The passage that says most about what the group is concerned with. A passage that is not a statement
+ * of what nobody has counted comes before one that is, one that names the group before one that does
+ * not, and one that names it sooner before one that names it later; then the order of the evidence.
+ * It is context for the check, not its outcome.
  */
 export function concernOf(actor: Actor, cited: readonly EvidenceRef[]): string | undefined {
-  const supporting = cited.filter((ref) => ref.role === 'supports' && ref.quote);
-  const named = supporting.find((ref) => namesGroup(ref.quote ?? '', actor.name));
-  return (named ?? supporting[0] ?? cited[0])?.quote ?? undefined;
+  const supporting = cited
+    .filter((ref) => ref.role === 'supports' && ref.quote)
+    .map((ref, order) => {
+      const quote = ref.quote ?? '';
+      const named = whereNamed(quote, actor.name);
+      return { quote, order, named, gap: A_GAP.test(quote) };
+    })
+    .sort(
+      (a, b) =>
+        Number(a.gap) - Number(b.gap) ||
+        Number(a.named < 0) - Number(b.named < 0) ||
+        a.named - b.named ||
+        a.order - b.order,
+    );
+  return (supporting[0]?.quote ?? cited[0]?.quote) || undefined;
 }
 
 /** Whether a scenario itself sets the group's impact, by an override or an edit to the trait. */

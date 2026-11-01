@@ -395,8 +395,10 @@ says: it quotes the passage the group cites, as context and not as an outcome, b
 state a worry, a gap in the data or a proposal and not something that was seen, and it says that someone
 who knows the group makes it countable before the check starts. It asks, beside that, who starts using
 an alternative, reduces their use or formally objects. A group that cites nothing keeps a general
-measure that names no outcome of its own. The passage quoted is the first that supports the group and
-names it (by a word of its name), else the first that supports it. The check is also made for a group that
+measure that names no outcome of its own. The passage quoted is the one that supports the group and says
+the most about it: a passage that is not a statement of what nobody has counted comes before one that is,
+one that names the group (by a word of its name) before one that does not, and one that names it sooner
+before one that names it later. The check is also made for a group that
 the advice builds on because it is helped, since a benefit that nothing measured is not something to build
 on yet; for a group helped by another scenario it is asked in that scenario's own words and links to it,
 apart from the premise of the proposed change.
