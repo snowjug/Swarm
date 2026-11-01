@@ -729,3 +729,39 @@ export function detectContradictions(
     };
   });
 }
+
+/** The number in the id of a conflict ("X12" is 12), or 0. */
+const numberOfId = (id: string): number => Number(/^X(\d+)$/u.exec(id)?.[1] ?? 0);
+
+/** Two conflicts are one pair of statements when they quote the same two sentences of the same documents, whichever comes first. */
+const pairKey = (record: ContradictionRecord): string =>
+  [record.left, record.right]
+    .map((side) => `${side.documentId}\u0000${side.quote ?? ''}`)
+    .sort()
+    .join('\u0001');
+
+/** The most conflicts a ledger holds: what a person has reviewed is kept beside what later scans add. */
+export const MAX_HELD_CONFLICTS = MAX_CONTRADICTIONS * 2;
+
+/**
+ * What a ledger holds after a fresh scan of its sources: the conflicts it already has, with whatever a
+ * person decided about them, and any candidate the scan finds that it does not hold, as detected and
+ * numbered after the last. A search that has since been corrected, or evidence that has since been
+ * added, then shows in a ledger that was built before, and nothing already reviewed is lost.
+ */
+export function reconcileConflicts(
+  held: readonly ContradictionRecord[],
+  found: readonly ContradictionRecord[],
+): ContradictionRecord[] {
+  const known = new Set(held.map(pairKey));
+  let last = held.reduce((most, record) => Math.max(most, numberOfId(record.id)), 0);
+  const added: ContradictionRecord[] = [];
+  for (const record of found) {
+    const key = pairKey(record);
+    if (known.has(key)) continue;
+    known.add(key);
+    last += 1;
+    added.push({ ...record, id: `X${last}` });
+  }
+  return [...held, ...added].slice(0, MAX_HELD_CONFLICTS);
+}

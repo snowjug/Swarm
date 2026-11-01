@@ -4,12 +4,14 @@ import type { EvidenceChunk, SourceDocument } from '../../shared/types.js';
 import {
   MAX_CANDIDATES_PER_SENTENCE,
   MAX_CONTRADICTIONS,
+  MAX_HELD_CONFLICTS,
   MAX_POSTING_LENGTH,
   type ContradictionScanStats,
   completeSentences,
   detectContradictions,
   hasNegation,
   measurementsIn,
+  reconcileConflicts,
   splitSentences,
 } from '../src/grounding/contradictions.js';
 import { findQuote } from '../src/grounding/text.js';
@@ -521,6 +523,79 @@ describe('detectContradictions', () => {
         'The review follows the budget cycle',
       ]);
     });
+  });
+});
+
+describe('what a ledger holds after a fresh scan', () => {
+  const side = (documentId: string, quote: string) => ({
+    passageId: `S-${documentId}`,
+    documentId,
+    documentName: `${documentId}.md`,
+    start: 0,
+    end: quote.length,
+    quote,
+    contentHash: 'h'.repeat(64),
+    role: 'contradicts' as const,
+  });
+  const record = (
+    id: string,
+    a: string,
+    b: string,
+    status: ContradictionRecord['status'] = 'detected',
+  ) =>
+    ({
+      id,
+      kind: 'numeric',
+      topic: 'permits',
+      left: side('D1', a),
+      right: side('D2', b),
+      leftValue: '1',
+      rightValue: '2',
+      confidence: 0.9,
+      status,
+      note: status === 'detected' ? null : 'decided',
+      detectedBy: 'deterministic-v1',
+      createdAt: '2026-10-29T10:00:00.000Z',
+      updatedAt: '2026-10-29T10:00:00.000Z',
+    }) satisfies ContradictionRecord;
+
+  it('keeps what it holds, with what was decided, and adds a candidate it does not hold after the last', () => {
+    const held = [
+      record('X1', 'Alpha 1.', 'Beta 2.', 'dismissed'),
+      record('X7', 'Gamma 1.', 'Delta 2.'),
+    ];
+    const found = [record('X1', 'Gamma 1.', 'Delta 2.'), record('X2', 'Eps 1.', 'Zeta 2.')];
+    const merged = reconcileConflicts(held, found);
+    expect(merged.map((entry) => [entry.id, entry.status])).toEqual([
+      ['X1', 'dismissed'],
+      ['X7', 'detected'],
+      ['X8', 'detected'],
+    ]);
+    expect(merged[2]?.left.quote).toBe('Eps 1.');
+  });
+
+  it('knows a pair again whichever side comes first, and adds a pair only once', () => {
+    const held = [record('X1', 'Alpha 1.', 'Beta 2.')];
+    const swapped = {
+      ...record('X1', 'Beta 2.', 'Alpha 1.'),
+      left: side('D2', 'Beta 2.'),
+      right: side('D1', 'Alpha 1.'),
+    };
+    const fresh = record('X2', 'Eps 1.', 'Zeta 2.');
+    expect(reconcileConflicts(held, [swapped, fresh, { ...fresh, id: 'X3' }])).toHaveLength(2);
+  });
+
+  it('holds no more than the bound, and an empty ledger takes whatever the scan found', () => {
+    const many = Array.from({ length: MAX_HELD_CONFLICTS + 10 }, (_, i) =>
+      record(`X${i + 1}`, `Quote ${i} a.`, `Quote ${i} b.`),
+    );
+    expect(reconcileConflicts([], many)).toHaveLength(MAX_HELD_CONFLICTS);
+    expect(reconcileConflicts([], [])).toEqual([]);
+    expect(reconcileConflicts([], many.slice(0, 3)).map((entry) => entry.id)).toEqual([
+      'X1',
+      'X2',
+      'X3',
+    ]);
   });
 });
 

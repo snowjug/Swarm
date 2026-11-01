@@ -9,7 +9,11 @@ import { MAX_ARTIFACT_BYTES } from '../../../shared/artifacts.js';
 import type { BriefView, DecisionBrief } from '../../../shared/brief.js';
 import { isOpenConflict } from '../../../shared/evidence.js';
 import { AppError } from '../errors.js';
-import { detectContradictions, type ContradictionScanStats } from '../grounding/contradictions.js';
+import {
+  detectContradictions,
+  reconcileConflicts,
+  type ContradictionScanStats,
+} from '../grounding/contradictions.js';
 import { assessSufficiency } from '../grounding/ledger.js';
 import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
@@ -33,7 +37,6 @@ function withoutSnapshot(brief: DecisionBrief): DecisionBrief {
 /** What the brief needs from the project, read without changing anything. */
 function ledgerSummaryOf(repository: Repository, projectId: string): BriefLedgerSummary {
   const built = repository.ledger.state(projectId) !== null;
-  const chunks = repository.chunks(projectId);
   const stats: ContradictionScanStats = {
     sentences: 0,
     skippedLists: 0,
@@ -41,12 +44,14 @@ function ledgerSummaryOf(repository: Repository, projectId: string): BriefLedger
     pairsCompared: 0,
     cappedSentences: 0,
   };
-  const now = new Date();
+  // One search of the sources serves both what is found and how far it read. A ledger built earlier
+  // keeps what a person decided about its conflicts, and a candidate that this search finds and it
+  // does not hold is shown as detected, so that a ledger built before the search improved is not
+  // paired with the coverage of a search that it never made.
+  const scanned = detectContradictions(repository.chunks(projectId), new Date(), stats);
   const conflicts = built
-    ? repository.ledger.contradictions(projectId)
-    : detectContradictions(chunks, now, stats);
-  // The ledger keeps what its search found and not how far it read, so the evidence is read again to tell.
-  if (built) detectContradictions(chunks, now, stats);
+    ? reconcileConflicts(repository.ledger.contradictions(projectId), scanned)
+    : scanned;
   const open = conflicts.filter((conflict) => isOpenConflict(conflict.status)).length;
   const sufficiency = built ? assessSufficiency(repository.ledger.claims(projectId), open) : null;
   return {

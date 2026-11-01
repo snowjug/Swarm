@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import {
+  actorSetFixture,
+  analysisFixture,
+  scenarioFixture,
+  stakeholderSetFixture,
+} from '../../shared/lab-fixtures.js';
 import type { ClaimRecord, ContradictionRecord } from '../../shared/evidence.js';
 import type { GroundedClaim, GroundingReview } from '../../shared/grounding.js';
 import { buildApp } from '../src/app.js';
+import { BriefService } from '../src/brief/service.js';
 import {
   buildClaimRecords,
   conflictTouchesStatement,
@@ -213,6 +220,59 @@ describe('the ledger for a project', () => {
     expect([found.leftValue, found.rightValue].sort()).toEqual(['365,000', '412,000']);
     expect(result.sufficiency.level).toBe('insufficient');
     expect(result.reviewedAt).toBeNull();
+  });
+
+  it('adds the conflict that a corrected search finds to a ledger built before it, and keeps what was decided', async () => {
+    const harness = await setup();
+    const id = harness.project.id;
+    const first = harness.ledger.get(id).contradictions as [ContradictionRecord];
+    expect(first).toHaveLength(1);
+    // A person decided about it, and the ledger was built by a search that found nothing else.
+    harness.ledger.reviewContradiction(id, first[0].id, {
+      status: 'dismissed',
+      note: 'Different periods.',
+    });
+    // Rebuilding with the same sources keeps the decision and adds nothing twice.
+    const again = harness.ledger.rebuild(id).contradictions;
+    expect(again).toHaveLength(1);
+    expect(again[0]).toMatchObject({ id: 'X1', status: 'dismissed', note: 'Different periods.' });
+
+    // A ledger built by an older search that found nothing gets the conflict a search now finds.
+    harness.repository.atomic(() =>
+      harness.repository.ledger.replaceInside(
+        id,
+        { claims: [], contradictions: [], reviewedAt: null },
+        new Date(),
+      ),
+    );
+    const rebuilt = harness.ledger.rebuild(id).contradictions;
+    expect(rebuilt).toHaveLength(1);
+    expect(rebuilt[0]).toMatchObject({ id: 'X1', status: 'detected', kind: 'numeric' });
+  });
+
+  it('shows a conflict in the decision brief that a ledger built before the search was corrected does not hold', async () => {
+    const harness = await setup();
+    const id = harness.project.id;
+    harness.ledger.get(id);
+    harness.repository.atomic(() =>
+      harness.repository.ledger.replaceInside(
+        id,
+        { claims: [], contradictions: [], reviewedAt: null },
+        new Date(),
+      ),
+    );
+    const { artifacts } = harness.repository;
+    artifacts.put(id, 'scenario', 'default', scenarioFixture());
+    artifacts.put(id, 'stakeholders', 'default', stakeholderSetFixture());
+    artifacts.put(id, 'actors', 'default', actorSetFixture());
+    artifacts.put(id, 'analysis', 'analysis-1', analysisFixture({ id: 'analysis-1' }));
+    const brief = new BriefService(harness.repository).generate(id).data;
+    const text = brief.sections
+      .find((section) => section.id === 'evidence-base')!
+      .statements.map((statement) => statement.text)
+      .join('\n');
+    expect(text).toContain('Open conflict between sources (detected)');
+    expect(text).not.toContain('No conflict between the supplied sources was detected');
   });
 
   it('builds one record per reviewed statement and weighs the conflict only where it applies', async () => {

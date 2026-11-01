@@ -597,7 +597,7 @@ export function wordsOf(facts: Facts): Pick<Slots, 'change' | 'system'> {
   };
 }
 
-/** A word without its plural, so that a group named "Subscribers" is found in a passage about a subscriber. */
+/** A word without its plural, so that a group named in the plural is found in a passage that uses the singular. */
 const stem = (word: string): string => word.replace(/s$/u, '');
 
 /** Whether a passage names the group, by any word of the group's name. */

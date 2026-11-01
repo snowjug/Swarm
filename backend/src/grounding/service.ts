@@ -14,7 +14,7 @@ import type { ProjectDetail } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
 import type { Repository } from '../storage/repository.js';
 import { signals } from '../telemetry/signals.js';
-import { detectContradictions } from './contradictions.js';
+import { detectContradictions, reconcileConflicts } from './contradictions.js';
 import {
   applyReview,
   assessSufficiency,
@@ -99,9 +99,10 @@ export class LedgerService {
     const project = this.repository.get(projectId);
     const chunks = this.repository.chunks(projectId);
     const existing = this.repository.ledger.state(projectId);
+    const scanned = detectContradictions(chunks, now);
     const contradictions = existing
-      ? this.repository.ledger.contradictions(projectId)
-      : detectContradictions(chunks, now);
+      ? reconcileConflicts(this.repository.ledger.contradictions(projectId), scanned)
+      : scanned;
     const grounding = project.report?.grounding ?? null;
     const memories = new Map<string, SimulationMemory>(
       (project.console?.memories ?? []).map((memory) => [memory.id, memory]),

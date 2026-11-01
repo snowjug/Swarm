@@ -462,7 +462,9 @@ server process and are marked interrupted if it stops). The wider picture is in 
   sentences hold is not used to find partners and a sentence is compared with at most 128 of them. A pair not
   reached within those limits is skipped, and the decision brief says so (how many lists of sentences were not
   read and how many sentences were compared with only their closest partners) rather than reporting a scan
-  that read everything (evidence of a few hundred sentences reaches neither limit).
+  that read everything (evidence of a few hundred sentences reaches neither limit). A ledger that was built
+  earlier keeps the conflicts it holds and what a person decided about them; rebuilding it, and writing
+  the decision brief, add any candidate that a fresh search finds and it does not hold.
   [Evaluation](./evaluation/README.md) has the sets and the weak spots.
 - **The engines can disagree.** The repeated runs use a simple, transparent rules engine. The deep
   dive can use a model for each actor's decisions. The analysis records whether the two agree and
