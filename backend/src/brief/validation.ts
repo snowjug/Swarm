@@ -1,5 +1,6 @@
-import type { Finding, SensitivityRow } from '../../../shared/analysis.js';
+import type { Finding, SensitivityRow, Variant } from '../../../shared/analysis.js';
 import type { BriefRefs, ValidationExperiment } from '../../../shared/brief.js';
+import type { EvidenceRef } from '../../../shared/evidence.js';
 import { effectiveTrait } from '../../../shared/signal.js';
 import {
   EXTERNAL_RESPONDER_CATEGORIES,
@@ -8,6 +9,7 @@ import {
   type StakeholderCategory,
   type TraitKey,
 } from '../../../shared/stakeholders.js';
+import { tokenize } from '../knowledge/retrieval.js';
 import type { Facts } from './facts.js';
 import {
   aboutAdverseShare,
@@ -61,11 +63,23 @@ const FALLBACK: Required<Slots> = {
   trigger: 'the signal it watches passes its threshold',
 };
 
+/**
+ * The template with its slots filled. Text in curly quotation marks is somebody's own words, put into
+ * the template before it is filled, and is left exactly as it is: a passage that happens to contain
+ * `{group}` is quoted, not replaced.
+ */
 export function fill(template: string, slots: Slots): string {
-  return template.replace(
-    /\{(group|change|system|topic|sources|trigger)\}/gu,
-    (_match, key: keyof Slots) => slots[key] ?? FALLBACK[key],
-  );
+  return template
+    .split(/(“[^”]*”)/u)
+    .map((part, index) =>
+      index % 2 === 1
+        ? part
+        : part.replace(
+            /\{(group|change|system|topic|sources|trigger)\}/gu,
+            (_match, key: keyof Slots) => slots[key] ?? FALLBACK[key],
+          ),
+    )
+    .join('');
 }
 
 const SET_BY_YOU =
@@ -583,6 +597,30 @@ export function wordsOf(facts: Facts): Pick<Slots, 'change' | 'system'> {
   };
 }
 
+/** A word without its plural, so that a group named "Subscribers" is found in a passage about a subscriber. */
+const stem = (word: string): string => word.replace(/s$/u, '');
+
+/** Whether a passage names the group, by any word of the group's name. */
+function namesGroup(text: string, name: string): boolean {
+  const wanted = new Set(tokenize(name).map(stem));
+  return wanted.size > 0 && tokenize(text).some((word) => wanted.has(stem(word)));
+}
+
+/**
+ * The passage that says most about what the group is concerned with: one that names the group, else
+ * the first that supports it, else the first cited. It is context for the check, not its outcome.
+ */
+export function concernOf(actor: Actor, cited: readonly EvidenceRef[]): string | undefined {
+  const supporting = cited.filter((ref) => ref.role === 'supports' && ref.quote);
+  const named = supporting.find((ref) => namesGroup(ref.quote ?? '', actor.name));
+  return (named ?? supporting[0] ?? cited[0])?.quote ?? undefined;
+}
+
+/** Whether a scenario itself sets the group's impact, by an override or an edit to the trait. */
+const setsImpact = (variant: Variant, actor: Actor): boolean =>
+  variant.impactOverrides[actor.id] !== undefined ||
+  (variant.traitEdits ?? []).some((edit) => edit.actorId === actor.id && edit.trait === 'impact');
+
 export const MAX_EXPERIMENTS = 8;
 /** The most results one check may be for: the same bound as the stored document's. */
 const MAX_TARGETS = 6;
@@ -743,20 +781,23 @@ export function planChecks(facts: Facts): PlannedCheck[] {
       },
     });
   }
-  // The groups the answer names for how far their share moved, then a group that the advice builds on
-  // because it is helped: a benefit that nothing measured is not something to build on yet.
+  // The groups the answer names for how far their share moved, then the groups that the advice builds on
+  // because a scenario helps them: a benefit that nothing measured is not something to build on yet. A
+  // group helped by another scenario is asked about in that scenario's own words.
+  const headlineId = headline?.variant.variant.id ?? null;
   const helped =
-    state === 'clear' && headline
-      ? favourableLeads(facts)
+    state === 'no-direction' || !headline
+      ? []
+      : favourableLeads(facts, state === 'no-difference' ? headlineId : null)
           .filter(
             (entry) =>
-              entry.variant.variant.id === headline.variant.variant.id &&
-              !lead.some((actor) => actor.id === entry.actor.id),
+              !(
+                entry.variant.variant.id === headlineId &&
+                lead.some((actor) => actor.id === entry.actor.id)
+              ),
           )
-          .slice(0, 1)
-          .map((entry) => entry.actor)
-      : [];
-  [...lead, ...helped].forEach((actor, index) => {
+          .slice(0, 2);
+  const impactCheck = (actor: Actor, rank: number, other: Variant | null): void => {
     // What the evidence says about the group points to what to observe, so a group that worries about
     // something other than leaving is asked about that and not only about whether it switches. A
     // passage can state a worry, a gap or a proposal and not an outcome that was seen, so the quote is
@@ -764,23 +805,42 @@ export function planChecks(facts: Facts): PlannedCheck[] {
     const cited = facts.evidence.has(actor.stakeholderId)
       ? facts.evidence.forStakeholder(actor.stakeholderId)
       : facts.evidence.forActor(actor);
-    const concern = (cited.find((ref) => ref.role === 'supports' && ref.quote) ?? cited[0])?.quote;
-    add(`impact:${actor.id}`, index === 0 ? 2 : 5, PLACE.impact, {
+    const concern = concernOf(actor, cited);
+    const direction = other
+      ? directionOfImpact(effectiveTrait(actor, other, 'impact'))
+      : facts.directionIn(actor);
+    const setByScenario = other ? setsImpact(other, actor) : facts.impactSetByScenario(actor);
+    const scenario = other ? embed(other.label, 60) : 'the change';
+    const suffix = other ? `:${other.id}` : '';
+    add(`impact:${actor.id}${suffix}`, rank, PLACE.impact, {
       check: concern
         ? { ...TRAIT_CHECKS.impact, measure: concernMeasure(groupName(actor), concern) }
         : TRAIT_CHECKS.impact,
-      slots: { ...words, group: groupName(actor) },
+      slots: {
+        ...words,
+        ...(other ? { change: embed(other.label, 80) } : {}),
+        group: groupName(actor),
+      },
       owner: ownerOf(actor),
       targets: [
-        `assumption: the effect of the change on ${actor.name}, ${DIRECTION_WORDS[facts.directionIn(actor)]} (${facts.impactSetByScenario(actor) ? 'set by the scenario that proposes the change' : impactOrigin(actor)})`,
+        `assumption: the effect of ${scenario} on ${actor.name}, ${DIRECTION_WORDS[direction]} (${setByScenario ? (other ? 'set by that scenario' : 'set by the scenario that proposes the change') : impactOrigin(actor)})`,
       ],
-      keys: [`premise:impact:${actor.id}`],
+      keys: [`premise:impact:${actor.id}${suffix}`],
       refs: {
         stakeholderIds: [actor.stakeholderId],
-        assumptions: [`Impact of the change on ${actor.name}`],
+        ...(other ? { variantIds: [other.id] } : {}),
+        assumptions: [`Impact of ${other ? other.label : 'the change'} on ${actor.name}`],
       },
     });
-  });
+  };
+  lead.forEach((actor, index) => impactCheck(actor, index === 0 ? 2 : 5, null));
+  helped.forEach((entry) =>
+    impactCheck(
+      entry.actor,
+      5,
+      entry.variant.variant.id === headlineId ? null : entry.variant.variant,
+    ),
+  );
 
   sizedLeads(facts, 1).forEach((actor) => {
     add(`population:${actor.id}`, 6, PLACE.population, {

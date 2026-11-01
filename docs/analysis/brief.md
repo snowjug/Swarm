@@ -395,8 +395,11 @@ says: it quotes the passage the group cites, as context and not as an outcome, b
 state a worry, a gap in the data or a proposal and not something that was seen, and it says that someone
 who knows the group makes it countable before the check starts. It asks, beside that, who starts using
 an alternative, reduces their use or formally objects. A group that cites nothing keeps a general
-measure that names no outcome of its own. The check is also made for a group that the advice builds on
-because it is helped, since a benefit that nothing measured is not something to build on yet.
+measure that names no outcome of its own. The passage quoted is the first that supports the group and
+names it (by a word of its name), else the first that supports it. The check is also made for a group that
+the advice builds on because it is helped, since a benefit that nothing measured is not something to build
+on yet; for a group helped by another scenario it is asked in that scenario's own words and links to it,
+apart from the premise of the proposed change.
 Checks that settle the same premise are merged. The method is a generic real-world check (a survey,
 interviews, a data pull, an expert review or a staged rollout) filled in with the groups, the change
 and the sources of this analysis, so two analyses of different questions get visibly different plans.

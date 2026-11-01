@@ -262,6 +262,40 @@ describe('starting a comparison', () => {
     ).toBe(true);
   });
 
+  it('writes a note that names other numbers than the ones submitted again from them, and keeps one that names the same', async () => {
+    const { start, withActors, finished } = await world();
+    withActors();
+    const stale = await start({
+      variants: [
+        FIXTURE_VARIANTS[0]!,
+        {
+          ...FIXTURE_VARIANTS[1]!,
+          intensity: 0.2,
+          round: 4,
+          description: 'My change. Intensity 0.3 from round 3 was set by you.',
+        },
+        {
+          ...FIXTURE_VARIANTS[1]!,
+          id: 'mine',
+          label: 'Mine',
+          intensity: 0.4,
+          round: 5,
+          description: 'Mine. Intensity 0.40 from round 5 was set by you.',
+        },
+      ],
+      runsPerVariant: 3,
+      sensitivity: false,
+    });
+    expect(stale.statusCode, stale.body).toBe(202);
+    const { config } = await finished((stale.json().analysis as Analysis).id);
+    expect(config.variants[1]!.description).toBe(
+      'My change. Intensity 0.2 from round 4 was set by you.',
+    );
+    expect(config.variants[2]!.description).toBe(
+      'Mine. Intensity 0.40 from round 5 was set by you.',
+    );
+  });
+
   it('refuses a bad request in plain words and starts nothing', async () => {
     const { start, withActors, list } = await world();
     withActors();

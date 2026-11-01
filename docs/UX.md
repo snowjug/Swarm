@@ -193,7 +193,9 @@ opens in its own view; the keyboard then
 continues inside the stage. **See the decision brief** is the one exception: it moves focus to the
 brief itself (the document, named by its title, or the region named "Decision brief" while there is
 none), so that a screen reader starts at the answer, and a brief that has just been made from the
-stage's own button takes focus the same way. Where the work is more than a click, the stage still has its own
+stage's own button takes focus the same way. If the brief is still loading when the person arrives, focus is
+taken when it has settled (the element that held it while loading is replaced by the one that stays), and
+is left alone if the person has moved on by then. Where the work is more than a click, the stage still has its own
 primary button: the bar only says where to go.
 
 ### The journey

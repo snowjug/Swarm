@@ -14,6 +14,19 @@ export interface DecisionBriefViewProps {
   onNavigate?: (step: ConsoleStep) => void;
   /** The brief is read again whenever this changes: a fresh read of the project, or a change to the review beside it. */
   refreshToken?: string;
+  /** Changes each time a hand-off asks for focus on the brief; it is given once the brief has settled. */
+  focusToken?: number;
+}
+
+/** Where focus may be taken from: nowhere, or on the stage or the placeholder that was there while the brief loaded. */
+function focusIsFree(): boolean {
+  const active = document.activeElement;
+  return (
+    active === null ||
+    active === document.body ||
+    active.id === REPORT_BRIEF_ID ||
+    active.matches('section.console-stage')
+  );
 }
 
 /** What the brief shows for each state it can be in, from the handle the hook returns. */
@@ -21,12 +34,24 @@ export function BriefPanel({
   projectId,
   handle,
   onNavigate,
+  focusToken = 0,
 }: {
   projectId: string;
   handle: BriefHandle;
   onNavigate?: (step: ConsoleStep) => void;
+  focusToken?: number;
 }) {
   const { view, loading, error, generating, generateError, generate, reload } = handle;
+  // A hand-off that asked for the brief waits for the page to settle: the element it focused while the
+  // brief was loading is replaced by the one that stays, and focus must not be left on nothing. A person
+  // who has moved on in the meantime is left where they are.
+  const served = useRef(0);
+  const settled = !loading && (view !== null || error !== null);
+  useEffect(() => {
+    if (focusToken === 0 || !settled || served.current === focusToken) return;
+    served.current = focusToken;
+    if (focusIsFree()) document.getElementById(REPORT_BRIEF_ID)?.focus({ preventScroll: true });
+  }, [focusToken, settled]);
   // The button that made the brief goes with the panel it was in: focus moves to the brief that
   // replaces it, so that a keyboard or screen reader user is not left on nothing.
   const asked = useRef(false);
@@ -202,8 +227,16 @@ export function DecisionBriefView({
   project,
   onNavigate,
   refreshToken = '',
+  focusToken,
 }: DecisionBriefViewProps) {
   // The project's own timestamp does not move when a critique, a stakeholder or a comparison changes.
   const handle = useBrief(project.id, `${project.updatedAt}|${refreshToken}`);
-  return <BriefPanel projectId={project.id} handle={handle} onNavigate={onNavigate} />;
+  return (
+    <BriefPanel
+      projectId={project.id}
+      handle={handle}
+      onNavigate={onNavigate}
+      focusToken={focusToken}
+    />
+  );
 }

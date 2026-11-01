@@ -31,15 +31,18 @@ import {
   STRENGTH_CHECK,
   TRAIT_CHECKS,
   concernMeasure,
+  concernOf,
+  fill,
   gapCheckFor,
   planChecks,
   validationPlan,
 } from '../src/brief/validation.js';
 import { MAX_STATEMENTS, sectionWriter } from '../src/brief/writer.js';
-import { STAKEHOLDER_CATEGORIES } from '../../shared/stakeholders.js';
+import { STAKEHOLDER_CATEGORIES, type Actor } from '../../shared/stakeholders.js';
 import {
   baseInputs,
   critiquesFixture,
+  passage,
   richAnalysis,
   richInputs,
   richStakeholders,
@@ -743,6 +746,42 @@ describe('the validation plan', () => {
       expect(measure.length).toBeLessThanOrEqual(400);
       expect(measure).toContain('and the proportion who start using an alternative');
     }
+  });
+
+  it('leaves a passage that is quoted as it is, even where it contains a word that a template would fill', () => {
+    const quoted = '“the {group} said {change} costs {system}”';
+    expect(
+      fill(`For {group}: ${quoted} and {change}.`, { group: '“Staff”', change: '“a fee”' }),
+    ).toBe(`For “Staff”: ${quoted} and “a fee”.`);
+    const measure = concernMeasure('“Staff”', 'Staff say {group} and {system} are {topic}.');
+    expect(measure).toContain('“Staff say {group} and {system} are {topic}”');
+    expect(fill(measure, { group: '“Other”' })).toBe(measure);
+  });
+
+  it('quotes the passage that names the group, so that a measure is about the group and not about another thing the evidence says', () => {
+    const staff = { name: 'Staff' } as Actor;
+    const cited = [
+      passage({ quote: 'No one has counted which patients receive weekday evening visits.' }),
+      passage({
+        quote: 'Evaluate staff burden, patient rest and family access in separate measures.',
+      }),
+      passage({ quote: 'A passage that argues against.', role: 'contradicts' }),
+    ];
+    expect(concernOf(staff, cited)).toBe(
+      'Evaluate staff burden, patient rest and family access in separate measures.',
+    );
+    // A group that no passage names keeps the first passage that supports it, and then the first cited.
+    expect(concernOf({ name: 'Visitors' } as Actor, cited)).toBe(cited[0]!.quote);
+    expect(concernOf({ name: 'Visitors' } as Actor, [cited[2]!])).toBe(cited[2]!.quote);
+    expect(concernOf(staff, [])).toBeUndefined();
+    // A plural name finds the singular, and the name is read as words and not as a pattern.
+    expect(
+      concernOf({ name: 'Subscribers' } as Actor, [
+        passage({ quote: 'Another thing.' }),
+        passage({ quote: 'A subscriber leaves when the fee rises.' }),
+      ]),
+    ).toBe('A subscriber leaves when the fee rises.');
+    expect(concernOf({ name: '(.*)' } as Actor, cited)).toBe(cited[0]!.quote);
   });
 
   it('plans a check for a sensitive assumption that nothing cited backs and for none that a passage backs, whatever else is in the plan', () => {

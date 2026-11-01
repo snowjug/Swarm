@@ -18,6 +18,11 @@ export interface ReportSeamProps {
   onReviewChanged?: () => void;
   /** Moves to another stage, so that a person with no current analysis can be sent to run one. */
   onNavigate?: (step: ConsoleStep) => void;
+  /**
+   * Changes each time a hand-off asks for focus on the brief. It is given once the brief has settled,
+   * since the element that took focus while the brief was loading is replaced by the one that stays.
+   */
+  focusBriefToken?: number;
 }
 
 /**
@@ -32,6 +37,7 @@ function ReportParts({
   reviewRefreshToken,
   onReviewChanged,
   onNavigate,
+  focusBriefToken,
 }: ReportSeamProps) {
   const critiques = useCritiques(project.id, {
     refreshOn: reviewRefreshToken,
@@ -45,6 +51,7 @@ function ReportParts({
           project={project}
           refreshToken={briefRefreshToken}
           onNavigate={onNavigate}
+          focusToken={focusBriefToken}
         />
         <CriticPanel project={project} state={critiques} onNavigate={onNavigate} />
       </div>

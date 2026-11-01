@@ -476,6 +476,11 @@ server process and are marked interrupted if it stops). The wider picture is in 
   creation about 20 times slower on the in-process PostgreSQL of the tests than on SQLite).
 - **A public page is what it said.** No JavaScript runs, no PDFs, images or sign-in pages are read,
   and Swarm does not know whether a page is true, current or the same for everyone.
+- **Reading a very large page holds the server for a moment.** Extracting the text of a page is
+  synchronous. The largest page the server accepts (1.5 MB), when it is almost all table markup, holds
+  the thread for about a fifth of a second (a performance review measured 140 to 250 ms) and delays other
+  requests by as much; how many pages are read at once is bounded (`URL_INGEST_CONCURRENCY`), and
+  ordinary pages take a few milliseconds.
 - **Not hosted, and unreviewed.** Sign-in has only met a test provider, PostgreSQL has not met a
   deployed server, telemetry has reached no real monitoring resource, and security, privacy,
   accessibility (screen reader) and legal reviews have not been done.

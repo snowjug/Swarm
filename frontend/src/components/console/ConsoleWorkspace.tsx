@@ -441,6 +441,7 @@ export function ConsoleWorkspace({
             reviewRefreshToken={labToken}
             onReviewChanged={reviewChanged}
             onNavigate={navigate}
+            focusBriefToken={handoff?.toBrief ? handoff.count : 0}
           />
           <div className="detailed-report" id="report-detail">
             <h2>Detailed report</h2>

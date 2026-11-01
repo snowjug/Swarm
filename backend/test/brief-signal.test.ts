@@ -25,6 +25,7 @@ import { briefHtml, briefJson, briefMarkdown, type BriefExportInput } from '../s
 import { gatherFacts, type BriefInputs } from '../src/brief/facts.js';
 import { lintBrief, lintText } from '../src/brief/lint.js';
 import { pairShares, pairedRunsWords } from '../src/brief/measures.js';
+import { planChecks } from '../src/brief/validation.js';
 import { SAY_DIRECTION, SAY_DIRECTION_UNDIRECTED, advise } from '../src/brief/recommend.js';
 import { isAboutTheSame, UNDIRECTED_READING_NOTE } from '../src/brief/signal.js';
 import { briefVisuals } from '../src/brief/visuals.js';
@@ -887,6 +888,21 @@ describe('when the proposed change comes out about the same and another scenario
     expect(buildOn[0]!.refs.variantIds).toContain('option-b');
     expect(buildOn[0]!.linkedFindingIds).toEqual(['direction-option-b-subscribers']);
     expect(advice.some((entry) => entry.kind === 'mitigate')).toBe(false);
+  });
+
+  it('plans a check of the benefit in that scenario’s own words, which is not the proposed change’s premise', () => {
+    const plan = planChecks(gatherFacts(inputsFor(world())));
+    const check = plan.find(
+      (entry) =>
+        entry.question.startsWith('Is “Subscribers” harmed') &&
+        entry.question.includes('“Option B”'),
+    )!;
+    expect(check).toBeDefined();
+    expect(check.targets[0]).toContain(
+      'the effect of “Option B” on Subscribers, assumed helped (set by that scenario)',
+    );
+    expect(check.refs.variantIds).toEqual(['option-b']);
+    expect(check.keys).toEqual(['premise:impact:subscribers:option-b']);
   });
 });
 
