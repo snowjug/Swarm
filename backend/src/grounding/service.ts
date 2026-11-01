@@ -156,6 +156,48 @@ export class LedgerService {
     );
   }
 
+  /**
+   * Adds to a ledger that is already built any conflict that a fresh search of the sources finds and the
+   * ledger does not hold, so that what the decision brief shows can be reviewed here too. What the ledger
+   * holds, and what a person decided about it, is kept, and the statements that cite an open conflict are
+   * weighed again. Returns how many were added; none when the ledger is not built or holds them all.
+   */
+  addFoundConflicts(projectId: string): number {
+    const state = this.repository.ledger.state(projectId);
+    if (state === null) return 0;
+    const now = this.clock();
+    const held = this.repository.ledger.contradictions(projectId);
+    const merged = reconcileConflicts(
+      held,
+      detectContradictions(this.repository.chunks(projectId), now),
+    );
+    const added = merged.length - held.length;
+    if (added <= 0) return 0;
+    this.repository.atomic(() => {
+      const open = openConflicts(merged);
+      const claims = this.repository.ledger
+        .claims(projectId)
+        .map((record) => reconcileClaim(record, open, now));
+      this.repository.ledger.replaceInside(
+        projectId,
+        { claims, contradictions: merged, reviewedAt: state.reviewedAt },
+        now,
+      );
+      this.repository.audit.record(
+        {
+          actor: 'system',
+          action: 'ledger.conflicts.found',
+          targetType: 'project',
+          targetId: projectId,
+          projectId,
+          detail: { added, conflicts: merged.length },
+        },
+        now,
+      );
+    });
+    return added;
+  }
+
   claim(projectId: string, claimId: string): ClaimRecord {
     this.get(projectId);
     const record = this.repository.ledger.claim(projectId, claimId);

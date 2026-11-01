@@ -273,6 +273,34 @@ describe('the ledger for a project', () => {
       .join('\n');
     expect(text).toContain('Open conflict between sources (detected)');
     expect(text).not.toContain('No conflict between the supplied sources was detected');
+
+    // What the brief shows can be reviewed in the ledger too, which holds it now and was told so on the record.
+    const held = harness.ledger.get(id).contradictions;
+    expect(held).toHaveLength(1);
+    expect(
+      harness.ledger.reviewContradiction(id, held[0]!.id, { status: 'confirmed', note: null })
+        .conflict.status,
+    ).toBe('confirmed');
+    const found = harness.repository.audit
+      .list({ projectId: id, limit: 200 })
+      .filter((entry) => entry.action === 'ledger.conflicts.found');
+    expect(found).toHaveLength(1);
+    expect(found[0]!.detail).toEqual({ added: 1, conflicts: 1 });
+    // Making the brief again adds nothing twice, and keeps what the person decided.
+    new BriefService(harness.repository).generate(id);
+    expect(harness.ledger.get(id).contradictions).toMatchObject([
+      { id: 'X1', status: 'confirmed' },
+    ]);
+    expect(harness.ledger.addFoundConflicts(id)).toBe(0);
+  });
+
+  it('adds nothing to a ledger that is not built, or that holds what a search finds', async () => {
+    const harness = await setup();
+    const id = harness.project.id;
+    expect(harness.ledger.addFoundConflicts(id)).toBe(0);
+    expect(harness.repository.ledger.state(id)).toBeNull();
+    harness.ledger.get(id);
+    expect(harness.ledger.addFoundConflicts(id)).toBe(0);
   });
 
   it('builds one record per reviewed statement and weighs the conflict only where it applies', async () => {

@@ -15,6 +15,7 @@ import {
   type ContradictionScanStats,
 } from '../grounding/contradictions.js';
 import { assessSufficiency } from '../grounding/ledger.js';
+import { LedgerService } from '../grounding/service.js';
 import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
@@ -155,6 +156,9 @@ export class BriefService {
         'That analysis recorded no runs, so there is nothing to write a brief from. Run it again.',
       );
     }
+    // A conflict that a fresh search finds and a built ledger does not hold is added to the ledger first,
+    // so that what the brief shows can be reviewed there too.
+    new LedgerService(this.repository, this.clock).addFoundConflicts(projectId);
     const inputs = this.inputs(projectId, record, this.clock().toISOString());
     const made = buildBrief(inputs);
     // The brief's words describe the scenario and the stakeholders as they are now, and its numbers
