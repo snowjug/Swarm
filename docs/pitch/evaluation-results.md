@@ -67,8 +67,8 @@ ledger. They do not measure how well it does so.
 
 | Check                                 | Result                                                                                                                                     |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Unit and integration tests            | 1,925 in 112 files (baseline 935 in 56), and the same 1,925 on PostgreSQL in-process                                                       |
-| End-to-end, Microsoft Edge            | 143 passed, 0 failed, 0 flaky (baseline 78). Axe and keyboard checks at four viewports on the ledger and in each theme on the presentation |
+| Unit and integration tests            | 4,918 in 209 files (baseline 935 in 56), and the same 4,918 on PostgreSQL in-process                                                       |
+| End-to-end, Chromium on Linux         | 317 passed, 0 failed, 0 flaky (baseline 78). Axe and keyboard checks at four viewports on the ledger and in each theme on the presentation |
 | Evaluation floors                     | all hold                                                                                                                                   |
 | Load test (rules engine, one machine) | See below                                                                                                                                  |
 
