@@ -49,6 +49,19 @@ export function resolveReport(project: ProjectDetail): ReportView {
 export const canWrite = (project: ProjectDetail): boolean =>
   isGuided(project) && !isBusy(project) && canExecute(project, 'report');
 
+/** What writing the report does, in words, and what it costs: the report page and the studio say the same. */
+export function writingNote(model: boolean): { lead: string; caption: string } {
+  return model
+    ? {
+        lead: 'A model writes the chapters from the recorded run and its sources. Then every statement is checked against the passage it cites.',
+        caption: 'Uses the model; its calls count against this project’s budget.',
+      }
+    : {
+        lead: 'The chapters are assembled from the recorded run: the figures, the platforms compared and the sources it cites. No model is used.',
+        caption: 'Simulated figures from fictional actors. Not a forecast.',
+      };
+}
+
 // ---- Writing --------------------------------------------------------------------------------------
 
 export interface ChapterProgress {

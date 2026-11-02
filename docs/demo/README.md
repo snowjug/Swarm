@@ -37,7 +37,7 @@ all land in the same place.
 | **Map**      | Who is affected, as an ecosystem to look at, review and approve                              | The map and the **List** view, the inspector, **Create actors**                                                |
 | **Simulate** | The scenarios set against each other on the same seeds, then replayed                        | **Run the simulation**, then **Story**, **Live**, **Network**, **Timeline**; the deep dive                     |
 | **Compare**  | The futures side by side, as a document to read                                              | The gap chart, **Futures**, **Who moves**, **Depends on**, **How far to rely**                                 |
-| **Decide**   | The decision brief, the independent review, and the report studio                            | **Review**, **Export**, **Edit report**, **Detailed report**                                                   |
+| **Decide**   | The decision brief, the independent review, and the report studio                            | **Review**, **Export**, **Write the detailed report**, then **Edit report** and **Detailed report**            |
 
 Everything on these screens is read from the real engine. Nothing is mocked, and nothing in the script
 below is a result: read the real screen and quote that.
@@ -90,8 +90,10 @@ not. The labels are the ones in the interface (**Explore**, **Ground it**, **Fin
 | 9:30 to 10:00 | Close                                 | **Export** on the brief (**Markdown**, **JSON, with the data behind the charts** or **Printable page**; Ctrl+P prints the whole brief)                                                                            | The limitations chapter, closed until opened from the contents; "It supports a person's analysis. It does not make the decision."                                                                                                                                                                               |
 
 Not in the ten minutes: **Edit report** on the brief opens the report studio, a working copy of the
-detailed report with versions, notes and a review workflow. It needs the detailed report that the deep dive
-writes (**Simulate** → **More** → **Deep dive**), so keep it for a longer slot.
+detailed report with versions, notes and a review workflow. It is offered only once the detailed report is
+written. Until then the brief offers **Write the detailed report** in its place, which needs the deep dive to
+have run first (**Simulate** → **More** → **Deep dive**) and otherwise says "The deep dive comes first" and
+leads there. Keep it for a longer slot.
 
 ### What to say, segment by segment
 

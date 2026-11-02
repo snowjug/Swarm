@@ -349,6 +349,19 @@
     fill: var(--ink-3);
     font-weight: 450;
   }
+  /* A name that stands off its node (its own place was taken) is joined to it by a short, quiet line. */
+  .sw-eco__leader {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-width: 1px;
+    stroke-linecap: round;
+    opacity: 0.7;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
+  }
+  .sw-eco__node.is-dim .sw-eco__leader {
+    opacity: 0;
+  }
   .sw-eco__label {
     font: 500 12px/1 var(--font-ui);
     fill: var(--ink-2);

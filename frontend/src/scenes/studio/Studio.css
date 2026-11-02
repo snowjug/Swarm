@@ -138,6 +138,20 @@
   .sw-open--empty .sw-empty {
     padding-top: var(--s-8);
   }
+  /* The one action of an empty studio, with what it costs said under it; and, while the report is written, how far it is. */
+  .sw-open__write {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-3);
+  }
+  .sw-open__write .sw-caption {
+    max-width: 34ch;
+  }
+  .sw-open__progress {
+    width: min(100%, 34rem);
+    margin-top: var(--s-3);
+    text-align: left;
+  }
   .sw-open__sections li {
     display: grid;
     grid-template-columns: 2.5rem minmax(0, 1fr);

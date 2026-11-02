@@ -1,6 +1,6 @@
 import type { Layout } from './layout';
 
-interface Box {
+export interface Box {
   x0: number;
   x1: number;
   y0: number;
@@ -47,48 +47,69 @@ export interface Segment {
   to: { x: number; y: number };
 }
 
+/** How wide a name stands on the screen, in pixels: the characters it shows, and a little air. A heavier name is wider. */
+const widthOf = (label: string, bold = false): number =>
+  Math.min(label.length, 24) * (bold ? 7.1 : 6.6) + 10;
+
+/** The room a name takes on each side of its node, and how far from the node's edge it starts. */
+const SIDE_SPACE: Record<LabelSide, { height: number; gap: number }> = {
+  below: { height: 18, gap: 3 },
+  above: { height: 18, gap: 3 },
+  right: { height: 20, gap: 4 },
+  left: { height: 20, gap: 4 },
+};
+
 /**
- * The box a node's name would fill on the screen, on one side of its node. A name is the same size at any zoom:
+ * The box a name of this width fills on one side of a node, on the screen. A name is the same size at any zoom:
  * only the distance from the node, which is the node's size on the screen, changes with it.
  */
-function nameBox(
+function boxOf(
   point: { x: number; y: number },
   radius: number,
-  label: string,
-  side: LabelSide = 'below',
+  width: number,
+  side: LabelSide,
 ): Box {
-  const width = Math.min(label.length, 24) * 6.6 + 10;
-  const height = 21;
+  const { height, gap } = SIDE_SPACE[side];
   switch (side) {
     case 'above':
       return {
         x0: point.x - width / 2,
         x1: point.x + width / 2,
-        y0: point.y - radius - height,
-        y1: point.y - radius - 3,
+        y0: point.y - radius - gap - height,
+        y1: point.y - radius - gap,
       };
     case 'right':
       return {
-        x0: point.x + radius + 4,
-        x1: point.x + radius + 4 + width,
-        y0: point.y - 10,
-        y1: point.y + 10,
+        x0: point.x + radius + gap,
+        x1: point.x + radius + gap + width,
+        y0: point.y - height / 2,
+        y1: point.y + height / 2,
       };
     case 'left':
       return {
-        x0: point.x - radius - 4 - width,
-        x1: point.x - radius - 4,
-        y0: point.y - 10,
-        y1: point.y + 10,
+        x0: point.x - radius - gap - width,
+        x1: point.x - radius - gap,
+        y0: point.y - height / 2,
+        y1: point.y + height / 2,
       };
     default:
       return {
         x0: point.x - width / 2,
         x1: point.x + width / 2,
-        y0: point.y + radius + 3,
-        y1: point.y + radius + height,
+        y0: point.y + radius + gap,
+        y1: point.y + radius + gap + height,
       };
   }
+}
+
+function nameBox(
+  point: { x: number; y: number },
+  radius: number,
+  label: string,
+  side: LabelSide = 'below',
+  bold = false,
+): Box {
+  return boxOf(point, radius, widthOf(label, bold), side);
 }
 
 /** Every node as a circle on the screen: where the camera has put it, and as large as the camera makes it. */
@@ -244,35 +265,295 @@ export function placeClusterLabels(
   return spots;
 }
 
+/** A node as the allocation of names sees it. */
+export interface NamedNode {
+  id: string;
+  label: string;
+  weight: number;
+}
+
+/** Where a name stands: on a side of its node, and moved along or away from that side when its own place is taken. */
+export interface NamePlace {
+  side: LabelSide;
+  /** Pixels on the screen from where a name on that side would stand. */
+  dx: number;
+  dy: number;
+  /** How wide the name is on the screen, in pixels. */
+  width: number;
+  /** Where the name stands on the screen, for the view it was placed for. */
+  box: Box;
+  /** A name that stands off its node is joined to it by a short line. */
+  leader: boolean;
+}
+
+/** A name this far from the edge of its node (or more) is joined to it: nearer, it is plainly the node's. */
+const LEADER_FROM = 9;
+/** Where the line that joins a name to its node starts, past the ring that is drawn round the node. */
+const LEADER_START = 7;
+
+const shifted = (box: Box, dx: number, dy: number): Box => ({
+  x0: box.x0 + dx,
+  x1: box.x1 + dx,
+  y0: box.y0 + dy,
+  y1: box.y1 + dy,
+});
+
+/**
+ * The short line that joins a name to its node, in pixels from the node's middle: from past the node's ring to the
+ * nearest point of the name. A name that is close to its node needs none.
+ */
+export function leaderOf(
+  place: Pick<NamePlace, 'side' | 'dx' | 'dy' | 'width'>,
+  radius: number,
+): { x0: number; y0: number; x1: number; y1: number } | null {
+  const box = shifted(boxOf({ x: 0, y: 0 }, radius, place.width, place.side), place.dx, place.dy);
+  const x = Math.min(Math.max(0, box.x0), box.x1);
+  const y = Math.min(Math.max(0, box.y0), box.y1);
+  const distance = Math.hypot(x, y);
+  if (distance - radius < LEADER_FROM || distance === 0) return null;
+  const from = radius + LEADER_START;
+  if (distance <= from) return null;
+  return { x0: (x / distance) * from, y0: (y / distance) * from, x1: x, y1: y };
+}
+
+/** The directions a name may stand in from its node, in the order a person would look for it, and what each costs. */
+const DIRECTIONS: readonly { angle: number; cost: number }[] = [
+  { angle: 90, cost: 0 },
+  { angle: 270, cost: 1 },
+  { angle: 0, cost: 2 },
+  { angle: 180, cost: 2.2 },
+  { angle: 75, cost: 2.4 },
+  { angle: 105, cost: 2.4 },
+  { angle: 60, cost: 3 },
+  { angle: 120, cost: 3 },
+  { angle: 285, cost: 3.2 },
+  { angle: 255, cost: 3.2 },
+  { angle: 15, cost: 3.4 },
+  { angle: 165, cost: 3.4 },
+  { angle: 300, cost: 3.6 },
+  { angle: 240, cost: 3.6 },
+  { angle: 30, cost: 4 },
+  { angle: 150, cost: 4 },
+  { angle: 345, cost: 4.2 },
+  { angle: 195, cost: 4.2 },
+  { angle: 330, cost: 4.6 },
+  { angle: 210, cost: 4.6 },
+];
+
+/** How far past its side's own gap a name may be moved off its node, and what that costs. */
+const DISTANCES: readonly { extra: number; cost: number }[] = [
+  { extra: 0, cost: 0 },
+  { extra: 8, cost: 4 },
+  { extra: 16, cost: 8 },
+  { extra: 26, cost: 13 },
+  { extra: 38, cost: 20 },
+  { extra: 52, cost: 28 },
+  { extra: 68, cost: 38 },
+];
+
+/** The distance from a point to a segment. */
+function distanceToSegment(
+  point: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const length = dx * dx + dy * dy;
+  const t =
+    length === 0
+      ? 0
+      : Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
+  return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
+}
+
+export interface FirstNameOptions {
+  /** The nodes that are named before any other. */
+  first: ReadonlySet<string>;
+  /** Relations, in the picture's units: a name prefers a place that no line runs through. */
+  segments?: readonly Segment[];
+  /** Rectangles on the screen that a name keeps out of: what floats over the picture, or a group's name already put there. */
+  avoid?: readonly Box[];
+}
+
+const screenLines = (segments: readonly Segment[] | undefined, view: View) =>
+  (segments ?? []).map((segment) => ({
+    from: { x: segment.from.x * view.k + view.x, y: segment.from.y * view.k + view.y },
+    to: { x: segment.to.x * view.k + view.x, y: segment.to.y * view.k + view.y },
+  }));
+
+/**
+ * Where the names of the nodes that are named first go: the key parties, which a person looks for first (the page
+ * counts them, "4 key"), and the ones a scene points at (the movers of a comparison, the actors that just moved).
+ * They are named before anything else, so a group's name or a cohort's gives way to them and never the other way.
+ *
+ * Each goes below its node, then above, then beside it; where those are taken (a crowd, the edge of the canvas,
+ * another of these names) it slides along the node, and then stands off it with a short line to join them, as far as
+ * it takes. It is never put over another name or off the canvas: a name that has no such place in the whole of its
+ * reach is left out (the node is named when it is hovered or chosen), and it keeps off other nodes where any place
+ * does. The heaviest choose first.
+ */
+export function placeFirstNames(
+  nodes: readonly NamedNode[],
+  layout: Layout,
+  canvas: Bounds,
+  view: View = IDENTITY,
+  options: FirstNameOptions,
+): Map<string, NamePlace> {
+  const circles = circlesOnScreen(nodes, layout, view);
+  const where = new Map(circles.map((circle) => [circle.id, circle]));
+  const lines = screenLines(options.segments, view);
+  const bounds = {
+    left: canvas.left,
+    right: canvas.right,
+    top: canvas.top ?? Number.NEGATIVE_INFINITY,
+    bottom: canvas.bottom ?? Number.POSITIVE_INFINITY,
+  };
+  const placed: Box[] = [...(options.avoid ?? [])];
+  const places = new Map<string, NamePlace>();
+  const chosen = nodes
+    .filter((node) => options.first.has(node.id))
+    .sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
+  for (const node of chosen) {
+    const circle = where.get(node.id);
+    if (!circle) continue;
+    // A node that the camera has put off the canvas has nowhere to be named.
+    if (
+      circle.x + circle.r < bounds.left ||
+      circle.x - circle.r > bounds.right ||
+      circle.y + circle.r < bounds.top ||
+      circle.y - circle.r > bounds.bottom
+    ) {
+      continue;
+    }
+    const width = widthOf(node.label, true);
+    const others = circles.filter((other) => other.id !== node.id);
+    let best: { score: number; clear: boolean; place: NamePlace } | null = null;
+    for (const direction of DIRECTIONS) {
+      const radians = (direction.angle * Math.PI) / 180;
+      const ux = Math.cos(radians);
+      const uy = Math.sin(radians);
+      const side: LabelSide =
+        Math.abs(uy) >= Math.abs(ux) - 1e-9
+          ? uy > 0
+            ? 'below'
+            : 'above'
+          : ux > 0
+            ? 'right'
+            : 'left';
+      const { height, gap } = SIDE_SPACE[side];
+      const own = boxOf(circle, circle.r, width, side);
+      for (const distance of DISTANCES) {
+        const support = (Math.abs(ux) * width) / 2 + (Math.abs(uy) * height) / 2;
+        const reach = circle.r + gap + distance.extra + support;
+        const cx = circle.x + ux * reach;
+        const cy = circle.y + uy * reach;
+        const box: Box = {
+          x0: cx - width / 2,
+          x1: cx + width / 2,
+          y0: cy - height / 2,
+          y1: cy + height / 2,
+        };
+        const dx = cx - (own.x0 + own.x1) / 2;
+        const dy = cy - (own.y0 + own.y1) / 2;
+        let score = direction.cost + distance.cost;
+        // A place off the canvas or over another name is no place; over another node is the last resort.
+        let clear = true;
+        const over =
+          Math.max(0, bounds.left - box.x0) +
+          Math.max(0, box.x1 - bounds.right) +
+          Math.max(0, bounds.top - box.y0) +
+          Math.max(0, box.y1 - bounds.bottom);
+        if (over > 0) {
+          score += 5000 + over;
+          clear = false;
+        }
+        for (const other of placed) {
+          if (touches(box, other)) {
+            score += 800;
+            clear = false;
+          }
+        }
+        for (const other of others) if (touchesCircle(box, other, 1)) score += 150;
+        for (const line of lines) if (crosses(box, line.from, line.to)) score += 1.6;
+        const place: NamePlace = { side, dx, dy, width, box, leader: false };
+        const join = leaderOf(place, circle.r);
+        if (join) {
+          place.leader = true;
+          const start = { x: circle.x + join.x0, y: circle.y + join.y0 };
+          const end = { x: circle.x + join.x1, y: circle.y + join.y1 };
+          for (const other of others) {
+            if (distanceToSegment(other, start, end) < other.r + 1) score += 40;
+          }
+        }
+        if (!best || score < best.score) best = { score, clear, place };
+      }
+    }
+    if (!best || !best.clear) continue;
+    placed.push(best.place.box);
+    places.set(node.id, best.place);
+  }
+  return places;
+}
+
 export interface VisibleLabelOptions {
-  /** At most this many names are drawn: on a small canvas the heaviest nodes are named and the rest are left to be pointed at. */
+  /**
+   * At most this many names are drawn: on a small canvas the heaviest nodes are named and the rest are left to be
+   * pointed at. The nodes in `first` are named first and count against it, so that it is the others that are left
+   * out; it is never less than the number of them that were placed.
+   */
   limit?: number;
+  /**
+   * The nodes that are named before any other (the key parties, and the ones a scene points at): each gets its place,
+   * or is nudged to one, or is joined to its name by a line, wherever it takes (see `placeFirstNames`).
+   */
+  first?: ReadonlySet<string>;
+  /** The places of the nodes in `first`, if they have been put already (so that a group's name can keep clear of them). */
+  placed?: ReadonlyMap<string, NamePlace>;
+  /** Relations, in the picture's units, for the names of the nodes in `first` to keep off. */
+  segments?: readonly Segment[];
 }
 
 /**
- * The names that fit without touching, and the side of its node each goes on: below where there is room, then
- * above, then beside. The heaviest nodes choose first, and a name is never over another name, over a group's
- * name, or over a node. A node that is left out is named when it is hovered or selected.
+ * The names that fit without touching, and where each goes. The nodes in `first` are named first, wherever it takes
+ * (see `placeFirstNames`). The others go below their node where there is room, then above, then beside it, the
+ * heaviest choosing first, and a name is never over another name, over a group's name, or over a node. A node that is
+ * left out is named when it is hovered or selected.
  *
  * A name keeps the same size on the screen whatever the zoom, and the nodes do not: zoomed out they stand closer
  * and fewer names fit, zoomed in they stand apart and more do. So what fits is worked out on the screen, where the
  * camera has put the picture (`view`), and not in the picture's own units. The group names in `obstacles` are
  * already on the screen.
  */
-export function visibleLabels(
-  nodes: readonly { id: string; label: string; weight: number }[],
+export function placeNames(
+  nodes: readonly NamedNode[],
   layout: Layout,
   obstacles: readonly Box[] = [],
   canvas?: Bounds,
   view: View = IDENTITY,
   options: VisibleLabelOptions = {},
-): Map<string, LabelSide> {
+): Map<string, NamePlace> {
   const circles = circlesOnScreen(nodes, layout, view);
   const where = new Map(circles.map((circle) => [circle.id, circle]));
-  const placed: Box[] = [...obstacles];
-  const shown = new Map<string, LabelSide>();
-  const ordered = [...nodes].sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
-  const limit = options.limit ?? Number.POSITIVE_INFINITY;
+  const firsts =
+    options.placed ??
+    placeFirstNames(
+      nodes,
+      layout,
+      canvas ?? { left: Number.NEGATIVE_INFINITY, right: Number.POSITIVE_INFINITY },
+      view,
+      {
+        first: options.first ?? new Set<string>(),
+        avoid: obstacles,
+        ...(options.segments ? { segments: options.segments } : {}),
+      },
+    );
+  const placed: Box[] = [...obstacles, ...[...firsts.values()].map((place) => place.box)];
+  const shown = new Map<string, NamePlace>(firsts);
+  const ordered = nodes
+    .filter((node) => !firsts.has(node.id) && !options.first?.has(node.id))
+    .sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
+  const limit = Math.max(options.limit ?? Number.POSITIVE_INFINITY, firsts.size);
   for (const node of ordered) {
     if (shown.size >= limit) break;
     const circle = where.get(node.id);
@@ -285,9 +566,22 @@ export function visibleLabels(
       if (placed.some((other) => touches(box, other))) continue;
       if (circles.some((other) => other.id !== node.id && touchesCircle(box, other))) continue;
       placed.push(box);
-      shown.set(node.id, side);
+      shown.set(node.id, { side, dx: 0, dy: 0, width: widthOf(node.label), box, leader: false });
       break;
     }
   }
   return shown;
+}
+
+/** The side of its node each name goes on: `placeNames` for those who only need to know that. */
+export function visibleLabels(
+  nodes: readonly NamedNode[],
+  layout: Layout,
+  obstacles: readonly Box[] = [],
+  canvas?: Bounds,
+  view: View = IDENTITY,
+  options: VisibleLabelOptions = {},
+): Map<string, LabelSide> {
+  const places = placeNames(nodes, layout, obstacles, canvas, view, options);
+  return new Map([...places].map(([id, place]) => [id, place.side]));
 }

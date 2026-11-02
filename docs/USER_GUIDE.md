@@ -59,9 +59,9 @@ results are made the same way as for a question of your own.
   holds without inventing what it did not record. See [History](#history-and-keeping-a-record).
 - **A run the engine made on its own**, such as the recorded demonstration, has nothing in the scenario lab
   (no scenario, stakeholders, actors, comparison or brief) and is read through its own run. It opens on
-  Simulate. **Compare** opens once it has rounds, to read two recorded runs side by side, and **Decide** opens
-  once it has a detailed report, to say "Nothing to decide from yet" (there is no brief) with **Open Simulate**
-  and **Detailed report**.
+  Simulate, which shows its deep dive. **Compare** opens once it has rounds, on the comparison of two
+  recorded runs, and **Decide** opens once it has a detailed report, to say "Nothing to decide from yet"
+  (there is no brief) with **Open Simulate** and **Detailed report**.
 
 ## Ask: the question and the evidence
 
@@ -261,37 +261,75 @@ direction of impact.
 
 ![Simulate, Live: the actors on the map coloured by where each stands in the round shown, a round card with the share of each response, and a scrubber along the bottom](./assets/swarm-simulate-live.png)
 
-Simulate needs actors. Without them it says "No actors to simulate yet" and offers **Open the map**.
+Simulate needs actors. Without them it says "No actors to simulate yet" and offers **Open the map**, where
+you approve the stakeholders and create the actors first.
 
-- **Setting it up.** "Set the futures side by side" lists the **scenarios to compare**: no change, the
-  proposed change and any alternatives (**Add an alternative**). Each says how strongly it lands (a slider)
-  and from which round. Every scenario runs on the same seeds, so the only difference between them is the
-  change. Choose how many seeded runs of each (10, 30 or 100) and whether to **Test which assumptions it
-  leans on**, which moves one assumption at a time and runs the same seeds again. The page shows how many
-  runs that is and a time estimate, and **How long this takes, and what it costs** says what the estimate
-  rests on. **Run the simulation** starts it. Before that the page warns, with **Review stakeholders**, if no
-  stakeholder has an expected direction yet or if nothing in the change can move anyone yet; you can still
-  run it, and the warning says what the result then shows. See [the method](./analysis/methodology.md).
-- **While it runs**, one ring for each scenario and one for the sensitivity runs fill as the server saves
-  runs ("N of M simulated runs"), and **Cancel** stops it. Nothing is shown from a stopped run, because its
-  scenarios would not yet all have the same seeds: **Run it again with the same settings** starts afresh. A
-  simulation that the server stopped is marked interrupted, and can be reproduced exactly from its seeds. If
-  the progress cannot be read for a moment, the page says so and tries again by itself; a simulation that is
-  running goes on running on the server.
-- **When it has finished**, the results are a theatre with four ways to look at the same run. **Story** is a
-  headline written from the numbers, then **Who moves most**, **What it sets off**, **How steady it is** and
-  **How far to rely on this**. **Live** plays one typical run, round by round: the actors sit on the map,
-  coloured by where each stands in the round shown, and a round card gives the share of each response and the
-  signals. **Network** shows the relations between the actors that the comparison used, with controls for
-  which kinds to show. **Timeline** shows the spread of the runs over the rounds, with the change and the
-  events marked. Only Story and Timeline are offered when no run was kept in detail.
+- **Setting it up.** "Set the futures side by side" lists the **scenarios to compare**: the baseline
+  ("Nothing changes", which shows where the simulated members stand without the change), the proposed
+  change and any alternatives, up to eight in all. Every scenario runs on the same seeds, so the only
+  difference between them is the change. Each scenario but the baseline has a name you can change, **How
+  strongly it lands** (a slider from 0 to 1), the round it lands **From** (earlier and later buttons) and an
+  **About** button that says what it is and whether its strength is the system's assumption or "was set by
+  you". **Add an alternative** adds one, and you can remove an alternative while another stays. If your
+  question names one amount, Swarm also offers a smaller and a larger version, marked "(suggestion)", for
+  you to keep, edit or delete. Choose how many seeded runs of each (10, 30 or 100) and whether to **Test
+  which assumptions it leans on**, which moves one assumption at a time and runs the same seeds again. The
+  page says how many simulated runs that is and about how long it takes, and **How long this takes, and what
+  it costs** says what the estimate rests on. See [the method](./analysis/methodology.md).
+- **Starting it.** **Run the simulation** stays in view at the foot of the panel however long the list is
+  (on a touch screen it sits above the dock). A setup that is not allowed is listed above it, and the button
+  stays disabled until it is mended: a scenario with no name, no alternative to set against the baseline, a
+  strength outside 0 to 1, a round outside the run, or more than 2,400 simulated runs in all. The page also
+  warns, with **Review stakeholders**, if no stakeholder has an expected direction yet or if nothing in the
+  change can move anyone yet; you can still run it, and the warning says what the result then shows. If the
+  server will not start it (for instance because a simulation is already running for this project), "The
+  simulation did not start" says why, in a sentence. If your role may read simulations but not start one,
+  the page says so.
+- **While it runs**, the heading says the phase ("Waiting to start", "Running the scenarios", "Testing which
+  assumptions it leans on", "Reading the results"). A ring for each scenario, and an outer one for the
+  sensitivity runs, fill as the server saves runs, with "N of M simulated runs" and the time taken beneath,
+  and the scenarios are listed with their counts. **Cancel** stops it after the run in progress. Nothing is
+  shown before it ends, and nothing from a stopped run, because its scenarios would not yet all have the same
+  seeds. If the progress cannot be read for a moment, the page says so and tries again by itself; a
+  simulation that is running goes on running on the server.
+- **When it stops short**, you are back at the setup with a notice: "This simulation was cancelled", "This
+  simulation was interrupted" (the server stopped, and it can be reproduced exactly from its seeds) or "This
+  simulation failed" (with the engine's sentence). **Run it again with the same settings** starts afresh on
+  the same seeds. The notice is still there after a reload.
+- **When it has finished**, the results are a theatre with four ways to look at the same run, chosen in the
+  bar at the top: **Story**, **Live**, **Network** and **Timeline**. Live is where it opens when a run was
+  kept in detail. Only Story and Timeline are offered when none was, and the story says so.
+- **Story** is a headline written from the numbers ("With the change, N% of simulated members look for an
+  alternative or resist: X points more than with no change"), with the spread of the runs under it. If the
+  change cannot move anyone it says that instead, and offers **Review stakeholders**. **Watch it unfold**
+  goes to Live and **Compare the scenarios** to the next scene. Below are **Who moves most** (five actors;
+  press one to see it in Live), **What it sets off** (the first events of one typical run, "one run, not the
+  answer"), **How steady it is**, **How far to rely on this** and **Go deeper**, which opens the deep dive.
+- **Live** plays one typical run, round by round. The actors sit on the map, coloured by where each stands
+  in the round shown (a key, "How to read the colours", says what the colours mean), and the ones that set
+  something off in that round are named and ringed. Press an actor to see where it stands, how its stance
+  went round by round, how far it moved and where the simulated members it stands for end up. A card for the
+  round says what was set off, where the run stands among the other seeded runs, how simulated members
+  respond (in words, not only colour), the signals, and how many related pairs lean together or pull apart;
+  on a small screen the card is one line above the controls that opens in place. Above the controls a line
+  says what the round is about: where each actor starts, that the change lands, who set something off, or
+  who moved most.
+- **Network** shows the relations the comparison used. Colour the actors by **Where it ended** or **How far
+  it moved**, and choose which kinds of relation to show. The card beside it says who moved most over the
+  run; press an actor to see where it stands and what it is joined to, and whether the two lean together or
+  apart. The lines do not change through the run; only where the actors stand does.
+- **Timeline** shows, for each scenario, the middle run and the band most seeded runs fall in, round by
+  round, with where the change lands and what the typical run set off. Choose which scenarios to show (one
+  always stays), move the round by pointing, dragging or with the keys, or press **Play the rounds**. **The
+  figures** gives the same numbers as a table.
 - **The scrubber** plays the run, with **Play**, **Pause** and **Play again**, **Previous round** and **Next
   round**, a slider for the round (the arrow keys move it by one, Page Up and Page Down by three, Home and End
-  to the ends, Space plays) and a speed of 0.5, 1 or 2 times. It plays by itself the first time you open a
-  finished run in a session, and when you watched it run, and never when you have asked for less motion. On a
-  small screen the round card is one line that opens in place.
-- **Around it**, **Compare**, in the same bar, goes on to the next scene. Under **More**, **Run it
-  again…** returns to the setup, **Deep dive** opens
+  to the ends, Space plays), a mark where the change lands and a point for each round in which something was
+  set off, and a speed of 0.5, 1 or 2 times. Moving it yourself stops it where it is. It plays by itself the
+  first time you open a finished run in a session, and when you watched it run, and never when you have asked
+  for less motion: then the run opens on its last round and moves only when you move it.
+- **Around it**, **Compare**, in the same bar, goes on to the next scene (on a phone, use the journey).
+  Under **More**, **Run it again…** returns to the setup, **Deep dive** opens
   [the deep dive](#the-deep-dive-optional-pause-resume-intervene-branch-compare), and **Saved simulations**
   (when there is more than one) switches between them.
 
@@ -304,19 +342,61 @@ stated assumptions. Not a prediction."
 
 ![Compare: the answer as a sentence, the share of simulated members under no change and under the change with the gap between them, and the contents of the page](./assets/swarm-compare.png)
 
-Compare reads the simulation as a document. It opens on the answer as a sentence ("Under _the proposed
-change_, simulated members end up …"), the share of simulated members under each scenario and the gap
-between them with its spread, and how often it held across the seeded runs. A contents lists seven parts:
-**Futures**, **Who moves**, **Over time**, **What holds**, **Depends on** (how the result moves when one
-assumption does), **Sets off** (a chain of second-order events from one typical run) and **How far to
-rely**. See [Reading the results](#reading-the-results).
+Compare reads the simulation as a document, from the top. Before anything has been compared it says "Nothing
+has been compared yet" and offers **Simulate the scenarios**. While a comparison runs it shows its progress,
+with **Watch it in Simulate** and **Cancel**. One that stopped says so ("This comparison was cancelled",
+"interrupted" or "failed"), with **Run it again with the same settings**, **Change the scenarios** and, where
+an earlier one finished, **Read the last finished one**.
 
-A bar at the foot keeps in reach the pair being compared (choose which two scenarios, when there are more
-than two), **Method**, a menu of the parts of the page and the saved comparisons, **Run again** and
-**Decide**. A chip says when the comparison describes the project as it was ("Out of date") or a newer one
-exists ("An older comparison"). **Compare two recorded runs**, from that menu or from the deep dive, lays two
-runs of the deep dive side by side. At its end, "What next" offers **Decide**, simulating again and comparing
-two recorded runs.
+- **The first screen is the answer.** A sentence says what happened ("Under _the proposed change_, simulated
+  members end up _less favourable_ than under _no change_") and how sure it is: how often it held across the
+  seeded runs, on the same seeds. Under it are the share of simulated members who look for an alternative or
+  resist under each of the two scenarios and the gap between them in points, over a chart in which each tick
+  is one seeded run, the bar spans the middle 80% of them and the dot is their average. If the change cannot
+  move anyone, the page says so here, and that every difference below is noise; if no stakeholder has an
+  expected direction it says "Read these differences with care". Either way **Review the stakeholders**
+  takes you to the Map.
+- **Why, and how sure** gives three short answers beside it, each a link to its part: who moves most, what
+  the change sets off, and how steady the finding is.
+- **A contents** lists seven parts: **Futures**, **Who moves**, **Over time**, **What holds**, **Depends on**
+  (how the result moves when one assumption does), **Sets off** (a chain of second-order events from one
+  typical run) and **How far to rely**. Each has its numbers as a table, one press away under **Data**.
+- **Any two scenarios can be set against each other.** Press a scenario's name in the sentence to choose
+  which is set against which (**Swap** reverses them), or press a name in **Futures**. The sentence, the
+  figures, who moves, the lines of **Over time** and the findings follow the pair.
+- **Futures** shows one bar for each scenario, split into the six responses (from "Go along" to "Resist"). Press
+  a response in the key to bring it forward in every bar.
+- **Who moves** ranks the actors by how far their stance moved between the two scenarios, each as a line
+  from one to the other. Press one for its group, the simulated members it stands for and how their
+  responses divide under each scenario. The same actors are on a map, coloured by the move; on a small
+  screen a switch chooses **List** or **Map**.
+- **Over time** shows the middle run and the band of the seeded runs, round by round, and where the change
+  lands. Point at the chart to read a round, or use the slider "Round to read"; **Scale** zooms the chart in
+  or shows the whole −1 to +1.
+- **What holds** lists the findings, the steadiest first, each with how often it held ("k of n runs") and a
+  95% interval; **What this means and how it was tested** says how a finding was tested. Eight are shown
+  at first, and you can look at this pair's findings or every scenario's.
+- **Depends on** moves one assumption at a time and shows how far the headline went, with where each
+  assumption came from. A result that rests on assumptions nothing supports says so. If sensitivity was
+  turned off, **Simulate again with sensitivity** is the way to test it.
+- **Sets off** reads back one typical run event by event: what was set off, by whom, in which round and
+  after what, and how often events like it occurred across all the runs.
+- **How far to rely** says what drove the behaviour, the caveats, which seeds the scenarios shared, what the
+  comparison cost and whether the strength of each change was set by you or is the system's assumption.
+  **Method**, in the bar, says in plain words how the comparison was made.
+
+A bar at the foot keeps in reach the pair being compared, **Method**, a menu of the parts of the page and the
+saved comparisons, **Run again** (the setup, with **Back to the results**) and **Decide**. It steps aside at
+the end of the page, where "What next" offers **Decide**, **Simulate again** and **Compare two recorded runs**.
+On a phone the pair is one name and **Method** and **Run again** are in the menu. Beside the title, a chip
+says when the comparison describes the project as it was ("Out of date": simulate again to bring it up to
+date), when a newer one exists ("An older comparison", with **Read the newest**), or when it is not known
+("Freshness unknown"). See [Reading the results](#reading-the-results).
+
+**Compare two recorded runs**, from the bar's menu, the end of the page or the deep dive, lays two runs of the
+deep dive side by side, round by round: how they are related, the round in which they part, one metric
+across the rounds, what was declared changed and what each run is. It needs two runs with a saved round.
+For a run the engine made on its own, Compare opens on this.
 
 ## Decide: the brief and the independent review
 
@@ -345,11 +425,16 @@ it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
   (supplied or retrieved evidence, a user or system assumption, an inferred stakeholder, actor behaviour, a
   simulation aggregation, a model interpretation, a historical comparison, or unresolved uncertainty).
 - **Tools for the brief** are at its head. **Review** opens the critics' objections and shows how many are
-  open. **Edit report** opens [Report Studio](#report-studio). **Detailed report** opens the deep dive's
-  report, when one was written. **Export** saves the brief as **Markdown**, as **JSON, with the data behind
-  the charts**, or as a **Printable page** (opened in a tab of its own), or prints this page; a role that
-  may read the brief but not export it has the three files switched off, with the reason, and can still
-  print. Under **More**, **Write the brief again** and **Open every chapter**.
+  open. What the detailed report offers depends on whether it has been written. Once it has, **Edit report**
+  opens [Report Studio](#report-studio) and **Detailed report** opens the report itself. Until then **Write
+  the detailed report** stands in their place (on a small screen, under **More**): it takes you to the
+  report's page, which writes it from the deep dive, or says "The deep dive comes first" and takes you to the
+  deep dive. While the report is being written, or if it stopped with part of it kept, **Detailed report**
+  shows how far it got. A role that may not write the report is offered none of these. **Export** saves the
+  brief as **Markdown**, as **JSON, with the data behind the charts**, or as a **Printable page** (opened in a
+  tab of its own), or prints this page; a role that may read the brief but not export it has the three files
+  switched off, with the reason, and can still print. Under **More**, **Write the brief again** and **Open
+  every chapter**.
 - **The independent review.** **Run the independent review** has the critics check the work, and the page
   shows each criticism with what it rests on and what it would do to the conclusion. A criticism that says
   the comparison cannot say anything about the change comes first, and you can filter the rest (open,
@@ -359,7 +444,10 @@ it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
   switch **Also ask a model** adds a deeper reading, and is available only in a project made in **Model
   assisted** mode on a server with a provider. Your responses are kept for any criticism that comes back
   unchanged when you run the review again. If someone else has changed the review while you were writing, the
-  page reads it again and keeps your words.
+  page reads it again and keeps your words. Above the filters the sheet says how the review was made and, in a
+  list with a sentence for each, what it could not check. Where it says that the conflicts between the
+  sources were not checked, **Open the conflicts in Ground** takes you there: opening them in Ground makes
+  the check, and then you run the review again.
 - **When it is out of date.** "This brief may be out of date" says what changed since it was made. If the
   scenario, the stakeholders or the actors changed after the comparison ran, choose **Re-run the comparison**
   and then write the brief again; if only the review changed, or a newer comparison exists, choose **Write
@@ -433,24 +521,30 @@ The deep dive is the engine's older, slower run: fictional proxies act on two si
 round, with a stated reason for each decision, and it can write a detailed report of its own, with an
 evidence ledger. It is optional and apart from everything above: the comparison and the decision brief do not
 wait for it, and it does not replace them. It opens from **More** and then **Deep dive** over a finished
-simulation (and from **Compare two recorded runs**), at `?scene=simulate&view=deep`; **Simulation** at its
-head goes back. When the project has approved actors, **Prepare the environment** makes the proxies from them
+simulation, from **Open the deep dive** at the end of the Story, and from **Open this run** when two recorded
+runs are compared, at `?scene=simulate&view=deep`; **Simulation** at its head goes back. A run the engine
+made on its own has no futures to go back to: Simulate shows its deep dive, and **Compare** opens on its
+recorded runs. When the project has approved actors, **Prepare the environment** makes the proxies from them
 (see [how the deep dive uses the actors](./stakeholders.md#how-the-deep-dive-uses-the-actors)); otherwise it
 generates a small fictional population. The comparison does not need the deep dive either way. A quick run
-saved before the staged engine appears there as "Saved quick run", with nothing invented for what it did not
-record.
+saved before the staged engine appears there as "A quick run, saved before the staged engine", read-only,
+with **Duplicate as a guided exploration**, and nothing invented for what it did not record.
 
 A strip at the head says where the run stands (for example Not prepared, Preparing, Ready to start, Running,
-Paused, Stopped, Cancelled or Finished) and holds the one button that moves it on. The tabs are **Setup**,
+Paused, Branch ready, Stopped, Cancelled or Finished), counts the rounds saved, says whether the engine is
+**Local rules** or **Model-assisted**, and holds the one button that moves it on. The tabs are **Setup**,
 **Run**, **Rounds**, **Memory** and, in Advanced detail, **Advanced** (the engine's records: traces, the log
 and the raw state; in Guided detail these are one disclosure away).
 
 1. **Prepare the environment** makes the fictional proxies and the platforms. In **Setup**, **How it runs**
-   sets the rounds, the minutes per round and the platforms to run: **Info Plaza** (broadcast exposure)
-   and **Topic Community** (community exposure). **Where they start** holds the assumed seed text, stance
-   and strength of each input, and **The cast** lists the proxies, whose personas, inclinations, influence and
-   openness you can inspect and edit. **Save the setup** keeps your changes (**Discard** drops them), and
-   starting needs them saved. IDs, source links and population size remain fixed after preparation.
+   sets the rounds, the minutes per round and the platforms to run: **Info Plaza** (broadcast: influential
+   voices reach every proxy) and **Topic Community** (proxies hear peers who share their topics and views).
+   **Where they start** holds the assumed seed text, stance and strength of each input, and **The cast**
+   lists the proxies; open one to read its persona or to edit its name, role, persona assumptions, initial
+   inclination, influence and openness (its identity, the topics it is linked to and its sources cannot be
+   changed). A bar says "N changes not saved": **Save the setup** keeps them (**Discard** drops them), and
+   starting needs them saved. Editing closes once the simulation starts, because the setup is what the run
+   started from; branch a run to try another.
 2. **Start the simulation** runs the platforms. Each has a separate population state, recorded rounds, clock
    and action stream, and they are never added together or averaged into one audience. **Run** shows where
    the run stands, with what you can do next. **Rounds** scrubs through each platform and shows who moved,
@@ -462,7 +556,8 @@ and the raw state; in Guided detail these are one disclosure away).
    results. Model-assisted reports plan bounded tool use, search sources and memory, inspect timelines,
    optionally interview fictional proxies, and write real chapters progressively; in Advanced detail the
    operations behind the report are listed with it, and hidden model reasoning is not exposed. **Open the
-   detailed report** reads it. See [the grounding review](#grounding-review-model-assisted-reports).
+   detailed report** reads it. Until it is written, the tools of the brief in Decide offer **Write the
+   detailed report** too. See [the grounding review](#grounding-review-model-assisted-reports).
 4. **Ask** the report and the proxies: see [Asking the analyst and the actors](#asking-the-analyst-and-the-actors).
 
 Each execution step stops at **ready** and waits for the next explicit action. Later steps cannot bypass
@@ -491,16 +586,22 @@ possible, all with real, tested behavior:
   a round in progress.
 - **Branch from a round.** From a paused or finished run, **Branch from a round** opens "Branch from a
   checkpoint": the last round to copy unchanged (any saved round, or round 0), what to do with the scheduled
-  event, per-proxy changes, and an optional name. **Create the branch and open it** makes an independent run
-  that copies rounds 1…N unchanged and applies your declared changes only to later rounds; **Keep the source
-  run unchanged** closes the sheet. The source run is never modified, and a branch's report and exports
-  record its lineage. Declared changes are assumptions, not proof of a cause.
+  event, per-proxy changes, and an optional name. A line at the foot says what the branch would do ("Copies
+  rounds 1 to 3 unchanged. Changes one proxy.") or what is missing, and **Create the branch and open it**
+  works only when the request is allowed. It makes an independent run that copies rounds 1…N unchanged and
+  applies your declared changes only to later rounds, and that opens waiting at its checkpoint ("Branch
+  ready"); **Keep the source run unchanged** closes the sheet. The source run is never modified, and a
+  branch's report and exports record its lineage. A branch says "A branch of" its parent, the round it left
+  at and each declared change in words, with **Open the parent run** and **Compare with the parent**. Declared
+  changes are assumptions, not proof of a cause.
 - **Compare two recorded runs** lays one run beside its parent, a branch or another run, round by round,
   with the round through which they are identical derived from recorded data, and notes that these are
   simulated differences, not forecasts or causal estimates. It is in the deep dive's list of what you can do,
-  and in Compare's menu.
-- **Restart from round 1** discards the saved rounds and starts again with the saved environment, after you
-  confirm.
+  and in Compare's menu. It is available once Compare is: after the project's scenarios have been compared,
+  or for a run the engine made on its own. A branch goes through its parent's; until then the deep dive says
+  so.
+- **Restart from round 1** asks first ("Restart from round 1?"), discards the saved rounds and starts again
+  with the saved environment. It is not a resume. **Keep the saved rounds** cancels it.
 
 ## Asking the analyst and the actors
 
@@ -602,7 +703,10 @@ Report Studio is where a person works on the detailed report that was generated:
 _document_, and the generated report itself is never changed. The design and its limits are in
 [ADR 0011](./adr/0011-report-studio.md). It opens from **Edit report** in Decide (or **Edit in the studio**
 on the detailed report), at `?scene=decide&view=studio`. Because it works on the deep dive's detailed report,
-it says "There is no report to work on yet" until one is written, and points to it.
+it says "There is no report to work on yet" until one is written, and offers **Write the detailed report**
+itself: the studio writes it from there, shows how far it has got with a **Stop** button, says when it is
+done and opens on the result. If you may not write it, it says who can; if the deep dive has not been run,
+it says so and takes you to the deep dive.
 
 - **Opening it.** The first time, choose **Open in the studio**. Analysts and project leads can; everyone
   else can read it once it is open. A report computed from recorded results, with no model, can be opened
@@ -619,9 +723,11 @@ it says "There is no report to work on yet" until one is written, and points to 
   earlier text back as a new version. A save that changes nothing is not offered. If someone else saved the
   section while you were writing, the page says "Version N was saved while you were writing", keeps your
   words and offers **See the differences** and **Drop mine**; saving then makes a new version on top of
-  theirs, and theirs stays in the history. If you go back to the brief while words are unsaved, the studio
-  asks first ("Leave with unsaved changes?": **Keep editing** or **Leave anyway**), and so does the browser
-  if you close the tab.
+  theirs, and theirs stays in the history. If you leave while words are unsaved you are asked first ("Leave
+  with unsaved changes?": **Keep editing** or **Leave anyway**), whichever way you go: back to the brief or on
+  to the detailed report, the journey, the dock, Search and commands, another exploration or a new question.
+  **Keep editing** leaves you where you were, and **Leave anyway** goes where you were heading. Words that
+  were saved are not asked about, and the browser asks if you close the tab.
 - **What an edit does to the checks.** The server checked the statements against the text it generated. Once
   the text of a chapter has changed, those statements describe an earlier text: they are still shown,
   marked as such ("These statements describe an earlier text"), and nothing says they check the new words.

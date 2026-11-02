@@ -10,6 +10,7 @@ import {
   Printer,
   RefreshCw,
   Scale,
+  Sparkles,
 } from 'lucide-react';
 import {
   Button,
@@ -22,6 +23,7 @@ import {
   MenuTrigger,
 } from '../../../design/ui';
 import type { BriefExportFormat } from '../../../../../shared/brief';
+import type { ReportTool } from '../model/report-tool';
 import './tools.css';
 
 /** Hands a link to the browser: the server names the file and says whether it is saved or shown. */
@@ -99,7 +101,8 @@ export interface ToolsProps {
   openCount: number | null;
   may: { generate: boolean; export: boolean };
   generating: boolean;
-  hasReport: boolean;
+  /** What the detailed report offers: to edit it, to write it, to read how far it got, or nothing. */
+  report: ReportTool;
   url: (format: BriefExportFormat) => string;
   onReview: () => void;
   onStudio: () => void;
@@ -115,7 +118,7 @@ export function Tools({
   openCount,
   may,
   generating,
-  hasReport,
+  report,
   url,
   onReview,
   onStudio,
@@ -130,6 +133,9 @@ export function Tools({
       ? ` ${reviewText.replace(/^\d+\s+/u, '')}`
       : `, ${reviewText}`
     : '';
+  // The report is edited where it is written. Where it is not, the one thing to do about it is to write it: the
+  // studio would only say that there is nothing to work on.
+  const detail = report === 'edit' || report === 'read';
   return (
     <div className="sw-decide-tools" role="group" aria-label="Tools for the brief">
       <Button
@@ -147,16 +153,29 @@ export function Tools({
         ) : null}
         {spoken ? <span className="sr-only">{spoken}</span> : null}
       </Button>
-      <Button
-        variant="glass"
-        size={size}
-        icon={<PenLine size={15} aria-hidden="true" />}
-        onClick={onStudio}
-        className="sw-decide-tools__wide"
-      >
-        Edit report
-      </Button>
-      {hasReport && (
+      {report === 'edit' && (
+        <Button
+          variant="glass"
+          size={size}
+          icon={<PenLine size={15} aria-hidden="true" />}
+          onClick={onStudio}
+          className="sw-decide-tools__wide"
+        >
+          Edit report
+        </Button>
+      )}
+      {report === 'write' && (
+        <Button
+          variant="glass"
+          size={size}
+          icon={<Sparkles size={15} aria-hidden="true" />}
+          onClick={onReport}
+          className="sw-decide-tools__wide"
+        >
+          Write the detailed report
+        </Button>
+      )}
+      {detail && (
         <Button
           variant="ghost"
           size={size}
@@ -175,14 +194,25 @@ export function Tools({
           </IconButton>
         </MenuTrigger>
         <MenuContent align="end" className="sw-decide-menu">
-          <MenuItem
-            className="sw-decide-tools__narrow"
-            icon={<PenLine size={16} />}
-            onSelect={onStudio}
-          >
-            Edit report
-          </MenuItem>
-          {hasReport && (
+          {report === 'edit' && (
+            <MenuItem
+              className="sw-decide-tools__narrow"
+              icon={<PenLine size={16} />}
+              onSelect={onStudio}
+            >
+              Edit report
+            </MenuItem>
+          )}
+          {report === 'write' && (
+            <MenuItem
+              className="sw-decide-tools__narrow"
+              icon={<Sparkles size={16} />}
+              onSelect={onReport}
+            >
+              Write the detailed report
+            </MenuItem>
+          )}
+          {detail && (
             <MenuItem
               className="sw-decide-tools__narrow"
               icon={<FileType2 size={16} />}
@@ -202,7 +232,10 @@ export function Tools({
             Open every chapter
           </MenuItem>
           {!may.generate && (
-            <p className="sw-decide-menu__note">Your role can read the brief but not rewrite it.</p>
+            <p className="sw-decide-menu__note">
+              Your role can read the brief but not rewrite it
+              {report === 'none' ? ', nor write its detailed report' : ''}.
+            </p>
           )}
         </MenuContent>
       </Menu>

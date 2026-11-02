@@ -18,6 +18,7 @@ import {
   expectControlsInside,
   expectSound,
   findWho,
+  headline,
   holdsStill,
   inspector,
   live,
@@ -44,8 +45,10 @@ const SHOP = exampleSeed('ecommerce-experience');
 const THEMES: ThemeName[] = ['light', 'dark', 'high-contrast'];
 const PICTURE = '[role="group"][aria-label$="how they relate"]';
 
-/** Every party that is drawn is inside the screen, and none is under what floats over the picture. */
-async function expectPartiesClear(page: Page, label: string): Promise<void> {
+/** What floats over the picture, as boxes on the screen. */
+async function floatingBoxes(
+  page: Page,
+): Promise<{ name: string; x: number; y: number; width: number; height: number }[]> {
   const overlays: { name: string; box: Locator }[] = [
     { name: 'the heading', box: mapRegion(page).getByRole('heading', { level: 1 }) },
     { name: 'the controls', box: mapControls(page) },
@@ -60,6 +63,12 @@ async function expectPartiesClear(page: Page, label: string): Promise<void> {
     const box = await overlay.box.first().boundingBox();
     if (box) regions.push({ name: overlay.name, ...box });
   }
+  return regions;
+}
+
+/** Every party that is drawn is inside the screen, and none is under what floats over the picture. */
+async function expectPartiesClear(page: Page, label: string): Promise<void> {
+  const regions = await floatingBoxes(page);
   const parties = await partyNodes(page).evaluateAll((nodes) =>
     nodes
       .filter(
@@ -98,6 +107,77 @@ async function expectPartiesClear(page: Page, label: string): Promise<void> {
   expect(problems, `parties out of view: ${label}`).toEqual([]);
 }
 
+/**
+ * Every key party of the picture, the ones the page counts ("4 key"), has a name a person can read: drawn, not faded
+ * out, inside the picture, and not under what floats over it. The name is the text that is drawn beside the party's
+ * node, found from the node's own accessible name, and it is judged by where it is painted, not by being in the page.
+ */
+async function expectKeysNamed(page: Page, label: string): Promise<void> {
+  const picture = ecosystem(page);
+  const keys = picture.getByRole('button', { name: /, key actor, /u });
+  const counted = (await headline(page)).key;
+  await expect(keys, `${label}: the page says ${counted} key`).toHaveCount(counted);
+  const regions = await floatingBoxes(page);
+  const frame = (await picture.boundingBox())!;
+  const seen = await keys.evaluateAll((hits) =>
+    hits.map((hit) => {
+      const name = (hit.getAttribute('aria-label') ?? '').split(', ')[0] ?? '';
+      const text = hit.closest('g')?.querySelector('text');
+      if (!text) return { name, problem: 'has no name drawn' };
+      const box = text.getBoundingClientRect();
+      if (!text.getClientRects().length || box.width < 4 || box.height < 4) {
+        return { name, problem: 'has a name with no size' };
+      }
+      // A name that is faded out, or sits in a node that is, is not painted.
+      let opacity = 1;
+      for (
+        let at: Element | null = text;
+        at && at.tagName.toLowerCase() !== 'svg';
+        at = at.parentElement
+      ) {
+        const style = getComputedStyle(at);
+        if (style.display === 'none' || style.visibility === 'hidden')
+          return { name, problem: 'is hidden' };
+        opacity *= Number(style.opacity);
+      }
+      const words = (text.textContent ?? '').trim();
+      return {
+        name,
+        problem: opacity < 0.5 ? 'is faded out' : null,
+        words,
+        x0: box.left,
+        y0: box.top,
+        x1: box.right,
+        y1: box.bottom,
+      };
+    }),
+  );
+  const problems: string[] = [];
+  for (const entry of seen) {
+    if (entry.problem || entry.x0 === undefined) {
+      problems.push(`${entry.name} ${entry.problem ?? 'has no name'}`);
+      continue;
+    }
+    if (!entry.name.startsWith((entry.words ?? '').replace(/…$/u, ''))) {
+      problems.push(`${entry.name} is named “${entry.words}”`);
+    }
+    if (
+      entry.x0 < frame.x - 1 ||
+      entry.x1 > frame.x + frame.width + 1 ||
+      entry.y0 < frame.y - 1 ||
+      entry.y1 > frame.y + frame.height + 1
+    ) {
+      problems.push(`${entry.name}: the name is clipped by the edge of the picture`);
+    }
+    for (const region of regions) {
+      const across = Math.min(entry.x1!, region.x + region.width) - Math.max(entry.x0, region.x);
+      const down = Math.min(entry.y1!, region.y + region.height) - Math.max(entry.y0!, region.y);
+      if (across > 1 && down > 1) problems.push(`${entry.name}: the name is under ${region.name}`);
+    }
+  }
+  expect(problems, `key parties without a readable name: ${label}`).toEqual([]);
+}
+
 test.describe('at every size', () => {
   for (const viewport of viewports) {
     test(`fits at ${viewport.name}: before it finds anyone, with the stakeholders, in the list and with the actors, in every theme`, async ({
@@ -134,6 +214,7 @@ test.describe('at every size', () => {
         await sound('the stakeholders');
         if (light) {
           await expectPartiesClear(page, label('the stakeholders', theme));
+          await expectKeysNamed(page, label('the stakeholders', theme));
           expect(
             await svgLabelCollisions(page, PICTURE),
             label('names that overlap', theme),
@@ -167,6 +248,7 @@ test.describe('at every size', () => {
           await openApp(page, { project: actors, scene: 'map', theme });
           await expect(partyNodes(page)).toHaveCount(names.length);
           await sound('the actors');
+          await expectKeysNamed(page, label('the actors', theme));
         }
       }
       expect(problems).toEqual([]);
@@ -207,6 +289,41 @@ test.describe('at every size', () => {
     await rosterRow(page, 'Sellers').click();
     await expectTargetSizes(page, 'map: the list with a party open');
   });
+});
+
+test.describe('the names of the key parties', () => {
+  const EXAMPLES = [
+    ['Copilot in Teams', exampleSeed('copilot-in-teams')],
+    ['a regional price change', exampleSeed('regional-price-change')],
+    ['an online store', SHOP],
+  ] as const;
+
+  // The narrowest phone and the usual one: where the picture is smallest and its names compete the most.
+  for (const size of [
+    { width: 320, height: 640 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`every key party has a name that is drawn on a ${size.width}px phone, in the list of who was found and in the actors`, async ({
+      page,
+      request,
+    }) => {
+      test.setTimeout(240_000);
+      const problems = watchPage(page);
+      await page.setViewportSize(size);
+      for (const [name, seed] of EXAMPLES) {
+        const proposed = await makeProject(request, seed, 'proposed');
+        await openApp(page, { project: proposed, scene: 'map' });
+        await expect(partyNodes(page)).not.toHaveCount(0);
+        await expectKeysNamed(page, `${name}: who was found, ${size.width}px`);
+
+        const actors = await makeProject(request, seed, 'actors');
+        await openApp(page, { project: actors, scene: 'map' });
+        await expect(partyNodes(page)).not.toHaveCount(0);
+        await expectKeysNamed(page, `${name}: the actors, ${size.width}px`);
+      }
+      expect(problems).toEqual([]);
+    });
+  }
 });
 
 test.describe('on a laptop', () => {

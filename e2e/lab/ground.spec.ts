@@ -134,6 +134,47 @@ test.describe('the states of the scene', () => {
     expect(problems).toEqual([]);
   });
 
+  test('the head of the page says when the sources are synthetic samples, beside the status, and says nothing of sources that are not', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    // The shipped examples are samples, every source of them: said once at the head, as on each row below.
+    const samples = await makeProject(request, SHOP, 'ground');
+    await openApp(page, { project: samples, scene: 'ground' });
+    const note = hero(page, SHOP).getByText('Synthetic samples', { exact: true });
+    await expect(note).toBeVisible();
+    await expect(hero(page, SHOP).getByText('Includes synthetic samples')).toHaveCount(0);
+    const status = groundStatus(page, /^Ready$/u);
+    const [chip, said] = [await status.boundingBox(), await note.boundingBox()];
+    expect(
+      chip && said && Math.abs(chip.y + chip.height / 2 - (said.y + said.height / 2)),
+    ).toBeLessThan(6);
+
+    // Sources that were supplied are not called samples.
+    const supplied = await makeProject(request, FERRY, 'ground');
+    await openApp(page, { project: supplied, scene: 'ground' });
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible();
+    await expect(hero(page, FERRY)).not.toContainText(/sample|synthetic/iu);
+
+    // One sample among them is said too, and not as if all were.
+    const [sample, own] = FERRY.documents as [
+      (typeof FERRY.documents)[0],
+      (typeof FERRY.documents)[1],
+    ];
+    const mixed = await makeProject(
+      request,
+      { ...FERRY, documents: [{ ...sample, provenance: { kind: 'sample' } }, own] },
+      'ground',
+    );
+    await openApp(page, { project: mixed, scene: 'ground' });
+    await expect(
+      hero(page, FERRY).getByText('Includes synthetic samples', { exact: true }),
+    ).toBeVisible();
+    await expect(hero(page, FERRY).getByText('Synthetic samples', { exact: true })).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+
   test('a saved record that the guided flow did not make is read, never run', async ({
     page,
     request,
@@ -892,7 +933,7 @@ test.describe('the engine’s record and the method', () => {
     });
     await expect(item.locator('pre').first()).toHaveText(JSON.stringify(first.input, null, 2));
     // Every step's operations, not only this one's.
-    await body.getByText('All steps', { exact: true }).click();
+    await body.getByRole('switch', { name: 'All steps' }).click();
     await expect(section.getByRole('button', { name: /^Operations ·/u })).toBeVisible();
     await expect(body.locator('li[data-status]')).toHaveCount(all.length);
     // The events the engine recorded, oldest first.
@@ -1141,6 +1182,38 @@ test.describe('on every screen', () => {
       await expectControlsInside(sheet(page), 'the sheet on a phone');
       await expectSound(page, 'ground on a phone: a passage open');
       expect(problems).toEqual([]);
+    });
+
+    test('saying that the sources are synthetic samples takes no more room at the head of the page than the status already does', async ({
+      page,
+      request,
+    }) => {
+      // The same question and the same text three ways: samples, supplied, and some of each.
+      const [first, rest] = [SHOP.documents[0]!, SHOP.documents.slice(1)];
+      const plain = ({ name, content }: { name: string; content: string }) => ({ name, content });
+      const variants = {
+        samples: SHOP,
+        supplied: { ...SHOP, documents: SHOP.documents.map(plain) },
+        mixed: { ...SHOP, documents: [first, ...rest.map(plain)] },
+      };
+      const tops: Record<string, number> = {};
+      for (const [name, seed] of Object.entries(variants)) {
+        const id = await makeProject(request, seed, 'ground');
+        await openApp(page, { project: id, scene: 'ground' });
+        await expect(groundStatus(page, /^Ready$/u)).toBeVisible();
+        tops[name] = (await figure(page, 'Sources').boundingBox())!.y;
+        if (name === 'supplied') continue;
+        const words = name === 'samples' ? 'Synthetic samples' : 'Includes synthetic samples';
+        const note = hero(page, SHOP).getByText(words, { exact: true });
+        const box = (await note.boundingBox())!;
+        // Whole, on the screen, and on the row of the status.
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(390);
+        const chip = (await groundStatus(page, /^Ready$/u).boundingBox())!;
+        expect(Math.abs(chip.y + chip.height / 2 - (box.y + box.height / 2))).toBeLessThan(6);
+      }
+      expect(tops.samples).toBeCloseTo(tops.supplied!, 0);
+      expect(tops.mixed).toBeCloseTo(tops.supplied!, 0);
     });
 
     test('every control is large enough for a finger: on the page and in the sheet', async ({

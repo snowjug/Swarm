@@ -74,8 +74,8 @@ stage where the work had got to. It worked and it was tested, and it had three c
    Report and Interaction remain the engine's and the API's (`console.steps`: `knowledge`,
    `environment`, `simulation`, `report`, `interaction`). The interface names none of them in its
    journey, its navigation or its buttons. They are shown only where the engine's own record is the
-   subject: the engine records of the deep dive, the Advanced status line of Ground, the line in the
-   deep dive that says what preparing its environment waits for, and one error message. The slower
+   subject: the engine records of the deep dive, the Advanced status line of Ground, and the line in the
+   deep dive that says what preparing its environment waits for. The slower
    agent-by-agent engine, its pause, scheduled event, branching and run comparison, its report and its
    chat stay whole, one gesture from Simulate (the deep dive) and from Decide (the detailed report
    and the studio).
@@ -115,9 +115,14 @@ stage where the work had got to. It worked and it was tested, and it had three c
   screens had to be written again, and the engine's stage names in them are now the engine's.
 - Nothing about the engine's fidelity changed. A result is still a simulation of synthetic actors
   under stated assumptions, and a more beautiful screen is not more evidence about the world.
-- **Not done:** a screen reader has not been used on it, nor a real touch device or Windows high
-  contrast, and the themes were written by hand and checked by computed contrast, not reviewed by a
-  designer.
+- **Not done** (each item, and where it is checked, is in [UX.md](../UX.md#not-done)): a screen reader
+  has not been used on it, nor a real touch device or Windows high contrast, and backdrop blur was judged
+  at a device-pixel ratio of 1 only; the themes were written by hand and checked by computed contrast, not
+  reviewed by a designer; the browser's Back button is not asked about where a scene holds work that is not
+  saved, and the first screen's question, the Simulate setup's scenarios and the deep dive's setup are not
+  held as unsaved work at all; the Compare point on the journey stays "ready"; the actor API refuses to add,
+  remove, rename or regroup an actor; full motion does not reach two component rules; and the
+  database-location warning is not shown.
 
 ## Evidence
 
