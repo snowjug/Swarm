@@ -204,8 +204,10 @@
     align-items: center;
     justify-content: flex-end;
     gap: var(--s-3);
-    padding: var(--s-4) 0 var(--s-1);
-    background: linear-gradient(to top, var(--bg-raised) 72%, transparent);
+    /* The band reaches the edges of the panel, so that it is the panel's own surface and not a strip laid over it. */
+    margin-inline: calc(var(--s-7) * -1);
+    padding: var(--s-4) var(--s-7) var(--s-1);
+    background: linear-gradient(to top, var(--glass-overlay) 72%, transparent);
   }
   .sw-setup__how {
     border-top: 1px solid var(--hairline);
@@ -278,7 +280,8 @@
     }
     .sw-setup__foot {
       bottom: var(--dock-h);
-      padding-bottom: var(--s-3);
+      margin-inline: calc(var(--s-4) * -1);
+      padding: var(--s-4) var(--s-4) var(--s-3);
       flex-direction: column-reverse;
       align-items: stretch;
     }
