@@ -29,7 +29,7 @@
     border: 0;
     border-radius: var(--r-lg);
     background: transparent;
-    color: var(--ink-3);
+    color: var(--ink-2);
     font-size: var(--fs-micro);
     font-weight: 560;
     transition: color var(--dur-fast) var(--ease-out);
@@ -37,8 +37,9 @@
   .sw-dock__item.is-current {
     color: var(--ink);
   }
+  /* A locked step reads as locked by its lock and a calmer ink, never by fading: faded text fails its contrast. */
   .sw-dock__item[aria-disabled='true'] {
-    opacity: 0.5;
+    color: var(--ink-3);
   }
   .sw-dock__item:active:not([aria-disabled='true']) {
     transform: scale(0.94);

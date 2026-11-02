@@ -1,16 +1,21 @@
 import {
+  Compass,
   Contrast,
   Copy,
   Download,
   Ellipsis,
   ExternalLink,
+  Feather,
   Gauge,
   LogOut,
   Monitor,
+  MonitorSmartphone,
   Moon,
   RefreshCw,
   Search,
   ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
   Sun,
   Users,
 } from 'lucide-react';
@@ -42,6 +47,18 @@ const THEME_ICONS: Record<ThemePreference, typeof Sun> = {
   light: Sun,
   dark: Moon,
   'high-contrast': Contrast,
+};
+
+// Every choice has a glyph, so that the three groups line up on one column and the eye finds its place by shape.
+const MOTION_ICONS: Record<MotionPreference, typeof Sun> = {
+  system: MonitorSmartphone,
+  reduced: Feather,
+  full: Sparkles,
+};
+
+const MODE_ICONS: Record<UiMode, typeof Sun> = {
+  guided: Compass,
+  advanced: SlidersHorizontal,
 };
 
 export interface ProjectTools {
@@ -130,23 +147,29 @@ export function SettingsMenu({
           value={motion}
           onValueChange={(value) => setMotionPreference(value as MotionPreference)}
         >
-          {MOTION_PREFERENCES.map((name) => (
-            <MenuRadioItem key={name} value={name}>
-              {MOTION_LABELS[name]}
-            </MenuRadioItem>
-          ))}
+          {MOTION_PREFERENCES.map((name) => {
+            const Icon = MOTION_ICONS[name];
+            return (
+              <MenuRadioItem key={name} value={name} icon={<Icon size={16} />}>
+                {MOTION_LABELS[name]}
+              </MenuRadioItem>
+            );
+          })}
         </MenuRadioGroup>
         <MenuSeparator />
         <MenuLabel>Detail</MenuLabel>
         <MenuRadioGroup value={mode} onValueChange={(value) => onMode(value as UiMode)}>
-          {UI_MODES.map((name) => (
-            <MenuRadioItem key={name} value={name}>
-              <span className="sw-settings__option">
-                {MODE_LABELS[name]}
-                <small>{MODE_SUMMARIES[name]}</small>
-              </span>
-            </MenuRadioItem>
-          ))}
+          {UI_MODES.map((name) => {
+            const Icon = MODE_ICONS[name];
+            return (
+              <MenuRadioItem key={name} value={name} icon={<Icon size={16} />}>
+                <span className="sw-settings__option">
+                  {MODE_LABELS[name]}
+                  <small>{MODE_SUMMARIES[name]}</small>
+                </span>
+              </MenuRadioItem>
+            );
+          })}
         </MenuRadioGroup>
         {project && (
           <>
