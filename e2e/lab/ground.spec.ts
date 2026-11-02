@@ -933,7 +933,7 @@ test.describe('the engine’s record and the method', () => {
     });
     await expect(item.locator('pre').first()).toHaveText(JSON.stringify(first.input, null, 2));
     // Every step's operations, not only this one's.
-    await body.getByText('All steps', { exact: true }).click();
+    await body.getByRole('switch', { name: 'All steps' }).click();
     await expect(section.getByRole('button', { name: /^Operations ·/u })).toBeVisible();
     await expect(body.locator('li[data-status]')).toHaveCount(all.length);
     // The events the engine recorded, oldest first.
