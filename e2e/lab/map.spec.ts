@@ -122,7 +122,12 @@ test.describe('finding who is affected', () => {
     const how = page.getByRole('dialog').filter({ hasText: 'How these were found' });
     await expect(how).toContainText('Swarm read your text for role words');
     await expect(how).toContainText('No model was used.');
-    await expect(how).toContainText(view.stakeholders!.discovery.note);
+    // The engine's own account, in full, a sentence to a line.
+    for (const sentence of view.stakeholders!.discovery.note.split(
+      /(?<=[.?!])\s+(?=[A-Z\u201c"])/u,
+    )) {
+      await expect(how.getByRole('listitem').filter({ hasText: sentence })).toHaveCount(1);
+    }
     await page.keyboard.press('Escape');
 
     // The place of a kind of party that nobody was found for is a gap on the map, to be filled by hand.
