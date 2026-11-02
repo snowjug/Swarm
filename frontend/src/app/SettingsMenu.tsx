@@ -14,6 +14,7 @@ import {
   Sun,
   Users,
 } from 'lucide-react';
+import { useRef } from 'react';
 import {
   MOTION_LABELS,
   MOTION_PREFERENCES,
@@ -80,15 +81,35 @@ export function SettingsMenu({
   sourceUrl: string | null;
 }) {
   const motion = useMotionPreference();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const wantsPalette = useRef(false);
   return (
     <Menu>
       <MenuTrigger asChild>
-        <IconButton label="Settings and tools" size="md">
+        <IconButton ref={trigger} label="Settings and tools" size="md">
           <Ellipsis size={20} aria-hidden="true" />
         </IconButton>
       </MenuTrigger>
-      <MenuContent align="end" className="sw-settings">
-        <MenuItem icon={<Search size={16} />} shortcut={paletteShortcut()} onSelect={onPalette}>
+      <MenuContent
+        align="end"
+        className="sw-settings"
+        // A menu gives focus back to its button as it closes. The palette opens after that, from the button, so that
+        // closing the palette returns the keyboard to the button instead of to the top of the page.
+        onCloseAutoFocus={(event) => {
+          if (!wantsPalette.current) return;
+          wantsPalette.current = false;
+          event.preventDefault();
+          trigger.current?.focus({ preventScroll: true });
+          onPalette();
+        }}
+      >
+        <MenuItem
+          icon={<Search size={16} />}
+          shortcut={paletteShortcut()}
+          onSelect={() => {
+            wantsPalette.current = true;
+          }}
+        >
           Search and commands
         </MenuItem>
         <MenuSeparator />

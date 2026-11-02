@@ -44,6 +44,8 @@ export function CommandPalette({
   );
   // The rows in the order they are shown, so that the arrows and the mark agree with the screen.
   const rows = useMemo(() => sections.flatMap((section) => section.items), [sections]);
+  // A group is named beside a found row only when the rows come from more than one: otherwise it says the same on every line.
+  const mixed = new Set(rows.map((command) => command.group)).size > 1;
   const marked = rows.length === 0 ? -1 : Math.min(active, rows.length - 1);
   const optionId = (command: Command) => `${ids}-${command.id}`;
   const markedId = marked >= 0 ? optionId(rows[marked]!) : undefined;
@@ -142,7 +144,8 @@ export function CommandPalette({
               {sections.map((section, index) => {
                 const options = section.items.map((command) => {
                   const here = rows.indexOf(command) === marked;
-                  const trailing = command.hint ?? (searching ? GROUP_LABELS[command.group] : '');
+                  const trailing =
+                    command.hint ?? (searching && mixed ? GROUP_LABELS[command.group] : '');
                   return (
                     <div
                       key={command.id}

@@ -429,9 +429,7 @@ export function Application() {
     onTheme: theme.choose,
     mode,
     onMode: chooseMode,
-    // A menu gives focus back to its button as it closes; opening the palette after that lets the palette
-    // remember the button, so that closing it returns the keyboard there.
-    onPalette: () => window.setTimeout(() => setPalette(true), 150),
+    onPalette: () => setPalette(true),
     account,
     version,
     sourceUrl: source,
