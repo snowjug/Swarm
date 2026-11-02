@@ -8,7 +8,15 @@ import {
 } from '../support/helpers';
 import { forget, quiet } from '../support/shell';
 import { openApp } from '../support/app';
-import { briefed, chapter, openDecide, reviewSheet, tools, unfold } from '../support/decide';
+import {
+  briefed,
+  chapter,
+  openDecide,
+  reviewSheet,
+  tools,
+  unfold,
+  watchScrolling,
+} from '../support/decide';
 
 // The independent review: critics challenge the analysis and never change it. It is a sheet over the brief, opened
 // from the tools, from the contents of the brief or from the note that stands beside the statement it is about; a
@@ -79,6 +87,11 @@ test.describe('the review on a desktop screen', () => {
   test('opens at the criticism that stands beside its statement, and gives focus back to the note', async ({
     page,
   }) => {
+    const scrolls = await watchScrolling(page);
+    const toCriticisms = async () =>
+      (await scrolls())
+        .filter((scroll) => scroll.id.startsWith('critique-'))
+        .map((scroll) => scroll.behavior);
     await openDecide(page, reviewed);
     const landscape = chapter(page, 'Stakeholder landscape');
     await unfold(landscape);
@@ -95,9 +108,17 @@ test.describe('the review on a desktop screen', () => {
     const openOne = sheet.getByRole('button', { expanded: true });
     await expect(openOne).toHaveCount(1);
     await expect(openOne).toContainText(objection.slice(0, 40));
+    // Motion is reduced for this file, so the sheet takes the reader to the criticism at once and does not glide there.
+    await expect.poll(toCriticisms).toEqual(['auto']);
     await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
     await expect(note).toBeFocused();
+
+    // For someone who has not asked for less motion it glides: the check above does see the difference.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await note.click();
+    await expect(sheet).toBeVisible();
+    await expect.poll(toCriticisms).toEqual(['auto', 'smooth']);
   });
 
   test('says that a critic that raised nothing does not show the analysis is right', async ({
@@ -109,6 +130,65 @@ test.describe('the review on a desktop screen', () => {
     await expect(review).toContainText('A criticism is a challenge, not a verdict');
     await expect(review).toContainText('raised nothing, which does not show the analysis is right');
     await expect(review).toContainText('Only the deterministic checks run');
+  });
+
+  test('says what it could not check, each note on its own, and shows every one that the server made', async ({
+    page,
+  }) => {
+    const notes = (await critiquesOf(reviewed)).critiques!.notes ?? [];
+    await openDecide(page, reviewed, 'review');
+    const list = reviewSheet(page).getByRole('list', {
+      name: 'What to know about how this review was made',
+    });
+    if (notes.length === 0) {
+      await expect(list).toHaveCount(0);
+      return;
+    }
+    await expect(list.getByRole('listitem')).toHaveCount(notes.length);
+    for (const note of notes) await expect(list, note).toContainText(note);
+    // Where it says that conflicts between the sources were not checked, there is the way to them; a note that says
+    // anything else has none.
+    await expect(list.getByRole('button', { name: 'Open the conflicts in Ground' })).toHaveCount(
+      notes.filter((note) => /\bconflicts?\b/iu.test(note)).length,
+    );
+  });
+
+  test('leads to the conflicts of the sources from a note that says they were not checked', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    const told = [
+      'The conflicts between the sources were not checked.',
+      'No scenario was recorded, so the checks against it were skipped.',
+    ];
+    await page.route(
+      (url) => url.pathname === `/api/projects/${reviewed}/critiques`,
+      async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json()) as CritiquesView;
+        body.critiques!.notes = told;
+        await route.fulfill({ response, json: body });
+      },
+    );
+    await openDecide(page, reviewed, 'review');
+    const sheet = reviewSheet(page);
+    const list = sheet.getByRole('list', { name: 'What to know about how this review was made' });
+    await expect(list.getByRole('listitem')).toHaveCount(2);
+    for (const note of told) await expect(list).toContainText(note);
+    // Only the note about the conflicts has the way to them.
+    const way = sheet.getByRole('button', { name: 'Open the conflicts in Ground' });
+    await expect(way).toHaveCount(1);
+    await expect(list.getByRole('listitem').first()).toContainText('Open the conflicts in Ground');
+    await quiet(page);
+    await expectNoAxeViolations(page, 'the review sheet with the notes on how it was made');
+
+    await way.click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(/scene=ground/u);
+    await expect(page).toHaveURL(/view=conflicts/u);
+    await expect(page).not.toHaveURL(/view=review/u);
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
+    expect(problems).toEqual([]);
   });
 });
 

@@ -29,6 +29,7 @@ import {
   reviewHeadline,
   subjectOf,
   tally,
+  mentionsConflicts,
 } from './critique-model';
 import { clip, listed, perHundred, signedPerHundred } from './format';
 import {
@@ -593,5 +594,27 @@ describe('what the charts need', () => {
     expect(quick.recommendations.map((recommendation) => recommendation.id)).toEqual(['rec-1']);
     const second = cells.find((cell) => cell.impact === 'medium' && cell.effort === 'medium')!;
     expect(second.recommendations.map((recommendation) => recommendation.id)).toEqual(['rec-2']);
+  });
+});
+
+describe('the notes on how a review was made', () => {
+  it('finds the ones that speak of the conflicts between the sources, in whatever words the server puts them', () => {
+    expect(
+      mentionsConflicts(
+        'Conflicts between sources were not checked: the sources had not been compared when this review ran. Open Ground to compare them, then run this review again.',
+      ),
+    ).toBe(true);
+    expect(
+      mentionsConflicts(
+        'The ledger of conflicts between sources has not been built, so those conflicts were not checked.',
+      ),
+    ).toBe(true);
+    expect(mentionsConflicts('Conflict checks were skipped.')).toBe(true);
+    expect(
+      mentionsConflicts('No scenario was recorded, so the checks against it were skipped.'),
+    ).toBe(false);
+    expect(mentionsConflicts('The comparison was run before the stakeholders changed.')).toBe(
+      false,
+    );
   });
 });

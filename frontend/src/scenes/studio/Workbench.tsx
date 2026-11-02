@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowUpRight, History } from 'lucide-react';
 import type { StudioView } from '../../../../shared/studio';
+import { useUnsavedWork } from '../../app/unsaved-context';
 import { SPRING, useReducedMotion } from '../../design/motion';
 import { Button, Notice } from '../../design/ui';
 import { useLeaveGuard } from '../decide/leaveGuard';
@@ -23,6 +24,7 @@ import {
   sectionAccess,
   startDraft,
   toolsOf,
+  unsavedSentence,
   type Draft,
   type StudioDocument,
   type ToolId,
@@ -100,14 +102,10 @@ export function Workbench({
     () => Object.values(drafts).filter((draft) => isDirty(draft)).length,
     [drafts],
   );
-  useEffect(() => {
-    if (unsaved === 0) return undefined;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [unsaved]);
+  // While words are not saved, the shell asks before every way out it controls (the journey, the dock, the palette,
+  // another exploration, a new question) and the browser warns when the tab is closed or reloaded. The ways out that
+  // only change the view are not the shell's: they ask below, and never both for one exit.
+  useUnsavedWork(unsaved > 0 ? unsavedSentence(unsaved) : null);
 
   const proposalId = section?.proposal?.id ?? null;
   useEffect(() => {
@@ -171,8 +169,19 @@ export function Workbench({
     [scrollTo],
   );
 
+  // Where the person was heading when the studio asked whether to leave: "Leave anyway" goes there, and nowhere else.
+  const heading = useRef<(() => void) | null>(null);
+  const leaveFor = (destination: () => void) => {
+    if (unsaved === 0) {
+      destination();
+      return;
+    }
+    heading.current = destination;
+    setDialog('leave');
+  };
+
   // The brief's own bar leads back too: it asks before words that are not saved are lost.
-  useLeaveGuard(unsaved > 0, () => setDialog('leave'));
+  useLeaveGuard(unsaved > 0, () => leaveFor(onBack));
 
   if (!section) return null;
   const draft = drafts[section.id];
@@ -207,7 +216,8 @@ export function Workbench({
     else if (kind === 'request-changes') setDialog('request-changes');
     else setDialog(document.state === 'approved' ? 'reopen' : 'withdraw');
   };
-  const back = () => (unsaved > 0 ? setDialog('leave') : onBack());
+  const back = () => leaveFor(onBack);
+  const toReport = onReport ? () => leaveFor(onReport) : null;
 
   return (
     <>
@@ -216,12 +226,12 @@ export function Workbench({
         onBack={back}
         tools={
           <>
-            {onReport && (
+            {toReport && (
               <Button
                 variant="ghost"
                 size="sm"
                 iconEnd={<ArrowUpRight size={15} aria-hidden="true" />}
-                onClick={onReport}
+                onClick={toReport}
               >
                 Detailed report
               </Button>
@@ -248,7 +258,7 @@ export function Workbench({
           <MoreMenu
             projectId={projectId}
             canExport={view.capabilities.export}
-            onReport={onReport}
+            onReport={toReport}
             onRecord={() => setRecordOpen(true)}
             onExport={(format) => void actions.exportAs(format)}
           />
@@ -432,14 +442,19 @@ export function Workbench({
         state={document.state}
         working={actions.pending}
         unsaved={unsaved}
-        onClose={() => setDialog(null)}
+        onClose={() => {
+          heading.current = null;
+          setDialog(null);
+        }}
         onStep={(kind, note) =>
           void actions.step(kind, note).then((made) => made && setDialog(null))
         }
         onRestart={() => void actions.start(true).then((made) => made && setDialog(null))}
         onLeave={() => {
+          const destination = heading.current ?? onBack;
+          heading.current = null;
           setDialog(null);
-          onBack();
+          destination();
         }}
       />
       <RecordSheet

@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import type { ProjectDetail } from '../../../../shared/types';
 import { cx } from '../../design/cx';
 import { Button, EmptyState, Notice, Ring, SkeletonText } from '../../design/ui';
-import { canWrite, type ChapterProgress, type WritingView } from './model';
+import { canWrite, writingNote, type ChapterProgress, type WritingView } from './model';
 import './Writing.css';
 
 /** A way back, always in the same place: the brief is where this page was reached from. */
@@ -76,6 +76,7 @@ export function Ready({
   onBack: () => void;
 }) {
   const model = project.mode === 'llm';
+  const note = writingNote(model);
   return (
     <div className="sw-wr">
       <div className="sw-wr__main">
@@ -86,11 +87,7 @@ export function Ready({
             Write the <em>report</em>
           </h1>
         </div>
-        <p className="sw-lead">
-          {model
-            ? 'A model writes the chapters from the recorded run and its sources. Then every statement is checked against the passage it cites.'
-            : 'The chapters are assembled from the recorded run: the figures, the platforms compared and the sources it cites. No model is used.'}
-        </p>
+        <p className="sw-lead">{note.lead}</p>
         <div className="sw-wr__cta">
           <Button
             variant="accent"
@@ -102,11 +99,7 @@ export function Ready({
           >
             Write the report
           </Button>
-          <p className="sw-caption">
-            {model
-              ? 'Uses the model; its calls count against this project’s budget.'
-              : 'Simulated figures from fictional actors. Not a forecast.'}
-          </p>
+          <p className="sw-caption">{note.caption}</p>
         </div>
       </div>
       <Holds model={model} />
@@ -118,12 +111,12 @@ export function Ready({
 export function Blocked({
   project,
   running,
-  onSimulate,
+  onDeepDive,
   onBack,
 }: {
   project: ProjectDetail;
   running: boolean;
-  onSimulate: () => void;
+  onDeepDive: () => void;
   onBack: () => void;
 }) {
   return (
@@ -155,8 +148,8 @@ export function Blocked({
           </div>
         )}
         <div className="sw-wr__cta">
-          <Button variant="primary" size="lg" onClick={onSimulate}>
-            {running ? 'Watch it in Simulate' : 'Go to Simulate'}
+          <Button variant="primary" size="lg" onClick={onDeepDive}>
+            {running ? 'Watch it in the deep dive' : 'Go to the deep dive'}
           </Button>
         </div>
       </div>

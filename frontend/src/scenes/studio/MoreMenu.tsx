@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import {
   Download,
   ExternalLink,
@@ -32,20 +33,44 @@ export function MoreMenu({
   onRecord: () => void;
   onExport: (format: 'markdown' | 'json') => void;
 }) {
+  const trigger = useRef<HTMLButtonElement>(null);
+  const next = useRef<(() => void) | null>(null);
   return (
     <Menu>
       <MenuTrigger asChild>
-        <IconButton label="More" tone="glass">
+        <IconButton ref={trigger} label="More" tone="glass">
           <MoreHorizontal size={18} aria-hidden="true" />
         </IconButton>
       </MenuTrigger>
-      <MenuContent align="end">
+      <MenuContent
+        align="end"
+        // A menu gives focus back to its button as it closes. What opens a sheet or asks a question opens after that,
+        // so that closing it returns the keyboard to the button and not to the top of the page.
+        onCloseAutoFocus={(event) => {
+          const then = next.current;
+          next.current = null;
+          if (!then) return;
+          event.preventDefault();
+          trigger.current?.focus({ preventScroll: true });
+          then();
+        }}
+      >
         {onReport && (
-          <MenuItem icon={<ScrollText size={16} />} onSelect={onReport}>
+          <MenuItem
+            icon={<ScrollText size={16} />}
+            onSelect={() => {
+              next.current = onReport;
+            }}
+          >
             Detailed report
           </MenuItem>
         )}
-        <MenuItem icon={<History size={16} />} onSelect={onRecord}>
+        <MenuItem
+          icon={<History size={16} />}
+          onSelect={() => {
+            next.current = onRecord;
+          }}
+        >
           Review record
         </MenuItem>
         {canExport && (

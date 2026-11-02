@@ -61,12 +61,12 @@ function Brief() {
         analysis={analysis}
         reviewOpen={view === 'review'}
         onReviewOpenChange={(open) => setView(open ? 'review' : null)}
-        hasReport={hasReport}
         justWritten={written}
         go={{
           simulate: () => go('simulate'),
           studio: () => go('decide', { view: 'studio' }),
           report: () => go('decide', { view: 'report' }),
+          ground: () => go('ground', { view: 'conflicts' }),
         }}
       />
     );

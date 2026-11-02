@@ -22,6 +22,7 @@ import {
   tools,
   topOf,
   verdict,
+  watchScrolling,
 } from '../support/decide';
 
 // The decision brief as a page: an answer first, then the story of it, with the reference closed until it is
@@ -244,6 +245,27 @@ test.describe('the brief on a desktop screen', () => {
     await next.getByRole('button', { name: /See what to do/u }).click();
     await expect(chapter(page, 'Prioritised recommendations')).toBeFocused();
     await expect(chapter(page, 'Prioritised recommendations')).toBeInViewport();
+  });
+
+  test('takes a mark of the impact and effort plot to its recommendation, and glides there only when motion is wanted', async ({
+    page,
+  }) => {
+    const scrolls = await watchScrolling(page);
+    const toRecommendations = async () =>
+      (await scrolls())
+        .filter((scroll) => scroll.id.startsWith('rec-'))
+        .map((scroll) => scroll.behavior);
+    await openDecide(page, project);
+    const recommendations = chapter(page, 'Prioritised recommendations');
+    await recommendations.scrollIntoViewIfNeeded();
+    const mark = recommendations.getByRole('button', { name: /^Recommendation \d+: / }).first();
+    await mark.click();
+    // Motion is reduced for this file: the page goes to the recommendation at once, and does not glide there.
+    await expect.poll(toRecommendations).toEqual(['auto']);
+    // For someone who has not asked for less motion it glides: the check above does see the difference.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await mark.click();
+    await expect.poll(toRecommendations).toEqual(['auto', 'smooth']);
   });
 
   test('ends with what it says: the page has no blank stretch after the brief', async ({

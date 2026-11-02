@@ -214,3 +214,12 @@ export function reviewHeadline(view: CritiquesView | null, failed: boolean): str
   if (total === 0) return `no criticism raised${tail}`;
   return open === 0 ? `all ${total} answered${tail}` : `${open} open${tail}`;
 }
+
+/**
+ * Whether a note the server made about how the review was made is about the conflicts between the sources. The notes
+ * are plain sentences, so this reads the sentence: where it speaks of conflicts, the sheet offers the way to them
+ * (Ground builds the check of the sources when it is opened, and the review is run again after it).
+ */
+export function mentionsConflicts(note: string): boolean {
+  return /\bconflicts?\b/iu.test(note);
+}

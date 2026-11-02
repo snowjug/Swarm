@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { Recommendation, ValidationExperiment } from '../../../../../shared/brief';
+import { useReducedMotion } from '../../../design/motion';
 import { Chip, Disclosure } from '../../../design/ui';
 import { clip, sentence } from '../model/format';
 import { LEVELS, effortSteps, plotCells, plotSummary, type Level } from '../model/visual-model';
@@ -8,6 +9,7 @@ import { useDoc } from '../ui/context';
 import { NoteStack } from '../ui/Notes';
 import { OriginMark } from '../ui/Provenance';
 import { Prose } from '../ui/Prose';
+import { smooth } from '../ui/scroll';
 import './actions.css';
 
 const REVERSIBILITY = {
@@ -42,6 +44,7 @@ function ImpactEffort({
   active: string | null;
   onActive: (id: string | null) => void;
 }) {
+  const reduced = useReducedMotion();
   const cells = plotCells(recommendations);
   const corner: Record<string, string> = {
     '0-0': 'Quick wins',
@@ -86,7 +89,7 @@ function ImpactEffort({
                     onBlur={() => onActive(null)}
                     onClick={() => {
                       const item = document.getElementById(`rec-${recommendation.id}`);
-                      item?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+                      item?.scrollIntoView({ block: 'center', behavior: smooth(reduced) });
                     }}
                   >
                     {recommendation.priority}

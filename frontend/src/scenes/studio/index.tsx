@@ -3,7 +3,9 @@ import { ArrowLeft, OctagonAlert } from 'lucide-react';
 import { useWorkspace } from '../../app/context';
 import { Button, EmptyState, Notice } from '../../design/ui';
 import { useStudio } from '../../hooks/useStudio';
+import { resolveReport } from '../report/model';
 import { useStudioActions } from './actions';
+import { NoReport } from './NoReport';
 import { Opening } from './Opening';
 import { StudioSkeleton } from './Skeleton';
 import { Workbench } from './Workbench';
@@ -46,6 +48,20 @@ export default function StudioScene() {
 
   const leave = useCallback(() => setView(null), [setView]);
   const toReport = useCallback(() => setView('report'), [setView]);
+
+  // A report that is finished while this page waits for it makes what the studio read before out of date: read it
+  // again, say so, and let the page it opens on take the reader's place.
+  const written = resolveReport(project).kind === 'complete';
+  const wasWritten = useRef(written);
+  const [arrived, setArrived] = useState(false);
+  useEffect(() => {
+    if (written && !wasWritten.current) {
+      setArrived(true);
+      say('The detailed report is written. It can be opened in the studio.');
+      reload();
+    }
+    wasWritten.current = written;
+  }, [written, reload, say]);
 
   return (
     <section className="sw-studio" aria-label="Report studio">
@@ -97,13 +113,16 @@ export default function StudioScene() {
         </Notice>
       )}
 
-      {view && !document && (
+      {view && !document && !view.reportReady && <NoReport view={view} onBack={leave} />}
+
+      {view && !document && view.reportReady && (
         <Opening
           view={view}
           report={project.report}
           actions={actions}
           onBack={leave}
           onReport={toReport}
+          arrived={arrived}
         />
       )}
 

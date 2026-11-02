@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Search } from 'lucide-react';
 import {
   UNRECORDED_INPUTS_ADVICE,
   comparisonInputsUnrecorded,
@@ -16,6 +16,7 @@ import {
   type CritiqueResponseStatus,
   type CritiquesView,
 } from '../../../../../shared/critique';
+import { useReducedMotion } from '../../../design/motion';
 import {
   Button,
   ChipButton,
@@ -45,12 +46,14 @@ import {
   NO_FILTER,
   bySeriousness,
   filterCritiques,
+  mentionsConflicts,
   subjectOf,
   tally,
   type ReviewFilter,
 } from '../model/critique-model';
 import { plural } from '../model/format';
 import { useDoc } from '../ui/context';
+import { smooth } from '../ui/scroll';
 import { OriginChip, SeverityChip, StatusChip } from './chips';
 import './review.css';
 
@@ -388,6 +391,8 @@ export interface ReviewSheetProps {
   /** A critic to show alone, when the sheet was opened from one. */
   role: CriticRole | null;
   onRerun: () => void;
+  /** The way to the conflicts between the sources, for a note that says they were not checked. */
+  onConflicts?: () => void;
 }
 
 function useFocused(
@@ -395,6 +400,7 @@ function useFocused(
   open: boolean,
   ready: boolean,
 ): [ReadonlySet<string>, (id: string) => void] {
+  const reduced = useReducedMotion();
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const served = useRef<string | null>(null);
   useEffect(() => {
@@ -404,11 +410,11 @@ function useFocused(
     // The card grows from nothing, so the page moves once it has begun to.
     const frame = requestAnimationFrame(() => {
       const card = document.getElementById(`critique-${focusId}`);
-      card?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      card?.scrollIntoView({ block: 'start', behavior: smooth(reduced) });
       card?.querySelector<HTMLElement>('.sw-decide-cc__head')?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
-  }, [focusId, open, ready]);
+  }, [focusId, open, ready, reduced]);
   useEffect(() => {
     if (!open) served.current = null;
   }, [open]);
@@ -462,6 +468,7 @@ export function ReviewSheet({
   focusId,
   role,
   onRerun,
+  onConflicts,
 }: ReviewSheetProps) {
   const { view } = state;
   const set = view?.critiques ?? null;
@@ -527,8 +534,33 @@ export function ReviewSheet({
                 <div className="sw-decide-review__sum">
                   <p className="sw-decide-review__meta">
                     {modeText(set.mode)} · made {day(set.generatedAt)}
-                    {set.notes && set.notes.length > 0 ? ` · ${set.notes.join(' ')}` : ''}
                   </p>
+                  {set.notes && set.notes.length > 0 && (
+                    <ul
+                      className="sw-decide-review__notes"
+                      role="list"
+                      aria-label="What to know about how this review was made"
+                    >
+                      {set.notes.map((note) => (
+                        <li key={note}>
+                          <span>{note}</span>
+                          {onConflicts && mentionsConflicts(note) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconEnd={<ArrowRight size={15} aria-hidden="true" />}
+                              onClick={() => {
+                                onOpenChange(false);
+                                onConflicts();
+                              }}
+                            >
+                              Open the conflicts in Ground
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <div
                     className="sw-decide-review__filters"
                     role="group"

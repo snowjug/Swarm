@@ -4,7 +4,7 @@ import { MAX_NOTE, type StudioView } from '../../../../shared/studio';
 import { Button, Dialog, DialogContent, Textarea } from '../../design/ui';
 import type { ButtonVariant } from '../../design/ui';
 import { reviewSummary } from '../../lib/studio';
-import { plural } from './model';
+import { unsavedSentence } from './model';
 import './Dialogs.css';
 
 export type DialogKind =
@@ -235,7 +235,7 @@ export function Dialogs({
     return (
       <Confirm
         title="Leave with unsaved changes?"
-        description={`${plural(unsaved, 'section')} ${unsaved === 1 ? 'holds' : 'hold'} words that have not been saved. They are lost if you leave.`}
+        description={`${unsavedSentence(unsaved)} They are lost if you leave.`}
         confirmLabel="Leave anyway"
         confirmVariant="danger"
         cancelLabel="Keep editing"
