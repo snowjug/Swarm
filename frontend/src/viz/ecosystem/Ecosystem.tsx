@@ -23,6 +23,7 @@ import { IconButton } from '../../design/ui';
 import {
   clusterColour,
   clusterLabel,
+  clusterShortLabel,
   DIRECTION_LABEL,
   directionColor,
   stanceColor,
@@ -282,10 +283,30 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
           scale: maxScale,
           minScale,
           inset: { top: 32, right: 32, bottom: 52, left: 32, ...inset },
+          // A group's name stands above or below its group and a node's name below the node: keep room for them.
+          margin: showClusters ? { top: 32, bottom: 30 } : { top: 20, bottom: 28 },
         }),
       // The signature carries everything the layout reads.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [signature],
+      [signature, showClusters],
+    );
+
+    // What is left to name things in: the canvas less what the scene keeps free for what floats over it.
+    const free = useMemo(
+      () => ({ top: inset?.top ?? 32, bottom: size.height - (inset?.bottom ?? 52) }),
+      [inset?.top, inset?.bottom, size.height],
+    );
+    const compact = size.width < 560;
+    const clusterName = compact ? clusterShortLabel : clusterLabel;
+    // A name keeps off the relations too where it can: a line through a name is hard to read.
+    const lines = useMemo(
+      () =>
+        liveEdges.flatMap((edge) => {
+          const from = layout.positions.get(edge.from);
+          const to = layout.positions.get(edge.to);
+          return from && to ? [{ from, to }] : [];
+        }),
+      [liveEdges, layout],
     );
 
     const clusterSpots = useMemo(
@@ -293,29 +314,38 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         placeClusterLabels(
           all,
           layout,
-          clusterLabel,
-          {
-            left: 8,
-            top: Math.max((inset?.top ?? 32) - 24, 8),
-            right: size.width - 8,
-            bottom: size.height - Math.max((inset?.bottom ?? 52) - 28, 8),
-          },
+          clusterName,
+          { left: 8, top: free.top, right: size.width - 8, bottom: free.bottom },
           settledView,
+          { strict: true, segments: lines },
         ),
-      [all, layout, size.width, size.height, inset?.top, inset?.bottom, settledView],
+      [all, layout, clusterName, size.width, free.top, free.bottom, settledView, lines],
     );
     const shownLabels = useMemo(() => {
       if (labels === 'none') return new Map<string, LabelSide>();
       if (labels === 'all')
         return new Map<string, LabelSide>(all.map((node) => [node.id, 'below']));
       return visibleLabels(
-        all,
+        all.filter((node) => !node.ghost),
         layout,
         showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [],
-        { left: 6, right: size.width - 6 },
+        { left: 6, right: size.width - 6, top: free.top, bottom: free.bottom },
         settledView,
+        { limit: compact ? 8 : undefined, solid: ghostNodes },
       );
-    }, [all, layout, labels, clusterSpots, showClusters, size.width, settledView]);
+    }, [
+      all,
+      ghostNodes,
+      layout,
+      labels,
+      clusterSpots,
+      showClusters,
+      size.width,
+      free.top,
+      free.bottom,
+      compact,
+      settledView,
+    ]);
 
     // ---- One loop paints every node, line, halo and the view -------------------------------------------------
     const paint = useCallback(() => {
@@ -845,17 +875,19 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                       }
                       fill={`url(#${uid}-halo-${id})`}
                     />
-                    <text
-                      ref={(el) =>
-                        void (el
-                          ? clusterTextEls.current.set(id, el)
-                          : clusterTextEls.current.delete(id))
-                      }
-                      textAnchor="middle"
-                    >
-                      <tspan className="sw-eco__pip">●</tspan>
-                      <tspan dx="5">{clusterLabel(id)}</tspan>
-                    </text>
+                    {clusterSpots.has(id) && (
+                      <text
+                        ref={(el) =>
+                          void (el
+                            ? clusterTextEls.current.set(id, el)
+                            : clusterTextEls.current.delete(id))
+                        }
+                        textAnchor="middle"
+                      >
+                        <tspan className="sw-eco__pip">●</tspan>
+                        <tspan dx="5">{clusterName(id)}</tspan>
+                      </text>
+                    )}
                   </g>
                 ))}
               </g>
@@ -1052,15 +1084,17 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                             : tagEls.current.delete(node.id))
                         }
                       >
-                        <text
-                          className="sw-eco__label"
-                          textAnchor={
-                            side === 'right' ? 'start' : side === 'left' ? 'end' : 'middle'
-                          }
-                          data-visible={showLabel || undefined}
-                        >
-                          {node.label.length > 24 ? `${node.label.slice(0, 23)}…` : node.label}
-                        </text>
+                        {showLabel && (
+                          <text
+                            className="sw-eco__label"
+                            data-visible
+                            textAnchor={
+                              side === 'right' ? 'start' : side === 'left' ? 'end' : 'middle'
+                            }
+                          >
+                            {node.label.length > 24 ? `${node.label.slice(0, 23)}…` : node.label}
+                          </text>
+                        )}
                       </g>
                     </g>
                     <circle

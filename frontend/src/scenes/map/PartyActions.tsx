@@ -16,6 +16,8 @@ export interface PartyActionsProps {
   mergeTargets: readonly Stakeholder[];
   mergedInto: Stakeholder | null;
   busy: boolean;
+  /** The short strip on a phone: merging is in the sheet that opens from it, where there is room for it. */
+  compact?: boolean;
   onAccept: () => void;
   onEdit: () => void;
   onRemove: () => void;
@@ -29,6 +31,7 @@ export function PartyActions({
   mergeTargets,
   mergedInto,
   busy,
+  compact = false,
   onAccept,
   onEdit,
   onRemove,
@@ -74,25 +77,27 @@ export function PartyActions({
       >
         <Pencil size={16} aria-hidden="true" />
       </IconButton>
-      <Menu>
-        <MenuTrigger asChild>
-          <IconButton
-            label={`Merge ${stakeholder.name} into another`}
-            tone="glass"
-            disabled={busy || mergeTargets.length === 0}
-          >
-            <GitMerge size={16} aria-hidden="true" />
-          </IconButton>
-        </MenuTrigger>
-        <MenuContent align="end" side="top" className="sw-menu--tall">
-          <MenuLabel>Merge into</MenuLabel>
-          {mergeTargets.map((target) => (
-            <MenuItem key={target.id} onSelect={() => onMerge(target.id)}>
-              {target.name}
-            </MenuItem>
-          ))}
-        </MenuContent>
-      </Menu>
+      {!compact && (
+        <Menu>
+          <MenuTrigger asChild>
+            <IconButton
+              label={`Merge ${stakeholder.name} into another`}
+              tone="glass"
+              disabled={busy || mergeTargets.length === 0}
+            >
+              <GitMerge size={16} aria-hidden="true" />
+            </IconButton>
+          </MenuTrigger>
+          <MenuContent align="end" side="top" className="sw-menu--tall">
+            <MenuLabel>Merge into</MenuLabel>
+            {mergeTargets.map((target) => (
+              <MenuItem key={target.id} onSelect={() => onMerge(target.id)}>
+                {target.name}
+              </MenuItem>
+            ))}
+          </MenuContent>
+        </Menu>
+      )}
       <IconButton
         label={`Remove ${stakeholder.name}`}
         tone="glass"

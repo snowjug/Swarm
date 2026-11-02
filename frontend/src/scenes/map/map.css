@@ -59,6 +59,9 @@
     margin: 0;
     font-size: clamp(2.1rem, 1.5rem + 1.8vw, 3.1rem);
   }
+  .sw-map__title:focus-visible {
+    outline: none;
+  }
   .sw-map__stats {
     display: flex;
     flex-wrap: wrap;
@@ -310,6 +313,10 @@
       overflow: hidden;
       clip: rect(0 0 0 0);
       white-space: nowrap;
+    }
+    /* With the words gone, an option is an icon: it still has to be as wide as a finger. */
+    .sw-map__toolbar .sw-seg__option {
+      min-width: 2.75rem;
     }
     .sw-map__legend {
       bottom: calc(var(--s-3) + 4.6rem);

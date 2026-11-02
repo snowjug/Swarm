@@ -351,12 +351,8 @@
     stroke: var(--eco-halo-text);
     stroke-width: 3.5px;
     stroke-linejoin: round;
-    opacity: 0;
-    transition: opacity var(--dur-base) var(--ease-out);
+    animation: sw-fade var(--dur-fast) var(--ease-out) both;
     pointer-events: none;
-  }
-  .sw-eco__label[data-visible] {
-    opacity: 1;
   }
   .sw-eco__node.is-selected .sw-eco__label {
     fill: var(--ink);
@@ -364,8 +360,16 @@
   }
   .sw-eco__node:hover .sw-eco__label,
   .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__label {
-    opacity: 1;
     fill: var(--ink);
+  }
+  /* A key actor stands out by its name as well as its size: heavier, and in the full ink. */
+  .sw-eco__node[data-kind='key']:not(.sw-eco__ghost) .sw-eco__label {
+    fill: var(--ink);
+    font-weight: 640;
+  }
+  .sw-eco__node[data-kind='key']:not(.sw-eco__ghost) .sw-eco__core {
+    stroke-opacity: 0.95;
+    stroke-width: 1.8;
   }
 
   /* ---- Tooltip and controls float over the picture ---- */

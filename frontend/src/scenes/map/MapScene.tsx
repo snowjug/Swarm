@@ -198,7 +198,7 @@ export function MapScene() {
     const found = await state.discover(mode, confirm);
     setPending(null);
     if (found) {
-      focus(['inspector', 'primary']);
+      focus(['title']);
       say('Stakeholders found. They are on the map.');
     }
   };
@@ -233,7 +233,12 @@ export function MapScene() {
     }
   };
   const resetActors = async (): Promise<void> => {
-    const made = await state.makeActors({ model: false, confirm: true });
+    // Changing a stakeholder takes the approval away, and actors are made only from an approved list.
+    const made = await state.makeActors({
+      model: false,
+      confirm: true,
+      approveFirst: set !== null && !set.approvedAt,
+    });
     setResetting(false);
     if (made) {
       setDraft(null);
@@ -465,7 +470,7 @@ export function MapScene() {
   const total = model?.nodes.length ?? 0;
   const keyCount = model?.nodes.filter((node) => node.kind === 'key').length ?? 0;
   const topInset = Math.round(head.height) + 12;
-  const stakeholderActions =
+  const stakeholderActionsOf = (compact: boolean) =>
     party?.stakeholder && subject === 'stakeholders' && may.edit ? (
       <PartyActions
         stakeholder={party.stakeholder}
@@ -474,6 +479,7 @@ export function MapScene() {
         )}
         mergedInto={mergedInto}
         busy={busy}
+        compact={compact}
         onAccept={() => void review.accept(party.id)}
         onEdit={() => setDialog({ mode: 'edit', id: party.id })}
         onRemove={() => void review.remove(party.id)}
@@ -481,6 +487,8 @@ export function MapScene() {
         onMerge={(target) => void review.merge(party.id, target)}
       />
     ) : null;
+  const stakeholderActions = stakeholderActionsOf(false);
+  const stripActions = stakeholderActionsOf(true);
 
   return (
     <section
@@ -533,7 +541,12 @@ export function MapScene() {
       <div className={view === 'list' ? 'sw-map__scroll' : 'sw-map__overlay'}>
         <div className="sw-map__top" ref={head.ref}>
           <header className="sw-map__head">
-            <h1 id="map-title" className="sw-display sw-map__title">
+            <h1
+              id="map-title"
+              className="sw-display sw-map__title"
+              tabIndex={-1}
+              data-stk-focus="title"
+            >
               Who is <em>in play</em>
             </h1>
             <p className="sw-map__stats">
@@ -675,6 +688,7 @@ export function MapScene() {
             onTrait={(key, value) => onTrait(party.id, key, value)}
             onActor={onActor}
             actions={stakeholderActions}
+            stripActions={stripActions}
             aside={
               dirtyCount > 0 && subject === 'actors' ? (
                 <p className="sw-caption">Changes are held until you save them.</p>
@@ -724,7 +738,11 @@ export function MapScene() {
         <DialogContent
           tone="danger"
           title="Reset all actors?"
-          description={`This makes every actor again from the approved stakeholders${editedActors > 0 ? ` and replaces the changes you made to ${editedActors} of them` : ''}.`}
+          description={`This makes every actor again from the approved stakeholders${editedActors > 0 ? ` and replaces the changes you made to ${editedActors} of them` : ''}.${
+            set.approvedAt
+              ? ''
+              : ` The list changed after it was approved, so it is approved again first${queue.length > 0 ? `, and the ${queue.length} not yet reviewed are accepted` : ''}.`
+          }`}
           footer={
             <>
               <Button variant="ghost" onClick={() => setResetting(false)}>

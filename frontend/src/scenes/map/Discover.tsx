@@ -18,8 +18,8 @@ export function FindExplanation({ model }: { model: ModelAvailability }) {
         <dd>
           No model is used. Swarm looks for role words (customers, administrators, regulators and
           the like), the groups your question names and the people and organisations in your source
-          graph, and quotes the sentence for each. It is always available, and it will miss groups
-          it has no word for.
+          graph, and quotes the sentence for each. It is always available, and it misses groups it
+          has no word for.
         </dd>
       </div>
       <div>

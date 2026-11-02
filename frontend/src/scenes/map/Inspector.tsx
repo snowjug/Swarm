@@ -13,6 +13,8 @@ export interface InspectorProps extends Omit<PartyBodyProps, 'bare'> {
   /** Wide screens get a panel beside the map; narrow ones a short strip under it, with the rest in a sheet. */
   layout: 'panel' | 'peek';
   actions: ReactNode;
+  /** The few actions the strip has room for; the sheet that opens from it has all of `actions`. */
+  stripActions?: ReactNode;
   onClose: () => void;
   /** A line above the actions: something to know before acting (unsaved changes, a refusal). */
   aside?: ReactNode;
@@ -39,7 +41,7 @@ function Swap({ children }: { children: ReactNode }) {
  * map where it is: nothing under it is hidden, because the view moves to keep every party clear of it.
  */
 export function Inspector(props: InspectorProps) {
-  const { layout, actions, onClose, aside, ...body } = props;
+  const { layout, actions, stripActions, onClose, aside, ...body } = props;
   const kicker = partyKicker(body.party, body.subject);
   const [details, setDetails] = useState(false);
 
@@ -75,7 +77,7 @@ export function Inspector(props: InspectorProps) {
             </IconButton>
           </div>
           <div className="sw-peek__row">
-            {actions}
+            {stripActions ?? actions}
             <Button
               variant="glass"
               size="md"

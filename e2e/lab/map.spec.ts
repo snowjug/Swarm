@@ -81,7 +81,7 @@ test.describe('finding who is affected', () => {
     const how = await openDisclosure(page, 'How stakeholders are found');
     await expect(how).toContainText('Reading the text for roles');
     await expect(how).toContainText('No model is used.');
-    await expect(how).toContainText('it will miss groups it has no word for');
+    await expect(how).toContainText('it misses groups it has no word for');
     await expect(how).toContainText('This project runs without a model');
     await expect(how).toContainText('Swarm explores scenarios; it does not predict');
 
@@ -959,7 +959,7 @@ test.describe('approving the list and making the actors', () => {
     // The pill counts what is left to review and opens the next party.
     const left = found.length;
     const reviewing = (count: number) =>
-      pill(page).getByRole('button', { name: new RegExp(`^${count} to review, next`, 'u') });
+      pill(page).getByRole('button', { name: new RegExp(`^${count} to review, next`, 'iu') });
     const nextOne = reviewing(left);
     await nextOne.click();
     const open = page.getByRole('complementary');

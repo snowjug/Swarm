@@ -399,6 +399,9 @@ export async function figureValue(page: Page, name: FigureName): Promise<number 
 
 export const sourcesSection = (page: Page): Locator =>
   page.getByRole('region', { name: /^Sources \d+$/u });
+/** The button that opens a source: it reads as its key and its file name, "D1 council-note.md". */
+export const sourceButton = (scope: Page | Locator, name: string): Locator =>
+  scope.getByRole('button', { name: new RegExp(`^D\\d+ ${escapeRegExp(name)}$`, 'u') });
 export const conflictsSection = (page: Page): Locator =>
   page.getByRole('region', { name: /^Conflicts \d+$/u });
 export const statementsSection = (page: Page): Locator =>

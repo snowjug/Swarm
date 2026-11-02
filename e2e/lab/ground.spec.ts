@@ -32,6 +32,7 @@ import {
   runStep,
   ledgerOf,
   sheet,
+  sourceButton,
   sourcesSection,
   statementsSection,
   toast,
@@ -120,7 +121,7 @@ test.describe('the states of the scene', () => {
     const rows = sourcesSection(page).getByRole('list', { name: 'Sources' }).getByRole('listitem');
     await expect(rows).toHaveCount(record.documents.length);
     for (const doc of record.documents) {
-      const row = rows.filter({ has: page.getByRole('button', { name: doc.name, exact: true }) });
+      const row = rows.filter({ has: sourceButton(page, doc.name) });
       await expect(row).toHaveCount(1);
       const own = passages.filter((passage) => passage.documentId === doc.id);
       await expect(row).toContainText(`${doc.content.length.toLocaleString('en-GB')} characters`);
@@ -427,7 +428,7 @@ test.describe('the sources', () => {
 
     const doc = record.documents[0]!;
     const own = passages.filter((passage) => passage.documentId === doc.id);
-    const opener = sourcesSection(page).getByRole('button', { name: doc.name, exact: true });
+    const opener = sourceButton(sourcesSection(page), doc.name);
     await opener.click();
     const dialog = sheet(page);
     await expect(dialog.getByRole('heading', { level: 2, name: doc.name })).toBeVisible();
@@ -462,7 +463,7 @@ test.describe('the sources', () => {
     const id = await makeProject(request, SHOP, 'ground');
     await openApp(page, { project: id, scene: 'ground' });
     const doc = (await recordOf(request, id)).documents[0]!;
-    await sourcesSection(page).getByRole('button', { name: doc.name, exact: true }).click();
+    await sourceButton(sourcesSection(page), doc.name).click();
     const chip = sheet(page)
       .getByRole('list', { name: 'Passages in this document' })
       .getByRole('button')
@@ -1044,9 +1045,7 @@ test.describe('on every screen', () => {
           await page.keyboard.press('Escape');
         }
         // The sheet that reads a source.
-        await sourcesSection(page)
-          .getByRole('button', { name: record.documents[0]!.name, exact: true })
-          .click();
+        await sourceButton(sourcesSection(page), record.documents[0]!.name).click();
         await expect(sheet(page)).toBeVisible();
         await expectSound(page, label('a source open in the sheet', theme));
         await expect(sheet(page).getByRole('button', { name: 'Done' })).toBeInViewport();

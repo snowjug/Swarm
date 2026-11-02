@@ -144,7 +144,7 @@ function Body({ model }: { model: PillModel }): ReactNode {
             className="sw-pill__progress"
             onClick={model.onNext}
             disabled={left === 0}
-            aria-label={left > 0 ? `${left} to review, next: open the next one` : 'All reviewed'}
+            aria-label={left > 0 ? `${left} to review, Next` : 'All reviewed'}
           >
             <Ring
               value={model.total ? model.reviewed / model.total : 0}

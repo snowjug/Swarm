@@ -302,6 +302,11 @@
       background: color-mix(in oklab, var(--ink) 5%, transparent);
     }
   }
+  @media (pointer: coarse) {
+    .sw-insp__link {
+      min-height: 2.75rem;
+    }
+  }
   .sw-insp__phrase {
     color: var(--ink-3);
     font-size: var(--fs-small);
@@ -419,14 +424,17 @@
   }
   .sw-peek__row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--s-2);
   }
   .sw-peek__row .sw-insp__actions {
     flex: 1 1 auto;
     flex-wrap: nowrap;
+    min-width: 0;
   }
   .sw-peek__row > .sw-btn {
     flex: none;
+    margin-left: auto;
   }
 }
