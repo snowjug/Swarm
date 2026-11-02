@@ -158,8 +158,8 @@ export interface Phase {
 }
 
 const PHASES = [
-  { id: 'types', label: 'Entity types', engineName: 'Ontology definition' },
-  { id: 'graph', label: 'Source graph', engineName: 'Source graph construction' },
+  { id: 'types', label: 'Reading', engineName: 'Ontology definition' },
+  { id: 'graph', label: 'Extracting', engineName: 'Source graph construction' },
 ] as const;
 
 /** The time the step last started or was last queued: what an earlier attempt's traces must not count past. */
@@ -200,6 +200,49 @@ export function knowledgePhases(project: ProjectDetail): Phase[] {
     previousDone = state === 'done';
     return { id: phase.id, label: phase.label, engineName: phase.engineName, state, trace };
   });
+}
+
+/**
+ * Where the evidence is, in the five words a person reads it by. `reading` and `extracting` are the two things the
+ * engine does, as its own traces say; `checking` is the time the conflicts are being looked for once it has finished.
+ */
+export type Moment =
+  | 'idle'
+  | 'queued'
+  | 'reading'
+  | 'extracting'
+  | 'checking'
+  | 'ready'
+  | 'failed'
+  | 'stopped'
+  | 'record';
+
+export const MOMENT_LABEL: Record<Moment, string> = {
+  idle: 'Not started',
+  queued: 'Queued',
+  reading: 'Reading',
+  extracting: 'Extracting',
+  checking: 'Checking',
+  ready: 'Ready',
+  failed: 'Failed',
+  stopped: 'Stopped',
+  record: 'Saved record',
+};
+
+/** What the evidence is doing now: the step's stage, the phase the engine is in, and whether conflicts are still being looked for. */
+export function momentOf(stage: GroundStage, phases: readonly Phase[], checking: boolean): Moment {
+  switch (stage) {
+    case 'running':
+      return phases.some((phase) => phase.id === 'graph' && phase.state === 'active')
+        ? 'extracting'
+        : 'reading';
+    case 'ready':
+      return checking ? 'checking' : 'ready';
+    case 'record':
+      return checking ? 'checking' : 'record';
+    default:
+      return stage;
+  }
 }
 
 /** Why the step stopped, in the engine's own words, or null when it did not fail. */

@@ -87,6 +87,22 @@
     pointer-events: none;
   }
 
+  @media (max-width: 62rem) {
+    /* Room is scarce: the rail takes what it needs and the sides take the rest, so that nothing overlaps. */
+    .sw-bar {
+      grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+    .sw-bar__mid {
+      justify-content: center;
+    }
+  }
+  /* The palette button gives its place to the journey on a tablet; the settings menu and Ctrl or ⌘ K still open it. */
+  @media (max-width: 52rem) {
+    .sw-bar__palette {
+      display: none;
+    }
+  }
+
   @media (max-width: 40rem) {
     .sw-bar {
       top: 0.5rem;

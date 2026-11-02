@@ -10,6 +10,7 @@ import {
   markWithin,
   passageNumber,
   placePassages,
+  plainQuote,
   rangeText,
   segmentDocument,
   uniquePassageIds,
@@ -161,5 +162,13 @@ describe('words', () => {
     expect(cut.length).toBeLessThan(long.length);
     expect(cut.startsWith('…')).toBe(true);
     expect(cut.endsWith('…')).toBe(true);
+  });
+
+  it('reads a quotation without the list marker its source line began with, and keeps a hyphen that is a word’s', () => {
+    expect(plainQuote('- 44% said it was late')).toBe('44% said it was late');
+    expect(plainQuote('• Sellers lose the fee')).toBe('Sellers lose the fee');
+    expect(plainQuote('2) Phone users wait')).toBe('Phone users wait');
+    expect(plainQuote('Cross-border sellers pay more')).toBe('Cross-border sellers pay more');
+    expect(plainQuote('-5% on the fee')).toBe('-5% on the fee');
   });
 });

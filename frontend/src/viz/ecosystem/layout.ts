@@ -25,6 +25,11 @@ export interface LayoutInput {
   minScale?: number;
   /** Room kept free at the edges (for controls and labels). */
   inset?: { top?: number; right?: number; bottom?: number; left?: number };
+  /**
+   * How far the nodes keep from the edge of what is left once the inset is taken, so that a name has room beside the
+   * outermost of them. A group's name stands above or below its group: the top and bottom want more than the sides.
+   */
+  margin?: { top?: number; right?: number; bottom?: number; left?: number };
 }
 
 export interface ClusterInfo {
@@ -359,9 +364,15 @@ export function layoutEcosystem(input: LayoutInput): Layout {
   );
 
   // The largest scale at which the picture fits the canvas as it is drawn, found by halving the range.
-  const margin = 18;
+  const margin = { top: 18, right: 18, bottom: 18, left: 18, ...input.margin };
+  const room = {
+    left: area.left + margin.left,
+    top: area.top + margin.top,
+    width: Math.max(area.width - margin.left - margin.right, 1),
+    height: Math.max(area.height - margin.top - margin.bottom, 1),
+  };
   const fits = (solved: Solved): boolean =>
-    solved.width <= area.width - margin * 2 && solved.height <= area.height - margin * 2;
+    solved.width <= room.width && solved.height <= room.height;
   let best = solve(input, groups, order, minScale);
   if (maxScale > minScale) {
     const top = solve(input, groups, order, maxScale);
@@ -382,23 +393,16 @@ export function layoutEcosystem(input: LayoutInput): Layout {
 
   // Fit what is left into the canvas: only ever shrinks, and only as far as is needed.
   const fit = clamp(
-    Math.min(
-      (area.width - margin * 2) / Math.max(best.width, 1),
-      (area.height - margin * 2) / Math.max(best.height, 1),
-    ),
+    Math.min(room.width / Math.max(best.width, 1), room.height / Math.max(best.height, 1)),
     0.5,
     1,
   );
-  const cx = area.left + area.width / 2;
-  const cy = area.top + area.height / 2;
+  const cx = room.left + room.width / 2;
+  const cy = room.top + room.height / 2;
   for (const [id, point] of best.positions) {
     const radius = best.radii.get(id)!;
-    const x = clamp(
-      cx + point.x * fit,
-      area.left + radius + 2,
-      area.left + area.width - radius - 2,
-    );
-    const y = clamp(cy + point.y * fit, area.top + radius + 2, area.top + area.height - radius - 2);
+    const x = clamp(cx + point.x * fit, room.left + radius, room.left + room.width - radius);
+    const y = clamp(cy + point.y * fit, room.top + radius, room.top + room.height - radius);
     positions.set(id, { x, y });
     radii.set(id, radius);
   }
@@ -427,8 +431,8 @@ export function layoutEcosystem(input: LayoutInput): Layout {
     for (const id of ids) {
       const p = positions.get(id)!;
       const r = radii.get(id)!;
-      p.x = clamp(p.x, area.left + r + 2, area.left + area.width - r - 2);
-      p.y = clamp(p.y, area.top + r + 2, area.top + area.height - r - 2);
+      p.x = clamp(p.x, room.left + r, room.left + room.width - r);
+      p.y = clamp(p.y, room.top + r, room.top + room.height - r);
     }
     if (!moved) break;
   }

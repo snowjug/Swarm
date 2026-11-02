@@ -173,7 +173,7 @@ describe('the first screen', () => {
     expect(words(html)).not.toContain('Stop');
   });
 
-  it('shows the two things the engine does, the one it is on, and a way to stop', () => {
+  it('shows what the engine does, the step it is on, and a way to stop', () => {
     const running = project('running');
     running.console!.traces = [
       {
@@ -191,11 +191,12 @@ describe('the first screen', () => {
     ];
     const html = render(<Hero />, running);
     expect(html).toContain('aria-label="Progress"');
-    for (const label of ['Entity types', 'Source graph', 'Ready'])
+    for (const label of ['Reading', 'Extracting', 'Checking', 'Ready'])
       expect(words(html)).toContain(label);
     expect(html).toContain('aria-current="step"');
     expect(words(html)).toContain('Stop');
-    expect(words(html)).toContain('Reading the sources.');
+    // The first phase is done, so the engine is extracting: the status and the line that is read out say so.
+    expect(words(html)).toContain('Extracting topics from the sources.');
     expect(words(html)).not.toContain('Ground it');
   });
 
@@ -412,11 +413,8 @@ describe('the statements', () => {
     expect(words(html)).toContain('Limited: treat as tentative');
   });
 
-  it('says where the statements will be while there are none, without a list', () => {
-    expect(words(render(<NoStatements checked={false} />, project()))).toContain(
-      'A report written by a model lists every statement',
-    );
-    expect(words(render(<NoStatements checked />, project()))).toContain('listed no statements');
+  it('says only that a checked report listed no statements, and nothing while none was checked', () => {
+    expect(words(render(<NoStatements />, project()))).toContain('listed no statements');
   });
 
   it('shows a statement that cites nothing as one that does', () => {

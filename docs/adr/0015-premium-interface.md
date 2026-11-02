@@ -30,7 +30,8 @@ stage where the work had got to. It worked and it was tested, and it had three c
    `/?project=<id>&scene=<scene>&view=<view>`. A scene is a lazily loaded module with a default export
    and no props, in `frontend/src/scenes/<scene>/`. It reads the open project and drives it through
    one context, `useWorkspace()`. The shell (`frontend/src/app/`) owns what no scene should: the
-   polling, the engine operations, the address, the focus and the page title. A scene that the
+   polling, the engine operations, the address, the focus, the page title and the command palette
+   (Ctrl or ⌘ K) that reaches every scene and setting. A scene that the
    project's record cannot yet support is locked, and says what opens it.
 2. **Build every scene on one design system**, `frontend/src/design/`. Tokens live in one file with
    three themes (light, dark, high contrast), the cascade has a fixed order
@@ -61,8 +62,9 @@ stage where the work had got to. It worked and it was tested, and it had three c
    - the contrast of every text, meaning and graphic colour is computed from the tokens in each
      theme, with translucent surfaces laid over the lightest and darkest backdrop they can sit on;
    - a person's choice about motion and transparency is honoured: `prefers-reduced-motion` and the
-     setting in the menu stop animation and transitions, `prefers-reduced-transparency` and the
-     high-contrast theme make glass opaque, and no keyframe animates a property that costs layout;
+     setting in the menu stop animation and transitions, `prefers-reduced-transparency`, the
+     high-contrast theme and a browser that cannot blur what is behind a surface make glass opaque,
+     and no keyframe animates a property that costs layout;
    - the interface imports nothing from the one it replaced.
 6. **Draw the stakeholder ecosystem as SVG, from one loop.** The map is the hero of the Map scene and
    of the live view of Simulate. Every party is a real button, arrow keys move between parties, and
@@ -129,7 +131,8 @@ What each guard holds is in [UX.md](../UX.md#guards). The results of a run are n
   `scripts/ui/colours.test.ts` (no colour literal outside the tokens).
 - `frontend/src/app/scenes.test.ts` (what opens each scene and what the journey says of it), the
   scene tests beside each scene, and the interaction tests that click, type and tab through the
-  first screen, the map, the playback and the primitives in a simulated DOM.
+  first screen, the map, the playback, the command palette and the primitives in a simulated DOM
+  (`frontend/src/app/commands.test.ts` holds what the palette offers and how it searches).
 - `backend/test/stakeholders-neutrality.test.ts` and `backend/test/brief-neutrality.test.ts`, which
   now read the sources of the scenes that show stakeholders and the brief, and keep every market,
   product and industry word out of them.

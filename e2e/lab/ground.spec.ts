@@ -18,6 +18,7 @@ import {
   figure,
   figureValue,
   graph,
+  groundStatus,
   hero,
   inAdvancedMode,
   makeLegacy,
@@ -32,6 +33,7 @@ import {
   runStep,
   ledgerOf,
   sheet,
+  sourceButton,
   sourcesSection,
   statementsSection,
   toast,
@@ -101,11 +103,11 @@ test.describe('the states of the scene', () => {
     const ledger = await ledgerOf(request, id);
     await openApp(page, { project: id, scene: 'ground' });
 
-    await expect(hero(page, SHOP).getByText('Ready', { exact: true })).toBeVisible();
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible();
     expect(await figureValue(page, 'Sources')).toBe(record.documents.length);
     expect(await figureValue(page, 'Passages')).toBe(passages.length);
     expect(await figureValue(page, 'Topics')).toBe(record.graph?.nodes.length);
-    expect(await figureValue(page, 'Conflicts')).toBe(openConflicts(ledger).length);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(openConflicts(ledger).length);
     // What a screen reader is told is the same.
     const nodes = record.graph?.nodes.length ?? 0;
     await expect(
@@ -120,7 +122,7 @@ test.describe('the states of the scene', () => {
     const rows = sourcesSection(page).getByRole('list', { name: 'Sources' }).getByRole('listitem');
     await expect(rows).toHaveCount(record.documents.length);
     for (const doc of record.documents) {
-      const row = rows.filter({ has: page.getByRole('button', { name: doc.name, exact: true }) });
+      const row = rows.filter({ has: sourceButton(page, doc.name) });
       await expect(row).toHaveCount(1);
       const own = passages.filter((passage) => passage.documentId === doc.id);
       await expect(row).toContainText(`${doc.content.length.toLocaleString('en-GB')} characters`);
@@ -148,7 +150,8 @@ test.describe('the states of the scene', () => {
     expect(await figureValue(page, 'Sources')).toBe(FERRY.documents.length);
     await expect(sourcesSection(page)).toBeVisible();
     await expect(conflictsSection(page)).toBeVisible();
-    await expect(statementsSection(page)).toBeVisible();
+    // A record that holds no statements does not end on an empty section.
+    await expect(statementsSection(page)).toHaveCount(0);
     // The steps that need the guided flow say so.
     await expectLocked(page, 'map');
     await expect(step(page, 'map')).toHaveAccessibleName(/Not in this record/u);
@@ -157,7 +160,7 @@ test.describe('the states of the scene', () => {
 });
 
 test.describe('deep links', () => {
-  for (const view of GROUND_VIEWS.filter((name) => name !== 'trace')) {
+  for (const view of GROUND_VIEWS.filter((name) => name !== 'trace' && name !== 'statements')) {
     test(`?view=${view} opens the page at its part, and the part has the focus`, async ({
       page,
       request,
@@ -169,6 +172,21 @@ test.describe('deep links', () => {
       expect(problems).toEqual([]);
     });
   }
+
+  // A part the project does not have is not an error and not an empty section: the page simply opens.
+  // (The link to statements that exist is proved in e2e/model/grounding.spec.ts, on a project a model has written.)
+  test('?view=statements on a project that has none opens the page, without an empty section', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, FERRY, 'ground');
+    await openApp(page, { project: id, scene: 'ground', view: 'statements' });
+    await expect(hero(page, FERRY)).toBeVisible();
+    await expect(conflictsSection(page)).toBeVisible();
+    await expect(statementsSection(page)).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
 });
 
 test.describe('the graph', () => {
@@ -427,7 +445,7 @@ test.describe('the sources', () => {
 
     const doc = record.documents[0]!;
     const own = passages.filter((passage) => passage.documentId === doc.id);
-    const opener = sourcesSection(page).getByRole('button', { name: doc.name, exact: true });
+    const opener = sourceButton(sourcesSection(page), doc.name);
     await opener.click();
     const dialog = sheet(page);
     await expect(dialog.getByRole('heading', { level: 2, name: doc.name })).toBeVisible();
@@ -462,7 +480,7 @@ test.describe('the sources', () => {
     const id = await makeProject(request, SHOP, 'ground');
     await openApp(page, { project: id, scene: 'ground' });
     const doc = (await recordOf(request, id)).documents[0]!;
-    await sourcesSection(page).getByRole('button', { name: doc.name, exact: true }).click();
+    await sourceButton(sourcesSection(page), doc.name).click();
     const chip = sheet(page)
       .getByRole('list', { name: 'Passages in this document' })
       .getByRole('button')
@@ -695,14 +713,14 @@ test.describe('conflicts between sources', () => {
     await expect(card.getByText('Dismissed', { exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
     await expect(figure(page, 'Conflicts')).toContainText('all reviewed');
-    expect(await figureValue(page, 'Conflicts')).toBe(0);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(0);
     await expectSound(page, 'ground: a conflict that was dismissed');
 
     // The decision is the server's, not the page's.
     await page.reload();
     await expect(heading(0)).toBeVisible();
     await expect(conflictCard(page, 'X1').getByText('Dismissed', { exact: true })).toBeVisible();
-    expect(await figureValue(page, 'Conflicts')).toBe(0);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(0);
     await expect(figure(page, 'Conflicts')).toContainText('all reviewed');
     expect((await ledgerOf(request, id)).contradictions.map((item) => item.status)).toEqual([
       'dismissed',
@@ -751,7 +769,7 @@ test.describe('conflicts between sources', () => {
     expect(problems).toEqual([]);
   });
 
-  test('the arc between two sources leads to the conflict it stands for', async ({
+  test('a conflict is flagged on the two sources it is between, and the flag leads to it', async ({
     page,
     request,
   }) => {
@@ -760,12 +778,25 @@ test.describe('conflicts between sources', () => {
     const conflict = (await ledgerOf(request, id)).contradictions[0]!;
     await openApp(page, { project: id, scene: 'ground' });
 
-    const arc = sourcesSection(page)
+    // The conflict is flagged on each of the two sources it is between, and both flags lead to it.
+    const flags = sourcesSection(page)
       .getByRole('group', { name: 'Conflicts between documents' })
       .getByRole('button');
-    await expect(arc).toHaveAccessibleName(
-      `${conflict.id}: ${conflict.leftValue} against ${conflict.rightValue}, possible conflict, between ${conflict.left.documentName} and ${conflict.right.documentName}. Show conflict.`,
-    );
+    await expect(flags).toHaveCount(2);
+    const arc = flags.first();
+    for (const flag of await flags.all()) {
+      await expect(flag).toHaveAccessibleName(
+        `${conflict.id}: ${conflict.leftValue} against ${conflict.rightValue}, possible conflict, between ${conflict.left.documentName} and ${conflict.right.documentName}. Show conflict.`,
+      );
+    }
+    for (const doc of [conflict.left.documentName, conflict.right.documentName]) {
+      await expect(
+        sourcesSection(page)
+          .getByRole('listitem')
+          .filter({ has: sourceButton(page, doc) })
+          .getByText('Needs attention'),
+      ).toBeVisible();
+    }
     // The two passages it joins carry the mark of a conflict that is not settled.
     for (const side of [conflict.left, conflict.right]) {
       await expect(passageButton(page, side.passageId)).toHaveAccessibleName(
@@ -788,7 +819,7 @@ test.describe('conflicts between sources', () => {
     expect((await ledgerOf(request, id)).contradictions).toEqual([]);
     await openApp(page, { project: id, scene: 'ground' });
 
-    expect(await figureValue(page, 'Conflicts')).toBe(0);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(0);
     await expect(figure(page, 'Conflicts')).toContainText('none found');
     await expect(conflictsSection(page)).toContainText('No conflicts found between the sources');
     await expect(conflictsSection(page)).toContainText(
@@ -896,10 +927,12 @@ test.describe('while the engine is at work, and when it was not able to finish',
     request,
   }) => {
     const problems = watchPage(page);
-    const id = await makeProject(request, SHOP, 'draft');
+    const id = await makeProject(request, SHOP, 'ground');
     const stop = await readProjectAs(page, id, (project) => {
       const started = new Date(Date.now() - 5_000).toISOString();
       const later = new Date(Date.now() - 4_000).toISOString();
+      // A project that is busy is read again by the page: that is how it learns that the step is done.
+      project.status = 'running';
       project.console!.steps.knowledge = 'running';
       project.graph = null;
       project.events = [
@@ -942,15 +975,22 @@ test.describe('while the engine is at work, and when it was not able to finish',
 
     await expect(hero(page, SHOP).getByText('Reading', { exact: true })).toBeVisible();
     const progress = page.getByRole('list', { name: 'Progress' });
-    await expect(progress.getByRole('listitem')).toHaveCount(3);
-    await expect(progress.getByRole('listitem').nth(0)).toContainText('Entity types');
+    await expect(progress.getByRole('listitem')).toHaveCount(4);
+    await expect(progress.getByRole('listitem').nth(0)).toContainText('Reading');
     await expect(progress.getByRole('listitem').nth(0)).toContainText('done');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Extracting');
     await expect(progress.getByRole('listitem').nth(1)).toHaveAttribute('aria-current', 'step');
     await expect(progress.getByRole('listitem').nth(1)).toContainText('in progress');
+    await expect(progress.getByRole('listitem').nth(2)).toContainText('Checking');
     await expect(progress.getByRole('listitem').nth(2)).toContainText('waiting');
+    await expect(progress.getByRole('listitem').nth(3)).toContainText('Ready');
     await expect(
-      page.getByRole('status').filter({ hasText: 'Reading the sources.' }),
+      page.getByRole('status').filter({ hasText: 'Extracting topics from the sources.' }),
     ).toBeAttached();
+    // Each source says where it stands, in a word.
+    await expect(
+      page.getByRole('list', { name: 'Sources' }).getByText('Extracting', { exact: true }),
+    ).toHaveCount(SHOP.documents.length);
     // What is known (the sources and their passages) is a number; what the engine has not read yet is a dash.
     expect(await figureValue(page, 'Sources')).toBe(SHOP.documents.length);
     await expect(figure(page, 'Topics').getByRole('img', { name: 'Not known yet' })).toBeVisible();
@@ -964,7 +1004,7 @@ test.describe('while the engine is at work, and when it was not able to finish',
 
     // When the server says the step is done the page shows the result, without being reloaded.
     await stop();
-    await expect(hero(page, SHOP).getByText('Ready', { exact: true })).toBeVisible({
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible({
       timeout: 30_000,
     });
     expect(problems).toEqual([]);
@@ -983,7 +1023,7 @@ test.describe('while the engine is at work, and when it was not able to finish',
     });
     await openApp(page, { project: id, scene: 'ground' });
 
-    await expect(hero(page, SHOP).getByText('Failed', { exact: true })).toBeVisible();
+    await expect(groundStatus(page, /^Failed$/u)).toBeVisible();
     const alert = hero(page, SHOP).getByRole('alert');
     await expect(alert).toContainText('Reading the sources failed');
     await expect(alert).toContainText(reason);
@@ -992,7 +1032,7 @@ test.describe('while the engine is at work, and when it was not able to finish',
 
     await restore();
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(hero(page, SHOP).getByText('Ready', { exact: true })).toBeVisible({
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible({
       timeout: 30_000,
     });
     expect((await recordOf(request, id)).console?.steps.knowledge).toBe('ready');
@@ -1044,9 +1084,7 @@ test.describe('on every screen', () => {
           await page.keyboard.press('Escape');
         }
         // The sheet that reads a source.
-        await sourcesSection(page)
-          .getByRole('button', { name: record.documents[0]!.name, exact: true })
-          .click();
+        await sourceButton(sourcesSection(page), record.documents[0]!.name).click();
         await expect(sheet(page)).toBeVisible();
         await expectSound(page, label('a source open in the sheet', theme));
         await expect(sheet(page).getByRole('button', { name: 'Done' })).toBeInViewport();

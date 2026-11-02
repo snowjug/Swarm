@@ -32,6 +32,8 @@ export interface EcoNode {
   status?: Stakeholder['status'];
   /** A number to colour it by when the picture is not by direction: an actor's stance or impact. */
   value?: number;
+  /** How much others weigh what an actor does, 0 to 1. Only an actor has it: a stakeholder has a priority. */
+  influence?: number;
   /** How many members a cohort simulates. */
   members?: number;
   evidenceCount: number;
@@ -53,7 +55,8 @@ const CONFIDENCE: Record<UncertaintyLevel, EcoNode['confidence']> = {
   high: 'low',
 };
 
-const PRIORITY_WEIGHT = { key: 0.88, standard: 0.55, background: 0.3 } as const;
+// A key party is clearly larger than a cohort, and a background cohort clearly smaller: who matters is seen at a glance.
+const PRIORITY_WEIGHT = { key: 0.95, standard: 0.42, background: 0.2 } as const;
 
 export function nodeFromStakeholder(stakeholder: Stakeholder): EcoNode {
   const population = Math.log10(Math.max(stakeholder.populationSize, 1)) / 6;
@@ -88,7 +91,7 @@ export function nodeFromActor(actor: Actor, stakeholder?: Stakeholder): EcoNode 
     category: actor.category,
     categoryLabel: STAKEHOLDER_CATEGORY_LABELS[actor.category],
     cluster: clusterGroup(actor.category).id,
-    weight: 0.25 + 0.75 * actor.traits.influence.value,
+    weight: 0.15 + 0.85 * actor.traits.influence.value,
     kind: actor.kind,
     direct: stakeholder ? stakeholder.directness === 'direct' : null,
     direction:
@@ -97,6 +100,7 @@ export function nodeFromActor(actor: Actor, stakeholder?: Stakeholder): EcoNode 
         : directionOfImpact(impact.value, impact.spread),
     confidence: CONFIDENCE[actor.uncertainty.level],
     value: actor.traits.priorStance.value,
+    influence: actor.traits.influence.value,
     members: actor.kind === 'cohort' ? actor.sampleSize : 1,
     evidenceCount: actor.evidence.length,
   };

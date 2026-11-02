@@ -2,6 +2,9 @@
   /* The map is a whole screen: the picture fills it, and everything else floats over the picture. */
   .sw-map {
     --covered: 0px;
+    /* The page's grid: the same edges as the bar above it, which is no wider than the page is at its widest. */
+    --grid: max(var(--gutter), calc((100% - var(--w-wide)) / 2));
+    --eco-controls-right: var(--grid);
     position: relative;
     height: calc(100dvh - var(--topbar-h) - 0.75rem);
     min-height: 36rem;
@@ -35,6 +38,20 @@
   .sw-map[data-view='list'] .sw-peek {
     position: fixed;
   }
+  /* In the list the pill floats over the rows: they dissolve into the page before they reach it, and are never cut by it. */
+  .sw-map[data-view='list']::after {
+    content: '';
+    position: fixed;
+    z-index: 4;
+    inset: auto 0 0 0;
+    height: 8.5rem;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in oklab, var(--bg) 92%, transparent) 72%
+    );
+    pointer-events: none;
+  }
   .sw-map__scroll {
     position: relative;
     z-index: 4;
@@ -47,7 +64,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: var(--s-5);
-    padding: var(--s-5) var(--gutter) 0;
+    padding: var(--s-5) var(--grid) 0;
   }
   .sw-map__head {
     display: grid;
@@ -58,6 +75,9 @@
   .sw-map__title {
     margin: 0;
     font-size: clamp(2.1rem, 1.5rem + 1.8vw, 3.1rem);
+  }
+  .sw-map__title:focus-visible {
+    outline: none;
   }
   .sw-map__stats {
     display: flex;
@@ -92,7 +112,7 @@
     display: none;
   }
 
-  /* The toolbar: one quiet floating bar. */
+  /* The toolbar: one quiet floating bar. What sits on it has no box of its own: a hairline between the groups is enough. */
   .sw-map__toolbar {
     --glass-radius: var(--r-pill);
     position: relative;
@@ -105,6 +125,28 @@
   }
   .sw-map__toolbar > * {
     flex: none;
+  }
+  .sw-map__toolbar .sw-seg {
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .sw-map__toolbar .sw-chip--button:not(.is-on) {
+    --chip-bg: transparent;
+    --chip-line: transparent;
+  }
+  /* On a bar that is already the glass, the chosen option is a soft tint of the ink and not a second glass. */
+  :root:not([data-theme='high-contrast']) .sw-map__toolbar .sw-seg__pill {
+    border-color: transparent;
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
+    box-shadow: none;
+  }
+  .sw-tb-sep {
+    width: 1px;
+    height: 1.2rem;
+    background: var(--hairline-strong);
   }
   .sw-tb-badge {
     display: inline-grid;
@@ -122,7 +164,7 @@
   .sw-map__legend {
     position: absolute;
     z-index: 5;
-    left: var(--gutter);
+    left: var(--grid);
     bottom: var(--s-5);
   }
 
@@ -229,6 +271,10 @@
   .sw-lg-faint {
     opacity: 0.4;
   }
+  .sw-lg-key {
+    stroke: var(--ink);
+    stroke-width: 1.8;
+  }
   .sw-lg-against {
     fill: var(--c-against);
   }
@@ -270,7 +316,55 @@
   .sw-source p {
     margin: 0;
   }
+  .sw-source__facts {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-source__facts li {
+    position: relative;
+    padding-left: var(--s-4);
+  }
+  .sw-source__facts li::before {
+    content: '';
+    position: absolute;
+    left: 0.2rem;
+    top: 0.68em;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--ink-3);
+  }
 
+  /* Nobody is drawn: the page says what to do, quietly, in the middle of the empty stage. */
+  .sw-map__empty {
+    position: absolute;
+    z-index: 3;
+    inset: 36% 0 auto 0;
+    display: grid;
+    justify-items: center;
+    gap: var(--s-2);
+    padding: 0 var(--gutter);
+    text-align: center;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    pointer-events: none;
+  }
+  .sw-map__empty p {
+    margin: 0;
+    max-width: 28rem;
+  }
+  .sw-map__empty .sw-btn {
+    margin-top: var(--s-3);
+    pointer-events: auto;
+  }
+  .sw-map__empty-title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    color: var(--ink-2);
+  }
   .sw-map-state {
     display: grid;
     place-items: center;
@@ -290,10 +384,24 @@
       height: calc(100dvh - var(--topbar-h) - 0.75rem - var(--dock-h) - 1.5rem);
       min-height: 30rem;
     }
+    /* The head is as short as it can be: the picture is the point. */
     .sw-map__top {
       flex-direction: column;
-      gap: var(--s-3);
-      padding-top: var(--s-3);
+      gap: var(--s-2);
+      padding-top: var(--s-2);
+    }
+    .sw-map__head {
+      gap: 2px;
+    }
+    .sw-map__title {
+      font-size: 1.95rem;
+    }
+    .sw-map__stats {
+      gap: 0 0.4rem;
+      font-size: var(--fs-small);
+    }
+    .sw-map__stats .sw-numeral {
+      font-size: 1.2rem;
     }
     .sw-map__toolbar {
       max-width: 100%;
@@ -311,9 +419,19 @@
       clip: rect(0 0 0 0);
       white-space: nowrap;
     }
+    /* With the words gone, an option is an icon: it still has to be as wide as a finger. */
+    .sw-map__toolbar .sw-seg__option,
+    .sw-map__stats .sw-chip--button {
+      min-width: 2.75rem;
+      justify-content: center;
+    }
     .sw-map__legend {
       bottom: calc(var(--s-3) + 4.6rem);
       left: var(--s-3);
+    }
+    /* The zoom keeps to the same row as the key, above the pill that spans the screen. */
+    .sw-map {
+      --eco-controls-bottom: calc(var(--s-3) + 4.6rem);
     }
     .sw-map[data-view='list'] .sw-pill,
     .sw-map[data-view='list'] .sw-peek {
@@ -323,6 +441,14 @@
   @media (min-width: 40.0625rem) and (max-width: 63.99rem) {
     .sw-map__legend {
       bottom: var(--s-5);
+    }
+    /* Beside the controls the head would be a column of a few words: it has the width, the controls go under it. */
+    .sw-map__top {
+      flex-direction: column;
+      gap: var(--s-3);
+    }
+    .sw-map__head {
+      max-width: min(40rem, 100%);
     }
   }
 }

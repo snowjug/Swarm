@@ -45,7 +45,7 @@ import {
 import { useGroundActions, useGroundData } from './context';
 import { vars } from './css';
 import { documentColour } from './model';
-import { excerptAround, findPassage, markWithin } from './passages';
+import { excerptAround, findPassage, markWithin, plainQuote } from './passages';
 import { Reveal } from './Reveal';
 import { SectionHead } from './SectionHead';
 import './conflicts.css';
@@ -103,7 +103,9 @@ function Side({
   const actions = useGroundActions();
   const doc = documents.find((item) => item.id === side.documentId);
   const passage = findPassage(passages.index, side.passageId);
-  const text = side.quote ?? (passage ? excerptAround(passage.text, figure) : null);
+  const text = plainQuote(
+    side.quote ?? (passage ? excerptAround(passage.text, figure) : ''),
+  ).trim();
   const marked = text ? markWithin(text, figure) : null;
   return (
     <figure
