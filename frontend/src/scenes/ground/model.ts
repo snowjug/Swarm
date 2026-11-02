@@ -135,6 +135,16 @@ export function documentFacts(document: SourceDocument, index: number): Document
   };
 }
 
+/**
+ * What the sources are, in a few words, when any of them is a synthetic sample: said once at the head of the page, so
+ * that "Ready" and "5 Sources" are not read as ordinary sourced evidence. Nothing is said for real sources.
+ */
+export function sampleNote(documents: readonly Pick<DocumentFacts, 'synthetic'>[]): string | null {
+  const samples = documents.filter((document) => document.synthetic).length;
+  if (samples === 0) return null;
+  return samples === documents.length ? 'Synthetic samples' : 'Includes synthetic samples';
+}
+
 export function documentList(project: ProjectDetail): DocumentFacts[] {
   return project.documents.map(documentFacts);
 }
