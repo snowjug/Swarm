@@ -3,6 +3,7 @@ import type { Platform } from '../../../../../shared/guided';
 import { useWorkspace } from '../../../app/context';
 import { useUnsavedWork } from '../../../app/unsaved-context';
 import { TabPanel, Tabs, type TabItem } from '../../../design/ui';
+import { useReducedMotion } from '../../../design/motion';
 import { useAnnouncer } from '../../../hooks/useFocusRequest';
 import { isGuided } from '../../../lib/console';
 import { BranchSheet } from './Branch';
@@ -110,7 +111,13 @@ export default function DeepDive() {
     spoken.current = text;
   }, [project, announce]);
 
-  // A link inside one tab can lead to another while the person is far down the page: bring the tabs back into view.
+  // A link inside one tab can lead to another while the person is far down the page: bring the tabs back into view. How
+  // it gets there is read when it happens, so that a change of the motion setting is not itself a reason to scroll.
+  const reduced = useReducedMotion();
+  const reducedNow = useRef(reduced);
+  useEffect(() => {
+    reducedNow.current = reduced;
+  }, [reduced]);
   const root = useRef<HTMLElement>(null);
   const arrived = useRef(false);
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function DeepDive() {
     }
     const tabs = root.current?.querySelector<HTMLElement>('.sw-deep-tabs');
     if (tabs && tabs.getBoundingClientRect().top < 0)
-      tabs.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      tabs.scrollIntoView({ block: 'start', behavior: reducedNow.current ? 'auto' : 'smooth' });
   }, [tab]);
   const followInMemory = useCallback((patch: Partial<MemoryFilter>) => {
     setFilter({ ...NO_FILTER, ...patch });
@@ -139,6 +146,11 @@ export default function DeepDive() {
     window.requestAnimationFrame(() => {
       if (target?.isConnected) target.focus({ preventScroll: true });
     });
+  }, []);
+  // A sheet that closes into another panel (asking a proxy opens Ask) leaves the focus to that panel: nothing is given back
+  // to the control that opened it, which would take the focus from the panel on the next frame.
+  const closeIntoPanel = useCallback(() => {
+    opener.current = null;
   }, []);
   const openProxy = useCallback(
     (id: string) => {
@@ -258,6 +270,10 @@ export default function DeepDive() {
             onClose={() => {
               setProxy(null);
               giveBack();
+            }}
+            onAsk={() => {
+              setProxy(null);
+              closeIntoPanel();
             }}
           />
         )}

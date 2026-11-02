@@ -178,10 +178,13 @@ export function ProxySheet({
   id,
   onOpen,
   onClose,
+  onAsk,
 }: {
   id: string;
   onOpen: (id: string) => void;
   onClose: () => void;
+  /** The sheet closes into the Ask panel: whatever it does for focus on close, it does not do it here. */
+  onAsk: () => void;
 }) {
   const { project, environment, platforms } = useDeep();
   const ws = useWorkspace();
@@ -253,7 +256,7 @@ export function ProxySheet({
               icon={<MessageCircle size={16} aria-hidden="true" />}
               onClick={() => {
                 ws.panels.ask({ target: agent.id });
-                onClose();
+                onAsk();
               }}
             >
               Ask {shown.name.split(' ')[0]}
