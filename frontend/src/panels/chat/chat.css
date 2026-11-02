@@ -743,6 +743,11 @@
     color: var(--ink-3);
     text-decoration: none;
   }
+  @media (pointer: coarse) {
+    .sw-chat__link {
+      min-height: 2.75rem;
+    }
+  }
   @media (hover: hover) {
     .sw-chat__link:hover {
       text-decoration-color: var(--accent);
