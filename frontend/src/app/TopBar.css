@@ -103,6 +103,13 @@
     }
   }
 
+  /* Just above the width at which the dock takes the journey, the rail and the tools fill the bar: the mark stands for the name. */
+  @media (max-width: 44rem) {
+    .sw-bar__word {
+      display: none;
+    }
+  }
+
   @media (max-width: 40rem) {
     .sw-bar {
       top: 0.5rem;
@@ -111,9 +118,6 @@
     }
     .sw-bar__mid {
       justify-content: center;
-    }
-    .sw-bar__word {
-      display: none;
     }
     .sw-bar__brand {
       padding: 0 0.6rem;
