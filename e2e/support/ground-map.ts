@@ -549,14 +549,20 @@ export async function readProjectAs(
   change: (project: ProjectDetail) => void,
 ): Promise<() => Promise<void>> {
   const pattern = new RegExp(`/api/projects/${id}$`, 'u');
+  let rewriting = true;
   await page.route(pattern, async (route) => {
-    if (route.request().method() !== 'GET') return route.continue();
+    if (!rewriting || route.request().method() !== 'GET') return route.continue();
     const response = await route.fetch();
     const body = (await response.json()) as ProjectDetail;
-    change(body);
-    return route.fulfill({ response, json: body });
+    // A read that was under way when the server's own answer was put back gets that answer, not a changed one.
+    if (rewriting) change(body);
+    // The page reads a busy project again and again: a read that lands as the route is taken away has nothing to answer.
+    await route.fulfill({ response, json: body }).catch(() => undefined);
   });
-  return () => page.unroute(pattern);
+  return async () => {
+    rewriting = false;
+    await page.unroute(pattern);
+  };
 }
 
 /**

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { useState } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { stakeholderFixture, stakeholderSetFixture } from '../../../../shared/lab-fixtures';
 import {
   act,
@@ -565,6 +565,9 @@ describe('motion', () => {
     return vi.spyOn(window, 'requestAnimationFrame');
   };
   const later = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
+  // The spy is let go while the clock that made the frame is still the page's: let go after it, the next test would
+  // be handed the frame of a clock that has been put away, and no frame would ever run.
+  afterEach(() => vi.restoreAllMocks());
 
   it('paints at once, and with reduced motion asks for no frame beyond the first, and keeps it still', async () => {
     reduceMotion(true);

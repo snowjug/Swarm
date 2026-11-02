@@ -267,11 +267,11 @@ test.describe('the statements a report makes', () => {
     // What nobody has reviewed yet; and what rests on an assumption, which counts the statements that would fall with it.
     await section.getByRole('button', { name: 'More filters' }).click();
     const filters = page.getByRole('dialog', { name: 'More filters' });
-    await filters.getByText('Not yet reviewed').click();
+    await filters.getByRole('switch', { name: 'Not yet reviewed' }).click();
     await expect(shown).toHaveCount(
       ledger.claims.filter((claim) => claim.review.result === 'pending').length,
     );
-    await filters.getByText('Not yet reviewed').click();
+    await filters.getByRole('switch', { name: 'Not yet reviewed' }).click();
     const assumption = ledger.assumptions.find((item) =>
       ledger.claims.some((claim) => claim.assumptionIds.includes(item.id)),
     )!;

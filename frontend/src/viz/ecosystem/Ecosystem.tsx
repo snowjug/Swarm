@@ -31,10 +31,13 @@ import {
 } from '../palette';
 import { PositionField, edgePath, type Point } from './field';
 import {
+  leaderOf,
   placeClusterLabels,
-  visibleLabels,
+  placeFirstNames,
+  placeNames,
+  type Box,
   type ClusterLabelSpot,
-  type LabelSide,
+  type NamePlace,
   type View,
 } from './labels';
 import { layoutEcosystem, nearestInDirection, radiusOf, type Layout } from './layout';
@@ -159,6 +162,9 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
     const uid = useId().replace(/:/g, '');
     const host = useRef<HTMLDivElement>(null);
     const svg = useRef<SVGSVGElement>(null);
+    const controlsEl = useRef<HTMLDivElement>(null);
+    // Where the zoom buttons are on the canvas: a name is not put under them.
+    const [controlsBox, setControlsBox] = useState<Box | null>(null);
     const [size, setSize] = useState({ width: 720, height: 480 });
     // Until the canvas has been measured the picture is not laid out: laying it out for a guess would draw it at the
     // wrong size and then glide it to the right one.
@@ -178,6 +184,7 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
     const haloEls = useRef(new Map<string, SVGCircleElement>());
     const clusterTextEls = useRef(new Map<string, SVGTextElement>());
     const tagEls = useRef(new Map<string, SVGGElement>());
+    const leaderEls = useRef(new Map<string, SVGPathElement>());
     const viewport = useRef<SVGGElement>(null);
     const field = useRef(new PositionField());
     const frame = useRef(0);
@@ -198,7 +205,7 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       height: 480,
       covered: {} as Covered,
       spots: new Map<string, ClusterLabelSpot>(),
-      sides: new Map<string, LabelSide>(),
+      places: new Map<string, NamePlace>(),
     });
 
     // ---- Size ------------------------------------------------------------------------------------------
@@ -220,6 +227,39 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       observer.observe(element);
       return () => observer.disconnect();
     }, []);
+
+    // The buttons sit where the scene's styles put them, and glide when the panel opens: they are measured after each
+    // render and when they stop gliding.
+    const measureControls = useCallback(() => {
+      const root = host.current;
+      const element = controlsEl.current;
+      const next = (() => {
+        if (!root || !element) return null;
+        const at = root.getBoundingClientRect();
+        const box = element.getBoundingClientRect();
+        if (box.width < 1 || box.height < 1) return null;
+        return {
+          x0: Math.round(box.left - at.left) - 4,
+          x1: Math.round(box.right - at.left) + 4,
+          y0: Math.round(box.top - at.top) - 4,
+          y1: Math.round(box.bottom - at.top) + 4,
+        };
+      })();
+      setControlsBox((old) =>
+        old === next ||
+        (old &&
+          next &&
+          old.x0 === next.x0 &&
+          old.x1 === next.x1 &&
+          old.y0 === next.y0 &&
+          old.y1 === next.y1)
+          ? old
+          : next,
+      );
+    }, []);
+    useLayoutEffect(() => {
+      measureControls();
+    });
 
     // The nodes are as large as the canvas lets them be: a large screen is not a small picture in a big room.
     const maxScale = size.width < 560 ? 1.15 : size.width < 1500 ? 1.9 : 2.5;
@@ -309,6 +349,39 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       [liveEdges, layout],
     );
 
+    // What is left to name things in, on the screen as the camera has put it.
+    const bounds = useMemo(
+      () => ({ left: 6, right: size.width - 6, top: free.top, bottom: free.bottom }),
+      [size.width, free.top, free.bottom],
+    );
+    const named = useMemo(
+      () => all.map((node) => ({ id: node.id, label: node.label, weight: node.weight })),
+      [all],
+    );
+    // The nodes that are named before any other: the key parties, which a person looks for first, and the ones the scene
+    // points at (the movers of a comparison, the actors that just moved). A group's name and a cohort's keep clear of
+    // them, not the other way, and each finds its place however crowded the picture is.
+    const first = useMemo(() => {
+      const ids = new Set<string>();
+      if (labels === 'all') return ids;
+      for (const node of all) {
+        if (node.ghost) continue;
+        if (emphasis?.has(node.id) || (labels === 'auto' && node.kind === 'key')) ids.add(node.id);
+      }
+      return ids;
+    }, [all, labels, emphasis]);
+    const keepOut = useMemo<Box[]>(() => (controlsBox ? [controlsBox] : []), [controlsBox]);
+    const firstNames = useMemo(
+      () =>
+        first.size > 0
+          ? placeFirstNames(named, layout, bounds, settledView, {
+              first,
+              segments: lines,
+              avoid: keepOut,
+            })
+          : new Map<string, NamePlace>(),
+      [first, named, layout, bounds, settledView, lines, keepOut],
+    );
     const clusterSpots = useMemo(
       () =>
         placeClusterLabels(
@@ -317,33 +390,63 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
           clusterName,
           { left: 8, top: free.top, right: size.width - 8, bottom: free.bottom },
           settledView,
-          { strict: true, segments: lines },
+          {
+            strict: true,
+            segments: lines,
+            avoid: [...keepOut, ...[...firstNames.values()].map((place) => place.box)],
+          },
         ),
-      [all, layout, clusterName, size.width, free.top, free.bottom, settledView, lines],
-    );
-    const shownLabels = useMemo(() => {
-      if (labels === 'none') return new Map<string, LabelSide>();
-      if (labels === 'all')
-        return new Map<string, LabelSide>(all.map((node) => [node.id, 'below']));
-      return visibleLabels(
+      [
         all,
         layout,
-        showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [],
-        { left: 6, right: size.width - 6, top: free.top, bottom: free.bottom },
+        clusterName,
+        size.width,
+        free.top,
+        free.bottom,
         settledView,
-        { limit: compact ? 8 : undefined },
+        lines,
+        firstNames,
+        keepOut,
+      ],
+    );
+    const shownLabels = useMemo(() => {
+      if (labels === 'none') return firstNames;
+      if (labels === 'all') {
+        return new Map<string, NamePlace>(
+          all.map((node) => [
+            node.id,
+            {
+              side: 'below',
+              dx: 0,
+              dy: 0,
+              width: 0,
+              box: { x0: 0, x1: 0, y0: 0, y1: 0 },
+              leader: false,
+            },
+          ]),
+        );
+      }
+      return placeNames(
+        named,
+        layout,
+        [...keepOut, ...(showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [])],
+        bounds,
+        settledView,
+        { limit: compact ? 8 : undefined, first, placed: firstNames },
       );
     }, [
       all,
+      named,
       layout,
       labels,
       clusterSpots,
       showClusters,
-      size.width,
-      free.top,
-      free.bottom,
+      bounds,
       compact,
       settledView,
+      first,
+      firstNames,
+      keepOut,
     ]);
 
     // ---- One loop paints every node, line, halo and the view -------------------------------------------------
@@ -371,14 +474,31 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         // A name keeps its size on the screen whatever the zoom: it is moved and scaled against the view.
         const tag = tagEls.current.get(node.id);
         if (tag) {
-          const side = state.sides.get(node.id) ?? 'below';
+          const place = state.places.get(node.id);
+          const side = place?.side ?? 'below';
           const r = laid.radii.get(node.id) ?? 8;
-          const tx = side === 'right' ? r + 7 * ik : side === 'left' ? -(r + 7 * ik) : 0;
-          const ty = side === 'below' ? r + 15 * ik : side === 'above' ? -(r + 7 * ik) : 4 * ik;
+          // A name that was moved off its own side (its place was taken) is moved by pixels, whatever the zoom.
+          const tx =
+            (side === 'right' ? r + 7 * ik : side === 'left' ? -(r + 7 * ik) : 0) +
+            (place?.dx ?? 0) * ik;
+          const ty =
+            (side === 'below' ? r + 15 * ik : side === 'above' ? -(r + 7 * ik) : 4 * ik) +
+            (place?.dy ?? 0) * ik;
           tag.setAttribute(
             'transform',
             `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${ik.toFixed(4)})`,
           );
+          // The line that joins a name to its node where the name stands off it.
+          const leader = leaderEls.current.get(node.id);
+          if (leader) {
+            const join = place?.leader ? leaderOf(place, r / ik) : null;
+            leader.setAttribute(
+              'd',
+              join
+                ? `M${(join.x0 * ik).toFixed(2)} ${(join.y0 * ik).toFixed(2)}L${(join.x1 * ik).toFixed(2)} ${(join.y1 * ik).toFixed(2)}`
+                : '',
+            );
+          }
         }
       }
       for (const edge of state.edges) {
@@ -516,7 +636,7 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         reduced,
         scale: layout.scale,
         spots: clusterSpots,
-        sides: shownLabels,
+        places: shownLabels,
         width: size.width,
         height: size.height,
       };
@@ -988,13 +1108,16 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                 const selected = selectedId === node.id;
                 const off = hiddenClusters?.has(node.cluster) ?? false;
                 const dim = focus && around ? !around.nodes.has(node.id) : false;
-                const side = shownLabels.get(node.id) ?? 'below';
+                const place = shownLabels.get(node.id);
+                const side = place?.side ?? 'below';
+                // A name is drawn where the allocation put it. The nodes the scene emphasises are among those it puts
+                // first, so that they are not drawn over one another; the chosen, the pointed at and what the focus keeps
+                // in the light are named as they stand.
                 const showLabel =
                   shownLabels.has(node.id) ||
                   selected ||
                   tip?.id === node.id ||
-                  (focus && around ? around.nodes.has(node.id) : false) ||
-                  (emphasis?.has(node.id) ?? false);
+                  (focus && around ? around.nodes.has(node.id) : false);
                 const members =
                   node.kind === 'cohort' && !node.ghost
                     ? Math.min(7, Math.max(3, Math.round(Math.sqrt(node.members ?? 6))))
@@ -1075,6 +1198,16 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                         .map((entry) => (
                           <circle key={entry.key} className="sw-eco__pulse" r={radius} />
                         ))}
+                      {place?.leader && (
+                        <path
+                          className="sw-eco__leader"
+                          ref={(el) =>
+                            void (el
+                              ? leaderEls.current.set(node.id, el)
+                              : leaderEls.current.delete(node.id))
+                          }
+                        />
+                      )}
                       <g
                         className="sw-eco__tag"
                         ref={(el) =>
@@ -1152,7 +1285,13 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         )}
 
         {controls && (
-          <div className="sw-eco__controls sw-glass" role="group" aria-label={zoomLabels.group}>
+          <div
+            ref={controlsEl}
+            className="sw-eco__controls sw-glass"
+            role="group"
+            aria-label={zoomLabels.group}
+            onTransitionEnd={measureControls}
+          >
             <IconButton label={zoomLabels.in} size="sm" onClick={() => zoomBy(1.25)}>
               <Plus size={16} aria-hidden="true" />
             </IconButton>

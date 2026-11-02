@@ -99,7 +99,9 @@ try {
       viewport: shot.size,
       isMobile: phone,
       hasTouch: phone,
-      deviceScaleFactor: phone ? 2 : 1,
+      // 1, not 2: the headless browser does not paint a backdrop blur at a device-pixel ratio of 2 (the glass of the
+      // bar, the dock and the sheets would show what is under it, unblurred), and a picture must be of what a person sees.
+      deviceScaleFactor: 1,
     });
     await context.addInitScript(
       (theme) => window.localStorage.setItem('swarm.theme', theme),

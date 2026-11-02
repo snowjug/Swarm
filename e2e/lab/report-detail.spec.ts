@@ -9,8 +9,17 @@ import {
 } from '../support/helpers';
 import { forget, makeLegacy, quiet } from '../support/shell';
 import { openApp } from '../support/app';
-import { advance } from '../support/helpers';
-import { briefed, holds, openDecide, printed, saved, tools, withReport } from '../support/decide';
+import {
+  asReader,
+  briefed,
+  deepDived,
+  holds,
+  openDecide,
+  printed,
+  saved,
+  tools,
+  withReport,
+} from '../support/decide';
 
 // The detailed report of the deep dive, beside the decision brief: the report the engine wrote from the recorded run,
 // the sources it cites, how it is read (a contents that follows the reader, figures, chapters with their sources),
@@ -217,9 +226,8 @@ test.describe('before the report is written', () => {
     page,
   }) => {
     const problems = watchPage(page);
-    const id = await briefed(api, { name: 'Report: ready', review: false });
+    const id = await deepDived(api, { name: 'Report: ready' });
     made.push(id);
-    for (const step of ['environment', 'simulation'] as const) await advance(api, id, step);
     await openDecide(page, id, 'report');
     await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(
       'Write the report',
@@ -250,8 +258,10 @@ test.describe('before the report is written', () => {
     );
     await quiet(page);
     await expectNoAxeViolations(page, 'the report that waits for the deep dive');
-    await page.getByRole('button', { name: 'Go to Simulate' }).click();
+    // The way on is to the deep dive itself, at the view that runs it.
+    await page.getByRole('button', { name: 'Go to the deep dive' }).click();
     await expect(page).toHaveURL(/scene=simulate/u);
+    await expect(page).toHaveURL(/view=deep/u);
   });
 
   test('a record that was not made by the guided flow says there is nothing to write, with the way back', async ({
@@ -265,6 +275,96 @@ test.describe('before the report is written', () => {
       'scenario findings',
     );
     await expect(page.getByRole('button', { name: 'Decision brief' })).toBeVisible();
+  });
+});
+
+for (const [where, make, heading] of [
+  [
+    'with no deep dive',
+    () => briefed(api, { name: 'Report: tools, no deep dive', review: false }),
+    'The deep dive comes first',
+  ],
+  [
+    'with the deep dive done',
+    () => deepDived(api, { name: 'Report: tools, deep dive done' }),
+    'Write the report',
+  ],
+] as const) {
+  test.describe(`the tools of a brief whose detailed report is not written, ${where}`, () => {
+    test('offer to write it in place of editing it, and the offer leads to where it is written', async ({
+      page,
+    }) => {
+      const problems = watchPage(page);
+      const id = await make();
+      made.push(id);
+      await openDecide(page, id);
+      const row = tools(page);
+      const write = row.getByRole('button', { name: 'Write the detailed report' });
+      await expect(write).toBeVisible();
+      // The studio would only say that there is nothing to work on, so it is not offered; nor is the page to read.
+      await expect(row.getByRole('button', { name: 'Edit report' })).toHaveCount(0);
+      await expect(row.getByRole('button', { name: 'Detailed report', exact: true })).toHaveCount(
+        0,
+      );
+      await quiet(page);
+      await expectNoAxeViolations(page, `the tools of a brief with no detailed report, ${where}`);
+      await write.click();
+      await expect(page).toHaveURL(/view=report/u);
+      await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(heading);
+      expect(problems).toEqual([]);
+    });
+
+    test.describe('on a phone', () => {
+      test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+      test('put the same offer in the menu, where editing it would have been', async ({ page }) => {
+        const id = await make();
+        made.push(id);
+        await openDecide(page, id);
+        await tools(page).getByRole('button', { name: 'More' }).click();
+        const menu = page.getByRole('menu');
+        await expect(menu.getByRole('menuitem', { name: 'Edit report' })).toHaveCount(0);
+        await expect(
+          menu.getByRole('menuitem', { name: 'Detailed report', exact: true }),
+        ).toHaveCount(0);
+        await menu.getByRole('menuitem', { name: 'Write the detailed report' }).click();
+        await expect(page).toHaveURL(/view=report/u);
+        await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(heading);
+      });
+    });
+  });
+}
+
+test.describe('a role that may read the brief but not write the report', () => {
+  test('is offered neither the writing nor an editor that has nothing to edit, and the studio says who can', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    const id = await deepDived(api, { name: 'Report: a reader' });
+    made.push(id);
+    await asReader(page, id);
+
+    await openDecide(page, id);
+    await expect(tools(page).getByRole('button', { name: 'Export' })).toBeVisible();
+    await expect(
+      tools(page).getByRole('button', { name: /detailed report|Edit report/iu }),
+    ).toHaveCount(0);
+
+    // The address of the studio is still good: it says what is missing, and who can supply it, and offers no button
+    // that would be refused.
+    await openDecide(page, id, 'studio');
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(
+      'There is no report to work on yet',
+    );
+    await expect(page.getByRole('main')).toContainText(
+      'Someone with the analyst or lead role needs to write it.',
+    );
+    await expect(page.getByRole('button', { name: 'Write the detailed report' })).toHaveCount(0);
+    // The way back is the one of the page's own bar: it is there in every state of the studio.
+    await expect(page.getByRole('button', { name: 'Decision brief' })).toBeVisible();
+    await quiet(page);
+    await expectNoAxeViolations(page, 'the studio of a reader, with no report to work on');
+    expect(problems).toEqual([]);
   });
 });
 

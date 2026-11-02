@@ -1,8 +1,8 @@
-import type { CSSProperties } from 'react';
-import { ArrowLeft, ArrowUpRight, ScrollText } from 'lucide-react';
+import { useEffect, useRef, type CSSProperties } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import type { SimulationReport } from '../../../../shared/types';
 import type { StudioView } from '../../../../shared/studio';
-import { Button, EmptyState } from '../../design/ui';
+import { Button } from '../../design/ui';
 import type { StudioActions } from './actions';
 import './Studio.css';
 
@@ -21,8 +21,9 @@ function contents(report: SimulationReport | null): { key: string; index: string
 }
 
 /**
- * A report nobody has worked on yet, or none to work on. It shows what the working copy would hold, so that
- * opening it is a decision about something, and says plainly what opening does and does not do.
+ * A report nobody has worked on yet. It shows what the working copy would hold, so that opening it is a decision
+ * about something, and says plainly what opening does and does not do. `arrived` is for a report that was written
+ * on this page a moment ago: the reader is taken to what the page now says.
  */
 export function Opening({
   view,
@@ -30,48 +31,20 @@ export function Opening({
   actions,
   onBack,
   onReport,
+  arrived = false,
 }: {
   view: StudioView;
   report: SimulationReport | null;
   actions: StudioActions;
   onBack: () => void;
   onReport: () => void;
+  arrived?: boolean;
 }) {
   const parts = contents(report);
-  if (!view.reportReady) {
-    return (
-      <div className="sw-open sw-open--empty">
-        <div className="sw-open__main">
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<ArrowLeft size={16} aria-hidden="true" />}
-            onClick={onBack}
-            className="sw-open__back"
-          >
-            Back to the brief
-          </Button>
-        </div>
-        <EmptyState
-          icon={<ScrollText size={22} aria-hidden="true" />}
-          title="There is no report to work on yet"
-          level={1}
-          action={
-            <Button
-              variant="glass"
-              iconEnd={<ArrowUpRight size={16} aria-hidden="true" />}
-              onClick={onReport}
-            >
-              Go to the detailed report
-            </Button>
-          }
-        >
-          The studio works on a finished detailed report. Write it first, then come back to edit and
-          review it.
-        </EmptyState>
-      </div>
-    );
-  }
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (arrived) title.current?.focus({ preventScroll: true });
+  }, [arrived]);
   return (
     <div className="sw-open">
       <div className="sw-open__main">
@@ -86,7 +59,7 @@ export function Opening({
         </Button>
         <div>
           <p className="sw-eyebrow">Report studio</p>
-          <h1 className="sw-open__title sw-display">
+          <h1 className="sw-open__title sw-display" ref={title} tabIndex={-1}>
             Work on the <em>report</em>
           </h1>
         </div>

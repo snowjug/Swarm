@@ -16,7 +16,14 @@ import {
   nodesFromActors,
   nodesFromStakeholders,
 } from './model';
-import { placeClusterLabels, visibleLabels } from './labels';
+import {
+  leaderOf,
+  placeClusterLabels,
+  placeFirstNames,
+  placeNames,
+  visibleLabels,
+  type Box,
+} from './labels';
 
 const nodes = Array.from({ length: 22 }, (_, index) => ({
   id: `n${index}`,
@@ -357,6 +364,229 @@ describe('placeClusterLabels', () => {
     const closeOffset = Math.abs([...near.values()][0]!.dy);
     const farOffset = Math.abs([...far.values()][0]!.dy);
     expect(farOffset).toBeGreaterThan(closeOffset);
+  });
+});
+
+describe('the names of the nodes that are named first', () => {
+  const canvas = { left: 6, right: 384, top: 20, bottom: 560 };
+
+  /** A phone-sized picture with the given nodes put where the test wants them, and every circle 14px across. */
+  const crowd = (spots: { id: string; x: number; y: number; weight: number; label?: string }[]) => {
+    const layout = layoutEcosystem({
+      nodes: spots.map((spot) => ({ id: spot.id, cluster: 'use', weight: spot.weight })),
+      edges: [],
+      width: 390,
+      height: 580,
+    });
+    for (const spot of spots) {
+      layout.positions.set(spot.id, { x: spot.x, y: spot.y });
+      layout.radii.set(spot.id, 14);
+    }
+    const nodes = spots.map((spot) => ({
+      id: spot.id,
+      label: spot.label ?? `Party ${spot.id}`,
+      weight: spot.weight,
+    }));
+    return { layout, nodes };
+  };
+
+  const ring = (centre: { x: number; y: number }, count: number, distance: number) =>
+    Array.from({ length: count }, (_, at) => {
+      const angle = (at / count) * Math.PI * 2;
+      return {
+        id: `c${at}`,
+        x: centre.x + Math.cos(angle) * distance,
+        y: centre.y + Math.sin(angle) * distance,
+        weight: 0.9,
+      };
+    });
+
+  const apart = (a: Box, b: Box): boolean =>
+    a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+
+  /** Every pair of the names that are drawn, and which two overlap, if any. */
+  const overlapping = (drawn: ReadonlyMap<string, { box: Box }>): string[] => {
+    const entries = [...drawn.entries()];
+    const found: string[] = [];
+    for (let at = 0; at < entries.length; at += 1) {
+      for (let other = at + 1; other < entries.length; other += 1) {
+        if (!apart(entries[at]![1].box, entries[other]![1].box)) {
+          found.push(`${entries[at]![0]} and ${entries[other]![0]}`);
+        }
+      }
+    }
+    return found;
+  };
+
+  it('names a first node before any other, however little it weighs, so that the limit is spent on it first', () => {
+    // Twelve cohorts that weigh more, well apart, and a first node that weighs the least.
+    const spread = Array.from({ length: 12 }, (_, at) => ({
+      id: `c${at}`,
+      x: 40 + (at % 4) * 100,
+      y: 60 + Math.floor(at / 4) * 160,
+      weight: 0.9 - at * 0.01,
+    }));
+    const { layout, nodes } = crowd([
+      ...spread,
+      { id: 'key', x: 190, y: 540, weight: 0.1, label: 'Administrators' },
+    ]);
+    const shown = placeNames(nodes, layout, [], canvas, undefined, {
+      limit: 8,
+      first: new Set(['key']),
+    });
+    expect(shown.has('key')).toBe(true);
+    expect(shown.size).toBe(8);
+    expect([...shown.keys()].filter((id) => id !== 'key').sort()).toEqual([
+      'c0',
+      'c1',
+      'c2',
+      'c3',
+      'c4',
+      'c5',
+      'c6',
+    ]);
+    // Without the rule the node, the lightest, would be the thirteenth and would be left out.
+    expect(placeNames(nodes, layout, [], canvas, undefined, { limit: 8 }).has('key')).toBe(false);
+  });
+
+  it('gives a first node a name in a crowd: it stands off its node, with a line to it, where its own sides are taken', () => {
+    // A node with a ring of others close around it: below, above and both sides are all taken by other nodes.
+    const centre = { x: 195, y: 280 };
+    const { layout, nodes } = crowd([
+      { id: 'key', ...centre, weight: 0.4, label: 'Competitors' },
+      ...ring(centre, 10, 30),
+    ]);
+    const places = placeFirstNames(nodes, layout, canvas, undefined, { first: new Set(['key']) });
+    const place = places.get('key');
+    expect(place).toBeDefined();
+    // Inside the canvas, and off every other node.
+    expect(place!.box.x0).toBeGreaterThanOrEqual(canvas.left);
+    expect(place!.box.x1).toBeLessThanOrEqual(canvas.right);
+    expect(place!.box.y0).toBeGreaterThanOrEqual(canvas.top);
+    expect(place!.box.y1).toBeLessThanOrEqual(canvas.bottom);
+    for (const spot of ring(centre, 10, 30)) {
+      const nearest = {
+        x: Math.min(Math.max(spot.x, place!.box.x0), place!.box.x1),
+        y: Math.min(Math.max(spot.y, place!.box.y0), place!.box.y1),
+      };
+      expect(Math.hypot(nearest.x - spot.x, nearest.y - spot.y)).toBeGreaterThan(14);
+    }
+    // Where it is not beside its node, it is joined to it.
+    expect(place!.leader).toBe(true);
+  });
+
+  it('keeps the names of several first nodes apart from one another and from the edge of the canvas', () => {
+    const { layout, nodes } = crowd([
+      { id: 'a', x: 20, y: 120, weight: 0.9, label: 'Administrators' },
+      { id: 'b', x: 60, y: 130, weight: 0.8, label: 'Competitors' },
+      { id: 'c', x: 100, y: 120, weight: 0.7, label: 'Regulators' },
+      { id: 'd', x: 370, y: 130, weight: 0.6, label: 'Sales director' },
+    ]);
+    const places = placeFirstNames(nodes, layout, canvas, undefined, {
+      first: new Set(['a', 'b', 'c', 'd']),
+    });
+    expect([...places.keys()].sort()).toEqual(['a', 'b', 'c', 'd']);
+    for (const place of places.values()) {
+      expect(place.box.x0).toBeGreaterThanOrEqual(canvas.left);
+      expect(place.box.x1).toBeLessThanOrEqual(canvas.right);
+    }
+    expect(overlapping(places)).toEqual([]);
+  });
+
+  it('keeps every name out of what floats over the picture, the zoom buttons in a corner', () => {
+    const buttons = { x0: 330, x1: 384, y0: 380, y1: 540 };
+    const { layout, nodes } = crowd([
+      { id: 'key', x: 270, y: 450, weight: 0.5, label: 'Larkholm Ferry Company' },
+      { id: 'other', x: 90, y: 450, weight: 0.4, label: 'Analyst' },
+      { id: 'near', x: 300, y: 380, weight: 0.3, label: 'Visitor' },
+    ]);
+    const first = new Set(['key']);
+    // Centred below its node, the name runs under the buttons: that is where it was drawn before they were known.
+    const unaware = placeFirstNames(nodes, layout, canvas, undefined, { first });
+    expect(apart(unaware.get('key')!.box, buttons)).toBe(false);
+    const places = placeFirstNames(nodes, layout, canvas, undefined, { first, avoid: [buttons] });
+    expect(places.has('key')).toBe(true);
+    expect(apart(places.get('key')!.box, buttons)).toBe(true);
+    const shown = placeNames(nodes, layout, [buttons], canvas, undefined, {
+      first,
+      placed: places,
+    });
+    expect(shown.size).toBeGreaterThan(1);
+    for (const place of shown.values()) expect(apart(place.box, buttons)).toBe(true);
+  });
+
+  it('names the movers of a comparison without writing them over one another, when they stand side by side', () => {
+    // Five of the heaviest movers in one tight bunch, the way adjacent actors of one group stand, and a few others.
+    const bunch = [
+      { id: 'm1', x: 150, y: 220, weight: 0.95, label: 'Customer support team' },
+      { id: 'm2', x: 176, y: 232, weight: 0.9, label: 'Operations manager' },
+      { id: 'm3', x: 202, y: 222, weight: 0.85, label: 'Marketing manager' },
+      { id: 'm4', x: 164, y: 258, weight: 0.8, label: 'Delivery partners' },
+      { id: 'm5', x: 192, y: 262, weight: 0.75, label: 'Specialist' },
+    ];
+    const others = Array.from({ length: 9 }, (_, at) => ({
+      id: `o${at}`,
+      x: 40 + (at % 3) * 150,
+      y: 80 + Math.floor(at / 3) * 190,
+      weight: 0.3,
+    }));
+    const { layout, nodes } = crowd([...bunch, ...others]);
+    const first = new Set(bunch.map((node) => node.id));
+    // They stand so close that each name below its node, as a name is by default, would be over its neighbour's.
+    for (const [at, a] of bunch.entries()) {
+      for (const b of bunch.slice(at + 1)) expect(Math.abs(a.x - b.x)).toBeLessThan(70);
+    }
+    // As in a comparison, where only the movers are named...
+    const named = placeFirstNames(nodes, layout, canvas, undefined, { first });
+    expect([...named.keys()].sort()).toEqual([...first].sort());
+    expect(overlapping(named)).toEqual([]);
+    // ...and as on a map, where the others are named around them: no two names drawn overlap.
+    const all = placeNames(nodes, layout, [], canvas, undefined, { first });
+    for (const id of first) expect(all.has(id)).toBe(true);
+    expect(overlapping(all)).toEqual([]);
+  });
+
+  it('makes a group name and a cohort name give way to a first node', () => {
+    const { layout, nodes } = crowd([
+      { id: 'key', x: 195, y: 200, weight: 0.3, label: 'Clients' },
+      { id: 'cohort', x: 195, y: 262, weight: 0.9, label: 'Managers' },
+    ]);
+    const firsts = placeFirstNames(nodes, layout, canvas, undefined, { first: new Set(['key']) });
+    const keyBox = firsts.get('key')!.box;
+    const group = { x0: keyBox.x0 + 2, x1: keyBox.x1 - 2, y0: keyBox.y0 + 2, y1: keyBox.y1 - 2 };
+    const shown = placeNames(nodes, layout, [group], canvas, undefined, {
+      first: new Set(['key']),
+      placed: firsts,
+    });
+    expect(shown.get('key')!.box).toEqual(keyBox);
+    const cohort = shown.get('cohort');
+    if (cohort) expect(apart(cohort.box, keyBox)).toBe(true);
+  });
+
+  it('leaves a first node out, rather than write it over another name, when no place is clear in all its reach', () => {
+    // A canvas the size of two names, and three first nodes in it.
+    const small = { left: 0, right: 90, top: 0, bottom: 70 };
+    const { layout, nodes } = crowd([
+      { id: 'a', x: 45, y: 30, weight: 0.9, label: 'Administrators' },
+      { id: 'b', x: 40, y: 38, weight: 0.8, label: 'Competitors' },
+      { id: 'c', x: 50, y: 34, weight: 0.7, label: 'Regulators' },
+    ]);
+    const places = placeFirstNames(nodes, layout, small, undefined, {
+      first: new Set(['a', 'b', 'c']),
+    });
+    expect(overlapping(places)).toEqual([]);
+    for (const place of places.values()) {
+      expect(place.box.x0).toBeGreaterThanOrEqual(small.left);
+      expect(place.box.x1).toBeLessThanOrEqual(small.right);
+    }
+  });
+
+  it('joins a name to its node only when it stands off it', () => {
+    expect(leaderOf({ side: 'below', dx: 0, dy: 0, width: 80 }, 14)).toBeNull();
+    const line = leaderOf({ side: 'below', dx: 0, dy: 30, width: 80 }, 14)!;
+    expect(line).not.toBeNull();
+    expect(Math.hypot(line.x0, line.y0)).toBeGreaterThan(14);
+    expect(line.y1).toBeGreaterThan(line.y0);
   });
 });
 

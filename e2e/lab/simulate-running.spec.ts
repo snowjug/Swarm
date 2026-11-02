@@ -254,7 +254,7 @@ test.describe('a simulation that failed', () => {
     const refused = {
       code: 'SPEC_NOT_ACCEPTED',
       message:
-        'The simulation engine did not accept the actors or one of the scenarios. Check the actors in the Env Setup step and the scenarios here, then run it again.',
+        'The simulation engine did not accept the actors or one of the scenarios. Check the actors on the Map and the scenarios here, then run it again.',
     };
     // The engine's refusal is the server's to give; what the page does with one is what is looked at, so the newest
     // comparison that was really run is read back as the one that stopped with it.

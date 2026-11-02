@@ -1,5 +1,13 @@
 import { AnimatePresence, m } from 'motion/react';
-import { ArrowRight, CircleCheck, CircleX, PauseCircle, Sparkles, Square } from 'lucide-react';
+import {
+  ArrowRight,
+  CircleCheck,
+  CircleX,
+  FlaskConical,
+  PauseCircle,
+  Sparkles,
+  Square,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Button, Chip, Notice, Popover, PopoverContent, PopoverTrigger } from '../../design/ui';
 import { SPRING, useReducedMotion } from '../../design/motion';
@@ -24,6 +32,7 @@ import {
   MOMENT_LABEL,
   nextStep,
   plural,
+  sampleNote,
   type GroundStage,
   type Moment,
 } from './model';
@@ -118,6 +127,7 @@ export function Hero() {
   const noun = entityNoun(project.graph);
   const reason = failureReason(project);
   const event = latestEvent(project);
+  const sample = sampleNote(documents);
 
   // A figure is a dash while the engine has not said, and a number once it has: a saved record that holds
   // no graph says none, since nothing more will arrive for it.
@@ -243,6 +253,12 @@ export function Hero() {
             advanced={mode === 'advanced'}
             step={project.console?.steps.knowledge}
           />
+          {sample && (
+            <span className="sw-ground__sample">
+              <FlaskConical size={13} aria-hidden="true" />
+              {sample}
+            </span>
+          )}
         </div>
         <div className="sw-rise" style={vars({ '--i': 1 })}>
           <Question text={project.question} />

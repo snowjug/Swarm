@@ -346,6 +346,13 @@ export function provenanceNote(section: Pick<StudioSectionView, 'kind' | 'origin
 export const plural = (count: number, one: string, many = `${one}s`): string =>
   `${count} ${count === 1 ? one : many}`;
 
+/**
+ * What would be lost if the studio were left now, as one sentence. The question the studio asks and the one the shell
+ * asks (it adds that the words are lost if the person leaves) say the same thing.
+ */
+export const unsavedSentence = (unsaved: number): string =>
+  `${plural(unsaved, 'section')} ${unsaved === 1 ? 'holds' : 'hold'} words that have not been saved.`;
+
 // ---- Statements ---------------------------------------------------------------------------------
 
 export interface Excerpt {

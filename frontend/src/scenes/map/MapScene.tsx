@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react';
 import { Bot, Plus, UserRound, Users, Wand2 } from 'lucide-react';
 import type { Actor, TraitKey } from '../../../../shared/stakeholders';
 import { useWorkspace } from '../../app/context';
+import { useUnsavedWork } from '../../app/unsaved-context';
 import { useTween } from '../../design/motion';
 import {
   Button,
@@ -40,6 +41,7 @@ import { Inspector } from './Inspector';
 import { Legend } from './Legend';
 import { PartyActions } from './PartyActions';
 import { Pill, type ApproveModel, type PillModel } from './Pill';
+import { UnsavedBar } from './UnsavedBar';
 import { Roster } from './Roster';
 import { StakeholderDialog } from './StakeholderDialog';
 import { Toolbar, type MapView } from './Toolbar';
@@ -295,6 +297,13 @@ export function MapScene() {
       ).length
     : 0;
   const invalid = working_.some((actor) => actor.sampleSize > actor.size);
+  // Leaving the Map by any way the shell controls (the journey, the dock, the palette, another exploration, a new
+  // question) asks first while there are changes that are not saved: they live only here, until they are.
+  useUnsavedWork(
+    dirtyCount > 0
+      ? `${dirtyCount} ${dirtyCount === 1 ? 'actor has' : 'actors have'} changes that have not been saved.`
+      : null,
+  );
   const onTrait = (id: string, key: TraitKey, value: number): void =>
     setDraft((old) =>
       (old ?? actorSet?.actors ?? []).map((actor) =>
@@ -607,7 +616,10 @@ export function MapScene() {
             focus={focusMode && party !== null}
             hiddenClusters={hidden}
             inset={{ top: topInset, bottom: narrow ? 128 : 104 }}
-            covered={{ right: coveredRight, bottom: !wide && party ? 190 : 0 }}
+            covered={{
+              right: coveredRight,
+              bottom: !wide && party ? (dirtyCount > 0 ? 244 : 190) : 0,
+            }}
             controls={wide || !party}
             describe={describeNode}
             zoomLabels={{ group: 'Zoom', in: 'Zoom in', out: 'Zoom out', fit: 'Fit everything' }}
@@ -805,7 +817,17 @@ export function MapScene() {
             stripActions={stripActions}
             aside={
               dirtyCount > 0 && subject === 'actors' ? (
-                <p className="sw-caption">Changes are held until you save them.</p>
+                wide ? (
+                  <p className="sw-caption">Changes are held until you save them.</p>
+                ) : (
+                  // The pill is not on the screen while a party is open here: the strip carries what it would say.
+                  <UnsavedBar
+                    count={dirtyCount}
+                    invalid={invalid}
+                    onSave={() => void saveActors()}
+                    onDiscard={() => setDraft(null)}
+                  />
+                )
               ) : undefined
             }
             onClose={() => {

@@ -13,6 +13,7 @@ import {
   stateFixture,
   viewFixture as reviewFixture,
 } from '../../test/critics';
+import { modelReportFixture } from '../../test/grounding';
 import { projectFixture } from '../../test/project';
 import { DecideDocument, type DocumentProps } from './DecideDocument';
 import { BriefFailed, BriefLoading, NoAnalysis, WriteBrief, Writing } from './States';
@@ -96,8 +97,7 @@ function document(
     analysis: { facts: null, loading: false },
     reviewOpen: false,
     onReviewOpenChange: noop,
-    hasReport: true,
-    go: { simulate: noop, studio: noop, report: noop },
+    go: { simulate: noop, studio: noop, report: noop, ground: noop },
     ...overrides,
   };
 }
@@ -209,13 +209,30 @@ describe('the brief as a document', () => {
     expect(markup).toContain('id="brief-answer"');
   });
 
-  it('puts the editor and the detailed report in the tools, the latter only where there is one', () => {
-    const withReport = text(render(document()));
-    expect(withReport).toContain('Edit report');
-    expect(withReport).toContain('Detailed report');
-    const without = text(render(document({ hasReport: false })));
-    expect(without).toContain('Edit report');
-    expect(without).not.toContain('Detailed report');
+  it('puts the editor and the detailed report in the tools once the report is written', () => {
+    const project = projectFixture();
+    project.status = 'completed';
+    project.report = modelReportFixture();
+    for (const step of ['knowledge', 'environment', 'simulation', 'report'] as const)
+      project.console!.steps[step] = 'ready';
+    const words = text(render(document({ project })));
+    expect(words).toContain('Edit report');
+    expect(words).toContain('Detailed report');
+    expect(words).not.toContain('Write the detailed report');
+  });
+
+  it('offers to write the detailed report, and not to edit one that is not there', () => {
+    // The studio would only say that there is nothing to work on: the one thing to do is to write it.
+    const words = text(render(document()));
+    expect(words).toContain('Write the detailed report');
+    expect(words).not.toContain('Edit report');
+    expect(words).not.toContain('Detailed report');
+  });
+
+  it('offers a role that cannot write the report neither', () => {
+    const words = text(render(document({}, { may: { generate: false, export: true } })));
+    expect(words).not.toContain('Write the detailed report');
+    expect(words).not.toContain('Edit report');
   });
 
   it('never writes a share of simulated members as a percentage', () => {

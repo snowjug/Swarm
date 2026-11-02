@@ -143,4 +143,26 @@
       display: none;
     }
   }
+  /* The narrowest phones: the ring and the way to the next are kept, and the words round them give way, so that the
+     one action stays whole on the screen. */
+  @media (max-width: 22.5rem) {
+    .sw-pill {
+      gap: var(--s-1);
+      padding-left: var(--s-3);
+    }
+    .sw-pill__progress {
+      gap: var(--s-2);
+      padding-right: var(--s-2);
+    }
+    .sw-pill__label {
+      font-size: var(--fs-small);
+    }
+    .sw-pill__sub {
+      display: none;
+    }
+    .sw-pill .sw-btn--lg {
+      --btn-px: 1.1rem;
+      gap: 0.4rem;
+    }
+  }
 }

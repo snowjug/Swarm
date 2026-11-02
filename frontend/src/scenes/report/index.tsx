@@ -35,7 +35,7 @@ export default function ReportScene() {
       <Blocked
         project={project}
         running={state.running}
-        onSimulate={() => go('simulate')}
+        onDeepDive={() => go('simulate', { view: 'deep' })}
         onBack={back}
       />
     );

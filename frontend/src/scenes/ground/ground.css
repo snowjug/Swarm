@@ -51,9 +51,20 @@
   }
   .sw-ground__kicker {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: var(--s-3);
+    gap: 0.15rem var(--s-3);
     min-height: 1.75rem;
+  }
+  /* What the sources are, where "Ready" is read: quiet, a glyph and a few words, not a second chip. */
+  .sw-ground__sample {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.2;
+    white-space: nowrap;
   }
   .sw-ground__status[data-stage='running'] .sw-chip__dot,
   .sw-ground__status[data-stage='queued'] .sw-chip__dot {
