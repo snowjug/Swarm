@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
-import { Paperclip, Server, SlidersHorizontal, X } from 'lucide-react';
+import { Globe, Paperclip, Server, SlidersHorizontal, X } from 'lucide-react';
 import type { ScenarioFrame } from '../../../../shared/scenario';
 import type {
   AppConfig,
@@ -20,6 +20,7 @@ import {
   canRead,
   documentSummaries,
   frameIssues,
+  hasContext,
   tidyFrame,
   withContext,
   type Context,
@@ -44,7 +45,7 @@ import {
   STARTER,
   type Starting,
 } from './examples';
-import type { DocumentInput } from './evidence';
+import { firstUrl, samePage, siteOf, type DocumentInput } from './evidence';
 import { useEvidence } from './useEvidence';
 import './AskScene.css';
 
@@ -129,6 +130,8 @@ export function AskScene({
   const [focused, setFocused] = useState(false);
   const [dropping, setDropping] = useState(false);
   const [evidenceOpen, setEvidenceOpen] = useState(false);
+  // A page named in the question that the person asked to read: the evidence menu opens on it.
+  const [pageRequest, setPageRequest] = useState<string | null>(null);
   const [openDocument, setOpenDocument] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [slow, setSlow] = useState(false);
@@ -182,18 +185,28 @@ export function AskScene({
   };
 
   // The question and the button that was pressed leave the page when the scenario comes: focus goes to the heading
-  // of what replaces them, so that a keyboard is where the scenario is and a screen reader says what it is.
+  // of what replaces them, so that a keyboard is where the scenario is and a screen reader says what it is. What
+  // replaces them is a new page, and it starts at its top (a person who had scrolled a little before pressing
+  // Explore would otherwise find the scenario opened in the middle of its first lines).
+  const shownPhase = useRef(phase);
   useEffect(() => {
+    if (shownPhase.current === phase) return;
+    shownPhase.current = phase;
+    window.scrollTo({ top: 0, behavior: 'instant' });
     if (phase === 'review') title.current?.focus({ preventScroll: true });
   }, [phase]);
 
-  // A reading that takes long enough to notice is shown; one that does not never flashes.
+  // A reading that takes long enough to notice is shown; one that does not never flashes. The screen that says it is
+  // reading is a page of its own, and starts at the top as the scenario does.
   useEffect(() => {
     if (!reading.reading) {
       setSlow(false);
       return undefined;
     }
-    const timer = setTimeout(() => setSlow(true), NOTICEABLE_MS);
+    const timer = setTimeout(() => {
+      setSlow(true);
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }, NOTICEABLE_MS);
     return () => clearTimeout(timer);
   }, [reading.reading]);
 
@@ -292,7 +305,9 @@ export function AskScene({
       {documents.length > 0 && (
         <>
           {' '}
-          <span className="sw-ask__badge num">{documents.length}</span>{' '}
+          <span key={documents.length} className="sw-ask__badge sw-ask__badge--pop num">
+            {documents.length}
+          </span>{' '}
           <span className="sr-only">attached</span>
         </>
       )}
@@ -304,16 +319,40 @@ export function AskScene({
       urlEnabled={urlIngestionEnabled(config)}
       disabled={busy || starting}
       open={evidenceOpen}
-      onOpenChange={setEvidenceOpen}
+      onOpenChange={(open) => {
+        setEvidenceOpen(open);
+        if (!open) setPageRequest(null);
+      }}
+      page={pageRequest}
       trigger={evidenceButton}
     />
   );
+  // A page the question names, which has not been read as evidence yet, is offered as a source.
+  const linked = urlIngestionEnabled(config) ? firstUrl(question) : null;
+  const linkedRead = linked !== null && documents.some((document) => samePage(document, linked));
 
   return (
-    <div className="sw-ask" data-phase={phase} ref={scene}>
-      {phase === 'compose' && !slow && (
-        <SwarmField gather={focused || question.trim().length > 0} anchor={form} />
-      )}
+    <div
+      className="sw-ask"
+      data-phase={phase}
+      data-composed={question.trim() !== '' || documents.length > 0 ? '' : undefined}
+      ref={scene}
+    >
+      <AnimatePresence>
+        {phase === 'compose' && !slow && (
+          <m.div
+            key="field"
+            className="sw-ask__field"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+          >
+            <SwarmField gather={focused || question.trim().length > 0} anchor={form} />
+          </m.div>
+        )}
+      </AnimatePresence>
       <h1
         ref={title}
         tabIndex={-1}
@@ -378,6 +417,29 @@ export function AskScene({
                     onRemove={takeAway}
                   />
                 }
+                suggestion={
+                  linked && !linkedRead && !disabled ? (
+                    <m.div
+                      key="link"
+                      className="sw-composer__suggest"
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0, transition: SPRING.snappy }}
+                      exit={{ opacity: 0, transition: { duration: 0.12 } }}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={<Globe size={14} aria-hidden="true" />}
+                        onClick={() => {
+                          setPageRequest(linked);
+                          setEvidenceOpen(true);
+                        }}
+                      >
+                        Read {siteOf(linked)} as evidence
+                      </Button>
+                    </m.div>
+                  ) : null
+                }
                 tools={
                   <>
                     {evidenceMenu}
@@ -441,6 +503,9 @@ export function AskScene({
                     }
                   >
                     {reading.error ?? error}
+                    {reading.error && hasContext({ horizon, assumptions: assumed })
+                      ? ' Without a reading, the time frame and assumptions you gave are not kept.'
+                      : ''}
                   </Notice>
                 )}
               </div>

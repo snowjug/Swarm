@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button, Chip, Sheet, SheetClose, SheetContent, Textarea } from '../../design/ui';
 import { SOURCE_KIND_LABELS } from '../../lib/product';
-import { sizeText, type DocumentInput } from './evidence';
+import { editedPage, sizeText, type DocumentInput } from './evidence';
 import './DocumentSheet.css';
 
 /**
@@ -62,6 +62,12 @@ export function DocumentSheet({
             {document.provenance?.url && (
               <p className="sw-caption sw-docsheet__url">
                 {document.provenance.finalUrl ?? document.provenance.url}
+              </p>
+            )}
+            {editedPage(document) && (
+              <p className="sw-caption">
+                You changed the text of a page Swarm fetched, so it is kept as pasted text, not as a
+                retrieved page.
               </p>
             )}
             <Textarea

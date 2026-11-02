@@ -62,20 +62,27 @@ function EvidencePanel({
   urlEnabled,
   disabled,
   onClose,
+  page,
 }: {
   evidence: Evidence;
   urlEnabled: boolean;
   disabled: boolean;
   onClose: () => void;
+  /** An address that was found in the question: the menu opens on it, and fetches it. */
+  page: string | null;
 }) {
-  const [way, setWay] = useState<Way>('files');
+  const [way, setWay] = useState<Way>(page ? 'page' : 'files');
   const [pasteName, setPasteName] = useState(evidence.suggestedName);
   const [paste, setPaste] = useState('');
   const picker = useRef<HTMLInputElement>(null);
   const url = useUrlEvidence();
+  const { load } = url;
   const id = useId();
   const full = evidence.full;
   const busy = Boolean(evidence.reading);
+  useEffect(() => {
+    if (page) load(page);
+  }, [page, load]);
   const ways = [
     { value: 'files' as const, label: 'Files', icon: <FileUp size={15} aria-hidden="true" /> },
     { value: 'paste' as const, label: 'Paste', icon: <StickyNote size={15} aria-hidden="true" /> },
@@ -318,6 +325,7 @@ export function EvidenceMenu({
   trigger,
   open,
   onOpenChange,
+  page = null,
 }: {
   evidence: Evidence;
   urlEnabled: boolean;
@@ -325,6 +333,8 @@ export function EvidenceMenu({
   trigger: ReactElement;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** A page named in the question, which the menu opens on and fetches. */
+  page?: string | null;
 }) {
   const [own, setOwn] = useState(false);
   const isOpen = open ?? own;
@@ -346,6 +356,7 @@ export function EvidenceMenu({
         urlEnabled={urlEnabled}
         disabled={disabled}
         onClose={() => change(false)}
+        page={page}
       />
     </Surface>
   );

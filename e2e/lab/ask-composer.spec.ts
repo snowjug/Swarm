@@ -924,6 +924,27 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await expectNoAxeViolations(page, `${theme}: the options`);
     });
 
+    test('is clean with a time frame and an assumption said, and each of them open', async ({
+      page,
+    }) => {
+      await openAsk(page, { theme });
+      await timeFrameButton(page).click();
+      const frame = page.getByRole('dialog', { name: 'Time frame' });
+      await frame.getByRole('button', { name: '1 year', exact: true }).click();
+      await expectNoAxeViolations(page, `${theme}: the time frame open`);
+      await frame.getByRole('button', { name: 'Done' }).click();
+      await assumptionsButton(page).click();
+      const assumed = page.getByRole('dialog', { name: 'Assumptions' });
+      const field = assumed.getByRole('textbox', { name: 'Your assumption' });
+      await field.fill('Demand stays flat.');
+      await field.press('Enter');
+      await expectNoAxeViolations(page, `${theme}: the assumptions open`);
+      await assumed.getByRole('button', { name: 'Done' }).click();
+      await expect(assumed).toBeHidden();
+      await expect(timeFrameButton(page)).toHaveAccessibleName('Time frame 1 year');
+      await expectNoAxeViolations(page, `${theme}: both said`);
+    });
+
     test('is clean with a question that was refused', async ({ page }) => {
       await openAsk(page, { theme });
       await questionBox(page).fill('Why?');

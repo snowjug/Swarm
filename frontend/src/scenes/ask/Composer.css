@@ -3,6 +3,7 @@
     --glass-radius: var(--r-xl);
     position: relative;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-3);
     width: min(54rem, 100%);
     padding: var(--s-5) var(--s-5) var(--s-3);
@@ -93,6 +94,21 @@
   }
   .sw-composer.is-invalid .sw-composer__input {
     caret-color: var(--c-critical);
+  }
+
+  /* A page the question names, offered as evidence: one quiet line under the field. */
+  .sw-composer__suggest {
+    display: flex;
+    min-width: 0;
+  }
+  .sw-composer__suggest .sw-btn {
+    max-width: 100%;
+    margin-left: calc(var(--s-3) * -1);
+  }
+  .sw-composer__suggest .sw-btn__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .sw-composer__bar {

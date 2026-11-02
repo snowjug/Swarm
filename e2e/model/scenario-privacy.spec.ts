@@ -83,7 +83,7 @@ test.describe('a question is read by a model only when the person chose Model as
     await expect(options.getByRole('radio', { name: /Local rules/u })).toBeChecked();
     await expect(options).toContainText('Rules run on this machine. Nothing is sent anywhere.');
     await page.keyboard.press('Escape');
-    await expect(page.getByText('Model assisted', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('main').getByText('Model assisted', { exact: true })).toHaveCount(0);
 
     await questionBox(page).fill(QUESTION);
     await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
@@ -91,7 +91,7 @@ test.describe('a question is read by a model only when the person chose Model as
     expect(sent.useModel).toBe(false);
     expect(sent.question).toBe(QUESTION);
     expect(answer).toMatchObject({ mode: 'rules', model: null });
-    await expect(page.getByText('Read by rules, not a model')).toBeVisible();
+    await expect(page.getByText('Read by rules, not a model', { exact: true })).toBeVisible();
     await expect(page.getByText('Read by a model')).toHaveCount(0);
 
     // Nothing reached the provider: not a call it answered, and not a request it did not recognise.
@@ -120,12 +120,12 @@ test.describe('a question is read by a model only when the person chose Model as
     expect(await fake.stats()).toMatchObject({ calls: 0, requests: 0 });
     await page.keyboard.press('Escape');
     // With the options closed, the way forward still says that pressing it asks a model.
-    await expect(page.getByText('Model assisted', { exact: true })).toBeVisible();
+    await expect(page.getByRole('main').getByText('Model assisted', { exact: true })).toBeVisible();
 
     const { sent, answer } = await explore(page);
     expect(sent.useModel).toBe(true);
     expect(answer).toMatchObject({ mode: 'model', model: 'fake-model' });
-    await expect(page.getByText(/Read by a model/u)).toContainText('fake-model');
+    await expect(page.getByText('Read by a model · fake-model', { exact: true })).toBeVisible();
 
     const stats = await fake.stats();
     expect(stats.byKind.scenario).toBe(1);
@@ -158,7 +158,7 @@ test.describe('a question is read by a model only when the person chose Model as
     const again = await explore(page);
     expect(again.sent.useModel).toBe(false);
     expect(again.answer).toMatchObject({ mode: 'rules', model: null });
-    await expect(page.getByText('Read by rules, not a model')).toBeVisible();
+    await expect(page.getByText('Read by rules, not a model', { exact: true })).toBeVisible();
     expect((await fake.stats()).requests, 'the provider was not asked again').toBe(asked);
 
     // And the other way: the person who goes back to the model gets a reading by it.

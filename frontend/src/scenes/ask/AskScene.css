@@ -2,12 +2,28 @@
   .sw-ask {
     position: relative;
     display: grid;
+    /* One column that is never wider than the screen: a row that scrolls (the examples, the sources) must not
+       widen it by the length of what it holds. */
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     align-content: start;
     gap: var(--s-4);
     min-height: calc(100dvh - var(--topbar-h));
     padding: clamp(2rem, 7vh, 5.5rem) var(--gutter) var(--s-8);
     overflow-x: clip;
+  }
+  /* The signature field is drawn over the first screenful and no more. Its box does not follow the height of the page:
+     the field draws itself again whenever its box changes size, and a question that grows by a line, a source that
+     is attached or a note that arrives would otherwise move every point at once. It fades out before the path and
+     the lists below the composer, so that no point is printed between the letters of what is to be read there. */
+  .sw-ask__field {
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 100vh;
+    height: 100lvh;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(180deg, black 55%, transparent 86%);
+    mask-image: linear-gradient(180deg, black 55%, transparent 86%);
   }
   .sw-ask__title {
     position: relative;
@@ -49,6 +65,7 @@
   .sw-ask__stage {
     position: relative;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     gap: var(--s-5);
     width: 100%;
@@ -80,6 +97,12 @@
     color: var(--ink-3);
     font-size: var(--fs-small);
   }
+  /* A shortcut is for a keyboard; on a narrow or a touch screen the room it takes is the room the tools need. */
+  @media (max-width: 56rem), (pointer: coarse) {
+    .sw-ask__hint {
+      display: none;
+    }
+  }
   /* Beside the way forward, so that a person who chose a model sees what pressing it does. */
   .sw-ask__engine {
     display: inline-flex;
@@ -104,6 +127,21 @@
     font-weight: 650;
     line-height: 1.15rem;
     text-align: center;
+  }
+
+  /* The count answers what was just attached: it arrives each time it changes. */
+  .sw-ask__badge--pop {
+    animation: sw-ask-pop var(--dur-slow) var(--ease-spring-snappy) both;
+  }
+  @keyframes sw-ask-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 
   .sw-ask__starts {

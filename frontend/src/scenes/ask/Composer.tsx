@@ -172,6 +172,8 @@ export interface ComposerProps {
   invalid: boolean;
   pool: readonly string[];
   tray: ReactNode;
+  /** What the question brought up that can be done with it (a page it names), below the field while there is one. */
+  suggestion?: ReactNode;
   tools: ReactNode;
   note?: ReactNode;
   onSubmit: () => void;
@@ -263,6 +265,7 @@ export const Composer = forwardRef<HTMLFormElement, ComposerProps>(function Comp
           }}
         />
       </div>
+      <AnimatePresence initial={false}>{props.suggestion}</AnimatePresence>
       {props.tray}
       <div className="sw-composer__bar">
         <div className="sw-composer__tools">{props.tools}</div>

@@ -5,13 +5,13 @@ import { api, errorMessage } from '../../api';
 import { evidenceApi } from '../../api/evidence';
 import {
   base64,
-  carryKey,
   documentProblem,
   fileKind,
   fileProblem,
   limitsOf,
   nextPasteName,
   totalOf,
+  withText,
   type DocumentInput,
 } from './evidence';
 
@@ -167,9 +167,7 @@ export function useEvidence({
   const update = useCallback<Evidence['update']>(
     (index, content) => {
       setError(null);
-      onChange(
-        documents.map((item, at) => (at === index ? carryKey(item, { ...item, content }) : item)),
-      );
+      onChange(documents.map((item, at) => (at === index ? withText(item, content) : item)));
     },
     [documents, onChange],
   );

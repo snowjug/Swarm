@@ -73,6 +73,13 @@
       white-space: nowrap;
     }
   }
+  /* A laptop screen, once something is being written: the path has said what it had to, and the composer and the
+     list of sources need the room (a strip of it cut by the foot of the screen reads as a mistake). */
+  @media (max-height: 920px) and (min-width: 62rem) {
+    .sw-ask[data-composed] .sw-path {
+      display: none;
+    }
+  }
   /* A phone: six steps in one row, each a glyph and its name. */
   @media (max-width: 40rem) {
     .sw-path {

@@ -772,6 +772,41 @@ test.describe('a public web page', () => {
     expect(problems).toEqual([]);
   });
 
+  test('named in the question it is offered as a source, fetched only when the person says so, and the offer goes once it is one', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await openAsk(page);
+    const made = recordRequests(page);
+    const offer = page.getByRole('button', {
+      name: 'Read city-transport.example.org as evidence',
+      exact: true,
+    });
+    await expect(offer).toHaveCount(0);
+
+    await questionBox(page).fill(`${CITY_QUESTION} The pilot is described at ${PILOT}.`);
+    await expect(offer).toBeVisible();
+    expect(
+      apiCalls(made).filter((call) => call === 'POST /api/evidence/url'),
+      'an address in the question is not read until the person asks',
+    ).toEqual([]);
+
+    const answered = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/api/evidence/url',
+    );
+    await offer.click();
+    expect((await answered).status()).toBe(200);
+    const dialog = evidenceDialog(page);
+    await expect(dialog.getByRole('radio', { name: 'Web page' })).toBeChecked();
+    await expect(dialog.getByRole('textbox', { name: 'Web address' })).toHaveValue(PILOT);
+    await expect(fetchedPreview(page)).toContainText('Central zone charge pilot');
+    await dialog.getByRole('button', { name: 'Add as evidence' }).click();
+    await closeEvidence(page);
+    await expectAttached(page, 1);
+    await expect(offer, 'the page is a source: there is nothing left to offer').toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+
   test('can be discarded, and nothing of it is kept', async ({ page }) => {
     await openAsk(page);
     expect((await fetchPage(page, PILOT)).status()).toBe(200);
@@ -944,8 +979,20 @@ test.describe('a public web page', () => {
     await pill(page, added.name).click();
     const sheet = page.getByRole('dialog', { name: added.name });
     await expect(sheet).toContainText('public web page');
+    await expect(sheet).toContainText(PILOT);
     const text = sheet.getByRole('textbox', { name: 'The text Swarm will work from' });
-    await text.fill(`${await text.inputValue()}\nAn extra sentence the person added.`);
+    const original = await text.inputValue();
+    await text.fill(`${original}\nAn extra sentence the person added.`);
+    // The sheet says so as soon as the text is not the text that came, and not only once the project is made.
+    await expect(sheet).not.toContainText('public web page');
+    await expect(sheet).not.toContainText(PILOT);
+    await expect(sheet).toContainText('pasted text');
+    await expect(sheet).toContainText('You changed the text of a page Swarm fetched');
+    // Putting the text back as it came makes it the page that was fetched again.
+    await text.fill(original);
+    await expect(sheet).toContainText('public web page');
+    await expect(sheet).not.toContainText('You changed the text of a page');
+    await text.fill(`${original}\nAn extra sentence the person added.`);
     await sheet.getByRole('button', { name: 'Done' }).click();
 
     await readScenario(page);

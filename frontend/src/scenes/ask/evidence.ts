@@ -27,6 +27,36 @@ export function carryKey(from: DocumentInput, to: DocumentInput): DocumentInput 
   return to;
 }
 
+type Provenance = NonNullable<DocumentInput['provenance']>;
+const fetchedAs = new WeakMap<DocumentInput, { content: string; provenance: Provenance }>();
+
+const wasFetched = (provenance: DocumentInput['provenance']): provenance is Provenance =>
+  provenance?.kind === 'url' || provenance?.fetchedByServer === true;
+
+/**
+ * The same source with its text changed by the person. A page the server fetched is only called one while its text
+ * is the text that came: the server keeps that rule too (it vouches for the exact text it fetched), and the page says
+ * so first, rather than go on calling an edited text "a public web page" until the project is made.
+ */
+export function withText(document: DocumentInput, content: string): DocumentInput {
+  const came =
+    fetchedAs.get(document) ??
+    (wasFetched(document.provenance)
+      ? { content: document.content, provenance: document.provenance }
+      : undefined);
+  const next: DocumentInput = { ...document, content };
+  if (came) {
+    fetchedAs.set(next, came);
+    next.provenance =
+      content.trim() === came.content.trim() ? came.provenance : { kind: 'paste' as const };
+  }
+  return carryKey(document, next);
+}
+
+/** Whether this was a page that the server fetched, and has been changed since: it is now the person's own text. */
+export const editedPage = (document: DocumentInput): boolean =>
+  fetchedAs.has(document) && !wasFetched(document.provenance);
+
 export interface EvidenceLimits {
   maxDocuments: number;
   maxChars: number;
@@ -102,6 +132,48 @@ export function documentProblem(
       return issue.message;
     })
     .join(' ');
+}
+
+/** A named public page found in the question, as an address; null when there is none. */
+export function firstUrl(text: string): string | null {
+  const found = /\bhttps?:\/\/[^\s<>"'`]+/iu.exec(text);
+  if (!found) return null;
+  // What closes a sentence or a bracket around the address is not part of it.
+  const address = found[0].replace(/[.,;:!?)\]}]+$/u, '');
+  try {
+    const url = new URL(address);
+    return url.hostname ? address : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The site of an address, for a short label ("example.org"); empty when it is not an address. */
+export function siteOf(address: string): string {
+  try {
+    return new URL(address).hostname.replace(/^www\./u, '');
+  } catch {
+    return '';
+  }
+}
+
+const normal = (address: string | undefined): string => {
+  try {
+    const url = new URL(address ?? '');
+    url.hash = '';
+    return url.href.replace(/\/$/u, '').toLowerCase();
+  } catch {
+    return '';
+  }
+};
+
+/** Whether a source is the page at this address (the one asked for, or the one it ended on after a redirect). */
+export function samePage(document: DocumentInput, address: string): boolean {
+  const wanted = normal(address);
+  return (
+    wanted !== '' &&
+    [document.provenance?.url, document.provenance?.finalUrl].some((url) => normal(url) === wanted)
+  );
 }
 
 /** "1.9k characters", "412 characters": what the size of a source is called. */

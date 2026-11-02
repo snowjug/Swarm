@@ -58,7 +58,7 @@
   }
   .sw-evm__url {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-2);
     align-items: start;
   }

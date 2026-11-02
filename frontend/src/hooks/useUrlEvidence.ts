@@ -26,6 +26,8 @@ export interface UrlEvidenceState {
   setAddress: (value: string) => void;
   /** Asks the server to fetch the page. Nothing is fetched in the browser. */
   fetchPage: () => void;
+  /** Takes an address that was found elsewhere (in the question) and fetches it, as pressing Fetch would. */
+  load: (value: string) => void;
   cancel: () => void;
   /** Forgets the page and the address. */
   discard: () => void;
@@ -51,8 +53,7 @@ export function useUrlEvidence(): UrlEvidenceState {
     setStatus((old) => (old === 'loading' ? old : 'idle'));
   }, []);
 
-  const fetchPage = useCallback(() => {
-    const text = address.trim();
+  const run = useCallback((text: string) => {
     if (!text) return;
     controller.current?.abort();
     const request = new AbortController();
@@ -72,7 +73,16 @@ export function useUrlEvidence(): UrlEvidenceState {
         setStatus('error');
       },
     );
-  }, [address]);
+  }, []);
+
+  const fetchPage = useCallback(() => run(address.trim()), [address, run]);
+  const load = useCallback(
+    (value: string) => {
+      setAddressText(value);
+      run(value.trim());
+    },
+    [run],
+  );
 
   const cancel = useCallback(() => {
     controller.current?.abort();
@@ -89,5 +99,5 @@ export function useUrlEvidence(): UrlEvidenceState {
     setStatus('idle');
   }, []);
 
-  return { address, status, result, error, setAddress, fetchPage, cancel, discard };
+  return { address, status, result, error, setAddress, fetchPage, load, cancel, discard };
 }

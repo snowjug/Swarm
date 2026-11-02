@@ -8,14 +8,19 @@ import { AskScene } from './AskScene';
 import {
   base64,
   carryKey,
+  editedPage,
   fileKind,
   fileProblem,
+  firstUrl,
   keyOf,
   limitsOf,
   nextPasteName,
+  samePage,
+  siteOf,
   sizeText,
   splitRequestId,
   totalOf,
+  withText,
 } from './evidence';
 import {
   EXAMPLE_SCENARIOS,
@@ -96,6 +101,75 @@ describe('what a file may be', () => {
     expect(keyOf(first)).not.toBe(keyOf(second));
     const corrected = carryKey(first, { ...first, content: 'y'.repeat(100) });
     expect(keyOf(corrected)).toBe(keyOf(first));
+  });
+
+  it('stops calling a fetched page a retrieved page once its text is not the text that came, and says it is again when it is', () => {
+    const page = {
+      name: 'page.txt',
+      content: `${'The pilot ran for six weeks. '.repeat(5)}\n`,
+      provenance: {
+        kind: 'url' as const,
+        url: 'https://example.org/pilot',
+        sha256: 'a'.repeat(64),
+        fetchedByServer: true,
+      },
+    };
+    const edited = withText(page, `${page.content}One more sentence.`);
+    expect(edited.provenance).toEqual({ kind: 'paste' });
+    expect(editedPage(edited)).toBe(true);
+    expect(keyOf(edited)).toBe(keyOf(page));
+    // Edited again, and put back as it came (the ends do not count, as the server trims them): the page it was.
+    const again = withText(edited, `  ${page.content.trim()}  `);
+    expect(again.provenance).toEqual(page.provenance);
+    expect(editedPage(again)).toBe(false);
+    // A source that was never fetched is only given its new text.
+    const typed = {
+      name: 'n.md',
+      content: 'x'.repeat(100),
+      provenance: { kind: 'paste' as const },
+    };
+    expect(withText(typed, 'y'.repeat(100)).provenance).toEqual({ kind: 'paste' });
+    expect(editedPage(withText(typed, 'y'.repeat(100)))).toBe(false);
+    const sample = {
+      name: 's.md',
+      content: 'x'.repeat(100),
+      provenance: { kind: 'sample' as const },
+    };
+    expect(withText(sample, 'z'.repeat(100)).provenance).toEqual({ kind: 'sample' });
+  });
+});
+
+describe('a page named in the question', () => {
+  it('finds the address the question names, without the punctuation that closes the sentence', () => {
+    expect(firstUrl('What if we follow https://example.org/fees? Or not.')).toBe(
+      'https://example.org/fees',
+    );
+    expect(firstUrl('See (http://city.example.org/pilot), then decide.')).toBe(
+      'http://city.example.org/pilot',
+    );
+    expect(firstUrl('Nothing here, and ftp://example.org/file is not a page.')).toBeNull();
+    expect(firstUrl('https:// is not an address')).toBeNull();
+    expect(siteOf('https://www.example.org/a/b')).toBe('example.org');
+    expect(siteOf('not an address')).toBe('');
+  });
+
+  it('knows a source that is that page, by the address asked for or the one it ended on', () => {
+    const fetched = {
+      name: 'page.txt',
+      content: 'x'.repeat(100),
+      provenance: {
+        kind: 'url' as const,
+        url: 'https://example.org/fees',
+        finalUrl: 'https://example.org/fees/2025/',
+      },
+    };
+    expect(samePage(fetched, 'https://example.org/fees/')).toBe(true);
+    expect(samePage(fetched, 'HTTPS://EXAMPLE.ORG/fees#top')).toBe(true);
+    expect(samePage(fetched, 'https://example.org/fees/2025')).toBe(true);
+    expect(samePage(fetched, 'https://example.org/other')).toBe(false);
+    expect(samePage({ name: 'a.md', content: 'x'.repeat(100) }, 'https://example.org/fees')).toBe(
+      false,
+    );
   });
 });
 
