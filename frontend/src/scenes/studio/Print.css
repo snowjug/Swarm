@@ -1,0 +1,88 @@
+@layer scenes {
+  /* Only on paper: the working copy as a document. On the screen the studio is the editor, and this is not there. */
+  .sw-studio-print {
+    display: none;
+  }
+
+  @media print {
+    /* Everything of the editor leaves the page: the bars, the menus, the outline, the tools, the pending-change bars. */
+    .sw-studio > :not(.sw-studio-print),
+    .sw-decide-sub__nav {
+      display: none;
+    }
+    .sw-studio {
+      max-width: none;
+      padding: 0;
+    }
+    .sw-studio-print {
+      display: block;
+      color: var(--ink);
+    }
+    .sw-studio-print__head {
+      padding-bottom: var(--s-4);
+      border-bottom: 1px solid var(--hairline-strong);
+    }
+    .sw-studio-print__head > * + * {
+      margin-top: var(--s-2);
+    }
+    .sw-studio-print__eyebrow {
+      color: var(--ink-3);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .sw-studio-print__title {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.9rem;
+      font-weight: 400;
+      letter-spacing: -0.015em;
+      line-height: 1.12;
+    }
+    .sw-studio-print__status,
+    .sw-studio-print__approval {
+      font-size: var(--fs-small);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+    .sw-studio-print__fine,
+    .sw-studio-print__foot {
+      color: var(--ink-2);
+      font-size: var(--fs-small);
+      line-height: 1.5;
+    }
+    .sw-studio-print__section {
+      padding-top: var(--s-5);
+      break-inside: avoid-page;
+    }
+    .sw-studio-print__section > * + * {
+      margin-top: var(--s-2);
+    }
+    .sw-studio-print__section h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      break-after: avoid;
+    }
+    .sw-studio-print__origin {
+      color: var(--ink-3);
+      font-size: var(--fs-micro);
+      font-weight: 560;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .sw-studio-print .sw-studio-prose {
+      max-width: none;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .sw-studio-print__foot {
+      margin-top: var(--s-6);
+      padding-top: var(--s-3);
+      border-top: 1px solid var(--hairline);
+    }
+  }
+}

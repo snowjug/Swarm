@@ -29,6 +29,7 @@ import {
 import { Outline, SectionSwitcher } from './Outline';
 import { SectionPage, type ProposalMode } from './Page';
 import { RecordSheet } from './Record';
+import { PrintCopy } from './PrintCopy';
 import { Tools } from './Tools';
 import { Workflow } from './Workflow';
 import './Workbench.css';
@@ -444,6 +445,7 @@ export function Workbench({
         onOpenChange={setRecordOpen}
         onAudit={onAudit}
       />
+      <PrintCopy title={view.report?.title ?? 'Report'} document={document} />
     </>
   );
 }

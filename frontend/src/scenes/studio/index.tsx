@@ -71,7 +71,7 @@ export default function StudioScene() {
           <EmptyState
             icon={<OctagonAlert size={22} aria-hidden="true" />}
             title="The report studio could not be loaded"
-            level={2}
+            level={1}
             action={
               <Button variant="glass" busy={studio.loading} onClick={reload}>
                 Try again
