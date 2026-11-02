@@ -665,8 +665,8 @@ theme, the scene's tint and the motion setting, in development; no build include
   says more to assistive technology than it shows, the seen words come first or stay inside the name: the note
   of a loaded example is named by its title and summary and then what pressing it does, the Review button by
   "Review" and then how many criticisms are open, the Evidence button by "Evidence" and then how many sources
-  are attached, and the Map's approving button shows **Create actors** and is named "Approve & create actors",
-  because it also accepts the stakeholders that nobody looked at.
+  are attached, and the Map's approving button shows **Create actors** and is named for what it also does,
+  with the seen words inside the name (see the Map above).
 - **Meaning is never colour alone.** `--c-against`, `--c-favor`, `--c-neutral`, `--c-caution` and `--c-critical`
   are paired with a word, an icon or a shape: a done step has a check, a stance has its words, an effect on the
   map has its name, and an assumption is called one in words.

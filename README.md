@@ -66,7 +66,7 @@ keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is 
    stakeholders**.
 4. **Map** opens on "Who is in play?": choose **Find who is affected**. The stakeholders appear as a
    map. Choose one to read the quotes it rests on and **Accept** it; the pill at the foot counts what
-   is still "to review". Choose **Approve & create actors** (stakeholders you did not look at are
+   is still "to review". Choose **Create actors** (stakeholders you did not look at are
    accepted), then **Simulate**. **List** (in the toolbar) shows the same parties as text, and
    **Actors** shows the synthetic actors made from them, with every trait on a slider.
 5. **Simulate** opens on its setup, "Set the futures side by side": choose **Run the simulation**.
@@ -243,8 +243,8 @@ They describe no real company, price or customer.
 5. **Map.** Choose **Find who is affected**: it reads the text for roles, and in a Model assisted project
    on a server with a provider it asks the model instead, with **Read the text instead** beside it.
    Choose a party to read its cited quotes and assumptions in the inspector, and to **Accept**, edit
-   (the pencil), merge or remove it; **Add a stakeholder** adds one the text did not name. Then
-   **Approve & create actors** (stakeholders you did not look at are accepted) and read the actors:
+   (the pencil), duplicate, merge or remove it; **Add a stakeholder** adds one the text did not name. Then
+   **Create actors** (stakeholders you did not look at are accepted) and read the actors:
    **Actors** in the toolbar shows them, and an actor opens to its traits, each with a slider, an origin
    chip and the reason for its value. **Simulate** takes you on.
 6. **Simulate.** **Run the simulation** runs the baseline and the alternatives on the same seeds and
@@ -331,7 +331,7 @@ page alone is thin: each document needs at least 80 characters. Then **Explore**
 - **Check the stakeholders.** They are only as good as the text: the rules find the roles that a text
   names with a role word. Read the places marked "Nobody found for" (on the map, and under **List**)
   against your question and add the groups that matter yourself. **Before approving, keep or add at
-  least two stakeholders**: a simulation needs more than one party, and **Approve & create actors**
+  least two stakeholders**: a simulation needs more than one party, and **Create actors**
   stays disabled, with the hint "Keep or add two or more", until there are two. If the page names
   fewer, choose **Add a stakeholder** until the list has two. An added group is marked "Added by
   you" and quotes nothing: set "How the change lands on them" only where your evidence supports it,
