@@ -405,7 +405,7 @@
   }
   .sw-eco__controls {
     position: absolute;
-    right: calc(var(--covered, 0px) + var(--s-3));
+    right: max(calc(var(--covered, 0px) + var(--s-3)), var(--eco-controls-right, 0px));
     bottom: var(--eco-controls-bottom, var(--s-3));
     transition: right var(--dur-slow) var(--ease-spring-smooth);
     z-index: 3;

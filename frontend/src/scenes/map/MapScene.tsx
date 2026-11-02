@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { Bot, UserRound, Users, Wand2 } from 'lucide-react';
+import { Bot, Plus, UserRound, Users, Wand2 } from 'lucide-react';
 import type { Actor, TraitKey } from '../../../../shared/stakeholders';
 import { useWorkspace } from '../../app/context';
 import { useTween } from '../../design/motion';
@@ -68,12 +68,23 @@ const WORKING_WORDS: Record<StakeholderWork, string> = {
   'saving-actors': 'Saving…',
 };
 
-const INSPECTOR_SPACE = 440;
+/** The width of the panel that floats over the right of the map. */
+const PANEL_WIDTH = 424;
+/** The page's grid (tokens.css: `--gutter` and `--w-wide`): the panel keeps to the same right edge as the bar above it. */
+const gridInset = (width: number): number =>
+  Math.max(Math.min(40, Math.max(16, 6.4 + 0.026 * width)), (width - 1472) / 2);
 
 function Count({ value }: { value: number }) {
   const shown = useTween(value, { duration: 0.6 });
   return <span className="sw-numeral">{Math.round(shown)}</span>;
 }
+
+/** The engine's account, a sentence at a time, so that what it did is read as a list and not as one block. */
+const sentencesOf = (text: string): string[] =>
+  text
+    .split(/(?<=[.?!])\s+(?=[A-Z\u201c"])/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 
 /** How the list was made, in a few words, with the whole account one press away. */
 function SourceChip({
@@ -108,7 +119,13 @@ function SourceChip({
               ? 'Swarm read your text for role words and quoted the sentence for each. No model was used.'
               : 'You built this list yourself.'}
         </p>
-        {note && <p>{note}</p>}
+        {note && (
+          <ul className="sw-source__facts">
+            {sentencesOf(note).map((sentence) => (
+              <li key={sentence}>{sentence}</li>
+            ))}
+          </ul>
+        )}
         <p className="sw-caption">{SYNTHETIC_NOTE}</p>
       </PopoverContent>
     </Popover>
@@ -505,7 +522,7 @@ export function MapScene() {
         ? whyLine(stakeholder)
         : (actor?.role ?? '');
   };
-  const coveredRight = wide && party ? INSPECTOR_SPACE : 0;
+  const coveredRight = wide && party ? PANEL_WIDTH + Math.round(gridInset(head.width)) : 0;
   const ghosts = model?.ghosts ?? [];
   const mergedInto = party?.stakeholder
     ? (mergedIntoMap(set.stakeholders).get(party.stakeholder.id) ?? null)
@@ -609,6 +626,26 @@ export function MapScene() {
               )
             }
           />
+        </div>
+      )}
+
+      {view === 'map' && model && model.nodes.length === 0 && (narrow || ghosts.length === 0) && (
+        <div className="sw-map__empty">
+          <p className="sw-map__empty-title">Nobody drawn yet</p>
+          <p>
+            {may.edit
+              ? 'Add the groups and roles this change touches. Two or more are needed to make actors.'
+              : 'There is nobody to show.'}
+          </p>
+          {may.edit && (
+            <Button
+              variant="glass"
+              icon={<Plus size={16} aria-hidden="true" />}
+              onClick={() => setDialog({ mode: 'add', ghost: null })}
+            >
+              Add one yourself
+            </Button>
+          )}
         </div>
       )}
 

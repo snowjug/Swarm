@@ -908,6 +908,31 @@ test.describe('changing the list of stakeholders', () => {
     expect(problems).toEqual([]);
   });
 
+  test('when nobody is left the page says so, offers to add one, and does not say that everyone was reviewed', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, FERRY, 'proposed');
+    const [only] = live(await stakeholdersViewOf(request, id));
+    await openApp(page, { project: id, scene: 'map' });
+
+    await party(page, only!.name).click();
+    await inspector(page, only!.name)
+      .getByRole('button', { name: `Remove ${only!.name}` })
+      .click();
+    await expect(partyNodes(page)).toHaveCount(0);
+    await expect(pill(page)).toContainText('0 to review');
+    await expect(pill(page)).not.toContainText('All reviewed');
+
+    // Where the places that are free to add one are not drawn, the empty stage says what to do.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(mapRegion(page).getByText('Nobody drawn yet')).toBeVisible();
+    await mapRegion(page).getByRole('button', { name: 'Add one yourself' }).click();
+    await expect(page.getByRole('dialog', { name: 'Add a stakeholder' })).toBeVisible();
+    expect(problems).toEqual([]);
+  });
+
   test('one can be merged into another, which keeps it in the record under Removed, and the merge can be taken back', async ({
     page,
     request,

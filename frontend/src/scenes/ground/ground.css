@@ -83,6 +83,12 @@
     line-clamp: 5;
     overflow: hidden;
   }
+  /* On a tablet the page has the width: the question is read in two or three lines, not five narrow ones. */
+  @media (min-width: 40.0625rem) and (max-width: 63.99rem) {
+    .sw-ground__question {
+      max-width: 46ch;
+    }
+  }
   @media (min-width: 64rem) {
     .sw-ground__question {
       max-width: none;

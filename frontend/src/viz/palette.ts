@@ -82,7 +82,7 @@ const SHORT_LABELS: Record<string, string> = {
   bear: 'Cost & risk',
   reach: 'Influence',
   work: 'Partners',
-  use: 'Use',
+  use: 'Users',
 };
 export const clusterShortLabel = (id: string): string => SHORT_LABELS[id] ?? clusterLabel(id);
 
