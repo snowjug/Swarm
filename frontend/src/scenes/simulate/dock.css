@@ -169,6 +169,19 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* In the one line of a phone the words may take two lines before they are cut, so that a name is not lost to a dot-dot-dot. */
+  .sw-sim-dock--compact .sw-narr__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    text-overflow: clip;
+  }
+  /* The kind of an event is said again in the details, so the line keeps its room for who it was. */
+  .sw-sim-dock--compact .sw-narr[data-kind='event'] .sw-narr__tag {
+    display: none;
+  }
   .sw-narr__tag {
     flex: none;
     padding: 1px 0.55rem;
