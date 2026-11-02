@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithApp, screen, waitFor, within } from '../test/dom';
+import { handBackFocus } from './useReturnFocus';
 import {
   Button,
   ChipButton,
@@ -553,6 +554,25 @@ describe('Tooltip', () => {
     await user.tab();
     expect(focused()).toBe(screen.getByRole('button', { name: 'Close the panel' }));
     expect((await screen.findByRole('tooltip')).textContent).toContain('Close the panel');
+  });
+
+  it('stays shut on a control that is given focus back, so that the next Escape reaches what is still open', async () => {
+    const { user } = renderWithApp(
+      <Tooltip label="Delete it">
+        <button type="button">Delete</button>
+      </Tooltip>,
+    );
+    const button = screen.getByRole('button', { name: 'Delete' });
+    handBackFocus(button);
+    expect(focused()).toBe(button);
+    // Given time to appear, if it were going to.
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(screen.queryByRole('tooltip')).toBeNull();
+
+    // A person who moves away and comes back is another matter.
+    await user.tab();
+    await user.tab({ shift: true });
+    expect(await screen.findByRole('tooltip')).toBeTruthy();
   });
 });
 

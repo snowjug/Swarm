@@ -26,6 +26,25 @@ function opener(): HTMLElement | null {
   return control?.isConnected ? control : null;
 }
 
+let handingBack = false;
+
+/** Whether focus is being handed back to a control that had it before: that is not a person arriving there. */
+export const isFocusHandedBack = (): boolean => handingBack;
+
+/**
+ * Gives focus back to the control that had it. A tooltip opens on a focused control, and this one would be the
+ * top layer when Escape is pressed next, so it would take the key from the sheet that is still open; the
+ * tooltips ask `isFocusHandedBack` and stay shut.
+ */
+export function handBackFocus(element: HTMLElement): void {
+  handingBack = true;
+  try {
+    element.focus({ preventScroll: true });
+  } finally {
+    handingBack = false;
+  }
+}
+
 /**
  * Where focus goes when a sheet or a dialog closes. Radix gives it back to the trigger, and one that the page
  * controls (opened by a button that is not its trigger: the source sheet of Ask, the Details of the Map) has none,
@@ -55,7 +74,7 @@ export function useReturnFocus(): {
     event.preventDefault();
     // Something else has already taken focus (a saved change puts it on what it made): that is where it stays.
     if (document.activeElement && document.activeElement !== document.body) return;
-    element.focus({ preventScroll: true });
+    handBackFocus(element);
   }, []);
   return { remember, restore };
 }
