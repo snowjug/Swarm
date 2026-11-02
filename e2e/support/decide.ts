@@ -50,6 +50,21 @@ export async function withReport(api: APIRequestContext, id: string): Promise<st
   return id;
 }
 
+/**
+ * A brief and a finished deep dive, and no detailed report: it can be written from here, and the studio, which works
+ * on it, has nothing to open until it is. The independent review is left out unless `review` is true.
+ */
+export async function deepDived(
+  api: APIRequestContext,
+  options: DecideOptions = {},
+): Promise<string> {
+  const id = await briefed(api, { name: 'Decide: deep dive done', review: false, ...options });
+  for (const step of ['environment', 'simulation'] as const) {
+    await advance(api, id, step);
+  }
+  return id;
+}
+
 /** A brief, its review and the deep dive's report: every part of the decision scene has something to show. */
 export async function everything(
   api: APIRequestContext,
@@ -138,6 +153,38 @@ export async function unfold(target: Locator): Promise<void> {
   if ((await more.count()) === 0) return;
   await more.first().click();
   await expect(target.getByRole('button', { name: 'Show fewer' }).first()).toBeVisible();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Who may do what
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Makes the server answer as it does to a role that may read the brief and the studio but not change them: the brief
+ * says it may not be written again, and the studio that it may not be edited. The server's own answer is used for
+ * everything else, so what the page does with a refusal is what is held.
+ */
+export async function asReader(page: Page, project: string): Promise<void> {
+  await page.route(
+    (url) => url.pathname === `/api/projects/${project}/brief`,
+    async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as BriefView;
+      await route.fulfill({ response, json: { ...body, may: { ...body.may, generate: false } } });
+    },
+  );
+  await page.route(
+    (url) => url.pathname === `/api/projects/${project}/studio`,
+    async (route) => {
+      if (route.request().method() !== 'GET') return route.continue();
+      const response = await route.fetch();
+      const body = (await response.json()) as StudioView;
+      await route.fulfill({
+        response,
+        json: { ...body, capabilities: { ...body.capabilities, edit: false } },
+      });
+    },
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

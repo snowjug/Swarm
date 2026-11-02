@@ -4,13 +4,18 @@ import {
   expectNoAxeViolations,
   expectNoBrowserPaintedControls,
   expectNoHorizontalOverflow,
+  expectReadableText,
+  expectTouchTargets,
   watchPage,
 } from '../support/helpers';
 import { forget, quiet } from '../support/shell';
 import {
   briefed,
   chooseSection,
+  deepDived,
   holds,
+  openDecide,
+  openStudio,
   openTool,
   printed,
   saved,
@@ -558,6 +563,191 @@ test('leaving with words that are not saved asks first, and keeping them keeps t
   await page.getByRole('button', { name: 'Decision brief' }).click();
   await expect(page).not.toHaveURL(/view=studio/u);
   await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test.describe('with no detailed report to work on', () => {
+  // One project with a finished deep dive and no report is enough to look at the studio's explanation in every setting;
+  // the test that writes the report has a project of its own.
+  let unwritten: string | undefined;
+  async function unwrittenProject(): Promise<string> {
+    if (!unwritten) {
+      unwritten = await deepDived(api, { name: 'Studio: no report to work on' });
+      made.push(unwritten);
+    }
+    return unwritten;
+  }
+
+  test('the studio says so, writes the report from there with its progress in view, and opens on the result', async ({
+    page,
+  }) => {
+    test.setTimeout(5 * 60_000);
+    const problems = watchPage(page);
+    const project = await deepDived(api, { name: 'Studio: nothing written yet' });
+    made.push(project);
+    const main = page.getByRole('main');
+    const title = main.getByRole('heading', { level: 1 });
+
+    await test.step('the address of the studio explains itself, and offers the one thing that helps', async () => {
+      await openStudio(page, project);
+      await expect(title).toHaveText('There is no report to work on yet');
+      await expect(main).toContainText('Write it here, and the studio opens on it.');
+      await expect(workflow(page)).toHaveCount(0);
+      await expect(main.getByRole('button', { name: 'Write the detailed report' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Decision brief' })).toBeVisible();
+      await quiet(page);
+      await expectNoAxeViolations(page, 'studio: no report to work on');
+    });
+
+    // The request is held back, and the project is read as the engine reports it while it writes, so that what a person
+    // sees while the report is made can be looked at; both are let go once that has been seen.
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await page.route(`**/api/projects/${project}/steps/report`, async (route) => {
+      await held;
+      await route.continue();
+    });
+    let writing = false;
+    await page.route(
+      (url) => url.pathname === `/api/projects/${project}`,
+      async (route) => {
+        const response = await route.fetch();
+        if (!writing) {
+          await route.fulfill({ response });
+          return;
+        }
+        const body = (await response.json()) as {
+          status: string;
+          progress: number;
+          console: { steps: Record<string, string>; activeStep: string };
+        };
+        body.status = 'running';
+        body.progress = 40;
+        body.console.steps.report = 'running';
+        body.console.activeStep = 'report';
+        await route.fulfill({ response, json: body });
+      },
+    );
+
+    await test.step('writing starts from the button, which says that it has', async () => {
+      const write = main.getByRole('button', { name: 'Write the detailed report' });
+      await write.click();
+      await expect(write).toBeDisabled();
+      await expect(write).toHaveAttribute('aria-busy', 'true');
+    });
+
+    await test.step('while it goes on the studio shows how far it is, and the way to stop it', async () => {
+      writing = true;
+      release();
+      await expect(title).toHaveText('The detailed report is being written', { timeout: 30_000 });
+      await expect(main.getByRole('progressbar', { name: 'Report progress' })).toHaveAttribute(
+        'aria-valuenow',
+        '40',
+      );
+      await expect(main.getByRole('button', { name: 'Stop' })).toBeVisible();
+      await expect(main).toContainText('This page updates by itself.');
+      await expect(main.getByRole('button', { name: 'Write the detailed report' })).toHaveCount(0);
+      await quiet(page);
+      await expectNoAxeViolations(page, 'studio: the report is being written');
+    });
+
+    await test.step('once it is written the studio opens on it, says so, and has the reader’s place on the page', async () => {
+      writing = false;
+      await expect(title).toHaveText('Work on the report', { timeout: 60_000 });
+      await expect(title).toBeFocused();
+      await expect(
+        studio(page).getByRole('status').filter({ hasText: 'The detailed report is written' }),
+      ).toHaveCount(1);
+      await expect(main.getByRole('button', { name: 'Write the detailed report' })).toHaveCount(0);
+      await quiet(page);
+      await expectNoAxeViolations(page, 'studio: the report just written');
+    });
+
+    await test.step('and what it opens is the report that was written', async () => {
+      const written = (
+        (await (await api.get(`/api/projects/${project}`)).json()) as {
+          report: { sections: { title: string }[] } | null;
+        }
+      ).report;
+      expect(written, 'the report was written').not.toBeNull();
+      await main.getByRole('button', { name: 'Open in the studio' }).click();
+      await expect(workflow(page)).toContainText('Revision 1');
+      const document = await studioDocument(api, project);
+      await expect(sectionsOf(page).getByRole('button')).toHaveCount(document.sections.length);
+      for (const section of written!.sections) {
+        expect(
+          document.sections.map((each) => each.title),
+          section.title,
+        ).toContain(section.title);
+      }
+    });
+    expect(problems).toEqual([]);
+  });
+
+  test('the brief leads to where it is written, and an address of the studio still explains itself, with the way back', async ({
+    page,
+  }) => {
+    const project = await unwrittenProject();
+    await openDecide(page, project);
+    await page
+      .getByRole('main')
+      .getByRole('group', { name: 'Tools for the brief' })
+      .getByRole('button', { name: 'Write the detailed report' })
+      .click();
+    await expect(page).toHaveURL(/view=report/u);
+    // The studio is only reached from where there is a report; its address, when there is none, still explains itself.
+    await page.goto(`/?project=${project}&scene=decide&view=studio`);
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(
+      'There is no report to work on yet',
+    );
+    await page.getByRole('button', { name: 'Decision brief' }).click();
+    await expect(page).not.toHaveURL(/view=/u);
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toContainText(
+      'the share of simulated members',
+    );
+  });
+
+  for (const theme of THEMES) {
+    test(`says so in the ${theme} theme, readably, with a button that is plainly one`, async ({
+      page,
+    }) => {
+      const problems = watchPage(page);
+      const project = await unwrittenProject();
+      await openStudio(page, project, { theme });
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      const main = page.getByRole('main');
+      await expect(main.getByRole('heading', { level: 1 })).toHaveText(
+        'There is no report to work on yet',
+      );
+      await expect(main.getByRole('button', { name: 'Write the detailed report' })).toBeEnabled();
+      await quiet(page);
+      await expectNoHorizontalOverflow(page);
+      await expectReadableText(page, `${theme}: studio with no report`);
+      await expectNoAxeViolations(page, `${theme}: studio with no report`);
+      if (theme !== 'light')
+        await expectNoBrowserPaintedControls(page, `${theme}: studio with no report`);
+      expect(problems).toEqual([]);
+    });
+  }
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+    test('says so within the screen, and its buttons are big enough for a finger', async ({
+      page,
+    }) => {
+      const project = await unwrittenProject();
+      await openStudio(page, project, { theme: 'dark' });
+      const main = page.getByRole('main');
+      const write = main.getByRole('button', { name: 'Write the detailed report' });
+      await expect(write).toBeInViewport();
+      await quiet(page);
+      await expectNoHorizontalOverflow(page);
+      await expectTouchTargets(page, 'phone: studio with no report', 'main');
+      await expectNoAxeViolations(page, 'phone: studio with no report');
+    });
+  });
 });
 
 for (const theme of THEMES) {

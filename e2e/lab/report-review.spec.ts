@@ -110,6 +110,65 @@ test.describe('the review on a desktop screen', () => {
     await expect(review).toContainText('raised nothing, which does not show the analysis is right');
     await expect(review).toContainText('Only the deterministic checks run');
   });
+
+  test('says what it could not check, each note on its own, and shows every one that the server made', async ({
+    page,
+  }) => {
+    const notes = (await critiquesOf(reviewed)).critiques!.notes;
+    await openDecide(page, reviewed, 'review');
+    const list = reviewSheet(page).getByRole('list', {
+      name: 'What to know about how this review was made',
+    });
+    if (notes.length === 0) {
+      await expect(list).toHaveCount(0);
+      return;
+    }
+    await expect(list.getByRole('listitem')).toHaveCount(notes.length);
+    for (const note of notes) await expect(list, note).toContainText(note);
+    // Where it says that conflicts between the sources were not checked, there is the way to them; a note that says
+    // anything else has none.
+    await expect(list.getByRole('button', { name: 'See the conflicts' })).toHaveCount(
+      notes.filter((note) => /\bconflicts?\b/iu.test(note)).length,
+    );
+  });
+
+  test('leads to the conflicts of the sources from a note that says they were not checked', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    const told = [
+      'The conflicts between the sources were not checked.',
+      'No scenario was recorded, so the checks against it were skipped.',
+    ];
+    await page.route(
+      (url) => url.pathname === `/api/projects/${reviewed}/critiques`,
+      async (route) => {
+        const response = await route.fetch();
+        const body = (await response.json()) as CritiquesView;
+        body.critiques!.notes = told;
+        await route.fulfill({ response, json: body });
+      },
+    );
+    await openDecide(page, reviewed, 'review');
+    const sheet = reviewSheet(page);
+    const list = sheet.getByRole('list', { name: 'What to know about how this review was made' });
+    await expect(list.getByRole('listitem')).toHaveCount(2);
+    for (const note of told) await expect(list).toContainText(note);
+    // Only the note about the conflicts has the way to them.
+    const way = sheet.getByRole('button', { name: 'See the conflicts' });
+    await expect(way).toHaveCount(1);
+    await expect(list.getByRole('listitem').first()).toContainText('See the conflicts');
+    await quiet(page);
+    await expectNoAxeViolations(page, 'the review sheet with the notes on how it was made');
+
+    await way.click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page).toHaveURL(/scene=ground/u);
+    await expect(page).toHaveURL(/view=conflicts/u);
+    await expect(page).not.toHaveURL(/view=review/u);
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible();
+    expect(problems).toEqual([]);
+  });
 });
 
 test.describe('answering a criticism', () => {
