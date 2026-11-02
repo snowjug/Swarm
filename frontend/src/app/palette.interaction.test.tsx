@@ -38,7 +38,7 @@ function Harness({ commands, start = false }: { commands: Command[]; start?: boo
 
 const list = () => screen.getByRole('listbox', { name: 'Commands' });
 const field = () => screen.getByRole<HTMLInputElement>('combobox', { name: 'Search commands' });
-const options = () => within(list()).queryAllByRole('option');
+const options = () => screen.queryAllByRole('option');
 const dialog = () => screen.findByRole('dialog', { name: 'Commands' });
 const closed = () => waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
@@ -153,9 +153,31 @@ describe('CommandPalette', () => {
     expect(screen.getByText(/Nothing matches/u).textContent).toContain('xyzzy');
     expect(screen.getByRole('status').textContent).toBe('No commands match.');
     expect(options()).toHaveLength(0);
+    // With nothing to choose from, the field does not claim a list.
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(field().getAttribute('aria-expanded')).toBe('false');
+    expect(field().hasAttribute('aria-controls')).toBe(false);
     expect(field().hasAttribute('aria-activedescendant')).toBe(false);
     expect(run).not.toHaveBeenCalled();
     expect(await dialog()).toBeTruthy();
+  });
+
+  it('can be entered by Tab, because its rows scroll, and answers the same keys there', async () => {
+    const run = vi.fn();
+    const { user } = renderWithApp(
+      <Harness
+        start
+        commands={[command('go:ground', 'Ground'), command('go:map', 'Map', {}, run)]}
+      />,
+    );
+    await dialog();
+    await user.tab();
+    expect(document.activeElement).toBe(list());
+    expect(list().getAttribute('aria-activedescendant')).toBe(options()[0]!.id);
+    await user.keyboard('{ArrowDown}');
+    expect(list().getAttribute('aria-activedescendant')).toBe(options()[1]!.id);
+    await user.keyboard('{Enter}');
+    expect(run).toHaveBeenCalledOnce();
   });
 
   it('starts empty every time it opens', async () => {

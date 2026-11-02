@@ -74,7 +74,7 @@ export function CommandPalette({
     setActive((marked + by + rows.length) % rows.length);
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.nativeEvent.isComposing) return;
     switch (event.key) {
       case 'ArrowDown':
@@ -120,8 +120,8 @@ export function CommandPalette({
               role="combobox"
               className="sw-cmdk__input"
               aria-label="Search commands"
-              aria-expanded="true"
-              aria-controls={`${ids}-list`}
+              aria-expanded={rows.length > 0}
+              aria-controls={rows.length > 0 ? `${ids}-list` : undefined}
               aria-activedescendant={markedId}
               aria-autocomplete="list"
               placeholder="Go to, open or change…"
@@ -139,8 +139,19 @@ export function CommandPalette({
               Esc
             </kbd>
           </div>
-          <div className="sw-cmdk__body">
-            <div id={`${ids}-list`} role="listbox" aria-label="Commands">
+          {rows.length > 0 ? (
+            // The rows scroll, so the list can take focus (a scrollable region has to be reachable by a keyboard) and
+            // answers the arrows itself; a press on it leaves focus in the field, where the person is typing.
+            <div
+              id={`${ids}-list`}
+              role="listbox"
+              aria-label="Commands"
+              aria-activedescendant={markedId}
+              tabIndex={0}
+              className="sw-cmdk__body"
+              onKeyDown={onKeyDown}
+              onMouseDown={(event) => event.preventDefault()}
+            >
               {sections.map((section, index) => {
                 const options = section.items.map((command) => {
                   const here = rows.indexOf(command) === marked;
@@ -207,12 +218,11 @@ export function CommandPalette({
                 );
               })}
             </div>
-            {rows.length === 0 && (
-              <p className="sw-cmdk__empty">
-                Nothing matches <span className="sw-cmdk__query">{query.trim()}</span>
-              </p>
-            )}
-          </div>
+          ) : (
+            <p className="sw-cmdk__empty">
+              Nothing matches <span className="sw-cmdk__query">{query.trim()}</span>
+            </p>
+          )}
           <p className="sr-only" role="status">
             {rows.length === 0
               ? 'No commands match.'
