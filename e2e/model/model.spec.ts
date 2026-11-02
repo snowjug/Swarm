@@ -115,7 +115,9 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       await expect(
         page.getByRole('region', { name: 'Notifications' }).getByText('Event scheduled'),
       ).toBeVisible();
-      const scheduled = await getProject(api, id);
+      const scheduled = (await getProject(api, id)) as unknown as {
+        settings: { intervention: unknown };
+      };
       expect(scheduled.settings.intervention).toMatchObject({
         round: ROUNDS,
         label: 'Assumed council announcement of longer hours',
@@ -157,7 +159,12 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
     await test.step('the report is planned by the provider, written in three chapters, and its statements are checked', async () => {
       await page.getByRole('button', { name: 'Write the detailed report', exact: true }).click();
       await expect
-        .poll(async () => (await getProject(api, id)).report?.title ?? '', { timeout: 120_000 })
+        .poll(
+          async () =>
+            ((await getProject(api, id)) as unknown as { report: { title: string } | null }).report
+              ?.title ?? '',
+          { timeout: 120_000 },
+        )
         .not.toBe('');
       const stats = await fake.stats();
       expect(stats.byKind).toMatchObject({ plan: 1, summary: 1, chapter: 3 });
