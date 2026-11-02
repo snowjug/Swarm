@@ -55,7 +55,6 @@ function workspaceOf(overrides: Partial<Workspace> = {}): Workspace {
       budget: noop,
       access: noop,
       provider: noop,
-      snapshot: noop,
     },
     ...overrides,
   };
