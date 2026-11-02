@@ -30,10 +30,12 @@ results are made the same way as for a question of your own.
 
 ### Finding your way
 
-- **The top bar** floats over the page. From the left: the **Swarm** mark (it starts a new question), the
-  journey, a chip for the engine (**Local rules**, or the name of the provider), **Search and commands**,
-  **Ask about this**, **History** and **Settings and tools**. On a phone the journey moves to a dock along the
-  bottom edge, and the mark is the way back to the first screen.
+- **The top bar** floats over the page. From the left: the **Swarm** mark (it starts a new question; on a narrow
+  screen, 44rem and below, it stands alone and the word goes), the journey, a chip for the engine, **Search and
+  commands**, **Ask about this**, **History** and **Settings and tools**. The chip says as much as the bar has room
+  for: on a narrow bar only its lamp, then **Local rules** or **REAL AZURE AI** (or **REAL MODEL**), and, on a wide
+  screen, the provider's name and how the connection is, as in **REAL AZURE AI · connected**. Press it for the rest.
+  On a phone the journey moves to a dock along the bottom edge, and the mark is the way back to the first screen.
 - **Search and commands** (press Ctrl or ⌘ with K, from anywhere, also while you type; on a phone it is the first
   item of Settings and tools) goes to any scene or view of one, opens History, the audit log and the other panels,
   changes the theme, the motion and the detail level, and opens another exploration by its name. A scene that is not
@@ -41,16 +43,22 @@ results are made the same way as for a question of your own.
 - **The journey** shows each scene as done, current, ready, working, needing attention or locked, and ticks
   a scene only when the project's own record shows it. Proposed stakeholders do not tick Map, and a stopped
   comparison does not tick Simulate. A scene's tooltip says what it is for, or what opens it.
-- **A scene that cannot be opened yet** is greyed out and says what it needs: "Ground it first" (Map),
-  "Needs actors" (Simulate) and "Run a simulation first" (Compare and Decide). It does not open from a click
-  or from the keyboard: a note says why. It opens by itself once the record allows it, with no reload and
-  without choosing **Refresh**: the page looks for a comparison that has finished, was stopped or failed,
-  and for a brief that has been written, and shows them within a few seconds. A comparison that was stopped
-  or failed leaves Compare and Decide locked, unless an earlier one finished: a finished comparison is not
+- **A scene that cannot be opened yet** shows a lock and a quieter ink, not a faded name, and says what it needs:
+  "Ground it first" (Map), "Needs actors" (Simulate) and "Run a simulation first" (Compare and Decide). It does
+  not open from a click or from the keyboard: a note says why. It opens by itself once the record allows it, with
+  no reload and without choosing **Refresh**: the page looks for a comparison that has finished, was stopped or
+  failed, and for a brief that has been written, and shows them within a few seconds. A comparison that was
+  stopped or failed leaves Compare and Decide locked, unless an earlier one finished: a finished comparison is not
   forgotten because a later one was cancelled.
+- **A run the engine made on its own**, such as the recorded Larkholm demonstration, has nothing from the scenario
+  lab: no scenario, stakeholders, actors, comparison or brief. It is read through its own run, so with saved
+  rounds and a written report nothing is locked for it. It opens on Simulate, in the deep dive; Compare opens on
+  its recorded runs, side by side; and Decide says "Nothing to decide from yet" and offers **Open Simulate** and
+  **Detailed report**, the recorded report, which has **Edit in the studio**. With rounds and no report, Compare
+  is open and Decide stays locked.
 - **A project opens where the work has got to**: on Decide once a comparison has finished, on Simulate while
-  one runs or once there are actors, on Map once the evidence has been read, and otherwise on Ground. Each
-  scene's main button leads to the next.
+  one runs or once there are actors (or, for a run the engine made on its own, once it has saved rounds), on
+  Map once the evidence has been read, and otherwise on Ground. Each scene's main button leads to the next.
 - **The address holds where you are**: `?project=<id>&scene=<scene>`, and for a part of a scene `&view=<name>`
   (for example `view=deep` for the deep dive). Copy it to come back to the same place, or to give it to
   someone who has access.
@@ -243,7 +251,12 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    (assumption, evidence, model or you) and the reason for its value. **Edit what _name_ wants and fears**
    opens its role, starting belief and those lines to change in your own words, and a cohort's size and
    number of simulated members are fields. Moving a slider marks the trait "Changed by you; not saved yet",
-   and the pill offers **Save** and **Discard**; a saved actor is "Edited by you". **Reset all actors…**
+   and the pill offers **Save** and **Discard**; a saved actor is "Edited by you". Where the pill gives way to
+   the strip of a party (below 64rem), the strip and the sheet that opens from it say "N actors changed, not
+   saved yet" and carry the same two buttons. Leaving the Map with a change that is not saved, by the journey, the
+   dock, Search and commands, another exploration or a new question, asks first ("Leave with unsaved changes?":
+   **Keep editing** or **Leave anyway**), and the browser asks if you close the tab; a change you saved or
+   discarded is not asked about. **Reset all actors…**
    (under **More**) makes every actor again from the approved list after you confirm. You cannot add,
    remove, rename or regroup an actor itself, because the actors are made from the stakeholders and the
    server refuses to change which they are: an actor offers **Edit as a stakeholder**, and there you
@@ -543,7 +556,8 @@ and the raw state; in Guided detail these are one disclosure away).
    lists the proxies; open one to read its persona or to edit its name, role, persona assumptions, initial
    inclination, influence and openness (its identity, the topics it is linked to and its sources cannot be
    changed). A bar says "N changes not saved": **Save the setup** keeps them (**Discard** drops them), and
-   starting needs them saved. Editing closes once the simulation starts, because the setup is what the run
+   starting needs them saved. Leaving by the journey does not ask about them, so save or discard them first.
+   Editing closes once the simulation starts, because the setup is what the run
    started from; branch a run to try another.
 2. **Start the simulation** runs the platforms. Each has a separate population state, recorded rounds, clock
    and action stream, and they are never added together or averaged into one audience. **Run** shows where
@@ -607,7 +621,11 @@ possible, all with real, tested behavior:
 
 **Ask about this**, in the top bar, opens a sheet called "Ask" on the exploration you have open. The deep
 dive's detailed report has the same button. The analyst and the actors answer from the deep dive's written
-report, so the sheet says "Ask opens with the report" until there is one. It has three tabs.
+report, so until there is one the sheet is not a dead end: it says "Ask opens after the deep dive", or where the
+deep dive stands ("The deep dive is running", "is paused", "stopped"), and has a button to it, **Open the deep
+dive** (**Watch it run** while it runs), which closes the sheet and goes there. Where the deep dive is itself shut,
+because there are no actors yet, the sheet says that it opens once the actors are made and has no button. Once the
+report is written the sheet has three tabs.
 
 - **Analyst** takes questions about the report and its evidence. Its answers carry a grounding label; when
   the passage an answer cites is one half of a conflict between sources, the answer says so, and an answer
@@ -816,13 +834,16 @@ do not appear. The rules are in [ADR 0007](./adr/0007-workspace-and-project-memb
   the role and the one before.
 - **Changing or removing.** Choose another role in the row. Removing asks first. When the server refuses a
   change, for example the last owner or the last lead, the dialog shows its reason and nothing changes.
+- **Closing.** Both dialogs close with **Done** or with Escape, and focus goes back to the **Settings and tools**
+  button. They have no close mark of their own, as the sheets do.
 
 ## Settings, history and keeping a record
 
 ![A scene of the interface in the dark theme: pale type on a near-black page, with the floating top bar as glass](./assets/swarm-dark.png)
 
 **Settings and tools** (the three dots at the right of the top bar) is one menu for everything that is not a
-step of the journey.
+step of the journey. Every choice in Appearance, Motion and Detail has a glyph of its own, so that the three
+groups line up and you find your place by shape.
 
 - **Appearance** offers System, Light, Dark and High contrast. System, the default, follows the device: high
   contrast when the device asks for more contrast, otherwise dark when it prefers a dark colour scheme,
@@ -840,13 +861,19 @@ step of the journey.
   nothing, and no control depends on it. The choice is kept under `swarm.mode`, holding only `guided` or
   `advanced`.
 - **This exploration** (with a project open): **Refresh** reads it from the server again, **Duplicate as a new
-  question** (see [Ask](#ask-the-question-and-the-evidence)), **Export snapshot** saves the project as JSON,
-  **Audit log**, and, where they apply, **Model budget** and **Who has access**.
+  question** (see [Ask](#ask-the-question-and-the-evidence)), **Export snapshot** downloads the engine's record
+  of the exploration as one JSON file (`swarm-lab-<id>.json`: the project as the server stores it, its evidence
+  passages, its evidence ledger once there is a report, and every chat message, with the time it was made), which
+  is not the decision brief (that is exported from Decide) and holds none of the scenario lab's work (the scenario,
+  stakeholders, actors, comparison, review or brief) or the studio's drafts, **Audit log**, and, where they apply,
+  **Model budget** and **Who has access**. The detailed report's **Export** menu has the same file as **Snapshot,
+  as JSON**.
 - **The account** shows "Local · single user" or "Signed in · Microsoft Entra", **People** and **Sign out**
   where they apply, and, last, the version, the licence and a link to the source.
 - **The engine chip** opens "Model provider": the provider, the deployment, how it signs in, what the
   connection last did and **Verify connection**, which makes one real request. It never says `connected` of
-  something that has only been configured.
+  something that has only been configured. The bar shows as much of it as it has room for (see the top bar,
+  above); the popover has all of it at any width.
 
 On a phone the journey is a dock along the bottom edge, panels rise from the bottom as sheets, the map's
 inspector is a strip that opens in a sheet, and every control is at least 44 pixels (2.75rem) high so that a
@@ -857,10 +884,16 @@ finger can reach it.
 ### History and keeping a record
 
 **History** lists every exploration, newest first ("Your explorations"). Search by name or question, filter by
-**All**, **Working**, **Done**, **Stopped** or **Branches**, and press a row to open it. For a guided
-project that has a saved round, **Compare `<name>`** opens Compare's page for two recorded runs. **Delete
-`<name>`** asks first ("Delete this exploration?": **Keep it** or **Delete permanently**), and the deletion
-cannot be undone.
+**All**, **Working**, **Done**, **Stopped** or **Branches**, and press a row to open it. On a phone a row's name
+has two lines, since what it is called is how you find it again. For a guided project that has a saved round,
+**Compare `<name>`** opens Compare's page for two recorded runs. **Delete `<name>`** asks first ("Delete this
+exploration?": **Keep it** or **Delete permanently**), and the deletion cannot be undone. With nothing in it yet,
+History says "Nothing yet" and offers **Ask a question**, which closes the sheet and puts you in the question
+field.
+
+A panel (History, Ask, the audit log, the budget or who has access) that cannot be opened, because its code did
+not arrive, closes and says "That could not be opened" ("Check the connection and try again."); the page behind
+it is as it was.
 
 A record made by the earlier quick workflow is marked "Quick run". Its recorded results remain readable,
 without invented ontology, operation traces or unrecorded second-platform results. Duplicate a historical

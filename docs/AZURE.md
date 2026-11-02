@@ -116,8 +116,10 @@ Each run is four fictional proxies on two platforms over three rounds, then a br
 a report, an analyst chat, an actor chat and an export. The provider badge of the earlier interface (in its
 header) in a real browser read **REAL AZURE AI · swarm-chat · connected**, and **Verify connection**
 completed one real round trip (about 4 s); the provider panel showed "Microsoft Entra ID — no API key" and
-0 failures. The chip in the top bar that replaced the badge names the provider, the deployment and whether a
-real request has succeeded in the same way.
+0 failures. The chip in the top bar that replaced the badge says what the bar has room for: below 80rem of
+screen only its lamp, from 80rem **REAL AZURE AI**, and from 100rem **REAL AZURE AI · connected**, which it
+reads only after a real request has succeeded. The deployment is in the chip's popover, with how it signs in
+and what the connection last did.
 
 Read these numbers for what they are:
 
@@ -297,7 +299,8 @@ the name can be reused.
 
 After provisioning, role assignments can take several minutes to propagate. Start
 the app, open the engine chip in the top bar and choose **Verify connection** in its popover.
-The chip shows `REAL AZURE AI` and `connected` only after a real call has succeeded.
+The chip shows `REAL AZURE AI` and `connected` only after a real call has succeeded. The bar has room for
+both words from 100rem of screen, and the popover's headline says how the connection stands at any width.
 
 ## Verifying the live integration
 

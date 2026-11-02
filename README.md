@@ -405,9 +405,9 @@ AZURE_OPENAI_AUTH=entra
 ```
 
 A provider is optional and never silent. **Model assisted** stays disabled (under **Options**, **Engine**)
-until the server has one, and the chip in the top bar names the provider and says `connected` only
-after a real request has succeeded. A failure is shown as a failure, and Swarm never substitutes
-canned output. Where a step has a rules path (reading the question, finding stakeholders), it may use
+until the server has one, and the chip in the top bar names the provider (the lamp alone on a narrow bar) and
+says `connected` only after a real request has succeeded. A failure is shown as a failure, and Swarm never
+substitutes canned output. Where a step has a rules path (reading the question, finding stakeholders), it may use
 that path after a model fails, and a note says so.
 
 What a model can do, only in a project made in **Model assisted** mode on a server that has a

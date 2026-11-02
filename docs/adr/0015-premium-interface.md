@@ -118,9 +118,11 @@ stage where the work had got to. It worked and it was tested, and it had three c
 - **Not done** (each item, and where it is checked, is in [UX.md](../UX.md#not-done)): a screen reader
   has not been used on it, nor a real touch device or Windows high contrast, and backdrop blur was judged
   at a device-pixel ratio of 1 only; the themes were written by hand and checked by computed contrast, not
-  reviewed by a designer; the browser's Back button is not asked about where a scene holds work that is not
-  saved, and the first screen's question, the Simulate setup's scenarios and the deep dive's setup are not
-  held as unsaved work at all; the Compare point on the journey stays "ready"; the actor API refuses to add,
+  reviewed by a designer; the browser's Back button is not asked about where the Map or the studio holds work
+  that is not saved, and the first screen's question, the Simulate setup's alternatives and the deep dive's setup
+  are not held as unsaved work at all; the People and Who has access dialogs close with Done and have no close
+  mark; Export snapshot is the engine's record of the project as JSON and not the decision brief, whose
+  export is in Decide; the Compare point on the journey stays "ready"; the actor API refuses to add,
   remove, rename or regroup an actor; full motion does not reach two component rules; and the
   database-location warning is not shown.
 

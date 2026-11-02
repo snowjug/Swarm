@@ -76,7 +76,9 @@ machine).
 | The decision brief                             | `brief-build.test.ts`, `brief-rules.test.ts`, `brief-text.test.ts`, `brief-signal.test.ts` (including the undirected state: the first doubt, the do-not-decide recommendation and the direction check first), `brief-measures.test.ts` (the paired headline measure: pairing by seed and not by position), `brief-export.test.ts`, `brief-routes.test.ts`, `brief-neutrality.test.ts`, `brief-packs.test.ts` (what the brief says for the example packs on the real engine: the paired share first, the advice on the actors the runs name, a plan of checks that belongs to its pack), `brief-size-limit.test.ts` (a comparison of the largest size a person may ask for, whose per-run detail is dropped to fit: the brief reads what was kept and never reads a missing result as no members), `wording-guards.test.ts`, `frontend/src/scenes/decide/scene.test.tsx` (the first screen and the states before there is a brief, the document and the review in it) and `frontend/src/scenes/decide/model/model.test.ts` (the answer the page leads with, which chapters open by default, which chapter an address names, what the charts need) |
 | Storage and progress                           | `artifacts.test.ts` (the store, both dialects, copy and restore), `lab-progress.test.ts`, `lab-fixtures.test.ts`, `lineage.test.ts` (what each document was made from: a comparison records the scenario, stakeholders and actors it ran on, a stale cast cannot start one, the brief and the review say when they predate a change, an exported brief carries that, and a response to a review that has changed is refused)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | The workspace around the lab                   | `frontend/src/lib/console.test.ts` (what opens each stage, what it says when locked, the journey, the next step, the view each stage opens in), `frontend/src/app/scenes.test.ts` (what opens each scene, what the journey says of it, where a project opens, a run the engine made on its own), `frontend/src/app/commands.test.ts` and `palette.interaction.test.tsx` (the command palette), `frontend/src/panels/panels.test.tsx` (the overlays: history, the audit log, the budget, who has access, the provider, the sign-in problem and the error boundary), `frontend/src/scenes/ask/ask.test.tsx` (the examples, in an order that leads with no company, and what each brings), `frontend/src/lib/audit.test.ts` (every action the backend records has a plain label), and `frontend/src/hooks/useLabRefresh.test.ts` and `useAnalysis.test.ts` (the page reads what the server did, without a reload)                                                                                                                                                                                                                                   |
-| Leaving work that is not saved                 | `frontend/src/app/unsaved.test.tsx` (a way out goes at once when nothing is held; otherwise it asks first, says what would be lost and stays on Keep editing, which has focus; Leave anyway goes on; it stops asking once the scene lets go; and the browser is asked to confirm closing the tab only while work is held) and `frontend/src/scenes/studio/leaving.interaction.test.tsx` (the studio asks before the ways out that only change the view: the detailed report, from its header and from the menu of a phone, the bar of the brief and its own way back, and each goes where it was asked to go; the shell asks for its own ways out with the studio's words, once; the question follows the count of sections that hold words; nothing is asked when words were saved or put back; and the browser is warned while words are not saved and no longer once they are)                                                                                                                                                                                                                                                                |
+| Leaving work that is not saved                 | `frontend/src/app/unsaved.test.tsx` (five cases: a way out goes at once when nothing is held; otherwise it asks first, says what would be lost and stays on Keep editing, which has focus; Leave anyway goes on; it stops asking once the scene lets go; and the browser is asked to confirm closing the tab only while work is held) and `frontend/src/scenes/studio/leaving.interaction.test.tsx` (seven cases: the studio asks before the ways out that only change the view: the detailed report, from its header and from the menu of a phone, the bar of the brief and its own way back, and each goes where it was asked to go; the shell asks for its own ways out with the studio's words, once; the question follows the count of sections that hold words; nothing is asked when words were saved or put back; and the browser is warned while words are not saved and no longer once they are)                                                                                                                                                                                                                                       |
+| The panels, as a person uses them              | `frontend/src/panels/panels.interaction.test.tsx` (five cases: Ask with no written report opens the deep dive from a button, says what the deep dive is doing and offers to watch it while it runs, and, where the deep dive is shut, says what opens it and offers no button; an empty history offers to ask a question; a panel that cannot be drawn is told to its owner and draws nothing, and the page beside it is not taken with it), `frontend/src/panels/chat/chatView.test.ts` (what Ask waits for, read from the environment, the simulation and the report of the deep dive: the reading of the evidence is Ground's and leaves nothing under way, the others say running, paused or stopped) and `frontend/src/design/design.interaction.test.tsx` (the primitives; two of its cases are that a tooltip stays shut on a control that is given focus back and on the button of a menu that closes, and opens as before for a person who tabs back to it)                                                                                                                                                                             |
+| Where attention was when a sheet opened        | `frontend/src/scenes/ground/arrive.test.ts` (three cases: it is the control that has focus, whatever was pressed; the control just pressed when nothing has focus, for as long as it is on the page; and nothing when the last press landed on no control)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | The whole path                                 | `lab-pipeline.test.ts` (comparison, review and brief joined by the real engine) and `lab-journey.test.ts` (every route a person uses, from the question to the brief, for each example and for a question that no example knows, then repeated to show the same findings)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | The example packs                              | `example-packs.test.ts` (the readable copies match `shared/examples`; which source conflicts the ledger finds) and `frontend/src/lib/examples.test.ts` (sizes, labels, provenance, nothing predicted)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
@@ -170,7 +172,8 @@ is not part of CI, because of its length.
   `frontend/src/api.test.ts`) and a browser test against the fake provider (`e2e/model/budget.spec.ts`): the
   project stops at its budget with the reason, the page says so before it is asked, a limit that is not a
   number is refused in the form, lifting the limit is saved and recorded and the stage runs again, a project
-  just short of its limit is warned, and the dialog passes axe in each theme and on a phone.
+  just short of its limit is warned, the dialog passes axe in each theme and on a phone, and on a phone every
+  control of the budget line and the dialog is 44px.
 
 ## Who has access
 
@@ -185,8 +188,9 @@ is not part of CI, because of its length.
 - **A browser** (`e2e/signin/access.spec.ts`, on the sign-in test server): an owner adds a person by object ID,
   changes their role and removes them, and is refused when removing the last owner; a colleague added to one
   project sees that project and no other, reads who has access and is offered no control, and the server
-  refuses what the page withheld; an administrator is offered no way to touch an owner; and both dialogs pass
-  axe in each theme on a desktop and on a phone. Showing the People button to a member was seen to fail it.
+  refuses what the page withheld; an administrator is offered no way to touch an owner; both dialogs pass
+  axe in each theme on a desktop and on a phone; and on a phone every control of the dialogs is 44px and focus
+  comes back to where it was. Showing the People button to a member was seen to fail it.
 
 ## PostgreSQL tests
 
@@ -362,22 +366,39 @@ directory (never your own data):
 
 - **`e2e/local`**: the shell around the scenes, on the deterministic local engine (rules mode, no
   model). `shell.spec.ts` covers the top bar, the journey, the settings, the history, the notices, the
-  page that stands when a screen cannot be drawn, and what the product says about itself on each scene.
+  page that stands when a screen cannot be drawn, and what the product says about itself on each scene. It also
+  holds Ask where there is no report to read from (the sheet says where the report is written, and **Open the
+  deep dive** goes there; where the deep dive is still shut it says what opens it and offers nothing that would
+  not work) and an empty history (it offers **Ask a question**, which leaves for the question field).
   `palette.spec.ts` covers the command palette (Ctrl K from anywhere, steps that are not open yet,
   settings and other explorations, where the keyboard lands afterwards, a phone), `themes.spec.ts`
   the three colour themes and `motion.spec.ts` reduced motion, from the device and from the menu.
+  `panels.spec.ts` (twelve tests, through the real server) covers the panels that open over the page. Ask: the
+  analyst looks evidence up and says that it is a lookup, and what it said is there on the next visit; an actor
+  is a stand-in, the page says that no actor speaks and a lookup about it is not testimony; a survey asks several
+  actors at once, says that they are not people and keeps what it recorded; on a phone the sheet fits, can be
+  used with a thumb and gives focus back. The audit log: plain titles, newest first, searched and filtered; the
+  chain checked on the server and told as it came out, intact or broken at an entry, with nothing after a break
+  called verified; a check that cannot be made, and a log that cannot be read, say so and can be read again; a
+  long log shows its newest entries and the rest on request. The history: a record that cannot be opened is told,
+  with a way out, and the history is not left open over it; a long history says how much of it is shown and the
+  filters say by how much they narrow. And, on a phone, the settings menu, the audit log and the provider details
+  fit and can be used with a thumb.
   `errors.spec.ts` covers what is left when making a project goes wrong (unsupported, corrupt or
   oversized uploads, an unreachable API, a rate limit or another refusal, a double click, a link to a
   project that does not exist or is not a project link): nothing misleading is created and what the
   person wrote is kept. `responsive.spec.ts` judges thirteen screens at five sizes by no sideways
   scroll, a top bar clear of the heading, text of 12 px or more, controls of 24 px or more (44 px where
-  a finger presses) and graph labels of 11 px or more that never lie on one another. `a11y.spec.ts`
+  a finger presses) and graph labels of 11 px or more that never lie on one another; it also holds the top bar at
+  fifteen widths from 320 to 1920 px, where no control runs past the bar or lies on another. `a11y.spec.ts`
   runs **axe-core with no violation of any impact** on the same thirteen screens on a tablet, on a
   phone and on a phone in the dark, and on the decision as a report, its review, the comparison of two
   recorded runs and the report studio, and checks what axe cannot see: the skip link, one tab stop for a
   graph and the keys that move between its nodes, dialogs that keep focus off the page behind them and
-  give it back, and a journey whose steps say what they are. `provider-badge.spec.ts` checks that the
-  badge says rules mode and that the panel offers nothing to verify, and `whatif.spec.ts` is what-if in the
+  give it back, and a journey whose steps say what they are. `provider-badge.spec.ts` checks, at each of five
+  sizes, that the chip says **Local rules** and that its popover offers nothing to verify (every control is a
+  finger's size on a tablet and a phone, and Escape gives focus back to the chip), and that a report written by
+  rules says it has no model-written statements to check; and `whatif.spec.ts` is what-if in the
   deep dive of a run the engine made, on the seeded library scenario with no model. A change to a proxy made
   in a branch applies only after the checkpoint and the branch declares it; branching from the start begins a
   fresh run, a proxy can be changed once and nothing is created until something differs; an assumed event is
@@ -406,7 +427,14 @@ directory (never your own data):
   `report-grounding.spec.ts` does the same for the detailed report written by a model: the checks said in
   words and numbers, a passage one press away, an identifier that points at no stored passage shown as
   nothing to rely on, and hostile markup or very long words that neither become markup nor break the page.
-  `studio-regenerate.spec.ts` covers Report Studio (see [Report Studio](#report-studio)).
+  `studio-regenerate.spec.ts` covers Report Studio (see [Report Studio](#report-studio)). `budget.spec.ts` is
+  the model budget in the page: a project that has used its budget says so and a person who may lifts the limit and
+  carries on, one that is running low is told before it runs out and one that is not is left alone, and the
+  dialog is readable in each theme and, on a phone, every control of the line and the dialog is 44 px.
+  `verify.spec.ts` is the connection check in the page, against the fake: it is one real request, told as it went
+  (configured is not connected, a failure is a failure, and trying again recovers), and when the server cannot say
+  how the provider is, the chip says so and one press reads it again. `model.spec.ts` is the exploration made by
+  the model: a pause keeps the saved rounds, a scheduled event reaches the provider and the usage is told as it is.
 - **`e2e/journey`**: the 26-step presentation (see
   [Presenting Swarm](./demo/presentation.md)), on a server of its own that holds the
   committed real-model recording of the demonstration scenario, with no model. It
@@ -426,11 +454,17 @@ directory (never your own data):
   (`backend/test/support/signin-e2e-server.ts`; Microsoft's own page is never reached, and no real tenant is
   used). `signin.spec.ts`: the redirect with PKCE, no token anywhere the page can read, an HttpOnly session
   cookie, sign-out ending the session on the server, the anti-forgery header, a person with no role, a
-  declined sign-in, and a form on another site. `access.spec.ts`: who has access, managed from the page by
+  declined sign-in, and a form on another site; it also reads the two pages that stand in place of a session
+  ("Sign-in did not complete" and "You are signed in, but have no Swarm role") in each theme, on a laptop and on a
+  phone. `access.spec.ts`: who has access, managed from the page by
   the people who may: an owner adds, changes and removes a person by object ID and is refused when removing
   the last owner; a colleague added to one project sees that project and no other and is offered no control;
   an administrator is offered no way to touch an owner; the dialogs pass axe in each theme on a desktop and a
-  phone.
+  phone, and on a phone every control of the people dialogs is 44 px and focus comes back.
+  `e2e/support/signin.ts` is what the two share: a browser of its own for each person, signed in through the
+  test identity provider with the page's idea of their role already drawn (`signedInAs`, in a theme or on a
+  phone), changes made as that person with the header the page itself sends (`changesAs`), and the check that
+  the settings menu, where the account lives, says "Signed in · Microsoft Entra" and offers to sign out.
 - **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), through its pages, so that it needs no
   model. The servers are the real application with throwaway data, so the project neither depends on nor
   changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-two specs:
@@ -526,7 +560,9 @@ directory (never your own data):
     that is under way shows the engine's own steps, one that failed says why in the engine's words and
     trying again really does it again, and one that was stopped says so. The page says what its figures
     are and are not and never says what will happen; it fits every size, in each theme, under axe, with every
-    control large enough for a pointer and for a finger.
+    control large enough for a pointer and for a finger. The head of the page says when the sources are synthetic
+    samples, beside the status and without taking more room than the status already does, and says nothing of
+    sources that were supplied.
   - `map.spec.ts`: the Map scene on the stakeholders the server holds, never a number from a fixture.
     Before anything is found the page says what it will do, that no model is used and what its actors are.
     Finding them reads the text, one party for each stakeholder the engine found; every stakeholder that
@@ -546,13 +582,17 @@ directory (never your own data):
     can be discarded; what an actor wants, fears and is pushed by is written in place; a cohort cannot
     simulate more members than it stands for; an actor offers its stakeholder where it cannot be removed or
     copied itself. **Make them again** asks first, and when the stakeholders change after the actors were
-    made the page says the actors are out of date. The whole of it works without a pointer, with focus
-    shown by a ring of at least 2 px.
+    made the page says the actors are out of date. Leaving the Map with changes to actors that are not saved asks
+    first, says how many, keeps them on **Keep editing** and loses them only on **Leave anyway**, and the bar's new
+    question asks the same; a change that was saved or discarded is not asked about; on a phone the dock asks, and
+    the strip and the sheet carry the unsaved changes with **Discard** and **Save**. The whole of it works
+    without a pointer, with focus shown by a ring of at least 2 px.
   - `map-responsive.spec.ts`: the Map at every size, in each theme: no sideways scroll, text that
     reads, parties in view and clear of what floats over them, and targets that can be reached (by a
     finger on a phone). The detail of a party is a panel beside the map where there is room, and a
     strip under it with the rest in a sheet from the bottom where there is not; the one thing to do next
-    stays on the screen before, during and after the review.
+    stays on the screen before, during and after the review. Every key party has a name that is drawn, on a 320 px
+    and a 390 px phone, in the list of who was found and in the actors.
   - `journey.spec.ts`: the whole way, in a real browser, as a person walks it: a question and its
     evidence from an example, Ground, who is affected, the actors, the simulation and the theatre, the
     comparison and the decision. At each point it reads which steps are open, which are locked and what

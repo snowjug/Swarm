@@ -46,19 +46,28 @@ branch's own screen says that its declared changes are assumptions, not proof of
 
 The three projects were made by the engine's own stages, before the scenario lab existed. They hold the
 sources, a graph of them, six proxies, six rounds on two platforms and a report with its statement checks
-(and, on the base run, a recorded conversation). They hold no stakeholder list and no scenario
-comparison, and the scenes open from what a project holds. So:
+(and, on the base run, a recorded conversation). The lab holds nothing for them: no scenario, stakeholders,
+actors, comparison, review or brief. The scenes open from what a project holds, and a record like this is
+read through its own run. So nothing in the journey is locked, and:
 
-- They open on **Map**, which has nothing found yet ("Who is in play?"). Do not press **Find who is
-  affected** on a recording: it adds a list to it, until the next reset. Choose **Ground** in the journey.
+- They open on **Simulate**, in the **deep dive**, where the recorded run lives. Whatever view the address
+  names, Simulate shows the deep dive and never says "No actors to simulate yet". See the bookmarks below.
 - **Ground** works fully: the question, the sources, the graph, the conflict and the statements.
-- **Simulate** says "No actors to simulate yet" until the address asks for the **deep dive**
-  (`scene=simulate&view=deep`), where the recorded run lives. See the bookmarks below.
+- **Compare** opens on the **recorded runs** (`scene=compare&view=runs`): two runs side by side, round by
+  round, with a button back to **The deep dive**. On a branch's **Run** tab, **Compare with the parent**
+  leads there.
+- **Decide** says "Nothing to decide from yet", because no decision brief was written for a recording. It
+  offers **Open Simulate** and **Detailed report** (`scene=decide&view=report`): the recorded report, with
+  its contents, its statement checks and **Export**. The deep dive's **Open the detailed report** leads there
+  too, and **Edit in the studio** on that page opens the report studio.
+- **Map** is open but has nothing found yet ("Who is in play?"). Do not press **Find who is affected** on
+  a recording: it adds a list to it, until the next reset.
 - **Ask about this** works: the analyst, the fictional proxies and the surveys, with the recorded
   conversation already in place.
-- **Compare** and **Decide** stay locked ("Run a simulation first"). So the recorded detailed report, the
-  report studio and the comparison of two recorded runs cannot be opened from a recording. Show those on a
-  flagship demo from the [demo guide](./README.md).
+
+None of it has a scenario to compare, so what **Compare** and **Decide** show is the recording's own: the
+runs, and the report. For the comparison of scenarios and the decision brief, use a flagship demo from the
+[demo guide](./README.md).
 
 ## Before you present
 
@@ -72,7 +81,7 @@ Ten minutes before:
    request goes to the model; the chip should read `connected`. If it does not, read
    [if something fails](#if-something-fails) now, not in front of people.
 4. **Bookmark the recordings.** Their identifiers are fixed, so you can open any screen of them by address.
-   The recorded run is not linked from **Simulate** for a recording, so the deep dive is the one you need.
+   A recording's **Simulate** is its deep dive, so the second address below is also `scene=simulate`.
 
    | Recording                                    | Ground                                                        | Deep dive                                                                 |
    | -------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -80,7 +89,9 @@ Ten minutes before:
    | **Branch: council guarantee**                | `/?project=de300001-0000-4000-8000-000000000002&scene=ground` | `/?project=de300001-0000-4000-8000-000000000002&scene=simulate&view=deep` |
    | **Branch: no operator notice**               | `/?project=de300001-0000-4000-8000-000000000003&scene=ground` | `/?project=de300001-0000-4000-8000-000000000003&scene=simulate&view=deep` |
 
-   From a branch's deep dive, **Open the parent run** goes back to the base.
+   From a branch's deep dive, **Open the parent run** goes back to the base. The recorded report is
+   `&scene=decide&view=report` on the same project, and a branch set against its parent is
+   `&scene=compare&view=runs` on the branch.
 
 5. **Rehearse once** if there is time: `npm run demo:journey` walks the recorded presentation in a real
    browser against this server and makes real model calls. [TESTING.md](../TESTING.md) says what it
@@ -102,7 +113,7 @@ opens the screen, for the bookmarks. The browser test that walks the recording i
 | ---------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------ |
 | Home: introduction                 | Nothing: read the statement aloud                                                           | `/`                            |
 | Home: recorded demonstration       | Under **Continue**, in **Recorded demonstration**, the base run                             | `/`                            |
-| Map: nothing found yet             | Nothing: the recording opens here. Leave it                                                 | `scene=map`                    |
+| Deep dive: where it opens          | Nothing: the recording opens here. Choose **Ground** in the journey                         | `scene=simulate`               |
 | Ground: the evidence               | Nothing: the question and the four figures; then a node of the source graph                 | `scene=ground`                 |
 | Ground: sources                    | A source row, for example the council note                                                  | `scene=ground&view=sources`    |
 | Ground: passages                   | The **Passages** figure                                                                     | `scene=ground`                 |
@@ -112,6 +123,8 @@ opens the screen, for the bookmarks. The browser test that walks the recording i
 | Deep dive: rounds                  | **Rounds**: the chart, **The same numbers, as a table**, the platform control               | `scene=simulate&view=deep`     |
 | Deep dive: reasons                 | **Memory**: the proxy and round filters                                                     | `scene=simulate&view=deep`     |
 | Deep dive: branch and lineage      | **Run**: **Branch from a round** (do not create one in front of people); a branch's lineage | `scene=simulate&view=deep`     |
+| Compare: two recorded runs         | On a branch's **Run** tab, **Compare with the parent** (optional)                           | `scene=compare&view=runs`      |
+| Decide: the detailed report        | **Open the detailed report** in the deep dive; **Export** → **Markdown** (optional)         | `scene=decide&view=report`     |
 | Ask: analyst                       | **Ask about this**; an answerable question, then an unsupported one                         | any scene                      |
 | Ask: fictional actor               | The **Actors** tab: one proxy                                                               | any scene                      |
 | Export                             | **Settings and tools** → **Export snapshot**                                                | any scene                      |
@@ -127,8 +140,8 @@ or that nothing does. It explores possible scenarios. It does not predict the fu
 **Continue** and the **Recorded demonstration** under it: "All of this is synthetic: a fictional island
 and a fictional ferry decision. These were recorded with a real model."
 
-**0:30 The project (45 s).** Open the base run. It opens on **Map**, where nothing has been found,
-because the recording was made before there was a stakeholder map: choose **Ground** in the journey.
+**0:30 The project (45 s).** Open the base run. It opens in its deep dive, because the recording was made
+by the engine's own stages and is read through its run: choose **Ground** in the journey.
 Read the question, the heading. "Five sources. Two of them disagree on purpose." Under **Sources**, open
 the council note: it says 412,000 one-way crossings in 2025.
 
@@ -148,8 +161,9 @@ as a table**. On **Memory**, choose one proxy and read one stated reason.
 says "A branch of Larkholm electric ferry: operator notice", left after round 3. "Same first three rounds,
 by construction. After that, with a guarantee instead of the notice, the mean is 0.78 at round 4, not
 0.27" (read it on **Rounds**). "That is a difference between two runs of a model, not a causal estimate,
-and the screen says so: 'Declared changes are assumptions, not proof of a cause.'" Do not choose
-**Compare with the parent**: it is refused on a recording.
+and the screen says so: 'Declared changes are assumptions, not proof of a cause.'" If there is time,
+**Compare with the parent** lays the two runs side by side and says where they part ("Identical through
+round 3"); it is a comparison of two recorded runs, and its own words are "Not a forecast, and not a cause".
 
 **3:45 The analyst (45 s).** **Ask about this**. The recorded conversation is already on the **Analyst**
 tab: the subsidy ceiling is $1.8 million, citing the council note. Open a citation: the stored passage.
@@ -192,9 +206,10 @@ proxy under **Proxy assumptions**, and look at the sentence at the foot of the s
 branch will do. Then **Keep the source run unchanged**: "A branch is a separate exploration; the source
 run never changes. It waits for you to start it. We will not run one here, because with a real model that
 is several minutes." Then open **Branch: council guarantee**: on its **Run** tab its lineage names its
-parent, the round it left at and every declared change, and **Open the parent run** goes back. If you do
-create a branch, it is a project of its own: delete it under **History** afterwards. The recorded **no
-notice** branch is its sibling.
+parent, the round it left at and every declared change, and **Open the parent run** goes back. **Compare
+with the parent** lays the two runs side by side, round by round, and says where they part: they are
+identical through round 3. If you do create a branch, it is a project of its own: delete it under
+**History** afterwards. The recorded **no notice** branch is its sibling.
 
 **6:30 to 8:00 The statements and their evidence.** **Ground**, **Statements**: the bar is the whole
 ledger in one glance and doubles as its filter. Open a **Directly supported** statement: the passage that
@@ -208,15 +223,18 @@ and on what condition): about half a minute with a real model, and it cites the 
 unsupported one (for example, the ferry company's passenger revenue in 2018): immediate, the exact
 abstention sentence. Then the **Actors** tab: choose one fictional actor and ask what would reassure them.
 
-**9:15 to 10:00 Exports and the audit log.** **Settings and tools** → **Export snapshot**: the whole
-project as JSON, with its evidence records and its conversation. **Audit log**: what you just did is in
+**9:15 to 10:00 Exports and the audit log.** **Settings and tools** → **Export snapshot**: the engine's record
+of the project as JSON, with its evidence passages and its ledger and its conversation (a decision brief is
+exported from **Decide**, and a recording has none). **Audit log**: what you just did is in
 it, with no questions or answers. **Verify integrity**.
 
-**Optional, about ninety seconds more: the report studio.** It cannot be opened on a recording (its
-route is **Decide** → **Edit report**, and **Decide** is locked there), so use a project you made from a
-flagship demo, after its deep dive has written a detailed report (until it has, the brief offers **Write the
-detailed report** in place of **Edit report**). Delete that project afterwards under
-**History**. In **Decide**, choose **Edit report**, then **Open in the studio**. "The generated report is
+**Optional, about ninety seconds more: the report studio.** It opens on the base recording: in its deep
+dive choose **Open the detailed report**, then **Edit in the studio**, then **Open in the studio**. The
+journey rehearsal (`npm run demo:journey`) does not walk the studio, so try it once first. Reset afterwards
+with `npm run demo:seed`: the studio's copy is deleted with the project it belongs to. (A project you made
+from a flagship demo works the same way, with **Decide** → **Edit report** as the way in once its deep dive
+has written a detailed report; until it has, the brief offers **Write the detailed report** in place of
+**Edit report**. Delete that project afterwards under **History**.) "The generated report is
 never changed: this is a copy that a person works on." Open a chapter and its **Statements** tool: "Each
 statement shows what the server checked it against." Choose **Edit**, add a sentence, **Save as version
 2**: "Every save is a version. The statements now say they describe an earlier text, because nobody has
@@ -254,8 +272,9 @@ Do not say:
 - That the same run would repeat. The demonstration is a recording; a new run would differ.
 - That an approved report is a verified one, or that the studio's approval is signed or attested. It is a
   record in this application: who, when and a hash of the words.
-- That the recording shows the whole interface. It holds no scenario comparison, so **Compare** and
-  **Decide** are locked on it; show those on a flagship demo from the [demo guide](./README.md).
+- That the recording shows the whole interface. It holds no scenario, stakeholders, actors or decision brief,
+  so **Compare** shows only its recorded runs and **Decide** only its detailed report; show the comparison of
+  scenarios and the brief on a flagship demo from the [demo guide](./README.md).
 
 ## Likely objections and answers
 
@@ -368,7 +387,7 @@ does not forgive a pretended one.
 | The model or its sign-in is unavailable                                       | **Verify connection** fails and the chip reads `failing`; a new answerable question fails with a provider error | Everything recorded still works: **Ground** (the sources, the graph, the conflict and the statements), the deep dive, the recorded conversation in **Ask** (a cited answer, an abstention, an actor), the audit log and the export. Read those instead of asking new questions. Fix later with `az login`. An unsupported question still gets its immediate abstention. |
 | The server will not start                                                     | The page does not load                                                                                          | `GET http://127.0.0.1:3001/api/health`. If something else holds the port, stop it or set `PORT`. Start again with `npm start`. See [troubleshooting](../TROUBLESHOOTING.md).                                                                                                                                                                                            |
 | The projects are missing or altered                                           | There is no **Recorded demonstration** under **Continue**, or a recording is not as recorded                    | `npm run demo:seed`.                                                                                                                                                                                                                                                                                                                                                    |
-| **Compare with the parent**, or **Open the detailed report**, on a recording  | A short message in the corner: "Run a simulation first"                                                         | Those scenes open from a finished scenario comparison, which the recordings do not hold. Say so, and read the two runs side by side in their deep dives instead.                                                                                                                                                                                                        |
+| **Compare with the parent**, or **Open the detailed report**, on a recording  | A short message in the corner: "Run a simulation first"                                                         | The recording was changed: someone began the lab's work on it (**Find who is affected** on the Map, for example), and a project the lab has begun is gated by the lab. Say so, read the runs in their deep dives, and restore it with `npm run demo:seed` before the next showing.                                                                                      |
 | The report studio will not open, or a save is refused (a project of your own) | An error under the studio's heading; `That change was not made`                                                 | It is optional: leave it out, or read its screens from the backup set. A refused save says why (someone else changed the section, it is locked, the report is in review): reload the studio and say so. Delete the half-finished project under **History**.                                                                                                             |
 | The browser misbehaves                                                        | Blank page, stuck layout                                                                                        | Reload. Try a private window, or the other browser.                                                                                                                                                                                                                                                                                                                     |
 | The laptop sleeps or the network drops                                        | The page stops updating                                                                                         | Wake it and reload. Recorded content does not need the network; only new model questions do.                                                                                                                                                                                                                                                                            |
