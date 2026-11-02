@@ -265,9 +265,9 @@ with it; the boundary around the whole page (above) is for the page.
   "Ask opens after the deep dive" (nothing has been started), "The deep dive is running" (**Watch it run**), "The
   deep dive is paused" or "The deep dive stopped" (each with **Open the deep dive**), read from the three deep-dive
   steps (the environment, the simulation and the report). The button closes the sheet and goes to the deep dive in
-  Simulate. Where the deep dive is itself shut (it opens once there are actors) the sheet says so ("The deep dive
-  opens once the actors are made.") and offers no button to a place that does not open. The tabs come as soon as
-  the report is written.
+  Simulate. Where the deep dive is itself shut (the journey says "Simulate, locked: Needs actors") the sheet says
+  so ("The deep dive opens once the actors are made.") and offers no button to a place that does not open. The tabs
+  come as soon as the report is written.
 - **An empty History offers a way on.** "Nothing yet" ("What you explore is kept here.") has **Ask a question**,
   which closes the sheet and puts focus in the question field. On a phone (40rem and below) a row's name has two
   lines, since what it is called is how it is found again, and its question one.
