@@ -19,16 +19,6 @@ import type {
 /** The responses from the most favourable to the least, which is the order they are drawn in. */
 export const RESPONSE_ORDER: readonly ResponseCategory[] = RESPONSE_CATEGORIES;
 
-/** How far toward the adverse end of the diverging scale each response sits, from 0 (in favour) to 1 (against). */
-export const RESPONSE_POSITION: Record<ResponseCategory, number> = {
-  adopt: 0,
-  'accept-with-conditions': 0.2,
-  wait: 0.5,
-  'adapt-defensively': 0.72,
-  switch: 0.88,
-  resist: 1,
-};
-
 // ---------------------------------------------------------------------------------------------
 // Stability of findings
 // ---------------------------------------------------------------------------------------------

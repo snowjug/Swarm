@@ -292,9 +292,6 @@ export function checkDraft(
   return { ok: true, reason: null };
 }
 
-export const hasUnsaved = (drafts: Readonly<Record<string, Draft | undefined>>): boolean =>
-  Object.values(drafts).some((draft) => isDirty(draft));
-
 // ---- Text -----------------------------------------------------------------------------------------
 
 /** The paragraphs of a section: blank lines separate them; a single line break stays inside one. */
