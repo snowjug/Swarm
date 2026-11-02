@@ -243,6 +243,12 @@
       -webkit-line-clamp: 1;
       line-clamp: 1;
     }
+    /* The badge of the open exploration sits under its name, not beside it: the name has the width of the row. */
+    .sw-hist__head {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.3rem;
+    }
   }
   .sw-hist__error {
     overflow: hidden;
@@ -305,6 +311,19 @@
     .sw-hist__delete:hover:not(:disabled) {
       background: var(--c-critical-soft);
       color: var(--c-critical);
+    }
+  }
+  /*
+   * On the narrowest phones the actions leave the end of the row and sit under it. Beside the name they would take
+   * 6rem of a row that has 16rem, and a name is read in 10rem at the least (WCAG 1.4.10: 320px, without scrolling).
+   */
+  @media (max-width: 24rem) {
+    .sw-hist__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-hist__actions {
+      justify-self: end;
+      padding-left: 0;
     }
   }
 
