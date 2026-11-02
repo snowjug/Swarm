@@ -76,6 +76,7 @@ export function Inspector(props: InspectorProps) {
               <X size={16} aria-hidden="true" />
             </IconButton>
           </div>
+          {aside}
           <div className="sw-peek__row">
             {stripActions ?? actions}
             <Button

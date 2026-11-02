@@ -1449,12 +1449,12 @@ test.describe('actors that were changed and are not yet saved', () => {
     await openApp(page, { project: id, scene: 'map' });
 
     // With nothing changed the way out is open, and the browser is not asked to confirm anything.
-    expect(await closingIsAsked(page)).toBe(false);
+    await expect.poll(() => closingIsAsked(page)).toBe(false);
 
     await party(page, 'Customers').click();
     const was = await nudge(page, 'Customers', inspector(page, 'Customers'));
     await expect(pill(page)).toContainText('1 actor changed');
-    expect(await closingIsAsked(page)).toBe(true);
+    await expect.poll(() => closingIsAsked(page)).toBe(true);
 
     // The journey asks first, and says what would be lost. The safe answer is under the keyboard.
     await step(page, 'simulate').click();
@@ -1496,7 +1496,7 @@ test.describe('actors that were changed and are not yet saved', () => {
     await question(page).getByRole('button', { name: 'Leave anyway' }).click();
     await expectScene(page, 'simulate');
     await expect(question(page)).toHaveCount(0);
-    expect(await closingIsAsked(page)).toBe(false);
+    await expect.poll(() => closingIsAsked(page)).toBe(false);
     await goTo(page, 'map');
     await expect(pill(page)).toContainText('actors ready');
     await party(page, 'Customers').click();
@@ -1521,13 +1521,13 @@ test.describe('actors that were changed and are not yet saved', () => {
     // Discarded: nothing is held any more.
     await pill(page).getByRole('button', { name: 'Discard' }).click();
     await expect(pill(page)).toContainText('actors ready');
-    expect(await closingIsAsked(page)).toBe(false);
+    await expect.poll(() => closingIsAsked(page)).toBe(false);
 
     // Saved: what the page held is the server's now, so nothing is lost by going.
     await nudge(page, 'Customers', inspector(page, 'Customers'));
     await pill(page).getByRole('button', { name: 'Save' }).click();
     await expect(pill(page)).toContainText('actors ready');
-    expect(await closingIsAsked(page)).toBe(false);
+    await expect.poll(() => closingIsAsked(page)).toBe(false);
     await step(page, 'simulate').click();
     await expectScene(page, 'simulate');
     await expect(question(page)).toHaveCount(0);
@@ -1593,6 +1593,49 @@ test.describe('actors that were changed and are not yet saved', () => {
       await step(page, 'simulate').tap();
       await question(page).getByRole('button', { name: 'Leave anyway' }).tap();
       await expectScene(page, 'simulate');
+    });
+
+    test('the changes are said, and saved or discarded, in the strip and in the sheet, where the pill gives way to them', async ({
+      page,
+      request,
+    }) => {
+      const problems = watchPage(page);
+      const id = await makeProject(request, SHOP, 'actors');
+      const original = await influenceOnServer(request, id, 'Customers');
+      await openApp(page, { project: id, scene: 'map', view: 'list' });
+      await rosterRow(page, 'Customers').tap();
+      const strip = inspector(page, 'Customers');
+      await holdsStill(strip);
+      await expect(page.getByRole('group', { name: 'Next' })).toHaveCount(0);
+      await strip.getByRole('button', { name: 'Details' }).tap({ force: true });
+      const sheet = page.getByRole('dialog', { name: 'Customers' });
+      await nudge(page, 'Customers', sheet);
+
+      // Said where it was changed, in the sheet, with the way to save it or to let it go.
+      const inSheet = sheet.getByRole('group', { name: 'Unsaved changes' });
+      await expect(inSheet).toContainText('1 actor changed');
+      await expect(inSheet).toContainText('Not saved yet');
+      await page.keyboard.press('Escape');
+      await expect(sheet).toHaveCount(0);
+
+      // And in the strip, where it is discarded.
+      const held = strip.getByRole('group', { name: 'Unsaved changes' });
+      await expect(held).toContainText('1 actor changed');
+      await held.getByRole('button', { name: 'Discard' }).tap();
+      await expect(held).toHaveCount(0);
+      await expect.poll(() => closingIsAsked(page)).toBe(false);
+
+      // The same change again, and this time it is saved from the sheet.
+      await strip.getByRole('button', { name: 'Details' }).tap({ force: true });
+      await nudge(page, 'Customers', sheet);
+      await sheet
+        .getByRole('group', { name: 'Unsaved changes' })
+        .getByRole('button', { name: 'Save' })
+        .tap();
+      await expect(sheet.getByRole('group', { name: 'Unsaved changes' })).toHaveCount(0);
+      expect(await influenceOnServer(request, id, 'Customers')).toBeCloseTo(original + 0.05, 2);
+      await expect.poll(() => closingIsAsked(page)).toBe(false);
+      expect(problems).toEqual([]);
     });
   });
 });

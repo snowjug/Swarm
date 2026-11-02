@@ -41,6 +41,7 @@ import { Inspector } from './Inspector';
 import { Legend } from './Legend';
 import { PartyActions } from './PartyActions';
 import { Pill, type ApproveModel, type PillModel } from './Pill';
+import { UnsavedBar } from './UnsavedBar';
 import { Roster } from './Roster';
 import { StakeholderDialog } from './StakeholderDialog';
 import { Toolbar, type MapView } from './Toolbar';
@@ -615,7 +616,10 @@ export function MapScene() {
             focus={focusMode && party !== null}
             hiddenClusters={hidden}
             inset={{ top: topInset, bottom: narrow ? 128 : 104 }}
-            covered={{ right: coveredRight, bottom: !wide && party ? 190 : 0 }}
+            covered={{
+              right: coveredRight,
+              bottom: !wide && party ? (dirtyCount > 0 ? 244 : 190) : 0,
+            }}
             controls={wide || !party}
             describe={describeNode}
             zoomLabels={{ group: 'Zoom', in: 'Zoom in', out: 'Zoom out', fit: 'Fit everything' }}
@@ -813,7 +817,17 @@ export function MapScene() {
             stripActions={stripActions}
             aside={
               dirtyCount > 0 && subject === 'actors' ? (
-                <p className="sw-caption">Changes are held until you save them.</p>
+                wide ? (
+                  <p className="sw-caption">Changes are held until you save them.</p>
+                ) : (
+                  // The pill is not on the screen while a party is open here: the strip carries what it would say.
+                  <UnsavedBar
+                    count={dirtyCount}
+                    invalid={invalid}
+                    onSave={() => void saveActors()}
+                    onDiscard={() => setDraft(null)}
+                  />
+                )
               ) : undefined
             }
             onClose={() => {
