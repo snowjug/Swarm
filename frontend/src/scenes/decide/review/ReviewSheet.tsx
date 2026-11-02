@@ -551,7 +551,7 @@ export function ReviewSheet({
                                 onConflicts();
                               }}
                             >
-                              See the conflicts
+                              Open the conflicts in Ground
                             </Button>
                           )}
                         </li>

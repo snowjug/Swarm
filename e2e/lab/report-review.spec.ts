@@ -127,7 +127,7 @@ test.describe('the review on a desktop screen', () => {
     for (const note of notes) await expect(list, note).toContainText(note);
     // Where it says that conflicts between the sources were not checked, there is the way to them; a note that says
     // anything else has none.
-    await expect(list.getByRole('button', { name: 'See the conflicts' })).toHaveCount(
+    await expect(list.getByRole('button', { name: 'Open the conflicts in Ground' })).toHaveCount(
       notes.filter((note) => /\bconflicts?\b/iu.test(note)).length,
     );
   });
@@ -155,9 +155,9 @@ test.describe('the review on a desktop screen', () => {
     await expect(list.getByRole('listitem')).toHaveCount(2);
     for (const note of told) await expect(list).toContainText(note);
     // Only the note about the conflicts has the way to them.
-    const way = sheet.getByRole('button', { name: 'See the conflicts' });
+    const way = sheet.getByRole('button', { name: 'Open the conflicts in Ground' });
     await expect(way).toHaveCount(1);
-    await expect(list.getByRole('listitem').first()).toContainText('See the conflicts');
+    await expect(list.getByRole('listitem').first()).toContainText('Open the conflicts in Ground');
     await quiet(page);
     await expectNoAxeViolations(page, 'the review sheet with the notes on how it was made');
 

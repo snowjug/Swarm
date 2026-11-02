@@ -601,6 +601,11 @@ describe('the notes on how a review was made', () => {
   it('finds the ones that speak of the conflicts between the sources, in whatever words the server puts them', () => {
     expect(
       mentionsConflicts(
+        'Conflicts between sources were not checked: the sources had not been compared when this review ran. Open Ground to compare them, then run this review again.',
+      ),
+    ).toBe(true);
+    expect(
+      mentionsConflicts(
         'The ledger of conflicts between sources has not been built, so those conflicts were not checked.',
       ),
     ).toBe(true);
