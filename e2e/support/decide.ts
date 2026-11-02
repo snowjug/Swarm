@@ -85,6 +85,8 @@ export async function openDecide(
   options: { theme?: 'light' | 'dark' | 'high-contrast' } = {},
 ): Promise<void> {
   await openApp(page, { project, scene: 'decide', ...(view ? { view } : {}), ...options });
+  // The scene's code and its data arrive after the shell does: the page is there once it has a headline.
+  await expect(page.locator('main h1').first()).toBeVisible();
 }
 
 export { addressOf };
@@ -151,7 +153,7 @@ export interface Printed {
   pages: number;
   /** All of the text of the printed pages, with every kind of space made one. */
   text: string;
-  /** The same with no space at all, for finding words that a line break has split. */
+  /** Only its letters and digits, in lower case: what is left when line breaks, punctuation and capitals do not count. */
   flat: string;
   /** Runs of text that lie over other text: nothing is clipped, hidden or laid on top of anything on paper. */
   overlaps: string[];
@@ -180,7 +182,15 @@ export async function printed(page: Page): Promise<Printed> {
   for (let number = 1; number <= document.numPages; number += 1) {
     const content = await (await document.getPage(number)).getTextContent();
     const runs = (content.items as TextRun[])
-      .filter((item) => typeof item.str === 'string' && item.str.trim() !== '' && item.width > 0)
+      // Text that stands on its end (an axis label) is not a line of text: its box is not the one measured here.
+      .filter(
+        (item) =>
+          typeof item.str === 'string' &&
+          item.str.trim() !== '' &&
+          item.width > 0 &&
+          Math.abs(item.transform[1]!) < 0.01 &&
+          Math.abs(item.transform[2]!) < 0.01,
+      )
       .map((item) => ({
         str: item.str,
         x0: item.transform[4]!,
@@ -206,14 +216,19 @@ export async function printed(page: Page): Promise<Printed> {
   return {
     pages: totalPages,
     text: joined.replace(/\s+/gu, ' '),
-    flat: joined.replace(/\s+/gu, ''),
+    flat: lettersOf(joined),
     overlaps,
   };
 }
 
-/** Whether the printed text holds these words, wherever the lines were broken. */
+const lettersOf = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+/**
+ * Whether the printed text holds these words: wherever the lines were broken, and whatever the punctuation and
+ * the capitals (a label is set in capitals, and the colon after it is drawn as a gap).
+ */
 export const holds = (printed_: Printed, words: string): boolean =>
-  printed_.flat.includes(words.replace(/\s+/gu, ''));
+  printed_.flat.includes(lettersOf(words));
 
 // ---------------------------------------------------------------------------------------------
 // The shape of the page
