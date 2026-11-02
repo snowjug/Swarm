@@ -3,6 +3,7 @@ import { AnimatePresence } from 'motion/react';
 import { Bot, Plus, UserRound, Users, Wand2 } from 'lucide-react';
 import type { Actor, TraitKey } from '../../../../shared/stakeholders';
 import { useWorkspace } from '../../app/context';
+import { useUnsavedWork } from '../../app/unsaved-context';
 import { useTween } from '../../design/motion';
 import {
   Button,
@@ -295,6 +296,13 @@ export function MapScene() {
       ).length
     : 0;
   const invalid = working_.some((actor) => actor.sampleSize > actor.size);
+  // Leaving the Map by any way the shell controls (the journey, the dock, the palette, another exploration, a new
+  // question) asks first while there are changes that are not saved: they live only here, until they are.
+  useUnsavedWork(
+    dirtyCount > 0
+      ? `${dirtyCount} ${dirtyCount === 1 ? 'actor has' : 'actors have'} changes that have not been saved.`
+      : null,
+  );
   const onTrait = (id: string, key: TraitKey, value: number): void =>
     setDraft((old) =>
       (old ?? actorSet?.actors ?? []).map((actor) =>

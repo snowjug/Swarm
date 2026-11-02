@@ -4,7 +4,7 @@ import {
   TRAIT_KEYS,
   type StakeholderCategory,
 } from '../../shared/stakeholders';
-import { expectScene, openApp } from '../support/app';
+import { expectScene, goTo, openApp, step } from '../support/app';
 import { openDisclosure, watchPage } from '../support/helpers';
 import { claimsAgainst, squash } from '../support/lab-api';
 import {
@@ -22,6 +22,7 @@ import {
   findWho,
   gapNodes,
   headline,
+  holdsStill,
   inDocuments,
   inspector,
   live,
@@ -1401,6 +1402,198 @@ test.describe('the actors', () => {
     expect(after.actors!.actors).toHaveLength(count);
     expect(after.actors!.actors.some((actor) => actor.name === 'Frequent buyers')).toBe(true);
     expect(problems).toEqual([]);
+  });
+});
+
+test.describe('actors that were changed and are not yet saved', () => {
+  const LEAVE = 'Leave with unsaved changes?';
+  const question = (page: Page): Locator => page.getByRole('dialog', { name: LEAVE });
+
+  /** What the browser is asked when the tab is closed or the page reloaded: whether it is to confirm first. */
+  const closingIsAsked = (page: Page): Promise<boolean> =>
+    page.evaluate(() => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    });
+
+  /** Moves an actor's influence one step from the keyboard, in the panel (or the sheet) of the actor, and says where it was. */
+  async function nudge(page: Page, actor: string, where: Locator): Promise<number> {
+    await expect(where.getByRole('heading', { level: 2, name: actor })).toBeVisible();
+    await openDisclosure(where, 'Traits 11');
+    const slider = traitSlider(page, 'influence', actor);
+    const was = Number(await slider.getAttribute('aria-valuenow'));
+    await slider.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect
+      .poll(async () => Number(await slider.getAttribute('aria-valuenow')))
+      .toBeCloseTo(was + 0.05, 2);
+    return was;
+  }
+
+  const influenceOnServer = async (
+    request: Parameters<typeof actorsViewOf>[0],
+    id: string,
+    actor: string,
+  ): Promise<number> =>
+    (await actorsViewOf(request, id)).actors!.actors.find((item) => item.name === actor)!.traits
+      .influence.value;
+
+  test('leaving the Map with changes that are not saved asks first, says how many, keeps them on Keep editing and loses them only on Leave anyway', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, SHOP, 'actors');
+    const original = await influenceOnServer(request, id, 'Customers');
+    await openApp(page, { project: id, scene: 'map' });
+
+    // With nothing changed the way out is open, and the browser is not asked to confirm anything.
+    expect(await closingIsAsked(page)).toBe(false);
+
+    await party(page, 'Customers').click();
+    const was = await nudge(page, 'Customers', inspector(page, 'Customers'));
+    await expect(pill(page)).toContainText('1 actor changed');
+    expect(await closingIsAsked(page)).toBe(true);
+
+    // The journey asks first, and says what would be lost. The safe answer is under the keyboard.
+    await step(page, 'simulate').click();
+    await expect(question(page)).toBeVisible();
+    await expect(question(page)).toContainText(
+      '1 actor has changes that have not been saved. They are lost if you leave.',
+    );
+    await expect(question(page).getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    // Nothing has moved: the page behind the question is still the Map (the journey is not in the tree while it is asked).
+    await expect(page).toHaveURL(/[?&]scene=map(?:&|$)/u);
+
+    // Keep editing stays where it was, with the change as it was, and the keyboard back on the step that was pressed.
+    await question(page).getByRole('button', { name: 'Keep editing' }).click();
+    await expect(question(page)).toHaveCount(0);
+    await expect(step(page, 'simulate')).toBeFocused();
+    await expectScene(page, 'map');
+    await expect(pill(page)).toContainText('1 actor changed');
+    const slider = traitSlider(page, 'influence', 'Customers');
+    await expect
+      .poll(async () => Number(await slider.getAttribute('aria-valuenow')))
+      .toBeCloseTo(was + 0.05, 2);
+
+    // A second actor changed: the question counts both. Escape is the same answer as Keep editing.
+    await party(page, 'Sellers').click();
+    await nudge(page, 'Sellers', inspector(page, 'Sellers'));
+    await expect(pill(page)).toContainText('2 actors changed');
+    await step(page, 'simulate').click();
+    await expect(question(page)).toContainText(
+      '2 actors have changes that have not been saved. They are lost if you leave.',
+    );
+    await page.keyboard.press('Escape');
+    await expect(question(page)).toHaveCount(0);
+    await expect(step(page, 'simulate')).toBeFocused();
+    await expectScene(page, 'map');
+    await expect(pill(page)).toContainText('2 actors changed');
+
+    // Leave anyway goes, and what was changed is gone: on the way back the actors are as the server has them.
+    await step(page, 'simulate').click();
+    await question(page).getByRole('button', { name: 'Leave anyway' }).click();
+    await expectScene(page, 'simulate');
+    await expect(question(page)).toHaveCount(0);
+    expect(await closingIsAsked(page)).toBe(false);
+    await goTo(page, 'map');
+    await expect(pill(page)).toContainText('actors ready');
+    await party(page, 'Customers').click();
+    await openDisclosure(inspector(page, 'Customers'), 'Traits 11');
+    await expect
+      .poll(async () => Number(await slider.getAttribute('aria-valuenow')))
+      .toBeCloseTo(was, 2);
+    expect(await influenceOnServer(request, id, 'Customers')).toBeCloseTo(original, 5);
+    expect(problems).toEqual([]);
+  });
+
+  test('a change that has been saved is not asked about, and neither is one that was discarded', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, SHOP, 'actors');
+    await openApp(page, { project: id, scene: 'map' });
+    await party(page, 'Customers').click();
+    await nudge(page, 'Customers', inspector(page, 'Customers'));
+
+    // Discarded: nothing is held any more.
+    await pill(page).getByRole('button', { name: 'Discard' }).click();
+    await expect(pill(page)).toContainText('actors ready');
+    expect(await closingIsAsked(page)).toBe(false);
+
+    // Saved: what the page held is the server's now, so nothing is lost by going.
+    await nudge(page, 'Customers', inspector(page, 'Customers'));
+    await pill(page).getByRole('button', { name: 'Save' }).click();
+    await expect(pill(page)).toContainText('actors ready');
+    expect(await closingIsAsked(page)).toBe(false);
+    await step(page, 'simulate').click();
+    await expectScene(page, 'simulate');
+    await expect(question(page)).toHaveCount(0);
+    expect(await influenceOnServer(request, id, 'Customers')).toBeGreaterThan(0);
+    expect(problems).toEqual([]);
+  });
+
+  test('starting a new question from the bar asks first too, and goes on Leave anyway', async ({
+    page,
+    request,
+  }) => {
+    const id = await makeProject(request, SHOP, 'actors');
+    await openApp(page, { project: id, scene: 'map' });
+    await party(page, 'Customers').click();
+    await nudge(page, 'Customers', inspector(page, 'Customers'));
+
+    const bar = page.getByRole('button', { name: 'Swarm: start a new question' });
+    await bar.click();
+    await expect(question(page)).toContainText('1 actor has changes that have not been saved.');
+    await question(page).getByRole('button', { name: 'Keep editing' }).click();
+    await expect(bar).toBeFocused();
+    await expectScene(page, 'map');
+    await expect(pill(page)).toContainText('1 actor changed');
+
+    await bar.click();
+    await question(page).getByRole('button', { name: 'Leave anyway' }).click();
+    await expectScene(page, 'ask');
+  });
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+
+    test('the dock asks first, and the keyboard goes back to it on Keep editing', async ({
+      page,
+      request,
+    }) => {
+      const id = await makeProject(request, SHOP, 'actors');
+      await openApp(page, { project: id, scene: 'map', view: 'list' });
+      await rosterRow(page, 'Customers').tap();
+      await holdsStill(inspector(page, 'Customers'));
+      await inspector(page, 'Customers')
+        .getByRole('button', { name: 'Details' })
+        .tap({ force: true });
+      const sheet = page.getByRole('dialog', { name: 'Customers' });
+      await nudge(page, 'Customers', sheet);
+      await page.keyboard.press('Escape');
+      await expect(sheet).toHaveCount(0);
+
+      await step(page, 'simulate').tap();
+      await expect(question(page)).toContainText(
+        '1 actor has changes that have not been saved. They are lost if you leave.',
+      );
+      await expect(question(page).getByRole('button', { name: 'Keep editing' })).toBeFocused();
+      await question(page).getByRole('button', { name: 'Keep editing' }).tap();
+      await expect(question(page)).toHaveCount(0);
+      await expect(step(page, 'simulate')).toBeFocused();
+      await expectScene(page, 'map');
+
+      // The change is still held: it is there when the strip of the actor is put away and the pill is back.
+      await inspector(page, 'Customers').getByRole('button', { name: 'Close' }).tap();
+      await expect(pill(page)).toContainText('1 actor changed');
+
+      await step(page, 'simulate').tap();
+      await question(page).getByRole('button', { name: 'Leave anyway' }).tap();
+      await expectScene(page, 'simulate');
+    });
   });
 });
 
