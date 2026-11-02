@@ -246,3 +246,77 @@ export async function blankAfterMain(page: Page): Promise<number> {
 /** The distance in pixels between the top of an element and the top of the window. */
 export const topOf = (target: Locator): Promise<number> =>
   target.evaluate((element) => element.getBoundingClientRect().top);
+
+// ---------------------------------------------------------------------------------------------
+// The report studio
+// ---------------------------------------------------------------------------------------------
+
+type StudioDocument = NonNullable<StudioView['document']>;
+
+/** The studio as a whole: the page that holds the working copy. */
+export const studio = (page: Page): Locator => page.getByRole('region', { name: 'Report studio' });
+
+/** Where the report stands in its review, and the buttons that move it on. */
+export const workflow = (page: Page): Locator =>
+  studio(page).getByRole('group', { name: 'Review workflow' });
+
+/** The sections of the working copy, one button each. */
+export const sectionsOf = (page: Page): Locator =>
+  studio(page).getByRole('navigation', { name: 'Report sections' });
+
+/** The section in view, as a page. */
+export const sectionPage = (page: Page): Locator => studio(page).getByRole('article');
+
+/** The tools of the section in view: notes, history, statements, rewrite. */
+export const sectionTools = (page: Page): Locator =>
+  studio(page).getByRole('complementary', { name: 'Tools for this section' });
+
+/** The working copy as the server holds it, for what the page must agree with. */
+export async function studioDocument(
+  api: APIRequestContext,
+  project: string,
+): Promise<StudioDocument> {
+  const response = await api.get(`/api/projects/${project}/studio`);
+  expect(response.ok(), await response.text()).toBe(true);
+  const { document } = (await response.json()) as StudioView;
+  expect(document, 'the studio has been opened').not.toBeNull();
+  return document!;
+}
+
+/** Opens the studio of a project at its address, once what it shows has finished loading. */
+export async function openStudio(
+  page: Page,
+  project: string,
+  options: { theme?: 'light' | 'dark' | 'high-contrast' } = {},
+): Promise<void> {
+  await openDecide(page, project, 'studio', options);
+}
+
+/** Opens the studio and makes the working copy, so that there is a document to work on. */
+export async function startStudio(
+  page: Page,
+  project: string,
+  options: { theme?: 'light' | 'dark' | 'high-contrast' } = {},
+): Promise<void> {
+  await openStudio(page, project, options);
+  await page.getByRole('button', { name: 'Open in the studio' }).click();
+  await expect(workflow(page)).toContainText('Revision 1');
+}
+
+/** Chooses a section of the working copy by its title, from the outline. */
+export async function chooseSection(page: Page, title: string | RegExp): Promise<void> {
+  await sectionsOf(page)
+    .getByRole('button', { name: beginning(title) })
+    .click();
+  await expect(sectionPage(page).getByRole('heading', { level: 2 })).toHaveText(
+    title instanceof RegExp ? title : new RegExp(`^${title}$`, 'u'),
+  );
+}
+
+/** Opens a tool of the section in view (Notes, History, Statements, Rewrite). */
+export async function openTool(page: Page, name: string | RegExp): Promise<Locator> {
+  const tab = sectionTools(page).getByRole('tab', { name });
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  return sectionTools(page).getByRole('tabpanel');
+}

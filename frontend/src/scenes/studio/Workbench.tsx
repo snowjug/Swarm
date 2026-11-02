@@ -4,6 +4,7 @@ import { ArrowUpRight, History } from 'lucide-react';
 import type { StudioView } from '../../../../shared/studio';
 import { SPRING, useReducedMotion } from '../../design/motion';
 import { Button, Notice } from '../../design/ui';
+import { useLeaveGuard } from '../decide/leaveGuard';
 import type { StudioHandle } from '../../hooks/useStudio';
 import { dateTime } from '../../lib/format';
 import { actorLabel, diffCounts, diffWords } from '../../lib/studio';
@@ -169,6 +170,9 @@ export function Workbench({
     },
     [scrollTo],
   );
+
+  // The brief's own bar leads back too: it asks before words that are not saved are lost.
+  useLeaveGuard(unsaved > 0, () => setDialog('leave'));
 
   if (!section) return null;
   const draft = drafts[section.id];
