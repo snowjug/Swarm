@@ -250,6 +250,7 @@ function Theatre({
           replay={replay}
           onWatch={(id) => (id && setSelectedId(id), ws.setView(replay ? null : 'timeline'))}
           onCompare={() => ws.go('compare')}
+          onReview={() => ws.go('map')}
         />
       )}
       {view === 'timeline' && (

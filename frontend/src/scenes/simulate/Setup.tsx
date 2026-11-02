@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { AnimatePresence, m } from 'motion/react';
-import { ArrowRight, Minus, Plus, X } from 'lucide-react';
+import { ArrowRight, Info, Minus, Plus, X } from 'lucide-react';
 import type { Variant } from '../../../../shared/analysis';
 import {
   MAX_VARIANTS,
@@ -13,7 +13,18 @@ import {
 } from '../../../../shared/analysis-plan';
 import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../../../shared/signal';
 import { SPRING } from '../../design/motion';
-import { Button, Disclosure, IconButton, Notice, Segmented, Slider, Switch } from '../../design/ui';
+import {
+  Button,
+  Disclosure,
+  IconButton,
+  Notice,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Segmented,
+  Slider,
+  Switch,
+} from '../../design/ui';
 import {
   ESTIMATE_BASIS,
   describeEdit,
@@ -90,6 +101,7 @@ function Lane({
   row,
   index,
   rounds,
+  about,
   disabled,
   canRemove,
   onChange,
@@ -98,6 +110,8 @@ function Lane({
   row: Row;
   index: number;
   rounds: number;
+  /** What the scenario is, as it will be saved: where it came from and whether its strength is the system's or the person's. */
+  about: string;
   disabled: boolean;
   canRemove: boolean;
   onChange: (patch: Partial<Pick<Row, 'intensity' | 'round'>> & { label?: string }) => void;
@@ -138,6 +152,21 @@ function Lane({
         <span className="sw-lane__kind">
           {baseline ? 'Baseline' : index === 1 ? 'Proposed' : `Alternative ${index - 1}`}
         </span>
+        <Popover>
+          <PopoverTrigger asChild>
+            <IconButton
+              label={`About ${row.variant.label || 'this scenario'}`}
+              size="sm"
+              className="sw-lane__about"
+            >
+              <Info size={15} aria-hidden="true" />
+            </IconButton>
+          </PopoverTrigger>
+          <PopoverContent width="22rem" align="end">
+            <p className="sw-eyebrow">About this scenario</p>
+            <p className="sw-lane__aboutText">{about}</p>
+          </PopoverContent>
+        </Popover>
       </div>
       {baseline ? (
         <p className="sw-lane__note">
@@ -238,6 +267,16 @@ export function Setup({
       })),
     [rows],
   );
+  const described = useMemo(
+    () =>
+      parsed.map((variant) =>
+        describeEdit(
+          variant,
+          original.find((candidate) => candidate.id === variant.id),
+        ),
+      ),
+    [parsed, original],
+  );
   const problems = setupProblems(parsed, runs, sensitivity, readiness.perturbations, rounds);
   const plan = planRuns({
     variants: rows.length,
@@ -302,13 +341,10 @@ export function Setup({
     onStart({
       runsPerVariant: runs,
       sensitivity,
-      variants: parsed.map((variant) => ({
+      variants: parsed.map((variant, index) => ({
         ...variant,
         label: variant.label.trim(),
-        description: describeEdit(
-          variant,
-          original.find((candidate) => candidate.id === variant.id),
-        ),
+        description: described[index] ?? variant.description,
       })),
       ...(initial?.baseSeed === undefined ? {} : { baseSeed: initial.baseSeed }),
       ...(initial?.rounds === undefined ? {} : { rounds: initial.rounds }),
@@ -376,6 +412,7 @@ export function Setup({
                 row={row}
                 index={index}
                 rounds={rounds}
+                about={described[index] ?? ''}
                 disabled={starting || !may}
                 canRemove={row.variant.kind === 'alternative' && alternatives > 1}
                 onChange={(patch) => update(index, patch)}

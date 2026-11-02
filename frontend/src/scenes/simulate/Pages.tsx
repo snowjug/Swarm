@@ -114,6 +114,8 @@ export interface StoryViewProps {
   replay: Replay | null;
   onWatch: (actorId?: string) => void;
   onCompare: () => void;
+  /** To the stakeholders, where who is helped or harmed is said. */
+  onReview: () => void;
 }
 
 /**
@@ -121,7 +123,7 @@ export interface StoryViewProps {
  * or resist, who moves most, what the typical run sets off, how steady the findings are and how far to rely on them. It
  * is composed entirely from what the comparison states; where it cannot say something, it says nothing.
  */
-export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewProps) {
+export function StoryView({ analysis, replay, onWatch, onCompare, onReview }: StoryViewProps) {
   const story = useMemo(() => storyOf(analysis), [analysis]);
   const findings = useMemo(() => topFindings(analysis, 3), [analysis]);
   const lines = comparisonSummary(analysis);
@@ -183,6 +185,11 @@ export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewPro
                 : story.caution === 'no-direction'
                   ? 'No one has a direction of impact yet'
                   : 'No stakeholder has an expected direction'
+            }
+            action={
+              <Button size="sm" variant="glass" onClick={onReview}>
+                Review stakeholders
+              </Button>
             }
           >
             {story.caution === 'no-direction'

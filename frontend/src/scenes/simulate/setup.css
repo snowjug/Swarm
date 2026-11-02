@@ -92,6 +92,12 @@
     border-color: var(--accent-line);
     box-shadow: var(--focus-ring);
   }
+  .sw-lane__aboutText {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
   .sw-lane__kind {
     flex: none;
     margin-left: auto;
@@ -189,14 +195,51 @@
     color: var(--c-critical);
     font-size: var(--fs-small);
   }
+  /* The way to start stays on the screen however many scenarios there are: the form can be eight scenarios long. */
   .sw-setup__foot {
+    position: sticky;
+    bottom: var(--s-4);
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: var(--s-3);
+    padding: var(--s-4) 0 var(--s-1);
+    background: linear-gradient(to top, var(--bg-raised) 72%, transparent);
   }
   .sw-setup__how {
     border-top: 1px solid var(--hairline);
+  }
+
+  /* A finger is the size of the control: the name, the strength and the choices are each at least 44px both ways. */
+  @media (pointer: coarse) {
+    .sw-lane__input {
+      min-height: 2.75rem;
+    }
+    .sw-setup__runs .sw-seg__option {
+      min-width: 2.75rem;
+    }
+    .sw-lane__slider .sw-slider__thumb {
+      display: grid;
+      place-items: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .sw-lane__slider .sw-slider__thumb::after {
+      content: '';
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      border: 1px solid var(--glass-edge);
+      background: var(--bg-raised);
+      box-shadow:
+        inset 0 1px 0 var(--glass-edge-hi),
+        var(--shadow-2),
+        0 0 0 1px var(--hairline);
+    }
   }
   .sw-setup__how .sw-caption {
     margin: 0 0 var(--s-3);
@@ -222,6 +265,7 @@
       gap: var(--s-4);
     }
     .sw-setup__foot {
+      bottom: calc(var(--dock-h) + var(--s-5));
       flex-direction: column-reverse;
       align-items: stretch;
     }
