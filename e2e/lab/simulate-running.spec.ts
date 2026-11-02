@@ -1,6 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, rmSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type APIRequestContext } from '@playwright/test';
@@ -13,6 +12,7 @@ import {
 import { PHONE, allOf, audit, expectPressable, quiet } from '../support/shell';
 import {
   chooseRuns,
+  compared,
   finished,
   openSetup,
   progress,
@@ -21,6 +21,7 @@ import {
   seedByHand,
   seedHeavy,
   setup,
+  simulateAt,
   startButton,
   startViaApi,
   stopEverything,
@@ -30,7 +31,8 @@ import {
 } from '../support/simulate';
 
 // A simulation while it runs, and when it does not finish as it was asked to: its progress where the person is looking,
-// stopping it, a second one refused in a sentence, a request that is too large, and a server that goes away in the middle.
+// stopping it, a second one refused in a sentence, a request that is too large, one the engine refused, and a server that
+// goes away in the middle.
 
 let api: APIRequestContext;
 const ids = {} as Record<'heavy' | 'fresh', string>;
@@ -233,21 +235,71 @@ test.describe('a simulation that is running', () => {
   });
 });
 
+test.describe('a simulation that failed', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  test.setTimeout(180_000);
+
+  test('says so in a sentence the person can act on, shows no result, and offers to run it again', async ({
+    page,
+  }) => {
+    const problems = watchPage(page, { refusals: true });
+    const id = await seedByHand(
+      api,
+      'Running: a simulation that failed',
+      BUS_STAKEHOLDERS,
+      BUS_RELATIONS,
+    );
+    const done = await compared(api, id, { runsPerVariant: 10, sensitivity: false });
+    const refused = {
+      code: 'SPEC_NOT_ACCEPTED',
+      message:
+        'The simulation engine did not accept the actors or one of the scenarios. Check the actors in the Env Setup step and the scenarios here, then run it again.',
+    };
+    // The engine's refusal is the server's to give; what the page does with one is what is looked at, so the newest
+    // comparison that was really run is read back as the one that stopped with it.
+    await page.route(`**/api/projects/${id}/analysis`, async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { analyses: { status: string; error: unknown }[] };
+      body.analyses = body.analyses.map((item, index) =>
+        index === 0 ? { ...item, status: 'failed', error: refused } : item,
+      );
+      await route.fulfill({ response, json: body });
+    });
+    await page.route(`**/api/projects/${id}/analysis/${done.id}`, async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as { analysis: Record<string, unknown> };
+      await route.fulfill({
+        response,
+        json: {
+          analysis: { ...body.analysis, status: 'failed', completedAt: null, error: refused },
+        },
+      });
+    });
+    await page.goto(simulateAt(id));
+    await expect(setup(page)).toBeVisible();
+    const failed = page.getByRole('alert').filter({ hasText: 'This simulation failed' });
+    await expect(failed).toBeVisible();
+    await expect(failed).toContainText(refused.message);
+    await expect(failed).not.toContainText('SPEC_NOT_ACCEPTED');
+    await expect(theatre(page)).toHaveCount(0);
+    await expect(progress(page)).toHaveCount(0);
+    await expect(
+      failed.getByRole('button', { name: 'Run it again with the same settings' }),
+    ).toBeEnabled();
+    await expectNoAxeViolations(page, 'a simulation that failed');
+    await expectNoHorizontalOverflow(page);
+    expect(problems).toEqual([]);
+  });
+});
+
 test.describe('a simulation that the server did not finish', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
   test.setTimeout(240_000);
   let server: ChildProcess | undefined;
   const dataDir = join(process.env.E2E_DATA_ROOT ?? tmpdir(), 'simulate-interrupted');
 
-  const freePort = (): Promise<number> =>
-    new Promise((resolve, reject) => {
-      const probe = createServer();
-      probe.once('error', reject);
-      probe.listen(0, '127.0.0.1', () => {
-        const { port } = probe.address() as { port: number };
-        probe.close(() => resolve(port));
-      });
-    });
+  // The server of its own stands at a fixed place beside the lab's, so that the ports a run uses are the ones it was given.
+  const ownPort = Number(process.env.E2E_LAB_PORT ?? 3116) + 10;
 
   const launch = async (port: number): Promise<void> => {
     server = spawn('node', ['dist/backend/src/index.js'], {
@@ -291,7 +343,7 @@ test.describe('a simulation that the server did not finish', () => {
   }) => {
     rmSync(dataDir, { recursive: true, force: true });
     mkdirSync(dataDir, { recursive: true });
-    const port = await freePort();
+    const port = ownPort;
     const origin = `http://127.0.0.1:${port}`;
     await launch(port);
     const own = await playwright.request.newContext({ baseURL: origin });
