@@ -212,6 +212,42 @@ describe('motion', () => {
   });
 });
 
+describe('glass that scrolls', () => {
+  // The lit edge of glass is a pseudo-element positioned inside the box. In a box that scrolls it scrolls away with the
+  // content and leaves a second rounded edge across it, so every surface that scrolls draws its edge as its own border.
+  const surfaces = stripComments(text(join(source, 'design/surfaces.css')));
+  const SCROLLING = ['.sw-menu.sw-glass', '.sw-popover.sw-glass', '.sw-dialog.sw-glass'];
+
+  it('draws the edge of a menu, a popover and a dialog as a border and an inset highlight, not the pseudo-element', () => {
+    for (const selector of SCROLLING) {
+      expect(surfaces, selector).toContain(`${selector}::before`);
+    }
+    expect(surfaces).toMatch(
+      /\.sw-dialog\.sw-glass\s*\{\s*border:\s*1px solid var\(--glass-edge\);[^}]*inset 0 1px 0 var\(--glass-edge-hi\)/u,
+    );
+  });
+
+  it('names every primitive that scrolls its own glass: a stylesheet that makes a glass surface scroll is on the list', () => {
+    // A primitive whose own rule sets overflow on its glass surface must be one of those above; otherwise its edge scrolls.
+    const scrolling = ['Menu.css', 'Popover.css', 'Sheet.css'].flatMap((file) => {
+      const css = stripComments(text(join(source, 'design/ui', file)));
+      return topLevel(css).flatMap(([prelude, body]) =>
+        prelude === '@layer components'
+          ? [...body.matchAll(/(\.sw-[a-z-]+)\s*\{([^{}]*)\}/gu)]
+              .filter((rule) => /overflow(?:-y)?:\s*(?:auto|scroll)/u.test(rule[2] ?? ''))
+              .map((rule) => `${file}: ${rule[1]}`)
+          : [],
+      );
+    });
+    // The sheets scroll their bodies (`.sw-sheet__body`), not their glass; these three scroll the glass itself.
+    expect(scrolling.filter((entry) => !/sheet__body/u.test(entry)).sort()).toEqual([
+      'Menu.css: .sw-menu',
+      'Popover.css: .sw-popover',
+      'Sheet.css: .sw-dialog',
+    ]);
+  });
+});
+
 describe('forced colors', () => {
   // Forced colors take every background, tint and shadow away. A primitive whose state is nothing but one of them
   // (a switch being on, a slider's track, the menu row the keys are on, the tab that is open, a chip or a toggle

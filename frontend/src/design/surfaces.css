@@ -60,6 +60,24 @@
   .sw-glass--lit {
     box-shadow: var(--shadow-3), var(--glow);
   }
+  /*
+   * Glass that scrolls (a long menu or popover, a tall dialog on a short screen) cannot draw its lit edge with the
+   * pseudo-element above: it is positioned inside the scrolling box, scrolls away with the content, and leaves a second
+   * rounded edge across it. Its edge is its own border and the highlight an inset shadow, neither of which moves.
+   */
+  .sw-menu.sw-glass,
+  .sw-popover.sw-glass,
+  .sw-dialog.sw-glass {
+    border: 1px solid var(--glass-edge);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge-hi),
+      var(--shadow-3);
+  }
+  .sw-menu.sw-glass::before,
+  .sw-popover.sw-glass::before,
+  .sw-dialog.sw-glass::before {
+    display: none;
+  }
 
   [data-theme='high-contrast'] .sw-glass {
     background: var(--glass);
