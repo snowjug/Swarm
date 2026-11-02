@@ -21,7 +21,7 @@ import {
   type SheetTarget,
 } from './context';
 import { buildGraphView, deriveLit, layoutPlacements, type Focus } from './graphModel';
-import { documentList, graphOf, groundStage, parseView, type GroundView } from './model';
+import { documentList, graphOf, groundStage, isWorking, parseView, type GroundView } from './model';
 import { useGroundLedger } from './useGroundLedger';
 import { usePassages } from './usePassages';
 import './ground.css';
@@ -83,6 +83,10 @@ export default function GroundScene() {
   const { project, mode, view, setView } = useWorkspace();
   const reduced = useReducedMotion();
   const stage = groundStage(project);
+  // Whether this page has seen the engine at work: only such a page says, afterwards, that the conflicts are being looked for.
+  const seenWorking = useRef(false);
+  if (isWorking(stage)) seenWorking.current = true;
+  const watchedRun = seenWorking.current;
   const documents = useMemo(() => documentList(project), [project]);
   const documentKey = documents.map((doc) => doc.id).join(',');
   const stableDocuments = useStable(documents, `${project.id}:${documentKey}`);
@@ -94,6 +98,14 @@ export default function GroundScene() {
     () => (conflictsKnown ? (ledger.ledger?.contradictions ?? []) : []),
     [conflictsKnown, ledger.ledger],
   );
+  // What follows the first screen comes in an order that the ledger decides: a conflict that is open is read before the
+  // sources it is between. So none of it is drawn until the ledger has been read (or could not be): a part that was
+  // drawn and then moved, or taken away, would move the page under the person's eyes. Once drawn it stays, for a ledger
+  // that is read again.
+  const read = !conflictsKnown || ledger.ledger !== null || ledger.error !== null;
+  const drawnFor = useRef<string | null>(null);
+  if (read) drawnFor.current = project.id;
+  const arrived = read || drawnFor.current === project.id;
 
   const graph = graphOf(project);
   const graphKey = graph
@@ -233,7 +245,6 @@ export default function GroundScene() {
   // that is cleared, must not use the link up.
   const wanted = parseView(view);
   const ready = stage === 'ready' || stage === 'record';
-  const read = !conflictsKnown || ledger.ledger !== null || ledger.error !== null;
   useEffect(() => {
     if (!wanted || !ready || !read || arrivedAt.current === wanted) return undefined;
     const timer = window.setTimeout(() => {
@@ -257,6 +268,7 @@ export default function GroundScene() {
       graph: graphView,
       ledger,
       conflictsKnown,
+      watchedRun,
       openClaimId,
     }),
     [
@@ -268,6 +280,7 @@ export default function GroundScene() {
       graphView,
       ledger,
       conflictsKnown,
+      watchedRun,
       openClaimId,
     ],
   );
@@ -296,15 +309,21 @@ export default function GroundScene() {
           <div className="sw-ground">
             <Hero />
 
-            {conflictsFirst && <Conflicts flash={flash} seek={seek} />}
-            {sources}
-            {conflictsKnown && !conflictsFirst && <Conflicts flash={flash} seek={seek} />}
-            {conflictsKnown && claims.length > 0 && <Statements />}
-            {conflictsKnown &&
-              claims.length === 0 &&
-              ledger.ledger &&
-              ledger.ledger.reviewedAt !== null && <NoStatements />}
-            {mode === 'advanced' && <Trace />}
+            {arrived ? (
+              <>
+                {conflictsFirst && <Conflicts flash={flash} seek={seek} />}
+                {sources}
+                {conflictsKnown && !conflictsFirst && <Conflicts flash={flash} seek={seek} />}
+                {conflictsKnown && claims.length > 0 && <Statements />}
+                {conflictsKnown &&
+                  claims.length === 0 &&
+                  ledger.ledger &&
+                  ledger.ledger.reviewedAt !== null && <NoStatements />}
+                {mode === 'advanced' && <Trace />}
+              </>
+            ) : (
+              <div aria-busy="true" />
+            )}
           </div>
           <EvidenceSheet stack={sheets} onStack={setSheets} />
           <StickyNext />

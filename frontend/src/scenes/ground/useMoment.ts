@@ -23,11 +23,13 @@ function useAfter(on: boolean, ms: number): boolean {
  * tray): the stage the engine's step is in, the phase it is in, and whether the conflicts are still being looked for.
  */
 export function useMoment(): { moment: Moment; checking: boolean; phases: Phase[] } {
-  const { project, stage, conflictsKnown, ledger } = useGroundData();
+  const { project, stage, conflictsKnown, watchedRun, ledger } = useGroundData();
   const phases = useMemo(() => knowledgePhases(project), [project]);
-  // The engine is done and the sources are being compared for conflicts: the last thing before they are ready.
+  // Only a page that has watched the engine work says that the sources are now being compared for conflicts, the last
+  // thing before they are ready. One that was opened on a project that is done is only fetching what was found: it
+  // says ready, with the count of conflicts a dash, and does not draw a progress that it would take away again.
   const checking = useAfter(
-    conflictsKnown && ledger.ledger === null && ledger.error === null,
+    watchedRun && conflictsKnown && ledger.ledger === null && ledger.error === null,
     CHECKING_AFTER_MS,
   );
   return { moment: momentOf(stage, phases, checking), checking, phases };

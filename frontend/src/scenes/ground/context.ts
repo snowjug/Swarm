@@ -39,6 +39,8 @@ export interface GroundData {
   ledger: LedgerView;
   /** The conflicts are only read once the engine has read the sources. */
   conflictsKnown: boolean;
+  /** This page has seen the engine at work, as against one that was opened on a project that was already done. */
+  watchedRun: boolean;
   /** The statement whose sheet is open, if any: its row in the list is pressed. */
   openClaimId: string | null;
 }

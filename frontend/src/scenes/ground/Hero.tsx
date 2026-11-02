@@ -171,6 +171,8 @@ export function Hero() {
       value: open,
       note: conflictNote,
       tone: open ? 'caution' : undefined,
+      // Whether it is loud is not known until the ledger is read; the page must not move when it is.
+      reserve: conflictsKnown,
       tip: 'Sources that give different figures',
       onPress: all ? () => actions.goTo('conflicts') : null,
     },

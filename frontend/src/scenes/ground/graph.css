@@ -305,6 +305,10 @@
     list-style: none;
     pointer-events: auto;
   }
+  /* Not read yet: the row is there, so that nothing moves when it is drawn, and cannot be seen or reached. */
+  .sw-ground-legend[data-pending] {
+    visibility: hidden;
+  }
   @media (max-width: 40rem) {
     .sw-ground-graph__legend {
       flex-direction: column;
