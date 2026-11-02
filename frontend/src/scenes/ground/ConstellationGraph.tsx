@@ -52,7 +52,7 @@ export function ConstellationGraph() {
 }
 
 function Canvas({ view }: { view: GraphView }) {
-  const { documents } = useGroundData();
+  const { documents, passages } = useGroundData();
   const actions = useGroundActions();
   const { lit, selection } = useGroundLit();
   const reduced = useReducedMotion();
@@ -302,6 +302,8 @@ function Canvas({ view }: { view: GraphView }) {
   const documentsCiting = (documentId: string) =>
     view.nodes.filter((node) => node.documentIds.includes(documentId)).length;
   const hasRings = view.nodes.some((node) => node.shares.length > 0);
+  // Which document each topic rests on is known once the passages are; until then the row that says it keeps its room.
+  const citedPending = !hasRings && passages.loading;
 
   const caption =
     view.method === 'llm'
@@ -569,8 +571,8 @@ function Canvas({ view }: { view: GraphView }) {
       </div>
 
       <div className="sw-ground-graph__legend" role="group" aria-label="Filter by document">
-        {hasRings && (
-          <ul className="sw-ground-legend" role="list">
+        {(hasRings || citedPending) && (
+          <ul className="sw-ground-legend" role="list" data-pending={citedPending || undefined}>
             <li className="sw-ground-legend__label" aria-hidden="true">
               Cited in
             </li>

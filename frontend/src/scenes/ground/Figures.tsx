@@ -26,6 +26,8 @@ export interface FigureSpec {
   /** One short phrase under the label, where the figure needs one. */
   note?: string;
   tone?: 'caution';
+  /** A figure that will turn loud if what it counts is not nothing keeps the room of the loud one from the start. */
+  reserve?: boolean;
   tip: string;
   /** Where the figure leads. Null where there is nowhere to go: the figure is then only read. */
   onPress: (() => void) | null;
@@ -53,6 +55,7 @@ export function Figures({ items }: { items: readonly FigureSpec[] }) {
                   type="button"
                   className="sw-ground__figure"
                   data-tone={item.tone}
+                  data-reserve={item.reserve || undefined}
                   data-known={item.value !== null}
                   onClick={item.onPress}
                 >
@@ -64,6 +67,7 @@ export function Figures({ items }: { items: readonly FigureSpec[] }) {
                 className="sw-ground__figure"
                 data-static
                 data-tone={item.tone}
+                data-reserve={item.reserve || undefined}
                 data-known={item.value !== null}
               >
                 {body}

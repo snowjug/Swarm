@@ -120,6 +120,7 @@ function dataOf(source: ProjectDetail, options: Options = {}): GroundData {
       replace: noop,
     },
     conflictsKnown: true,
+    watchedRun: false,
     openClaimId: null,
   };
 }
@@ -571,8 +572,22 @@ describe('the whole scene', () => {
   });
 
   it('keeps the operations out of Guided and has them in Advanced', () => {
-    const source = project();
+    // A step that did not finish has no ledger to wait for, so the whole page is drawn at once.
+    const source = project('failed');
     expect(scene(source, { mode: 'guided' })).not.toContain('id="ground-trace"');
     expect(scene(source, { mode: 'advanced' })).toContain('id="ground-trace"');
+  });
+
+  it('draws nothing below the first screen while the ledger of a read project is not read', () => {
+    // What comes after the first screen is in an order that the ledger decides: none of it is drawn before.
+    const html = scene(project(), { mode: 'advanced' });
+    expect(html).toContain('<h1');
+    for (const part of ['ground-sources-title', 'ground-conflicts-title', 'id="ground-trace"']) {
+      expect(html).not.toContain(part);
+    }
+    // The conflicts figure already has the room of the loud one, so that reading the ledger moves nothing.
+    expect(html).toMatch(/data-reserve="true"/u);
+    // A project that has not been read has no such figure to keep room for.
+    expect(scene(project('pending'))).not.toMatch(/data-reserve/u);
   });
 });

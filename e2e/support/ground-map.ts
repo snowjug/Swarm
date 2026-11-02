@@ -428,6 +428,76 @@ export const groundStatus = (page: Page, word: string | RegExp): Locator =>
 export const readyStatus = (page: Page): Locator =>
   page.getByRole('status').filter({ hasText: /^(?:Ready|Reading|Waiting|Stopped|Saved)/u });
 
+// ---------------------------------------------------------------------------------------------
+// How a page arrives: what moves under the person's eyes, and what is drawn before it is known
+// ---------------------------------------------------------------------------------------------
+
+/** Starts adding up what the browser reports as layout shifts (movement nobody asked for). Call it before the page is opened. */
+export async function watchLayoutShifts(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const seen = window as unknown as { __shifted: number };
+    seen.__shifted = 0;
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries() as unknown as {
+        value: number;
+        hadRecentInput: boolean;
+      }[]) {
+        if (!entry.hadRecentInput) seen.__shifted += entry.value;
+      }
+    }).observe({ type: 'layout-shift', buffered: true });
+  });
+}
+
+/** What the page has shifted by so far (Google's "good" is under 0.1; this page is held to a fifth of it). */
+export const layoutShifted = (page: Page): Promise<number> =>
+  page.evaluate(() => (window as unknown as { __shifted: number }).__shifted);
+
+/**
+ * Where the parts of the first screen are laid out: the lead (question, figures, action), the figures, the one that
+ * counts conflicts, the graph, its tools and its legend. Left, top, width and height by layout, so that what a
+ * transform draws (an entrance) is not what is measured.
+ */
+export async function firstScreenBoxes(page: Page): Promise<Record<string, number[] | null>> {
+  return page.evaluate(() => {
+    const layout = (selector: string): number[] | null => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) return null;
+      let top = 0;
+      let left = 0;
+      for (
+        let node: HTMLElement | null = element;
+        node;
+        node = node.offsetParent as HTMLElement | null
+      ) {
+        top += node.offsetTop;
+        left += node.offsetLeft;
+      }
+      return [left, top, element.offsetWidth, element.offsetHeight];
+    };
+    return {
+      lead: layout('.sw-ground__lead'),
+      figures: layout('.sw-ground__figures'),
+      conflicts: layout('.sw-ground__figures > li:last-child'),
+      graph: layout('#ground-graph'),
+      tools: layout('.sw-ground-graph__tools'),
+      legend: layout('.sw-ground-graph__legend'),
+    };
+  });
+}
+
+/** Holds the server's answer to the ledger of a project back until the returned function is called. */
+export async function holdLedger(page: Page, id: string): Promise<() => void> {
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(new RegExp(`/api/projects/${id}/ledger$`, 'u'), async (route) => {
+    await held;
+    await route.continue().catch(() => undefined);
+  });
+  return release;
+}
+
 /** The text of a sheet's document, exactly as it is drawn: the passage markers that sit between the words are not part of it. */
 export async function documentTextOf(scope: Locator): Promise<string> {
   return scope.locator('[lang="en"]').evaluate((root) => {

@@ -124,6 +124,9 @@
 
   /* ---- The four figures ------------------------------------------------------------------------ */
   .sw-ground__figures {
+    /* A count, and the loud count of the one figure that asks for a decision. */
+    --num: clamp(2.4rem, 1.9rem + 1.8vw, 3.4rem);
+    --num-loud: clamp(3.25rem, 2.4rem + 3vw, 5.25rem);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--s-4) var(--s-5);
@@ -133,14 +136,9 @@
   }
   @media (max-width: 40rem) {
     .sw-ground__figures {
+      --num-loud: clamp(2.5rem, 2.1rem + 2vw, 3.25rem);
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: var(--s-3);
-    }
-    .sw-ground__num {
-      font-size: clamp(2rem, 1.7rem + 1.5vw, 2.6rem);
-    }
-    .sw-ground__figure[data-tone='caution'] .sw-ground__num {
-      font-size: clamp(2.5rem, 2.1rem + 2vw, 3.25rem);
     }
     .sw-ground__cap {
       font-size: var(--fs-micro);
@@ -179,15 +177,20 @@
     transition-duration: var(--dur-instant);
   }
   .sw-ground__num {
-    font-size: clamp(2.4rem, 1.9rem + 1.8vw, 3.4rem);
+    font-size: var(--num);
     line-height: 0.95;
     color: var(--ink-2);
     transition: text-shadow var(--dur-slow) var(--ease-out);
   }
   /* The one figure that asks for a decision is the loudest on the page. */
   .sw-ground__figure[data-tone='caution'] .sw-ground__num {
-    font-size: clamp(3.25rem, 2.4rem + 3vw, 5.25rem);
+    font-size: var(--num-loud);
     color: var(--c-caution);
+  }
+  /* Until it is known whether it is loud, and when it is not, a figure that may be keeps the room of the loud one below
+     its own words: what is above and beside it stays where it is when the count is read. */
+  .sw-ground__figure[data-reserve]:not([data-tone='caution']) {
+    padding-bottom: calc(0.25rem + (var(--num-loud) - var(--num)) * 0.95);
   }
   .sw-ground__dash {
     color: var(--ink-3);
@@ -201,7 +204,8 @@
     transition: color var(--dur-fast) var(--ease-out);
   }
   .sw-ground__note {
-    min-height: 1.1em;
+    /* A line, whether it says anything yet or not. */
+    min-height: 1.55em;
     color: var(--ink-3);
     font-size: var(--fs-micro);
     letter-spacing: 0.01em;

@@ -32,6 +32,53 @@ function openScene(source: ProjectDetail, mode: 'guided' | 'advanced' = 'guided'
 const passageBar = (id: string) =>
   screen.findByRole('button', { name: new RegExp(`^Passage ${id},`, 'u') });
 
+describe('the page as it arrives', () => {
+  const regionNamed = (name: RegExp) => screen.queryByRole('region', { name });
+
+  it('draws the parts below the first screen once the ledger is read, the conflicts that are open before the sources', async () => {
+    const source = serve();
+    let release: (ledger: Ledger) => void = () => undefined;
+    vi.spyOn(api, 'ledger').mockReturnValue(
+      new Promise<Ledger>((resolve) => {
+        release = resolve;
+      }),
+    );
+    openScene(source, 'advanced');
+    await screen.findByRole('heading', { level: 1 });
+    // The passages come, the ledger does not: nothing that the ledger could move is drawn yet.
+    await waitFor(() => expect(api.evidence).toHaveBeenCalled());
+    // Long enough that a page that announced a check would have done it: it is only fetching what was found.
+    await new Promise((resolve) => setTimeout(resolve, 450));
+    expect(regionNamed(/^Sources/u)).toBeNull();
+    expect(regionNamed(/^Conflicts/u)).toBeNull();
+    expect(document.getElementById('ground-trace')).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Progress' })).toBeNull();
+    expect(document.querySelector('[data-moment]')?.getAttribute('data-moment')).toBe('ready');
+
+    release(twoConflicts());
+    const conflicts = await screen.findByRole('region', { name: /^Conflicts/u });
+    const sources = await screen.findByRole('region', { name: /^Sources/u });
+    expect(document.getElementById('ground-trace')).not.toBeNull();
+    // One of them is not settled: it is read before the sources it is between.
+    expect(
+      conflicts.compareDocumentPosition(sources) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('keeps what is drawn while a ledger that could not be read is read again', async () => {
+    const source = serve();
+    vi.spyOn(api, 'ledger').mockRejectedValueOnce(new Error('The ledger could not be read.'));
+    const { user } = openScene(source);
+    await screen.findByText('The ledger could not be read.');
+    const sources = await screen.findByRole('region', { name: /^Sources/u });
+
+    vi.spyOn(api, 'ledger').mockReturnValue(new Promise<Ledger>(() => undefined));
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    // Read again, and not yet: the part that is on the page is not taken off it and put back.
+    expect(screen.getByRole('region', { name: /^Sources/u })).toBe(sources);
+  });
+});
+
 describe('a document read in the sheet', () => {
   it('lets go of a passage that was pressed without breaking the page', async () => {
     const { user } = openScene(serve());
