@@ -9,6 +9,7 @@ import {
   watchPage,
 } from '../support/helpers';
 import { PHONE, allOf, audit, expectPressable, makeProject, quiet } from '../support/shell';
+import { expectScene, goTo, step } from '../support/app';
 import { deepStrip, openBranch, openDeep, openProjectId } from '../support/simulate';
 
 // The agent-by-agent engine that was there before the lab is the deep dive of a lab project (`?view=deep`). It runs on
@@ -111,6 +112,83 @@ test.describe('the deep dive of a lab project', () => {
     await expect(row).toHaveAttribute('aria-disabled', 'true');
     await deepStrip(page).getByRole('button', { name: 'Set up the comparison' }).click();
     await expect(page).toHaveURL(/view=setup/u);
+  });
+
+  test('asks before the setup is left with edits that are not saved, and asks nothing once it is saved', async ({
+    page,
+    playwright,
+  }) => {
+    const problems = watchPage(page);
+    const api = await apiContext(playwright);
+    const { id } = await makeProject(api, 'actors', { name: 'Deep dive: unsaved setup' });
+    await advance(api, id, 'environment');
+    const savedRounds = async (): Promise<number> =>
+      ((await (await api.get(`/api/projects/${id}`)).json()) as { settings: { rounds: number } })
+        .settings.rounds;
+    const rounds = page.getByRole('spinbutton', { name: 'Rounds' });
+    const pending = page.getByRole('region', { name: 'Unsaved changes to the setup' });
+    const question = page.getByRole('dialog', { name: 'Leave with unsaved changes?' });
+    const before = await savedRounds();
+
+    await openDeep(page, id, 'Setup');
+    await expect(rounds).toHaveValue(String(before));
+
+    // With nothing changed, the journey goes where it is pressed.
+    await goTo(page, 'map');
+    await openDeep(page, id, 'Setup');
+
+    // One edit, and the way out asks first, in words that name how many changes are lost.
+    await page.getByRole('button', { name: 'One more: rounds' }).click();
+    await expect(pending).toContainText('1 change not saved');
+    await step(page, 'map').click();
+    await expect(question).toBeVisible();
+    await expect(question).toContainText(
+      '1 change to the environment has not been saved. They are lost if you leave.',
+    );
+    await expectNoAxeViolations(page, 'the deep dive: leave with unsaved changes');
+
+    // Keep editing keeps it all: the page, the edit and the bar.
+    await question.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(question).toHaveCount(0);
+    await expect(page).toHaveURL(/view=deep/u);
+    await expect(rounds).toHaveValue(String(before + 1));
+    await expect(pending).toBeVisible();
+
+    // Nothing else asks: not another tab of the deep dive, which keeps the edit.
+    await page.getByRole('tab', { name: /^Run\b/u }).click();
+    await expect(question).toHaveCount(0);
+    await page.getByRole('tab', { name: /^Setup\b/u }).click();
+    await expect(rounds).toHaveValue(String(before + 1));
+
+    // The way back to the simulation is a change of view, and it asks for itself.
+    await page.getByRole('button', { name: 'Simulation', exact: true }).click();
+    await expect(question).toBeVisible();
+    await question.getByRole('button', { name: 'Keep editing' }).click();
+    await expect(page).toHaveURL(/view=deep/u);
+
+    // Leaving anyway is the person's choice, and loses only what was not saved.
+    await step(page, 'map').click();
+    await question.getByRole('button', { name: 'Leave anyway' }).click();
+    await expectScene(page, 'map');
+    expect(await savedRounds()).toBe(before);
+
+    // Saved first, nothing is asked.
+    await openDeep(page, id, 'Setup');
+    await page.getByRole('button', { name: 'One more: rounds' }).click();
+    await page.getByRole('button', { name: 'Save the setup' }).click();
+    await expect(pending).toHaveCount(0);
+    expect(await savedRounds()).toBe(before + 1);
+    await goTo(page, 'map');
+    await expect(question).toHaveCount(0);
+
+    // Discarded, nothing is asked either.
+    await openDeep(page, id, 'Setup');
+    await page.getByRole('button', { name: 'One more: rounds' }).click();
+    await pending.getByRole('button', { name: 'Discard' }).click();
+    await expect(pending).toHaveCount(0);
+    await goTo(page, 'map');
+    await expect(question).toHaveCount(0);
+    expect(problems, 'what the page logged or failed at').toEqual([]);
   });
 });
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Platform } from '../../../../../shared/guided';
 import { useWorkspace } from '../../../app/context';
+import { useUnsavedWork } from '../../../app/unsaved-context';
 import { TabPanel, Tabs, type TabItem } from '../../../design/ui';
 import { useAnnouncer } from '../../../hooks/useFocusRequest';
 import { isGuided } from '../../../lib/console';
@@ -26,6 +27,7 @@ import {
   platformViews,
   runControls,
   savedRounds,
+  unsavedWords,
   type DeepPhase,
   type MemoryFilter,
 } from './model';
@@ -92,6 +94,9 @@ export default function DeepDive() {
   );
 
   const environment = useEnvironmentDraft(ws);
+  // While the setup holds edits that are not saved (the bar at the foot of the page says so), the shell asks before it
+  // lets the person out of the scene.
+  useUnsavedWork(unsavedWords(environment.editable ? (environment.changes?.total ?? 0) : 0));
   const controls = useMemo(() => runControls(project, whatIf), [project, whatIf]);
   const platforms = useMemo(() => platformViews(project), [project]);
   const actions = useRunActions(ws, { onStarted: () => setTab('run'), announce });

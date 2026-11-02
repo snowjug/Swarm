@@ -23,6 +23,7 @@ import {
   runControls,
   sameDraft,
   stanceText,
+  unsavedWords,
   waitingBranch,
 } from './model';
 
@@ -322,5 +323,11 @@ describe('the environment draft', () => {
     });
     expect(sameDraft(initial, draft)).toBe(false);
     expect(sameDraft(initial, { ...initial, rounds: Number.NaN })).toBe(false);
+  });
+
+  it('says what leaving would lose, in the singular or the plural, and nothing when nothing is pending', () => {
+    expect(unsavedWords(0)).toBeNull();
+    expect(unsavedWords(1)).toBe('1 change to the environment has not been saved.');
+    expect(unsavedWords(4)).toBe('4 changes to the environment have not been saved.');
   });
 });

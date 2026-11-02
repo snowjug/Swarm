@@ -732,6 +732,12 @@ export function draftChanges(initial: EnvironmentUpdate, draft: EnvironmentUpdat
 
 export const sameDraft = (a: EnvironmentUpdate, b: EnvironmentUpdate): boolean => same(a, b);
 
+/** What would be lost by leaving the setup now, as the sentence the shell's question completes; null when nothing is pending. */
+export function unsavedWords(changes: number): string | null {
+  if (changes <= 0) return null;
+  return `${plural(changes, 'change')} to the environment ${changes === 1 ? 'has' : 'have'} not been saved.`;
+}
+
 /** The rounds a platform cannot run: model runs are limited to ten. */
 export const maxRoundsFor = (project: Pick<ProjectDetail, 'mode'>): number =>
   project.mode === 'llm' ? 10 : 24;
