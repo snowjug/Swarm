@@ -89,28 +89,42 @@ and the browser's Back button all land where the person was.
 The top bar floats over the page as one piece of glass, a pill. From the left:
 
 - **The mark** (named "Swarm: start a new question"), which goes to the first screen. It is disabled while
-  an engine operation is in flight, so that a running request is never walked away from.
+  an engine operation is in flight, so that a running request is never walked away from. The word beside it
+  gives way to the mark alone at 44rem and below, just above the width at which the dock takes the journey,
+  where the journey and the tools fill the bar.
 - **The journey** (`JourneyRail`, a navigation named "Journey"), once a project is open: six points
   joined by a line that fills as the work does. Each point is its step's own glyph (the one the dock and
   the palette use), so that a finished journey is six different shapes and not six ticks when the names
   go, and says its state with a mark and in words to a screen reader: done (a filled point with a small
   tick), current (the point that carries its name), ready, working (a ring turns while the engine is doing something
-  for it), needs attention (a mark on a step that stopped) and locked (a lock; "Simulate, locked: Needs
-  actors"). Below 78rem the names go, except the one in view; a point's tooltip says what the part is for
-  or what opens it. A point that is locked is `aria-disabled` and answers a press with a toast.
-- **The model chip** (`panels/ProviderStatus.tsx`). It says **Local rules** when no model is in use, and
-  otherwise names the provider, the model and whether a real request has succeeded. It opens a popover
-  ("Model provider") with the provider, the deployment, the authentication, what the connection last did and
-  **Verify connection**, which makes one real request. A chip never claims a connection that has not been
-  made.
+  for it), needs attention (a mark on a step that stopped) and locked (a lock in place of the glyph;
+  "Simulate, locked: Needs actors"). A locked point reads by its lock and a calmer ink (the third ink, held to the
+  same contrast as the others on every surface) and never by fading, because faded text fails its contrast; the
+  points that are open are in the second ink. Below 78rem the names go, except the one in view; a point's tooltip
+  says what the part is for or what opens it. A point that is locked is `aria-disabled` and answers a press with a
+  toast.
+- **The model chip** (`panels/ProviderStatus.tsx`). Its words come as the bar has room for them. Below 80rem it is
+  its lamp alone, a shape for each state, and its words are still there for a screen reader (the kind of engine,
+  the deployment and how it is doing). From 80rem it says **Local rules**, or the kind of engine where a model is
+  in use (**REAL AZURE AI**, or **REAL MODEL**). From 100rem, where the bar has stopped growing, it adds the
+  provider's name where the kind has one and how the connection is: **REAL AZURE AI · connected**, **REAL MODEL ·
+  OpenAI · not verified yet**. The deployment is never on the bar (a label cut short with an ellipsis says
+  nothing): it is in the popover. The chip opens that popover ("Model provider") with the provider, the
+  deployment, the authentication, what the connection last did and **Verify connection**, which makes one real
+  request; closing it gives focus back to the chip without opening the chip's tooltip. A chip never claims a
+  connection that has not been made.
 - **Ask about this** (with a project open), **Search and commands** (below), **History** (with the number of
   explorations) and **Settings and tools**.
 
 On a phone (40rem and below) the journey leaves the bar for a **dock** along the bottom edge, under the
 thumb (`Dock`, also a navigation named "Journey": Ground, Map, Simulate, Compare and Decide, with the mark in
-the bar as the way back to Ask), and the bar names the scene in view. The page leaves room above the dock.
+the bar as the way back to Ask), and the bar names the scene in view. The step in view is a tint of the accent set
+inside the dock's own curve, concentric with it, and not a second floating capsule with a shadow of its own; a
+step that is locked shows its lock and the calmer ink, as in the rail. The page leaves room above the dock.
 
-**Settings and tools** is one menu for everything that is not a step of the journey:
+**Settings and tools** is one menu for everything that is not a step of the journey. Every choice in its
+Appearance, Motion and Detail groups has a glyph of its own, so that the groups line up on one column and the eye
+finds its place by shape.
 
 | Section          | What it holds                                                                                                                                                                             |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -227,16 +241,39 @@ which a touch screen has no key for. The sheet is opaque in high contrast and un
 
 Panels are overlays that the shell mounts only while they are open (`app/PanelHost.tsx`, one at a time, each
 lazy). Each is told `open` and `onOpenChange` and leaves by itself (`panels/shared/usePanelLifecycle.ts`:
-it closes first, plays its exit, then tells the shell, and gives focus back to where the person was).
+it closes first, plays its exit, then tells the shell, and gives focus back to where the person was). Each is
+also inside a `PanelBoundary` (`panels/shared/PanelBoundary.tsx`), an error boundary of its own: a panel whose
+code does not arrive, or that cannot be drawn, closes and draws nothing, and the shell says so in a toast, "That
+could not be opened" ("Check the connection and try again."). The page behind it and the exploration are not taken
+with it; the boundary around the whole page (above) is for the page.
 
 | Panel           | Opens from                                             | What it is                                                                                                                                                                                             |
 | --------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | History         | History in the top bar; Continue on the first screen   | A sheet, "Your explorations": search, filters (All, Working, Done, Stopped, Branches), each exploration as a row that opens it, **Compare** for one with a saved run, and delete behind a confirmation |
-| Ask             | "Ask about this"; a scene, with a target and a message | A sheet, "Ask", with tabs Analyst, Actors and Survey. It answers from the deep dive's written report: until there is one, it says so                                                                   |
+| Ask             | "Ask about this"; a scene, with a target and a message | A sheet, "Ask", with tabs Analyst, Actors and Survey. It answers from the deep dive's written report: until there is one, it says what the deep dive is doing and has a button to it                   |
 | Audit log       | Settings and tools                                     | A sheet with the integrity of the hash chain, search and filters. Every action is named in plain words, and the recorded code is shown only when it differs                                            |
 | Model budget    | Settings and tools; the budget line                    | A dialog: what the project has used and its two limits (calls and tokens). Only a workspace owner or administrator changes them                                                                        |
-| Who has access  | Settings and tools (when people sign in)               | A dialog: the people on the project and their roles. **People** in the same menu is the workspace's list                                                                                               |
+| Who has access  | Settings and tools (when people sign in)               | A dialog, closed with **Done**: the people on the project and their roles. **People** in the same menu is the workspace's list                                                                         |
 | Provider status | The chip in the top bar                                | A popover (see above)                                                                                                                                                                                  |
+
+- **Ask is never a dead end.** With no written report to read (the deep dive has not made one) the sheet is one
+  empty state, not tabs that cannot answer. It names where the deep dive stands, in a line and a title:
+  "Ask opens after the deep dive" (nothing has been started), "The deep dive is running" (**Watch it run**), "The
+  deep dive is paused" or "The deep dive stopped" (each with **Open the deep dive**), read from the three deep-dive
+  steps (the environment, the simulation and the report). The button closes the sheet and goes to the deep dive in
+  Simulate. Where the deep dive is itself shut (it opens once there are actors) the sheet says so ("The deep dive
+  opens once the actors are made.") and offers no button to a place that does not open. The tabs come as soon as
+  the report is written.
+- **An empty History offers a way on.** "Nothing yet" ("What you explore is kept here.") has **Ask a question**,
+  which closes the sheet and puts focus in the question field. On a phone (40rem and below) a row's name has two
+  lines, since what it is called is how it is found again, and its question one.
+- **Focus comes back, and a tooltip does not greet it.** A menu, a popover, a sheet or a dialog that closes gives
+  focus back to the control that opened it, and that control's tooltip stays shut: a tooltip opens on a focused
+  control, and this one would take the next Escape from a sheet that is still open. `design/useReturnFocus.ts`
+  marks a hand-back, and `Tooltip` ignores the focus it brings; a person who tabs away and comes back gets the
+  tooltip as before.
+- **A finger finds the fields.** On a touch screen the action of a toast, the question field of Ask (with its links
+  and the disclosures under an answer) and the limit fields of the budget are 44px (2.75rem) high.
 
 ## The scenes
 

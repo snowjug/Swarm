@@ -30,10 +30,12 @@ results are made the same way as for a question of your own.
 
 ### Finding your way
 
-- **The top bar** floats over the page. From the left: the **Swarm** mark (it starts a new question), the
-  journey, a chip for the engine (**Local rules**, or the name of the provider), **Search and commands**,
-  **Ask about this**, **History** and **Settings and tools**. On a phone the journey moves to a dock along the
-  bottom edge, and the mark is the way back to the first screen.
+- **The top bar** floats over the page. From the left: the **Swarm** mark (it starts a new question; on a narrow
+  screen, 44rem and below, it stands alone and the word goes), the journey, a chip for the engine, **Search and
+  commands**, **Ask about this**, **History** and **Settings and tools**. The chip says as much as the bar has room
+  for: on a narrow bar only its lamp, then **Local rules** or **REAL AZURE AI** (or **REAL MODEL**), and, on a wide
+  screen, the provider's name and how the connection is, as in **REAL AZURE AI · connected**. Press it for the rest.
+  On a phone the journey moves to a dock along the bottom edge, and the mark is the way back to the first screen.
 - **Search and commands** (press Ctrl or ⌘ with K, from anywhere, also while you type; on a phone it is the first
   item of Settings and tools) goes to any scene or view of one, opens History, the audit log and the other panels,
   changes the theme, the motion and the detail level, and opens another exploration by its name. A scene that is not
@@ -41,12 +43,12 @@ results are made the same way as for a question of your own.
 - **The journey** shows each scene as done, current, ready, working, needing attention or locked, and ticks
   a scene only when the project's own record shows it. Proposed stakeholders do not tick Map, and a stopped
   comparison does not tick Simulate. A scene's tooltip says what it is for, or what opens it.
-- **A scene that cannot be opened yet** is greyed out and says what it needs: "Ground it first" (Map),
-  "Needs actors" (Simulate) and "Run a simulation first" (Compare and Decide). It does not open from a click
-  or from the keyboard: a note says why. It opens by itself once the record allows it, with no reload and
-  without choosing **Refresh**: the page looks for a comparison that has finished, was stopped or failed,
-  and for a brief that has been written, and shows them within a few seconds. A comparison that was stopped
-  or failed leaves Compare and Decide locked, unless an earlier one finished: a finished comparison is not
+- **A scene that cannot be opened yet** shows a lock and a quieter ink, not a faded name, and says what it needs:
+  "Ground it first" (Map), "Needs actors" (Simulate) and "Run a simulation first" (Compare and Decide). It does
+  not open from a click or from the keyboard: a note says why. It opens by itself once the record allows it, with
+  no reload and without choosing **Refresh**: the page looks for a comparison that has finished, was stopped or
+  failed, and for a brief that has been written, and shows them within a few seconds. A comparison that was
+  stopped or failed leaves Compare and Decide locked, unless an earlier one finished: a finished comparison is not
   forgotten because a later one was cancelled.
 - **A project opens where the work has got to**: on Decide once a comparison has finished, on Simulate while
   one runs or once there are actors, on Map once the evidence has been read, and otherwise on Ground. Each
@@ -607,7 +609,11 @@ possible, all with real, tested behavior:
 
 **Ask about this**, in the top bar, opens a sheet called "Ask" on the exploration you have open. The deep
 dive's detailed report has the same button. The analyst and the actors answer from the deep dive's written
-report, so the sheet says "Ask opens with the report" until there is one. It has three tabs.
+report, so until there is one the sheet is not a dead end: it says "Ask opens after the deep dive", or where the
+deep dive stands ("The deep dive is running", "is paused", "stopped"), and has a button to it, **Open the deep
+dive** (**Watch it run** while it runs), which closes the sheet and goes there. Where the deep dive is itself shut,
+because there are no actors yet, the sheet says that it opens once the actors are made and has no button. Once the
+report is written the sheet has three tabs.
 
 - **Analyst** takes questions about the report and its evidence. Its answers carry a grounding label; when
   the passage an answer cites is one half of a conflict between sources, the answer says so, and an answer
@@ -816,13 +822,16 @@ do not appear. The rules are in [ADR 0007](./adr/0007-workspace-and-project-memb
   the role and the one before.
 - **Changing or removing.** Choose another role in the row. Removing asks first. When the server refuses a
   change, for example the last owner or the last lead, the dialog shows its reason and nothing changes.
+- **Closing.** Both dialogs close with **Done** or with Escape, and focus goes back to the **Settings and tools**
+  button. They have no close mark of their own, as the sheets do.
 
 ## Settings, history and keeping a record
 
 ![A scene of the interface in the dark theme: pale type on a near-black page, with the floating top bar as glass](./assets/swarm-dark.png)
 
 **Settings and tools** (the three dots at the right of the top bar) is one menu for everything that is not a
-step of the journey.
+step of the journey. Every choice in Appearance, Motion and Detail has a glyph of its own, so that the three
+groups line up and you find your place by shape.
 
 - **Appearance** offers System, Light, Dark and High contrast. System, the default, follows the device: high
   contrast when the device asks for more contrast, otherwise dark when it prefers a dark colour scheme,
@@ -846,7 +855,8 @@ step of the journey.
   where they apply, and, last, the version, the licence and a link to the source.
 - **The engine chip** opens "Model provider": the provider, the deployment, how it signs in, what the
   connection last did and **Verify connection**, which makes one real request. It never says `connected` of
-  something that has only been configured.
+  something that has only been configured. The bar shows as much of it as it has room for (see the top bar,
+  above); the popover has all of it at any width.
 
 On a phone the journey is a dock along the bottom edge, panels rise from the bottom as sheets, the map's
 inspector is a strip that opens in a sheet, and every control is at least 44 pixels (2.75rem) high so that a
@@ -857,10 +867,16 @@ finger can reach it.
 ### History and keeping a record
 
 **History** lists every exploration, newest first ("Your explorations"). Search by name or question, filter by
-**All**, **Working**, **Done**, **Stopped** or **Branches**, and press a row to open it. For a guided
-project that has a saved round, **Compare `<name>`** opens Compare's page for two recorded runs. **Delete
-`<name>`** asks first ("Delete this exploration?": **Keep it** or **Delete permanently**), and the deletion
-cannot be undone.
+**All**, **Working**, **Done**, **Stopped** or **Branches**, and press a row to open it. On a phone a row's name
+has two lines, since what it is called is how you find it again. For a guided project that has a saved round,
+**Compare `<name>`** opens Compare's page for two recorded runs. **Delete `<name>`** asks first ("Delete this
+exploration?": **Keep it** or **Delete permanently**), and the deletion cannot be undone. With nothing in it yet,
+History says "Nothing yet" and offers **Ask a question**, which closes the sheet and puts you in the question
+field.
+
+A panel (History, Ask, the audit log, the budget or who has access) that cannot be opened, because its code did
+not arrive, closes and says "That could not be opened" ("Check the connection and try again."); the page behind
+it is as it was.
 
 A record made by the earlier quick workflow is marked "Quick run". Its recorded results remain readable,
 without invented ontology, operation traces or unrecorded second-platform results. Duplicate a historical
