@@ -10,6 +10,7 @@ import {
   expectNoHorizontalOverflow,
   watchPage,
 } from '../support/helpers';
+import { PHONE, allOf, audit, expectPressable, quiet } from '../support/shell';
 import {
   chooseRuns,
   finished,
@@ -346,3 +347,54 @@ test.describe('a simulation that the server did not finish', () => {
     await own.dispose();
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// The progress of a running simulation, at the sizes people use and in every theme
+// ---------------------------------------------------------------------------------------------
+
+for (const [label, viewport, themes, touch] of [
+  ['a desktop', { width: 1440, height: 900 }, ['light', 'dark', 'high-contrast'], false],
+  ['a tablet', { width: 768, height: 1024 }, ['light'], true],
+  ['a phone', PHONE.viewport, ['light', 'dark'], true],
+] as const) {
+  test.describe(`on ${label}`, () => {
+    test.use({ viewport, hasTouch: touch, reducedMotion: 'reduce' });
+
+    test(`the progress of a running simulation passes axe in ${themes.join(', ')}, fits the page and is made for ${touch ? 'a finger' : 'a pointer'}`, async ({
+      page,
+    }) => {
+      const problems = watchPage(page);
+      for (const theme of themes) {
+        await page.addInitScript(
+          (value) => window.localStorage.setItem('swarm.theme', value),
+          theme,
+        );
+        await openSetup(page, ids.heavy);
+        await chooseRuns(page, 100);
+        await run(page);
+        await expect(progress(page)).toBeVisible();
+        await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+        await audit(page, `the progress of a running simulation, ${theme}, ${label}`);
+        if (theme === themes[0]) {
+          await quiet(page);
+          await allOf({
+            'no horizontal scroll': () => expectNoHorizontalOverflow(page),
+            'controls of 24px or more': () =>
+              expectPressable(page, `the progress ${label}`, { min: 24, scope: 'main' }),
+            ...(touch
+              ? {
+                  'controls a finger wide': () =>
+                    expectPressable(page, `the progress ${label}`, { min: 44, scope: 'main' }),
+                }
+              : {}),
+          });
+        }
+        await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect(
+          page.getByRole('status').filter({ hasText: 'This simulation was cancelled' }),
+        ).toBeVisible();
+      }
+      expect(problems).toEqual([]);
+    });
+  });
+}

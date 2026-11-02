@@ -24,6 +24,7 @@ import {
   type Tone,
 } from '../../../design/ui';
 import { stepLock } from '../../../lib/console';
+import { sceneAvailable } from '../../../app/scenes';
 import { resumeActionLabel } from '../../../lib/whatIf';
 import { LOCAL_NOTE, MODEL_NOTE, POSITION_NOTE, PROXY_LINE } from './copy';
 import { useDeep, type DeepState } from './context';
@@ -201,6 +202,24 @@ function Primary({ state }: { state: DeepState }): ReactNode {
       );
     }
     if (controls.report === 'open') {
+      // The report is a page of the decision scene, which opens once the scenarios have been compared.
+      if (!sceneAvailable(project, 'decide')) {
+        return (
+          <>
+            <span className="sw-deep-strip__why">
+              The report is written. It opens with the decision page, once the scenarios have been
+              compared.
+            </span>
+            <Button
+              variant="glass"
+              iconEnd={<ArrowRight size={16} aria-hidden="true" />}
+              onClick={() => go('simulate', { view: 'setup' })}
+            >
+              Set up the comparison
+            </Button>
+          </>
+        );
+      }
       return (
         <Button
           variant="accent"

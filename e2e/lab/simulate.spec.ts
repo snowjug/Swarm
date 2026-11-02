@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
-import { apiContext, watchPage } from '../support/helpers';
+import { apiContext, expectNoHorizontalOverflow, watchPage } from '../support/helpers';
+import { PHONE, allOf, audit, expectPressable, quiet } from '../support/shell';
 import {
   BUS_RELATIONS,
   BUS_STAKEHOLDERS,
@@ -326,3 +327,50 @@ test.describe('setting the futures side by side and running them', () => {
     expect(stable(other)).not.toBe(stable(a));
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// The page that sets the futures, with a scenario added, at the sizes people use and in every theme
+// ---------------------------------------------------------------------------------------------
+
+for (const [label, viewport, themes, touch] of [
+  ['a desktop', { width: 1440, height: 900 }, ['light', 'dark', 'high-contrast'], false],
+  ['a laptop', { width: 1366, height: 768 }, ['light'], false],
+  ['a tablet', { width: 768, height: 1024 }, ['light'], true],
+  ['a phone', PHONE.viewport, ['light', 'dark'], true],
+] as const) {
+  test.describe(`on ${label}`, () => {
+    test.use({ viewport, hasTouch: touch, reducedMotion: 'reduce' });
+
+    test(`the setup, with a scenario added, passes axe in ${themes.join(', ')}, fits the page and is made for ${touch ? 'a finger' : 'a pointer'}`, async ({
+      page,
+    }) => {
+      const problems = watchPage(page);
+      for (const theme of themes) {
+        await page.addInitScript(
+          (value) => window.localStorage.setItem('swarm.theme', value),
+          theme,
+        );
+        await openSetup(page, ids.fresh);
+        await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+        const rows = await scenarioRows(page).count();
+        if (rows < 3) await setup(page).getByRole('button', { name: 'Add an alternative' }).click();
+        await expect(scenarioRows(page)).toHaveCount(Math.max(rows, 3));
+        await audit(page, `the setup, ${theme}, ${label}`);
+        if (theme !== themes[0]) continue;
+        await quiet(page);
+        await allOf({
+          'no horizontal scroll': () => expectNoHorizontalOverflow(page),
+          'controls of 24px or more': () =>
+            expectPressable(page, `the setup ${label}`, { min: 24, scope: 'main' }),
+          ...(touch
+            ? {
+                'controls a finger wide': () =>
+                  expectPressable(page, `the setup ${label}`, { min: 44, scope: 'main' }),
+              }
+            : {}),
+        });
+      }
+      expect(problems).toEqual([]);
+    });
+  });
+}

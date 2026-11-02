@@ -146,6 +146,54 @@ test.describe('a change made elsewhere', () => {
     expect(problems).toEqual([]);
   });
 
+  test('the brief and the review rest on the newest finished comparison, and say a newer one exists only once one has finished', async () => {
+    const id = await briefedProject('Freshness: what the brief rests on');
+    const listed = (await (await api.get(`/api/projects/${id}/analysis`)).json()) as {
+      analyses: { id: string; status: string }[];
+    };
+    const first = listed.analyses.find((analysis) => analysis.status === 'completed')!.id;
+    const brief = async () => json<BriefView>(await api.get(`/api/projects/${id}/brief`));
+    const review = async () =>
+      (
+        await json<{ critiques: { analysisId: string } }>(
+          await api.get(`/api/projects/${id}/critiques`),
+        )
+      ).critiques.analysisId;
+
+    const written = await brief();
+    expect(written.brief?.analysisId).toBe(first);
+    expect(written.latestAnalysis?.id).toBe(first);
+    expect(written.changedSince).toEqual([]);
+    expect(await review()).toBe(first);
+
+    // A comparison that was stopped leaves both standing as they were.
+    const stopped = await startViaApi(api, id, { runsPerVariant: 200 });
+    await api.post(`/api/projects/${id}/analysis/${stopped.id}/cancel`);
+    await finished(api, id, stopped.id);
+    const unchanged = await brief();
+    expect(unchanged.latestAnalysis?.id).toBe(first);
+    expect(unchanged.changedSince).toEqual([]);
+
+    // A finished one does not rewrite them: they are called out of date, and still rest on the first.
+    const second = await compared(api, id, {
+      runsPerVariant: 12,
+      baseSeed: 77,
+      sensitivity: false,
+    });
+    const stale = await brief();
+    expect(stale.brief?.analysisId).toBe(first);
+    expect(stale.latestAnalysis?.id).toBe(second.id);
+    expect(stale.changedSince).toContain('a newer analysis exists');
+
+    // Doing both again brings them up to date, from the newer comparison.
+    await json(await api.post(`/api/projects/${id}/critiques/run`, { data: {} }));
+    await json(await api.post(`/api/projects/${id}/brief`, { data: {} }));
+    const current = await brief();
+    expect(current.brief?.analysisId).toBe(second.id);
+    expect(current.changedSince).toEqual([]);
+    expect(await review()).toBe(second.id);
+  });
+
   test('an older comparison says that a newer one exists, and offers it; a cancelled one is not newer', async ({
     page,
   }) => {

@@ -12,6 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import { useWorkspace } from '../../../app/context';
 import { Notice, Stat } from '../../../design/ui';
+import { sceneAvailable } from '../../../app/scenes';
 import { resumeActionLabel } from '../../../lib/whatIf';
 import { PAUSE_HELP } from './copy';
 import { useDeep } from './context';
@@ -177,13 +178,18 @@ function Next({ reach }: { reach: RunsReach }) {
       />,
     );
   } else if (controls.report === 'open') {
+    const open = sceneAvailable(project, 'decide');
     rows.push(
       <Row
         key="report"
         icon={<FileText size={18} />}
         title="Open the detailed report"
-        text="The report and evidence trail written for this run."
-        onPress={actions.openReport}
+        text={
+          open
+            ? 'The report and evidence trail written for this run.'
+            : 'It is written. It opens with the decision page, once the scenarios have been compared.'
+        }
+        onPress={open ? actions.openReport : null}
       />,
     );
   }
