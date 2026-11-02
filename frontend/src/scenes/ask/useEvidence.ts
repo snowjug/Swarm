@@ -11,6 +11,7 @@ import {
   limitsOf,
   nextPasteName,
   totalOf,
+  withText,
   type DocumentInput,
 } from './evidence';
 
@@ -30,6 +31,8 @@ export interface Evidence {
   cancel: () => void;
   clearError: () => void;
   suggestedName: string;
+  /** Whether this server reads PDFs: a kind that is not offered where it cannot be read. */
+  pdf: boolean;
 }
 
 /**
@@ -166,7 +169,7 @@ export function useEvidence({
   const update = useCallback<Evidence['update']>(
     (index, content) => {
       setError(null);
-      onChange(documents.map((item, at) => (at === index ? { ...item, content } : item)));
+      onChange(documents.map((item, at) => (at === index ? withText(item, content) : item)));
     },
     [documents, onChange],
   );
@@ -201,5 +204,6 @@ export function useEvidence({
     cancel,
     clearError: () => setError(null),
     suggestedName: nextPasteName(documents),
+    pdf: Boolean(config?.capabilities.pdf),
   };
 }

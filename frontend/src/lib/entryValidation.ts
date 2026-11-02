@@ -38,7 +38,7 @@ export function validateEntry(
     if (field === 'name') return 'Enter a project name of 3–100 characters.';
     if (field === 'question') return 'Enter a research question of 10–2,000 characters.';
     if (field === 'documents' && !input.documents.length)
-      return 'Attach at least one source document (80–40,000 characters). Pasted source text must be attached before submitting.';
+      return 'Attach at least one source document (80–40,000 characters).';
     return `${issue.path.join('.')}: ${issue.message}`;
   });
   return { error: [...new Set(messages)].join('\n') };

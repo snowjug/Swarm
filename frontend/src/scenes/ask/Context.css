@@ -1,0 +1,74 @@
+@layer scenes {
+  .sw-ctx {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-ctx__lead {
+    margin: 0;
+    color: var(--ink-2);
+  }
+  .sw-ctx__presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-ctx__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--s-2);
+  }
+  .sw-ctx__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-ctx__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding: var(--s-1) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-ctx__item > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .sw-ctx__add {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--s-2);
+    align-items: start;
+  }
+  .sw-ctx__value {
+    display: inline-block;
+    max-width: 9rem;
+    margin-inline-start: 0.35rem;
+    overflow: hidden;
+    vertical-align: bottom;
+    color: var(--accent);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* Said, and kept: the glyph takes the accent, and on a phone, where the words are not shown, a point says it too. */
+  .sw-btn.is-set svg {
+    color: var(--accent);
+  }
+  @media (max-width: 40rem) {
+    .sw-btn.is-set {
+      position: relative;
+    }
+    .sw-btn.is-set:not(:has(.sw-ask__badge))::after {
+      content: '';
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      width: 0.4rem;
+      height: 0.4rem;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+  }
+}

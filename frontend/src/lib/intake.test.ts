@@ -4,16 +4,21 @@ import { scenarioFrameSchema, scenarioInputSchema } from '../../../shared/scenar
 import type { ScenarioAmbiguity, ScenarioFrame } from '../../../shared/scenario';
 import {
   LIMITS,
+  MAX_CONTEXT_ASSUMPTIONS,
+  NO_CONTEXT,
   applyAnswer,
   blankChange,
   canRead,
   documentSummaries,
   edited,
   frameIssues,
+  hasContext,
   newId,
   originLabel,
   skipQuestion,
   tidyFrame,
+  withContext,
+  withEvidence,
 } from './intake';
 
 const ask = (field: string, question = 'A question?'): ScenarioAmbiguity => ({
@@ -322,6 +327,97 @@ describe('answering a question', () => {
   it('can skip a question without answering it', () => {
     const start = frame({ ambiguities: [ask('a'), ask('b')] });
     expect(skipQuestion(start, 0).ambiguities.map((item) => item.field)).toEqual(['b']);
+  });
+});
+
+describe('the evidence a scenario lists as available', () => {
+  it('lists the sources as they are when the project is made, not as they were when the question was read', () => {
+    const read = frame({
+      evidenceAvailable: ['gone.md (1,000 characters)', 'old.md (500 characters)'],
+    });
+    const next = withEvidence(read, [
+      { name: 'old.md', content: 'x'.repeat(1_234) },
+      { name: 'new  notes\n.md', content: 'y'.repeat(80) },
+    ]);
+    expect(next.evidenceAvailable).toEqual([
+      'old.md (1,234 characters)',
+      'new notes .md (80 characters)',
+    ]);
+    expect(read.evidenceAvailable).toHaveLength(2);
+    expect(withEvidence(read, []).evidenceAvailable).toEqual([]);
+    expect(scenarioInputSchema.safeParse(next).success).toBe(true);
+  });
+
+  it('keeps to the room the scenario has, and to names that can be read', () => {
+    const many = Array.from({ length: 14 }, (_, n) => ({
+      name: `${n}${'n'.repeat(300)}`,
+      content: 'z',
+    }));
+    const next = withEvidence(frame(), many);
+    expect(next.evidenceAvailable).toHaveLength(LIMITS.missingEvidence);
+    expect(next.evidenceAvailable.every((entry) => entry.length <= 200)).toBe(true);
+    expect(
+      withEvidence(frame(), [{ name: '\u0000\u0007', content: 'z' }]).evidenceAvailable,
+    ).toEqual(['document (1 characters)']);
+  });
+});
+
+describe('what the person said before the question was read', () => {
+  const read = frame({
+    origin: 'model',
+    horizon: null,
+    assumptions: [{ id: 'assumption-1', text: 'Demand stays flat.', origin: 'system' }],
+    ambiguities: [ask('horizon', 'Over what period?'), ask('stakeholders', 'Who is affected?')],
+  });
+
+  it('changes nothing when nothing was said', () => {
+    expect(withContext(read, NO_CONTEXT)).toBe(read);
+    expect(withContext(read, { horizon: '  ', assumptions: ['', '   '] })).toBe(read);
+    expect(hasContext(NO_CONTEXT)).toBe(false);
+    expect(hasContext({ horizon: '1 year', assumptions: [] })).toBe(true);
+  });
+
+  it('takes the time frame as the horizon, and no longer asks about the period', () => {
+    const next = withContext(read, { horizon: ' 3 years ', assumptions: [] });
+    expect(next.horizon).toBe('3 years');
+    expect(next.ambiguities.map((question) => question.field)).toEqual(['stakeholders']);
+    // A frame that already has a horizon keeps it when the person did not give one.
+    const dated = frame({ horizon: 'next quarter' });
+    expect(withContext(dated, { horizon: '', assumptions: ['It rains.'] }).horizon).toBe(
+      'next quarter',
+    );
+  });
+
+  it('adds what is assumed as the person’s own, ahead of the reading’s, with ids of its own', () => {
+    const next = withContext(read, {
+      horizon: '',
+      assumptions: ['No new competitor enters.', 'Prices are paid on arrival.'],
+    });
+    expect(next.assumptions.map((assumption) => [assumption.text, assumption.origin])).toEqual([
+      ['No new competitor enters.', 'user'],
+      ['Prices are paid on arrival.', 'user'],
+      ['Demand stays flat.', 'system'],
+    ]);
+    expect(new Set(next.assumptions.map((assumption) => assumption.id)).size).toBe(3);
+    expect(scenarioInputSchema.safeParse(next).success).toBe(true);
+  });
+
+  it('says nothing twice, keeps to the room there is, and leaves the way it was read as it was', () => {
+    const next = withContext(read, {
+      horizon: '1 year',
+      assumptions: [
+        'demand stays flat.',
+        'Same.',
+        'same.',
+        ...Array.from({ length: 9 }, (_, n) => `Fact ${n}`),
+      ],
+    });
+    expect(next.origin).toBe('model');
+    const mine = next.assumptions.filter((assumption) => assumption.origin === 'user');
+    expect(mine.map((assumption) => assumption.text)).not.toContain('demand stays flat.');
+    expect(mine.filter((assumption) => assumption.text.toLowerCase() === 'same.')).toHaveLength(1);
+    expect(mine.length).toBeLessThanOrEqual(MAX_CONTEXT_ASSUMPTIONS);
+    expect(next.assumptions.length).toBeLessThanOrEqual(LIMITS.assumptions);
   });
 });
 

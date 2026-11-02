@@ -23,7 +23,7 @@
   .sw-recents__item {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     align-items: center;
     gap: var(--s-4);
     width: 100%;
@@ -86,7 +86,7 @@
   }
   @media (max-width: 40rem) {
     .sw-recents__item {
-      grid-template-columns: 1fr auto;
+      grid-template-columns: minmax(0, 1fr) auto;
     }
     .sw-recents__meta {
       grid-column: 1;
