@@ -574,6 +574,29 @@ describe('Tooltip', () => {
     await user.tab({ shift: true });
     expect(await screen.findByRole('tooltip')).toBeTruthy();
   });
+
+  it('stays shut on the button of a menu that closes and gives focus back to it', async () => {
+    const { user } = renderWithApp(
+      <Menu>
+        <MenuTrigger asChild>
+          <IconButton label="Settings and tools">
+            <svg aria-hidden="true" />
+          </IconButton>
+        </MenuTrigger>
+        <MenuContent aria-label="Settings">
+          <MenuItem>Refresh</MenuItem>
+        </MenuContent>
+      </Menu>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Settings and tools' });
+    await user.click(trigger);
+    await screen.findByRole('menu');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(focused()).toBe(trigger));
+    // Given time to appear, if it were going to.
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(screen.queryByRole('tooltip')).toBeNull();
+  });
 });
 
 describe('Slider', () => {

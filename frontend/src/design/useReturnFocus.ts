@@ -46,6 +46,17 @@ export function handBackFocus(element: HTMLElement): void {
 }
 
 /**
+ * For a library that gives focus back by itself, as a menu or a popover does when it closes: the `focus()` that
+ * follows in this very turn is a hand-back too, and a tooltip must not open on it.
+ */
+export function handingBackSoon(): void {
+  handingBack = true;
+  queueMicrotask(() => {
+    handingBack = false;
+  });
+}
+
+/**
  * Where focus goes when a sheet or a dialog closes. Radix gives it back to the trigger, and one that the page
  * controls (opened by a button that is not its trigger: the source sheet of Ask, the Details of the Map) has none,
  * so focus would be left on the page and a keyboard would start again from the top. The control that was in use

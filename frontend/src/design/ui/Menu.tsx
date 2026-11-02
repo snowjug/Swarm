@@ -2,6 +2,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import * as RadixMenu from '@radix-ui/react-dropdown-menu';
 import { Check } from 'lucide-react';
 import { cx } from '../cx';
+import { handingBackSoon } from '../useReturnFocus';
 import './Menu.css';
 
 export const Menu = function Menu(props: ComponentProps<typeof RadixMenu.Root>) {
@@ -15,6 +16,7 @@ export const MenuRadioGroup = RadixMenu.RadioGroup;
 export function MenuContent({
   children,
   className,
+  onCloseAutoFocus,
   ...rest
 }: ComponentProps<typeof RadixMenu.Content>) {
   return (
@@ -23,6 +25,11 @@ export function MenuContent({
         sideOffset={10}
         collisionPadding={12}
         {...rest}
+        onCloseAutoFocus={(event) => {
+          // The menu gives focus back to its button next: the tooltip of that button is not for a person who chose.
+          handingBackSoon();
+          onCloseAutoFocus?.(event);
+        }}
         className={cx('sw-menu sw-glass sw-glass--overlay', className)}
       >
         {children}
