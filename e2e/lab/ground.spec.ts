@@ -18,6 +18,7 @@ import {
   figure,
   figureValue,
   graph,
+  groundStatus,
   hero,
   inAdvancedMode,
   makeLegacy,
@@ -102,11 +103,11 @@ test.describe('the states of the scene', () => {
     const ledger = await ledgerOf(request, id);
     await openApp(page, { project: id, scene: 'ground' });
 
-    await expect(hero(page, SHOP).getByText('Ready', { exact: true })).toBeVisible();
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible();
     expect(await figureValue(page, 'Sources')).toBe(record.documents.length);
     expect(await figureValue(page, 'Passages')).toBe(passages.length);
     expect(await figureValue(page, 'Topics')).toBe(record.graph?.nodes.length);
-    expect(await figureValue(page, 'Conflicts')).toBe(openConflicts(ledger).length);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(openConflicts(ledger).length);
     // What a screen reader is told is the same.
     const nodes = record.graph?.nodes.length ?? 0;
     await expect(
@@ -712,14 +713,14 @@ test.describe('conflicts between sources', () => {
     await expect(card.getByText('Dismissed', { exact: true })).toBeVisible();
     await expect(card.getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0);
     await expect(figure(page, 'Conflicts')).toContainText('all reviewed');
-    expect(await figureValue(page, 'Conflicts')).toBe(0);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(0);
     await expectSound(page, 'ground: a conflict that was dismissed');
 
     // The decision is the server's, not the page's.
     await page.reload();
     await expect(heading(0)).toBeVisible();
     await expect(conflictCard(page, 'X1').getByText('Dismissed', { exact: true })).toBeVisible();
-    expect(await figureValue(page, 'Conflicts')).toBe(0);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(0);
     await expect(figure(page, 'Conflicts')).toContainText('all reviewed');
     expect((await ledgerOf(request, id)).contradictions.map((item) => item.status)).toEqual([
       'dismissed',
@@ -818,7 +819,7 @@ test.describe('conflicts between sources', () => {
     expect((await ledgerOf(request, id)).contradictions).toEqual([]);
     await openApp(page, { project: id, scene: 'ground' });
 
-    expect(await figureValue(page, 'Conflicts')).toBe(0);
+    await expect.poll(() => figureValue(page, 'Conflicts')).toBe(0);
     await expect(figure(page, 'Conflicts')).toContainText('none found');
     await expect(conflictsSection(page)).toContainText('No conflicts found between the sources');
     await expect(conflictsSection(page)).toContainText(
@@ -926,10 +927,12 @@ test.describe('while the engine is at work, and when it was not able to finish',
     request,
   }) => {
     const problems = watchPage(page);
-    const id = await makeProject(request, SHOP, 'draft');
+    const id = await makeProject(request, SHOP, 'ground');
     const stop = await readProjectAs(page, id, (project) => {
       const started = new Date(Date.now() - 5_000).toISOString();
       const later = new Date(Date.now() - 4_000).toISOString();
+      // A project that is busy is read again by the page: that is how it learns that the step is done.
+      project.status = 'running';
       project.console!.steps.knowledge = 'running';
       project.graph = null;
       project.events = [
@@ -1001,7 +1004,7 @@ test.describe('while the engine is at work, and when it was not able to finish',
 
     // When the server says the step is done the page shows the result, without being reloaded.
     await stop();
-    await expect(hero(page, SHOP).getByText('Ready', { exact: true })).toBeVisible({
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible({
       timeout: 30_000,
     });
     expect(problems).toEqual([]);
@@ -1020,7 +1023,7 @@ test.describe('while the engine is at work, and when it was not able to finish',
     });
     await openApp(page, { project: id, scene: 'ground' });
 
-    await expect(hero(page, SHOP).getByText('Failed', { exact: true })).toBeVisible();
+    await expect(groundStatus(page, /^Failed$/u)).toBeVisible();
     const alert = hero(page, SHOP).getByRole('alert');
     await expect(alert).toContainText('Reading the sources failed');
     await expect(alert).toContainText(reason);
@@ -1029,7 +1032,7 @@ test.describe('while the engine is at work, and when it was not able to finish',
 
     await restore();
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(hero(page, SHOP).getByText('Ready', { exact: true })).toBeVisible({
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible({
       timeout: 30_000,
     });
     expect((await recordOf(request, id)).console?.steps.knowledge).toBe('ready');

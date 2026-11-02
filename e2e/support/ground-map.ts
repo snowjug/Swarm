@@ -421,6 +421,9 @@ export const sheet = (page: Page): Locator => page.getByRole('dialog');
 /** A passage's button in the list of sources. */
 export const passageButton = (page: Page, id: string): Locator =>
   sourcesSection(page).getByRole('button', { name: new RegExp(`^Passage ${id}, `, 'u') });
+/** The word at the head of the page that says where the evidence is: Reading, Extracting, Checking, Ready, Failed. */
+export const groundStatus = (page: Page, word: string | RegExp): Locator =>
+  page.locator('[data-moment]').filter({ hasText: word });
 /** What the engine said it is doing, for people who cannot see the page change. */
 export const readyStatus = (page: Page): Locator =>
   page.getByRole('status').filter({ hasText: /^(?:Ready|Reading|Waiting|Stopped|Saved)/u });
