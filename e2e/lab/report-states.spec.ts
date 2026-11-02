@@ -247,3 +247,72 @@ test.describe('the independent review while it is being made', () => {
     await expect(review).toContainText('criticisms raised by');
   });
 });
+
+test.describe('words that are longer than the screen', () => {
+  test('a very long word in the brief or in its review breaks where it must and widens nothing', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    const project = keep(await briefed(api, { name: 'States: long words' }));
+    const LONG = 'Unbroken'.repeat(45);
+    // What a source or a person wrote can be that long (an address, a code), and no page may be made wider by it:
+    // every sentence the server wrote is followed by such a word.
+    const plain =
+      /(^id$|Id$|At$|^kind$|^status$|^verdict$|^tone$|^level$|hash|fingerprint|^severity$|^category$|^lens$|^label$|^name$|^key$)/u;
+    const longer = (value: unknown, key = ''): unknown => {
+      if (typeof value === 'string') {
+        const fixed =
+          plain.test(key) ||
+          value.length < 28 ||
+          /^[0-9a-f-]{20,}$/iu.test(value) ||
+          /^\d{4}-\d\d-\d\d/u.test(value);
+        return fixed ? value : `${value} ${LONG}`;
+      }
+      if (Array.isArray(value)) return value.map((entry) => longer(entry, key));
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(
+          Object.entries(value).map(([name, entry]) => [name, longer(entry, name)]),
+        );
+      }
+      return value;
+    };
+    for (const pattern of [
+      `**/api/projects/${project}/brief`,
+      `**/api/projects/${project}/critiques*`,
+    ]) {
+      await page.route(pattern, async (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        const response = await route.fetch();
+        return route.fulfill({ response, json: longer(await response.json()) });
+      });
+    }
+    for (const width of [390, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 });
+      await openDecide(page, project);
+      await expect(page.getByRole('main')).toContainText('UnbrokenUnbroken');
+      await tools(page).getByRole('button', { name: 'More' }).click();
+      await page.getByRole('menuitem', { name: 'Open every chapter' }).click();
+      await quiet(page);
+      await expectNoHorizontalOverflow(page);
+
+      await tools(page)
+        .getByRole('button', { name: /^Review/u })
+        .click();
+      const sheet = page.getByRole('dialog', { name: 'Independent review' });
+      await expect(sheet).toContainText('UnbrokenUnbroken');
+      await quiet(page);
+      await expectNoHorizontalOverflow(page);
+      // Nothing in the sheet is wider than the sheet: it does not scroll sideways, and neither does what it holds.
+      const wider = await sheet.evaluate((element) => {
+        const right = element.getBoundingClientRect().right;
+        return [...element.querySelectorAll('*')].filter(
+          (inner) => inner.getBoundingClientRect().right > right + 1,
+        ).length;
+      });
+      expect(wider, `elements wider than the review at ${width}px`).toBe(0);
+      await page.keyboard.press('Escape');
+      await expect(sheet).toHaveCount(0);
+    }
+    expect(problems).toEqual([]);
+  });
+});

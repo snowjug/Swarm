@@ -5,6 +5,8 @@
     width: min(100%, var(--w-wide));
     margin-inline: auto;
     padding: var(--s-3) var(--gutter) var(--s-9);
+    /* What a source, a name or a person's own words hold is not the page's to widen: a long word breaks where it must. */
+    overflow-wrap: anywhere;
   }
   .sw-decide__notice {
     max-width: 52rem;
