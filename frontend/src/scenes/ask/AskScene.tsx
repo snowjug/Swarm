@@ -624,7 +624,7 @@ export function AskScene({
               {POSITIONING_STATEMENT}
             </p>
             {initialProject && (
-              <p className="sw-caption">
+              <p className="sw-ask__copied sw-caption">
                 Only the question, evidence and settings were copied. Nothing that was run.
               </p>
             )}

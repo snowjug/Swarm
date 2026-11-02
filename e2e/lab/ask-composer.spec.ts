@@ -1053,3 +1053,23 @@ test.describe('the first screen at every size', () => {
     });
   }
 });
+
+test.describe('the first screen at 320px, with a finger', () => {
+  test.use({ viewport: { width: 320, height: 568 }, hasTouch: true });
+
+  test('the four tools stay on one line, each a 44px target', async ({ page }) => {
+    await openAsk(page);
+    const tools = [
+      evidenceButton(page),
+      timeFrameButton(page),
+      assumptionsButton(page),
+      optionsButton(page),
+    ];
+    const boxes = await Promise.all(tools.map(async (tool) => (await tool.boundingBox())!));
+    expect(new Set(boxes.map((box) => Math.round(box.y))).size).toBe(1);
+    for (const box of boxes) {
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+  });
+});

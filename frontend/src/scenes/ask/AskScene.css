@@ -258,6 +258,10 @@
     max-width: 44ch;
     text-align: center;
   }
+  .sw-ask__copied {
+    max-width: 44ch;
+    text-align: center;
+  }
 
   .sw-ask__echo {
     margin: 0 0 var(--s-2);
