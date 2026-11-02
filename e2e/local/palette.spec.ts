@@ -208,4 +208,32 @@ test.describe('on a phone', () => {
     await rowNamed(page, /^Ground/u).tap();
     await expect(palette(page)).toBeHidden();
   });
+
+  test('it has a Close button a finger can press, in the corner of its field, and closing returns to the page', async ({
+    page,
+  }) => {
+    await openApp(page, { project: projects.brief.id, scene: 'ground' });
+    await openSettings(page);
+    await page.getByRole('menuitem', { name: /Search and commands/u }).tap();
+    await expect(palette(page)).toBeVisible();
+
+    const close = palette(page).getByRole('button', { name: 'Close' });
+    await expect(close).toBeVisible();
+    const [box, sheet, field] = await Promise.all([
+      close.boundingBox(),
+      palette(page).boundingBox(),
+      search(page).boundingBox(),
+    ]);
+    expect(Math.round(box!.width)).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box!.height)).toBeGreaterThanOrEqual(44);
+    // Inside the sheet, level with the field, and clear of the text the person types.
+    expect(box!.x + box!.width).toBeLessThanOrEqual(sheet!.x + sheet!.width);
+    expect(box!.y).toBeGreaterThanOrEqual(sheet!.y);
+    expect(box!.y + box!.height).toBeLessThanOrEqual(field!.y + field!.height + 12);
+    expect(box!.x).toBeGreaterThanOrEqual(field!.x + field!.width - 1);
+
+    await close.tap();
+    await expect(palette(page)).toBeHidden();
+    await expectNoHorizontalOverflow(page);
+  });
 });
