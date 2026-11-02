@@ -34,6 +34,7 @@ import {
   type ProjectScene,
   type SceneId,
 } from './scenes';
+import { useAway } from './unsaved-context';
 import { AskScene } from '../scenes/ask/AskScene';
 import { ProviderStatus } from '../panels/ProviderStatus';
 import { BudgetGuard } from '../panels/BudgetGuard';
@@ -67,6 +68,10 @@ function OpeningProject({ label }: { label: string }) {
  */
 export function Application() {
   const engine = useConsole();
+  // What the engine does is read when it is asked to do it, not when the page is drawn: a draw that changes nothing the
+  // scenes show then does not hand them a new workspace.
+  const engineNow = useRef(engine);
+  engineNow.current = engine;
   const provider = useProviderStatus();
   const theme = useTheme();
   const { mode, choose: chooseMode } = useMode();
@@ -80,6 +85,8 @@ export function Application() {
   const [askSeed, setAskSeed] = useState<{ target?: string; message?: string }>({});
   const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
   const [quiet, setQuiet] = useState(false);
+  // A scene that holds work that is not saved says so: every way out of it that is below asks the person first.
+  const away = useAway();
 
   const authentication = engine.config.data?.capabilities.authentication ?? 'local-single-user';
   const signedIn = authentication === 'entra-session';
@@ -127,29 +134,34 @@ export function Application() {
   const newProject = useCallback(
     (initial?: ProjectDetail) => {
       if (busy) return;
-      navigate({ scene: null, view: null }, { replace: true });
-      engine.selectProject(null);
-      setCreation((old) => ({ key: old.key + 1, project: initial }));
+      away(() => {
+        navigate({ scene: null, view: null }, { replace: true });
+        engineNow.current.selectProject(null);
+        setCreation((old) => ({ key: old.key + 1, project: initial }));
+      });
     },
-    [busy, engine],
+    [away, busy],
   );
 
   const openProject = useCallback(
     (id: string, target?: { scene?: ProjectScene; view?: string | null }) => {
-      if (id === engine.selectedId) {
-        if (target?.scene) navigate({ scene: target.scene, view: target.view ?? null });
-        return;
-      }
-      const url = new URL(window.location.href);
-      url.searchParams.set('project', id);
-      url.searchParams.delete('scene');
-      url.searchParams.delete('view');
-      if (target?.scene) url.searchParams.set('scene', target.scene);
-      if (target?.view) url.searchParams.set('view', target.view);
-      window.history.pushState({}, '', url);
-      engine.selectProject(id);
+      if (id === engine.selectedId && !target?.scene) return;
+      away(() => {
+        if (id === engine.selectedId) {
+          if (target?.scene) navigate({ scene: target.scene, view: target.view ?? null });
+          return;
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.set('project', id);
+        url.searchParams.delete('scene');
+        url.searchParams.delete('view');
+        if (target?.scene) url.searchParams.set('scene', target.scene);
+        if (target?.view) url.searchParams.set('view', target.view);
+        window.history.pushState({}, '', url);
+        engineNow.current.selectProject(id);
+      });
     },
-    [engine],
+    [away, engine.selectedId],
   );
 
   const go = useCallback<Workspace['go']>(
@@ -164,9 +176,11 @@ export function Application() {
         toast({ title: reason ?? 'Not open yet', tone: 'info', duration: 2600 });
         return;
       }
-      navigate({ scene: target, view: options?.view ?? null }, { replace: options?.replace });
+      away(() =>
+        navigate({ scene: target, view: options?.view ?? null }, { replace: options?.replace }),
+      );
     },
-    [newProject, project, scene, toast],
+    [away, newProject, project, scene, toast],
   );
 
   // Back to the entry screen by the browser's Back button.
@@ -208,8 +222,8 @@ export function Application() {
   }, [engine.detail.loading]);
   const readQuietly = useCallback(() => {
     setQuiet(true);
-    engine.refresh();
-  }, [engine]);
+    engineNow.current.refresh();
+  }, []);
   const guided = Boolean(project?.console && project.workflow === 'guided');
   useLabRefresh({
     step: scene === 'ask' ? 'knowledge' : STEP_OF_SCENE[scene],
@@ -236,6 +250,7 @@ export function Application() {
   }, [actionError, engine.dismissError, toast]);
 
   // ---- The workspace every scene reads --------------------------------------------------------------
+  const { open: providerOpen, toggle: toggleProvider } = provider;
   const panels = useMemo<PanelControls>(
     () => ({
       history: () => setPanel('history'),
@@ -247,11 +262,11 @@ export function Application() {
       budget: () => setPanel('budget'),
       access: () => setPanel('access'),
       provider: () => {
-        if (!provider.open) provider.toggle();
+        if (!providerOpen) toggleProvider();
       },
       snapshot: () => undefined,
     }),
-    [provider],
+    [providerOpen, toggleProvider],
   );
 
   // `/` asks the analyst about what is on the screen, as the button in the bar says; never while typing, or over
@@ -291,41 +306,43 @@ export function Application() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const refreshing = engine.detail.loading && !quiet;
+  const projects = engine.history.data?.projects;
   const workspace = useMemo<Workspace | null>(() => {
     if (!project) return null;
     const refreshLoud = () => {
       setQuiet(false);
-      engine.refresh();
-      void engine.loadHistory();
+      engineNow.current.refresh();
+      void engineNow.current.loadHistory();
     };
     return {
       project,
       config,
       mode,
       busy,
-      refreshing: engine.detail.loading && !quiet,
+      refreshing,
       refresh: refreshLoud,
-      run: (step) => engine.execute(project.id, step),
-      cancel: () => engine.cancel(project.id),
+      run: (step) => engineNow.current.execute(project.id, step),
+      cancel: () => engineNow.current.cancel(project.id),
       pause: async () => {
-        await engine.pause(project.id);
+        await engineNow.current.pause(project.id);
       },
       resume: async () => {
-        await engine.resume(project.id);
+        await engineNow.current.resume(project.id);
       },
       setIntervention: async (value) => {
-        await engine.updateIntervention(project.id, value);
+        await engineNow.current.updateIntervention(project.id, value);
       },
       branch: async (input) => {
-        await engine.branch(project.id, input);
+        await engineNow.current.branch(project.id, input);
       },
       saveEnvironment: async (input) => {
-        await engine.saveEnvironment(project.id, input);
+        await engineNow.current.saveEnvironment(project.id, input);
       },
-      recordSurvey: (record) => engine.recordSurvey(project.id, record),
+      recordSurvey: (record) => engineNow.current.recordSurvey(project.id, record),
       duplicate: () => newProject(project),
       openProject,
-      projects: engine.history.data?.projects ?? [],
+      projects: projects ?? [],
       scene: scene === 'ask' ? 'ground' : scene,
       view,
       go,
@@ -339,8 +356,8 @@ export function Application() {
     config,
     mode,
     busy,
-    engine,
-    quiet,
+    refreshing,
+    projects,
     newProject,
     openProject,
     scene,
@@ -351,7 +368,7 @@ export function Application() {
     panels,
   ]);
 
-  const recentProjects = engine.history.data?.projects;
+  const recentProjects = projects;
   const commands = useMemo(
     () =>
       buildCommands({

@@ -186,7 +186,7 @@ export class CritiqueService {
     const built = ledger.state(projectId) !== null;
     if (!built) {
       notes.push(
-        'The ledger of conflicts between sources has not been built, so those conflicts were not checked.',
+        'Conflicts between sources were not checked: the sources had not been compared when this review ran. Open Ground to compare them, then run this review again.',
       );
     }
     const open = built

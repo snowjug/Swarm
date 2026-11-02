@@ -85,8 +85,8 @@ partner's 16%, open it now and come back to it in the brief.
 **1:40 Map: stakeholders and actors (60 s).** **Map the stakeholders**, **Find who is affected**. Point
 at the parties on the map, "N to review", the chip that says how they were found (rules or model), one
 party opened to its cited quotes and confidence, and the **Nobody found for** prompts. Say: "These are
-discovered from the evidence, with the passage shown. They are roles, not people." Then **Approve &
-create actors**, open an actor's **Traits**, and point at one trait with its origin chip: "Every number
+discovered from the evidence, with the passage shown. They are roles, not people." Then **Create
+actors**, open an actor's **Traits**, and point at one trait with its origin chip: "Every number
 the actors run on says where it came from."
 
 **2:40 Simulate and Compare (60 s).** **Simulate**, **Run the simulation**. Watch the replay in **Live**
@@ -133,7 +133,7 @@ paraphrase is never shown as a quote. Quotes are checked against the passage."
 three parties and read their cited quotes under **Evidence**. Edit one (**Edit** on the party, or
 **Modelled as** for its priority) and **Merge** or **Remove** one; bring it back from **Removed** in the
 **List** view with **Restore**. Read the prompts about roles nobody was found for and say what you would
-do: add them by hand (**Add a stakeholder…**), or collect evidence. **Approve & create actors**, open an
+do: add them by hand (**Add a stakeholder…**), or collect evidence. **Create actors**, open an
 actor, move one trait with its slider and show the chip change to "you"; **Save** keeps it. Say:
 "Population sizes are assumptions used as weights. They are not measured counts."
 

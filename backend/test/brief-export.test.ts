@@ -182,6 +182,13 @@ describe('the printable page', () => {
     expect(plain).toContain('<span class="reliance">Moderate reliance</span>');
     expect(plain).toContain('Evidence (supports): Supplied notes.md, passage P1');
   });
+
+  it('keeps each statement whole beside its labels, leads with the question, and lets only a table of many columns shrink to fit', () => {
+    expect(plain).toMatch(/<span class="id">[^<]+<\/span><span class="text">[^<]+<\/span>/u);
+    expect(plain.indexOf('<dt>Question</dt>')).toBeLessThan(plain.indexOf('<dt>Analysis</dt>'));
+    expect(plain).toContain('<table class="wide"><caption>Recommendations, best first');
+    expect(plain).toMatch(/<table><caption>/u);
+  });
 });
 
 describe('the Markdown', () => {

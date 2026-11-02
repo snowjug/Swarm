@@ -1,5 +1,5 @@
 import { animate } from 'motion/react';
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { fitViewport, zoomAbout, type GraphNode, type Inset, type Viewport } from './graphModel';
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -32,6 +32,8 @@ export function useGraphViewport({
   const playing = useRef<{ stop: () => void } | null>(null);
   const placedFor = useRef('');
   const manual = useRef(false);
+  // A glide still running when the scene goes is stopped with it, and does not move a view nobody sees.
+  useEffect(() => () => playing.current?.stop(), []);
 
   const set = useCallback((to: Viewport, byHand = true) => {
     playing.current?.stop();
