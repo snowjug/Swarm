@@ -5,7 +5,14 @@ import {
   expectNoBrowserPaintedControls,
   expectNoHorizontalOverflow,
 } from '../support/helpers';
-import { quiet, historyDialog, openHistory, openSettings, settingsButton } from '../support/shell';
+import {
+  expectPressable,
+  quiet,
+  historyDialog,
+  openHistory,
+  openSettings,
+  settingsButton,
+} from '../support/shell';
 import { COLLEAGUE, OWNER, changesAs, shortId, signedInAs } from '../support/signin';
 
 // Who may use the workspace and a project, managed from the page by the people who may. The rules are tested without a
@@ -372,3 +379,30 @@ for (const theme of THEMES) {
     expect(problems).toEqual([]);
   });
 }
+
+test('on a phone the people dialogs can be used with a thumb: every control is 44px, and focus comes back', async ({
+  browser,
+  playwright,
+  baseURL,
+}) => {
+  const { context, page, problems } = await signedInAs(browser, 'owner', closers, { phone: true });
+  const api = await changesAs(playwright, context, baseURL, closers);
+  await api.put(`/api/workspace/members/${COLLEAGUE}`, { data: { role: 'member' } });
+  const id = await createGuided(api, { name: 'Access: a phone' });
+  await page.goto(`/?project=${id}`);
+  for (const [item, title] of [
+    ['People', 'People in this workspace'],
+    ['Who has access', 'Who has access'],
+  ] as const) {
+    const dialog = await openPeople(page, item, title);
+    await expect(rowOf(dialog, COLLEAGUE)).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await quiet(page);
+    await expectPressable(page, `phone: ${title}`, { min: 44, scope: '[role="dialog"]' });
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(settingsButton(page)).toBeFocused();
+  }
+  await api.delete(`/api/workspace/members/${COLLEAGUE}`);
+  expect(problems).toEqual([]);
+});

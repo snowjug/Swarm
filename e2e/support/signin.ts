@@ -7,7 +7,7 @@ import {
 } from '@playwright/test';
 import { watchPage } from './helpers';
 import { microsoftSignsIn, type Person } from './microsoft';
-import { openSettings } from './shell';
+import { PHONE, openSettings } from './shell';
 
 // What the sign-in specs share: a browser of its own for each person, signed in through the test identity provider
 // (backend/test/support/signin-e2e-server.ts), and what the page says once a person is in.
@@ -52,9 +52,12 @@ export async function signedInAs(
   browser: Browser,
   person: Person,
   closers: (() => Promise<unknown>)[],
-  options: { path?: string; theme?: string } = {},
+  options: { path?: string; theme?: string; phone?: boolean } = {},
 ): Promise<SignedIn> {
-  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const context = await browser.newContext({
+    reducedMotion: 'reduce',
+    ...(options.phone ? PHONE : {}),
+  });
   closers.push(() => context.close());
   const theme = options.theme;
   if (theme) {

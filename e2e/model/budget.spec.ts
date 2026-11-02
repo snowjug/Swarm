@@ -11,7 +11,7 @@ import {
   openDisclosure,
   watchPage,
 } from '../support/helpers';
-import { forget, openSettings, quiet } from '../support/shell';
+import { PHONE, expectPressable, forget, openSettings, quiet } from '../support/shell';
 
 // The model budget of a project, in a real browser, against the protocol-faithful fake of the provider
 // (e2e/support/fake-provider.ts). A project that has used what it may goes no further: the stage that
@@ -278,3 +278,31 @@ for (const theme of THEMES) {
     await api.dispose();
   });
 }
+
+test('on a phone the budget line and its dialog can be used with a thumb: every control is 44px', async ({
+  browser,
+  playwright,
+}) => {
+  test.setTimeout(5 * 60_000);
+  const api = await apiContext(playwright);
+  const id = await limitedProject(api, playwright);
+  await stopAtTheBudget(api, id);
+  const context = await browser.newContext({ ...PHONE, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  const problems = watchPage(page);
+  await openApp(page, { project: id });
+  await expect(guardOf(page)).toBeVisible();
+  await quiet(page);
+  await expectPressable(page, 'phone: the budget line', { min: 44 });
+  await guardOf(page).getByRole('button', { name: 'Model budget' }).click();
+  const dialog = dialogOf(page);
+  await expect(dialog.getByRole('button', { name: 'Save the limits' })).toBeVisible();
+  await quiet(page);
+  await expectPressable(page, 'phone: the budget dialog', { min: 44, scope: '[role="dialog"]' });
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+  expect(problems.filter((problem) => !problem.startsWith('console'))).toEqual([]);
+  await context.close();
+  await forget(api, [id]);
+  await api.dispose();
+});

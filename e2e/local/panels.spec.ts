@@ -16,6 +16,7 @@ import {
   openHistory,
   openSettings,
   quiet,
+  settingsButton,
 } from '../support/shell';
 
 // The panels that open over the page, in rules mode, through the real server: Ask (the analyst, the actors, the surveys),
@@ -76,10 +77,11 @@ test.describe('Ask', () => {
     await sheet.getByRole('button', { name: 'Look up evidence' }).click();
     const log = sheet.getByRole('log', { name: 'Messages' });
     await expect(log).toContainText(ask);
-    // The reply carries how well it rests on the project's evidence, in words.
-    await expect(
-      log.getByRole('button', { name: /evidence|answer|cited|caveat/iu }).first(),
-    ).toBeVisible();
+    // The reply says how well it rests on the project's evidence, in a word and in a sentence: this one cites nothing.
+    await expect(log.getByRole('button', { name: 'No citation: unverified' }).last()).toBeVisible();
+    await expect(log).toContainText(
+      'The reply cites nothing from the project. Treat it as unverified.',
+    );
     await expect(log).toContainText('Evidence lookup');
     await expect(field).toHaveValue('');
     await quiet(page);
@@ -170,14 +172,75 @@ test.describe('Ask', () => {
     expect(box!.x).toBeGreaterThanOrEqual(-1);
     expect(box!.x + box!.width).toBeLessThanOrEqual(391);
     expect(box!.y + box!.height).toBeLessThanOrEqual(845);
-    await expectNoHorizontalOverflow(page);
-    await expectReadableText(page, 'phone: ask');
-    await expectPressable(page, 'phone: ask', { min: 44, scope: '[role="dialog"]' });
+    // A reply has controls of its own (how far it rests on the evidence): it is held to the same measure as the rest.
+    await sheet
+      .getByRole('textbox', { name: 'Question for the analyst' })
+      .fill('What are the limits of this report?');
+    await sheet.getByRole('button', { name: 'Look up evidence' }).click();
+    // The conversation is kept on the server, so the reply that was just asked for is the last one.
+    await expect(
+      sheet
+        .getByRole('log', { name: 'Messages' })
+        .getByRole('button', { name: /^No citation/u })
+        .last(),
+    ).toBeVisible();
+    for (const tab of ['Analyst', 'Actors', 'Survey']) {
+      await sheet.getByRole('tab', { name: new RegExp(`^${tab}`, 'u') }).click();
+      await expectNoHorizontalOverflow(page);
+      await expectReadableText(page, `phone: ask, ${tab}`);
+      await expectPressable(page, `phone: ask, ${tab}`, { min: 44, scope: '[role="dialog"]' });
+    }
     await quiet(page);
     await expectNoAxeViolations(page, 'phone: ask');
     await sheet.getByRole('button', { name: 'Close' }).click();
     await expect(sheet).toBeHidden();
     await expect(page.getByRole('button', { name: 'Ask about this' })).toBeFocused();
+    expect(problems).toEqual([]);
+    await context.close();
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+
+test.describe('on a phone', () => {
+  test('the settings menu, the audit log and the provider details fit and can be used with a thumb', async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ ...PHONE, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    const problems = watchPage(page);
+    await openApp(page, { project: lab, scene: 'decide' });
+
+    const menu = await openSettings(page);
+    await expectPressable(page, 'phone: the settings menu', { min: 44, scope: '[role="menu"]' });
+    await expectNoHorizontalOverflow(page);
+    await menu.getByRole('menuitem', { name: 'Audit log' }).click();
+    const audit = page.getByRole('dialog', { name: 'Audit log' });
+    await expect(audit.getByRole('heading', { level: 4 }).first()).toBeVisible();
+    await audit.getByRole('button', { name: 'Verify integrity' }).click();
+    await expect(audit.getByRole('region', { name: 'Integrity of the log' })).toContainText(
+      'Chain intact',
+    );
+    await expectNoHorizontalOverflow(page);
+    await expectReadableText(page, 'phone: the audit log');
+    await expectPressable(page, 'phone: the audit log', { min: 44, scope: '[role="dialog"]' });
+    await quiet(page);
+    await expectNoAxeViolations(page, 'phone: the audit log');
+    await audit.getByRole('button', { name: 'Close' }).click();
+    await expect(audit).toBeHidden();
+    await expect(settingsButton(page)).toBeFocused();
+
+    await page.getByRole('button', { name: /^Local rules/u }).click();
+    const provider = page.getByRole('dialog', { name: 'Model provider' });
+    await expect(provider).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectReadableText(page, 'phone: the provider details');
+    await expectPressable(page, 'phone: the provider details', {
+      min: 44,
+      scope: '[role="dialog"]',
+    });
+    await quiet(page);
+    await expectNoAxeViolations(page, 'phone: the provider details');
     expect(problems).toEqual([]);
     await context.close();
   });
@@ -198,13 +261,16 @@ test.describe('the audit log', () => {
     page,
   }) => {
     const problems = watchPage(page);
+    // A snapshot download is recorded, so that the log holds two kinds of thing and offers to be read by kind.
+    expect((await api.get(`/api/projects/${lab}/export?format=json`)).ok()).toBe(true);
     const dialog = await auditOf(page);
     const titles = dialog.getByRole('heading', { level: 4 });
     await expect(titles.first()).toBeVisible();
     expect(await titles.count()).toBeGreaterThan(3);
     const texts = await titles.allTextContents();
     expect(texts).toContain('Project created');
-    // The record is the newest first: what created the project comes last.
+    // The record is the newest first: the download is the latest entry, and what created the project comes last.
+    expect(texts[0]).toBe('Export downloaded');
     expect(texts.at(-1)).toBe('Project created');
 
     const search = dialog.getByRole('searchbox', { name: 'Search the log' });
@@ -217,12 +283,12 @@ test.describe('the audit log', () => {
     await expect(titles.first()).toBeVisible();
 
     const filters = dialog.getByRole('group', { name: 'Show' });
-    await filters.getByRole('button', { name: /^Work/u }).click();
-    await expect(filters.getByRole('button', { name: /^Work/u })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(await titles.count()).toBeLessThan(texts.length);
+    const exports = filters.getByRole('button', { name: /^Exports/u });
+    await exports.click();
+    await expect(exports).toHaveAttribute('aria-pressed', 'true');
+    await expect(titles).toHaveText(['Export downloaded']);
+    await filters.getByRole('button', { name: /^All/u }).click();
+    expect(await titles.count()).toBe(texts.length);
     await quiet(page);
     await expectNoAxeViolations(page, 'the audit log');
     expect(problems).toEqual([]);
