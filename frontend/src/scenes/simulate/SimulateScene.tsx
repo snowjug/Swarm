@@ -366,8 +366,8 @@ export function SimulateScene() {
             </Button>
           }
         >
-          Approve the stakeholders and the actors are made from them. Then the futures can be set
-          side by side.
+          Approve the stakeholders, then create the actors from them on the map. Then the futures
+          can be set side by side.
         </EmptyState>
       </section>
     );
