@@ -443,7 +443,9 @@ directory (never your own data):
     source is read, corrected and taken away where it stands, and the correction is what the project is
     made from. The page is fetched by the server, previewed with where it is from and added on request;
     an address named in the question is offered as a source and fetched only when the person says so;
-    an address that is not public is refused in words and not even contacted; a page that tries to run
+    an address that is not public is refused in words and keeps nothing (twelve cases, from a loopback
+    address and the cloud metadata service to a page that robots.txt forbids), without a connection ever
+    being made to a private address; a page that tries to run
     something or to instruct the analysis is only text; a page the person then changes is no longer
     called a retrieved page. The page half runs on the server with fixture pages (`E2E_LAB_WEB_URL`, see
     [the ports](#running-one-project-and-the-ports)), and all of it fits every size, in each theme, under axe.
