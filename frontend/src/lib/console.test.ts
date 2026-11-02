@@ -422,7 +422,7 @@ describe('the one move offered from what the scenario lab has recorded', () => {
   it('names the next piece of work, one at a time, from a stage where it is not done', () => {
     const next: [Partial<LabProgress>, string, ConsoleStep][] = [
       [{ stakeholders: 'proposed' }, 'Review the stakeholders', 'environment'],
-      [APPROVED, 'Make the actors', 'environment'],
+      [APPROVED, 'Create actors', 'environment'],
       [WITH_ACTORS, 'Compare the scenarios', 'simulation'],
       [{ ...WITH_ACTORS, analysis: 'running' }, 'Follow the comparison', 'simulation'],
       [{ ...WITH_ACTORS, analysis: 'failed' }, 'Compare the scenarios', 'simulation'],

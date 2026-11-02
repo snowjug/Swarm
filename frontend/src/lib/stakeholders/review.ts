@@ -136,7 +136,7 @@ export function nextAction(input: {
     };
   }
   if (made === 0) {
-    return allowed ? { id: 'make-actors', label: 'Make the actors', primary: true } : null;
+    return allowed ? { id: 'make-actors', label: 'Create actors', primary: true } : null;
   }
   return {
     id: 'review-actors',

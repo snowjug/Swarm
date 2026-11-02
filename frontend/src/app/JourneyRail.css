@@ -67,6 +67,15 @@
   @media (pointer: coarse) {
     .sw-rail__step {
       min-height: 2.75rem;
+      /* A finger needs the width as well: the glyph keeps its size and the press target grows around it. */
+      min-width: 2.75rem;
+      justify-content: center;
+    }
+  }
+  /* A tablet held in the hand: the line between two points gives way to the width the points now need. */
+  @media (pointer: coarse) and (max-width: 62rem) {
+    .sw-rail__link {
+      width: 0.25rem;
     }
   }
   .sw-rail__step.is-current {

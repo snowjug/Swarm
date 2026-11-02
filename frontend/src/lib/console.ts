@@ -283,7 +283,7 @@ function labFrontier(lab: LabProgress): NextStep | null {
   if (lab.stakeholders === 'approved') {
     return {
       text: 'The stakeholders are approved. The simulated actors are made from them, and then the scenarios can be compared.',
-      label: 'Make the actors',
+      label: 'Create actors',
       to: 'environment',
     };
   }
