@@ -56,6 +56,8 @@ export interface DocumentProps {
   reviewOpen: boolean;
   onReviewOpenChange: (open: boolean) => void;
   hasReport: boolean;
+  /** The brief is there because it was written a moment ago, on this page. */
+  justWritten?: boolean;
   go: { simulate: () => void; studio: () => void; report: () => void };
 }
 
@@ -76,6 +78,7 @@ export function DecideDocument({
   reviewOpen,
   onReviewOpenChange,
   hasReport,
+  justWritten = false,
   go,
 }: DocumentProps) {
   const { brief, visuals } = view;
@@ -236,6 +239,21 @@ export function DecideDocument({
     }
     wasRunning.current = running;
   }, [running, runError, reviewView, toast]);
+
+  // ---- The brief that was just written ----------------------------------------------------------------
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!justWritten || announced.current) return;
+    announced.current = true;
+    // The button that asked for it is gone: the reader's place is the answer.
+    document.getElementById(ANSWER_ANCHOR)?.focus({ preventScroll: true });
+    toast({
+      title: 'The brief is ready',
+      description: 'It was written from the newest comparison.',
+      tone: 'success',
+      duration: 4200,
+    });
+  }, [justWritten, toast]);
 
   // ---- Writing the brief again ----------------------------------------------------------------------
   const wasGenerating = useRef(false);
