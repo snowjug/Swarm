@@ -65,8 +65,52 @@
     stroke-linecap: round;
     stroke-linejoin: round;
   }
+  /* The picture draws itself from the first round to the last, once, when it arrives. */
+  .sw-tl__draw {
+    animation: sw-tl-draw var(--dur-cinema) var(--ease-out) both;
+  }
+  @keyframes sw-tl-draw {
+    from {
+      clip-path: inset(-4px 100% -4px -4px);
+    }
+    to {
+      clip-path: inset(-4px -4px -4px -4px);
+    }
+  }
   .sw-tl__series {
     animation: sw-fade var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-tl__run-line {
+    fill: none;
+    stroke: var(--ink);
+    stroke-opacity: 0.7;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .sw-tl__run-dot {
+    fill: var(--bg);
+    stroke: var(--ink);
+    stroke-opacity: 0.7;
+    stroke-width: 1.4;
+  }
+  .sw-tl__run-key {
+    stroke: var(--ink);
+    stroke-opacity: 0.7;
+    stroke-width: 1.6;
+  }
+  .sw-tl__key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0 var(--s-2);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-tl__swatch--event {
+    width: 0.7rem;
+    height: 0.7rem;
+    fill: var(--c-caution);
   }
   .sw-tl__change line {
     stroke: var(--accent);
@@ -83,14 +127,28 @@
     stroke: var(--bg);
     stroke-width: 2;
   }
+  .sw-tl__cursor {
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
   .sw-tl__cursor line {
     stroke: var(--ink);
     stroke-opacity: 0.55;
     stroke-width: 1.5;
   }
-  .sw-tl__cursor circle {
+  .sw-tl__dot {
     stroke: var(--bg);
     stroke-width: 2.5;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-tl__bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-3) var(--s-4);
+    margin-top: var(--s-2);
+  }
+  .sw-tl__bar .sw-tl__read {
+    margin: 0;
   }
   .sw-tl__read {
     display: flex;
@@ -147,5 +205,6 @@
   }
   .sw-tl__table small {
     color: var(--ink-3);
+    font-size: inherit;
   }
 }

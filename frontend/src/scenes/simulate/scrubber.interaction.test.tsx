@@ -188,22 +188,22 @@ describe('playing', () => {
   it('plays twice as fast, half as fast, and as it was, with the speed button', async () => {
     vi.useFakeTimers();
     const { user } = renderWithApp(<Run autoplay />);
-    expect(button('Speed 1 times. Change').textContent).toBe('1×');
+    expect(button('1× speed. Change').textContent).toBe('1×');
 
-    await user.click(button('Speed 1 times. Change'));
-    expect(button('Speed 2 times. Change').textContent).toBe('2×');
+    await user.click(button('1× speed. Change'));
+    expect(button('2× speed. Change').textContent).toBe('2×');
     await later(500);
     expect(round()).toBe(2);
 
-    await user.click(button('Speed 2 times. Change'));
-    expect(button('Speed 0.5 times. Change').textContent).toBe('0.5×');
+    await user.click(button('2× speed. Change'));
+    expect(button('0.5× speed. Change').textContent).toBe('0.5×');
     await later(1000);
     expect(round()).toBe(2);
     await later(900);
     expect(round()).toBe(3);
 
-    await user.click(button('Speed 0.5 times. Change'));
-    expect(button('Speed 1 times. Change').textContent).toBe('1×');
+    await user.click(button('0.5× speed. Change'));
+    expect(button('1× speed. Change').textContent).toBe('1×');
   });
 
   it('is never played to a person who has asked for less motion: it waits on the last round', async () => {
@@ -245,6 +245,6 @@ describe('the buttons beside the slider', () => {
     // The next round is not offered at the last round, so the slider is next.
     expect(document.activeElement).toBe(slider());
     await user.tab();
-    expect(document.activeElement).toBe(button('Speed 1 times. Change'));
+    expect(document.activeElement).toBe(button('1× speed. Change'));
   });
 });

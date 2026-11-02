@@ -1,47 +1,26 @@
 @layer scenes {
-  .sw-round {
-    --glass-radius: var(--r-xl);
-    position: absolute;
-    z-index: 6;
-    top: 5.2rem;
-    right: var(--s-4);
-    max-height: calc(100% - 5.2rem - var(--s-5) - 5.2rem);
-    width: min(23rem, calc(100% - var(--s-4) * 2));
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .sw-round--tall {
-    bottom: var(--s-4);
-    max-height: none;
-  }
-  .sw-round__scroll {
+  .sw-round__body {
     display: grid;
     gap: var(--s-5);
     align-content: start;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    padding: var(--s-5) var(--s-5) var(--s-6);
-    scrollbar-width: thin;
-    /* What is below the edge fades out rather than being cut: the padding at the end keeps the last line clear of it. */
-    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 1.75rem), transparent);
-    mask-image: linear-gradient(to bottom, black calc(100% - 1.75rem), transparent);
+    min-width: 0;
   }
   .sw-round__head {
     display: grid;
     gap: var(--s-1);
   }
-  .sw-round__head p {
+  .sw-round__head p,
+  .sw-round__flag {
     margin: 0;
   }
   .sw-round__title {
     display: flex;
     align-items: baseline;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.2rem 0.5rem;
   }
   .sw-round__number {
-    font-size: 3.1rem;
+    font-size: 2.7rem;
     line-height: 0.95;
   }
   .sw-round__of {
@@ -52,32 +31,14 @@
   .sw-round__block {
     display: grid;
     gap: var(--s-3);
+    min-width: 0;
   }
-  .sw-round__block h3 {
+  .sw-round__block h2,
+  .sw-round__block p {
     margin: 0;
   }
-  .sw-round__signals {
-    display: grid;
-    gap: var(--s-3);
+  .sw-round__none {
     margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .sw-round__signals li {
-    display: grid;
-    grid-template-columns: 6.2rem 1fr 2.6rem;
-    align-items: center;
-    gap: var(--s-3);
-  }
-  .sw-round__signal {
-    color: var(--ink-2);
-    font-size: var(--fs-small);
-  }
-  .sw-round__pct {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    font-size: var(--fs-small);
-    font-weight: 560;
   }
   .sw-round__events {
     display: grid;
@@ -99,13 +60,19 @@
   .sw-round__actor {
     display: inline-flex;
     align-items: center;
-    min-height: 1.5rem;
+    min-height: 1.75rem;
     padding: 0;
     border: 0;
     background: transparent;
     color: var(--accent);
+    font: inherit;
     font-weight: 560;
     text-align: left;
+    cursor: pointer;
+  }
+  .sw-round__actor:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
   @media (pointer: coarse) {
     .sw-round__actor {
@@ -116,6 +83,47 @@
     color: var(--ink);
     line-height: 1.5;
     text-wrap: pretty;
+  }
+  .sw-round__line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 var(--s-2);
+  }
+  .sw-sim-dock__peek .sw-round__line {
+    flex-wrap: nowrap;
+    align-items: center;
+    min-width: 0;
+  }
+  .sw-sim-dock__peek .sw-round__number {
+    font-size: 1.9rem;
+    line-height: 1;
+  }
+  .sw-sim-dock__peek .sw-round__of {
+    margin-right: var(--s-2);
+    white-space: nowrap;
+  }
+
+  /* ---- How the related actors lean ---- */
+  .sw-lean {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-lean b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-lean li[data-lean='together'] b {
+    color: var(--c-favor);
+  }
+  .sw-lean li[data-lean='apart'] b {
+    color: var(--c-against);
   }
 
   /* ---- One actor in this run ---- */
@@ -153,6 +161,7 @@
     margin: 0;
   }
   .sw-trace__swatch {
+    flex: none;
     width: 0.8rem;
     height: 0.8rem;
     border-radius: 50%;
@@ -184,94 +193,5 @@
   .sw-spark__dot {
     stroke: var(--bg);
     stroke-width: 2;
-  }
-
-  .sw-round__fold {
-    display: grid;
-    grid-template-rows: 1fr;
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-  .sw-round__fold > .sw-round__scroll {
-    min-height: 0;
-  }
-  .sw-round__line {
-    display: flex;
-    align-items: baseline;
-    flex-wrap: wrap;
-    gap: 0 var(--s-2);
-  }
-  .sw-round__state {
-    color: var(--ink-2);
-    font-size: var(--fs-small);
-  }
-  .sw-round__toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--s-3);
-    width: 100%;
-    min-height: 3.25rem;
-    padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5);
-    border: 0;
-    border-radius: inherit;
-    background: transparent;
-    color: var(--ink);
-    font: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-  .sw-round__toggle .sw-round__number {
-    font-size: 1.9rem;
-    line-height: 1;
-  }
-  .sw-round__toggle .sw-round__of {
-    margin-right: var(--s-1);
-  }
-  .sw-round__peek {
-    flex: 1;
-    min-width: 0;
-  }
-  .sw-round__chev {
-    display: grid;
-    place-items: center;
-    flex: none;
-    width: 2.25rem;
-    height: 2.25rem;
-    border-radius: 50%;
-    color: var(--ink-2);
-    transition: transform var(--dur-base) var(--ease-spring);
-  }
-  .sw-round--compact.is-open .sw-round__chev {
-    transform: rotate(180deg);
-  }
-  .sw-round__glance {
-    padding: 0 var(--s-5) var(--s-4);
-  }
-
-  @media (max-width: 63.99rem) {
-    .sw-round {
-      top: auto;
-      left: var(--s-3);
-      right: var(--s-3);
-      bottom: calc(var(--s-3) + 4.6rem);
-      width: auto;
-      max-height: min(56%, 28rem);
-    }
-    .sw-round--tall {
-      bottom: var(--s-3);
-    }
-    .sw-round--compact .sw-round__fold {
-      transition: grid-template-rows var(--dur-base) var(--ease-out);
-    }
-    .sw-round--compact:not(.is-open) .sw-round__fold {
-      grid-template-rows: 0fr;
-    }
-    .sw-round--compact:not(.is-open) .sw-round__scroll {
-      overflow: hidden;
-      padding-block: 0;
-    }
-    .sw-round--compact .sw-round__scroll {
-      padding-top: var(--s-2);
-    }
   }
 }

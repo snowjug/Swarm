@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { Analysis, RunOutcome } from '../../../../shared/analysis';
 import { analysisFixture } from '../../../../shared/lab-fixtures';
 import {
+  alignmentAt,
+  bandAt,
   causalLinks,
   lanesOf,
+  movesIn,
   moversOf,
   movementOf,
+  narrationOf,
   niceAxis,
   niceScale,
   replayOf,
@@ -131,6 +135,92 @@ describe('replaying the run that was kept in detail', () => {
       representativeRun: { ...base.representativeRun!, explained: false },
     })!;
     expect(causalLinks(untested, 3)).toEqual([]);
+  });
+});
+
+describe('what happens in a round', () => {
+  it('says who moved from the round before, and nobody where nobody did', () => {
+    const base = analysis();
+    const replay = replayOf(base)!;
+    const [a, b] = base.actors;
+    expect(replay.peakMove).toBeCloseTo(0.06);
+    expect(movesIn(replay, 1)).toEqual([]);
+    const second = movesIn(replay, 2);
+    expect(second[0]!.actorId).toBe(a!.id);
+    expect(second[0]!.move).toBeCloseTo(-0.04);
+    expect(second.map((entry) => entry.actorId)).not.toContain('nobody');
+    // The second actor moved by a hundredth: less than a fifth of the largest move, so it is not said to have moved.
+    expect(movesIn(replay, 3).map((entry) => entry.actorId)).toEqual([a!.id]);
+    expect(movesIn(replay, 4).map((entry) => entry.actorId)).toEqual([a!.id]);
+    expect(movesIn(replay, 4)[0]!.actorId).not.toBe(b!.id);
+  });
+
+  it('narrates a round from what the run recorded: the change first, then what was set off, then who moved', () => {
+    const base = analysis();
+    const replay = replayOf(base)!;
+    expect(narrationOf(replay, 1)).toMatchObject({ kind: 'start' });
+    const change = narrationOf(replay, 2);
+    expect(change.kind).toBe('change');
+    expect(change.text).toMatch(/^The change lands on \d+ actors?$|no actor is set to feel it/u);
+    expect(change.tag).toBe('strength 0.70');
+    const event = narrationOf(replay, 3);
+    expect(event).toMatchObject({ kind: 'event', tag: 'scrutiny' });
+    expect(event.text).toContain('set something off');
+    expect(event.actorIds).toEqual([base.actors[1]!.id]);
+    expect(narrationOf(replay, 4)).toMatchObject({ kind: 'move', tag: '-0.02' });
+    // Where nobody moved, nothing is said to have moved.
+    const [a, b] = base.actors;
+    const flat = (n: number) => ({
+      ...runFixture(base).rounds[0]!,
+      round: n,
+      byActor: [
+        { actorId: a!.id, stanceMean: 0.05 },
+        { actorId: b!.id, stanceMean: -0.05 },
+      ],
+    });
+    const still = replayOf({
+      ...base,
+      representativeRun: {
+        ...runFixture(base),
+        rounds: [flat(1), flat(2), flat(3), flat(4)],
+        events: [],
+      },
+    })!;
+    expect(narrationOf(still, 3)).toMatchObject({ kind: 'quiet', actorIds: [] });
+  });
+
+  it('counts the connected pairs that lean together and apart, only where both ends lean clearly', () => {
+    const base = analysis();
+    const replay = replayOf(base)!;
+    const [a, b] = base.actors;
+    const edges = [{ id: 'ab', from: a!.id, to: b!.id }];
+    // Round 1: both near neutral.
+    expect(alignmentAt(replay, edges, 1)).toMatchObject({ together: 0, apart: 0, quiet: 1 });
+    // The scale is the run's largest move (0.12), so the band is 0.024: -0.1 against +0.02 is one lean and one near neutral.
+    expect(alignmentAt(replay, edges, 3)).toMatchObject({ together: 0, apart: 0, quiet: 1 });
+    // Round 4: -0.12 against +0.03, and both are past the band of 0.024: they lean opposite ways.
+    expect(alignmentAt(replay, edges, 4)).toMatchObject({ together: 0, apart: 1, quiet: 0 });
+    expect(alignmentAt(replay, edges, 4).byEdge.get('ab')).toBe('apart');
+    // An edge with an actor the run does not have is not counted.
+    expect(alignmentAt(replay, [{ id: 'x', from: a!.id, to: 'gone' }], 4)).toMatchObject({
+      together: 0,
+      apart: 0,
+      quiet: 0,
+    });
+  });
+
+  it('keeps the spread of all the runs, so that one run is seen among them', () => {
+    const base = analysis();
+    const replay = replayOf(base)!;
+    const proposed = base.variants.find((entry) => entry.variantId === 'proposed-change');
+    const point = proposed?.trajectory[0];
+    if (point)
+      expect(bandAt(replay, point.round)).toEqual({
+        p10: point.p10,
+        p50: point.p50,
+        p90: point.p90,
+      });
+    expect(bandAt(replay, 99)).toBeNull();
   });
 });
 
