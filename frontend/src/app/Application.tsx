@@ -250,7 +250,11 @@ export function Application() {
   }, [actionError, engine.dismissError, toast]);
 
   // ---- The workspace every scene reads --------------------------------------------------------------
-  const { open: providerOpen, toggle: toggleProvider } = provider;
+  // Whether the provider's popover is open is read when it is asked about, so that opening it does not rebuild the
+  // workspace and draw the scene in view again.
+  const providerOpenNow = useRef(provider.open);
+  providerOpenNow.current = provider.open;
+  const { toggle: toggleProvider } = provider;
   const panels = useMemo<PanelControls>(
     () => ({
       history: () => setPanel('history'),
@@ -262,11 +266,11 @@ export function Application() {
       budget: () => setPanel('budget'),
       access: () => setPanel('access'),
       provider: () => {
-        if (!providerOpen) toggleProvider();
+        if (!providerOpenNow.current) toggleProvider();
       },
       snapshot: () => undefined,
     }),
-    [providerOpen, toggleProvider],
+    [toggleProvider],
   );
 
   // `/` asks the analyst about what is on the screen, as the button in the bar says; never while typing, or over
@@ -308,6 +312,12 @@ export function Application() {
 
   const refreshing = engine.detail.loading && !quiet;
   const projects = engine.history.data?.projects;
+  // A change of view inside a scene is the scene's own business: it is not an exit, and the scenes that hold work ask
+  // for their own routes back.
+  const setView = useCallback<Workspace['setView']>(
+    (next) => navigate({ view: next }, { replace: true }),
+    [],
+  );
   const workspace = useMemo<Workspace | null>(() => {
     if (!project) return null;
     const refreshLoud = () => {
@@ -321,7 +331,7 @@ export function Application() {
       mode,
       busy,
       refreshing,
-      refresh: refreshLoud,
+      refresh: (options) => (options?.quiet ? readQuietly() : refreshLoud()),
       run: (step) => engineNow.current.execute(project.id, step),
       cancel: () => engineNow.current.cancel(project.id),
       pause: async () => {
@@ -346,7 +356,7 @@ export function Application() {
       scene: scene === 'ask' ? 'ground' : scene,
       view,
       go,
-      setView: (next) => navigate({ view: next }, { replace: true }),
+      setView,
       journey,
       sharing: signedIn,
       panels,
@@ -360,9 +370,11 @@ export function Application() {
     projects,
     newProject,
     openProject,
+    readQuietly,
     scene,
     view,
     go,
+    setView,
     journey,
     signedIn,
     panels,
