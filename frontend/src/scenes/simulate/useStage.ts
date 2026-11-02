@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useElementSize } from '../../hooks/useElementSize';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 
 /** What the stage's overlays take from the picture: measured, so that nothing is laid out under a heading or a dock. */
 export interface StageBoxes {
@@ -38,4 +39,30 @@ export function useClosedHeight(dock: number, open: boolean): number {
     if (!open && dock > 0) setClosed(dock);
   }, [open, dock]);
   return closed || dock;
+}
+
+/**
+ * The room the picture keeps clear at its edges: under the heading, over the dock, and a little beside. The names of the
+ * groups stand a little lower than the actors do, so the room over the dock is more than the dock itself.
+ */
+export function useStageInset(
+  boxes: StageBoxes,
+  closedDock: number,
+  wide: boolean,
+): { top: number; bottom: number; left: number; right: number } {
+  return {
+    top: boxes.top + 28,
+    bottom: closedDock > 0 ? closedDock + 36 : 56,
+    left: wide ? 40 : 24,
+    right: 24,
+  };
+}
+
+/**
+ * What floats over the right of the picture, which the picture keeps clear of: the card beside it where there is one, and
+ * on a phone the column of the zoom at the edge.
+ */
+export function useCoveredRight(wide: boolean, side: number): number {
+  const phone = useMediaQuery('(max-width: 40rem)');
+  return wide ? side : phone ? 56 : 0;
 }

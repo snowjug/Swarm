@@ -220,6 +220,12 @@ export function StoryView({ analysis, replay, onWatch, onCompare, onReview }: St
           </Button>
         </div>
         <div className="sw-story__foot">
+          {!replay && (
+            <p className="sw-story__sources">
+              No run was kept in detail, so there is nothing to watch round by round. Live and
+              Network are not offered; the timeline still shows how the runs spread.
+            </p>
+          )}
           <p className="sw-story__sources">{lines[0]}</p>
           <Fine />
         </div>

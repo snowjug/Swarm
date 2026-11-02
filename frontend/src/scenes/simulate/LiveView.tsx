@@ -18,7 +18,7 @@ import {
   type Replay,
 } from './model';
 import type { Playback } from './usePlayback';
-import { useClosedHeight, type StageBoxes } from './useStage';
+import { useClosedHeight, useCoveredRight, useStageInset, type StageBoxes } from './useStage';
 
 /** The width the card beside the picture takes, with its margin. */
 const SIDE = 400;
@@ -55,6 +55,8 @@ export function LiveView({
   const round = playback.round;
   const [open, setOpen] = useState(false);
   const closedDock = useClosedHeight(boxes.dock, open);
+  const inset = useStageInset(boxes, closedDock, wide);
+  const coveredRight = useCoveredRight(wide, SIDE);
   const stances = useMemo(() => stancesAt(replay, round), [replay, round]);
   const chain = useMemo(
     () =>
@@ -121,8 +123,8 @@ export function LiveView({
             emphasis={emphasis}
             pulses={pulses}
             flows={flows}
-            inset={{ top: boxes.top + 28, bottom: closedDock + 8, left: 24, right: 24 }}
-            covered={{ right: wide ? SIDE : 0, bottom: compact && open ? boxes.dock : 0 }}
+            inset={inset}
+            covered={{ right: coveredRight, bottom: compact && open ? boxes.dock : 0 }}
             emerge={false}
             describe={(node) => {
               const stance = stances.get(node.id) ?? 0;

@@ -260,12 +260,25 @@
     .sw-lane__note {
       padding-left: 0;
     }
+    /* The name has the width of the screen: the kind of scenario and what it is stand under it, not beside it. */
+    .sw-lane__who {
+      flex-wrap: wrap;
+      row-gap: var(--s-1);
+    }
+    .sw-lane__input,
+    .sw-lane__name {
+      flex: 1 1 calc(100% - 1.4rem - var(--s-3));
+    }
+    .sw-lane__kind {
+      margin-left: calc(0.7rem + var(--s-3));
+    }
     .sw-setup__options {
       grid-template-columns: minmax(0, 1fr);
       gap: var(--s-4);
     }
     .sw-setup__foot {
-      bottom: calc(var(--dock-h) + var(--s-5));
+      bottom: var(--dock-h);
+      padding-bottom: var(--s-3);
       flex-direction: column-reverse;
       align-items: stretch;
     }

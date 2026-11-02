@@ -42,6 +42,10 @@
   .sw-sim__head h1 {
     margin: 0;
   }
+  /* The network's controls sit in one row: the colour choice and the kinds of relation. */
+  .sw-sim__head:has(.sw-net__controls) {
+    max-width: min(46rem, 100%);
+  }
   .sw-sim__title {
     font-size: clamp(2.1rem, 1.5rem + 1.8vw, 3.1rem);
   }
@@ -209,6 +213,14 @@
     .sw-sim[data-stage] {
       height: calc(100dvh - var(--topbar-h) - 0.75rem - var(--dock-h) - 1.5rem);
       min-height: 30rem;
+    }
+    /* The zoom is a column at the edge, and the names of the groups, which have no room here, are left to the actors' own. */
+    .sw-sim[data-stage] .sw-eco__controls {
+      flex-direction: column;
+      right: var(--s-2);
+    }
+    .sw-sim[data-stage] .sw-eco__cluster text {
+      display: none;
     }
     .sw-sim__top {
       flex-direction: column;

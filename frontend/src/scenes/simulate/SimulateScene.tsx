@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowRight, Layers, MoreHorizontal, RotateCw, Telescope } from 'lucide-react';
@@ -261,6 +261,20 @@ function Theatre({
 }
 
 /**
+ * A screen of the scene is a place of its own: when the one that is open changes (the form that was pressed gives way to
+ * the progress, a stopped run to its notice) the new one opens at its top, not where the last was scrolled to.
+ */
+function ScreenTop({ stage }: { stage: string }) {
+  const previous = useRef(stage);
+  useEffect(() => {
+    if (previous.current === stage) return;
+    previous.current = stage;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [stage]);
+  return null;
+}
+
+/**
  * The simulation, the hero of the product. Before a run it is a small set of choices; while it runs it is the work, drawn
  * as it happens; once it is done it is a theatre with four ways to look at the same real run: a story written from its
  * numbers, the actors moving round by round, the network they sit in, and the spread of every run over time.
@@ -417,6 +431,7 @@ export function SimulateScene() {
 
   return (
     <>
+      <ScreenTop stage={stage} />
       <AnimatePresence mode="wait" initial={false}>
         <m.div
           key={stage}
