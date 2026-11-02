@@ -14,13 +14,16 @@ import { useTheme } from '../hooks/useTheme';
 import { labWatch } from '../lib/console';
 import { sourceLink } from '../lib/format';
 import { administersWorkspace } from '../lib/members';
+import { setMotionPreference, useMotionPreference } from '../design/motion';
 import { PanelHost, type PanelName } from './PanelHost';
 import { AppShell } from './AppShell';
+import { CommandPalette } from './CommandPalette';
 import { Dock } from './Dock';
 import { SceneHost } from './SceneHost';
 import { preloadScene } from './loaders';
 import { SettingsMenu } from './SettingsMenu';
 import { TopBar } from './TopBar';
+import { buildCommands, opensPalette } from './commands';
 import { WorkspaceContext, type PanelControls, type Workspace } from './context';
 import { navigate, useRoute } from './route';
 import {
@@ -72,6 +75,8 @@ export function Application() {
   const main = useRef<HTMLElement>(null);
 
   const [panel, setPanel] = useState<PanelName | null>(null);
+  const [palette, setPalette] = useState(false);
+  const motionPreference = useMotionPreference();
   const [askSeed, setAskSeed] = useState<{ target?: string; message?: string }>({});
   const [creation, setCreation] = useState<{ key: number; project?: ProjectDetail }>({ key: 0 });
   const [quiet, setQuiet] = useState(false);
@@ -275,6 +280,17 @@ export function Application() {
     return () => window.removeEventListener('keydown', onKey);
   }, [project, panels]);
 
+  // Ctrl or ⌘ with K opens the palette from anywhere, also while typing, as it does in every tool that has one.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !opensPalette(event)) return;
+      event.preventDefault();
+      setPalette((open) => !open);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const workspace = useMemo<Workspace | null>(() => {
     if (!project) return null;
     const refreshLoud = () => {
@@ -335,6 +351,55 @@ export function Application() {
     panels,
   ]);
 
+  const recentProjects = engine.history.data?.projects;
+  const commands = useMemo(
+    () =>
+      buildCommands({
+        journey: project ? journey : null,
+        go,
+        newQuestion: () => newProject(),
+        history: () => setPanel('history'),
+        provider: panels.provider,
+        project:
+          project && workspace
+            ? {
+                ask: () => panels.ask(),
+                refresh: workspace.refresh,
+                duplicate: busy ? null : workspace.duplicate,
+                audit: panels.audit,
+                budget: project.mode === 'llm' ? panels.budget : null,
+                access: signedIn ? panels.access : null,
+              }
+            : null,
+        theme: { value: theme.preference, set: theme.choose },
+        motion: { value: motionPreference, set: setMotionPreference },
+        mode: { value: mode, set: chooseMode },
+        recent: (recentProjects ?? [])
+          .filter((entry) => entry.id !== engine.selectedId)
+          .slice(0, 6)
+          .map(({ id, name }) => ({ id, name })),
+        openProject: (id) => openProject(id),
+      }),
+    [
+      busy,
+      chooseMode,
+      engine.selectedId,
+      go,
+      journey,
+      mode,
+      motionPreference,
+      newProject,
+      openProject,
+      panels,
+      project,
+      recentProjects,
+      signedIn,
+      theme.choose,
+      theme.preference,
+      workspace,
+    ],
+  );
+
   const signOut = async () => {
     try {
       await api.signOut();
@@ -364,6 +429,9 @@ export function Application() {
     onTheme: theme.choose,
     mode,
     onMode: chooseMode,
+    // A menu gives focus back to its button as it closes; opening the palette after that lets the palette
+    // remember the button, so that closing it returns the keyboard there.
+    onPalette: () => window.setTimeout(() => setPalette(true), 150),
     account,
     version,
     sourceUrl: source,
@@ -398,6 +466,7 @@ export function Application() {
           historyTotal={engine.history.data?.total ?? null}
           onHistory={() => setPanel('history')}
           onAsk={() => panels.ask()}
+          onPalette={() => setPalette(true)}
           status={statusChip}
           menu={
             project && workspace ? (
@@ -506,6 +575,7 @@ export function Application() {
           mode={mode}
         />
       )}
+      <CommandPalette open={palette} onOpenChange={setPalette} commands={commands} />
       <PanelHost
         panel={panel}
         onClose={() => setPanel(null)}

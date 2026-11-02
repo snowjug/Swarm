@@ -9,6 +9,7 @@ import {
   Monitor,
   Moon,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sun,
   Users,
@@ -33,6 +34,7 @@ import {
 } from '../design/ui';
 import { MODE_LABELS, MODE_SUMMARIES, UI_MODES, type UiMode } from '../lib/mode';
 import { THEME_LABELS, PREFERENCES, type ThemePreference } from '../lib/theme';
+import { paletteShortcut } from './commands';
 
 const THEME_ICONS: Record<ThemePreference, typeof Sun> = {
   system: Monitor,
@@ -60,6 +62,7 @@ export function SettingsMenu({
   onTheme,
   mode,
   onMode,
+  onPalette,
   project,
   account,
   version,
@@ -69,6 +72,8 @@ export function SettingsMenu({
   onTheme: (next: ThemePreference) => void;
   mode: UiMode;
   onMode: (next: UiMode) => void;
+  /** Opens the command palette: on a phone this is the way in, as the bar has no room for its button. */
+  onPalette: () => void;
   project: ProjectTools | null;
   account: { label: string; onPeople: (() => void) | null; onSignOut: (() => void) | null };
   version: string | null;
@@ -83,6 +88,10 @@ export function SettingsMenu({
         </IconButton>
       </MenuTrigger>
       <MenuContent align="end" className="sw-settings">
+        <MenuItem icon={<Search size={16} />} shortcut={paletteShortcut()} onSelect={onPalette}>
+          Search and commands
+        </MenuItem>
+        <MenuSeparator />
         <MenuLabel>Appearance</MenuLabel>
         <MenuRadioGroup value={theme} onValueChange={(value) => onTheme(value as ThemePreference)}>
           {PREFERENCES.map((name) => {
