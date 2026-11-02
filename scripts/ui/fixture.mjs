@@ -154,6 +154,8 @@ export async function makeProject(BASE) {
     () => call(BASE, 'GET', `/api/projects/${id}/analysis/${started.analysis.id}`),
     (answer) => !['running', 'queued'].includes(answer.analysis.status),
   );
+  // Opening Ground is what compares the sources: a review made before that says so, and a person always gets there first.
+  await call(BASE, 'GET', `/api/projects/${id}/ledger`);
   await call(BASE, 'POST', `/api/projects/${id}/critiques/run`, { useModel: false });
   await call(BASE, 'POST', `/api/projects/${id}/brief`, {});
   return id;

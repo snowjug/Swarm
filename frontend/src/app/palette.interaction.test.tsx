@@ -192,4 +192,20 @@ describe('CommandPalette', () => {
     await dialog();
     expect(field().value).toBe('');
   });
+
+  it('has a Close button for a screen with no Escape key, last in the order, and focus goes back to the opener', async () => {
+    const { user } = renderWithApp(<Harness commands={[command('go:ground', 'Ground')]} />);
+    const opener = screen.getByRole('button', { name: 'Open palette' });
+    await user.click(opener);
+    await dialog();
+    const close = screen.getByRole('button', { name: 'Close' });
+    // Tab goes from the field to the rows first: the button is the last stop, as in any dialog.
+    await user.tab();
+    expect(document.activeElement).toBe(list());
+    await user.tab();
+    expect(document.activeElement).toBe(close);
+    await user.click(close);
+    await closed();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+  });
 });
