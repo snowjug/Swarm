@@ -293,6 +293,38 @@ test.describe('a simulation that failed', () => {
   });
 });
 
+test.describe('a simulation that has just finished', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+  test.setTimeout(180_000);
+
+  test('opens the comparison when Compare is pressed the moment the theatre offers it, with no word that it is not open yet', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    const id = await seedByHand(
+      api,
+      'Running: a simulation compared while the page watches',
+      BUS_STAKEHOLDERS,
+      BUS_RELATIONS,
+    );
+    await openSetup(page, id);
+    await chooseRuns(page, 10);
+    await run(page);
+    await expect(progress(page)).toBeVisible();
+
+    // The shell reads the project every couple of seconds, so for a moment after the finish its own record still says the
+    // comparison is running: what lets the press through is that the page told it, as it learned the finish.
+    await page
+      .getByRole('toolbar', { name: 'Ways to look at it' })
+      .getByRole('button', { name: 'Compare', exact: true })
+      .click({ timeout: 120_000 });
+    await expect(page).toHaveURL(/scene=compare/u);
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(page.getByText('Run a simulation first')).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
+});
+
 test.describe('a simulation that the server did not finish', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
   test.setTimeout(240_000);

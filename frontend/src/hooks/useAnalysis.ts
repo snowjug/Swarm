@@ -82,8 +82,13 @@ export function watchAnalysis(options: {
  * The comparisons of one project. It reads the list once, and then only the comparison that is
  * running, once a second, until it is done: a project that never compared anything costs one read
  * that answers with an empty list.
+ *
+ * `onSettled` says that what the server holds of this project's comparisons has just changed: one was accepted, one was
+ * asked to stop, or one that was being watched has finished, however it ended. The shell reads the project only every few
+ * seconds, so its own record of the lab lags until it is told; the owner of this hook tells it. The latest function given
+ * is the one called, and a new one on every draw restarts nothing.
  */
-export function useAnalysis(projectId: string): AnalysisState {
+export function useAnalysis(projectId: string, onSettled?: () => void): AnalysisState {
   const [readiness, setReadiness] = useState<AnalysisReadiness | null>(null);
   const [summaries, setSummaries] = useState<AnalysisSummary[]>([]);
   const [current, setCurrent] = useState<Analysis | null>(null);
@@ -95,6 +100,12 @@ export function useAnalysis(projectId: string): AnalysisState {
   const [trouble, setTrouble] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
   const [refreshes, setRefreshes] = useState(0);
+
+  const latestSettled = useRef(onSettled);
+  useEffect(() => {
+    latestSettled.current = onSettled;
+  }, [onSettled]);
+  const settled = useCallback(() => latestSettled.current?.(), []);
 
   // The choice of a comparison that is being read, if any. Only the newest choice may answer, and only while the project
   // is open: a comparison that arrives after another was chosen, or after the project was left, is not the one to show.
@@ -155,7 +166,10 @@ export function useAnalysis(projectId: string): AnalysisState {
     const stop = watchAnalysis({
       read: () => analysisApi.get(projectId, watching, controller.signal),
       onUpdate: setCurrent,
-      onFinished: () => setRefreshes((old) => old + 1),
+      onFinished: () => {
+        setRefreshes((old) => old + 1);
+        settled();
+      },
       onTrouble: setTrouble,
       describe: errorMessage,
     });
@@ -164,7 +178,7 @@ export function useAnalysis(projectId: string): AnalysisState {
       stop();
       setTrouble(null);
     };
-  }, [projectId, watching]);
+  }, [projectId, watching, settled]);
 
   // Asking to stop is answered at once, but the comparison stops at its next run: it is cancelling until it has.
   useEffect(() => {
@@ -183,15 +197,16 @@ export function useAnalysis(projectId: string): AnalysisState {
         stopChoosing();
         setCurrent(started);
         setError(null);
-        return true;
       } catch (failure) {
         setStartError(errorMessage(failure));
         return false;
       } finally {
         setStarting(false);
       }
+      settled();
+      return true;
     },
-    [projectId, stopChoosing],
+    [projectId, stopChoosing, settled],
   );
 
   const currentId = current?.id ?? null;
@@ -204,8 +219,10 @@ export function useAnalysis(projectId: string): AnalysisState {
     } catch (failure) {
       setStartError(errorMessage(failure));
       setCancelling(false);
+      return;
     }
-  }, [projectId, currentId]);
+    settled();
+  }, [projectId, currentId, settled]);
 
   const select = useCallback(
     (id: string) => {
