@@ -246,7 +246,7 @@ export function useConsole() {
         if (!signal.aborted && alive.current) {
           setActionError({
             id: project.id,
-            message: `Draft saved. Graph Build was not confirmed; refresh before retrying. ${errorMessage(error)}`,
+            message: `The exploration was saved, but Swarm could not start reading its evidence. ${errorMessage(error)} Open Ground and press “Ground it” to try again.`,
           });
         }
         return project;
@@ -294,6 +294,9 @@ export function useConsole() {
     refresh();
   };
 
+  // The same function on every draw: it is a dependency of what tells the person, which must not run again for it.
+  const dismissError = useCallback(() => setActionError(null), []);
+
   return {
     selectedId,
     config,
@@ -315,6 +318,6 @@ export function useConsole() {
     saveEnvironment,
     remove,
     recordSurvey,
-    dismissError: () => setActionError(null),
+    dismissError,
   };
 }

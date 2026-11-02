@@ -1,0 +1,225 @@
+@layer scenes {
+  .sw-cmp-fut {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
+  }
+  .sw-cmp-fut__read {
+    min-height: 1.5em;
+    margin-top: calc(var(--s-1) * -1);
+  }
+  .sw-cmp-fut__list {
+    display: grid;
+    gap: var(--s-1);
+    margin: var(--s-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* One scenario: who it is, where its members ended up, and the share that matters most. */
+  .sw-cmp-fut__row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(10rem, 14.5rem) minmax(0, 1fr) 12rem;
+    align-items: center;
+    gap: var(--s-3) var(--s-6);
+    margin: 0 calc(var(--s-5) * -1);
+    padding: var(--s-4) var(--s-5);
+    border-radius: var(--r-lg);
+    transition:
+      background-color var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-fut__row[data-role='b'] {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--accent) 7%, transparent),
+      color-mix(in oklab, var(--accent) 2%, transparent)
+    );
+  }
+  @media (hover: hover) {
+    .sw-cmp-fut__row:not([data-role='a']):hover {
+      background: color-mix(in oklab, var(--ink) 4%, transparent);
+    }
+    .sw-cmp-fut__row[data-role='b']:hover {
+      background: linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--accent) 10%, transparent),
+        color-mix(in oklab, var(--accent) 3%, transparent)
+      );
+    }
+  }
+  .sw-cmp-fut__who {
+    display: grid;
+    gap: 0.2rem;
+    justify-items: start;
+    min-width: 0;
+  }
+  .sw-cmp-fut__name {
+    font-family: var(--font-display);
+    font-size: 1.55rem;
+    font-weight: 400;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+  }
+  .sw-cmp-fut__row[data-role='a'] .sw-cmp-fut__name {
+    color: var(--ink-2);
+  }
+  /*
+   * The button is the name, and its own box is a real target: 24px at least for a pointer and 44px for a finger,
+   * made of padding that the margin gives back, so that the name does not move and the row keeps its height.
+   */
+  .sw-cmp-fut__pick {
+    min-width: 1.5rem;
+    padding: 0.3rem 0;
+    margin: -0.3rem 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  @media (pointer: coarse) {
+    .sw-cmp-fut__pick {
+      min-width: 2.75rem;
+      padding-block: 0.7rem;
+      margin-block: -0.7rem;
+    }
+  }
+  /* The whole row answers to a press as well, so that the name is not the only way to it. */
+  .sw-cmp-fut__pick::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .sw-cmp-fut__pick:focus-visible {
+    outline: none;
+  }
+  .sw-cmp-fut__row:has(.sw-cmp-fut__pick:focus-visible) {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+  .sw-cmp-fut__meta {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-fut__engine {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-cmp-fut__tag {
+    min-height: 1.5rem;
+    margin-top: 0.15rem;
+  }
+  .sw-cmp-fut__hint {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    opacity: 0;
+    transform: translate3d(-4px, 0, 0);
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  @media (hover: hover) {
+    .sw-cmp-fut__row:hover .sw-cmp-fut__hint {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @media (hover: none) {
+    .sw-cmp-fut__hint {
+      opacity: 0.85;
+      transform: none;
+    }
+  }
+
+  /* The bar is drawn on from the left once the row has been seen. */
+  .sw-cmp-fut__bar {
+    min-width: 0;
+  }
+  .sw-cmp-fut__bar .sw-cmp-resp {
+    clip-path: inset(0 100% 0 0 round 999px);
+  }
+  .sw-cmp-fut__row[data-seen] .sw-cmp-resp {
+    clip-path: inset(0 0 0 0 round 999px);
+    transition: clip-path var(--dur-cinema) var(--ease-spring-smooth);
+    transition-delay: calc(var(--row, 0) * 90ms + 140ms);
+  }
+
+  .sw-cmp-fut__figure {
+    display: grid;
+    gap: 0.1rem;
+    justify-items: start;
+    min-width: 0;
+  }
+  .sw-cmp-fut__num {
+    font-size: 2.7rem;
+    line-height: 0.95;
+    color: var(--ink);
+  }
+  .sw-cmp-fut__num span {
+    margin-left: 0.06em;
+    color: var(--ink-3);
+    font-size: 0.46em;
+  }
+  .sw-cmp-fut__cap {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-cmp-fut__vs {
+    margin-top: 0.15rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-cmp-fut__vs[data-tone='against'] {
+    color: var(--c-against);
+  }
+  .sw-cmp-fut__vs[data-tone='favor'] {
+    color: var(--c-favor);
+  }
+
+  @media (max-width: 56rem) {
+    .sw-cmp-fut__row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'who figure'
+        'bar bar';
+      gap: var(--s-3) var(--s-4);
+      margin: 0 calc(var(--s-4) * -1);
+      padding: var(--s-4);
+    }
+    .sw-cmp-fut__who {
+      grid-area: who;
+    }
+    .sw-cmp-fut__figure {
+      grid-area: figure;
+      justify-items: end;
+      text-align: right;
+    }
+    .sw-cmp-fut__bar {
+      grid-area: bar;
+    }
+    .sw-cmp-fut__num {
+      font-size: 2.3rem;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-cmp-fut__name {
+      font-size: 1.35rem;
+    }
+    .sw-cmp-fut__vs {
+      max-width: 11rem;
+    }
+  }
+}

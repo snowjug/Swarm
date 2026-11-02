@@ -1,0 +1,14 @@
+@layer scenes {
+  .sw-cmp-fresh {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-2);
+  }
+  .sw-cmp-fresh__text {
+    margin: var(--s-2) 0 var(--s-3);
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+  }
+}

@@ -1,0 +1,126 @@
+@layer scenes {
+  .sw-chip__note {
+    margin-left: 0.4em;
+    font-weight: 450;
+    opacity: 0.72;
+  }
+  .sw-chip__note::before {
+    content: '·';
+    margin-right: 0.4em;
+  }
+
+  /* ---- Gauge: a value on a range, with its word ---- */
+  .sw-gauge {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+    --gauge: var(--ink-3);
+  }
+  .sw-gauge[data-side='against'] {
+    --gauge: var(--c-against);
+  }
+  .sw-gauge[data-side='favor'] {
+    --gauge: var(--c-favor);
+  }
+  .sw-gauge[data-side='accent'] {
+    --gauge: var(--accent);
+  }
+  .sw-gauge__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-gauge__label {
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .sw-gauge__word {
+    font-size: var(--fs-small);
+    font-weight: 560;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .sw-gauge__track {
+    position: relative;
+    height: 4px;
+    border-radius: 99px;
+    background: color-mix(in oklab, var(--ink) 11%, transparent);
+  }
+  .sw-gauge.is-unknown .sw-gauge__track {
+    background: repeating-linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--ink) 20%, transparent) 0 4px,
+      transparent 4px 8px
+    );
+  }
+  .sw-gauge__mid {
+    position: absolute;
+    left: 50%;
+    top: -3px;
+    bottom: -3px;
+    width: 1px;
+    background: color-mix(in oklab, var(--ink) 32%, transparent);
+  }
+  .sw-gauge__fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: calc(var(--p) * 100%);
+    border-radius: 99px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--gauge) 40%, transparent),
+      var(--gauge)
+    );
+    transition: width var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-gauge.is-signed .sw-gauge__fill {
+    left: min(50%, calc(var(--p) * 100%));
+    width: calc(abs(var(--p) - 0.5) * 100%);
+  }
+  .sw-gauge.is-unknown .sw-gauge__fill {
+    display: none;
+  }
+  .sw-gauge__dot {
+    position: absolute;
+    top: 50%;
+    left: calc(var(--p) * 100%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--gauge);
+    border: 2px solid var(--bg-raised);
+    box-shadow: 0 1px 4px color-mix(in oklab, black 28%, transparent);
+    transform: translate(-50%, -50%);
+    transition: left var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-gauge.is-unknown .sw-gauge__dot {
+    background: var(--ink-3);
+  }
+  .sw-gauge__ends {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--fs-micro);
+    color: var(--ink-3);
+  }
+
+  .sw-pips {
+    display: flex;
+    gap: 5px;
+    height: 12px;
+    align-items: center;
+  }
+  .sw-pips__pip {
+    flex: 1;
+    height: 4px;
+    border-radius: 99px;
+    background: color-mix(in oklab, var(--ink) 11%, transparent);
+    transition: background var(--dur-base) var(--ease-out);
+  }
+  .sw-pips__pip.is-on {
+    background: var(--accent);
+  }
+}

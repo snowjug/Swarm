@@ -19,10 +19,11 @@ const OWN_SOURCE = [
   'backend/src/brief',
   'backend/src/routes/brief.ts',
   'shared/brief.ts',
-  'frontend/src/components/brief',
+  'frontend/src/scenes/decide',
+  'frontend/src/scenes/report',
+  'frontend/src/scenes/studio',
   'frontend/src/api/brief.ts',
   'frontend/src/hooks/useBrief.ts',
-  'frontend/src/styles/brief.css',
   'docs/analysis/brief.md',
 ]
   .flatMap(filesIn)
@@ -84,9 +85,10 @@ describe('the brief belongs to no domain', () => {
       'backend/src/brief/export.ts',
       'backend/src/routes/brief.ts',
       'shared/brief.ts',
-      'frontend/src/components/brief/DecisionBriefView.tsx',
+      'frontend/src/scenes/decide/index.tsx',
+      'frontend/src/scenes/report/index.tsx',
+      'frontend/src/scenes/studio/index.tsx',
       'frontend/src/api/brief.ts',
-      'frontend/src/styles/brief.css',
       'docs/analysis/brief.md',
     ]) {
       expect(OWN_SOURCE, expected).toContain(expected);

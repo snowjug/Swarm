@@ -1,0 +1,221 @@
+@layer scenes {
+  /* A scenario's name in a sentence that can be pressed: italic, with a quiet underline that comes alive. */
+  .sw-cmp-name {
+    display: inline;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 0.06em;
+    text-decoration-color: color-mix(in oklab, var(--ink) 40%, transparent);
+    text-underline-offset: 0.14em;
+    transition:
+      text-decoration-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+  /* A finger needs 44px, and a line of the headline is less: the box grows by padding that the margin gives back. */
+  @media (pointer: coarse) {
+    .sw-cmp-name {
+      padding-block: 0.4rem;
+      margin-block: -0.4rem;
+    }
+  }
+  .sw-cmp-name__chevron {
+    display: inline-block;
+    width: 0.38em;
+    height: 0.38em;
+    margin: 0 -0.1em 0 0.1em;
+    color: var(--ink-3);
+    vertical-align: 0.08em;
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-cmp-name:hover {
+      color: var(--accent);
+      text-decoration-style: solid;
+      text-decoration-color: var(--accent);
+    }
+    .sw-cmp-name:hover .sw-cmp-name__chevron {
+      color: var(--accent);
+      transform: translateY(0.08em);
+    }
+  }
+  .sw-cmp-name[data-state='open'] {
+    color: var(--accent);
+    text-decoration-style: solid;
+    text-decoration-color: var(--accent);
+  }
+  .sw-cmp-name[data-state='open'] .sw-cmp-name__chevron {
+    color: var(--accent);
+    transform: rotate(180deg);
+  }
+
+  /* The pair as the floating bar shows it. */
+  .sw-cmp-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 2.25rem;
+    padding: 0 0.7rem 0 0.9rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 560;
+    letter-spacing: -0.005em;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-pill.is-static {
+    padding-right: 0.9rem;
+  }
+  button.sw-cmp-pill {
+    cursor: pointer;
+  }
+  @media (pointer: coarse) {
+    button.sw-cmp-pill {
+      min-height: 2.75rem;
+    }
+  }
+  @media (hover: hover) {
+    button.sw-cmp-pill:hover {
+      background: color-mix(in oklab, var(--ink) 6%, transparent);
+    }
+  }
+  button.sw-cmp-pill:active {
+    transform: scale(0.97);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-cmp-pill__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-cmp-pill__name[data-side='a'] {
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .sw-cmp-pill__glyph {
+    flex: none;
+    color: var(--accent);
+  }
+  .sw-cmp-pill__arrow {
+    flex: none;
+    color: var(--ink-3);
+  }
+  .sw-cmp-pill__chevron {
+    flex: none;
+    color: var(--ink-3);
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-pill[data-state='open'] .sw-cmp-pill__chevron {
+    transform: rotate(180deg);
+  }
+
+  /* The choice itself. */
+  .sw-cmp-pairpop-shell {
+    padding: var(--s-4);
+  }
+  .sw-cmp-pairpop {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-cmp-pairpop__group {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .sw-cmp-pairpop__group legend {
+    padding: 0 0 var(--s-1);
+  }
+  .sw-cmp-pairopt {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--s-3);
+    min-height: 2.75rem;
+    padding: var(--s-1) var(--s-3);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-cmp-pairopt:hover:not([data-taken]) {
+      background: color-mix(in oklab, var(--ink) 5%, transparent);
+    }
+  }
+  .sw-cmp-pairopt input {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
+  .sw-cmp-pairopt[data-taken] {
+    opacity: 0.42;
+    cursor: not-allowed;
+  }
+  .sw-cmp-pairopt__mark {
+    width: 1.05rem;
+    height: 1.05rem;
+    border: 1.5px solid var(--hairline-strong);
+    border-radius: 50%;
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-pairopt input:checked ~ .sw-cmp-pairopt__mark {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow:
+      inset 0 0 0 3px var(--glass-overlay),
+      0 0 0 3px var(--accent-soft);
+  }
+  .sw-cmp-pairopt input:focus-visible ~ .sw-cmp-pairopt__mark {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+  .sw-cmp-pairopt__text {
+    display: grid;
+    min-width: 0;
+  }
+  .sw-cmp-pairopt__name {
+    overflow-wrap: anywhere;
+    font-weight: 560;
+    line-height: 1.3;
+  }
+  .sw-cmp-pairopt__meta {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-pairpop__foot {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--s-3);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-cmp-pairpop__foot .sw-caption {
+    font-size: var(--fs-micro);
+  }
+}

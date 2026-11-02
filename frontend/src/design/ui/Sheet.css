@@ -1,0 +1,162 @@
+@layer components {
+  .sw-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-sheet);
+    background: var(--scrim);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    animation: sw-fade var(--dur-base) var(--ease-out) both;
+  }
+  .sw-scrim[data-state='closed'] {
+    animation: sw-scale-out var(--dur-fast) var(--ease-in) both;
+    transform: none;
+  }
+  /* A question that opens over a sheet dims the sheet as well. */
+  .sw-scrim--dialog {
+    z-index: var(--z-dialog);
+  }
+
+  .sw-sheet {
+    --glass-radius: var(--r-xl);
+    position: fixed;
+    z-index: calc(var(--z-sheet) + 1);
+    top: 0.75rem;
+    right: 0.75rem;
+    bottom: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    width: min(28rem, calc(100vw - 1.5rem));
+    border-radius: var(--r-xl);
+    color: var(--ink);
+    box-shadow: var(--shadow-4);
+    animation: sw-slide-right var(--dur-slow) var(--ease-spring-smooth) both;
+  }
+  .sw-sheet[data-state='closed'] {
+    animation: sw-slide-right-out var(--dur-base) var(--ease-in) both;
+  }
+  .sw-sheet--sm {
+    width: min(22rem, calc(100vw - 1.5rem));
+  }
+  .sw-sheet--lg {
+    width: min(38rem, calc(100vw - 1.5rem));
+  }
+  .sw-sheet--xl {
+    width: min(52rem, calc(100vw - 1.5rem));
+  }
+  .sw-sheet:focus-visible {
+    outline: none;
+  }
+  .sw-sheet__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding: var(--s-5) var(--s-5) var(--s-3);
+  }
+  .sw-sheet__titles {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .sw-sheet__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.6rem, 1.3rem + 0.8vw, 2.1rem);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  .sw-sheet__desc {
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+  }
+  .sw-sheet__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--s-2) var(--s-5) var(--s-5);
+    overscroll-behavior: contain;
+  }
+  .sw-sheet__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    justify-content: flex-end;
+    padding: var(--s-4) var(--s-5);
+    border-top: 1px solid var(--hairline);
+  }
+
+  @media (max-width: 40rem) {
+    .sw-sheet {
+      inset: auto 0 0 0;
+      width: 100%;
+      max-height: 92dvh;
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+      animation-name: sw-slide-up;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .sw-sheet[data-state='closed'] {
+      animation-name: sw-slide-up-out;
+    }
+    .sw-sheet--sm,
+    .sw-sheet--lg,
+    .sw-sheet--xl {
+      width: 100%;
+    }
+  }
+
+  .sw-dialog {
+    --glass-radius: var(--r-xl);
+    position: fixed;
+    z-index: calc(var(--z-dialog) + 1);
+    left: 50%;
+    top: 50%;
+    width: min(28rem, calc(100vw - 2rem));
+    max-height: calc(100dvh - 2rem);
+    overflow-y: auto;
+    padding: var(--s-5);
+    border-radius: var(--r-xl);
+    transform: translate(-50%, -50%);
+    animation: sw-dialog-in var(--dur-base) var(--ease-spring-snappy) both;
+  }
+  .sw-dialog[data-state='closed'] {
+    animation: sw-dialog-out var(--dur-fast) var(--ease-in) both;
+  }
+  .sw-dialog:focus-visible {
+    outline: none;
+  }
+  .sw-dialog__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.75rem;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+  .sw-dialog__desc {
+    margin-top: var(--s-2);
+    color: var(--ink-2);
+  }
+  .sw-dialog__body {
+    margin-top: var(--s-4);
+  }
+  .sw-dialog__foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+  }
+  @keyframes sw-dialog-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 12px)) scale(0.97);
+    }
+  }
+  @keyframes sw-dialog-out {
+    to {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 6px)) scale(0.98);
+    }
+  }
+}

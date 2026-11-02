@@ -1,0 +1,206 @@
+@layer scenes {
+  .sw-cmp-runs__back {
+    padding-top: var(--s-2);
+    margin-left: -0.8rem;
+  }
+  .sw-cmp-runs__hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-7) var(--s-8);
+    padding-top: var(--s-5);
+  }
+  @media (min-width: 64rem) {
+    .sw-cmp-runs__hero {
+      grid-template-columns: minmax(0, 1.5fr) minmax(15rem, 1fr);
+      align-items: start;
+    }
+  }
+  .sw-cmp-runs__lead {
+    display: grid;
+    gap: var(--s-4);
+    align-content: start;
+    min-width: 0;
+  }
+  .sw-cmp-runs__kicker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+  }
+  .sw-cmp-runs__title {
+    max-width: 32ch;
+    font-size: clamp(1.9rem, 1.2rem + 2.1vw, 3rem);
+  }
+  .sw-cmp-runs__truth {
+    margin-top: var(--s-2);
+  }
+  .sw-cmp-runs__figs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--s-4) var(--s-7);
+  }
+  @media (min-width: 64rem) {
+    .sw-cmp-runs__figs {
+      display: grid;
+      gap: 0;
+      padding-left: var(--s-7);
+      border-left: 1px solid var(--hairline);
+    }
+    .sw-cmp-runs__figs .sw-cmp-rfig {
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-areas:
+        'num cap'
+        'num note';
+      align-items: center;
+      column-gap: var(--s-5);
+      padding: var(--s-4) 0;
+      border-top: 1px solid var(--hairline);
+    }
+    .sw-cmp-runs__figs .sw-cmp-rfig:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+    .sw-cmp-rfig__num {
+      grid-area: num;
+      min-width: 3.4rem;
+    }
+    .sw-cmp-rfig__cap {
+      grid-area: cap;
+      align-self: end;
+    }
+    .sw-cmp-rfig[data-solo] .sw-cmp-rfig__cap {
+      grid-row: 1 / span 2;
+      align-self: center;
+    }
+    .sw-cmp-rfig__note {
+      grid-area: note;
+      align-self: start;
+    }
+  }
+  .sw-cmp-rfig {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .sw-cmp-rfig__num {
+    font-size: clamp(3rem, 2.2rem + 3vw, 5rem);
+    line-height: 0.92;
+    color: var(--ink);
+  }
+  .sw-cmp-rfig__cap {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-cmp-rfig__note {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-runs__notice {
+    margin-top: var(--s-6);
+    max-width: 44rem;
+  }
+  .sw-cmp-rwait {
+    display: grid;
+    gap: var(--s-4);
+    margin-top: var(--s-8);
+  }
+
+  .sw-cmp-changes {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    max-width: 66ch;
+  }
+  .sw-cmp-changes li {
+    position: relative;
+    padding-left: 1.1rem;
+    color: var(--ink);
+    font-size: var(--fs-read);
+    line-height: 1.5;
+  }
+  .sw-cmp-changes li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 0.45rem;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .sw-cmp-rruns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-7);
+  }
+  @media (max-width: 48rem) {
+    .sw-cmp-rruns {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-6);
+    }
+  }
+  .sw-cmp-rrun {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
+    justify-items: start;
+    min-width: 0;
+  }
+  .sw-cmp-rrun__name {
+    font-family: var(--font-display);
+    font-size: 1.9rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
+  }
+  .sw-cmp-rrun__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-cmp-rrun__facts {
+    display: grid;
+    width: 100%;
+    margin: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-cmp-rrun__facts > div {
+    display: grid;
+    grid-template-columns: 7rem minmax(0, 1fr);
+    gap: var(--s-3);
+    padding: var(--s-2) 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-cmp-rrun__facts dt {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-cmp-rrun__facts dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-body);
+    overflow-wrap: anywhere;
+  }
+
+  .sw-cmp-care {
+    display: grid;
+    gap: var(--s-3);
+    max-width: 66ch;
+    margin-top: var(--s-8);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-cmp-care p {
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.6;
+  }
+  .sw-cmp-runs__end {
+    margin: var(--s-7) 0 0 -0.8rem;
+  }
+}

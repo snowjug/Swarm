@@ -1,0 +1,54 @@
+@layer components {
+  .sw-app {
+    position: relative;
+    min-height: 100dvh;
+    transition: --aura-hue var(--dur-cinema) var(--ease-in-out);
+  }
+  .sw-main {
+    position: relative;
+    z-index: var(--z-content);
+    min-height: 100dvh;
+    padding-top: calc(var(--topbar-h) + 0.75rem);
+  }
+  @media (max-width: 40rem) {
+    .sw-main {
+      padding-bottom: calc(var(--dock-h) + 1.5rem);
+    }
+  }
+  .sw-scene {
+    min-height: calc(100dvh - var(--topbar-h));
+  }
+  /* A notice about the page as a whole (the server's settings, a project that cannot be opened): laid out as the
+     scenes are, inside the gutters, under the bar. */
+  .sw-banner {
+    width: min(calc(100% - 2 * var(--gutter)), var(--w-wide));
+    margin: var(--s-4) auto 0;
+  }
+  .sw-banner__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-scene-loading {
+    display: grid;
+    place-items: center;
+    min-height: 60dvh;
+    gap: var(--s-4);
+    align-content: center;
+    color: var(--ink-3);
+  }
+  .sw-footer {
+    position: relative;
+    z-index: var(--z-content);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-2) var(--s-5);
+    padding: var(--s-6) var(--gutter) var(--s-7);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-footer a {
+    color: var(--ink-2);
+  }
+}

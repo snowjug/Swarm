@@ -1,0 +1,280 @@
+@layer scenes {
+  .sw-rv:focus-visible {
+    outline: none;
+  }
+  .sw-rv {
+    display: grid;
+    gap: var(--s-5);
+    width: min(48rem, 100%);
+    margin: 0 auto;
+    padding-bottom: calc(var(--s-9) + 2rem);
+  }
+  .sw-rv__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-rv__origin {
+    display: flex;
+    gap: var(--s-2);
+  }
+  .sw-rv__decision {
+    font-size: clamp(2rem, 1.4rem + 2.4vw, 3.4rem);
+    line-height: 1.08;
+  }
+  .sw-rv__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+  }
+  .sw-rv__meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .sw-rv__meta-item svg {
+    flex: none;
+    color: var(--ink-3);
+  }
+  .sw-rv__grid {
+    display: grid;
+    gap: var(--s-6);
+    margin-top: var(--s-3);
+  }
+  .sw-rv__section {
+    display: grid;
+    gap: var(--s-3);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-rv__sechead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+  .sw-rv__rows,
+  .sw-rv__alts,
+  .sw-rv__asks {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-rv__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-rv__change,
+  .sw-rv__assume {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.2rem 0.9rem;
+    min-width: 0;
+    font-size: var(--fs-read);
+    line-height: 1.5;
+  }
+  .sw-rv__name {
+    font-weight: 600;
+  }
+  .sw-rv__shift {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--ink-2);
+  }
+  .sw-rv__shift svg {
+    color: var(--ink-3);
+    flex: none;
+  }
+  /* An empty side of "from → to" is there to be filled, and out of the way until the row is reached. */
+  .sw-rv__shift .is-empty {
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  .sw-rv__row:hover .sw-rv__shift .is-empty,
+  .sw-rv__row:focus-within .sw-rv__shift .is-empty {
+    opacity: 1;
+  }
+  @media (hover: none) {
+    .sw-rv__shift .is-empty {
+      opacity: 0.7;
+    }
+  }
+  .sw-rv__baseline {
+    font-size: var(--fs-read);
+    line-height: 1.6;
+    color: var(--ink);
+    max-width: 60ch;
+  }
+  .sw-rv__alt {
+    display: grid;
+    gap: var(--s-1);
+    padding: var(--s-3) 0 var(--s-2);
+    border-bottom: 1px solid var(--hairline);
+    list-style: none;
+  }
+  .sw-rv__alt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-rv__alt-label {
+    font-size: var(--fs-lead);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .sw-rv__alt-desc {
+    color: var(--ink-2);
+  }
+  .sw-rv__chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-rv__chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    background: var(--glass);
+    padding: 0 0.25rem 0 0.7rem;
+    min-height: 2rem;
+    font-size: var(--fs-body);
+  }
+  .sw-rv__chip-x {
+    display: grid;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-3);
+  }
+  @media (hover: hover) {
+    .sw-rv__chip-x:hover {
+      background: var(--c-critical-soft);
+      color: var(--c-critical);
+    }
+  }
+  .sw-rv__chip-add .sw-input {
+    min-height: 2rem;
+    padding: 0.2rem 0.8rem;
+    width: 10rem;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-body);
+  }
+  /* On a finger everything that is pressed is 44px: the chips, the little cross in them, the field that adds one. */
+  @media (pointer: coarse) {
+    .sw-rv__chip,
+    .sw-rv__chip-add .sw-input {
+      min-height: 2.75rem;
+    }
+    .sw-rv__chip-x {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+  /* The bar floats over the foot of the page: whatever takes focus scrolls clear of it (WCAG 2.4.11). */
+  html:has(.sw-rv) {
+    scroll-padding-bottom: 9rem;
+  }
+  @media (max-width: 40rem) {
+    html:has(.sw-rv) {
+      scroll-padding-bottom: 12rem;
+    }
+  }
+  .sw-rv__origin-dot {
+    flex: none;
+    width: 0.55rem;
+    height: 0.55rem;
+    margin-top: 0.55rem;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .sw-rv__origin-dot[data-origin='system'] {
+    background: transparent;
+    border: 1.5px solid var(--ink-3);
+  }
+  .sw-rv__assume {
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 0.7rem;
+  }
+  .sw-rv__ask {
+    display: grid;
+    gap: var(--s-2);
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--hairline);
+    list-style: none;
+  }
+  .sw-rv__ask-q {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    line-height: 1.2;
+  }
+  .sw-rv__ask-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-rv__ask-form .sw-input {
+    flex: 1 1 14rem;
+  }
+  .sw-rv__method {
+    margin-top: var(--s-2);
+  }
+  .sw-rv__notes {
+    margin: 0;
+    padding: 0 0 var(--s-3) 1.1rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+
+  .sw-rv__bar {
+    --glass-radius: var(--r-pill);
+    position: fixed;
+    z-index: var(--z-chrome);
+    left: 50%;
+    bottom: calc(var(--s-5) + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    width: min(48rem, calc(100% - 2 * var(--gutter)));
+    padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+    animation: sw-rise var(--dur-slow) var(--ease-out) 0.3s both;
+  }
+  .sw-rv__status {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-rv__error {
+    color: var(--c-critical);
+  }
+  @media (max-width: 40rem) {
+    .sw-rv__bar {
+      bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
+      flex-wrap: wrap;
+      border-radius: var(--r-xl);
+    }
+    .sw-rv__status {
+      order: 3;
+      flex-basis: 100%;
+      padding-bottom: 0.15rem;
+    }
+  }
+}

@@ -1,0 +1,19 @@
+@layer components {
+  .sw-popover {
+    --glass-radius: var(--r-lg);
+    z-index: var(--z-popover);
+    max-width: min(26rem, calc(100vw - 1.5rem));
+    max-height: min(var(--radix-popover-content-available-height), 36rem);
+    overflow: auto;
+    padding: var(--s-4);
+    color: var(--ink);
+    transform-origin: var(--radix-popover-content-transform-origin);
+    animation: sw-scale-in var(--dur-base) var(--ease-spring-snappy) both;
+  }
+  .sw-popover[data-state='closed'] {
+    animation: sw-scale-out var(--dur-fast) var(--ease-in) both;
+  }
+  .sw-popover:focus-visible {
+    outline: none;
+  }
+}

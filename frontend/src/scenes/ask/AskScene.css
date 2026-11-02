@@ -1,0 +1,190 @@
+@layer scenes {
+  .sw-ask {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: var(--s-4);
+    min-height: calc(100dvh - var(--topbar-h));
+    padding: clamp(2rem, 7vh, 5.5rem) var(--gutter) var(--s-8);
+    overflow-x: clip;
+  }
+  .sw-ask__title {
+    position: relative;
+    max-width: 18ch;
+    text-align: center;
+    animation: sw-rise var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-ask__title em {
+    padding: 0 0.04em;
+    background-image: linear-gradient(
+      100deg,
+      var(--ink) 10%,
+      var(--accent) 55%,
+      var(--c-favor) 95%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: sw-sheen 6s var(--ease-in-out) 0.4s 1 both;
+  }
+  [data-theme='high-contrast'] .sw-ask__title em {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: var(--accent);
+  }
+  @keyframes sw-sheen {
+    from {
+      background-position: 100% 0;
+    }
+    to {
+      background-position: 0% 0;
+    }
+  }
+
+  .sw-ask__stage {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: var(--s-5);
+    width: 100%;
+  }
+  .sw-ask__stage--review {
+    justify-items: stretch;
+    max-width: 48rem;
+  }
+  .sw-ask__lead {
+    margin-top: calc(var(--s-1) * -1);
+    text-align: center;
+  }
+  .sw-ask__composer {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-3);
+    width: 100%;
+  }
+  .sw-ask__status {
+    width: min(54rem, 100%);
+    min-height: 0;
+  }
+  .sw-ask__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-ask__hint {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-ask__badge {
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.3rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+    line-height: 1.15rem;
+    text-align: center;
+  }
+
+  .sw-ask__starts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-2);
+    max-width: 60rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-ask__start {
+    min-height: 2.25rem;
+    padding: 0 0.95rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: blur(var(--blur-sm));
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 540;
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  .sw-ask__start--quiet {
+    border-style: dashed;
+    color: var(--ink-3);
+  }
+  @media (hover: hover) {
+    .sw-ask__start:hover:not(:disabled) {
+      transform: translateY(-2px);
+      border-color: var(--accent-line);
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+  }
+  .sw-ask__start:active:not(:disabled) {
+    transform: scale(0.96);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-ask__start:disabled {
+    opacity: 0.5;
+  }
+  @media (pointer: coarse) {
+    .sw-ask__start {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-ask__loaded {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+  }
+  .sw-ask__statement {
+    max-width: 44ch;
+    text-align: center;
+  }
+
+  .sw-ask__echo {
+    margin: 0 0 var(--s-2);
+    padding-left: var(--s-4);
+    border-left: 2px solid var(--accent-line);
+    color: var(--ink-3);
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-style: italic;
+    line-height: 1.3;
+  }
+  .sw-ask__evidence {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-ask__recents {
+    width: 100%;
+    margin-top: var(--s-7);
+  }
+
+  /* A refusal that is felt: the thing that is missing shakes once. */
+  .sw-nudge {
+    animation: sw-nudge 0.42s var(--ease-out);
+  }
+  @keyframes sw-nudge {
+    20% {
+      transform: translateX(-5px);
+    }
+    45% {
+      transform: translateX(4px);
+    }
+    70% {
+      transform: translateX(-2px);
+    }
+  }
+}

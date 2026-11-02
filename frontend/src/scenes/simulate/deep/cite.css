@@ -1,0 +1,51 @@
+@layer scenes {
+  /* The shared mono face shrinks to 0.92em, which would drop under the type floor inside a small chip. */
+  .sw-deep .sw-mono,
+  .sw-deep-cites .sw-mono,
+  .sw-deep-cite .sw-mono {
+    font-size: max(1em, var(--fs-micro));
+  }
+  .sw-deep-cites {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem var(--s-2);
+  }
+  .sw-deep-cites__label {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-cites ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-deep-cite {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-deep-cite__title {
+    font-size: var(--fs-body);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .sw-deep-cite__where {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    overflow-wrap: anywhere;
+  }
+  .sw-deep-cite__quote {
+    margin: 0;
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--accent-line);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+  }
+}

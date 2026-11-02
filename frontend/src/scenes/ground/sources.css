@@ -1,0 +1,375 @@
+@layer scenes {
+  /* ---- The sources as threads ----------------------------------------------------------------------- */
+  .sw-ground-src {
+    /* A passage is drawn thinner (--bar) than it can be pressed (--hit): at least 24px, and 44px for a finger. */
+    --bar: 1.375rem;
+    --hit: 1.75rem;
+    position: relative;
+    display: grid;
+    gap: var(--s-3);
+    min-width: 0;
+    container-type: inline-size;
+  }
+  @media (pointer: coarse) {
+    .sw-ground-src {
+      --hit: 2.75rem;
+    }
+  }
+  .sw-ground-src__list {
+    display: grid;
+    margin: 0;
+    padding: 0 var(--arc-w, 0px) 0 0;
+    list-style: none;
+    transition: padding var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-ground-src__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
+    padding: var(--s-4) 0;
+    border-top: 1px solid var(--hairline);
+    transition: opacity var(--dur-base) var(--ease-out);
+    animation: sw-rise var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(min(var(--i), 8) * var(--dur-instant) / 2);
+  }
+  .sw-ground-src__row:last-child {
+    border-bottom: 1px solid var(--hairline);
+  }
+  /* What is not in the light recedes, but its words stay at full strength: dimmed text is unreadable text. */
+  .sw-ground-src__row[data-dim] .sw-ground-src__thread {
+    opacity: 0.34;
+  }
+  .sw-ground-src__thread {
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  @container (min-width: 38rem) {
+    .sw-ground-src__row {
+      grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+      align-items: center;
+      gap: var(--s-6);
+    }
+  }
+  @container (min-width: 60rem) {
+    .sw-ground-src__row {
+      grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
+    }
+  }
+  .sw-ground-src__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .sw-ground-src__open {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    max-width: 100%;
+    min-height: 2rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-align: left;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  @media (pointer: coarse) {
+    .sw-ground-src__open {
+      min-height: 2.75rem;
+    }
+  }
+  @media (hover: hover) {
+    .sw-ground-src__open:hover .sw-ground-src__name {
+      text-decoration: underline;
+      text-decoration-color: var(--accent-line);
+      text-underline-offset: 0.22em;
+    }
+  }
+  .sw-ground-src__idx {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.125rem 0.55rem 0.125rem 0.45rem;
+    border: 1px solid color-mix(in oklab, var(--doc) 48%, transparent);
+    border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--doc) 13%, transparent);
+    color: var(--ink-2);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+  }
+  .sw-ground-src__idx i {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--doc);
+  }
+  .sw-ground-src__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-ground-src__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.75rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-ground-src__facts {
+    color: var(--ink-3);
+  }
+  .sw-ground-src__legend {
+    margin: 0;
+  }
+
+  /* ---- A thread: the document as long as it is, and its passages where they sit ---------------------- */
+  .sw-ground-src__thread {
+    position: relative;
+    height: calc(var(--lanes, 1) * var(--hit));
+    min-width: 0;
+  }
+  .sw-ground-src__body {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: calc(var(--body, 1) * 100%);
+    animation: sw-ground-unroll var(--dur-slow) var(--ease-out) backwards;
+    animation-delay: calc(var(--dur-fast) + min(var(--i), 8) * var(--dur-instant) / 2);
+  }
+  .sw-ground-src__body::before {
+    content: '';
+    position: absolute;
+    inset: -0.375rem -0.4rem;
+    border-radius: var(--r-md);
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--doc) 12%, transparent),
+      color-mix(in oklab, var(--doc) 2%, transparent)
+    );
+    pointer-events: none;
+  }
+  .sw-ground-src__scan {
+    position: absolute;
+    inset: -0.375rem -0.4rem;
+    width: calc(var(--body, 1) * 100% + 0.8rem);
+    overflow: hidden;
+    border-radius: var(--r-md);
+    pointer-events: none;
+    opacity: 0;
+  }
+  .sw-ground-src[data-reading='active'] .sw-ground-src__scan {
+    opacity: 1;
+  }
+  .sw-ground-src__scan::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 30%,
+      color-mix(in oklab, var(--doc) 70%, var(--ink-inverse)) 50%,
+      transparent 70%
+    );
+    opacity: 0.5;
+    transform: translateX(-110%);
+    animation: sw-ground-scan calc(var(--dur-cinema) * 2.6) var(--ease-in-out) infinite;
+    animation-delay: calc(var(--i) * var(--dur-slow) / 2);
+  }
+  @keyframes sw-ground-scan {
+    to {
+      transform: translateX(110%);
+    }
+  }
+  .sw-ground-src__passage {
+    position: absolute;
+    top: calc(var(--lane, 0) * var(--hit));
+    left: min(calc(var(--from, 0) * 100%), calc(100% - 2.75rem));
+    display: inline-flex;
+    align-items: center;
+    isolation: isolate;
+    width: max(calc(var(--span, 0.5) * 100%), 2.75rem);
+    height: var(--hit);
+    padding: 0 0.55rem;
+    border: 0;
+    background: none;
+    color: var(--ink);
+    font-size: var(--fs-micro);
+    font-weight: 640;
+    letter-spacing: 0.01em;
+    text-align: left;
+    white-space: nowrap;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+    animation: sw-ground-pop var(--dur-slow) var(--ease-spring-lively) backwards;
+    animation-delay: calc(
+      var(--dur-base) + min(var(--i, 0), 8) * var(--dur-instant) / 2 + var(--n, 0) *
+        var(--dur-instant)
+    );
+  }
+  /* The bar itself: thinner than the button that carries it, so the hit area costs the list no weight. */
+  .sw-ground-src__passage::before {
+    content: '';
+    position: absolute;
+    inset: calc((var(--hit) - var(--bar)) / 2) 0;
+    z-index: -1;
+    border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--doc) 30%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--doc) 52%, transparent);
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-ground-src__passage:focus-visible {
+    outline: none;
+  }
+  .sw-ground-src__passage:focus-visible::before {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  [data-theme='high-contrast'] .sw-ground-src__passage:focus-visible::before {
+    outline-width: 3px;
+  }
+  .sw-ground-src[data-reading='idle'] .sw-ground-src__passage {
+    color: var(--ink-2);
+  }
+  .sw-ground-src[data-reading='idle'] .sw-ground-src__passage::before {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--doc) 45%, transparent);
+  }
+  @media (hover: hover) {
+    .sw-ground-src__passage:hover::before {
+      background: color-mix(in oklab, var(--doc) 44%, transparent);
+      transform: translateY(-1px);
+    }
+  }
+  .sw-ground-src__passage:active::before {
+    transform: scale(0.97);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-ground-src__passage[data-lit]::before {
+    background: color-mix(in oklab, var(--doc) 52%, transparent);
+    box-shadow:
+      inset 0 0 0 1px var(--doc),
+      0 0.5rem 1.5rem -0.5rem color-mix(in oklab, var(--doc) 80%, transparent);
+  }
+  .sw-ground-src__passage[data-dim] {
+    opacity: 0.4;
+  }
+  .sw-ground-src__passage[data-conflict]::after {
+    content: '';
+    position: absolute;
+    top: calc((var(--hit) - var(--bar)) / 2 - 0.25rem);
+    right: -0.125rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--c-caution);
+    box-shadow: 0 0 0 2px var(--bg);
+  }
+  .sw-ground-src__passage[data-conflict='confirmed']::after {
+    background: var(--c-critical);
+  }
+
+  .sw-ground-src[data-variant='field'] .sw-ground-src__row {
+    padding: var(--s-4) 0;
+  }
+  .sw-ground-src[data-variant='field'] .sw-ground-src__list {
+    padding-right: var(--arc-w, 0px);
+  }
+
+  /* ---- Conflicts as arcs ------------------------------------------------------------------------- */
+  .sw-ground-src__arcs {
+    position: absolute;
+    top: 0;
+    right: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .sw-ground-arc {
+    cursor: pointer;
+    pointer-events: all;
+    outline: none;
+    animation: sw-fade var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(var(--dur-slow) + var(--i, 0) * var(--dur-fast));
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-ground-arc__hit {
+    fill: none;
+    stroke: transparent;
+    stroke-width: 0.875rem;
+  }
+  .sw-ground-arc__line {
+    fill: none;
+    stroke: var(--arc, var(--c-caution));
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    transition:
+      stroke-width var(--dur-fast) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-ground-arc__dot {
+    fill: var(--arc, var(--c-caution));
+    stroke: var(--bg);
+    stroke-width: 1.5;
+  }
+  .sw-ground-arc__id {
+    fill: var(--ink-2);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+    paint-order: stroke;
+    stroke: var(--bg);
+    stroke-width: 0.25rem;
+    stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  .sw-ground-arc:hover .sw-ground-arc__id,
+  .sw-ground-arc:focus-visible .sw-ground-arc__id,
+  .sw-ground-arc[data-lit] .sw-ground-arc__id {
+    opacity: 1;
+  }
+  .sw-ground-arc[data-status='detected'] {
+    --arc: var(--c-caution);
+  }
+  .sw-ground-arc[data-status='detected'] .sw-ground-arc__line {
+    stroke-dasharray: 5 4;
+  }
+  .sw-ground-arc[data-status='confirmed'] {
+    --arc: var(--c-critical);
+  }
+  .sw-ground-arc[data-status='dismissed'] {
+    --arc: var(--ink-3);
+  }
+  .sw-ground-arc[data-status='dismissed'] .sw-ground-arc__line {
+    stroke-dasharray: 1.5 4;
+    opacity: 0.7;
+  }
+  .sw-ground-arc[data-status='resolved'] {
+    --arc: var(--c-favor);
+  }
+  .sw-ground-arc[data-status='resolved'] .sw-ground-arc__line {
+    stroke-width: 1.2;
+    opacity: 0.85;
+  }
+  .sw-ground-arc[data-lit] .sw-ground-arc__line,
+  .sw-ground-arc:hover .sw-ground-arc__line {
+    stroke-width: 2.6;
+  }
+  .sw-ground-arc[data-dim] {
+    opacity: 0.3;
+  }
+  .sw-ground-arc:focus-visible .sw-ground-arc__line {
+    stroke: var(--focus-ring);
+  }
+}

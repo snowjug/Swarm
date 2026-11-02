@@ -1,0 +1,46 @@
+@layer scenes {
+  .sw-deep-save {
+    --glass-radius: var(--r-xl);
+    position: fixed;
+    z-index: var(--z-chrome);
+    left: 0;
+    right: 0;
+    bottom: var(--s-5);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-5);
+    width: min(calc(100% - 2 * var(--gutter)), 36rem);
+    margin-inline: auto;
+    padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5);
+  }
+  .sw-deep-save__text {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-save__text strong {
+    color: var(--ink);
+  }
+  .sw-deep-save__fix {
+    color: var(--c-caution);
+  }
+  .sw-deep-save__error {
+    flex: 1 1 100%;
+    margin: 0;
+    color: var(--c-critical);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-save__actions {
+    display: flex;
+    gap: var(--s-1);
+    margin-left: auto;
+  }
+  @media (max-width: 40rem) {
+    .sw-deep-save {
+      bottom: calc(var(--dock-h) + var(--s-3));
+      padding-left: var(--s-4);
+    }
+  }
+}

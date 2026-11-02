@@ -1,0 +1,7 @@
+@layer scenes {
+  /* A popover of detail takes focus so that it can be scrolled; when that is by keyboard, it shows where it is. */
+  .sw-decide-pop:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+}

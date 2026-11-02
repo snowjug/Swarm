@@ -1,0 +1,76 @@
+@layer scenes {
+  .sw-edit {
+    --edge: var(--accent-line);
+    display: grid;
+    gap: var(--s-4);
+    padding: var(--s-4) var(--s-5) var(--s-5);
+    margin-inline: calc(-1 * var(--s-5));
+    border: 1px solid var(--edge);
+    border-radius: var(--r-lg);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, var(--accent) 5%, transparent), transparent 42%),
+      var(--glass);
+    box-shadow:
+      0 0 0 4px var(--accent-soft),
+      var(--shadow-2);
+    animation: sw-edit-in var(--dur-base) var(--ease-spring-snappy) both;
+  }
+  @keyframes sw-edit-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 6px, 0) scale(0.995);
+    }
+  }
+  .sw-edit.is-behind {
+    --edge: color-mix(in oklab, var(--c-caution) 55%, transparent);
+    box-shadow:
+      0 0 0 4px var(--c-caution-soft),
+      var(--shadow-2);
+  }
+  .sw-edit.is-readonly {
+    --edge: var(--hairline-strong);
+    box-shadow: var(--shadow-1);
+  }
+  @media (max-width: 40rem) {
+    .sw-edit {
+      margin-inline: calc(-1 * var(--s-3));
+      padding: var(--s-3) var(--s-3) var(--s-4);
+    }
+  }
+  .sw-edit__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-edit__count {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-edit__count.is-near {
+    color: var(--c-caution);
+    font-weight: 600;
+  }
+  .sw-edit__fix {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  /* The field is the text: the same type and measure as when it is read, so nothing moves under the eye. */
+  .sw-edit__field {
+    display: block;
+    min-height: 12rem;
+    caret-color: var(--accent);
+    resize: none;
+  }
+  .sw-edit__field::selection {
+    background: var(--accent-soft);
+  }
+  .sw-edit__field--list {
+    min-height: 8rem;
+  }
+  .sw-edit__field:read-only {
+    color: var(--ink-2);
+  }
+}

@@ -1,0 +1,62 @@
+@layer components {
+  /* A heading that only holds the button: it takes none of the heading's own look. */
+  .sw-disc__heading {
+    margin: 0;
+    font: inherit;
+    letter-spacing: inherit;
+  }
+  .sw-disc__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    font-weight: 560;
+  }
+  .sw-disc--quiet .sw-disc__head {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  @media (hover: hover) {
+    .sw-disc__head:hover {
+      color: var(--ink);
+    }
+  }
+  .sw-disc__chevron {
+    flex: none;
+    color: var(--ink-3);
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-disc.is-open .sw-disc__chevron {
+    transform: rotate(180deg);
+  }
+  /* Height animates by growing a grid row from 0fr to 1fr: no measuring, no layout script. */
+  .sw-disc__panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--dur-slow) var(--ease-spring-smooth),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-disc__panel[data-open='true'] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .sw-disc__inner {
+    min-height: 0;
+    overflow: hidden;
+  }
+  @media print {
+    .sw-disc__panel {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+  }
+}

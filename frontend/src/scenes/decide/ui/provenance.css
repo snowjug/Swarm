@@ -1,0 +1,235 @@
+@layer scenes {
+  /* The mark at the end of a statement: where it comes from, and how far it can be relied on. */
+  .sw-decide-origin {
+    --fam: var(--ink-3);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    margin-left: 0.35rem;
+    padding: 0 0.3rem;
+    border: 1px solid transparent;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: color-mix(in oklab, var(--fam) 78%, var(--ink-3));
+    vertical-align: -0.28em;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-decide-origin[data-family='evidence'],
+  .sw-decide-prov__head[data-family='evidence'] {
+    --fam: var(--cat-6);
+  }
+  .sw-decide-origin[data-family='assumption'],
+  .sw-decide-prov__head[data-family='assumption'] {
+    --fam: var(--c-caution);
+  }
+  .sw-decide-origin[data-family='simulation'],
+  .sw-decide-prov__head[data-family='simulation'] {
+    --fam: var(--accent);
+  }
+  .sw-decide-origin[data-family='model'],
+  .sw-decide-prov__head[data-family='model'] {
+    --fam: var(--cat-8);
+  }
+  .sw-decide-origin[data-family='gap'],
+  .sw-decide-prov__head[data-family='gap'] {
+    --fam: var(--c-neutral);
+  }
+  @media (hover: hover) {
+    .sw-decide-origin:hover {
+      background: color-mix(in oklab, var(--fam) 13%, transparent);
+      border-color: color-mix(in oklab, var(--fam) 28%, transparent);
+      color: var(--fam);
+    }
+  }
+  .sw-decide-origin[aria-expanded='true'] {
+    background: color-mix(in oklab, var(--fam) 16%, transparent);
+    border-color: color-mix(in oklab, var(--fam) 34%, transparent);
+    color: var(--fam);
+  }
+  .sw-decide-origin:active {
+    transform: scale(0.92);
+    transition-duration: var(--dur-instant);
+  }
+  @media (pointer: coarse) {
+    .sw-decide-origin {
+      min-width: 2.75rem;
+      height: 2.75rem;
+      margin-block: -0.7rem;
+    }
+  }
+
+  .sw-decide-bars rect {
+    fill: var(--hairline-strong);
+  }
+  .sw-decide-bars rect[data-on] {
+    fill: currentColor;
+  }
+
+  /* The popover: what the statement is, how far to rely on it, and what it rests on. */
+  .sw-decide-prov {
+    display: grid;
+    gap: var(--s-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-decide-prov__head {
+    --fam: var(--ink-3);
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--s-3);
+    align-items: start;
+  }
+  .sw-decide-prov__head strong,
+  .sw-decide-prov__reliance strong {
+    display: block;
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-decide-prov__head p,
+  .sw-decide-prov__reliance p {
+    color: var(--ink-2);
+  }
+  .sw-decide-prov__icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    color: var(--fam);
+    background: color-mix(in oklab, var(--fam) 14%, transparent);
+    border: 1px solid color-mix(in oklab, var(--fam) 30%, transparent);
+  }
+  .sw-decide-prov__reliance {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--s-3);
+    align-items: start;
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+    color: var(--accent);
+  }
+  .sw-decide-prov__reliance .sw-decide-bars {
+    width: 2rem;
+    height: 1.4rem;
+    margin-top: 0.2rem;
+  }
+  .sw-decide-prov__title {
+    margin: var(--s-2) 0 calc(-1 * var(--s-1));
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-decide-prov__none {
+    color: var(--ink-3);
+  }
+  .sw-decide-prov__id {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    overflow-wrap: anywhere;
+  }
+
+  .sw-decide-rests {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-rests > li {
+    display: grid;
+    gap: 0.2rem;
+  }
+  .sw-decide-rests__kind {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sw-decide-rests__body {
+    display: grid;
+    gap: 0.3rem;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .sw-decide-rests__doc {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    color: var(--ink-2);
+  }
+  .sw-decide-rests__quote {
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--accent-line);
+    color: var(--ink-2);
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    line-height: 1.4;
+    quotes: none;
+  }
+  .sw-decide-rests__meta {
+    color: var(--ink-3);
+  }
+  .sw-decide-rests__meta b {
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+  .sw-decide-rests__id {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-decide-rests__open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    justify-self: start;
+    min-height: 1.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    text-decoration: underline;
+    text-decoration-color: var(--accent-line);
+    text-underline-offset: 0.2em;
+  }
+  @media (pointer: coarse) {
+    .sw-decide-rests__open {
+      min-height: 2.75rem;
+    }
+  }
+
+  .sw-decide-interval {
+    width: 100%;
+    max-width: 8rem;
+    height: 0.65rem;
+    overflow: visible;
+  }
+  .sw-decide-interval__axis {
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+  }
+  .sw-decide-interval__span {
+    fill: color-mix(in oklab, var(--accent) 30%, transparent);
+  }
+  .sw-decide-interval__dot {
+    fill: var(--accent);
+  }
+
+  /* Numbers and the names a sentence quotes, set a little stronger so that it can be scanned. */
+  .sw-decide-n {
+    color: var(--ink);
+    font-weight: 560;
+  }
+  .sw-decide-q {
+    color: var(--ink);
+  }
+}

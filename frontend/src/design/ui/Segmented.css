@@ -1,0 +1,91 @@
+@layer components {
+  .sw-seg {
+    display: inline-flex;
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: blur(var(--blur-sm));
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sw-seg::-webkit-scrollbar {
+    display: none;
+  }
+  .sw-seg--block {
+    display: flex;
+  }
+  .sw-seg--block .sw-seg__option {
+    flex: 1;
+  }
+  .sw-seg__option {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    min-height: 2.125rem;
+    padding: 0 0.95rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 540;
+    white-space: nowrap;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .sw-seg--sm .sw-seg__option {
+    min-height: 1.75rem;
+    padding: 0 0.7rem;
+  }
+  /* A finger needs 44px: the options fill the control, whatever its size, and the control gives up its padding. */
+  @media (pointer: coarse) {
+    .sw-seg {
+      padding: 0.125rem;
+    }
+    .sw-seg .sw-seg__option,
+    .sw-seg--sm .sw-seg__option {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-seg__option:disabled {
+    opacity: 0.4;
+  }
+  @media (hover: hover) {
+    .sw-seg__option:hover:not(:disabled):not(.is-on) {
+      color: var(--ink);
+    }
+  }
+  .sw-seg__option.is-on {
+    color: var(--ink);
+  }
+  .sw-seg__pill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--glass-overlay);
+    border: 1px solid var(--glass-edge);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge-hi),
+      var(--shadow-1);
+  }
+  [data-theme='high-contrast'] .sw-seg__pill {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  [data-theme='high-contrast'] .sw-seg__option.is-on {
+    color: var(--accent-ink);
+  }
+  .sw-seg__content {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .sw-seg__content svg {
+    width: 1em;
+    height: 1em;
+  }
+}

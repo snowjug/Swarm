@@ -1,0 +1,143 @@
+@layer scenes {
+  .sw-scrub {
+    --glass-radius: var(--r-pill);
+    position: absolute;
+    z-index: 5;
+    left: calc((100% - var(--covered, 0px)) / 2);
+    bottom: var(--s-5);
+    translate: -50% 0;
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+    width: min(44rem, calc(100% - var(--covered, 0px) - var(--s-6)));
+    padding: var(--s-2) var(--s-4) var(--s-2) var(--s-2);
+    transition:
+      left var(--dur-slow) var(--ease-spring-smooth),
+      width var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-scrub__buttons {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: none;
+  }
+  .sw-scrub__track {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 6rem;
+    height: 2.75rem;
+    margin: 0 var(--s-2);
+    cursor: pointer;
+    touch-action: none;
+    outline: none;
+  }
+  .sw-scrub__track:focus-visible {
+    border-radius: var(--r-md);
+    box-shadow: var(--focus-ring);
+  }
+  .sw-scrub__rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    border-radius: 99px;
+    background: color-mix(in oklab, var(--ink) 12%, transparent);
+    transform: translateY(-50%);
+  }
+  .sw-scrub__fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--accent) 45%, transparent),
+      var(--accent)
+    );
+    transition: width var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-scrub__tick {
+    position: absolute;
+    top: calc(50% + 7px);
+    width: 1px;
+    height: 5px;
+    background: color-mix(in oklab, var(--ink) 25%, transparent);
+    transform: translateX(-50%);
+    transition: background var(--dur-base) var(--ease-out);
+  }
+  .sw-scrub__tick.is-past {
+    background: var(--accent);
+  }
+  .sw-scrub__event {
+    position: absolute;
+    top: calc(50% - 15px);
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--c-caution);
+    transform: translateX(-50%);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--c-caution) 25%, transparent);
+  }
+  .sw-scrub__flag {
+    position: absolute;
+    top: calc(50% - 22px);
+    color: var(--accent);
+    transform: translateX(-50%);
+  }
+  .sw-scrub__thumb {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--ink);
+    border: 3px solid var(--accent);
+    box-shadow: var(--shadow-2);
+    transform: translate(-50%, -50%);
+    transition:
+      left var(--dur-slow) var(--ease-spring-smooth),
+      transform var(--dur-fast) var(--ease-out);
+  }
+  .sw-scrub__track:active .sw-scrub__thumb {
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  .sw-scrub__read {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    flex: none;
+    min-width: 4.4rem;
+  }
+  .sw-scrub__round {
+    font-size: 1.7rem;
+    color: var(--ink);
+  }
+  .sw-scrub__of {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-scrub__speed {
+    flex: none;
+    min-width: 2.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 40rem) {
+    .sw-scrub {
+      left: var(--s-3);
+      right: var(--s-3);
+      bottom: var(--s-3);
+      translate: none;
+      width: auto;
+      gap: var(--s-2);
+      padding-right: var(--s-3);
+    }
+    .sw-scrub__buttons .sw-icon-btn--sm {
+      display: none;
+    }
+    .sw-scrub__speed {
+      display: none;
+    }
+    .sw-scrub__read {
+      min-width: 3.6rem;
+    }
+  }
+}

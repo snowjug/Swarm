@@ -32,8 +32,8 @@ The frame is `ScenarioFrame` in `shared/scenario.ts`. Every field can be edited.
 ## How a question is read
 
 `POST /api/scenario/parse` returns `{ frame, notes, mode, model }`. `mode` is `rules` or `model`,
-`model` is the name of the model that read it (or null), and `notes` is what the page shows beside the
-frame.
+`model` is the name of the model that read it (or null), and `notes` is what the scenario review shows
+under **How it was read**.
 
 1. **A model**, when the person chose one (`useModel: true`) and one is configured. The server sends the question and the names and sizes of the
    documents (never their text), with instructions to stay neutral about the setting, to state no
@@ -101,7 +101,8 @@ say to check every field.
 ## Privacy
 
 - The question goes to the configured model provider only when the person chose a model: the request
-  carries `useModel: true` (the page sends it when the project's mode is "Model assisted"). Without it,
+  carries `useModel: true` (the first screen sends it when the engine chosen under **Options** is **Model
+  assisted**). Without it,
   which is the default, rules on this server read the question and it goes nowhere else, whatever
   provider the server has set up. If a model was asked for and none is configured, the notes say that
   the rules read it instead. Do not put secrets in a question that you send to a model.
@@ -141,21 +142,26 @@ bounds the cost is the rate limit, the three calls, and the size of the question
 records the calls and tokens used. A model that has not answered within 170 seconds (less than the
 three minutes a request may go quiet) is given up on, and the rules read the question, with a note
 that says it did not answer in time. In a manual check a reading took 13 to 23 seconds, and 43
-seconds when a first reply had to be repaired. The page shows that it is reading and offers Cancel.
+seconds when a first reply had to be repaired. The page shows that it is reading and offers **Stop**.
 
 ## In the page
 
-`frontend/src/components/intake/ScenarioIntake.tsx` takes the question, the current frame (or null),
-`onFrame`, `disabled` and, optionally, the documents attached so far and `useModel` (true when the entry form's
-mode is "Model assisted"). The line under "Understand my question" says which applies: that rules on this
-server read the question and it goes nowhere else, or that it is sent to the model provider this server uses.
-The person chooses "Understand my question", sees an editable form with plain labelled fields and add and remove rows, answers or
-skips the questions back, reads the notes, and chooses "Use this scenario", which calls `onFrame`. The review
-opens with focus on its heading, and its "Use this scenario" and "Discard" buttons stay at the foot of the screen
-until the end of the review, so that a long scenario never hides the choice (`e2e/lab/intake.spec.ts` and
-`entry-screen.spec.ts` hold the edits and the bar). Every step is optional, nothing is sent until the person
-asks, and nothing is kept until they say so.
-It works with the keyboard, and does not submit the form it sits in.
+Intake is the first screen of the interface, the **Ask** scene (`frontend/src/scenes/ask/`). Its composer
+takes the question, the evidence and the engine (under **Options**), and a line there says which applies:
+that rules on this machine read the question and it goes nowhere else, or that it is sent to the model
+provider this server uses (`useModel` is true only when **Model assisted** is chosen). The person chooses
+**Explore**, and the page shows that the server is reading and offers **Stop**.
+
+What comes back is the scenario review (`ScenarioReview.tsx`): the frame laid out to read and correct where
+it stands, with plain labelled fields and add and remove rows. The questions back are answered or skipped
+under "Swarm asks", the notes are under **How it was read**, and a chip says whether the frame was read by
+rules, read by a model, or edited by you. The review opens with focus on its heading, and its **Question**
+(back) and **Ground it** buttons stay at the foot of the screen, so that a long scenario never hides the
+choice. **Ground it** sends the frame with the project, which creates the project and starts reading the
+evidence. If a reading fails, the page says so and offers **Try again** or **Continue without reading**,
+which creates the project with no frame. Every step is optional, nothing is sent until the person asks
+("Nothing runs until you continue."), and nothing is kept until they say so. It works with the keyboard, and
+`Ctrl` or `⌘` with Enter explores. How the scene is built is in [UX.md](./UX.md#ask).
 
 ## What was observed with a real model
 
@@ -169,8 +175,8 @@ read once, not a measurement of how often a model does this.
 
 ## What is not done
 
-- There is no page for editing the scenario of an existing project. The `GET` and `PUT` routes and the
-  component are there for one.
+- There is no screen for editing the scenario of an existing project: the review happens on the Ask scene,
+  before the project exists. The `GET` and `PUT` routes are there for one.
 - The rules read English only, and know no place, product or industry beyond the patterns above.
 - A reading is not checked against the world, and the checks on a model's reply are about words.
 - No budget applies to a reading, because there is no project yet; only the limits above do.
@@ -186,6 +192,6 @@ reply, a reply repaired after being sent back, a reply that never passes, an inj
 and each failure that falls back to the rules. `backend/test/scenario-routes.test.ts` covers who may
 call each route, validation, that the audit holds no question text, storage and revisions, and that
 creating a project stores the scenario and a branch copies it. The page logic, the render and the client
-are tested in `frontend/src/lib/intake.test.ts`, `frontend/src/components/intake/ScenarioIntake.test.tsx`
-and `frontend/src/api/scenario.test.ts`. None of this is evidence about how a real model reads a
-question.
+are tested in `frontend/src/lib/intake.test.ts`, `frontend/src/scenes/ask/ask.test.tsx`,
+`frontend/src/scenes/ask/ask.interaction.test.tsx` and `frontend/src/api/scenario.test.ts`. None of this is
+evidence about how a real model reads a question.

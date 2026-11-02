@@ -1,0 +1,271 @@
+@layer scenes {
+  /* The contents, beside the page where there is room, with a mark that glides to the chapter being read. */
+  .sw-decide-rail {
+    position: sticky;
+    top: calc(var(--topbar-h) + var(--s-7));
+    display: none;
+    align-self: start;
+    gap: var(--s-4);
+    max-height: calc(100dvh - var(--topbar-h) - var(--s-8));
+    padding: 0 var(--s-2) var(--s-4) 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  @media (min-width: 80rem) {
+    .sw-decide-rail {
+      display: grid;
+    }
+  }
+  .sw-decide-tocwrap {
+    position: relative;
+  }
+  .sw-decide-toc {
+    display: grid;
+    gap: var(--s-1);
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--hairline);
+    list-style: none;
+  }
+  .sw-decide-toc ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-toc__act {
+    display: grid;
+    gap: 0.1rem;
+    margin-top: var(--s-2);
+  }
+  .sw-decide-toc__act > .sw-eyebrow {
+    margin: 0;
+    padding-left: var(--s-3);
+  }
+  .sw-decide-toc__link {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+    min-height: 1.75rem;
+    padding: 0.15rem var(--s-2) 0.15rem var(--s-3);
+    border-radius: 0 var(--r-xs) var(--r-xs) 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.25;
+    text-decoration: none;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (max-height: 54rem) {
+    .sw-decide-toc__link {
+      min-height: 1.5rem;
+    }
+    .sw-decide-toc__act {
+      margin-top: var(--s-1);
+    }
+  }
+  @media (hover: hover) {
+    .sw-decide-toc__link:hover {
+      color: var(--ink);
+      background: var(--accent-soft);
+    }
+  }
+  .sw-decide-toc__link[aria-current='location'] {
+    color: var(--ink);
+    font-weight: 560;
+  }
+  /* The one mark of the contents, slid to the link being read. */
+  .sw-decide-toc__mark {
+    position: absolute;
+    top: 0.15rem;
+    left: 0;
+    width: 2px;
+    height: calc(var(--mark-h, 1.5rem) - 0.3rem);
+    border-radius: 2px;
+    background: var(--accent);
+    opacity: 0;
+    transform: translate3d(0, var(--mark-y, 0px), 0);
+    transition:
+      transform var(--dur-slow) var(--ease-spring-snappy),
+      height var(--dur-base) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out);
+    pointer-events: none;
+  }
+  .sw-decide-toc__mark[data-shown] {
+    opacity: 1;
+  }
+  .sw-decide-toc__label {
+    min-width: 0;
+  }
+  .sw-decide-toc__dot {
+    flex: none;
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: var(--c-caution);
+  }
+  /* Past the contents for a reader who moves by keyboard: there only while it has focus. */
+  .sw-decide-rail__skip:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .sw-decide-rail__skip {
+    justify-self: start;
+    margin-left: var(--s-3);
+    padding: 0.35rem 0.8rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .sw-decide-rail__all {
+    justify-self: start;
+    min-height: 2rem;
+    margin-left: var(--s-3);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    text-decoration: underline;
+    text-decoration-color: var(--hairline-strong);
+    text-underline-offset: 0.25em;
+  }
+  @media (hover: hover) {
+    .sw-decide-rail__all:hover {
+      color: var(--ink);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-decide-rail__all {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
+  }
+
+  /* Where the contents are a sheet: the same list, one press from the bar. */
+  .sw-decide-sheet-toc .sw-decide-toc {
+    border-left: 0;
+    gap: var(--s-2);
+  }
+  .sw-decide-sheet-toc .sw-decide-toc__link {
+    min-height: 2.75rem;
+    font-size: var(--fs-body);
+  }
+  .sw-decide-sheet-toc .sw-decide-toc__act > .sw-eyebrow {
+    padding-top: var(--s-3);
+  }
+
+  /* The bar that keeps the tools in reach after the first screen. */
+  .sw-decide-bar {
+    --glass-radius: var(--r-pill);
+    --glass: var(--glass-raised);
+    position: fixed;
+    z-index: var(--z-chrome);
+    top: calc(0.75rem + 3.5rem + 0.6rem);
+    left: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    width: min(calc(100% - 2 * var(--gutter)), 46rem);
+    padding: 0.4rem 0.5rem 0.4rem 1.15rem;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate3d(-50%, -10px, 0);
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  @media (max-width: 79.99rem) {
+    .sw-decide-bar {
+      padding-left: 0.45rem;
+    }
+  }
+  .sw-decide-bar[data-shown='true'] {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate3d(-50%, 0, 0);
+  }
+  .sw-decide-bar__start,
+  .sw-decide-bar__end {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .sw-decide-bar__start {
+    flex: 1;
+  }
+  .sw-decide-bar__where {
+    display: grid;
+    gap: 0.05rem;
+    min-width: 0;
+    margin: 0;
+    line-height: 1.15;
+  }
+  .sw-decide-bar__where .sw-eyebrow {
+    font-size: var(--fs-micro);
+    letter-spacing: 0.1em;
+  }
+  .sw-decide-bar__where strong {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-decide-bar__progress {
+    position: absolute;
+    left: 1.6rem;
+    right: 1.6rem;
+    bottom: 1px;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--accent),
+      color-mix(in oklab, var(--accent) 40%, transparent)
+    );
+    opacity: 0.85;
+    transform: scaleX(var(--p, 0));
+    transform-origin: left center;
+  }
+  @media (min-width: 80rem) {
+    .sw-decide-bar__contents {
+      display: none;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-decide-bar {
+      top: calc(0.5rem + 3.25rem + 0.5rem);
+    }
+    .sw-decide-bar__long {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .sw-decide-bar__where .sw-eyebrow {
+      display: none;
+    }
+  }
+  @media print {
+    .sw-decide .sw-decide-rail,
+    .sw-decide-bar {
+      display: none;
+    }
+  }
+}

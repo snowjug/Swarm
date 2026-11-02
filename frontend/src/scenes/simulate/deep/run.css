@@ -1,0 +1,107 @@
+@layer scenes {
+  .sw-deep-run {
+    display: grid;
+    gap: var(--s-8);
+  }
+  .sw-deep-run__notes {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-deep-run__notes:empty {
+    display: none;
+  }
+  .sw-deep-sec {
+    min-width: 0;
+  }
+
+  .sw-deep-facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-5) var(--s-6);
+    max-width: 48rem;
+    margin: var(--s-5) 0 var(--s-3);
+  }
+  @media (max-width: 40rem) {
+    .sw-deep-facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  /* What can be done next: a short list whose rows are the buttons. */
+  .sw-deep-acts {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--hairline);
+    list-style: none;
+  }
+  .sw-deep-acts li {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-deep-act {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-4);
+    width: 100%;
+    min-height: 4rem;
+    padding: var(--s-3) var(--s-2);
+    border: 0;
+    border-radius: var(--r-md);
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  @media (hover: hover) {
+    .sw-deep-act:hover {
+      background: color-mix(in oklab, var(--accent) 7%, transparent);
+    }
+    .sw-deep-act:hover .sw-deep-act__go {
+      color: var(--accent);
+      transform: translateX(3px);
+    }
+  }
+  .sw-deep-act:active {
+    transform: scale(0.992);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-deep-act__icon {
+    display: grid;
+    place-items: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 50%;
+    color: var(--ink-2);
+  }
+  .sw-deep-act__body {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+  .sw-deep-act__title {
+    font-weight: 600;
+  }
+  .sw-deep-act__text {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-act__go {
+    color: var(--ink-3);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      color var(--dur-fast) var(--ease-out);
+  }
+  .sw-deep-act[data-tone='danger'] .sw-deep-act__icon,
+  .sw-deep-act[data-tone='danger'] .sw-deep-act__title {
+    color: var(--c-critical);
+  }
+  @media (pointer: coarse) {
+    .sw-deep-act {
+      min-height: 4.25rem;
+    }
+  }
+}

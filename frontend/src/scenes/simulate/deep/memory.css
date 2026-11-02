@@ -1,0 +1,143 @@
+@layer scenes {
+  .sw-deep-memory {
+    display: grid;
+    gap: var(--s-5);
+  }
+  .sw-deep-memory > .sw-deep-head {
+    margin-bottom: 0;
+  }
+
+  .sw-deep-filters {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-deep-search {
+    position: relative;
+    max-width: 30rem;
+  }
+  .sw-deep-search__icon {
+    position: absolute;
+    left: 0.85rem;
+    top: 50%;
+    color: var(--ink-3);
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+  .sw-deep-search .sw-input {
+    padding-left: 2.5rem;
+  }
+  .sw-deep-filters__selects {
+    display: grid;
+    gap: var(--s-3);
+  }
+  @media (min-width: 40rem) {
+    .sw-deep-filters {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: start;
+    }
+    .sw-deep-search {
+      max-width: none;
+    }
+    .sw-deep-filters__selects {
+      grid-template-columns: 14.5rem 9rem;
+    }
+    .sw-deep-filters__kinds {
+      grid-column: 1 / -1;
+    }
+  }
+  .sw-deep-filters__kinds {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-deep-memory__count {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-memory__none {
+    padding: var(--s-6) 0;
+  }
+  .sw-deep-memory__more {
+    display: flex;
+    justify-content: center;
+    padding: var(--s-4) 0;
+  }
+
+  /* One round of the stream: its title, and what was recorded in it, set on hairlines, not in boxes. */
+  .sw-deep-memg {
+    display: grid;
+    gap: 0;
+  }
+  .sw-deep-memg + .sw-deep-memg {
+    margin-top: var(--s-6);
+  }
+  .sw-deep-memg__title {
+    margin: 0 0 var(--s-2);
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .sw-deep-memg__minute {
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: var(--fs-small);
+    letter-spacing: 0;
+  }
+  .sw-deep-memg__list {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--hairline-strong);
+    list-style: none;
+  }
+  .sw-deep-mem {
+    display: grid;
+    gap: var(--s-2);
+    max-width: 52rem;
+    padding: var(--s-4) 0;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+  .sw-deep-mem__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+    margin: 0;
+    color: var(--ink);
+  }
+  .sw-deep-mem__person {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+  }
+  @media (hover: hover) {
+    .sw-deep-mem__person:hover strong {
+      color: var(--accent);
+    }
+  }
+  .sw-deep-mem__pos {
+    margin-left: auto;
+  }
+  .sw-deep-mem__foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+  }
+  .sw-deep-mem__id {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-mem[data-kind='seed'] {
+    color: var(--ink-3);
+  }
+}

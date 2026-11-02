@@ -1,0 +1,181 @@
+@layer scenes {
+  .sw-decide {
+    --note-w: 14rem;
+    position: relative;
+    width: min(100%, var(--w-wide));
+    margin-inline: auto;
+    padding: var(--s-3) var(--gutter) var(--s-9);
+  }
+  .sw-decide__notice {
+    max-width: 52rem;
+    margin-top: var(--s-4);
+  }
+  /*
+   * What a disclosure holds is clipped while it is closed, and the screen-reader text in it is positioned: with
+   * the disclosure as its containing block the clip takes it, and it cannot lengthen the page from below.
+   */
+  .sw-decide .sw-disc__inner {
+    position: relative;
+  }
+
+  /* The body of the document: the contents beside it where there is room, and the margin the notes stand in. */
+  .sw-decide-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: var(--s-7);
+  }
+  .sw-decide-doc {
+    display: grid;
+    align-content: start;
+    min-width: 0;
+    max-width: 48rem;
+  }
+  .sw-decide-doc:focus-visible {
+    outline: none;
+  }
+  @media (min-width: 64rem) {
+    .sw-decide-body {
+      grid-template-columns: minmax(0, 46rem) var(--note-w);
+      column-gap: var(--s-6);
+    }
+    .sw-decide-doc {
+      grid-column: 1;
+    }
+  }
+  @media (min-width: 80rem) {
+    .sw-decide {
+      --note-w: 15rem;
+    }
+    .sw-decide-body {
+      grid-template-columns: 11.5rem minmax(0, 48rem) var(--note-w);
+      column-gap: var(--s-7);
+    }
+    .sw-decide-rail {
+      grid-column: 1;
+    }
+    .sw-decide-doc {
+      grid-column: 2;
+    }
+  }
+
+  .sw-decide-foot {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-8);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--hairline);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+  .sw-decide-foot p {
+    max-width: 62ch;
+    margin: 0;
+  }
+  .sw-decide-method {
+    display: grid;
+    gap: var(--s-5);
+  }
+  .sw-decide-method h3 {
+    margin: 0 0 var(--s-2);
+  }
+  .sw-decide-method ul {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+    list-style: none;
+  }
+  .sw-decide-method li {
+    max-width: 66ch;
+  }
+  .sw-decide-sheet .sw-decide-sheet-toc {
+    display: grid;
+    gap: var(--s-4);
+  }
+
+  /*
+   * On paper: the whole brief and the review, with the contents, the bars and the application's own chrome
+   * left out, in ink on white whatever the screen's theme. Anything folded on screen is open here.
+   */
+  @media print {
+    .sw-bar,
+    .sw-dock,
+    .sw-aurora,
+    .sw-skip,
+    .sw-footer,
+    .sw-toasts,
+    .sw-decide-busy,
+    .sw-decide-tools,
+    .sw-decide-hero__top .sw-decide-tools {
+      display: none;
+    }
+    .sw-main {
+      padding: 0;
+    }
+    .sw-decide {
+      color-scheme: light;
+      --ink: CanvasText;
+      --ink-2: color-mix(in oklab, CanvasText 84%, Canvas);
+      --ink-3: color-mix(in oklab, CanvasText 66%, Canvas);
+      --bg: Canvas;
+      --hairline: color-mix(in oklab, CanvasText 16%, transparent);
+      --hairline-strong: color-mix(in oklab, CanvasText 30%, transparent);
+      /* The theme's own colours, kept under other names: a colour cannot be darkened in terms of itself. */
+      --paper-accent: var(--accent);
+      --paper-against: var(--c-against);
+      --paper-favor: var(--c-favor);
+      --paper-caution: var(--c-caution);
+      --paper-critical: var(--c-critical);
+      --paper-neutral: var(--c-neutral);
+      width: 100%;
+      padding: 0;
+      background: Canvas;
+      color: CanvasText;
+    }
+    /* Darkened for white paper, from whichever theme the screen was in. */
+    .sw-decide > * {
+      --accent: color-mix(in oklab, var(--paper-accent) 62%, CanvasText);
+      --c-against: color-mix(in oklab, var(--paper-against) 62%, CanvasText);
+      --c-favor: color-mix(in oklab, var(--paper-favor) 62%, CanvasText);
+      --c-caution: color-mix(in oklab, var(--paper-caution) 62%, CanvasText);
+      --c-critical: color-mix(in oklab, var(--paper-critical) 62%, CanvasText);
+      --c-neutral: color-mix(in oklab, var(--paper-neutral) 55%, CanvasText);
+    }
+    .sw-decide-body {
+      display: block;
+      margin-top: var(--s-6);
+    }
+    .sw-decide-doc {
+      max-width: none;
+    }
+    .sw-decide-stmt__main {
+      width: 100%;
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-decide-hero .sw-rise {
+      animation: none;
+    }
+    .sw-decide .sw-decide-numerals,
+    .sw-decide .sw-decide-hero__side,
+    .sw-decide .sw-decide-rc__item,
+    .sw-decide .sw-decide-vl__step,
+    .sw-decide .sw-decide-cmp__row,
+    .sw-decide .sw-decide-stmt {
+      break-inside: avoid;
+    }
+    .sw-decide .sw-decide-act {
+      margin-top: var(--s-6);
+      break-after: avoid;
+    }
+    .sw-decide .sw-decide-rc__aside {
+      position: static;
+    }
+    .sw-decide .sw-decide-ie {
+      position: static;
+    }
+  }
+}

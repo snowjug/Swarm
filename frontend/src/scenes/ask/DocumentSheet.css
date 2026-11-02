@@ -1,0 +1,13 @@
+@layer scenes {
+  .sw-docsheet {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-docsheet__url {
+    overflow-wrap: anywhere;
+  }
+  .sw-docsheet__text {
+    font-size: var(--fs-small);
+    line-height: 1.6;
+  }
+}

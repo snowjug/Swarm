@@ -1,0 +1,148 @@
+@layer components {
+  /*
+   * The motion vocabulary. Components do not invent animations; they pick a curve and a duration from
+   * tokens.css and, where an entrance is wanted, one of these.
+   *
+   *   rise     content arriving: opacity and a short upward travel; stagger with --i
+   *   scale    a surface that opens from a point (popovers): opacity and a small scale
+   *   slide    a sheet entering from an edge
+   *   shimmer  something is being worked out and has no shape yet
+   *   pulse    a ring that leaves a point once, to say "this just happened here"
+   *   draw     a line that is drawn on
+   *
+   * Only transform and opacity are animated, so none of it costs layout.
+   */
+  @keyframes sw-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 14px, 0);
+    }
+  }
+  @keyframes sw-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sw-scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translate3d(0, 4px, 0);
+    }
+  }
+  @keyframes sw-scale-out {
+    to {
+      opacity: 0;
+      transform: scale(0.97) translate3d(0, 2px, 0);
+    }
+  }
+  @keyframes sw-slide-right {
+    from {
+      transform: translate3d(104%, 0, 0);
+    }
+  }
+  @keyframes sw-slide-right-out {
+    to {
+      transform: translate3d(104%, 0, 0);
+    }
+  }
+  @keyframes sw-slide-up {
+    from {
+      transform: translate3d(0, 104%, 0);
+    }
+  }
+  @keyframes sw-slide-up-out {
+    to {
+      transform: translate3d(0, 104%, 0);
+    }
+  }
+  @keyframes sw-shimmer {
+    from {
+      background-position: 160% 0;
+    }
+    to {
+      background-position: -60% 0;
+    }
+  }
+  @keyframes sw-pulse-ring {
+    from {
+      opacity: 0.7;
+      transform: scale(0.4);
+    }
+    to {
+      opacity: 0;
+      transform: scale(2.4);
+    }
+  }
+  @keyframes sw-breathe {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.12);
+    }
+  }
+  @keyframes sw-spin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+  @keyframes sw-draw {
+    from {
+      stroke-dashoffset: var(--len, 1);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes sw-edge-turn {
+    to {
+      --edge-angle: 360deg;
+    }
+  }
+
+  .sw-rise {
+    animation: sw-rise var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  .sw-fade {
+    animation: sw-fade var(--dur-base) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  .sw-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in oklab, var(--ink) 9%, transparent) 50%,
+      transparent 80%
+    );
+    background-size: 220% 100%;
+    animation: sw-shimmer 1.6s linear infinite;
+  }
+}
+
+@layer utilities {
+  /*
+   * Content that arrives as it scrolls into view. Where the browser can drive an animation by the scroll position it does,
+   * with the same rise as everything else; where it cannot, the content is simply there. It is never hidden waiting for a
+   * script, so print, find-in-page and reduced motion all see all of it.
+   */
+  @supports (animation-timeline: view()) {
+    .sw-reveal {
+      animation: sw-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 42%;
+    }
+  }
+  @media print, (prefers-reduced-motion: reduce) {
+    .sw-reveal {
+      animation: none;
+    }
+  }
+  html[data-motion='reduced'] .sw-reveal {
+    animation: none;
+  }
+}

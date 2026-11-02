@@ -8,7 +8,7 @@ more assistant features in its chat and meetings app, switched on by default. Th
 short documents. Microsoft, Copilot and Teams are named only because the question names them; the
 premise is hypothetical and nothing here describes a real plan.
 
-Back to the [example scenarios](../README.md). The text the picker loads is in
+Back to the [example scenarios](../README.md). The text the example chip loads is in
 [`shared/examples/copilot-in-teams.ts`](../../../../shared/examples/copilot-in-teams.ts), and the
 files in this folder are readable copies of it.
 
@@ -24,7 +24,8 @@ files in this folder are readable copies of it.
 
 ## Built in on purpose
 
-**Two source conflicts** that the evidence ledger flags (a test pins them):
+**Two source conflicts** that the evidence ledger flags (a test pins them), and that **Conflicts** in
+Ground and **Evidence base and quality** in the brief show:
 
 - The poll says 44% of administrators would turn new features off by default until a review was
   finished. The partner says 16% of its client tenants did. One is a stated intention among
@@ -64,43 +65,48 @@ period; left off by default.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **Copilot in Teams**. Say: "Swarm
-explores scenarios. It does not guarantee or precisely predict real-world behavior. This question is
-about a deeper, default-on assistant in a chat and meetings app. Everything in it is invented: five
-short documents about an imaginary firm, each labelled synthetic." Point at the question and at the
-document list: sample provenance, licence `Synthetic, CC0`.
+**0:00 Choose the example (30 s).** First screen, then the **Copilot in Teams** chip under **Start from
+an example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
+behavior. This question is about a deeper, default-on assistant in a chat and meetings app. Everything
+in it is invented: five short documents about an imaginary firm, each labelled synthetic." Point at the
+question and at the evidence: the count on **Evidence** and the five documents in the tray, each a
+sample (open one: "Sample evidence: invented, describes no real case"; in Ground it carries the licence
+`Synthetic, CC0`).
 
-**0:30 The question (40 s).** **Understand my question**. Say: "It reads my question into a form I
-can edit before anything runs." Point at the changed variable, the baseline, and the assumptions
-with their origin. Read the open points it raises; this question leaves open for whom the default
-applies and over what period. Answer one, then **Use this scenario**.
+**0:30 Your scenario (40 s).** **Explore**. Say: "It reads my question into a scenario I can edit before
+anything runs." Point at **What changes**, **If nothing changes**, and **Assumed**, where a dot says
+who made each assumption. Read the open points it raises under **Swarm asks**; this question leaves open
+for whom the default applies and over what period. Answer one (**Answer**), then **Ground it**.
 
-**1:10 The evidence (30 s).** **Build Graph**. Open the poll document and its chip. Say: "Every
-passage keeps its source. The ledger later compares sources and shows where they disagree."
+**1:10 Ground (30 s).** Open the poll under **Sources**. Say: "Every passage keeps its source. Ground
+compares the sources and shows where they disagree." If **Conflicts** lists the poll's 44% against the
+partner's 16%, open it now and come back to it in the brief.
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
-the four counts, the note on how they were found (rules or model), one row opened to its cited quotes and
-uncertainty, and the prompt about roles nobody was found for. Say: "These are discovered from the evidence,
-with the passage shown. They are roles, not people." Then **Go to approval**, **Approve stakeholders and
-create actors**, **Review the N actors**, and point at one trait with its origin badge: "Every number the
-actors run on says where it came from."
+**1:40 Map: stakeholders and actors (60 s).** **Map the stakeholders**, **Find who is affected**. Point
+at the parties on the map, "N to review", the chip that says how they were found (rules or model), one
+party opened to its cited quotes and confidence, and the **Nobody found for** prompts. Say: "These are
+discovered from the evidence, with the passage shown. They are roles, not people." Then **Approve &
+create actors**, open an actor's **Traits**, and point at one trait with its origin chip: "Every number
+the actors run on says where it came from."
 
-**2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
-the proposed change side by side, the spread across the seeded runs, and one finding with how often it
-held ("N of 30 seeded runs") and its stability chip. Say: "A single run is never the answer. These are
-simulated members and seeded runs, not a rate in the real world." Point at the sensitivity view and the
-assumption with no evidence behind it.
+**2:40 Simulate and Compare (60 s).** **Simulate**, **Run the simulation**. Watch the replay in **Live**
+(the scrubber, and the flag where the change lands), then choose **Compare**. Point at the baseline and
+the proposed change side by side on the gap chart, a tick for each seeded run, one finding with how
+often it held ("It held in N of 30 seeded runs") and its class, and **Depends on** with the assumption
+that has no evidence behind it. Say: "A single run is never the answer. These are simulated members and
+seeded runs, not a rate in the real world."
 
-**3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
-was built with two source conflicts, so look for them there, open one (the poll's 44% against the partner's
-16%) and say: "Two sources disagree. Swarm shows both quotes and does not pick one." Then show the
-validation plan, which is open just after the recommendations: each check says what to observe, what to
-compare it with, how, and who runs it, and leaves the decision rule to you.
+**3:40 Decide: the decision brief (50 s).** **Decide**, **Write the brief**. Read the verdict and the
+numbers under **What happened**, and the origin mark on a statement. The evidence base is closed until
+you open it from the contents: this pack was built with two source conflicts, so look for them under
+**Evidence base and quality**, open one (the poll's 44% against the partner's 16%) and say: "Two sources
+disagree. Swarm shows both quotes and does not pick one." Then show the **Validation plan**, which is
+open just after the recommendations: each check says what to observe, what to compare it with, how, and
+who runs it, and leaves the decision rule to you.
 
-**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
-objection with its basis. Say: "A critic challenges; it never edits the analysis. I can respond, accept or
-dispute, and the disagreement stays visible."
+**4:30 One objection (20 s).** Choose **Review**, then **Run the independent review**, and read one
+objection with its basis. Say: "A critic challenges; it never edits the analysis. I can respond, accept
+or dispute, and the disagreement stays visible."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table, and a plan to
 check them. It supports a person's analysis. It does not make the decision."
@@ -111,47 +117,55 @@ The five-minute script, slower, with the parts that show how it works.
 
 **0:00 to 1:00 Open.** As above. Add: "The real names are in the question only because the question
 names them. The documents describe an invented firm and a hypothetical change." Open the IT office
-brief and read the premise paragraph aloud.
+brief from the tray and read the premise paragraph aloud.
 
-**1:00 to 2:30 The question and the scenario.** Edit one field of the scenario form (the horizon, or
-the baseline wording) and point at the label that shows you changed it. Add one alternative by hand:
-for example, default-on only for people who already have the assistant. Say why: "The alternatives
-are what we compare against the baseline, so they are mine to define."
+**1:00 to 2:30 The question and the scenario.** Edit one field of **Your scenario** (the horizon, or
+**If nothing changes**) and point at the chip at the top: it now reads "Edited by you". Add one
+alternative by hand with **Add a way**: for example, default-on only for people who already have the
+assistant. Say why: "The alternatives are what we compare against the baseline, so they are mine to
+define."
 
-**2:30 to 3:30 Evidence.** **Build Graph**, then the poll and the partner's notes. Search the
-evidence for "default" and open two passages. Say: "A paraphrase is never shown as a quote. Quotes
-are checked against the passage."
+**2:30 to 3:30 Ground: the evidence.** **Ground it**, then the poll and the partner's notes under
+**Sources**. Choose the **Passages** figure, search for "default" and open two passages. Say: "A
+paraphrase is never shown as a quote. Quotes are checked against the passage."
 
-**3:30 to 5:00 Stakeholders and actors.** Open three rows and read their cited quotes. Edit one
-stakeholder (**Edit**, or the **Priority** menu) and **Merge** or **Remove** one; restore it from
-**Removed**. Read the prompt about roles nobody was found for and say what you would do: add them by hand,
-or collect evidence. Approve, choose **Review the N actors**, move one trait with a slider and show the
-badge change to "you". Say: "Population sizes are assumptions used as weights. They are not measured
-counts."
+**3:30 to 5:00 Map: stakeholders and actors.** **Map the stakeholders**, **Find who is affected**. Open
+three parties and read their cited quotes under **Evidence**. Edit one (**Edit** on the party, or
+**Modelled as** for its priority) and **Merge** or **Remove** one; bring it back from **Removed** in the
+**List** view with **Restore**. Read the prompts about roles nobody was found for and say what you would
+do: add them by hand (**Add a stakeholder…**), or collect evidence. **Approve & create actors**, open an
+actor, move one trait with its slider and show the chip change to "you"; **Save** keeps it. Say:
+"Population sizes are assumptions used as weights. They are not measured counts."
 
-**5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
-the trajectory band, and two findings with their intervals. If one finding is unstable, open it and
-say what that means: it did not hold in enough runs to rely on. Open the second-order chain and read
-it aloud (what each event acted on, and what only came before it); say that competitor, partner and regulator reactions come from
-generic rules and not from a script written for this example.
+**5:00 to 6:30 Simulate and Compare.** **Run the simulation** and watch **Live**. Then **Compare**: show
+the gap chart and the two shares, **How it unfolds** (the spread of runs over the rounds), and two
+findings under **What holds** with their intervals. If one finding is unstable, open **What this means
+and how it was tested** and say what that means: it did not hold in enough runs to rely on. Read **Sets
+off** aloud (what each event acted on, and what only came before it); say that competitor, partner and
+regulator reactions come from generic rules and not from a script written for this example.
 
-**6:30 to 7:30 Sensitivity.** Point at the assumptions the result moves with. Find one that is
-sensitive and unevidenced and say: "This is what we would test first." Change that assumption in the
-actor table and run again if there is time; otherwise say what you would change and why.
+**6:30 to 7:30 What the result depends on.** Under **Depends on**, point at the assumptions the result
+moves with. Find one that is sensitive and unevidenced and say: "This is what we would test first."
+Change that assumption on the actor's **Traits** and simulate again if there is time; otherwise say what
+you would change and why.
 
-**7:30 to 9:00 Review and brief.** Run the independent review. Read one evidence objection and one
-assumption objection, and respond to one. Open the brief: the executive answer first, then the sections
-that are open (the decision evaluated, the reaction patterns, the alternative outcomes, the effects, the
-risks, the recommendations, each resting on the findings it cites with an owner function and a way to check
-it, and the validation plan), then, from the contents, the closed reference sections (the assumptions,
-uncertainty and sensitivity, the sources, the limitations). Look for the licence-terms gap (this pack leaves
-it open on purpose): if your brief shows it, say "Nothing in the evidence answers who pays, so the brief
-shows it as unresolved"; if it does not, say so.
+**7:30 to 9:00 Decide: review and brief.** **Decide**, **Write the brief**, then **Review** and **Run the
+independent review**. Read one evidence objection and one assumption objection, and respond to one.
+Open the brief: the verdict first, then the chapters that are open (the decision evaluated, the reaction
+patterns, the alternative outcomes, the effects, the risks, the recommendations, each resting on the
+findings it cites with an owner function and a way to check it, and the validation plan), then, from the
+contents, the closed reference chapters (the assumptions, uncertainty and sensitivity, the sources, the
+limitations). Look for the licence-terms gap (this pack leaves it open on purpose): if your brief shows
+it, say "Nothing in the evidence answers who pays, so the brief shows it as unresolved"; if it does not,
+say so.
 
-**9:00 to 10:00 Exports and questions.** Export Markdown, JSON or the printable page. Ask the
-analyst one question the sources answer ("How many seats were in the pilot and how long did it
-run?") and one they cannot ("What was the firm's revenue in 2019?"). Say that rules mode returns the
-nearest passages and does not compose an answer.
+**9:00 to 10:00 Exports and questions.** **Export** → **Markdown**, **JSON, with the data behind the
+charts** or **Printable page**. **Ask about this** opens once a detailed report exists, so run the deep
+dive first (**Simulate** → **More** → **Deep dive**, **Prepare the environment**, **Start the
+simulation**, **Write the detailed report**), or leave this step out. Then ask the analyst one question
+the sources answer ("How many seats were in the pilot and how long did it run?") and one they cannot
+("What was the firm's revenue in 2019?"). Say that rules mode returns the nearest passages and does not
+compose an answer.
 
 ## Points specific to this example
 

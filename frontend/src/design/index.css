@@ -1,0 +1,12 @@
+/*
+ * The one place the cascade order is decided. Every stylesheet in the front end puts its rules in one of
+ * these layers (tokens are plain custom properties and need none), so that no rule wins by being later
+ * in the bundle or by being more specific than it needed to be.
+ */
+@layer tokens, base, components, scenes, utilities;
+
+@import './tokens.css';
+@import './base.css';
+@import './surfaces.css';
+@import './motion.css';
+@import './typography.css';

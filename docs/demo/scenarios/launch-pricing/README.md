@@ -7,7 +7,7 @@ price with no free trial. The evidence is four short documents: a launch brief, 
 small price test, notes from sales, support and customer success, and market notes with a list of what
 nobody has measured. The company, its customers, its competitors and every figure are invented.
 
-Back to the [example scenarios](../README.md). The text the picker loads is in
+Back to the [example scenarios](../README.md). The text the example chip loads is in
 [`shared/examples/launch-pricing.ts`](../../../../shared/examples/launch-pricing.ts), and the files
 in this folder are readable copies of it.
 
@@ -22,7 +22,8 @@ in this folder are readable copies of it.
 
 ## Built in on purpose
 
-**One source conflict** that the evidence ledger flags (a test pins it): the funnel data says 34% of
+**One source conflict** that the evidence ledger flags (a test pins it), and that **Conflicts** in
+Ground and **Evidence base and quality** in the brief show: the funnel data says 34% of
 new paid accounts began with a free trial. The regional sales leads say about 60%.
 
 **Tensions only a reader will notice.** The launch brief says sales staff report that larger
@@ -65,39 +66,43 @@ a trial limited to some features; the Team plan kept on sale; existing customers
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **Launch pricing**. Say: "Swarm
-explores scenarios. It does not guarantee or precisely predict real-world behavior. This is an
-invented software company and invented evidence, and each document says so." Point at the question and
-the sample provenance with the licence `Synthetic, CC0`.
+**0:00 Choose the example (30 s).** First screen, then the **Launch pricing** chip under **Start from an
+example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
+behavior. This is an invented software company and invented evidence, and each document says so."
+Point at the question and at the evidence: the count on **Evidence** and the four documents in the
+tray, each a sample (open one: "Sample evidence: invented, describes no real case"; in Ground it
+carries the licence `Synthetic, CC0`).
 
-**0:30 The question (40 s).** **Understand my question**. Point at the two changes (a higher price and
-no trial), the baseline and the assumptions with their origin. Say what the question leaves open: how
-much higher, which plans lose the trial, what happens to existing customers, and what counts as a good
-outcome. Answer one, then **Use this scenario**.
+**0:30 Your scenario (40 s).** **Explore**. Point at the two changes (a higher price and no trial),
+**If nothing changes** and **Assumed**, where a dot says who made each assumption. Say what the question
+leaves open: how much higher, which plans lose the trial, what happens to existing customers, and what
+counts as a good outcome. Answer one under **Swarm asks** (**Answer**), then **Ground it**.
 
-**1:10 The evidence (30 s).** **Build Graph**. Open the funnel summary. Say: "Every passage keeps its
-source. The ledger later compares sources and shows where they disagree."
+**1:10 Ground (30 s).** Open the funnel summary under **Sources**. Say: "Every passage keeps its
+source. Ground compares the sources and shows where they disagree."
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
-the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
-and the prompt about roles nobody was found for. Say: "Roles, with the passage shown. They are not real
-people." **Go to approval**, **Approve stakeholders and create actors**, **Review the N actors**; point at a
-trait and its origin badge.
+**1:40 Map: stakeholders and actors (60 s).** **Map the stakeholders**, **Find who is affected**. Point
+at the parties on the map, "N to review", the chip that says how they were found, one party opened to
+its cited quotes and confidence, and the **Nobody found for** prompts. Say: "Roles, with the passage
+shown. They are not real people." Then **Approve & create actors**, open an actor's **Traits**, and
+point at one trait and its origin chip.
 
-**2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
-the proposed change, the spread across the seeded runs, one finding with "N of 30 seeded runs" and its
-stability chip, and the sensitivity view. Say: "These are simulated members and seeded runs. They are not a
-conversion rate."
+**2:40 Simulate and Compare (60 s).** **Simulate**, **Run the simulation**. Watch the replay in **Live**,
+then choose **Compare**. Point at the baseline and the proposed change on the gap chart, a tick for each
+seeded run, one finding with "It held in N of 30 seeded runs" and its class, and **Depends on**. Say:
+"These are simulated members and seeded runs. They are not a conversion rate."
 
-**3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
-was built with one source conflict, so open it, find it (34% against 60%) and say: "Finance's funnel and the
-sales leads disagree on how many customers started with a trial. Swarm shows both and does not pick one."
-Then look for the uncertainty about prices above $34, and at the validation plan (open, right after the
+**3:40 Decide: the decision brief (50 s).** **Decide**, **Write the brief**. Read the verdict and the
+numbers under **What happened**, and the origin mark on a statement. The evidence base is closed until
+you open it from the contents: this pack was built with one source conflict, so open **Evidence base
+and quality**, find it (34% against 60%) and say: "Finance's funnel and the sales leads disagree on how
+many customers started with a trial. Swarm shows both and does not pick one." Then look for the
+uncertainty about prices above $34, and at the **Validation plan** (open, right after the
 recommendations).
 
-**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
-objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute it."
+**4:30 One objection (20 s).** Choose **Review**, then **Run the independent review**, and read one
+objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute
+it."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table and a plan
 to check them. It supports a person's analysis; it does not make the decision."
@@ -109,38 +114,45 @@ The five-minute script, slower, with the parts that show how it works.
 **0:00 to 1:00 Open.** As above. Add: "A price and a trial are the kind of change where everyone has an
 opinion and nobody has tested the new price."
 
-**1:00 to 2:30 The question and the scenario.** Edit a field of the scenario form and show the label
-that records that you changed it. Add an alternative by hand (for example, a shorter trial). Say: "The
-alternatives are what we compare against the baseline, so they are mine to define."
+**1:00 to 2:30 The question and the scenario.** Edit one field of **Your scenario** and point at the chip
+at the top: it now reads "Edited by you". Add one alternative by hand with **Add a way** (for example, a
+shorter trial). Say: "The alternatives are what we compare against the baseline, so they are mine to
+define."
 
-**2:30 to 3:30 Evidence.** **Build Graph**, then the funnel summary and the sales notes. Search the
-evidence for "trial" and open two passages. Do the arithmetic aloud and say it is your own check, and
-that the pack does not settle it.
+**2:30 to 3:30 Ground: the evidence.** **Ground it**, then the funnel summary and the sales notes under
+**Sources**. Choose the **Passages** figure, search for "trial" and open two passages. Do the arithmetic
+aloud and say it is your own check, and that the pack does not settle it.
 
-**3:30 to 5:00 Stakeholders and actors.** Open three rows and read their cited quotes. Edit one
-stakeholder (**Edit**, or the **Priority** menu) and **Merge** or **Remove** one. Read the prompt about
-roles nobody was found for and say what you would do. Approve, choose **Review the N actors**, then change
-one trait on one actor and show its badge change to "you".
+**3:30 to 5:00 Map: stakeholders and actors.** **Map the stakeholders**, **Find who is affected**. Open
+three parties and read their cited quotes under **Evidence**. Edit one (**Edit** on the party, or
+**Modelled as** for its priority) and **Merge** or **Remove** one. Read the prompts about roles nobody
+was found for and say what you would do. **Approve & create actors**, open an actor, then change one
+trait with its slider and show the chip change to "you"; **Save** keeps it.
 
-**5:00 to 6:30 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
-the trajectory band and two findings with their intervals. If one is unstable, say what that means.
-Open the second-order chain and read it aloud: a competitor's or a partner's reaction follows from
-generic rules, not from a script written for this example.
+**5:00 to 6:30 Simulate and Compare.** **Run the simulation** and watch **Live**. Then **Compare**: show
+the gap chart and the two shares, **How it unfolds** (the spread of runs over the rounds), and two
+findings under **What holds** with their intervals. If one is unstable, say what that means. Read **Sets
+off** aloud: a competitor's or a partner's reaction follows from generic rules, not from a script
+written for this example.
 
-**6:30 to 7:30 Sensitivity.** Point at the assumptions the result moves with and find one with no
-evidence behind it. Say: "This is what we would test first, and the validation plan says how."
+**6:30 to 7:30 What the result depends on.** Under **Depends on**, point at the assumptions the result
+moves with and find one with no evidence behind it. Say: "This is what we would test first, and the
+validation plan says how."
 
-**7:30 to 9:00 Review and brief.** Run the independent review. Read one evidence objection and one
-assumption objection, and respond to one. In the brief, look at the recommendations (each resting on the
-findings it cites, with an owner function and a way to check it) and the validation plan, which are open,
-and at the assumptions and uncertainty, which are closed until opened from the contents. Say that a staged
-price test with named measures is the kind of check a validation plan should propose, and check whether
-yours does; the evidence has none above $34.
+**7:30 to 9:00 Decide: review and brief.** **Decide**, **Write the brief**, then **Review** and **Run the
+independent review**. Read one evidence objection and one assumption objection, and respond to one. In
+the brief, look at the recommendations (each resting on the findings it cites, with an owner function
+and a way to check it) and the **Validation plan**, which are open, and at the assumptions and
+uncertainty, which are closed until opened from the contents. Say that a staged price test with named
+measures is the kind of check a validation plan should propose, and check whether yours does; the
+evidence has none above $34.
 
-**9:00 to 10:00 Exports and questions.** Export Markdown, JSON or the printable page. Ask the analyst
-one question the sources answer ("What share of new paid accounts began with a free trial?") and one
-they cannot ("What was the company's revenue in 2019?"). Say that rules mode returns the nearest
-passages.
+**9:00 to 10:00 Exports and questions.** **Export** → **Markdown**, **JSON, with the data behind the
+charts** or **Printable page**. **Ask about this** opens once a detailed report exists, so run the deep
+dive first (**Simulate** → **More** → **Deep dive**, **Prepare the environment**, **Start the
+simulation**, **Write the detailed report**), or leave this step out. Then ask the analyst one question
+the sources answer ("What share of new paid accounts began with a free trial?") and one they cannot
+("What was the company's revenue in 2019?"). Say that rules mode returns the nearest passages.
 
 ## Points specific to this example
 

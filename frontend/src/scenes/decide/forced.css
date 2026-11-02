@@ -1,0 +1,47 @@
+@layer scenes {
+  /*
+   * Under a forced palette (a Windows contrast theme) the browser makes every background one colour, and a bar,
+   * a dot and a swatch are all backgrounds: the charts would be left with their numbers and nothing drawn. What a
+   * mark says is in its colour, so the marks keep theirs. The text, the borders and the controls still take the
+   * palette's, and every figure is also written out in words and in the table behind it.
+   */
+  @media (forced-colors: active) {
+    .sw-decide-resp__seg,
+    .sw-decide-legend__swatch,
+    .sw-decide-mv__line,
+    .sw-decide-mv__dot[data-end='change'],
+    .sw-decide-moved__line,
+    .sw-decide-moved__dot[data-end='change'],
+    .sw-decide-stance__dot[data-end='change'],
+    .sw-decide-tn__bar,
+    .sw-decide-tn__whisker,
+    .sw-decide-sb__span,
+    .sw-decide-sb__dot,
+    .sw-decide-lv__dots i[data-on],
+    .sw-decide-ls__unc i[data-on],
+    .sw-decide-ev__dots i[data-side='for'],
+    .sw-decide-dots span[data-on],
+    .sw-decide-rv__bar span,
+    .sw-decide-rv__swatch,
+    .sw-decide-toc__mark,
+    .sw-decide-bar__progress {
+      forced-color-adjust: none;
+    }
+    /* The scales the marks stand on, which are lines of background too. */
+    .sw-decide-mv__track::before,
+    .sw-decide-moved__track::before,
+    .sw-decide-tn__mid,
+    .sw-decide-tn__plot::before,
+    .sw-decide-sb__track::before,
+    .sw-decide-stance__mid {
+      forced-color-adjust: none;
+      background: GrayText;
+    }
+    /* The browser sets text on a plate of the page's colour, and a very large figure on a tight line would
+       cover the last of the line above it. */
+    .sw-decide-num__figure,
+    .sw-decide-rv__total {
+      line-height: 1.2;
+    }
+  }
+}

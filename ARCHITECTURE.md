@@ -1,7 +1,7 @@
 # Swarm Lab architecture
 
 Swarm explores "What could happen if X changes?" for any question. One Node.js 24 process serves a
-React console and a Fastify API over one validated store: a SQLite file by default, or PostgreSQL.
+React interface and a Fastify API over one validated store: a SQLite file by default, or PostgreSQL.
 Two engines share the project and its evidence:
 
 - **The scenario lab** (this build, [ADR 0014](./docs/adr/0014-scenario-lab.md)): a path from a
@@ -22,6 +22,7 @@ industry; the example scenarios are only a question and some synthetic documents
 | The lab, end to end             | [The scenario lab flow](#the-scenario-lab-flow) below, then the per-feature pages in [docs/analysis/](./docs/analysis/engine.md), [intake](./docs/scenario-intake.md), [stakeholders](./docs/stakeholders.md) |
 | The system as a whole           | [System diagram](#system-diagram) and [Implemented module boundaries](#implemented-module-boundaries)                                                                                                         |
 | The deep dive                   | [The five stages](#the-five-stages-of-the-deep-dive), [Local components](#local-components) and [Checkpoints, pause/resume, branching and comparison](#checkpoints-pauseresume-branching-and-comparison)      |
+| The interface                   | [How the interface carries it](#how-the-interface-carries-it), [docs/UX.md](./docs/UX.md) and [ADR 0015](./docs/adr/0015-premium-interface.md)                                                                |
 | Storage, both dialects          | [Persistence and failure semantics](#persistence-and-failure-semantics)                                                                                                                                       |
 | What is not built or not proven | [Known limitations](#known-limitations)                                                                                                                                                                       |
 | The routes and their shapes     | [docs/API.md](./docs/API.md)                                                                                                                                                                                  |
@@ -109,29 +110,40 @@ against the revisions that comparison recorded, not against when they were writt
 a comparison that predates a change says so. The method, the limits and what the
 numbers do not mean are in [docs/analysis/methodology.md](./docs/analysis/methodology.md).
 
-### How the console carries it
+### How the interface carries it
 
-The lab sits in the existing five-stage console for projects made in the guided workflow: the entry form
-has the example picker (which folds into one line once an example is loaded), **Understand my question**
-(`components/intake/`), the public page form (`components/evidence/`) and **Build Graph** in a bar that
-stays in reach; **Env Setup** is led by the stakeholder and actor panel
-(`components/stakeholders/`), which is compact (four counts, the one next step, and the list and the
-actors shut until opened), above the engine's fixed proxies, which are an optional deep dive with
-secondary buttons; **Simulation** by the comparison (`components/analysis/`) above the engine's **Deep
-dive (optional)**; and **Report** by a jump bar, the decision brief and the critics' panel
-(`components/brief/`, `components/critics/`) above the deep dive's own report. The brief is a document
-with a contents whose reference sections are closed until wanted (they stay in the page), and printing
-the stage prints the whole brief and the review. `lab` on the project (from `lab/progress.ts`) decides
-what can be opened: Simulation once there are actors, Report once a comparison has finished, and the
-next-step bar and the twelve-step journey strip read it too. `frontend/src/lib/console.ts` holds those
-rules, and the view each stage opens in (`defaultView`: Split for Graph Build and Interaction, the
-whole-width Workbench for Env Setup and, once there are actors or a finished comparison, for Simulation
-and Report). The workspace reads the project again by itself while a comparison runs and until the brief
-is written (`hooks/useLabRefresh.ts`), so a stage opens when the record allows it, without a reload. The
-console's code is a separate chunk (`React.lazy` in `App.tsx`) that is fetched when a project is chosen,
-and `npm run build` writes a Brotli and a gzip copy of each text asset (`scripts/precompress.mjs`) that
-the server sends as they are to a browser that accepts them (`preCompressed` in `app.ts`, with
-`Vary: Accept-Encoding`).
+The interface is six scenes on a design system ([ADR 0015](./docs/adr/0015-premium-interface.md),
+[UX.md](./docs/UX.md)). It changes none of the contracts, routes or security rules in this document.
+`frontend/src/` holds `app/` (the shell), `scenes/` (one folder for each scene), `design/` (tokens, themes,
+primitives and motion), `viz/` (the ecosystem map), `panels/` (History, Ask, the audit log, the model budget,
+access and the provider chip), `hooks/`, `lib/` (pure logic) and `api/` (typed clients).
+
+The shell is `app/Root.tsx` (the providers, and the one screen that is not the application: a sign-in that
+did not produce a session) and `app/Application.tsx`, which owns the project, the server's configuration and
+the address (`app/route.ts`: `?project=`, `scene=` and `view=`). **Ask** is mounted by the shell with props,
+because it is the one scene that exists before a project does. **Ground**, **Map**, **Simulate**, **Compare**
+and **Decide** are modules with a default export and no props, each a chunk of its own that is fetched when it
+is opened or about to be (`app/loaders.ts`); they read the project through `useWorkspace()`
+(`app/context.tsx`). The panels are lazy as well (`app/PanelHost.tsx`). A scene asks nothing of the shell
+beyond what that context holds; [UX.md](./docs/UX.md#adding-to-the-interface-without-breaking-what-is-there)
+says how one is added.
+
+`lab` on the project (from `lab/progress.ts`) and the engine's own `console.steps` decide what can be opened
+and where a project opens. `app/scenes.ts` holds the rules: `sceneAvailable` (Map once the evidence has been
+read, Simulate once there are actors, Compare and Decide once a comparison has finished), the lock reasons,
+`sceneInfos` for the journey and the dock, and `frontierScene`. `frontend/src/lib/console.ts` still holds
+the engine's own rules (which step can run). The workspace reads the project again by itself:
+`hooks/useConsole.ts` while an engine step or a survey runs (every 1.8 s), `hooks/useAnalysis.ts` while a
+comparison runs (every second) and `hooks/useLabRefresh.ts` while one runs or while the record waits for one
+(2 s and 5 s), so a scene opens when the record allows it, without a reload.
+
+Colour comes only from the tokens in `design/tokens.css`, which writes the light, dark and high-contrast
+themes out one by one; styles live in `@layer tokens, base, components, scenes, utilities`; nothing renders
+raw HTML; and the content-security policy is unchanged. `frontend/src/test/ui-guards.test.ts`,
+`frontend/src/test/design-contrast.test.ts` and `scripts/ui/colours.mjs` hold these rules
+([UX.md](./docs/UX.md#guards)). Each scene is a chunk of its own, and `npm run build` writes a Brotli and a gzip
+copy of each text asset (`scripts/precompress.mjs`) that the server sends as they are to a browser that
+accepts them (`preCompressed` in `app.ts`, with `Vary: Accept-Encoding`).
 
 ### Two engines, one cast
 
@@ -147,7 +159,7 @@ number a cohort stands for.
 flowchart TB
     subgraph UX["User experience"]
         Browser["User browser<br/>No credentials or tokens in the page;<br/>an HttpOnly cookie holds a sign-in"]
-        Frontend["React and TypeScript console<br/>served by the API process"]
+        Frontend["React and TypeScript console<br/>(six scenes) served by the API process"]
     end
 
     subgraph APP["Swarm application (runs locally)"]
@@ -266,13 +278,14 @@ flowchart TB
 
 Current validated architecture. The application and database run locally; Azure hosts the AI model deployment. Planned cloud hosting and managed identity are not shown as implemented components.
 
-| Where it runs           | Components                                                                                                                                                                                                                                                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **On your machine**     | The browser console, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application |
-| **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                     |
-| **Proposed, not built** | A hosted worker container, Azure Container Apps hosting, a PostgreSQL server in Azure, managed identity for the application, an Application Insights resource that the telemetry is sent to. They are designed in [docs/AZURE.md](./docs/AZURE.md) and [docs/azure/](./docs/azure/); none is deployed or validated                    |
+| Where it runs           | Components                                                                                                                                                                                                                                                                                                                              |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **On your machine**     | The browser interface, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application |
+| **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                       |
+| **Proposed, not built** | A hosted worker container, Azure Container Apps hosting, a PostgreSQL server in Azure, managed identity for the application, an Application Insights resource that the telemetry is sent to. They are designed in [docs/AZURE.md](./docs/AZURE.md) and [docs/azure/](./docs/azure/); none is deployed or validated                      |
 
-- **Frontend:** React and TypeScript. In the built application the same process serves it and the
+- **Frontend:** React and TypeScript, as six scenes on a design system ([how the interface carries
+  it](#how-the-interface-carries-it)). In the built application the same process serves it and the
   API. It holds no credentials.
 - **Backend:** Fastify on Node.js 24 with the built-in SQLite module, or an optional PostgreSQL
   adapter behind the same stores. Validation, rate limits and host and origin checks sit in front of
@@ -284,7 +297,7 @@ Current validated architecture. The application and database run locally; Azure 
   administrator, workspace owner and admin, project lead, analyst, reviewer and viewer), with a
   default-deny route table and tenant isolation. A project a person was not added to is reported as
   missing. A workspace owner or administrator manages the workspace's people, and a project lead
-  the project's, from the browser (the People and Access screens), naming each person by their Entra
+  the project's, from the browser (**People** and **Who has access**, under Settings and tools), naming each person by their Entra
   object ID. It has only been tested against a test identity provider, never a real tenant.
 - **Provider abstraction:** one gateway for every model call. It picks the rules engine or a real
   provider from configuration, bounds retries, counts calls and tokens, and never falls back
@@ -380,7 +393,8 @@ asynchronous surveys. It does not turn the local lexical engine into generative 
 
 Version 0.3 adds the checkpointed what-if loop (pause, resume, one scheduled intervention, branching from a
 saved round with declared changes, and run comparison; see "Checkpoints, pause/resume, branching and
-comparison" below), a JSON snapshot export, an accessibility and responsive-layout rework of the console, a
+comparison" below), a JSON snapshot export, an accessibility and responsive-layout rework of the console of
+that time, a
 validated `RATE_LIMIT_SCALE` setting, and the browser/load verification described in "Verification
 architecture". The scenario lab (see [The scenario lab flow](#the-scenario-lab-flow)) is built on
 0.3.0 without a version change.
@@ -393,10 +407,11 @@ two-platform execution with memory feedback; report/operation inspection; and
 report/persona interaction with multi-target survey selection. Its own entry
 page says it is a static demo without connected agent-chat inference.
 
-Our UI adopts the guided interaction model, light technical layout and
-Graph/Split/Workbench views with an original Swarm Lab design. Its counters,
-graphs, statuses, event streams, reports and traces come from actual persisted
-execution. No demonstration case, asset, graph dataset or prerecorded output was copied.
+Our UI first adopted the guided interaction model, a light technical layout and
+Graph/Split/Workbench views with an original Swarm Lab design. That console has since been rebuilt as six
+scenes on a design system ([ADR 0015](./docs/adr/0015-premium-interface.md), [UX.md](./docs/UX.md)); what
+carried over is the rule that its counters, graphs, statuses, event streams, reports and traces come from
+actual persisted execution. No demonstration case, asset, graph dataset or prerecorded output was copied.
 
 The default local engine uses real, reproducible opinion-dynamics calculations.
 Topic extraction is term-frequency/co-occurrence based, not semantic AI extraction.
@@ -443,23 +458,26 @@ A single TypeScript runtime also keeps shared request/result types straightforwa
 
 ### The five stages of the deep dive
 
-The console has five stages. Each runs separately and stops at **ready** until you start the next.
-In a guided project the lab's panels sit at the top of three of them (see
-[How the console carries it](#how-the-console-carries-it)); the stages below are the engine's own.
+The engine has five stages. Each runs separately and stops at **ready** until you start the next. The
+interface no longer shows them as a screen of their own: it has six scenes ([How the interface carries
+it](#how-the-interface-carries-it)), and each stage has a place in them. The names in the first column are
+the engine's own (`console.steps` in the API: `knowledge`, `environment`, `simulation`, `report` and
+`interaction`).
 
-| Stage          | Rules mode                              | Real-model mode                                                                          |
-| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
-| 1. Graph Build | Term and co-occurrence extraction       | The model proposes entities and relations; the server checks every quote and citation    |
-| 2. Env Setup   | Generated personas and seed posts       | The model proposes personas and seed posts, which you can edit                           |
-| 3. Simulation  | Seeded opinion dynamics                 | One request per proxy per platform per round, validated and bounded                      |
-| 4. Report      | A report computed from recorded metrics | A planned, tool-assisted report with a grounding review and an independent support check |
-| 5. Interaction | Evidence lookup and state snapshots     | Report chat, proxy chat and interviews                                                   |
+| Stage          | Rules mode                              | Real-model mode                                                                          | In the interface                                                                         |
+| -------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 1. Graph Build | Term and co-occurrence extraction       | The model proposes entities and relations; the server checks every quote and citation    | **Ground**: **Ground it** creates the project and starts it                              |
+| 2. Env Setup   | Generated personas and seed posts       | The model proposes personas and seed posts, which you can edit                           | The deep dive: **Prepare the environment**                                               |
+| 3. Simulation  | Seeded opinion dynamics                 | One request per proxy per platform per round, validated and bounded                      | The deep dive: **Start the simulation**                                                  |
+| 4. Report      | A report computed from recorded metrics | A planned, tool-assisted report with a grounding review and an independent support check | The deep dive: **Write the detailed report**, then the detailed report and Report Studio |
+| 5. Interaction | Evidence lookup and state snapshots     | Report chat, proxy chat and interviews                                                   | **Ask about this**, once the report exists: the analyst, the actors and surveys          |
 
 Every model reply is validated on the server before it is used: identifiers, citations, verbatim
 quotes and bounded changes. A bad reply is sent back for a limited number of corrections. When a
 slip can be repaired only by removing, shortening or weakening what the model claimed, the server
 repairs it and **says so** in the report; otherwise the stage fails and you see why. See the
-[user guide](./docs/USER_GUIDE.md) for each stage and the
+[user guide](./docs/USER_GUIDE.md#the-deep-dive-optional-pause-resume-intervene-branch-compare) for the deep
+dive and the
 [grounding review](./docs/USER_GUIDE.md#grounding-review-model-assisted-reports).
 
 ### Data and model boundaries
@@ -484,34 +502,38 @@ process, and have not run across containers or against a deployed server.
 
 ### Implemented module boundaries
 
-| Module                                                                           | Responsibility                                                                                                                                                                                                    |
-| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared/types.ts`                                                                | Shared input validation, limits and request/result types                                                                                                                                                          |
-| `backend/src/app.ts`, `routes/`                                                  | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                                                                                                            |
-| `backend/src/storage/`                                                           | SQLite or PostgreSQL behind one interface, numbered migrations with a backup, the artifact store, the job queue, the ledger store, the hash-chained audit log, model usage and start-up recovery                  |
-| `backend/src/knowledge/`                                                         | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                                                                                                              |
-| `backend/src/agents/`                                                            | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting                                                                                     |
-| `backend/src/grounding/`                                                         | Verbatim quote matching, claim verdicts, entailment check, chapter-claim validation, the review, and the evidence ledger: classification, publication policy, cross-source conflicts and the ledger service       |
-| `backend/src/auth/`                                                              | Optional Entra token verification, roles, the default-deny route table and the request guard                                                                                                                      |
-| `backend/src/studio/`                                                            | Report Studio: the rules of a document (versions, locks, review states, the hash an approval is of), the service, chapter regeneration, and the memo, Markdown and JSON exports                                   |
-| `backend/src/models/`                                                            | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry                                                                                            |
-| `backend/src/orchestration/`                                                     | The job runner (leases, heartbeats, retries, cancel and pause across processes), follow-up locking and survey lifecycle, and the analyst's evidence gate and citation checks                                      |
-| `backend/src/guided/`                                                            | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                                                                                                                  |
-| `backend/src/ingest/`                                                            | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                                                                                                     |
-| `backend/src/ingest/url/`                                                        | Reads a public web page a person names: address policy, pinned fetch, robots.txt, and text extraction that never runs the page ([URL ingestion](docs/security/url-ingestion.md))                                  |
-| `backend/src/scenario/`                                                          | The lab's intake: a question read into a scenario frame by rules or by a validated model reply, with the injection checks on the question and the documents                                                       |
-| `backend/src/stakeholders/`                                                      | The lab's stakeholder discovery (role lexicon, tone, optional model), the review rules, approval, and the actors made from an approved set with their category priors                                             |
-| `backend/src/simulation/`                                                        | The pure, seeded population simulator: members, stance dynamics, generic signals and external responders, response categories (no domain words, by test)                                                          |
-| `backend/src/analysis/`                                                          | Comparisons: variants on shared seeds, findings with Wilson intervals, one-at-a-time sensitivity, the service that runs them in the process and recovers them                                                     |
-| `backend/src/critics/`                                                           | The seven critics: fixed rules, an optional validated model critic, and the carrying of a person's responses over to a new review. A critic never edits the analysis                                              |
-| `backend/src/brief/`                                                             | The answer-first decision brief: facts, sections, recommendations, the validation plan, the origin of every statement, and the Markdown, JSON and printable exports                                               |
-| `backend/src/lab/`                                                               | `progress.ts`: how far a project has come, read from which artifacts it holds                                                                                                                                     |
-| `shared/` (lab contracts)                                                        | `scenario`, `stakeholders`, `analysis` and `analysis-plan`, `signal`, `critique`, `brief`, `lab`, `artifacts`, `example-scenarios` with `examples/`, and `lab-fixtures` (sample objects made through the schemas) |
-| `shared/guided.ts`                                                               | Persisted stage, environment, memory, trace, survey and editing contracts                                                                                                                                         |
-| `frontend/src/hooks/`                                                            | Race/abort-safe project lifecycle, history and active-run polling                                                                                                                                                 |
-| `frontend/src/components/console/`                                               | The shell and the engine's five stages: entry form and example picker, graph/split/workbench, inspectors, preparation, streams, report/tool trace, interaction, the evidence ledger and the journey strip         |
-| `frontend/src/components/{intake,evidence,stakeholders,analysis,critics,brief}/` | The lab's panels: scenario intake, the public page form, stakeholder and actor review, the comparison and its results, the independent review, and the decision brief                                             |
-| `evaluation/`                                                                    | Labelled datasets pinned to their sources, the offline harness, thresholds and results                                                                                                                            |
+| Module                                   | Responsibility                                                                                                                                                                                                                |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/types.ts`                        | Shared input validation, limits and request/result types                                                                                                                                                                      |
+| `backend/src/app.ts`, `routes/`          | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                                                                                                                        |
+| `backend/src/storage/`                   | SQLite or PostgreSQL behind one interface, numbered migrations with a backup, the artifact store, the job queue, the ledger store, the hash-chained audit log, model usage and start-up recovery                              |
+| `backend/src/knowledge/`                 | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                                                                                                                          |
+| `backend/src/agents/`                    | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting                                                                                                 |
+| `backend/src/grounding/`                 | Verbatim quote matching, claim verdicts, entailment check, chapter-claim validation, the review, and the evidence ledger: classification, publication policy, cross-source conflicts and the ledger service                   |
+| `backend/src/auth/`                      | Optional Entra token verification, roles, the default-deny route table and the request guard                                                                                                                                  |
+| `backend/src/studio/`                    | Report Studio: the rules of a document (versions, locks, review states, the hash an approval is of), the service, chapter regeneration, and the memo, Markdown and JSON exports                                               |
+| `backend/src/models/`                    | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry                                                                                                        |
+| `backend/src/orchestration/`             | The job runner (leases, heartbeats, retries, cancel and pause across processes), follow-up locking and survey lifecycle, and the analyst's evidence gate and citation checks                                                  |
+| `backend/src/guided/`                    | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                                                                                                                              |
+| `backend/src/ingest/`                    | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                                                                                                                 |
+| `backend/src/ingest/url/`                | Reads a public web page a person names: address policy, pinned fetch, robots.txt, and text extraction that never runs the page ([URL ingestion](docs/security/url-ingestion.md))                                              |
+| `backend/src/scenario/`                  | The lab's intake: a question read into a scenario frame by rules or by a validated model reply, with the injection checks on the question and the documents                                                                   |
+| `backend/src/stakeholders/`              | The lab's stakeholder discovery (role lexicon, tone, optional model), the review rules, approval, and the actors made from an approved set with their category priors                                                         |
+| `backend/src/simulation/`                | The pure, seeded population simulator: members, stance dynamics, generic signals and external responders, response categories (no domain words, by test)                                                                      |
+| `backend/src/analysis/`                  | Comparisons: variants on shared seeds, findings with Wilson intervals, one-at-a-time sensitivity, the service that runs them in the process and recovers them                                                                 |
+| `backend/src/critics/`                   | The seven critics: fixed rules, an optional validated model critic, and the carrying of a person's responses over to a new review. A critic never edits the analysis                                                          |
+| `backend/src/brief/`                     | The answer-first decision brief: facts, sections, recommendations, the validation plan, the origin of every statement, and the Markdown, JSON and printable exports                                                           |
+| `backend/src/lab/`                       | `progress.ts`: how far a project has come, read from which artifacts it holds                                                                                                                                                 |
+| `shared/` (lab contracts)                | `scenario`, `stakeholders`, `analysis` and `analysis-plan`, `signal`, `critique`, `brief`, `lab`, `artifacts`, `example-scenarios` with `examples/`, and `lab-fixtures` (sample objects made through the schemas)             |
+| `shared/guided.ts`                       | Persisted stage, environment, memory, trace, survey and editing contracts                                                                                                                                                     |
+| `frontend/src/hooks/`                    | Race/abort-safe project lifecycle (`useConsole`), history, comparison and brief reading, and polling (`useAnalysis`, `useLabRefresh`)                                                                                         |
+| `frontend/src/app/`                      | The shell: `Root` and `Application` (the project, the configuration and the address), the top bar, the journey rail and the dock, the settings menu, the scene and panel hosts, and `scenes.ts` (what opens each scene)       |
+| `frontend/src/scenes/`                   | One folder for each scene (`ask`, `ground`, `map`, `simulate` with its `deep/` dive, `compare`, `decide`) and the `studio` and `report` that Decide opens. A scene takes no props and reads the project from `useWorkspace()` |
+| `frontend/src/design/`                   | Tokens and themes, the cascade layers, surfaces, motion and the primitives (`ui/`); `frontend/gallery.html` shows them in development                                                                                         |
+| `frontend/src/viz/`                      | The ecosystem map: an SVG with a seeded layout, and its palette                                                                                                                                                               |
+| `frontend/src/panels/`                   | History, Ask (the analyst, the actors and surveys), the audit log, the model budget, access and the provider chip                                                                                                             |
+| `frontend/src/lib/`, `frontend/src/api/` | Pure logic (the engine's step rules in `console.ts`, intake, stakeholder review, the brief, themes) and the typed clients for the lab's routes (`frontend/src/api.ts` has the engine's)                                       |
+| `evaluation/`                            | Labelled datasets pinned to their sources, the offline harness, thresholds and results                                                                                                                                        |
 
 The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
 topic interests, influence, openness and four recent memory entries. All round
@@ -692,7 +714,7 @@ without echoing provider bodies. Every call site supplies a server-side validato
 is used twice: as the bounded repair hook and again on the final value, so no gateway
 can skip a check. `ProviderTelemetry` counts calls, repairs, failures and tokens and
 tracks connectivity (`unverified` until a real call succeeds) without storing content;
-it feeds `GET /api/provider/status`, which drives the always-visible header badge.
+it feeds `GET /api/provider/status`, which drives the engine chip in the top bar.
 
 Untrusted text reaches a model only inside a JSON `untrustedScenarioData` object. Three layers
 stand between that text and an obeyed instruction, because a live run showed that prompt wording
@@ -739,8 +761,8 @@ JSON payloads are decoded with runtime schemas. SQL values are parameterized and
 source filenames never become paths. Foreign-key deletion removes associated
 chunks/events/conversation. WAL is for a local filesystem, not a shared cloud volume.
 Startup detects OneDrive, Dropbox, Google Drive and iCloud Drive folders in the
-resolved database path and warns through the server log and the console's readiness
-card (without exposing the local path), because synchronization can conflict with
+resolved database path and warns through the server log, and `GET /api/config` returns the same warning
+as `storage.warning` (without exposing the local path; the interface does not show it), because synchronization can conflict with
 WAL files and would upload source material to a cloud provider.
 
 Guided project state is `draft -> queued -> running -> ready` for each of
@@ -816,17 +838,17 @@ Deployment must not infer production readiness from local test success.
 
 What each layer of testing can and cannot establish:
 
-| Layer                      | Where                                                      | Establishes                                                                                                                                                                                                                                                                             | Does **not** establish                            |
-| -------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour                                                                                                                                                                                         | Browser rendering, real network behaviour         |
-| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                                                                                           | Anything about model behaviour                    |
-| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                                                                                                       | Quality or safety of a **live** model's output    |
-| Browser end-to-end (lab)   | `e2e/lab`                                                  | The lab through its pages: the shell and the entry screen, the flagship and custom journeys from the question to the brief, the stakeholder review, the comparison, what opens each stage, the Report page and its print, what is out of date, the deep dive; public pages are fixtures | Model behaviour, or any page on the real internet |
-| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded 32-step presentation, Report Studio and themes; browser sign-in and access screens against a test identity provider                                                                                                                                                        | A live model; a real Entra tenant                 |
-| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                                                                                                     | The browser, or any model                         |
-| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                                                                                          | Quality beyond the counts it reports; scale       |
-| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout/axe metrics at four viewports for design review                                                                                                                                                                                                                  | Subjective design quality                         |
-| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                                                                                                       | Capacity planning                                 |
+| Layer                      | Where                                                      | Establishes                                                                                                                                                                                                                     | Does **not** establish                            |
+| -------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules) | Browser rendering, real network behaviour         |
+| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                                   | Anything about model behaviour                    |
+| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                                               | Quality or safety of a **live** model's output    |
+| Browser end-to-end (lab)   | `e2e/lab`                                                  | The lab through its scenes, from the first screen to the brief: the flagship and custom journeys, what opens each scene, what is out of date, the deep dive; public pages are fixtures                                          | Model behaviour, or any page on the real internet |
+| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded presentation and Report Studio; browser sign-in and the access dialogs against a test identity provider                                                                                                            | A live model; a real Entra tenant                 |
+| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                                             | The browser, or any model                         |
+| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                                  | Quality beyond the counts it reports; scale       |
+| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout and accessibility metrics at five viewports, in light and dark, for design review; it asserts nothing                                                                                                    | Subjective design quality                         |
+| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                                               | Capacity planning                                 |
 
 **The fake provider** (`e2e/support/fake-provider.ts`) implements the Ollama `/api/chat` protocol so the real
 `ModelClient`, orchestrator, persistence and UI run end to end with no credential. It derives each answer from
@@ -960,10 +982,12 @@ What is not built, and what has not been shown. The README keeps a short version
   There is no live co-editing, merge or comment thread: a second person saving the same section is
   refused. Only chapters can be written again, one at a time, with the provider that wrote the
   report; there is no generated PDF, the memo is printed from the browser.
-- **Themes are derived, not designed.** The dark and high-contrast palettes are computed from the light
-  one, and tests hold them to WCAG contrast ratios and run axe-core on the demonstration's pages in
-  each. No designer has reviewed them, the Windows forced-colours rules have no browser test, and
-  nobody has used them with a screen reader.
+- **Themes are written, not designed.** The light, dark and high-contrast palettes are written out one by
+  one in `design/tokens.css`, and tests hold them to WCAG contrast ratios (computed from the tokens, with
+  every translucent surface laid over its backdrops) and run axe-core in each theme. No designer has
+  reviewed them, nobody has used them with a screen reader, a real touch device or a Windows high-contrast
+  session, and the browser tests only emulate forced colours. [UX.md](./docs/UX.md#not-done) lists what else
+  is not done.
 - **Incomplete human reviews.** Security, privacy, responsible-AI, licence, accessibility
   (screen-reader and forced-colours) and legal reviews have not been done; the
   [review checklist](./docs/pitch/human-review-checklist.md) says what to put before each reviewer.

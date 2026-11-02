@@ -1,0 +1,170 @@
+@layer components {
+  /*
+   * Glass is for floating things: the top bar, the dock, popovers, sheets, dialogs and the composer.
+   * It is a translucent fill, a blur of what is behind it, a thin luminous edge that is brightest where
+   * the light would hit it, and a soft shadow that says how far it floats. Content that sits on the page
+   * (charts, text, lists) is not put in glass.
+   */
+  .sw-glass {
+    --glass-radius: var(--r-lg);
+    position: relative;
+    border-radius: var(--glass-radius);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, white 7%, transparent), transparent 55%),
+      var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--blur-md)) saturate(var(--glass-saturate));
+    box-shadow: var(--shadow-2);
+  }
+  .sw-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      155deg,
+      var(--glass-edge-hi),
+      var(--glass-edge) 34%,
+      var(--glass-edge) 68%,
+      color-mix(in oklab, var(--glass-edge-hi) 38%, transparent)
+    );
+    -webkit-mask:
+      linear-gradient(black 0 0) content-box,
+      linear-gradient(black 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Overlays sit above everything and carry text: more opaque, more blur, more shadow. */
+  .sw-glass--overlay {
+    background:
+      linear-gradient(180deg, color-mix(in oklab, white 5%, transparent), transparent 40%),
+      var(--glass-overlay);
+    -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--blur-lg)) saturate(var(--glass-saturate));
+    box-shadow: var(--shadow-3);
+  }
+  .sw-glass--raised {
+    background:
+      linear-gradient(180deg, color-mix(in oklab, white 9%, transparent), transparent 50%),
+      var(--glass-raised);
+    box-shadow: var(--shadow-3);
+  }
+  .sw-glass--flat {
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .sw-glass--lit {
+    box-shadow: var(--shadow-3), var(--glow);
+  }
+
+  [data-theme='high-contrast'] .sw-glass {
+    background: var(--glass);
+    box-shadow: none;
+    border: 1px solid var(--hairline-strong);
+  }
+  [data-theme='high-contrast'] .sw-glass::before {
+    display: none;
+  }
+
+  /* A hairline rule that separates without boxing. */
+  .sw-rule {
+    border: 0;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      var(--hairline-strong) 12%,
+      var(--hairline-strong) 88%,
+      transparent
+    );
+  }
+
+  /*
+   * The ambient light. Fixed behind everything: three soft orbs in the colour of the part of the journey
+   * the person is in, and a fine grain so that large gradients do not band. Nothing in it is data.
+   */
+  .sw-aurora {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-canvas);
+    overflow: hidden;
+    pointer-events: none;
+    background: var(--bg);
+  }
+  .sw-aurora__orb {
+    position: absolute;
+    border-radius: 50%;
+    will-change: transform;
+  }
+  .sw-aurora__orb--a {
+    width: 78vmax;
+    height: 78vmax;
+    left: -26vmax;
+    top: -38vmax;
+    background: radial-gradient(closest-side, var(--aura-a), transparent);
+    animation: sw-drift-a 42s var(--ease-in-out) infinite alternate;
+  }
+  .sw-aurora__orb--b {
+    width: 64vmax;
+    height: 64vmax;
+    right: -22vmax;
+    top: 18vh;
+    background: radial-gradient(closest-side, var(--aura-b), transparent);
+    animation: sw-drift-b 56s var(--ease-in-out) infinite alternate;
+  }
+  .sw-aurora__orb--c {
+    width: 70vmax;
+    height: 70vmax;
+    left: 8vmax;
+    bottom: -48vmax;
+    background: radial-gradient(closest-side, var(--aura-c), transparent);
+    animation: sw-drift-c 64s var(--ease-in-out) infinite alternate;
+  }
+  .sw-aurora__grain {
+    position: absolute;
+    inset: 0;
+    opacity: var(--grain-opacity);
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .5 0 0 0 0 .5 0 0 0 0 .5 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 180px 180px;
+  }
+  .sw-aurora__vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      120% 90% at 50% 0%,
+      transparent 55%,
+      color-mix(in oklab, var(--bg-sunk) 70%, transparent)
+    );
+  }
+
+  @keyframes sw-drift-a {
+    to {
+      transform: translate3d(9vmax, 7vmax, 0) scale(1.08);
+    }
+  }
+  @keyframes sw-drift-b {
+    to {
+      transform: translate3d(-8vmax, 6vmax, 0) scale(1.12);
+    }
+  }
+  @keyframes sw-drift-c {
+    to {
+      transform: translate3d(7vmax, -6vmax, 0) scale(1.06);
+    }
+  }
+
+  html[data-motion='reduced'] .sw-aurora__orb,
+  [data-theme='high-contrast'] .sw-aurora__orb {
+    animation: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-motion='full']) .sw-aurora__orb {
+      animation: none;
+    }
+  }
+}

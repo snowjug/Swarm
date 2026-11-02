@@ -22,8 +22,31 @@ export default defineConfig(({ mode }) => {
         '/auth': `http://127.0.0.1:${apiPort}`,
       },
     },
-    // The entry chunk (React, the schemas and the entry console) is kept under this size. The project
-    // console is a chunk of its own, fetched when a project opens (see App.tsx), and is under it too.
-    build: { outDir: 'dist', emptyOutDir: true, chunkSizeWarningLimit: 500 },
+    // Libraries are chunks of their own, so that a release that changes only the application does not make a
+    // browser fetch React again, and no single file is large. Scenes are chunks too (see app/scenes.ts): a
+    // person who has opened the home screen has not fetched the stakeholder map or the report.
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 500,
+      rollupOptions: {
+        output: {
+          manualChunks(id: string) {
+            if (!id.includes('/node_modules/')) return undefined;
+            if (/\/node_modules\/(?:react|react-dom|scheduler)\//u.test(id)) return 'react';
+            if (/\/node_modules\/(?:motion|motion-dom|motion-utils|framer-motion)\//u.test(id))
+              return 'motion';
+            if (
+              /\/node_modules\/(?:@radix-ui|@floating-ui|react-remove-scroll|react-remove-scroll-bar|react-style-singleton|use-callback-ref|use-sidecar|aria-hidden|get-nonce)\//u.test(
+                id,
+              )
+            )
+              return 'radix';
+            if (/\/node_modules\/zod\//u.test(id)) return 'zod';
+            return undefined;
+          },
+        },
+      },
+    },
   };
 });

@@ -1,0 +1,101 @@
+@layer components {
+  .sw-tabs {
+    display: flex;
+    gap: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sw-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .sw-tabs--line {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-tab {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    min-height: 2.75rem;
+    padding: 0 0.85rem;
+    border: 0;
+    background: transparent;
+    color: var(--ink-3);
+    font-size: var(--fs-body);
+    font-weight: 540;
+    white-space: nowrap;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-tab:hover:not(:disabled) {
+      color: var(--ink);
+    }
+  }
+  .sw-tab[data-state='active'] {
+    color: var(--ink);
+  }
+  .sw-tab:disabled {
+    opacity: 0.4;
+  }
+  .sw-tab__content {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .sw-tab__content svg {
+    width: 1.05em;
+    height: 1.05em;
+  }
+  .sw-tab__count {
+    font-size: var(--fs-micro);
+    color: var(--ink-3);
+  }
+  .sw-tab__mark {
+    position: absolute;
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+  .sw-tabs--pill {
+    gap: 0.125rem;
+    padding: 0.1875rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: blur(var(--blur-sm));
+    width: fit-content;
+    max-width: 100%;
+  }
+  .sw-tabs--pill .sw-tab {
+    min-height: 2.125rem;
+    padding: 0 0.95rem;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-small);
+  }
+  .sw-tabs--pill .sw-tab__mark {
+    inset: 0;
+    height: auto;
+    border-radius: inherit;
+    background: var(--glass-overlay);
+    border: 1px solid var(--glass-edge);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge-hi),
+      var(--shadow-1);
+  }
+  @media (pointer: coarse) {
+    .sw-tabs--pill .sw-tab {
+      min-height: 2.75rem;
+    }
+  }
+  [data-theme='high-contrast'] .sw-tabs--pill .sw-tab__mark {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  [data-theme='high-contrast'] .sw-tabs--pill .sw-tab[data-state='active'] {
+    color: var(--accent-ink);
+  }
+}

@@ -1,0 +1,49 @@
+@layer components {
+  .sw-notice {
+    --n: var(--accent);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-3);
+    padding: var(--s-2) 0 var(--s-2) var(--s-4);
+    border-left: 2px solid var(--n);
+    font-size: var(--fs-body);
+  }
+  .sw-notice--success {
+    --n: var(--c-favor);
+  }
+  .sw-notice--caution {
+    --n: var(--c-caution);
+  }
+  .sw-notice--error {
+    --n: var(--c-critical);
+  }
+  .sw-notice__icon {
+    flex: none;
+    margin-top: 0.1rem;
+    color: var(--n);
+  }
+  .sw-notice__text {
+    display: grid;
+    flex: 1;
+    gap: 0.2rem;
+    min-width: 0;
+    color: var(--ink-2);
+  }
+  .sw-notice__text strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-notice__action {
+    flex: none;
+    align-self: center;
+  }
+  @media (max-width: 40rem) {
+    .sw-notice {
+      flex-wrap: wrap;
+    }
+    .sw-notice__action {
+      width: 100%;
+      padding-left: calc(18px + var(--s-3));
+    }
+  }
+}

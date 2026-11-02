@@ -1,0 +1,286 @@
+@layer scenes {
+  /*
+   * The chip in the top bar. It is the engine, then how it is doing: a glyph that carries the state (so that
+   * colour is never the only cue), the words when the bar has room for them, and the deployment for a screen
+   * reader. A real model is set apart by an accent edge, because it costs something and leaves the machine.
+   */
+  .sw-provider {
+    --lamp: var(--ink-3);
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 1 auto;
+    gap: 0.45rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    margin-right: 0.125rem;
+    padding: 0 0.5rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-provider[data-tone='favor'] {
+    --lamp: var(--c-favor);
+  }
+  .sw-provider[data-tone='critical'] {
+    --lamp: var(--c-critical);
+  }
+  .sw-provider[data-tone='caution'] {
+    --lamp: var(--c-caution);
+  }
+  .sw-provider[data-kind='real'] {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  @media (hover: hover) {
+    .sw-provider:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent-line);
+      color: var(--ink);
+    }
+  }
+  .sw-provider[data-state='open'] {
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+    color: var(--ink);
+  }
+  .sw-provider:active {
+    transform: scale(0.96);
+    transition-duration: var(--dur-instant);
+  }
+  @media (pointer: coarse) {
+    .sw-provider {
+      height: 2.75rem;
+      min-width: 2.75rem;
+    }
+  }
+  [data-theme='high-contrast'] .sw-provider {
+    border-color: var(--hairline-strong);
+  }
+  .sw-provider__lamp {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    color: var(--lamp);
+  }
+  .sw-provider__lamp::after {
+    content: '';
+    position: absolute;
+    inset: 1px;
+    border-radius: 50%;
+    border: 1.5px solid var(--lamp);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .sw-provider__lamp.is-pinged::after {
+    animation: sw-pulse-ring var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-provider__spin {
+    animation: sw-spin calc(var(--dur-cinema) * 1.4) linear infinite;
+  }
+
+  /* Words appear as the bar has room for them; until then they are still in the name. */
+  .sw-provider__label,
+  .sw-provider__model,
+  .sw-provider__detail {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  @media (min-width: 80rem) {
+    .sw-provider {
+      padding: 0 0.8rem 0 0.6rem;
+    }
+    .sw-provider__label {
+      position: static;
+      width: auto;
+      height: auto;
+      min-width: 0;
+      max-width: 13rem;
+      margin: 0;
+      overflow: hidden;
+      clip: auto;
+      text-overflow: ellipsis;
+    }
+    .sw-provider[data-kind='real'] .sw-provider__label {
+      font-size: var(--fs-micro);
+      font-weight: 640;
+      letter-spacing: 0.045em;
+    }
+  }
+  @media (min-width: 90rem) {
+    .sw-provider__detail {
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      overflow: visible;
+      clip: auto;
+      color: var(--ink-3);
+      font-weight: 500;
+    }
+    .sw-provider__detail::before {
+      content: '·';
+      margin-right: 0.45rem;
+    }
+  }
+  @media (min-width: 110rem) {
+    .sw-provider__model {
+      position: static;
+      width: auto;
+      height: auto;
+      max-width: 12rem;
+      margin: 0;
+      overflow: hidden;
+      clip: auto;
+      text-overflow: ellipsis;
+      color: var(--ink-2);
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 500;
+    }
+  }
+
+  /* ---- the popover ---- */
+  .sw-provider-popover {
+    padding: var(--s-5);
+  }
+  .sw-provider-pop {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-provider-pop__head {
+    --lamp: var(--ink-3);
+    --tint: var(--accent);
+    display: grid;
+    gap: 0.35rem;
+    /* The state tints the top of the surface, so that it is read before a word is. */
+    margin: calc(var(--s-5) * -1) calc(var(--s-5) * -1) 0;
+    padding: var(--s-5) var(--s-5) var(--s-4);
+    background: radial-gradient(
+      90% 140% at 0% 0%,
+      color-mix(in oklab, var(--tint) 13%, transparent),
+      transparent 70%
+    );
+  }
+  .sw-provider-pop__head[data-tone='favor'] {
+    --lamp: var(--c-favor);
+    --tint: var(--c-favor);
+  }
+  .sw-provider-pop__head[data-tone='critical'] {
+    --lamp: var(--c-critical);
+    --tint: var(--c-critical);
+  }
+  .sw-provider-pop__head[data-tone='caution'] {
+    --lamp: var(--c-caution);
+    --tint: var(--c-caution);
+  }
+  .sw-provider-pop__title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: var(--fs-h3);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+  .sw-provider-pop__lamp {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    color: var(--lamp);
+  }
+  .sw-provider-pop__model {
+    color: var(--ink-2);
+    overflow-wrap: anywhere;
+  }
+  .sw-provider-pop__wait {
+    display: grid;
+    gap: 0.6rem;
+  }
+  .sw-provider-pop__stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-3) var(--s-4);
+    padding-block: var(--s-4);
+    border-block: 1px solid var(--hairline);
+  }
+  .sw-provider-pop__stats .sw-stat__figure {
+    font-size: 1.75rem;
+  }
+  .sw-provider-pop__tokens {
+    grid-column: 1 / -1;
+  }
+  .sw-provider-pop__verify {
+    display: grid;
+    gap: 0.6rem;
+    justify-items: start;
+  }
+  .sw-provider-pop__verify .sw-notice {
+    width: 100%;
+  }
+  .sw-provider-pop__result:empty {
+    display: none;
+  }
+  .sw-provider-pop__ok {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-provider-pop__ok svg {
+    flex: none;
+    margin-top: 0.1rem;
+    color: var(--c-favor);
+    animation: sw-scale-in var(--dur-base) var(--ease-spring-snappy) both;
+  }
+  .sw-provider-pop__dl {
+    display: grid;
+    margin: 0;
+  }
+  .sw-provider-pop__row {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: 0.15rem var(--s-3);
+    padding: 0.5rem 0;
+    border-top: 1px solid var(--hairline);
+    font-size: var(--fs-small);
+  }
+  .sw-provider-pop__row dt {
+    color: var(--ink-3);
+  }
+  .sw-provider-pop__row dd {
+    margin: 0;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+  .sw-provider-pop__since {
+    padding-bottom: var(--s-2);
+  }
+  @media (max-width: 26rem) {
+    .sw-provider-pop__row {
+      grid-template-columns: 1fr;
+    }
+  }
+}

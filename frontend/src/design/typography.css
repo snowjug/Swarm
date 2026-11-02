@@ -1,0 +1,79 @@
+@layer components {
+  /*
+   * Type. A serif for the things that are said (the question, the answer, a number that matters), a
+   * grotesque for everything that is done, and a mono only where a value is an identifier.
+   * Hierarchy comes from size, weight and space, not from boxes.
+   */
+  .sw-eyebrow {
+    font-family: var(--font-ui);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .sw-hero {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: var(--fs-hero);
+    line-height: 0.98;
+    letter-spacing: -0.028em;
+    text-wrap: balance;
+  }
+  .sw-display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: var(--fs-h1);
+    line-height: 1.02;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+  .sw-title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: var(--fs-h2);
+    line-height: 1.08;
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  .sw-hero em,
+  .sw-display em,
+  .sw-title em {
+    font-style: italic;
+  }
+  .sw-heading {
+    font-size: var(--fs-h4);
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+  .sw-lead {
+    font-size: var(--fs-lead);
+    line-height: 1.5;
+    color: var(--ink-2);
+    text-wrap: pretty;
+  }
+  .sw-read {
+    font-size: var(--fs-read);
+    line-height: 1.7;
+    max-width: 68ch;
+    color: var(--ink);
+  }
+  .sw-caption {
+    font-size: var(--fs-small);
+    color: var(--ink-3);
+    line-height: 1.45;
+  }
+  .sw-mono {
+    font-family: var(--font-mono);
+    /* A little under its neighbours (the mono face is wide) but never under the floor of the type scale. */
+    font-size: max(0.92em, var(--fs-micro));
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-numeral {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+}

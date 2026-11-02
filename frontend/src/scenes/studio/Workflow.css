@@ -1,0 +1,177 @@
+@layer scenes {
+  .sw-wf {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'steps meta actions';
+    align-items: center;
+    gap: var(--s-2) var(--s-6);
+    padding: var(--s-3) 0;
+    border-block: 1px solid var(--hairline);
+  }
+  .sw-wf__steps {
+    grid-area: steps;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    max-width: 38rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-wf__step {
+    --wf: var(--ink-3);
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--ink-3);
+    font-size: var(--fs-body);
+    font-weight: 540;
+    white-space: nowrap;
+  }
+  .sw-wf__step[data-tone='accent'] {
+    --wf: var(--accent);
+  }
+  .sw-wf__step[data-tone='caution'] {
+    --wf: var(--c-caution);
+  }
+  .sw-wf__step[data-tone='favor'] {
+    --wf: var(--c-favor);
+  }
+  .sw-wf__step.is-current {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-wf__step.is-done {
+    color: var(--ink-2);
+  }
+  .sw-wf__node {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 50%;
+    color: var(--ink-3);
+    transition:
+      background-color var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out),
+      color var(--dur-base) var(--ease-out);
+  }
+  .sw-wf__step.is-done .sw-wf__node {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .sw-wf__step.is-current .sw-wf__node {
+    border-color: transparent;
+    color: var(--wf);
+  }
+  .sw-wf__ring {
+    position: absolute;
+    inset: -1px;
+    border: 2px solid var(--wf);
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--wf) 14%, transparent);
+    box-shadow:
+      0 0 0 4px color-mix(in oklab, var(--wf) 16%, transparent),
+      0 0 22px color-mix(in oklab, var(--wf) 42%, transparent);
+  }
+  .sw-wf__glyph {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+  /* The line between two places: it fills, from the left, once the first is done. */
+  .sw-wf__link {
+    flex: 1 1 2rem;
+    min-width: 1.25rem;
+    max-width: 7rem;
+    height: 2px;
+    margin-inline: 0.7rem;
+    border-radius: 2px;
+    background: var(--hairline-strong);
+    overflow: hidden;
+  }
+  .sw-wf__link > span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-wf__link[data-filled] > span {
+    transform: scaleX(1);
+  }
+  .sw-wf__actions {
+    grid-area: actions;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--s-2);
+  }
+  .sw-wf__wait {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-wf__meta {
+    grid-area: meta;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.5rem;
+    min-width: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-wf__blocker {
+    color: var(--c-caution);
+  }
+  [data-theme='high-contrast'] .sw-wf__ring {
+    box-shadow: none;
+    background: transparent;
+  }
+  [data-theme='high-contrast'] .sw-wf__link {
+    background: var(--ink-3);
+  }
+
+  @media (max-width: 64rem) {
+    .sw-wf {
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'steps actions'
+        'meta meta';
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-wf {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        'steps'
+        'actions'
+        'meta';
+    }
+    .sw-wf__actions {
+      justify-content: stretch;
+    }
+    .sw-wf__actions > .sw-btn {
+      flex: 1 1 auto;
+    }
+    /* Only the place in view keeps its name; the others are still read by a screen reader. */
+    .sw-wf__step:not(.is-current) .sw-wf__label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+    }
+    .sw-wf__link {
+      margin-inline: 0.4rem;
+    }
+  }
+}

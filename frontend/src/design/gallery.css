@@ -1,0 +1,90 @@
+@layer scenes {
+  .gallery {
+    position: relative;
+    min-height: 100dvh;
+    transition: --aura-hue var(--dur-cinema) var(--ease-in-out);
+  }
+  .gallery-inner {
+    position: relative;
+    z-index: var(--z-content);
+    max-width: var(--w-content);
+    margin: 0 auto;
+    padding: var(--s-5) var(--gutter) var(--s-9);
+    display: grid;
+    gap: var(--s-7);
+  }
+  .gallery-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+  }
+  .gallery-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .gallery-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+  }
+  .gallery-hero {
+    position: relative;
+    display: grid;
+    gap: var(--s-4);
+    justify-items: start;
+    padding: var(--s-8) 0;
+    min-height: 26rem;
+    align-content: center;
+  }
+  .gallery-hero > *:not(canvas) {
+    position: relative;
+  }
+  .gallery-section {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .gallery-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-4);
+  }
+  .gallery-stack {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .gallery-fields {
+    display: grid;
+    gap: var(--s-4);
+    width: min(26rem, 100%);
+  }
+  .gallery-slider {
+    display: grid;
+    grid-template-columns: 14rem auto;
+    align-items: center;
+    gap: var(--s-4);
+  }
+  .gallery-glass {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-5);
+    padding: var(--s-6);
+    border-radius: var(--r-xl);
+    background: linear-gradient(120deg, var(--cat-1), var(--cat-3));
+    opacity: 0.95;
+  }
+  .gallery-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .gallery-swatch {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--hairline);
+  }
+}

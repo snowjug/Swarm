@@ -1,0 +1,96 @@
+@layer scenes {
+  .sw-cmp-gap {
+    --mark: var(--c-neutral);
+    min-width: 0;
+  }
+  .sw-cmp-gap[data-tone='against'] {
+    --mark: var(--c-against);
+  }
+  .sw-cmp-gap[data-tone='favor'] {
+    --mark: var(--c-favor);
+  }
+  .sw-cmp-gap__fit {
+    width: 100%;
+    min-width: 0;
+    contain: inline-size;
+  }
+  .sw-cmp-gap svg {
+    display: block;
+    max-width: none;
+    overflow: visible;
+  }
+  .sw-cmp-gap__axis line {
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+  }
+  .sw-cmp-gap__axis .sw-cmp-gap__track {
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+  }
+  .sw-cmp-gap__axis text {
+    fill: var(--ink-3);
+    font: 500 var(--fs-micro) / 1 var(--font-ui);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Each run is a tick, and where the ticks pile up they darken, so density is seen. */
+  .sw-cmp-gap__run,
+  .sw-cmp-gap__band,
+  .sw-cmp-gap__mean,
+  .sw-cmp-gap__rule,
+  .sw-cmp-gap__cap,
+  .sw-cmp-gap__bracket text {
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-cmp-gap__run {
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    opacity: 0.4;
+  }
+  .sw-cmp-gap__series[data-side='a'] .sw-cmp-gap__run {
+    stroke: var(--ink-2);
+  }
+  .sw-cmp-gap__series[data-side='b'] .sw-cmp-gap__run {
+    stroke: var(--mark);
+    opacity: 0.5;
+  }
+  .sw-cmp-gap__band {
+    vector-effect: non-scaling-stroke;
+    stroke-width: 1;
+  }
+  .sw-cmp-gap__series[data-side='a'] .sw-cmp-gap__band {
+    fill: color-mix(in oklab, var(--ink-2) 14%, transparent);
+    stroke: color-mix(in oklab, var(--ink-2) 40%, transparent);
+  }
+  .sw-cmp-gap__series[data-side='b'] .sw-cmp-gap__band {
+    fill: color-mix(in oklab, var(--mark) 16%, transparent);
+    stroke: color-mix(in oklab, var(--mark) 55%, transparent);
+  }
+  .sw-cmp-gap__dot {
+    stroke-width: 2.5;
+  }
+  .sw-cmp-gap__series[data-side='a'] .sw-cmp-gap__dot {
+    fill: var(--bg);
+    stroke: var(--ink-2);
+  }
+  .sw-cmp-gap__series[data-side='b'] .sw-cmp-gap__dot {
+    fill: var(--mark);
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+  .sw-cmp-gap__halo {
+    fill: color-mix(in oklab, var(--mark) 20%, transparent);
+  }
+
+  /* The bracket that says how far apart the means are. */
+  .sw-cmp-gap__rule,
+  .sw-cmp-gap__cap {
+    fill: var(--mark);
+  }
+  .sw-cmp-gap__bracket text {
+    fill: var(--mark);
+    font: 600 var(--fs-small) / 1 var(--font-ui);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.005em;
+  }
+}

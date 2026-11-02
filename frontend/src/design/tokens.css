@@ -1,0 +1,504 @@
+/*
+ * Swarm design tokens.
+ *
+ * Three themes share one set of names: `light` (warm paper), `dark` (ink) and `high-contrast`
+ * (opaque, no glass). `data-theme` on <html> picks one before first paint (public/theme-init.js).
+ *
+ * Rules the values keep (frontend/src/test/design-contrast.test.ts holds them):
+ *  - text on the page and on every glass surface is at least 4.5:1 (7:1 in high-contrast);
+ *  - the data colours are at least 3:1 against the page, as graphics;
+ *  - glass is translucent only where something sits behind it that was designed to be behind it.
+ *
+ * Hex values were derived in OKLCH. Surfaces that need transparency are written as `rgb(r g b / a)`
+ * so that the contrast test can composite them over the lightest and darkest page it can sit on.
+ */
+
+@property --aura-hue {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 275;
+}
+@property --edge-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+:root {
+  color-scheme: light;
+
+  /* Page */
+  --bg: #f8f7f4;
+  --bg-sunk: #f1efeb;
+  --bg-raised: #fcfcfa;
+  --backdrop-lo: #f1efeb; /* the darkest the page gets behind glass (for the contrast test) */
+  --backdrop-hi: #ffffff; /* the lightest */
+
+  /* Ink */
+  --ink: #13151f;
+  --ink-2: #444654;
+  --ink-3: #5b5e6b;
+  --ink-inverse: #ffffff;
+  --hairline: rgb(19 21 31 / 0.09);
+  --hairline-strong: rgb(19 21 31 / 0.18);
+
+  /* Glass (translucent surfaces, used for floating chrome, sheets and the composer only) */
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-raised: rgb(255 255 255 / 0.82);
+  --glass-overlay: rgb(252 252 250 / 0.92);
+  --glass-edge: rgb(19 21 31 / 0.08);
+  --glass-edge-hi: rgb(255 255 255 / 0.95);
+  --glass-tint: rgb(77 75 209 / 0.05);
+  --scrim: rgb(19 21 31 / 0.28);
+
+  /* Accent (UI emphasis, selection, focus) */
+  --accent: #4d4bd1;
+  --accent-strong: #3f3cb8;
+  --accent-ink: #ffffff;
+  --accent-soft: rgb(77 75 209 / 0.1);
+  --accent-line: rgb(77 75 209 / 0.34);
+  --focus-ring: #4d4bd1;
+
+  /* Data and meaning. against/favour run on a diverging scale that survives colour-blindness. */
+  --c-against: #ad3707;
+  --c-favor: #00695f;
+  --c-neutral: #525e6e;
+  --c-caution: #7d5500;
+  --c-critical: #b81637;
+  --c-against-soft: rgb(173 55 7 / 0.12);
+  --c-favor-soft: rgb(0 105 95 / 0.12);
+  --c-neutral-soft: rgb(82 94 110 / 0.12);
+  --c-caution-soft: rgb(125 85 0 / 0.14);
+  --c-critical-soft: rgb(184 22 55 / 0.12);
+
+  /* The tint a party takes on the map when nothing is known of how the change lands on it. */
+  --eco-quiet: oklch(0.82 0.03 270);
+
+  /* A sequential ramp for categories (clusters, documents): distinguishable, never the only cue. */
+  --cat-1: #4d4bd1;
+  --cat-2: #00786f;
+  --cat-3: #c2410c;
+  --cat-4: #8f6200;
+  --cat-5: #a3318f;
+  --cat-6: #1f6fa8;
+  --cat-7: #5f7a1c;
+  --cat-8: #7a4fd0;
+
+  /* Ambient light behind everything (pastel on paper) */
+  --aura-a: oklch(0.86 0.09 var(--aura-hue) / 0.55);
+  --aura-b: oklch(0.9 0.07 calc(var(--aura-hue) + 70) / 0.45);
+  --aura-c: oklch(0.92 0.06 calc(var(--aura-hue) - 80) / 0.4);
+  --grain-opacity: 0.045;
+
+  /* Elevation */
+  --shadow-1: 0 1px 2px rgb(19 21 31 / 0.06), 0 1px 1px rgb(19 21 31 / 0.04);
+  --shadow-2: 0 6px 16px -4px rgb(19 21 31 / 0.1), 0 2px 4px -1px rgb(19 21 31 / 0.05);
+  --shadow-3: 0 18px 44px -14px rgb(19 21 31 / 0.2), 0 4px 12px -4px rgb(19 21 31 / 0.08);
+  --shadow-4: 0 36px 90px -28px rgb(19 21 31 / 0.32), 0 10px 28px -10px rgb(19 21 31 / 0.14);
+  --glow: 0 0 0 1px var(--accent-line), 0 8px 32px -8px rgb(77 75 209 / 0.4);
+
+  /* Blur and saturation of glass */
+  --blur-sm: 10px;
+  --blur-md: 22px;
+  --blur-lg: 38px;
+  --glass-saturate: 1.5;
+
+  /* Type */
+  --font-display:
+    'Instrument Serif', 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  --font-ui:
+    'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, monospace;
+
+  --fs-micro: 0.75rem; /* 12px: the floor */
+  --fs-small: 0.8125rem; /* 13px */
+  --fs-body: 0.9375rem; /* 15px */
+  --fs-read: 1.0625rem; /* 17px: long reading */
+  --fs-lead: 1.25rem;
+  --fs-h4: 1.1875rem;
+  --fs-h3: 1.5rem;
+  --fs-h2: clamp(1.875rem, 1.4rem + 1.6vw, 2.75rem);
+  --fs-h1: clamp(2.5rem, 1.6rem + 3.6vw, 4.5rem);
+  --fs-hero: clamp(2.9rem, 1.3rem + 6.2vw, 6.25rem);
+
+  /* Space, on a 4px grid */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4.5rem;
+  --s-9: 7rem;
+
+  /* Shape */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  /* Layout */
+  --topbar-h: 3.5rem;
+  --dock-h: 4.25rem;
+  --w-prose: 40rem;
+  --w-content: 72rem;
+  --w-wide: 92rem;
+  --gutter: clamp(1rem, 0.4rem + 2.6vw, 2.5rem);
+
+  /* Layers */
+  --z-canvas: 0;
+  --z-content: 1;
+  --z-chrome: 20;
+  --z-sheet: 40;
+  --z-dialog: 50;
+  --z-popover: 60;
+  --z-toast: 80;
+  --z-tip: 90;
+
+  /* Motion: durations and curves. The spring curves are damped-spring step responses. */
+  --dur-instant: 90ms;
+  --dur-fast: 160ms;
+  --dur-base: 260ms;
+  --dur-slow: 480ms;
+  --dur-cinema: 840ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.5, 0, 0.75, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring-snappy: linear(
+    0,
+    0.0368,
+    0.1258,
+    0.2415,
+    0.3662,
+    0.488,
+    0.5996,
+    0.6972,
+    0.7794,
+    0.8462,
+    0.8987,
+    0.9387,
+    0.9681,
+    0.9887,
+    1.0025,
+    1.011,
+    1.0156,
+    1.0174,
+    1.0174,
+    1.0162,
+    1.0143,
+    1.0122,
+    1.01,
+    1.0079,
+    1.0061,
+    1.0045,
+    1.0032,
+    1.0022,
+    1
+  );
+  --ease-spring-smooth: linear(
+    0,
+    0.0404,
+    0.1351,
+    0.2543,
+    0.3791,
+    0.4979,
+    0.6043,
+    0.6956,
+    0.7714,
+    0.8325,
+    0.8806,
+    0.9174,
+    0.945,
+    0.9651,
+    0.9795,
+    0.9893,
+    0.9959,
+    1,
+    1.0024,
+    1.0036,
+    1.0041,
+    1.004,
+    1.0037,
+    1.0032,
+    1.0027,
+    1.0022,
+    1.0018,
+    1.0014,
+    1
+  );
+  --ease-spring-lively: linear(
+    0,
+    0.0562,
+    0.1909,
+    0.3618,
+    0.538,
+    0.6991,
+    0.8338,
+    0.9374,
+    1.0103,
+    1.0559,
+    1.0793,
+    1.0859,
+    1.0812,
+    1.0697,
+    1.055,
+    1.0399,
+    1.026,
+    1.0144,
+    1.0055,
+    0.9992,
+    0.9952,
+    0.9932,
+    0.9926,
+    0.993,
+    0.994,
+    0.9953,
+    0.9966,
+    0.9978,
+    1
+  );
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0a0b10;
+  --bg-sunk: #06070b;
+  --bg-raised: #12141b;
+  --backdrop-lo: #06070b;
+  --backdrop-hi: #1d2030;
+
+  --ink: #f4f5f9;
+  --ink-2: #c4c7d2;
+  --ink-3: #9a9eae;
+  --ink-inverse: #0a0b10;
+  --hairline: rgb(255 255 255 / 0.08);
+  --hairline-strong: rgb(255 255 255 / 0.16);
+
+  --glass: rgb(255 255 255 / 0.05);
+  --glass-raised: rgb(255 255 255 / 0.085);
+  --glass-overlay: rgb(18 20 29 / 0.9);
+  --glass-edge: rgb(255 255 255 / 0.1);
+  --glass-edge-hi: rgb(255 255 255 / 0.3);
+  --glass-tint: rgb(148 160 255 / 0.06);
+  --scrim: rgb(3 4 8 / 0.62);
+
+  --accent: #94a0ff;
+  --accent-strong: #aab4ff;
+  --accent-ink: #0a0b10;
+  --accent-soft: rgb(148 160 255 / 0.14);
+  --accent-line: rgb(148 160 255 / 0.4);
+  --focus-ring: #aab4ff;
+
+  --c-against: #fc8b5d;
+  --c-favor: #63dbcd;
+  --c-neutral: #98a6b8;
+  --c-caution: #f1c961;
+  --c-critical: #fd717c;
+  --c-against-soft: rgb(252 139 93 / 0.16);
+  --c-favor-soft: rgb(99 219 205 / 0.14);
+  --c-neutral-soft: rgb(152 166 184 / 0.14);
+  --c-caution-soft: rgb(241 201 97 / 0.14);
+  --c-critical-soft: rgb(253 113 124 / 0.16);
+
+  --eco-quiet: oklch(0.5 0.035 270);
+
+  --cat-1: #94a0ff;
+  --cat-2: #63dbcd;
+  --cat-3: #fc8b5d;
+  --cat-4: #f1c961;
+  --cat-5: #f08bd8;
+  --cat-6: #6fb6f0;
+  --cat-7: #b4d66e;
+  --cat-8: #c2a2ff;
+
+  --aura-a: oklch(0.42 0.15 var(--aura-hue) / 0.5);
+  --aura-b: oklch(0.45 0.1 calc(var(--aura-hue) + 80) / 0.32);
+  --aura-c: oklch(0.5 0.12 calc(var(--aura-hue) - 90) / 0.2);
+  --grain-opacity: 0.07;
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 1px rgb(0 0 0 / 0.3);
+  --shadow-2: 0 8px 20px -6px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+  --shadow-3: 0 22px 54px -16px rgb(0 0 0 / 0.65), 0 6px 16px -6px rgb(0 0 0 / 0.5);
+  --shadow-4: 0 44px 110px -30px rgb(0 0 0 / 0.8), 0 12px 32px -10px rgb(0 0 0 / 0.6);
+  --glow: 0 0 0 1px var(--accent-line), 0 8px 40px -8px rgb(148 160 255 / 0.45);
+
+  --glass-saturate: 1.7;
+}
+
+[data-theme='high-contrast'] {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --bg-sunk: #000000;
+  --bg-raised: #0a0a0a;
+  --backdrop-lo: #000000;
+  --backdrop-hi: #000000;
+
+  --ink: #ffffff;
+  --ink-2: #f0f0f0;
+  --ink-3: #dcdcdc;
+  --ink-inverse: #000000;
+  --hairline: rgb(255 255 255 / 0.5);
+  --hairline-strong: rgb(255 255 255 / 0.85);
+
+  /* No glass: surfaces are opaque and outlined. */
+  --glass: #0a0a0a;
+  --glass-raised: #141414;
+  --glass-overlay: #0a0a0a;
+  --glass-edge: #ffffff;
+  --glass-edge-hi: #ffffff;
+  --glass-tint: #0a0a0a;
+  --scrim: rgb(0 0 0 / 0.8);
+
+  --accent: #62d8ff;
+  --accent-strong: #9be8ff;
+  --accent-ink: #000000;
+  --accent-soft: rgb(98 216 255 / 0.22);
+  --accent-line: #62d8ff;
+  --focus-ring: #ffd60a;
+
+  --c-against: #ff9e6b;
+  --c-favor: #5cf0dc;
+  --c-neutral: #cfd6e0;
+  --c-caution: #ffd60a;
+  --c-critical: #ff8a98;
+  --c-against-soft: rgb(255 158 107 / 0.18);
+  --c-favor-soft: rgb(92 240 220 / 0.22);
+  --c-neutral-soft: rgb(207 214 224 / 0.22);
+  --c-caution-soft: rgb(255 214 10 / 0.25);
+  --c-critical-soft: rgb(255 138 152 / 0.18);
+
+  --eco-quiet: oklch(0.6 0 0);
+
+  --cat-1: #62d8ff;
+  --cat-2: #5cf0dc;
+  --cat-3: #ff9e6b;
+  --cat-4: #ffd60a;
+  --cat-5: #ff9ee8;
+  --cat-6: #8fc7ff;
+  --cat-7: #c8f07a;
+  --cat-8: #d2b8ff;
+
+  --aura-a: transparent;
+  --aura-b: transparent;
+  --aura-c: transparent;
+  --grain-opacity: 0;
+
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: none;
+  --shadow-4: none;
+  --glow: 0 0 0 2px var(--accent);
+  --blur-sm: 0px;
+  --blur-md: 0px;
+  --blur-lg: 0px;
+  --glass-saturate: 1;
+}
+
+/* Each part of the journey tints the ambient light a little; the change is a slow crossfade. */
+[data-scene='ask'] {
+  --aura-hue: 275;
+}
+[data-scene='ground'] {
+  --aura-hue: 235;
+}
+[data-scene='map'] {
+  --aura-hue: 305;
+}
+[data-scene='simulate'] {
+  --aura-hue: 35;
+}
+[data-scene='compare'] {
+  --aura-hue: 185;
+}
+[data-scene='decide'] {
+  --aura-hue: 85;
+}
+
+/* Reduced motion: every transition and animation becomes (nearly) instant, ambient loops stop. */
+:root[data-motion='reduced'] {
+  --dur-instant: 1ms;
+  --dur-fast: 1ms;
+  --dur-base: 1ms;
+  --dur-slow: 1ms;
+  --dur-cinema: 1ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) {
+    --dur-instant: 1ms;
+    --dur-fast: 1ms;
+    --dur-base: 1ms;
+    --dur-slow: 1ms;
+    --dur-cinema: 1ms;
+  }
+}
+
+/* Reduced transparency: glass becomes solid. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass: var(--bg-raised);
+    --glass-raised: var(--bg-raised);
+    --glass-overlay: var(--bg-raised);
+    --blur-sm: 0px;
+    --blur-md: 0px;
+    --blur-lg: 0px;
+  }
+}
+
+/* On paper every theme is the light one: ink on white, the colours of meaning as the light theme has them, and no glass. */
+@media print {
+  :root,
+  :root[data-theme] {
+    color-scheme: light;
+    --bg: #ffffff;
+    --bg-sunk: #ffffff;
+    --bg-raised: #ffffff;
+    --ink: #13151f;
+    --ink-2: #444654;
+    --ink-3: #5b5e6b;
+    --ink-inverse: #ffffff;
+    --hairline: rgb(19 21 31 / 0.16);
+    --hairline-strong: rgb(19 21 31 / 0.3);
+    --glass: transparent;
+    --glass-raised: transparent;
+    --glass-overlay: #ffffff;
+    --glass-edge: rgb(19 21 31 / 0.16);
+    --glass-edge-hi: transparent;
+    --glass-tint: transparent;
+    --accent: #3f3cb8;
+    --accent-strong: #3f3cb8;
+    --accent-ink: #ffffff;
+    --accent-soft: rgb(77 75 209 / 0.1);
+    --accent-line: rgb(77 75 209 / 0.4);
+    --c-against: #ad3707;
+    --c-favor: #00695f;
+    --c-neutral: #525e6e;
+    --c-caution: #7d5500;
+    --c-critical: #b81637;
+    --c-against-soft: rgb(173 55 7 / 0.12);
+    --c-favor-soft: rgb(0 105 95 / 0.12);
+    --c-neutral-soft: rgb(82 94 110 / 0.12);
+    --c-caution-soft: rgb(125 85 0 / 0.14);
+    --c-critical-soft: rgb(184 22 55 / 0.12);
+    --cat-1: #4d4bd1;
+    --cat-2: #00786f;
+    --cat-3: #c2410c;
+    --cat-4: #8f6200;
+    --cat-5: #a3318f;
+    --cat-6: #1f6fa8;
+    --cat-7: #5f7a1c;
+    --cat-8: #7a4fd0;
+    --shadow-1: none;
+    --shadow-2: none;
+    --shadow-3: none;
+    --shadow-4: none;
+    --glow: none;
+    --blur-sm: 0px;
+    --blur-md: 0px;
+    --blur-lg: 0px;
+  }
+}

@@ -1,0 +1,208 @@
+@layer scenes {
+  /* Where a new part of the story begins. */
+  .sw-decide-act {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin-top: var(--s-9);
+    color: var(--ink-3);
+  }
+  .sw-decide-act__index {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--ink-3);
+  }
+  .sw-decide-act__label {
+    letter-spacing: 0.14em;
+  }
+  .sw-decide-act__rule {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--hairline-strong), transparent);
+  }
+
+  .sw-decide-chapter {
+    scroll-margin-top: calc(var(--topbar-h) + var(--s-8));
+    padding-top: var(--s-6);
+  }
+  .sw-decide-chapter:focus-visible {
+    outline: none;
+  }
+  .sw-decide-chapter__title {
+    margin: 0;
+    font-weight: 400;
+    letter-spacing: normal;
+  }
+  .sw-decide-chapter__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-1) var(--s-4);
+    min-width: 0;
+  }
+  .sw-decide-chapter__name {
+    display: block;
+  }
+  .sw-decide-chapter__gist {
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: var(--fs-small);
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+  .sw-decide-chapter__notes {
+    display: inline-flex;
+    align-items: center;
+    height: 1.4rem;
+    padding: 0 0.6rem;
+    border-radius: var(--r-pill);
+    background: var(--c-caution-soft);
+    color: color-mix(in oklab, var(--c-caution) 70%, var(--ink));
+    font-family: var(--font-ui);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .sw-decide-chapter__body {
+    display: grid;
+    grid-template-rows: 1fr;
+  }
+  .sw-decide-chapter__inner {
+    min-height: 0;
+    /*
+     * A containing block for whatever is positioned inside it, the screen-reader text among it. A clip does not
+     * take a box whose containing block lies outside the clip: that box would stay where it was laid out, below
+     * the end of a closed chapter, and the page would go on past its last line to hold it.
+     */
+    position: relative;
+  }
+  .sw-decide-chapter__flow {
+    display: grid;
+    gap: var(--s-6);
+    padding-top: var(--s-5);
+  }
+
+  /* A chapter of reference: one line of the page. Its heading opens it, and the row grows from nothing. */
+  .sw-decide-chapter[data-reference] {
+    padding-top: 0;
+    border-top: 1px solid var(--hairline);
+  }
+  /* The story goes on a little past its last chapter before the reference begins, and a part's name sits clear of the first line. */
+  .sw-decide-chapter:not([data-reference]) + .sw-decide-chapter[data-reference] {
+    margin-top: var(--s-7);
+  }
+  .sw-decide-act + .sw-decide-chapter[data-reference] {
+    margin-top: var(--s-4);
+  }
+  .sw-decide-chapter[data-reference] .sw-decide-chapter__name {
+    font-size: var(--fs-h3);
+    line-height: 1.15;
+  }
+  .sw-decide-chapter__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    width: 100%;
+    min-height: 3.75rem;
+    padding: var(--s-3) 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+  }
+  @media (hover: hover) {
+    .sw-decide-chapter__toggle:hover .sw-decide-chapter__chevron {
+      color: var(--ink);
+      transform: translateY(2px);
+    }
+    .sw-decide-chapter[data-open='true']
+      .sw-decide-chapter__toggle:hover
+      .sw-decide-chapter__chevron {
+      transform: rotate(180deg) translateY(2px);
+    }
+  }
+  .sw-decide-chapter__chevron {
+    flex: none;
+    color: var(--ink-3);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      color var(--dur-fast) var(--ease-out);
+  }
+  .sw-decide-chapter[data-open='true'] .sw-decide-chapter__chevron {
+    transform: rotate(180deg);
+  }
+  .sw-decide-chapter[data-reference] .sw-decide-chapter__body {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--dur-slow) var(--ease-spring-smooth),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-decide-chapter[data-reference][data-open='true'] .sw-decide-chapter__body {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .sw-decide-chapter[data-reference] .sw-decide-chapter__inner {
+    /* Clipped above and below, never to the sides, so that notes may stand in the margin. A clip, unlike a
+       clip-path, leaves nothing behind in the page's scrollable height. */
+    overflow-x: visible;
+    overflow-y: clip;
+  }
+  .sw-decide-chapter[data-reference] .sw-decide-chapter__flow {
+    padding-bottom: var(--s-6);
+  }
+
+  /*
+   * The chapters rise into view as they are scrolled to, where the browser can tie that to the scroll. They
+   * are fully there without it, and before they are reached: nothing waits for the animation to be seen.
+   */
+  @keyframes sw-decide-enter {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 28px, 0);
+    }
+  }
+  /* A bar that is drawn from its start, shared by the figures. */
+  @keyframes sw-decide-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @supports (animation-timeline: view()) {
+    .sw-decide[data-reveal='on'] .sw-decide-chapter__title,
+    .sw-decide[data-reveal='on'] .sw-decide-chapter__flow > *,
+    .sw-decide[data-reveal='on'] .sw-decide-act {
+      animation: sw-decide-enter linear forwards;
+      animation-timeline: view();
+      animation-range: entry 0% entry min(34%, 220px);
+    }
+  }
+
+  @media print {
+    .sw-decide .sw-decide-chapter[data-reference] .sw-decide-chapter__body {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      transition: none;
+    }
+    .sw-decide .sw-decide-chapter[data-reference] .sw-decide-chapter__inner {
+      overflow: visible;
+    }
+    .sw-decide .sw-decide-chapter__chevron {
+      display: none;
+    }
+    .sw-decide .sw-decide-chapter {
+      break-inside: auto;
+    }
+    .sw-decide .sw-decide-chapter__title {
+      break-after: avoid;
+    }
+    .sw-decide .sw-decide-chapter__title,
+    .sw-decide .sw-decide-chapter__flow > *,
+    .sw-decide .sw-decide-act {
+      animation: none;
+    }
+  }
+}

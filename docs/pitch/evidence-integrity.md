@@ -43,16 +43,17 @@ Two of the five fictional sources disagree about the same year:
 - The ferry operator's memo counts 365,000.
 
 1. The conflict detector pairs the two sentences (same measured quantity, same explicit year) and
-   lists a **conflict candidate** with both quotations side by side.
+   lists a **conflict candidate** with both quotations side by side, under **Conflicts** in the
+   Ground scene.
 2. A statement in the report that repeats either figure is **weighed against the conflict**: a
    source statement that another source contradicts becomes partially supported (mixed evidence)
    instead of directly supported, and is shown with the contradiction.
-3. A person opens the candidate and chooses **Confirm conflict** or **Not a conflict**. The choice is
+3. A person reads the two quotations and chooses **Confirm** or **Not a conflict**. The choice is
    written to the audit log with their identity (their object id, not their name) and nothing else
    about them. If they dismiss it, the statements it touched are recalculated and keep their reviews.
-4. In the analyst chat, a question the sources cannot answer ("What was ferry ridership in 2019?") is
-   answered with exactly: _The available project evidence does not support a confident answer._ No
-   model is called.
+4. In the analyst chat (**Ask about this**), a question the sources cannot answer ("What was ferry
+   ridership in 2019?") is answered with exactly: _The available project evidence does not support a
+   confident answer._ No model is called.
 
 A second conflict in the same pack, between "islanders overwhelmingly prefer the electric ferry" and
 "71% oppose a reduced winter timetable", is **not** found. It is a conflict of meaning, not of a

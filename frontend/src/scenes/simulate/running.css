@@ -1,0 +1,117 @@
+@layer scenes {
+  .sw-run {
+    min-height: calc(100dvh - var(--topbar-h) - 1rem);
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: var(--s-6);
+    padding: var(--s-7) var(--gutter) var(--s-9);
+    text-align: center;
+  }
+  .sw-run__stage {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-5);
+  }
+  .sw-run__ringwrap {
+    position: relative;
+    width: min(19rem, 74vw);
+    aspect-ratio: 1;
+  }
+  .sw-rings {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .sw-rings__track {
+    fill: none;
+    stroke: color-mix(in oklab, var(--ink) 9%, transparent);
+    stroke-width: 7;
+  }
+  .sw-rings__arc {
+    fill: none;
+    stroke-width: 7;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s var(--ease-out);
+  }
+  .sw-rings__arc[data-finished] {
+    filter: drop-shadow(0 0 6px currentColor);
+  }
+  .sw-run__centre {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    padding-top: 33%;
+    gap: 0.1rem;
+  }
+  .sw-run__pct {
+    font-size: clamp(3.4rem, 2.4rem + 3vw, 4.6rem);
+    color: var(--ink);
+  }
+  .sw-run__unit {
+    color: var(--ink-3);
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+  }
+  .sw-run__check {
+    align-self: center;
+    margin-top: -33%;
+    color: var(--c-favor);
+    animation: sw-scale-in var(--dur-slow) var(--ease-spring-lively) both;
+  }
+  .sw-run__title {
+    margin: 0;
+  }
+  .sw-run__title:focus-visible {
+    outline: none;
+  }
+  .sw-run__count {
+    margin: 0;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-run__lanes {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    width: min(100%, 24rem);
+    text-align: left;
+  }
+  .sw-run__lanes li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--s-3);
+    font-size: var(--fs-small);
+    color: var(--ink-2);
+  }
+  .sw-run__lanes i {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+  }
+  .sw-run__lane {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-run__done {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    font-weight: 560;
+  }
+  .sw-run__fine {
+    margin: 0;
+    max-width: 26rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-run > .sw-notice {
+    max-width: 34rem;
+    text-align: left;
+  }
+}

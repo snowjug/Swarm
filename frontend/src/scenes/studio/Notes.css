@@ -1,0 +1,46 @@
+@layer scenes {
+  .sw-notes {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-notes__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-note {
+    display: grid;
+    gap: 0.3rem;
+    padding: var(--s-3) 0 var(--s-3) var(--s-4);
+    border-left: 2px solid var(--accent-line);
+  }
+  .sw-note + .sw-note {
+    margin-top: var(--s-2);
+  }
+  .sw-note__text {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .sw-note__meta {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-notes__form {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-notes__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-3);
+  }
+  .sw-notes__foot .sw-caption {
+    flex: 1 1 12rem;
+  }
+}

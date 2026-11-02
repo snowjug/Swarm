@@ -1,0 +1,26 @@
+@layer scenes {
+  .sw-deep-lineage__changes {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0 0 var(--s-2);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+    list-style: none;
+  }
+  .sw-deep-lineage__changes li {
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--accent-line);
+  }
+  .sw-deep-lineage__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+    margin-top: var(--s-4);
+  }
+  .sw-deep-lineage .sw-disc {
+    max-width: 44rem;
+  }
+}

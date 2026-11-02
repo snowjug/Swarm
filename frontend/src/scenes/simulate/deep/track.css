@@ -1,0 +1,187 @@
+@layer scenes {
+  /* The rounds of a run in a line. It is also a slider: drag it, press on it, or use the arrow keys. */
+  .sw-deep-track {
+    --pad: 0.75rem;
+    --pip: 0.44rem;
+    position: relative;
+    padding: 0 var(--pad);
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .sw-deep-track[data-size='lg'] {
+    --pip: 0.52rem;
+  }
+  .sw-deep-track__rail {
+    position: relative;
+    height: 3.25rem;
+    container-type: inline-size;
+    touch-action: pan-y;
+    cursor: pointer;
+  }
+  .sw-deep-track[data-disabled] .sw-deep-track__rail {
+    cursor: default;
+  }
+  .sw-deep-track__line,
+  .sw-deep-track__fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 4px;
+    margin-top: -2px;
+    border-radius: var(--r-pill);
+  }
+  .sw-deep-track__line {
+    background: var(--hairline-strong);
+  }
+  .sw-deep-track__fill {
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--accent) 40%, transparent),
+      var(--accent)
+    );
+    transform: scaleX(var(--saved));
+    transform-origin: left center;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-deep-track__pip {
+    position: absolute;
+    left: calc(var(--at) * 100%);
+    top: 50%;
+    box-sizing: border-box;
+    width: var(--pip);
+    height: var(--pip);
+    margin: calc(var(--pip) / -2) 0 0 calc(var(--pip) / -2);
+    border: 1.5px solid var(--hairline-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    transition:
+      background-color var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-deep-track__pip[data-state='saved'] {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+  .sw-deep-track__pip[data-state='saved'][data-copied='true'] {
+    border-color: var(--ink-3);
+    background: var(--ink-3);
+  }
+  .sw-deep-track__pip[data-state='flight'] {
+    border-color: var(--accent);
+    animation: sw-breathe calc(var(--dur-cinema) * 2) var(--ease-in-out) infinite;
+  }
+  .sw-deep-track__pip[data-out='true'] {
+    opacity: 0.35;
+  }
+
+  .sw-deep-track__flag {
+    position: absolute;
+    left: calc(var(--at) * 100%);
+    top: 0.45rem;
+    color: var(--c-caution);
+    transform: translateX(-17%);
+    pointer-events: none;
+  }
+  .sw-deep-track__flag[data-applied='false'] {
+    color: var(--ink-3);
+  }
+  .sw-deep-track__flag::after {
+    content: '';
+    position: absolute;
+    left: 17%;
+    top: 100%;
+    width: 1px;
+    height: 0.12rem;
+    background: currentColor;
+    opacity: 0.55;
+  }
+
+  .sw-deep-track__thumb {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: -0.75rem;
+    box-sizing: border-box;
+    border: 3px solid var(--accent);
+    border-radius: 50%;
+    background: var(--bg-raised);
+    box-shadow: var(--shadow-2);
+    outline: none;
+    transform: translateX(calc(var(--x) * 100cqw - 50%));
+    transition:
+      transform var(--dur-slow) var(--ease-spring-smooth),
+      box-shadow var(--dur-base) var(--ease-out);
+  }
+  .sw-deep-track[data-dragging] .sw-deep-track__thumb {
+    transition-duration: var(--dur-instant), var(--dur-base);
+  }
+  .sw-deep-track__thumb:focus-visible {
+    box-shadow:
+      0 0 0 4px var(--accent-soft),
+      var(--shadow-2);
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+  .sw-deep-track[data-disabled] .sw-deep-track__thumb {
+    border-color: var(--hairline-strong);
+    box-shadow: none;
+  }
+  .sw-deep-track__bubble {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.55rem);
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--r-pill);
+    background: var(--ink);
+    color: var(--ink-inverse);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 4px);
+    transition:
+      opacity var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-deep-track[data-size='lg'] .sw-deep-track__bubble,
+  .sw-deep-track[data-dragging] .sw-deep-track__bubble,
+  .sw-deep-track__thumb:focus-visible .sw-deep-track__bubble {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  @media (hover: hover) {
+    .sw-deep-track__thumb:hover .sw-deep-track__bubble {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+  .sw-deep-track[data-disabled] .sw-deep-track__bubble {
+    display: none;
+  }
+
+  .sw-deep-track__scale {
+    position: relative;
+    height: 1.3rem;
+  }
+  .sw-deep-track__tick {
+    position: absolute;
+    top: 0;
+    left: calc(var(--at) * 100%);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    transform: translateX(-50%);
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .sw-deep-track__tick[data-now] {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-deep-track__tick:first-child {
+    transform: translateX(-0.45rem);
+  }
+}

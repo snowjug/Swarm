@@ -1,0 +1,100 @@
+@layer scenes {
+  .sw-recents {
+    display: grid;
+    gap: var(--s-3);
+    width: min(54rem, 100%);
+    margin: 0 auto;
+  }
+  .sw-recents__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .sw-recents__skeleton {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-recents__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-recents__item {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: var(--s-4);
+    width: 100%;
+    padding: var(--s-3) var(--s-2);
+    border: 0;
+    border-top: 1px solid var(--hairline);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  .sw-recents__list li:last-child .sw-recents__item {
+    border-bottom: 1px solid var(--hairline);
+  }
+  @media (hover: hover) {
+    .sw-recents__item:hover:not(:disabled) {
+      background: linear-gradient(90deg, var(--accent-soft), transparent 70%);
+    }
+    .sw-recents__item:hover:not(:disabled) .sw-recents__go {
+      transform: translateX(3px);
+      color: var(--accent);
+    }
+  }
+  .sw-recents__item:disabled {
+    opacity: 0.55;
+  }
+  .sw-recents__main {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .sw-recents__name {
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    line-height: 1.15;
+    letter-spacing: -0.012em;
+  }
+  .sw-recents__question {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-recents__meta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-recents__go {
+    color: var(--ink-3);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      color var(--dur-fast) var(--ease-out);
+  }
+  .sw-recents__demos {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-5);
+  }
+  @media (max-width: 40rem) {
+    .sw-recents__item {
+      grid-template-columns: 1fr auto;
+    }
+    .sw-recents__meta {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .sw-recents__go {
+      grid-row: 1;
+      grid-column: 2;
+    }
+  }
+}

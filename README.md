@@ -18,10 +18,13 @@ its browser sign-in has only met a test identity provider, and it is not ready f
 [production-readiness gates](./docs/production-readiness.md) say what that means.
 
 **Three-minute judge path:** Swarm explores scenarios; it does not predict. Run the
-[quick start](#quick-start) below (rules mode, no key, no model), choose **Copilot in Teams** in the
-example picker, and follow **The first demo**. Treat every result as simulated, under stated
-assumptions, and read the [four rules for reading a result](#from-a-question-to-a-decision) before acting on one.
-The [demo guide](./docs/demo/README.md) scripts a ten-minute walk-through of the four flagship demos.
+[quick start](#quick-start) below (rules mode, no key, no model), choose the **Copilot in Teams**
+example on the first screen, and follow **The first demo**. Treat every result as simulated, under
+stated assumptions, and read the [four rules for reading a result](#from-a-question-to-a-decision)
+before acting on one. The [demo guide](./docs/demo/README.md) scripts a ten-minute walk-through of
+the four flagship demos.
+
+![The first screen: the heading "Explore what could happen next.", a large question field with Evidence and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./docs/assets/swarm-ask.png)
 
 ## Quick start
 
@@ -37,7 +40,7 @@ npm run dev
 ```
 
 Open <http://127.0.0.1:5173>. The development server proxies `/api` to the API on port 3001. The
-header chip reads `LOCAL / RULES MODE`: nothing leaves your machine. To run the built application as
+chip in the top bar reads **Local rules**: nothing leaves your machine. To run the built application as
 one process that serves both the UI and the API:
 
 ```bash
@@ -51,21 +54,30 @@ keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is 
 
 **The first demo, a few minutes in rules mode.**
 
-1. On the first screen, find **Not sure what to ask? Try an example** and choose **Use this example**
-   on **Copilot in Teams**. It fills the question and five synthetic documents, and the six cards fold
-   into one line, "Example loaded: …". Nothing is sent yet.
-2. Choose **Understand my question**, read the scenario it made, then **Use this scenario**.
-3. Choose **Build Graph**. When Graph Build reads `ready`, open **Env Setup**. The **Stakeholders and
-   actors** panel starts small: choose **Find stakeholders by reading the text**. It shows four counts
-   (found, need review, approved, actors), a note on how the stakeholders were found, and the list.
-   Open a row to read the quotes it rests on, then choose **Go to approval** and **Approve stakeholders
-   and create actors**. The list shuts; choose **Review the N actors** to read each actor's traits.
-4. Open **Simulation** and choose **Compare scenarios**.
-5. When the comparison has finished, choose **See the decision brief** (the Report stage unlocks by
-   itself), then **Generate decision brief** and, through the **Independent review** link in the
-   **Jump to** bar, **Run independent review**. The brief opens on its answer; its reference sections
-   (the evidence base, the assumptions, the sources and others) stay closed until you open them from the
-   contents.
+1. On the first screen ("Explore what could happen next."), choose the example **Copilot in Teams**
+   under the question field. It fills the question and attaches five synthetic documents (**Evidence**
+   shows a 5), and a note names the example. Nothing is sent or run yet.
+2. Choose **Explore**. Read the scenario that Swarm made of the question (its heading is "Your
+   scenario"), correct anything, then choose **Ground it**. That creates the project and starts
+   reading the evidence; nothing ran before.
+3. **Ground** shows the evidence being read ("Reading", then "Ready"): the sources, the topics they
+   share and, further down, **Conflicts**, where two sources give different figures. Settle each
+   (**Confirm**, **Not a conflict** or **Mark resolved**), or leave it, then choose **Map the
+   stakeholders**.
+4. **Map** opens on "Who is in play?": choose **Find who is affected**. The stakeholders appear as a
+   map. Choose one to read the quotes it rests on and **Accept** it; the pill at the foot counts what
+   is still "to review". Choose **Approve & create actors** (stakeholders you did not look at are
+   accepted), then **Simulate**. **List** (in the toolbar) shows the same parties as text, and
+   **Actors** shows the synthetic actors made from them, with every trait on a slider.
+5. **Simulate** opens on its setup, "Set the futures side by side": choose **Run the simulation**.
+   The rings fill as the runs finish, and then one typical run plays, round by round, in **Live**.
+   **Story**, **Network** and **Timeline** show the same run other ways. Choose **Compare**.
+6. **Compare** reads the answer as a sentence, then the futures side by side, who moves, how it
+   unfolds, what held across the runs and which assumptions it depends on. Choose **Decide**.
+7. **Decide** offers **Write the brief**. The brief opens on its answer. Choose **Review**, then **Run
+   the independent review**, and respond to what the critics raise. Its reference chapters (the
+   evidence base, the assumptions, the sources and others) stay closed until you open them from the
+   contents, and **Export** saves it as Markdown, JSON or a printable page.
 
 The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
 
@@ -82,16 +94,29 @@ The [demo guide](./docs/demo/README.md) says what to point at on each screen and
 
 ## From a question to a decision
 
-Every step is a real screen, backed by a stored, validated document and covered by tests. The
-[user guide](./docs/USER_GUIDE.md) walks the screens; [ADR 0014](./docs/adr/0014-scenario-lab.md)
-records why it is built this way.
+Every step is a real screen, backed by a stored, validated document. On screen the
+work is six **scenes** along one journey, **Ask → Ground → Map → Simulate → Compare → Decide**. The
+address holds where you are (`/?project=<id>&scene=<scene>`), a scene opens when the project has what
+it needs, and a scene that is locked says what opens it. The [user guide](./docs/USER_GUIDE.md) walks
+the screens, [UX.md](./docs/UX.md) says how the interface is built,
+[ADR 0014](./docs/adr/0014-scenario-lab.md) records why the lab is built this way and
+[ADR 0015](./docs/adr/0015-premium-interface.md) why the interface is.
+
+| Scene        | What it is for                                                                                                         | Steps below |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------- |
+| **Ask**      | The change you want to explore: one question, the evidence it rests on, and a scenario you review before anything runs | 1 to 3      |
+| **Ground**   | The evidence it rests on: what the sources say, where they disagree, and how well they back each statement             | 2           |
+| **Map**      | Who is affected: the stakeholders, as a map you can read and correct, and the actors made from them                    | 4 to 6      |
+| **Simulate** | Watch it unfold: the scenarios, the seeded runs, and one typical run played back round by round                        | 6 to 8      |
+| **Compare**  | Set the futures side by side: the outcomes, how steady they are and what they depend on                                | 8 to 10     |
+| **Decide**   | What to do about it: the decision brief, the independent review, and Report Studio                                     | 11 to 14    |
 
 | #   | Step                            | What Swarm does                                                                                                                                                                                                                                                                         |
 | --- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Question**                    | You write a "What could happen if…?" question. **Understand my question** reads it into an editable scenario: the decision, what changes, the baseline, alternatives, assumptions, and at most three questions it needs answered                                                        |
+| 1   | **Question**                    | You write a "What could happen if…?" question. **Explore** reads it into an editable scenario: the decision, what changes, the baseline, alternatives, assumptions, and at most three questions it needs answered                                                                       |
 | 2   | **Evidence**                    | Uploaded files (text, Markdown, CSV, JSON, text PDF), pasted notes or a **public web page** that the server fetches. Text becomes numbered passages (S1, S2, …), each document keeps its provenance, and conflicting figures are flagged                                                |
 | 3   | **Scenario**                    | The frame you settled on is stored with the project. It defines the baseline and each alternative that the later runs compare                                                                                                                                                           |
-| 4   | **Stakeholders**                | Found in the evidence by reading the text, or with a model. Each has cited quotes and an uncertainty level. You accept, edit, merge, remove, add and prioritise, then approve. Missing kinds of stakeholder are listed as gaps                                                          |
+| 4   | **Stakeholders**                | Found in the evidence by reading the text, or with a model. Each has cited quotes and an uncertainty level. You accept, edit, merge, remove, add and prioritise, then approve. Kinds of stakeholder that nobody was found for are shown as empty places                                 |
 | 5   | **Synthetic actors**            | A key actor for each key stakeholder and a cohort of simulated members for the others. Every trait says where it came from (evidence, you, a system assumption or a model) and why, and you can change it                                                                               |
 | 6   | **Interactions**                | Each simulated member's stance is pulled, round by round, by how the change lands on it, by its own traits and by the actors it listens to, through typed relations (influences, competes with, supplies, and so on)                                                                    |
 | 7   | **Interventions**               | The change lands in a chosen round at a stated intensity, for the baseline and for each alternative. The optional deep dive adds pause, a scheduled intervention, branching from a checkpoint and run comparison                                                                        |
@@ -131,16 +156,58 @@ The ten origins a brief statement can carry are never merged: the label travels 
 | **Historical comparison**     | A document whose provenance marks it as a record of what happened before (API)   |
 | **Unresolved uncertainty**    | What is not known. It cites nothing, and names what is missing                   |
 
-![A source graph entity with the quote the server checked against its passage](./docs/assets/swarm-graph-inspector.png)
+### The scenes on screen
 
-_The optional deep dive on the recorded fictional Larkholm demonstration: every graph entity carries
-a quote that the server has checked, character for character, against the passage it cites._
+![Ground: the question as the heading, four figures (sources, passages, topics and conflicts) and a constellation graph of the topics the sources talk about](./docs/assets/swarm-ground.png)
+
+_Ground. The evidence is read into numbered passages, and sources that give different figures are set
+side by side for a person to settle._
+
+![Map: stakeholders drawn as clusters on a map, the details of the party in view in a floating panel, and the next action in a pill at the foot](./docs/assets/swarm-map.png)
+
+_Map. Stakeholders found in the evidence, each with the quotes it rests on. Every party is a button, and
+the same parties are offered as a list. Actors are synthetic stand-ins, not real people._
+
+![Simulate, Live: the actors on the map coloured by where each stands in the round shown, a round card with the share of each response, and a scrubber along the bottom](./docs/assets/swarm-simulate-live.png)
+
+_Simulate, Live. One typical run, replayed round by round from what the engine kept. Synthetic actors,
+simulated under stated assumptions; not a prediction._
+
+![Simulate, Network: the actors and the relations between them, with controls for which kinds of relation to show](./docs/assets/swarm-simulate-network.png)
+
+_Simulate, Network. The relations that the comparison used between the actors._
+
+![Compare: the answer as a sentence, the share of simulated members under no change and under the change with the gap between them, and the contents of the page](./docs/assets/swarm-compare.png)
+
+_Compare. The answer as a sentence, the share of simulated members under each scenario, and how often it
+held across the seeded runs._
+
+![Decide: the decision brief as a document, with the answer first and a contents list beside the chapters](./docs/assets/swarm-decide.png)
+
+_Decide. The brief opens on its answer. The critics' review sits beside it, and the chapters of reference
+stay closed until they are opened._
+
+![Report Studio: a section of the report as a page to edit, with its version, its statements and the review workflow](./docs/assets/swarm-studio.png)
+
+_Report Studio. A person works on a copy of the generated report: every change is a version, and a
+reviewer approves the exact text._
+
+![The interface on a phone-sized screen](./docs/assets/swarm-mobile.png)
+
+_The same interface on a phone: the journey moves to a dock along the bottom edge, and floating panels
+become strips and sheets._
+
+![A scene of the interface in the dark theme: pale type on a near-black page, with the floating top bar as glass](./docs/assets/swarm-dark.png)
+
+_The dark theme. Light, dark and high contrast are each written out, and the contrast of every pair is
+held by a test ([UX.md](./docs/UX.md#guards))._
 
 ## The four flagship demos
 
-Each is an input to the same pipeline. The example picker offers five worked examples; the four
-below are the ones the demo guide scripts. **Nothing here says what a run will show.** Run it, read
-the real screen and quote that.
+Each is an input to the same pipeline. The first screen offers five worked examples as chips under the
+question field (and a fictional starter, **Library hours**, for learning the workflow); the four below
+are the ones the demo guide scripts. **Nothing here says what a run will show.** Run it, read the
+real screen and quote that.
 
 | Demo                                                                               | Question                                                                                                                    | Evidence                                                 | Built in on purpose                                                                      |
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -155,69 +222,80 @@ They describe no real company, price or customer.
 
 ### The click path, once, for every demo
 
-1. **Start.** On the first screen, choose **Use this example** on the card for your demo. For your own
-   question, type it into **Your what-if question** instead. Choosing an example only fills the form.
-2. **Add a public page (optional).** In **Add a public web page**, type an address, choose **Fetch
-   page**, read the title, site, size, retrieval time and notes, then choose **Add as evidence**.
-   The server fetches the page, not your browser. If it fails, the message says why and offers to
-   let you paste the text. The online-store example suggests `https://books.toscrape.com/`, a public
-   practice site whose prices and ratings are random, so it holds no real customer.
-3. **Understand my question** (optional), then **Use this scenario**. Edit any field, answer the
-   questions it raises, and add alternatives. Nothing runs until you build.
-4. **Build Graph.** Graph Build reads the sources into numbered passages and a lexical graph.
-5. **Env Setup:** in **Stakeholders and actors**, choose **Find stakeholders by reading the text** (or
-   **with the model** in a Model assisted project). The list opens under four counts. Open a row to read
-   its cited quotes and assumptions, and to **Accept**, **Edit**, **Merge** or **Remove** it; **Add a
-   stakeholder** adds one the text did not name. Then **Go to approval** and **Approve stakeholders and
-   create actors** (stakeholders you did not look at are accepted, and the list shuts) and **Review the N
-   actors**: an actor opens to its traits, each with a slider, an origin badge and the reason for its value.
-6. **Simulation:** **Compare scenarios** runs the baseline and the alternatives on the same seeds,
-   and shows what held across the runs, which assumptions the result is sensitive to and a chain of
-   second-order effects.
-7. **Report:** when the comparison has finished, **See the decision brief** opens it (the stage
-   unlocks by itself). Choose **Generate decision brief** and **Run independent review** (the **Jump
-   to** bar links to the brief, the review and the detailed report), then export **Markdown**, **JSON**
-   or the **Printable** page. The brief's reference sections are closed until you open them from its
-   contents (or **Expand all sections**); Ctrl+P on this stage prints the whole brief and the review.
+1. **Start.** On the first screen, choose the example chip for your demo (**Copilot in Teams**,
+   **Cloud price change** or **Online store checkout**). For your own question, type it into **Your
+   what-if question** instead. Choosing an example only fills the question and the evidence, and a note
+   names it by its full title: "Copilot in Teams", "Regional cloud price change" or
+   "Online store: delivery and checkout".
+2. **Add a public page (optional).** Choose **Evidence**, then **Web page**, type an address, choose
+   **Fetch**, read the title, site, size, retrieval time and notes, then choose **Add as evidence**.
+   The server fetches the page, not your browser. If it fails, the message says why and you can
+   paste the text instead (**Paste**). The online-store example pack names `https://books.toscrape.com/`,
+   a public practice site whose prices and ratings are random, so it holds no real customer; the
+   interface does not offer it, so type it in yourself.
+3. **Explore**, then **Ground it.** The scenario that Swarm reads from the question is editable in
+   place: change the decision or anything under it, answer the questions it asks ("Swarm asks"), and
+   add alternatives. Nothing runs until you choose **Ground it**, which creates the project and starts
+   reading the evidence.
+4. **Ground.** The evidence is read into numbered passages and a graph of the topics the sources share.
+   Settle the **Conflicts** (**Confirm**, **Not a conflict** or **Mark resolved**), then choose **Map the
+   stakeholders**.
+5. **Map.** Choose **Find who is affected**: it reads the text for roles, and in a Model assisted project
+   on a server with a provider it asks the model instead, with **Read the text instead** beside it.
+   Choose a party to read its cited quotes and assumptions in the inspector, and to **Accept**, edit
+   (the pencil), merge or remove it; **Add a stakeholder** adds one the text did not name. Then
+   **Approve & create actors** (stakeholders you did not look at are accepted) and read the actors:
+   **Actors** in the toolbar shows them, and an actor opens to its traits, each with a slider, an origin
+   chip and the reason for its value. **Simulate** takes you on.
+6. **Simulate.** **Run the simulation** runs the baseline and the alternatives on the same seeds and
+   plays one typical run back in **Live**; **Story**, **Network** and **Timeline** read it other ways.
+   **Compare** shows what held across the runs, which assumptions the result is sensitive to and a
+   chain of second-order effects.
+7. **Decide.** **Decide** (from Compare) opens the brief; choose **Write the brief** if it is not
+   written yet, **Review** and **Run the independent review**, then **Export** it as **Markdown**,
+   **JSON** or the **Printable page**. The brief's reference chapters are closed until you open them
+   from its contents (or **Open every chapter**); Ctrl+P on the brief prints the whole of it and the
+   review.
 
 ### What to check at each step
 
-| Step               | Look at                                                                                                                                                                                                                                 | Read it as                                                                                                                                              |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Question           | The notes beside the scenario: "Read by rules, not a model", the assumptions and who made each one, and the questions back                                                                                                              | A starting point that you edit, not an answer. Rules read patterns and can misread a question                                                           |
-| Evidence           | Each document's provenance: sample, pasted, uploaded or a public page, with when it was retrieved                                                                                                                                       | Evidence has a label. A fetched page records what the page said, not that it is true                                                                    |
-| Stakeholders       | The four counts, the note on how they were found (it says how many have a direction of impact read from the wording), and in each row the cited quotes, the direction in words, the uncertainty, and "Perspectives that may be missing" | Roles found in text, not people. A direction is read only where a cited sentence shows one; a group stays unclear until you say who is helped or harmed |
-| Actors             | Each trait's origin badge. Change one and watch the badge become yours                                                                                                                                                                  | Every number an actor runs on is an assumption you can see and edit. Group sizes are weights, not counts                                                |
-| Compare scenarios  | The baseline and the change side by side, "holds in k of n seeded runs" with its interval and class, the sensitivity list, and the second-order chain                                                                                   | Repeatability under assumptions. A finding classed unstable is not to be relied on                                                                      |
-| Independent review | The objections, what each rests on, and what it would do to the conclusion. Respond, accept or dispute                                                                                                                                  | A challenge, not a verdict. A critic never edits the analysis                                                                                           |
-| Decision brief     | The executive answer and its caveat, then the origin chip on each statement, the recommendations and the validation plan (open), and, from the contents, the assumptions and the uncertainty (closed until opened)                      | An exploration of a simulation. The validation plan is what you must still check in the real world                                                      |
+| Step               | Look at                                                                                                                                                                                                                                                                                                                                                                                                         | Read it as                                                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question           | The scenario review: "Read by rules, not a model", the assumptions and who made each one (yours or a system assumption), and "Swarm asks"                                                                                                                                                                                                                                                                       | A starting point that you edit, not an answer. Rules read patterns and can misread a question                                                           |
+| Evidence           | Each source in Ground: its tag ("Upload", "Pasted", "Synthetic sample", or the site that a fetched page came from) and, in its sheet, for a page "Retrieved by Swarm on" a date and "Retrieved, not verified."                                                                                                                                                                                                  | Evidence has a label. A fetched page records what the page said, not that it is true                                                                    |
+| Stakeholders       | The chip beside the counts ("Read from your text" or "Found by a model"), and in the inspector the cited quotes under **Evidence**, the direction of impact with what it was read from ("read from the wording", "assumption", "model’s reading" or "set by you"), and under **Why they are here** the expected effect, how sure Swarm is and how the party was found; and the places marked "Nobody found for" | Roles found in text, not people. A direction is read only where a cited sentence shows one; a group stays unclear until you say who is helped or harmed |
+| Actors             | Each trait's origin chip (assumption, evidence, model or you). Move a slider and its chip becomes yours                                                                                                                                                                                                                                                                                                         | Every number an actor runs on is an assumption you can see and edit. Group sizes are weights, not counts                                                |
+| Compare            | The baseline and the change side by side, "holds in k of n seeded runs" with its interval and class, **Depends on** (the sensitivity), and **Sets off** (the second-order chain)                                                                                                                                                                                                                                | Repeatability under assumptions. A finding classed unstable is not to be relied on                                                                      |
+| Independent review | The objections, what each rests on, and what it would do to the conclusion. Respond, accept or dispute                                                                                                                                                                                                                                                                                                          | A challenge, not a verdict. A critic never edits the analysis                                                                                           |
+| Decision brief     | The answer and its caveat, then the origin mark on each statement (press it to see what the statement rests on), the recommendations and the validation plan (open when you arrive), and, from the contents, the assumptions (closed until opened)                                                                                                                                                              | An exploration of a simulation. The validation plan is what you must still check in the real world                                                      |
 
 If a pack was built to show a gap (an unknown licence term, a notice with no billing unit), check
 whether your run's brief shows it, and say so if it does not. Do not fill the gap in by hand.
 
 ### Demo 1: Copilot in Teams
 
-Choose **Use this example** on **Copilot in Teams**, then follow steps 3 to 7 above.
+Choose the example **Copilot in Teams**, then follow steps 3 to 7 above.
 
 - **Check the intake.** The question does not say for whom "by default" applies, how deep "more
-  deeply" goes, over what period or what a good outcome is. Check that **Understand my question**
-  raises these as questions rather than filling them in.
+  deeply" goes, over what period or what a good outcome is. Check that **Explore** raises these
+  under "Swarm asks" rather than filling them in.
 - **Check the evidence.** Two pairs of sources give different figures for the same behaviour: a poll
   of administrators' intentions against a partner's observed tenants, and a pilot against a group of
-  early adopters. Check that both quotes are shown and neither is picked.
+  early adopters. Check that Ground shows both quotes in **Conflicts** and picks neither.
 - **Check the stakeholders.** Look at the cited quotes and the uncertainty of the groups found, at
-  how many have a direction of impact and where each came from (the note says), and at the kinds that
-  nobody was found for. Check that a group the evidence does not speak for (regulators, works
-  councils) is not given a direction it did not earn.
+  how many have a direction of impact and where each came from (the note behind the chip beside the
+  counts says), and at the places marked "Nobody found for". Check that a group the evidence does not
+  speak for (regulators, works councils) is not given a direction it did not earn.
 - **Read it honestly.** The names are in the question only because the question names them. Nothing
   here describes a real plan, price or adoption figure.
 
 ### Demo 2: Regional cloud price change (AWS)
 
-Choose **Use this example** on **Regional cloud price change**, then steps 3 to 7.
+Choose the example **Cloud price change**, then steps 3 to 7.
 
 - **Check the intake.** The "$1" comes with no unit, date or scope, and the evidence says so. Check
-  that these appear as open points, and that the brief carries the same gap as uncertainty.
+  that these appear as open points ("Swarm asks"), and that the brief carries the same gap as
+  uncertainty.
 - **Check the evidence.** Finance and sales operations give different shares of revenue under
   fixed-price contracts because they define "fixed" differently, and two estimates of the migration
   effort come from a team and from a consultancy that would earn fees. Check that Swarm shows both
@@ -227,14 +305,14 @@ Choose **Use this example** on **Regional cloud price change**, then steps 3 to 
 
 ### Demo 3: Online store, with a public page
 
-Choose **Use this example** on **Online store: delivery and checkout**. Before **Build Graph**, go to
-**Add a public web page**, enter `https://books.toscrape.com/`, choose **Fetch page**, read the
-title, site, size and retrieval time, then choose **Add as evidence**. Then steps 3 to 7.
+Choose the example **Online store checkout**. Before **Explore**, choose **Evidence**, then **Web
+page**, enter `https://books.toscrape.com/`, choose **Fetch**, read the title, site, size and
+retrieval time, then choose **Add as evidence**. Then steps 3 to 7.
 
-- **Check the provenance.** The page should be listed as a public web page that the server
-  retrieved, apart from the four synthetic documents, and the notes should say that Swarm has not
-  checked it. In the brief, open **Sources and provenance** from the contents and look for it with its
-  own origin.
+- **Check the provenance.** In Ground the page should be listed apart from the four sources tagged
+  "Synthetic sample", tagged with its own site (`books.toscrape.com`), and its sheet should say
+  "Retrieved by Swarm on" a date and "Retrieved, not verified." In the brief, open **Sources and
+  provenance** from the contents and look for it with its own origin.
 - **Check the evidence.** The survey and the exit pop-up measure the same thing by different methods
   in different groups. Check that both are shown.
 - **Read it honestly.** The page is a catalogue sandbox whose prices and ratings are random. It says
@@ -244,28 +322,31 @@ title, site, size and retrieval time, then choose **Add as evidence**. Then step
 
 ### Demo 4: Your own question and a public URL
 
-Type your own question into **Your what-if question**. Add a page you may read (**Fetch page**, then
-**Add as evidence**), and your own notes as pasted text or files if the page alone is thin: each
-document needs at least 80 characters. Then **Understand my question** and steps 3 to 7.
+Type your own question into **Your what-if question**. Add a page you may read (**Evidence**,
+**Web page**, **Fetch**, then **Add as evidence**), and your own notes as pasted text or files if the
+page alone is thin: each document needs at least 80 characters. Then **Explore** and steps 3 to 7.
 
 - **Check the intake.** Rules read patterns in English and can misread a question. Check every field
   and answer or skip each question back.
 - **Check the stakeholders.** They are only as good as the text: the rules find the roles that a text
-  names with a role word. Read the "Perspectives that may be missing" list against your question and
-  add the groups that matter yourself. **Before approving, keep or add at least two stakeholders**: a
-  simulation needs more than one party, and **Approve stakeholders and create actors** stays disabled
-  until there are two. If the page names fewer, choose **Add a stakeholder** until the list has two,
-  label each added group as your assumption, and set an impact only where your evidence supports it. A
-  page that needs JavaScript is refused, with a message that offers to let you paste the text.
+  names with a role word. Read the places marked "Nobody found for" (on the map, and under **List**)
+  against your question and add the groups that matter yourself. **Before approving, keep or add at
+  least two stakeholders**: a simulation needs more than one party, and **Approve & create actors**
+  stays disabled, with the hint "Keep or add two or more", until there are two. If the page names
+  fewer, choose **Add a stakeholder** until the list has two. An added group is marked "Added by
+  you" and quotes nothing: set "How the change lands on them" only where your evidence supports it,
+  and say why under "Why you think the change lands that way". A page that needs JavaScript is
+  refused, with a message that offers to let you paste the text.
 - **Read it honestly.** Nothing was planted: no conflict, no gap, no direction. Where the rules find
   no wording that shows a group being helped or harmed, that group has no direction of impact, and
-  if no group has one the comparison warns that nobody has an expected direction of impact. Say who is affected,
-  in the stakeholder review, only where your evidence supports it.
+  if no group has one the comparison warns that nobody has an expected direction of impact. Say who
+  is helped or harmed, on the map, only where your evidence supports it.
 
-**Optional deep dive and the recorded run.** Each project also keeps the engine's five stages:
-agent-by-agent runs with a stated reason for each decision, pause, intervention, branching and
-comparison, an evidence ledger, a grounded report and an analyst that cites passages or declines.
-**Interaction** opens once that report exists. `npm run demo:seed` restores a real-model recording
+**Optional deep dive and the recorded run.** Each project also keeps the older engine, the **deep
+dive** (in Simulate, **More** then **Deep dive**): agent-by-agent runs with a stated reason for each
+decision, pause, an assumed event, branching and run comparison, an evidence ledger, a grounded
+report and an analyst that cites passages or declines. The analyst and the actors answer in **Ask
+about this** once the deep dive's report exists. `npm run demo:seed` restores a real-model recording
 of one fictional scenario and two branches, with no model call. The
 [presenter guide](./docs/demo/presentation.md) covers it.
 
@@ -317,18 +398,19 @@ AZURE_OPENAI_ENDPOINT=<your-resource-endpoint>
 AZURE_OPENAI_AUTH=entra
 ```
 
-A provider is optional and never silent. **Model assisted** stays disabled until the server has one,
-and the header chip names the provider and says `connected` only after a real request has succeeded.
-A failure is shown as a failure, and Swarm never substitutes canned output. Where a step has a rules
-path (reading the question, finding stakeholders), it may use that path after a model fails, and a
-note says so.
+A provider is optional and never silent. **Model assisted** stays disabled (under **Options**, **Engine**)
+until the server has one, and the chip in the top bar names the provider and says `connected` only
+after a real request has succeeded. A failure is shown as a failure, and Swarm never substitutes
+canned output. Where a step has a rules path (reading the question, finding stakeholders), it may use
+that path after a model fails, and a note says so.
 
 What a model can do, only in a project made in **Model assisted** mode on a server that has a
-provider: read your question when you choose **Understand my question** (the server sends the
-question and each document's name and size, never its text; in a **Local rules** project the rules
-on this server read it and it goes nowhere else); find stakeholders, refine the key actors on
-request and add a deeper critique (a Local rules project is refused with `MODEL_NOT_AVAILABLE`); and,
-in the deep dive, drive each actor's decisions. A model gets 170 seconds for one step of the lab;
+provider: read your question when you choose **Explore** (the server sends the question and each
+document's name and size, never its text; in a **Local rules** project the rules on this server read
+it and it goes nowhere else); find stakeholders, read the key actors when you switch on **Let the model read
+the key actors** as you approve, and add a deeper critique with **Also ask a model** in the
+independent review (a Local rules project is refused with `MODEL_NOT_AVAILABLE`); and, in the deep
+dive, drive each actor's decisions. A model gets 170 seconds for one step of the lab;
 after that the rules carry on, and a note says so. What it never does: decide an actor's behaviour in
 the repeated runs, which always use the rules engine, or word the brief. In model mode, bounded
 excerpts of your sources go to the provider you chose, so check its privacy terms first. Keyless
@@ -339,7 +421,7 @@ Azure is claimed.
 
 ```mermaid
 flowchart LR
-    Browser["Browser<br/>React console"]
+    Browser["Browser<br/>React interface"]
     API["Fastify API<br/>validation, limits, optional sign-in"]
     Pages["Public page reader<br/>address policy, pinned fetch"]
     Lab["Scenario lab<br/>intake, stakeholders, actors,<br/>repeated runs, critics, brief"]
@@ -367,7 +449,7 @@ lab's decisions and [docs/analysis/](./docs/analysis/engine.md) for the simulato
 
 | Where it runs           | Components                                                                                                                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **On your machine**     | The browser console, the API and everything behind it (one Node.js 24 process), the rules engine, and one SQLite file or a PostgreSQL database you provide through `DATABASE_URL`               |
+| **On your machine**     | The browser interface, the API and everything behind it (one Node.js 24 process), the rules engine, and one SQLite file or a PostgreSQL database you provide through `DATABASE_URL`             |
 | **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it, when you choose Azure. Nothing else is deployed                                                        |
 | **Proposed, not built** | A hosted worker, Azure Container Apps hosting, a PostgreSQL server in Azure, a managed identity for the application, and an Application Insights resource. See [docs/AZURE.md](./docs/AZURE.md) |
 
@@ -418,19 +500,21 @@ npm run format:check   # Prettier over code and docs
 npm run test:e2e       # real-browser tests of five projects against built servers (build first)
 npm run test:postgres  # the unit suite again, on PostgreSQL running in the test process
 npm run scan:secrets   # credentials in every reachable commit and the working tree
-npm run demo:journey   # the 32-step Larkholm presentation, against a running server and a real model
+npm run demo:journey   # the recorded Larkholm presentation, against a running server and a real model
 ```
 
 | Command                 | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model; and the production build                                                                                                                                                                                                                              |
+| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build                                                             |
 | `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `lab` project takes the flagship demos and a question of its own from the first screen to the exported brief through the pages, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
 | `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                   |
 | `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                  |
 | `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                    |
 
 Also: `npm run eval` (the offline evaluation), `npm run mutation:security`, `npm run test:load`,
-`npm run test:resilience`, `npm run audit:ui`, `npm run azure:verify` (your own Azure deployment) and
+`npm run test:resilience`, `npm run audit:ui` (screenshots and layout and accessibility metrics of
+every scene at five viewports in light and dark; it asserts nothing), `npm run azure:verify` (your own
+Azure deployment) and
 `npm run db:drill` (backs up a SQLite file and proves a restore from the backup alone; see the
 [runbook](./docs/operations/runbook.md#restore-the-database)). The
 [testing guide](./docs/TESTING.md) explains each layer, the Playwright ports (`E2E_*_PORT`), what a
@@ -486,38 +570,40 @@ server process and are marked interrupted if it stops). The wider picture is in 
   ordinary pages take a few milliseconds.
 - **Not hosted, and unreviewed.** Sign-in has only met a test provider, PostgreSQL has not met a
   deployed server, telemetry has reached no real monitoring resource, and security, privacy,
-  accessibility (screen reader) and legal reviews have not been done.
+  accessibility (screen reader) and legal reviews have not been done. The interface's contrast is
+  computed and its pages are scanned by a tool, which is not a review by people
+  ([UX.md](./docs/UX.md#not-done) says what is left).
 
 ## Repository map
 
-| Path                             | Contents                                                                                                                                                                              |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared/`                        | The zod contracts that both sides use: scenario, stakeholders, analysis, critique, brief, evidence, the example packs (`examples/`)                                                   |
-| `backend/src/scenario/`          | Reading a question into a scenario frame, by rules or by a model                                                                                                                      |
-| `backend/src/ingest/url/`        | Reading a public page: address policy, pinned fetch, robots.txt, text extraction                                                                                                      |
-| `backend/src/stakeholders/`      | Stakeholder discovery, review and approval, and the actors made from them                                                                                                             |
-| `backend/src/simulation/`        | The pure, seeded population simulator and its generic responders                                                                                                                      |
-| `backend/src/analysis/`          | Repeated runs, findings, intervals and sensitivity                                                                                                                                    |
-| `backend/src/critics/`           | The seven critics, by rules and optionally by a model                                                                                                                                 |
-| `backend/src/brief/`             | The answer-first decision brief and its exports                                                                                                                                       |
-| `backend/src/guided/` and others | The older five-stage deep dive: graph, environment, simulation, report, chat, branches, the evidence ledger (`grounding/`), Report Studio (`studio/`)                                 |
-| `backend/src/routes/`            | The HTTP routes. `auth/` holds the default-deny policy and `storage/` the stores, migrations and audit log                                                                            |
-| `frontend/src/`                  | The React console: `components/` by feature (`intake`, `evidence`, `stakeholders`, `analysis`, `critics`, `brief`, `console`), `hooks/`, `lib/`                                       |
-| `e2e/`                           | Playwright projects `local`, `model`, `journey`, `signin` and `lab`, with shared helpers and a fake model provider; `backend/test/support/` holds the sign-in and lab fixture servers |
-| `scripts/`                       | The demonstration seed and recorder, Azure provisioning and verification, the UI audit, the secret scan, load, resilience and mutation tests                                          |
-| `evaluation/`                    | Labelled datasets, the offline harness, thresholds and results                                                                                                                        |
-| `infra/`                         | Bicep for the Azure model account and, not deployed, a hosted pilot                                                                                                                   |
-| `docs/`                          | Guides, references, architecture decisions, the demo guide and example packs, and the pitch package                                                                                   |
+| Path                             | Contents                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/`                        | The zod contracts that both sides use: scenario, stakeholders, analysis, critique, brief, evidence, the example packs (`examples/`)                                                                                                                                                                                                                                                                                                                                                                                        |
+| `backend/src/scenario/`          | Reading a question into a scenario frame, by rules or by a model                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `backend/src/ingest/url/`        | Reading a public page: address policy, pinned fetch, robots.txt, text extraction                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `backend/src/stakeholders/`      | Stakeholder discovery, review and approval, and the actors made from them                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `backend/src/simulation/`        | The pure, seeded population simulator and its generic responders                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `backend/src/analysis/`          | Repeated runs, findings, intervals and sensitivity                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `backend/src/critics/`           | The seven critics, by rules and optionally by a model                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `backend/src/brief/`             | The answer-first decision brief and its exports                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `backend/src/guided/` and others | The older five-stage deep dive: graph, environment, simulation, report, chat, branches, the evidence ledger (`grounding/`), Report Studio (`studio/`)                                                                                                                                                                                                                                                                                                                                                                      |
+| `backend/src/routes/`            | The HTTP routes. `auth/` holds the default-deny policy and `storage/` the stores, migrations and audit log                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `frontend/src/`                  | The React interface: `app/` (the shell: top bar, journey, dock, sheets, address), `scenes/` (one folder per scene: `ask`, `ground`, `map`, `simulate` with its `deep/` dive, `compare`, `decide`, and the `studio` and `report` it opens), `design/` (tokens, themes, surfaces, motion, primitives), `viz/` (the Ecosystem map), `panels/` (history, ask, audit, budget, access, provider), `hooks/`, `lib/` (pure logic) and `api/` (typed clients). `frontend/gallery.html` is a development-only page of the primitives |
+| `e2e/`                           | Playwright projects `local`, `model`, `journey`, `signin` and `lab`, with shared helpers and a fake model provider; `backend/test/support/` holds the sign-in and lab fixture servers                                                                                                                                                                                                                                                                                                                                      |
+| `scripts/`                       | The demonstration seed and recorder, Azure provisioning and verification, the UI audit and the colour check, the secret scan, load, resilience and mutation tests                                                                                                                                                                                                                                                                                                                                                          |
+| `evaluation/`                    | Labelled datasets, the offline harness, thresholds and results                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `infra/`                         | Bicep for the Azure model account and, not deployed, a hosted pilot                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `docs/`                          | Guides, references, architecture decisions, the demo guide and example packs, and the pitch package                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## More documentation
 
 | Topic                | Where                                                                                                                                                                                                                |
 | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Using it             | [User guide](./docs/USER_GUIDE.md), [interface design](./docs/UX.md), [scenario intake](./docs/scenario-intake.md), [stakeholders and actors](./docs/stakeholders.md)                                                |
+| Using it             | [User guide](./docs/USER_GUIDE.md), [how the interface is built](./docs/UX.md), [scenario intake](./docs/scenario-intake.md), [stakeholders and actors](./docs/stakeholders.md)                                      |
 | How the numbers work | [Comparing scenarios](./docs/analysis/methodology.md), [the population simulator](./docs/analysis/engine.md), [the independent review](./docs/analysis/critics.md), [the decision brief](./docs/analysis/brief.md)   |
 | Demonstrating it     | [Demo guide](./docs/demo/README.md), [example scenarios](./docs/demo/scenarios/README.md), [presenting the recorded Larkholm run](./docs/demo/presentation.md), [pitch package](./docs/pitch/README.md)              |
 | Running it           | [Configuration](./docs/CONFIGURATION.md), [HTTP API](./docs/API.md), [testing](./docs/TESTING.md), [Docker](./docs/DOCKER.md), [troubleshooting](./docs/TROUBLESHOOTING.md), [Azure](./docs/AZURE.md)                |
-| Architecture         | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md)                                                                                                                                 |
+| Architecture         | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md) (the interface: [ADR 0015](./docs/adr/0015-premium-interface.md))                                                               |
 | Security             | [Security model](./docs/security-model.md), [threat model](./docs/threat-model.md), [security review](./docs/security-review.md), [reading web pages](./docs/security/url-ingestion.md)                              |
 | Status and limits    | [Production-readiness gates](./docs/production-readiness.md), [requirements matrix](./docs/requirements-matrix.md), [risk register](./docs/program/risk-register.md), [roadmap](./docs/microsoft-product-roadmap.md) |
 | Operations           | [Observability](./docs/operations/observability.md), [service levels and alerts](./docs/operations/slo-dashboards-alerts.md), [incident runbook](./docs/operations/runbook.md)                                       |

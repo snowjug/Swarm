@@ -1,0 +1,35 @@
+@layer components {
+  .sw-meter {
+    position: relative;
+    height: 0.4rem;
+    border-radius: var(--r-pill);
+    background: var(--hairline);
+    overflow: hidden;
+  }
+  .sw-meter--sm {
+    height: 0.25rem;
+  }
+  .sw-meter__fill {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--meter, var(--accent));
+    transform-origin: left center;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-meter--against {
+    --meter: var(--c-against);
+  }
+  .sw-meter--favor {
+    --meter: var(--c-favor);
+  }
+  .sw-meter--caution {
+    --meter: var(--c-caution);
+  }
+  .sw-meter--critical {
+    --meter: var(--c-critical);
+  }
+  .sw-meter--neutral {
+    --meter: var(--c-neutral);
+  }
+}

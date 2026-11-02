@@ -1,8 +1,8 @@
 # Stakeholders and actors
 
-Swarm's Environment stage can run its simulation on the people and groups a project is actually about.
-This page describes how those groups are found, how a person reviews them, how an approved list becomes
-the actors the simulation runs, and what none of it can claim.
+Swarm can run its simulation on the people and groups a project is actually about. This page describes how
+those groups are found, how a person reviews them on the Map, how an approved list becomes the actors the
+simulation runs, and what none of it can claim.
 
 Everything here is a modelling aid. The actors are **synthetic stand-ins, not real people**; every number
 they carry is an **assumption** that the person can see, change and trace. Swarm explores scenarios; it
@@ -16,13 +16,15 @@ does not predict what real people will do.
 3. **Approve** the list. Only an approved list can be turned into actors.
 4. **Make the actors**: a key actor for each key stakeholder and a cohort for each of the others. Every
    trait starts from a [documented prior](#category-priors) and says where it came from.
-5. **Adjust** any trait on a slider. The Environment stage then builds its agents from these actors.
+5. **Adjust** any trait on a slider. The simulation then runs on these actors, and the deep dive builds its
+   agents from them.
 
-The panel for all of this sits at the top of the Environment stage. It is small until it is opened: a
-title with four counts (how many stakeholders were **found**, how many **need review**, how many are
-**approved**, how many **actors** there are), one button for the next step, and two toggles that open the
-list and the actors. It never pushes the stage's own _Start Simulation_ button off the screen, and on a
-phone the counts come first. A project that never opens it behaves exactly as before.
+All of this happens on the **Map** scene, after the evidence has been read. It opens on one invitation
+("Who is in play?") and then shows the stakeholders as a map, with one pill at the foot that says the next
+step. The counts (how many parties, how many key, how many to review) sit under its heading, and the
+actors are one toggle away. Nothing is run until the person says so. The steps are in the
+[user guide](./USER_GUIDE.md#map-who-is-affected-and-the-actors) and how the scene is built is in
+[UX.md](./UX.md#map).
 
 ## Finding stakeholders
 
@@ -178,49 +180,54 @@ with nobody in it appears as a gap, and it is the person's call whether it matte
 
 ## Reviewing
 
-### The panel
+### On the Map
 
-The summary at the top of the panel is four counts and one button. The counts are text ("12 found", "9 need
-review", "0 approved", "0 actors"), so that a screen reader says them as they are. _Need review_ counts the
-stakeholders that nobody has accepted, edited or added yet; _approved_ is the whole list once it has been
-approved. The one button says what it will do and changes as the work goes on:
+Under the heading of the Map, three counts say how many parties there are, how many are key and how many
+are **to review**. They are text ("12 parties", "4 key", "9 to review"), so that a screen reader says them
+as they are. _To review_ counts the stakeholders that nobody has accepted, edited or added yet; once the
+list has been approved it is gone. One pill at the foot of the map says what to do next and changes as the
+work goes on:
 
-| Where the person has got to   | The button                                                                                                                                                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nothing found yet             | _Find stakeholders by reading the text_ (or _with the model_ when the project has one, which is then the main way)                                                                                                  |
-| Some stakeholders need review | _Review N stakeholders_, which opens the list at the first. While the list is open the person is reading, and the button is _Go to approval_ (secondary), which moves focus to the approval at the foot of the list |
-| Every one is checked          | _Approve and create actors_ (_Approve stakeholders_ when actors the person edited are kept). With the list open it is a secondary shortcut, and the approval card's own button is the main one                      |
-| Approved, no actors yet       | _Make the actors_                                                                                                                                                                                                   |
-| Actors exist                  | _Review the N actors_, which is a way to look and not the next step                                                                                                                                                 |
-| Fewer than two stakeholders   | _Add a stakeholder_                                                                                                                                                                                                 |
-| A person who may only read    | _Read the N stakeholders_, which opens the list; there is nothing to approve                                                                                                                                        |
+| Where the person has got to   | What the pill, or the page, offers                                                                                                                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing found yet             | The page asks "Who is in play?": **Find who is affected** (by the model when the project has one, which is then the main way, with **Read the text instead** beside it) and **Add one yourself**                              |
+| Some stakeholders need review | "N to review", which opens the next one, beside **Approve & create actors** (**Approve** when actors the person edited are kept). It waits, with the hint "Keep or add two or more", until at least two stakeholders are kept |
+| Approved, no actors yet       | **Make the actors**                                                                                                                                                                                                           |
+| Actors exist                  | "N actors ready", with **Simulate**. **Actors** in the toolbar is a way to look, and not the next step                                                                                                                        |
+| Actors changed                | "N actors changed", "Not saved yet", with **Save** and **Discard**                                                                                                                                                            |
+| A person who may only read    | A line that says what is missing ("Approving needs the right to edit and to run the project."); the stakeholders and their evidence can still be read                                                                         |
 
-When a model is available, approving and making actors open the approval card first, so that the choice of
-letting the model read the key actors, which sends the source text, is never skipped.
+When a model is available, pressing the approving button opens a small panel first, with the switch **Let
+the model read the key actors**, so that the choice of letting the model read them, which sends the source
+text, is never skipped.
 
-Two toggles open what the panel keeps shut: **Stakeholders** (the list, the means to add one, the gaps, the
-note on how they were found, the approval, and finding them again) and **Actors**. Both are shut until
-the person opens them, so the stage's _Start Simulation_ stays on the screen at every size; approving shuts
-the list again.
+The toolbar says what is drawn: **Map** or **List**, and **Stakeholders** or **Actors**. **Groups** hides a
+kind of party, the focus control dims all but what is connected to the party in view, **Add a stakeholder**
+adds one, and under **More** are **Find stakeholders again…** and **Reset all actors…**. A legend ("How to
+read this map") says what size, colour, ring and paleness mean: size is how much it matters (for an actor,
+how much influence it has), colour is the effect, a solid ring is reached directly and a dashed one
+indirectly, and a paler party is one that Swarm is less sure of.
 
-The list is one line to scan for each stakeholder, **key actors first**, then standard and background
-cohorts, and by category and name within each. The order never depends on the review status, so a row does
-not move when it is accepted. Each line shows the name and role, the **direction of impact in words** with
-where it came from (_read from the wording_, _assumption_, _set by you_ or _model's reading_), the
-**uncertainty in words**, whether the stakeholder **cites a quote** or is an _assumption with no cited
-evidence_, whether it still _needs review_, and one line on why it is listed. Opening a row shows the quotes
-it rests on, word for word with the passage they come from, what is assumed, and the means to act on it.
-Anything that is an assumption and not evidence is labelled so in words, and an assumed direction or a
-stakeholder with no cited evidence has a dashed edge as well, so that no colour is needed to tell. The
-actors are rows too: opening one shows what it is assumed to want and every trait on a slider, with where
-the number came from and why. They stay editable after approval.
+**The list** (under **List**) is the same parties as text, in groups by kind and the weightiest first within
+each. A row shows the name, one line on why it is listed, **Key** where it is a key actor, the **direction
+of impact in words**, and a chip where it is still only _proposed_. The order never depends on the review
+status, so a row does not move when it is accepted. The kinds that nobody was found for are listed under
+"Nobody found for", each with a button to add one, and the removed stakeholders under **Removed**.
 
-What a change takes away, the panel replaces: an accepted row loses its _Accept_ button, a removed one leaves
-the list, an added one appears, and approving replaces the button that was pressed. Each change is said to a
-screen reader and focus goes to the row, its neighbour or the next step, never back to the top of the page.
-Headings run in order under the stage's (the panel's title is a third-level heading, its parts the fourth
-and the rows the fifth), every control has a name, and every target is at least 24 pixels (44 on a phone). It is checked in
-the light, dark and high-contrast themes, on a desktop and on a phone.
+A press on a party, on the map or in the list, shows it in the inspector: the **direction of impact in
+words** with where it came from (_read from the wording_, _assumption_, _set by you_ or _model's reading_),
+how directly it is affected, how it is modelled, **how sure Swarm is** in words, what it is assumed to want
+and fear, the quotes it rests on under **Evidence**, word for word with the passage they come from, and
+under **Why they are here** what is assumed and how it was found. A stakeholder with no quote says why: it
+was named in the question, inferred by a model, or added by the person. Anything that is an assumption and
+not evidence is labelled so in words, so that no colour is needed to tell. The actors are parties too:
+opening one shows what it is assumed to want and every trait on a slider, with where the number came from
+and why. They stay editable after approval.
+
+What a change takes away, the page replaces: an accepted party loses its **Accept** button, a removed one
+leaves the map for **Removed**, an added one appears, and approving replaces the button that was pressed.
+Each change is said to a screen reader, and focus goes to the party, the inspector or the next step, not back
+to the top of the page. The rules that hold the page to this are in [UX.md](./UX.md#accessibility).
 
 ### What a person can do
 
@@ -231,14 +238,15 @@ the light, dark and high-contrast themes, on a desktop and on a phone.
 | Merge      | Marks one stakeholder removed and names the one it went into, which takes the other's evidence. **Undo the merge** brings it back.                   |
 | Remove     | Marks it removed. It stays in the record and can be restored.                                                                                        |
 | Add        | Adds a stakeholder of your own. It is marked _added by you_ and carries no evidence, because evidence comes from the sources.                        |
-| Prioritise | Key (one actor of its own), standard or background (a cohort).                                                                                       |
+| Prioritise | **Key** (one actor of its own), **Cohort** (standard) or **Small** (background), a cohort of simulated members.                                      |
 
-The server enforces what the screen offers: a stakeholder is never deleted; who found it cannot be changed;
-**evidence can be taken away but never added or rewritten**, because each cited quotation is compared whole
-(its passage, its document and the document's name, where it sits, its words and fingerprint, and whether it
-supports or contradicts), so a quotation cannot be moved to another source or turned round; a merge is always
-visible in the record; an impact is marked as the person's only if they changed it, and a direction read from
-the wording is an assumption again once every quote it was read from has been taken away; relations are
+The server enforces its rules whatever the screen offers: a stakeholder is never deleted; who found it cannot
+be changed; **evidence can be taken away but never added or rewritten** (the Map shows each quotation as it
+was read and offers no way to change one), because each cited quotation is compared whole (its passage, its
+document and the document's name, where it sits, its words and fingerprint, and whether it supports or
+contradicts), so a quotation cannot be moved to another source or turned round; a merge is always visible in
+the record; an impact is marked as the person's only if they changed it, and a direction read from the
+wording is an assumption again once every quote it was read from has been taken away; relations are
 assumptions whoever wrote them. A change made after approval **takes the approval away** until it is given
 again, and at least two stakeholders must remain to approve. Finding stakeholders again over a reviewed list
 asks for confirmation first.
@@ -316,28 +324,30 @@ each trait names the category it came from ("Category prior for regulator: appli
 
 ### Optional model refinement
 
-When the project uses a model, a person can ask it to read the **key actors** against the evidence. Whatever
-it sets is labelled _model_, with a rationale that cites the passage it relied on or says that none was
-cited. If the call fails or its reply is not valid, the category priors stand and a note says so. Cohorts
-are never refined by a model.
+When the project uses a model, a person can ask it to read the **key actors** against the evidence (the switch
+**Let the model read the key actors**, which is offered as the list is approved). Whatever it sets is
+labelled _model_, with a rationale that cites the passage it relied on or says that none was cited. If the
+call fails or its reply is not valid, the category priors stand and a note says so. Cohorts are never
+refined by a model.
 
-## How the Environment stage uses the actors
+## How the deep dive uses the actors
 
-When a project has actors, the Environment stage makes its agents from them instead of generating a
-population, and the existing simulation engine runs on them unchanged.
+When a project has actors, the deep dive's **Prepare the environment** makes its agents from them instead of
+generating a population, and the existing simulation engine runs on them unchanged. (The comparison of
+scenarios does not use these agents: it runs on the actors directly, and the deep dive is optional.)
 
 - Key actors come first, ordered by influence and authority. The engine takes at most **24** agents in the
   local rules mode and **10** in model mode; the event log says how many key actors did not fit.
 - The largest cohorts then give one representative each, and further members of a cohort (spread around its
   values by its spread) if the engine still needs more. It needs at least **4** agents. If the actors give
-  fewer, the stage stops with a plain instruction: add a stakeholder that stands for a group of people and
+  fewer, the step stops with a plain instruction: add a stakeholder that stands for a group of people and
   make the actors again.
 - A cohort is **never simulated at its size**: its size weights a cohort in the model, and the number of
   simulated members is small on purpose.
 - An agent's persona is written by Swarm from the actor, says that it is fictional and that its numbers are
   assumptions, and the agent carries the ids of the passages behind it. No model is asked for personas when
   actors exist.
-- The stage records "Fictional persona preparation from approved actors" in its trace, so the run shows
+- The step records "Fictional persona preparation from approved actors" in its trace, so the run shows
   where its population came from.
 
 A project without actors is unchanged.
@@ -389,8 +399,7 @@ npm test -- backend/test/stakeholders-routes.test.ts backend/test/stakeholders-n
 npm test -- backend/test/stakeholders-packs.test.ts backend/test/stakeholders-tone.test.ts
 npm test -- backend/test/stakeholders-noise.test.ts backend/test/stakeholders-speed.test.ts
 npm test -- backend/test/stakeholders-docs.test.ts
-npm test -- frontend/src/components/stakeholders frontend/src/api/stakeholders.test.ts
-npx playwright test --project=lab e2e/lab/stakeholders.spec.ts
+npm test -- frontend/src/scenes/map frontend/src/lib/stakeholders frontend/src/viz frontend/src/api/stakeholders.test.ts
 ```
 
 The discovery tests run on briefs of very different subjects, and a test checks that every name found
@@ -401,6 +410,8 @@ different names, and expect the time to grow with the length of the text and not
 `stakeholders-docs.test.ts` holds this page to the code: the category table, the sizes and limits, the
 routes, the error codes and the table of what the examples give.
 
-The browser test takes three of the examples through the real screens, from the first page to the actors,
-and checks in each state that the stage's own button is on the screen, nothing overflows, axe is clean in
-every theme and focus is not lost.
+The front-end tests hold the review logic (`lib/stakeholders`), the Map scene's model and its keyboard and
+pointer behaviour (`scenes/map`) and the ecosystem map (`viz`), and `backend/test/stakeholders-neutrality.test.ts`
+also scans the Map's code for market and product words. The browser tests of the `lab` project take the
+examples through the real screens, from the first screen to the actors, with axe on the states they visit;
+the [testing guide](./TESTING.md) says which they are and what a passing run does not show.

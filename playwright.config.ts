@@ -1,7 +1,7 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { defineConfig } from '@playwright/test';
+import { defineConfig, type PlaywrightTestConfig } from '@playwright/test';
 
 const localPort = Number(process.env.E2E_LOCAL_PORT || 3111);
 const modelPort = Number(process.env.E2E_MODEL_PORT || 3112);
@@ -38,6 +38,111 @@ const server = (port: number, name: string, extra: Record<string, string> = {}) 
   },
 });
 
+type Project = NonNullable<PlaywrightTestConfig['projects']>[number];
+type WebServer = Exclude<NonNullable<PlaywrightTestConfig['webServer']>, unknown[]>;
+
+// Each project and the servers it needs. `E2E_PROJECTS=lab,local` starts only those, which is how one
+// area is run on its own without starting the rest.
+const suites: Record<string, { project: Project; servers: WebServer[] }> = {
+  local: {
+    project: {
+      name: 'local',
+      testMatch: /local\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${localPort}` },
+    },
+    servers: [server(localPort, 'local', { AI_PROVIDER: 'none' })],
+  },
+  model: {
+    project: {
+      name: 'model',
+      testMatch: /model\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${modelPort}` },
+    },
+    servers: [
+      {
+        command: 'node --import tsx e2e/support/fake-provider.ts',
+        url: `http://127.0.0.1:${providerPort}/__health`,
+        reuseExistingServer: false,
+        timeout: 30_000,
+        env: { FAKE_PROVIDER_PORT: String(providerPort) },
+      },
+      server(modelPort, 'model', {
+        AI_PROVIDER: 'ollama',
+        AI_MODEL: 'fake-model',
+        OLLAMA_BASE_URL: `http://127.0.0.1:${providerPort}`,
+      }),
+    ],
+  },
+  journey: {
+    // The presentation, on a server of its own that holds the committed demonstration, so that
+    // it neither depends on nor changes what the other projects leave behind.
+    project: {
+      name: 'journey',
+      testMatch: /journey\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${journeyPort}` },
+    },
+    servers: [server(journeyPort, 'journey', { AI_PROVIDER: 'none' })],
+  },
+  signin: {
+    // Browser sign-in with Microsoft Entra, against the real application and a test identity
+    // provider (backend/test/support/signin-e2e-server.ts). Microsoft's own page is never reached.
+    project: {
+      name: 'signin',
+      testMatch: /signin\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${signinPort}` },
+    },
+    servers: [
+      {
+        command: 'node --import tsx backend/test/support/signin-e2e-server.ts',
+        url: `http://127.0.0.1:${signinPort}/api/health`,
+        reuseExistingServer: false,
+        timeout: 120_000,
+        env: {
+          SIGNIN_E2E_PORT: String(signinPort),
+          SIGNIN_E2E_IDP_PORT: String(signinIdpPort),
+        },
+      },
+    ],
+  },
+  lab: {
+    // The scenario-lab journey in rules mode: intake, evidence, stakeholders, actors, analysis,
+    // critics and the brief, on a server of its own. examples.spec.ts runs on the server with the
+    // fixture web instead (E2E_LAB_WEB_URL), because it adds public pages as evidence.
+    project: {
+      name: 'lab',
+      testMatch: /lab\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${labPort}` },
+    },
+    servers: [
+      server(labPort, 'lab', { AI_PROVIDER: 'none' }),
+      {
+        // The examples in rules mode, with a web of fixture pages for "Add a public web page": the real
+        // application and fetcher, a lookup that is a table and a connection that ends on this machine
+        // (backend/test/support/lab-e2e-server.ts). No page on the internet is reached.
+        command: 'node --import tsx backend/test/support/lab-e2e-server.ts',
+        url: `http://127.0.0.1:${labWebPort}/api/health`,
+        reuseExistingServer: false,
+        timeout: 120_000,
+        env: {
+          LAB_E2E_PORT: String(labWebPort),
+          LAB_E2E_FIXTURE_PORT: String(labWebFixturePort),
+        },
+      },
+    ],
+  },
+};
+
+const chosen = (process.env.E2E_PROJECTS ?? '')
+  .split(',')
+  .map((name) => name.trim())
+  .filter(Boolean);
+for (const name of chosen) {
+  if (!suites[name]) throw new Error(`E2E_PROJECTS names "${name}", which is not a project.`);
+}
+const active = Object.entries(suites).filter(
+  ([name]) => chosen.length === 0 || chosen.includes(name),
+);
+
 export default defineConfig({
   testDir: 'e2e',
   fullyParallel: false,
@@ -52,78 +157,6 @@ export default defineConfig({
     // Locally set PW_CHANNEL=msedge to reuse the installed Edge; CI installs Chromium.
     channel: process.env.PW_CHANNEL || undefined,
   },
-  projects: [
-    {
-      name: 'local',
-      testMatch: /local\/.*\.spec\.ts/u,
-      use: { baseURL: `http://127.0.0.1:${localPort}` },
-    },
-    {
-      name: 'model',
-      testMatch: /model\/.*\.spec\.ts/u,
-      use: { baseURL: `http://127.0.0.1:${modelPort}` },
-    },
-    {
-      // The presentation, on a server of its own that holds the committed demonstration, so that
-      // it neither depends on nor changes what the other projects leave behind.
-      name: 'journey',
-      testMatch: /journey\/.*\.spec\.ts/u,
-      use: { baseURL: `http://127.0.0.1:${journeyPort}` },
-    },
-    {
-      // Browser sign-in with Microsoft Entra, against the real application and a test identity
-      // provider (backend/test/support/signin-e2e-server.ts). Microsoft's own page is never reached.
-      name: 'signin',
-      testMatch: /signin\/.*\.spec\.ts/u,
-      use: { baseURL: `http://127.0.0.1:${signinPort}` },
-    },
-    {
-      // The scenario-lab journey in rules mode: intake, evidence, stakeholders, actors, analysis,
-      // critics and the brief, on a server of its own. examples.spec.ts runs on the server with the
-      // fixture web instead (E2E_LAB_WEB_URL), because it adds public pages as evidence.
-      name: 'lab',
-      testMatch: /lab\/.*\.spec\.ts/u,
-      use: { baseURL: `http://127.0.0.1:${labPort}` },
-    },
-  ],
-  webServer: [
-    server(localPort, 'local', { AI_PROVIDER: 'none' }),
-    server(journeyPort, 'journey', { AI_PROVIDER: 'none' }),
-    server(labPort, 'lab', { AI_PROVIDER: 'none' }),
-    {
-      // The examples in rules mode, with a web of fixture pages for "Add a public web page": the real
-      // application and fetcher, a lookup that is a table and a connection that ends on this machine
-      // (backend/test/support/lab-e2e-server.ts). No page on the internet is reached.
-      command: 'node --import tsx backend/test/support/lab-e2e-server.ts',
-      url: `http://127.0.0.1:${labWebPort}/api/health`,
-      reuseExistingServer: false,
-      timeout: 120_000,
-      env: {
-        LAB_E2E_PORT: String(labWebPort),
-        LAB_E2E_FIXTURE_PORT: String(labWebFixturePort),
-      },
-    },
-    {
-      command: 'node --import tsx backend/test/support/signin-e2e-server.ts',
-      url: `http://127.0.0.1:${signinPort}/api/health`,
-      reuseExistingServer: false,
-      timeout: 120_000,
-      env: {
-        SIGNIN_E2E_PORT: String(signinPort),
-        SIGNIN_E2E_IDP_PORT: String(signinIdpPort),
-      },
-    },
-    {
-      command: 'node --import tsx e2e/support/fake-provider.ts',
-      url: `http://127.0.0.1:${providerPort}/__health`,
-      reuseExistingServer: false,
-      timeout: 30_000,
-      env: { FAKE_PROVIDER_PORT: String(providerPort) },
-    },
-    server(modelPort, 'model', {
-      AI_PROVIDER: 'ollama',
-      AI_MODEL: 'fake-model',
-      OLLAMA_BASE_URL: `http://127.0.0.1:${providerPort}`,
-    }),
-  ],
+  projects: active.map(([, suite]) => suite.project),
+  webServer: active.flatMap(([, suite]) => suite.servers),
 });

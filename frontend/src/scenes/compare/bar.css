@@ -1,0 +1,69 @@
+@layer scenes {
+  /* The wrapper only places the bar; the bar itself is the glass. */
+  .sw-cmp-bar-wrap {
+    position: fixed;
+    z-index: var(--z-chrome);
+    left: 0;
+    right: 0;
+    bottom: var(--s-5);
+    display: flex;
+    justify-content: center;
+    padding: 0 var(--s-3);
+    pointer-events: none;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-cmp-bar-wrap[data-away] {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0);
+  }
+  .sw-cmp-bar {
+    --glass-radius: var(--r-pill);
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.3rem 0.35rem 0.3rem 0.4rem;
+    pointer-events: auto;
+  }
+  .sw-cmp-bar > * {
+    flex: none;
+  }
+  .sw-cmp-bar .sw-cmp-bar__pair {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: min(26rem, 52vw);
+  }
+  .sw-cmp-bar__sep {
+    width: 1px;
+    height: 1.4rem;
+    margin: 0 var(--s-1);
+    background: var(--hairline-strong);
+  }
+  .sw-cmp-menu {
+    max-height: min(var(--radix-dropdown-menu-content-available-height), 30rem);
+    overflow-y: auto;
+  }
+  .sw-cmp-menu .sw-menu__text {
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 40rem) {
+    .sw-cmp-bar-wrap {
+      bottom: calc(var(--dock-h) + 0.5rem + var(--s-3) + env(safe-area-inset-bottom));
+    }
+    .sw-cmp-bar {
+      width: min(100%, 27rem);
+    }
+    .sw-cmp-bar .sw-cmp-bar__pair {
+      flex: 1 1 auto;
+      max-width: none;
+    }
+    .sw-cmp-bar .sw-cmp-pill {
+      gap: 0.45rem;
+      padding: 0 0.5rem 0 0.7rem;
+      font-size: var(--fs-small);
+    }
+  }
+}

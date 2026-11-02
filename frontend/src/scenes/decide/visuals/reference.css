@@ -1,0 +1,201 @@
+@layer scenes {
+  /* What each group rests on. */
+  .sw-decide-ev {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-ev__row {
+    display: grid;
+    grid-template-columns: minmax(8rem, 15rem) minmax(0, 1fr) minmax(7rem, auto);
+    align-items: center;
+    gap: var(--s-4);
+    min-height: 2.6rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-decide-ev__row:first-child {
+    border-top: 0;
+  }
+  .sw-decide-ev__name {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 560;
+    overflow-wrap: anywhere;
+  }
+  .sw-decide-ev__dots {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-decide-ev__dots i {
+    display: block;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+  }
+  .sw-decide-ev__dots i[data-side='for'] {
+    background: var(--accent);
+  }
+  .sw-decide-ev__dots i[data-side='against'] {
+    border: 2px solid var(--c-against);
+  }
+  .sw-decide-ev__docs {
+    justify-self: end;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  @media (max-width: 40rem) {
+    .sw-decide-ev__row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--s-1) var(--s-3);
+    }
+    .sw-decide-ev__dots {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+
+  /* The assumption register. */
+  .sw-decide-as__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-decide-as {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    animation: sw-fade var(--dur-base) var(--ease-out) both;
+  }
+  .sw-decide-as__row {
+    display: grid;
+    gap: 0.3rem;
+    padding: var(--s-3) 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-decide-as__row:first-child {
+    border-top: 0;
+  }
+  .sw-decide-as__text,
+  .sw-decide-as__meta,
+  .sw-decide-as__effect {
+    margin: 0;
+  }
+  .sw-decide-as__text {
+    max-width: 66ch;
+    color: var(--ink);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+  .sw-decide-as__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-as__origin,
+  .sw-decide-as__ev {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .sw-decide-as__effect {
+    max-width: 66ch;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+
+  /* The actors as they were run. */
+  .sw-decide-tr {
+    display: grid;
+    gap: var(--s-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-tr__actor {
+    display: grid;
+    gap: var(--s-2);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-decide-tr__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--s-3);
+    margin: 0;
+  }
+  .sw-decide-tr__head strong {
+    color: var(--ink);
+    font-size: var(--fs-body);
+  }
+  .sw-decide-tr__head span {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-tr__traits {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+    gap: var(--s-1) var(--s-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-tr__traits li {
+    display: grid;
+    grid-template-columns: 6.5rem minmax(0, 1fr) 2.4rem;
+    align-items: center;
+    gap: var(--s-2);
+    min-height: 1.6rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-tr__bar {
+    position: relative;
+    height: 1.1rem;
+  }
+  .sw-decide-tr__bar::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 1px;
+    background: var(--hairline-strong);
+  }
+  .sw-decide-tr__zero {
+    position: absolute;
+    left: 50%;
+    top: 0.2rem;
+    bottom: 0.2rem;
+    width: 1px;
+    background: var(--ink-3);
+    opacity: 0.6;
+  }
+  .sw-decide-tr__dot {
+    position: absolute;
+    top: 50%;
+    width: 0.6rem;
+    height: 0.6rem;
+    margin: -0.3rem 0 0 -0.3rem;
+    border-radius: 50%;
+    background: var(--ink-2);
+  }
+  .sw-decide-tr__bar[data-origin='system-assumption'] .sw-decide-tr__dot {
+    border: 2px solid var(--ink-3);
+    background: var(--bg);
+  }
+  .sw-decide-tr__val {
+    color: var(--ink-2);
+    text-align: right;
+  }
+}

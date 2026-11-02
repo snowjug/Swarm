@@ -1,0 +1,29 @@
+@layer components {
+  .sw-empty {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-3);
+    padding: var(--s-7) var(--s-4);
+    text-align: center;
+  }
+  .sw-empty__orb {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    color: var(--ink-3);
+    background: radial-gradient(closest-side, var(--accent-soft), transparent);
+    border: 1px solid var(--hairline);
+  }
+  .sw-empty__title {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.6rem;
+    letter-spacing: -0.015em;
+  }
+  .sw-empty__text {
+    max-width: 34ch;
+    color: var(--ink-2);
+  }
+}

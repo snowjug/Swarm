@@ -1,0 +1,338 @@
+@layer scenes {
+  .sw-hist__body {
+    display: grid;
+    align-content: start;
+    gap: var(--s-3);
+    min-height: 100%;
+  }
+
+  /* The search and the cuts of the list stay in reach while it scrolls. */
+  .sw-hist__sentinel {
+    height: 1px;
+    margin-bottom: -1px;
+    pointer-events: none;
+  }
+  .sw-hist__tools {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: grid;
+    gap: 0.6rem;
+    margin-top: calc(var(--s-2) * -1);
+    padding: var(--s-2) 0 var(--s-3);
+  }
+  /* Only once the list has moved under it does the bar take a fill, so that it is not a band at rest. */
+  .sw-hist__tools::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: 0 calc(var(--s-5) * -1);
+    background: linear-gradient(var(--glass-overlay) 76%, transparent);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-hist__tools.is-stuck::before {
+    opacity: 1;
+  }
+  .sw-hist__search {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .sw-hist__search .sw-psearch {
+    flex: 1;
+    min-width: 0;
+  }
+  .sw-hist__filters {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    padding: 2px;
+    margin: -2px;
+    scrollbar-width: none;
+  }
+  .sw-hist__filters::-webkit-scrollbar {
+    display: none;
+  }
+  @media (max-width: 40rem) {
+    /* On a phone the row can be longer than the screen: its end fades, and the last chip can scroll clear of the fade. */
+    .sw-hist__filters {
+      padding-right: 1.75rem;
+      mask-image: linear-gradient(90deg, var(--ink) calc(100% - 1.75rem), transparent);
+    }
+  }
+  .sw-hist__count {
+    margin-left: 0.15rem;
+    font-size: var(--fs-micro);
+    opacity: 0.7;
+  }
+  .sw-hist__spin {
+    animation: sw-spin calc(var(--dur-cinema) * 1.2) linear infinite;
+  }
+
+  .sw-hist__groups {
+    display: grid;
+    gap: var(--s-2);
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-hist__groups.is-refreshing {
+    opacity: 0.62;
+  }
+  .sw-hist__group {
+    display: grid;
+  }
+  .sw-hist__day {
+    padding: var(--s-3) 0 var(--s-1);
+  }
+  .sw-hist__list {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .sw-hist__item {
+    position: relative;
+    margin-inline: -0.75rem;
+  }
+  .sw-hist__item + .sw-hist__item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 1px;
+    background: var(--hairline);
+  }
+  /* One highlight that glides to the row the pointer or the keyboard is on. */
+  .sw-hist__pill {
+    position: absolute;
+    inset: 0.2rem 0;
+    border-radius: var(--r-md);
+    background: color-mix(in oklab, var(--ink) 5%, transparent);
+    box-shadow: inset 0 0 0 1px var(--hairline);
+    pointer-events: none;
+  }
+  .sw-hist__row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    padding: 0.95rem 0.75rem;
+  }
+  .sw-hist__item[data-selected] .sw-hist__row::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 1.1rem;
+    bottom: 1.1rem;
+    width: 2px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .sw-hist__open {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: start;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-hist__open:focus-visible {
+    outline: none;
+  }
+  /* The whole row is the target; the actions sit above it. */
+  .sw-hist__open::after {
+    content: '';
+    position: absolute;
+    inset: 0.15rem 0;
+    border-radius: var(--r-md);
+  }
+  .sw-hist__open:focus-visible::after {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: -2px;
+  }
+  .sw-hist__open:active {
+    transform: scale(0.992);
+    transition-duration: var(--dur-instant);
+  }
+
+  .sw-hist__lead,
+  .sw-hist__ring {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 2.75rem;
+    height: 2.75rem;
+  }
+  .sw-hist__badge {
+    --badge: var(--ink-3);
+    position: absolute;
+    right: -0.05rem;
+    bottom: 0.05rem;
+    display: grid;
+    place-items: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 50%;
+    background: var(--badge);
+    color: var(--ink-inverse);
+    box-shadow: 0 0 0 2px var(--glass-overlay);
+  }
+  .sw-hist__badge[data-kind='complete'] {
+    --badge: var(--c-favor);
+  }
+  .sw-hist__badge[data-kind='failed'] {
+    --badge: var(--c-against);
+  }
+  .sw-hist__badge[data-kind='working'] {
+    --badge: var(--accent);
+  }
+
+  .sw-hist__text {
+    display: grid;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+  .sw-hist__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .sw-hist__name {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.45rem;
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-hist__question {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.45;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  .sw-hist__error {
+    overflow: hidden;
+    color: var(--c-critical);
+    font-size: var(--fs-small);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-hist__meta {
+    margin-top: 0.3rem;
+  }
+  .sw-hist__status {
+    font-weight: 560;
+  }
+  .sw-hist__status[data-kind='complete'] {
+    color: var(--c-favor);
+  }
+  .sw-hist__status[data-kind='failed'] {
+    color: var(--c-critical);
+  }
+  .sw-hist__status[data-kind='paused'] {
+    color: var(--c-caution);
+  }
+  .sw-hist__status[data-kind='working'] {
+    color: var(--accent);
+  }
+  .sw-hist__engine.is-real {
+    color: var(--accent);
+    font-size: var(--fs-micro);
+    font-weight: 640;
+    letter-spacing: 0.045em;
+  }
+  .sw-hist__branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+
+  .sw-hist__actions {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.1rem;
+    padding-left: 0.5rem;
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  .sw-hist__item:hover .sw-hist__actions,
+  .sw-hist__item:focus-within .sw-hist__actions {
+    opacity: 1;
+  }
+  @media (hover: none), (pointer: coarse) {
+    .sw-hist__actions {
+      opacity: 1;
+    }
+  }
+  @media (hover: hover) {
+    .sw-hist__delete:hover:not(:disabled) {
+      background: var(--c-critical-soft);
+      color: var(--c-critical);
+    }
+  }
+
+  .sw-hist__skeleton {
+    display: grid;
+  }
+  .sw-hist__skeleton-row {
+    display: flex;
+    gap: 0.9rem;
+    padding: 0.95rem 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-hist__skeleton-row:first-child {
+    border-top: 0;
+  }
+  .sw-hist__skeleton-text {
+    display: grid;
+    flex: 1;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+  .sw-hist__foot {
+    padding-top: var(--s-4);
+    margin-top: auto;
+  }
+
+  /* A destructive question carries a little of the colour of what it would do. */
+  .sw-hist-confirm::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(90% 120% at 0% 0%, var(--c-critical-soft), transparent 68%);
+    pointer-events: none;
+  }
+  .sw-hist-confirm__title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .sw-hist-confirm__title svg {
+    flex: none;
+    color: var(--c-critical);
+  }
+}

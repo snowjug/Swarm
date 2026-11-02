@@ -8,7 +8,7 @@ depends on delivery speed, a one-page checkout and a paid membership. The eviden
 documents, and a public sandbox page can be added as a fifth, to try the real address input. The
 shop, its customers, its competitors and every figure are invented.
 
-Back to the [example scenarios](../README.md). The text the picker loads is in
+Back to the [example scenarios](../README.md). The text the example chip loads is in
 [`shared/examples/ecommerce-experience.ts`](../../../../shared/examples/ecommerce-experience.ts), and
 the files in this folder are readable copies of it.
 
@@ -23,7 +23,10 @@ the files in this folder are readable copies of it.
 
 ## The optional public page
 
-The picker may suggest `https://books.toscrape.com/`. It is a public practice site built for
+The example's data names `https://books.toscrape.com/` as a page to try (`urlSuggestion` in
+[`shared/examples/ecommerce-experience.ts`](../../../../shared/examples/ecommerce-experience.ts)), but
+the first screen does not show the suggestion: type or paste the address yourself, under **Evidence** →
+**Web page**. It is a public practice site built for
 learning web scraping: a catalogue of books with prices in pounds and stock status. The page says
 its prices and ratings were assigned at random, so it is not a real shop and no real customers are
 involved.
@@ -35,7 +38,8 @@ slot free for it.
 
 ## Built in on purpose
 
-**One source conflict** that the evidence ledger flags (a test pins it): the survey says 31% of
+**One source conflict** that the evidence ledger flags (a test pins it), and that **Conflicts** in
+Ground and **Evidence base and quality** in the brief show: the survey says 31% of
 respondents who had left a basket without buying gave delivery cost as the main reason; the exit
 pop-up says 41%. One is an email survey of recent customers that leans to frequent buyers, the other
 is an on-site pop-up answered by 6% of the people shown it, which people who close the tab never see.
@@ -81,40 +85,43 @@ asks for an account.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** Entry page, **Not sure what to ask? Try an example**, then **Use this example** on **Online store: delivery and
-checkout**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
-behavior. This is an invented online bookshop and invented evidence, and each document says so."
-Point at the question and the sample provenance with the licence `Synthetic, CC0`.
+**0:00 Choose the example (30 s).** First screen, then the **Online store checkout** chip under **Start
+from an example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict
+real-world behavior. This is an invented online bookshop and invented evidence, and each document says
+so." Point at the question and at the evidence: the count on **Evidence** and the four documents in the
+tray, each a sample (open one: "Sample evidence: invented, describes no real case"; in Ground it
+carries the licence `Synthetic, CC0`).
 
-**0:30 The question (40 s).** **Understand my question**. Point at the three changes (fees,
-threshold, checkout), the baseline and the assumptions with their origin. Say what the question
-leaves open: how big the changes are, and what counts as a good outcome. Answer one, then **Use this
-scenario**.
+**0:30 Your scenario (40 s).** **Explore**. Point at the three changes (fees, threshold, checkout),
+**If nothing changes** and **Assumed**, where a dot says who made each assumption. Say what the question
+leaves open: how big the changes are, and what counts as a good outcome. Answer one under **Swarm asks**
+(**Answer**). If you have network access, add the public page now, before you go on (see the ten-minute
+script). Then **Ground it**.
 
-**1:10 The evidence (30 s).** Point at the document list and open the analytics summary. Say: "Every
-passage keeps its source. The ledger later compares sources and shows where they disagree." If you
-have network access, add the public page first (see the ten-minute script). Then press **Build
-Graph**.
+**1:10 Ground (30 s).** Point at the evidence and open the analytics summary under **Sources**. Say:
+"Every passage keeps its source. Ground compares the sources and shows where they disagree."
 
-**1:40 Stakeholders and actors (60 s).** **Env Setup**, **Find stakeholders by reading the text**. Point at
-the four counts and the note on how they were found, one row opened to its cited quote and uncertainty,
-and the prompt about roles nobody was found for. Say: "Kinds of shopper from survey free text, not real
-individuals." **Go to approval**, **Approve stakeholders and create actors**, **Review the N actors**; point at a
-trait and its origin badge.
+**1:40 Map: stakeholders and actors (60 s).** **Map the stakeholders**, **Find who is affected**. Point
+at the parties on the map, "N to review", the chip that says how they were found, one party opened to
+its cited quotes and confidence, and the **Nobody found for** prompts. Say: "Kinds of shopper from survey
+free text, not real individuals." Then **Approve & create actors**, open an actor's **Traits**, and
+point at one trait and its origin chip.
 
-**2:40 Compare scenarios (60 s).** **Simulation**, **Compare scenarios**. Point at the baseline and
-the proposed change side by side, the spread across the seeded runs, one finding with "N of 30 seeded
-runs" and its stability chip, and the sensitivity view. Say: "These are simulated members and seeded runs.
-They are not a conversion rate."
+**2:40 Simulate and Compare (60 s).** **Simulate**, **Run the simulation**. Watch the replay in **Live**,
+then choose **Compare**. Point at the baseline and the proposed change on the gap chart, a tick for each
+seeded run, one finding with "It held in N of 30 seeded runs" and its class, and **Depends on**. Say:
+"These are simulated members and seeded runs. They are not a conversion rate."
 
-**3:40 The decision brief (50 s).** **Report**, **Generate decision brief**. Read the executive
-answer and its origin chips. The evidence base is closed until you open it from the contents: this pack
-was built with one source conflict, so open it, find it (31% against 41%) and say: "Two methods, two
-answers. Swarm shows both and does not pick one." Then look for the uncertainty about delivery cost per
-order and the untested checkout, and at the validation plan (open, right after the recommendations).
+**3:40 Decide: the decision brief (50 s).** **Decide**, **Write the brief**. Read the verdict and the
+numbers under **What happened**, and the origin mark on a statement. The evidence base is closed until
+you open it from the contents: this pack was built with one source conflict, so open **Evidence base
+and quality**, find it (31% against 41%) and say: "Two methods, two answers. Swarm shows both and does
+not pick one." Then look for the uncertainty about delivery cost per order and the untested checkout,
+and at the **Validation plan** (open, right after the recommendations).
 
-**4:30 One objection (20 s).** In the **Jump to** bar choose **Independent review**, run it and read one
-objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute it."
+**4:30 One objection (20 s).** Choose **Review**, then **Run the independent review**, and read one
+objection with its basis. Say: "A critic challenges and never edits. I can respond, accept or dispute
+it."
 
 **4:50 Close (10 s).** "Invented evidence, a repeatable method, assumptions on the table and a plan
 to check them. It supports a person's analysis; it does not make the decision."
@@ -126,41 +133,47 @@ The five-minute script, slower, with the real address input and the parts that s
 **0:00 to 1:00 Open.** As above. Add: "The bundled documents are complete. A public page is optional
 and I will add one in a minute."
 
-**1:00 to 2:30 The question and the scenario.** Edit a field of the scenario form and show the label
-that records that you changed it. Add an alternative by hand (for example, keep the threshold and add
-a paid membership). Say: "The alternatives are what we compare against the baseline, so they are mine
-to define."
+**1:00 to 2:30 The question and the scenario.** Edit one field of **Your scenario** and point at the chip
+at the top: it now reads "Edited by you". Add one alternative by hand with **Add a way** (for example,
+keep the threshold and add a paid membership). Say: "The alternatives are what we compare against the
+baseline, so they are mine to define."
 
-**2:30 to 4:00 The public page.** In the evidence section, paste `https://books.toscrape.com/` and
-fetch it. Point at the title, the host, the size and the excerpt. Say: "The Swarm server fetched
-this, not my browser. It is a public practice site, and the page itself says its prices and ratings
-were assigned at random, so it tells us what a catalogue page looks like, not what any shop's
-customers do." Add it as evidence and point at its provenance: a retrieved page, with the time it
-was retrieved. Say: "If the page and the shop's analytics look inconsistent, that is expected. The
-analytics are invented too. What matters is that the two kinds of evidence keep different labels."
-If the fetch fails, read the message: it says why and offers to let you paste the text instead.
-Leave it out and continue; the example does not need it.
+**2:30 to 4:00 The public page.** Still on **Your scenario**, under **Evidence** choose **Add evidence**,
+then **Web page**, type `https://books.toscrape.com/` into **Web address** and choose **Fetch**. Point at
+the title, the site, the size, the time and the excerpt. Say: "The Swarm server fetched this, not my
+browser. It is a public practice site, and the page itself says its prices and ratings were assigned at
+random, so it tells us what a catalogue page looks like, not what any shop's customers do." Choose **Add
+as evidence** and point at the new document: a retrieved page, tagged with its site, and in Ground the
+time it was retrieved. Say: "If the page and the shop's analytics look inconsistent, that is expected.
+The analytics are invented too. What matters is that the two kinds of evidence keep different labels."
+If the fetch fails, read the notice: it says why and offers to let you paste the text instead. Leave it
+out and continue; the example does not need it. Then **Ground it**.
 
-**4:00 to 5:30 Stakeholders and actors.** **Build Graph**, then **Find stakeholders by reading the text**.
-Open three rows and read their cited quotes. Edit one stakeholder (**Edit**, or the **Priority** menu) and
-**Merge** or **Remove** one. Read the prompt about roles nobody was found for. Approve, choose **Review the
-N actors**, then change one trait on one actor and show its badge change to "you".
+**4:00 to 5:30 Map: stakeholders and actors.** **Map the stakeholders**, **Find who is affected**. Open
+three parties and read their cited quotes under **Evidence**. Edit one (**Edit** on the party, or
+**Modelled as** for its priority) and **Merge** or **Remove** one. Read the prompts about roles nobody
+was found for. **Approve & create actors**, open an actor, then change one trait with its slider and
+show the chip change to "you"; **Save** keeps it.
 
-**5:30 to 7:00 Compare scenarios.** Run the comparison. Show the response distribution per scenario,
-the trajectory band and two findings with their intervals. If one is unstable, say what that means.
-Open the second-order chain and read it aloud: a competitor's or a carrier's reaction follows from
-generic rules, not from a script written for this example.
+**5:30 to 7:00 Simulate and Compare.** **Run the simulation** and watch **Live**. Then **Compare**: show
+the gap chart and the two shares, **How it unfolds** (the spread of runs over the rounds), and two
+findings under **What holds** with their intervals. If one is unstable, say what that means. Read **Sets
+off** aloud: a competitor's or a carrier's reaction follows from generic rules, not from a script written
+for this example.
 
-**7:00 to 8:00 Sensitivity.** Point at the assumptions the result moves with and find one with no
-evidence behind it. Say: "This is what we would test first, and the validation plan says how."
+**7:00 to 8:00 What the result depends on.** Under **Depends on**, point at the assumptions the result
+moves with and find one with no evidence behind it. Say: "This is what we would test first, and the
+validation plan says how."
 
-**8:00 to 9:30 Review and brief.** Run the independent review. Read one evidence objection and one
-assumption objection, and respond to one. In the brief, open **Sources and provenance** from the contents
-and look for the retrieved page, if you added it, and how its origin differs from the supplied documents.
-Then look at the assumptions, uncertainty, recommendations and the validation plan (the recommendations and
-the plan are open, the assumptions and the uncertainty are closed until opened from the contents).
+**8:00 to 9:30 Decide: review and brief.** **Decide**, **Write the brief**, then **Review** and **Run the
+independent review**. Read one evidence objection and one assumption objection, and respond to one. In
+the brief, open **Sources and provenance** from the contents and look for the retrieved page, if you
+added it, and how its origin differs from the supplied documents. Then look at the assumptions,
+uncertainty, recommendations and the validation plan (the recommendations and the plan are open, the
+assumptions and the uncertainty are closed until opened from the contents).
 
-**9:30 to 10:00 Exports.** Export Markdown, JSON or the printable page.
+**9:30 to 10:00 Exports.** **Export** → **Markdown**, **JSON, with the data behind the charts** or
+**Printable page**.
 
 ## Points specific to this example
 

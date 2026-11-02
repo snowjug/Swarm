@@ -1,0 +1,32 @@
+@layer components {
+  .sw-tip {
+    --glass-radius: var(--r-sm);
+    z-index: var(--z-tip);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    max-width: 20rem;
+    padding: 0.4rem 0.65rem;
+    font-size: var(--fs-small);
+    line-height: 1.35;
+    color: var(--ink);
+    box-shadow: var(--shadow-3);
+    transform-origin: var(--radix-tooltip-content-transform-origin);
+    animation: sw-scale-in var(--dur-fast) var(--ease-out) both;
+  }
+  .sw-tip[data-state='closed'] {
+    animation: sw-scale-out var(--dur-instant) var(--ease-in) both;
+  }
+  .sw-kbd {
+    display: inline-block;
+    padding: 0.05rem 0.4rem;
+    border: 1px solid var(--hairline-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--r-xs);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    line-height: 1.4;
+    color: var(--ink-2);
+    background: var(--glass);
+  }
+}

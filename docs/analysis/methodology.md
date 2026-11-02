@@ -80,16 +80,18 @@ alternatives, then the more repeatable first.
 
 ### Which findings the page shows first
 
-The results page does not list forty findings at once. It reads them by how steady they are: the
-repeatable ones, and the rare ones that matter, first; then the mostly repeatable; then the unstable;
-and last the rare ones that do not matter. Within each group it keeps the order above, which puts
-the change before its alternatives. A rare finding matters when it is about what a change might set
-off (an adverse threshold being crossed, or a follow-on event) under a scenario that is not the
-baseline: how seldom the threshold was crossed, even never, is what the comparison was asked to find
-out. A rare ordering, and anything under the baseline (which is only the reference), do not. The first
-8 are shown, each as its statement, its class and how many runs it held in (with the interval), and
-the rest are under "Show all N findings", in the same form and the same order. Nothing is left out or
-changed: only the first screen is shorter.
+The comparison page does not list forty findings at once. Under **What holds** it reads them by how
+steady they are: the repeatable ones, and the rare ones that matter, first; then the mostly repeatable;
+then the unstable; and last the rare ones that do not matter. Within each group it keeps the order
+above, which puts the change before its alternatives. A rare finding matters when it is about what a
+change might set off (an adverse threshold being crossed, or a follow-on event) under a scenario that
+is not the baseline: how seldom the threshold was crossed, even never, is what the comparison was asked
+to find out. A rare ordering, and anything under the baseline (which is only the reference), do not. The
+first 8 are shown, each as its statement, its class and how many runs it held in (with the interval),
+and the rest are under **Show the other N**, in the same form and the same order. When more scenarios
+were compared than the two set against each other, the list is at first of the findings about those two
+(**This pair**), and **All N scenarios** lists every scenario's. Nothing is left out or changed: only
+the first screen is shorter.
 
 ## Repeatability: the Wilson interval and the classes
 
@@ -175,9 +177,11 @@ seed (common random numbers). What is moved:
   doubled and halved).
 
 The headline measure is **the overall simulated share of members ending in switch or resist**, each
-actor weighted equally (the screen, the critics and the brief name it "Simulated share of members
-ending in switch or resist (each actor counts equally)"). For each move: `shift` is the mean over the seeds of (perturbed − unperturbed),
-and `standardError` is the standard deviation of those paired differences divided by √n.
+actor weighted equally (each sensitivity row carries it as "Simulated share of members ending in switch
+or resist (each actor counts equally), N paired seeds", and the sensitivity section of the comparison
+page prints that; elsewhere the page says it as "simulated members who look for an alternative or
+resist"). For each move: `shift` is the mean over the seeds of (perturbed − unperturbed), and
+`standardError` is the standard deviation of those paired differences divided by √n.
 
 | Class                  | When                                                         |
 | ---------------------- | ------------------------------------------------------------ |
@@ -211,8 +215,9 @@ so its origin is `user`; its label says what the scenario set ("Leadership: how 
 or `scenario-edit`, and the value set before the move) so that a register of assumptions can show the
 number a person supplied and not the one the actor carries. A sensitive assumption that no evidence backs
 is highlighted, because it is where a result rests on a guess. The twelve most telling
-rows are kept: sensitive ones first, then by size of shift. The page shows the first 6, with the rest
-under "Show all N assumptions" on the same scale, and the table beside the chart has every row.
+rows are kept: sensitive ones first, then by size of shift. The comparison page shows the first 6 under
+**What the result depends on**, with the rest under **Show the other N** on the same scale, and the
+table beside the chart has every row.
 
 Cost is bounded: at most 38 moves, each on at most 30 seeds (the first seeds of the main runs), so at
 most 1,140 extra runs. Sensitivity can be turned off. **Not explored:** moving two assumptions
@@ -221,16 +226,36 @@ engine itself.
 
 ## What the results say first
 
-Above everything else the page gives three lines, made only of what the comparison already states:
+The first screen of the comparison is made only of what the runs already state, and it is read in two
+places that say the same things in their own words.
 
-1. which scenarios were compared, and how many seeded runs of each, on the same seeds;
-2. the finding that states the direction of the proposed change against the baseline, word for word;
-3. whether that finding is repeatable: its class, how many runs it held in and its interval.
+The **Compare** scene opens on:
 
-Nothing is added to the findings, and there is no number in these lines that a finding does not already
-give. Where no finding sets the proposed change against the baseline, the second line says so. Where
-the change cannot move anyone (below), there is no direction to state, and the lines say that instead
-and do not call anything repeatable.
+1. which scenarios were compared, and how many seeded runs of each (the line above the headline, such
+   as "3 scenarios · 30 seeded runs each");
+2. the direction, in one sentence: "Under B, simulated members end up less favourable than under A", or
+   "more favourable", or "about the same under B and under A". It is the sign of the mean paired
+   difference in overall stance over the seeds both scenarios ran, with the engine's own cut-off for a
+   direction (a difference under 0.01 on the scale from -1 to 1 is not called one), and it is shown
+   with the share of simulated members who look for an alternative or resist under each scenario and
+   the difference between the two in points;
+3. whether that is repeatable. Where the two are the baseline and a change, this is the engine's own
+   `direction-vs-baseline` finding: its class, and "It held in 28 of 30 seeded runs, on the same seeds"
+   ("The runs do not agree: it held in …" when it is unstable or rare). For any other pairing no finding
+   sets the two against each other, so the page gives no class: it says "Set against each other on 30
+   shared seeds" and, under "How sure", "Not rated" with how many of the paired runs the share was
+   higher in.
+
+The **Simulate** scene's story ("What the simulation says") opens on the same facts in prose: the share
+with the change and how many points more or fewer that is than with no change, the spread of the seeded
+runs, and which scenarios were compared and how many runs of each, on the same seeds.
+
+The shares and the differences are averages of the engine's own per-run results, worked out in the
+browser from the saved comparison. They add no test and no class: every class, count of runs and 95%
+interval is a finding's, and the statements of all of them are under **What holds**. Where the change
+cannot move anyone (below) there is no direction to state: the Compare headline reads "Nothing in this
+change can move anyone", no shares or difference are drawn, "How sure" says "Nothing to rate", the
+story says so in place of its figure, and nothing is called repeatable.
 
 ## A change that cannot move anyone, and one that has no direction
 
@@ -277,15 +302,16 @@ differ in impact, or a key-actor-only cast.
 The comparison uses the decision in four places:
 
 - **Before running.** The list route's `readiness.warnings` holds the notice for the suggested scenarios
-  and the cast (empty when someone has a direction, and before the actors exist). The page shows it above
-  the button that starts a comparison, with the way to the stakeholder review. The comparison is still
-  allowed: for the first notice it is a fair test of how much the simulation varies by chance, and for the
-  second it shows how the assumed spread plays out.
-- **After running.** The same decision on the comparison's own cast and scenarios. The notice is the
-  first thing in the results. Only for the first notice do the three lines above say that nothing can
-  move, and a sensitivity row that would have been called `robust` read "No effect to test" (neutral, not
-  green) with the explanation that this is not evidence that the result is robust. Rows that did move are
-  reported as they are, and under the second notice there is something to move, so they read as measured.
+  and the cast (empty when someone has a direction, and before the actors exist). The setup panel of the
+  Simulate scene shows it above the scenarios, with **Review stakeholders**, which opens the map. The
+  comparison is still allowed ("You can still run it"): for the first notice it is a fair test of how
+  much the simulation varies by chance, and for the second it shows how the assumed spread plays out.
+- **After running.** The same decision on the comparison's own cast and scenarios. The notice is on the
+  first screen of the Compare scene, under the headline, with **Review the stakeholders**. Only for the
+  first notice does the headline say that nothing can move, and a sensitivity row that would have been
+  called `robust` read "No effect to test" (neutral, not green) with the explanation that this is not
+  evidence that the result is robust. Rows that did move are reported as they are, and under the second
+  notice there is something to move, so they read as measured.
 - **The review.** The methodology critic raises the first case as the one criticism that is read before
   all others, and the second as a criticism of its own that is not pinned and does not say the change
   cannot move anyone (see [critics.md](./critics.md)).
@@ -313,7 +339,8 @@ often each kind of event occurred.
   also say which seeds were used and that repeatability describes the randomness of the runs.
 - **Cost.** Every simulated run (including sensitivity and the repeated representative run), the
   simulated members and the wall time. Model calls and tokens are 0.
-- **Time, said before running.** The screen says how long a comparison will take, from the engine's
+- **Time, said before running.** The setup panel says how long a comparison will take (in the estimate
+  line, and under **How long this takes, and what it costs**), from the engine's
   measured speed and not from any assumed one: 2 to 3 ms for a run of the typical cast of the
   [engine benchmark](./engine-benchmark.md) (600 simulated members over 24 rounds), multiplied by
   `members × rounds / 14,400` for a cast with more member updates than that, and never less, because
@@ -339,30 +366,40 @@ often each kind of event occurred.
   estimate is a guide to the order of magnitude. A
   cast smaller than the typical one is counted at the typical speed, which overstates it (the 8-actor
   cast above took about a third of that); one that is much larger is counted in proportion, which is
-  close at 12 rounds and overstates it at 36. When the actors are not known the screen gives no time.
+  close at 12 rounds and overstates it at 36. When the size of the cast is not known the setup panel
+  gives no time.
 
 - **Cross-check.** When the project also has a completed deep-dive run, the comparison says whether
   that run's final mean stance lies within the 10th to 90th percentile of the proposed change's final
   round. The two use different engines, so being inside is a plausibility check and not a validation,
   and being outside means the two read the same assumptions differently.
 
-## The page
+## Starting and watching a comparison
 
-The panel is in the Simulation stage, above the optional agent-by-agent run. Before anything has run it
-is the scenarios to compare (the baseline, the proposed change, a suggested alternative or two, and
-"Add an alternative"), the number of seeded runs, whether to test sensitivity, what that will cost, and
-the button that starts it. The button stays at the bottom of the screen while the form is longer than
-the screen, so that the one action of the stage is never below the fold. With no simulated actors yet it
-shrinks to a notice that points to Env Setup, so that it does not push the stage's own controls down.
-Starting a comparison takes the person to its progress and gives it focus; when it ends the outcome is
-announced to a screen reader and, if focus would otherwise be lost, takes it. Progress is announced in
-tenths and not on every run.
+The setup is the first screen of the Simulate scene once there are actors and no results yet ("Set the
+futures side by side"). With no actors yet it is an empty state, "No actors to simulate yet", with **Open
+the map**. Otherwise it is the scenarios to compare (the baseline, the proposed change, a suggested
+alternative or two, and **Add an alternative**), for each change how strongly it lands and the round it
+starts in, **Seeded runs of each** (10, 30 or 100), whether to **Test which assumptions it leans on**,
+what that will cost (the estimate line), and the button that starts it, **Run the simulation**. What
+stops a comparison from starting is said in words above the button, which is off meanwhile; a person
+whose role may read but not run sees that said instead of a working button. The button is the last thing
+of the form and is not fixed to the screen. The agent-by-agent run is a separate view of the same scene
+(**More**, then **Deep dive**).
+
+Starting a comparison takes the person to its progress ("Running the scenarios": "N of M simulated runs",
+a line for each scenario and for the sensitivity runs, and **Cancel**). Progress is announced to a screen
+reader in tenths and not on every run, and when it ends "The simulation finished. The results are shown."
+is announced. A comparison that was cancelled, interrupted or failed is shown with a notice and **Run it
+again with the same settings**, and the setup opens with the settings of the latest comparison. When its
+progress cannot be read ("The progress cannot be read just now") the comparison goes on, and the page
+tries again by itself.
 
 ## Limits, storage and failure
 
 | Limit                            | Value                                                                                                    |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Seeded runs for each scenario    | 3 to 200 (10, 30 or 100 in the screen)                                                                   |
+| Seeded runs for each scenario    | 3 to 200 (10, 30 or 100 in the setup)                                                                    |
 | Scenarios                        | 2 to 8: exactly one baseline and at least one alternative                                                |
 | Rounds                           | 3 to 36; 12 unless the request says otherwise                                                            |
 | Simulated runs in one comparison | 2,400 at most, sensitivity included; a larger request is refused with a message saying how to shrink it  |

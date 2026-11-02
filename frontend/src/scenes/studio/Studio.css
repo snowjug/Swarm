@@ -1,0 +1,188 @@
+@layer scenes {
+  .sw-studio {
+    position: relative;
+    width: 100%;
+    max-width: var(--w-wide);
+    margin: 0 auto;
+    padding: var(--s-3) var(--gutter) calc(var(--s-9) + 4rem);
+  }
+
+  /* The text of a section, as it is read, written and compared: one type, one measure. */
+  .sw-studio-prose {
+    max-width: 68ch;
+    color: var(--ink);
+    font-size: var(--fs-read);
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+  }
+  .sw-studio-prose p {
+    white-space: pre-line;
+    text-wrap: pretty;
+  }
+  .sw-studio-prose p + p {
+    margin-top: 1.1em;
+  }
+  .sw-studio-prose--list {
+    display: grid;
+    gap: 0.8em;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-studio-prose--list li {
+    position: relative;
+    padding-left: 1.5rem;
+    text-wrap: pretty;
+  }
+  .sw-studio-prose--list li::before {
+    content: '';
+    position: absolute;
+    left: 0.25rem;
+    top: 0.82em;
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 50%;
+    background: var(--ink-3);
+  }
+
+  /* What stands where the studio is still being read: the shape of the page it will be. */
+  .sw-studio-skel {
+    display: grid;
+    gap: var(--s-6);
+  }
+  .sw-studio-skel__head {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-studio-skel__bench {
+    display: grid;
+    gap: var(--s-7);
+  }
+  .sw-studio-skel__outline,
+  .sw-studio-skel__page,
+  .sw-studio-skel__tools {
+    display: grid;
+    align-content: start;
+    gap: var(--s-4);
+  }
+  .sw-studio-skel__outline,
+  .sw-studio-skel__tools {
+    display: none;
+  }
+  @media (min-width: 64rem) {
+    .sw-studio-skel__bench {
+      grid-template-columns: 14.5rem minmax(0, 1fr);
+    }
+    .sw-studio-skel__outline {
+      display: grid;
+    }
+  }
+  @media (min-width: 80rem) {
+    .sw-studio-skel__bench {
+      grid-template-columns: 14.5rem minmax(0, 1fr) 24rem;
+    }
+    .sw-studio-skel__tools {
+      display: grid;
+    }
+  }
+
+  /* A report nobody has opened yet: what to do on the left, the contents it would have on the right. */
+  .sw-open {
+    display: grid;
+    gap: var(--s-6) var(--s-9);
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 0 var(--s-6);
+  }
+  .sw-open__main {
+    display: grid;
+    align-content: start;
+    gap: var(--s-5);
+    max-width: 34rem;
+  }
+  .sw-open__back {
+    margin-left: -0.8rem;
+    justify-self: start;
+  }
+  .sw-open__title {
+    font-size: clamp(2.5rem, 1.7rem + 3.2vw, 4.25rem);
+  }
+  .sw-open__sections {
+    display: grid;
+    align-content: start;
+    max-width: 30rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hairline);
+  }
+  @media (min-width: 60rem) {
+    .sw-open {
+      grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
+      align-items: start;
+    }
+    .sw-open__sections {
+      margin-top: var(--s-9);
+      justify-self: end;
+      width: 100%;
+    }
+  }
+  .sw-open--empty {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    padding-top: var(--s-4);
+  }
+  .sw-open--empty .sw-open__main {
+    justify-self: start;
+    width: 100%;
+  }
+  .sw-open--empty .sw-empty {
+    padding-top: var(--s-8);
+  }
+  .sw-open__sections li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    align-items: baseline;
+    gap: var(--s-3);
+    padding: 0.85rem 0;
+    border-bottom: 1px solid var(--hairline);
+    animation: sw-rise var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms + 120ms);
+  }
+  .sw-open__index {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .sw-open__name {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: var(--fs-h4);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .sw-open__cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3) var(--s-4);
+  }
+  /* Stacked under the main action, the quiet one lines its words up with the page edge. */
+  @media (max-width: 30rem) {
+    .sw-open__cta .sw-btn--ghost {
+      margin-inline-start: calc(var(--btn-px) * -1);
+    }
+  }
+
+  /* A note a reviewer left when they sent the report back: it is what the author needs first. */
+  .sw-sentback {
+    display: grid;
+    gap: 0.4rem;
+  }
+  .sw-sentback__note {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

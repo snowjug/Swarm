@@ -4,7 +4,7 @@
 // the same as `resolveTheme` in src/lib/theme.ts, and a test runs both against the same cases.
 (function () {
   var THEMES = ['light', 'dark', 'high-contrast'];
-  var COLORS = { light: '#ffffff', dark: '#1c1f24', 'high-contrast': '#000000' };
+  var COLORS = { light: '#f8f7f4', dark: '#0a0b10', 'high-contrast': '#000000' };
   var theme = 'light';
   try {
     var stored = null;

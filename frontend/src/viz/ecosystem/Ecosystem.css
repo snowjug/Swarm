@@ -1,0 +1,423 @@
+@layer components {
+  .sw-eco {
+    --eco-halo-text: color-mix(in oklab, var(--bg) 82%, transparent);
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 280px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: pan-y pinch-zoom;
+  }
+
+  .sw-eco__svg {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    cursor: grab;
+  }
+  .sw-eco__svg:active {
+    cursor: grabbing;
+  }
+
+  /* The sheen on each orb: a highlight at the top left and a shade at the bottom right, tuned to the theme. */
+  .sw-eco__sheen-hi {
+    stop-opacity: var(--eco-sheen-hi, 0.5);
+  }
+  .sw-eco__sheen-lo {
+    stop-opacity: var(--eco-sheen-lo, 0.16);
+  }
+  .sw-eco {
+    --eco-sheen-hi: 0.55;
+    --eco-sheen-lo: 0.08;
+  }
+  [data-theme='dark'] .sw-eco {
+    --eco-sheen-hi: 0.3;
+    --eco-sheen-lo: 0.2;
+  }
+
+  /* ---- Cluster halos: soft light under a group, never an outline ---- */
+  .sw-eco__halo-in {
+    stop-opacity: 0.16;
+  }
+  .sw-eco__halo-out {
+    stop-opacity: 0;
+  }
+  [data-theme='dark'] .sw-eco__halo-in {
+    stop-opacity: 0.2;
+  }
+  .sw-eco__cluster {
+    transition: opacity var(--dur-slow) var(--ease-out);
+    animation: sw-fade var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-eco__cluster.is-off {
+    opacity: 0;
+  }
+  .sw-eco__cluster text {
+    font: 600 12px/1 var(--font-ui);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    fill: color-mix(in oklab, var(--cluster) 26%, var(--ink-2));
+    paint-order: stroke;
+    stroke: var(--eco-halo-text);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    pointer-events: none;
+  }
+
+  .sw-eco__pip {
+    fill: var(--cluster);
+  }
+
+  /* ---- Relations ---- */
+  .sw-eco__edge {
+    fill: none;
+    color: var(--ink-3);
+    opacity: 1;
+    transition: opacity var(--dur-base) var(--ease-out);
+    animation: sw-fade var(--dur-cinema) var(--ease-out) 380ms both;
+  }
+  .sw-eco__line {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: calc(var(--w) * 1px);
+    stroke-linecap: round;
+    stroke-opacity: var(--o);
+    transition:
+      stroke-opacity var(--dur-base) var(--ease-out),
+      stroke var(--dur-base) var(--ease-out);
+  }
+  .sw-eco__head {
+    fill: currentColor;
+    fill-opacity: calc(var(--o) + 0.15);
+    stroke: none;
+  }
+  .sw-eco__edge[data-type='competes-with'] .sw-eco__line,
+  .sw-eco__edge[data-type='substitutes-for'] .sw-eco__line {
+    stroke-dasharray: 2 5;
+    color: var(--c-against);
+  }
+  .sw-eco__edge[data-type='partners-with'] .sw-eco__line,
+  .sw-eco__edge[data-type='supplies'] .sw-eco__line {
+    color: var(--c-favor);
+  }
+  .sw-eco__edge[data-type='regulates'] .sw-eco__line {
+    color: var(--c-caution);
+  }
+  .sw-eco__edge.is-hot,
+  .sw-eco__edge.is-joined {
+    --o: 0.82;
+  }
+  .sw-eco__edge.is-hot .sw-eco__line,
+  .sw-eco__edge.is-joined .sw-eco__line {
+    stroke-width: calc((var(--w) + 0.8) * 1px);
+  }
+  .sw-eco__edge.is-dim,
+  .sw-eco__edge.is-off {
+    opacity: 0.06;
+  }
+  .sw-eco__edge.is-off {
+    opacity: 0;
+  }
+
+  /* ---- Signals that travelled along a relation ---- */
+  .sw-eco__flow path {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    opacity: 0.8;
+    animation:
+      sw-draw 0.9s var(--ease-out) forwards,
+      sw-fade-out 0.6s var(--ease-in) 0.9s forwards;
+  }
+  .sw-eco__flow circle {
+    fill: var(--accent);
+    filter: drop-shadow(0 0 4px var(--accent));
+  }
+  @keyframes sw-fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  /* ---- Nodes ---- */
+  .sw-eco__node {
+    transition: opacity var(--dur-base) var(--ease-out);
+    pointer-events: none;
+  }
+  /* The one thing that takes the pointer and the focus: a transparent disc over the orb. */
+  .sw-eco__hit {
+    fill: transparent;
+    stroke: none;
+    cursor: pointer;
+    outline: none;
+    pointer-events: all;
+  }
+  .sw-eco__body {
+    transform-origin: 0 0;
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+    animation: sw-node-in var(--dur-slow) var(--ease-spring-smooth) var(--delay, 0ms) both;
+  }
+  @keyframes sw-node-in {
+    from {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+  }
+  .sw-eco__node:hover .sw-eco__body,
+  .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__body {
+    transform: scale(1.1);
+  }
+  .sw-eco__node:active .sw-eco__body {
+    transform: scale(0.96);
+    transition-duration: var(--dur-instant);
+  }
+
+  .sw-eco__core {
+    fill: var(--fill);
+    fill-opacity: var(--o, 1);
+    stroke: color-mix(in oklab, var(--fill) 55%, white);
+    stroke-opacity: 0.55;
+    stroke-width: 1;
+    transition: fill var(--dur-slow) var(--ease-out);
+  }
+  .sw-eco__sheen {
+    pointer-events: none;
+  }
+  .sw-eco__body {
+    pointer-events: none;
+  }
+  .sw-eco__aura {
+    fill: var(--fill);
+    fill-opacity: 0.1;
+    transition: fill var(--dur-slow) var(--ease-out);
+    pointer-events: none;
+  }
+  .sw-eco__aura--2 {
+    fill-opacity: 0.05;
+  }
+  [data-theme='dark'] .sw-eco__aura {
+    fill-opacity: 0.14;
+  }
+  [data-theme='dark'] .sw-eco__aura--2 {
+    fill-opacity: 0.07;
+  }
+
+  /* The ring says how the change reaches the party: whole when directly, dashed when only indirectly. */
+  .sw-eco__ring {
+    fill: none;
+    stroke: var(--fill);
+    stroke-width: 1.4;
+    stroke-opacity: 0;
+    transition:
+      stroke-opacity var(--dur-base) var(--ease-out),
+      stroke var(--dur-slow) var(--ease-out);
+  }
+  .sw-eco__node[data-direct='true'] .sw-eco__ring {
+    stroke-opacity: 0.5;
+  }
+  .sw-eco__node[data-direct='false'] .sw-eco__ring {
+    stroke-opacity: 0.85;
+    stroke-dasharray: 2.5 4;
+  }
+  .sw-eco__node:hover .sw-eco__ring,
+  .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__ring {
+    stroke-opacity: 1;
+  }
+  .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__ring {
+    stroke: var(--accent);
+    stroke-width: 2.4;
+    stroke-dasharray: none;
+  }
+  .sw-eco__node.is-selected .sw-eco__ring {
+    stroke: var(--ink);
+    stroke-width: 2;
+    stroke-opacity: 1;
+    stroke-dasharray: none;
+  }
+  .sw-eco__node.is-selected .sw-eco__core {
+    stroke: var(--ink);
+    stroke-opacity: 0.9;
+    stroke-width: 1.6;
+  }
+
+  .sw-eco__members circle {
+    fill: var(--fill);
+    fill-opacity: 0.8;
+    transition: fill var(--dur-slow) var(--ease-out);
+  }
+  .sw-eco__flag {
+    fill: var(--accent);
+    stroke: var(--bg);
+    stroke-width: 1.5;
+    animation: sw-flag 2.4s var(--ease-in-out) infinite;
+  }
+  @keyframes sw-flag {
+    50% {
+      transform: scale(0.8);
+      opacity: 0.7;
+    }
+  }
+  .sw-eco__node.is-proposed .sw-eco__core {
+    stroke-dasharray: 3 3;
+  }
+
+  /* A node that acted in the round shown. */
+  .sw-eco__node.is-emphasis .sw-eco__ring {
+    stroke: var(--accent);
+    stroke-opacity: 1;
+    stroke-width: 2;
+    stroke-dasharray: none;
+  }
+  .sw-eco__pulse {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+    transform-origin: 0 0;
+    animation: sw-eco-pulse 1s var(--ease-out) both;
+    pointer-events: none;
+  }
+  @keyframes sw-eco-pulse {
+    from {
+      opacity: 0.9;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(2.6);
+    }
+  }
+
+  .sw-eco__node.is-dim {
+    opacity: 0.1;
+  }
+  .sw-eco__node.is-dim .sw-eco__label {
+    opacity: 0;
+  }
+  .sw-eco__node.is-dim:hover,
+  .sw-eco__node.is-dim:has(.sw-eco__hit:focus-visible) {
+    opacity: 0.8;
+  }
+  .sw-eco__node.is-dim:hover .sw-eco__label,
+  .sw-eco__node.is-dim:has(.sw-eco__hit:focus-visible) .sw-eco__label {
+    opacity: 1;
+  }
+  .sw-eco[data-focus='on'] .sw-eco__cluster {
+    opacity: 0;
+  }
+  .sw-eco__node.is-dim .sw-eco__aura {
+    opacity: 0;
+  }
+  .sw-eco__node.is-off {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* An empty place: nobody has been found here, and a person can add someone. */
+  .sw-eco__ghost .sw-eco__core {
+    fill: transparent;
+    stroke: var(--ink-3);
+    stroke-opacity: 0.8;
+    stroke-dasharray: 3 4;
+    stroke-width: 1.4;
+  }
+  .sw-eco__ghost .sw-eco__plus {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-width: 1.6;
+    stroke-linecap: round;
+  }
+  .sw-eco__ghost:hover .sw-eco__core,
+  .sw-eco__ghost:has(.sw-eco__hit:focus-visible) .sw-eco__core {
+    stroke: var(--accent);
+    stroke-opacity: 1;
+  }
+  .sw-eco__ghost:hover .sw-eco__plus,
+  .sw-eco__ghost:has(.sw-eco__hit:focus-visible) .sw-eco__plus {
+    stroke: var(--accent);
+  }
+
+  .sw-eco__label {
+    font: 500 12px/1 var(--font-ui);
+    fill: var(--ink-2);
+    paint-order: stroke;
+    stroke: var(--eco-halo-text);
+    stroke-width: 3.5px;
+    stroke-linejoin: round;
+    opacity: 0;
+    transition: opacity var(--dur-base) var(--ease-out);
+    pointer-events: none;
+  }
+  .sw-eco__label[data-visible] {
+    opacity: 1;
+  }
+  .sw-eco__node.is-selected .sw-eco__label {
+    fill: var(--ink);
+    font-weight: 600;
+  }
+  .sw-eco__node:hover .sw-eco__label,
+  .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__label {
+    opacity: 1;
+    fill: var(--ink);
+  }
+
+  /* ---- Tooltip and controls float over the picture ---- */
+  .sw-eco__tip {
+    position: absolute;
+    z-index: 3;
+    display: grid;
+    gap: 2px;
+    max-width: 240px;
+    padding: var(--s-2) var(--s-3);
+    border-radius: var(--r-md);
+    font-size: var(--fs-small);
+    line-height: 1.3;
+    transform: translate(-50%, calc(-100% - 10px));
+    pointer-events: none;
+    animation: sw-scale-in var(--dur-fast) var(--ease-out) both;
+  }
+  .sw-eco__tip strong {
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .sw-eco__tip span {
+    color: var(--ink-2);
+  }
+  .sw-eco__controls {
+    position: absolute;
+    right: calc(var(--covered, 0px) + var(--s-3));
+    bottom: var(--s-3);
+    transition: right var(--dur-slow) var(--ease-spring-smooth);
+    z-index: 3;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: var(--r-pill);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sw-eco__body,
+    .sw-eco__edge,
+    .sw-eco__cluster,
+    .sw-eco__flag {
+      animation: none;
+    }
+    .sw-eco__flow path {
+      animation: none;
+      stroke-dashoffset: 0;
+    }
+  }
+  html[data-motion='reduced'] .sw-eco__body,
+  html[data-motion='reduced'] .sw-eco__edge,
+  html[data-motion='reduced'] .sw-eco__cluster,
+  html[data-motion='reduced'] .sw-eco__flag {
+    animation: none;
+  }
+}

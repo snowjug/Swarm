@@ -1,0 +1,152 @@
+@layer scenes {
+  /* The theatre is a whole screen: the picture fills it and everything else floats over the picture. */
+  .sw-sim {
+    --covered: 0px;
+    position: relative;
+    min-height: calc(100dvh - var(--topbar-h) - 0.75rem);
+  }
+  .sw-sim[data-stage] {
+    height: calc(100dvh - var(--topbar-h) - 0.75rem);
+    min-height: 36rem;
+    overflow: hidden;
+  }
+  .sw-sim__canvas {
+    position: absolute;
+    inset: 0;
+  }
+  .sw-sim__top {
+    position: sticky;
+    top: calc(var(--topbar-h) + 0.75rem);
+    z-index: 7;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-5);
+    padding: var(--s-4) var(--gutter) 0;
+    pointer-events: none;
+  }
+  .sw-sim__top > * {
+    pointer-events: auto;
+  }
+  .sw-sim[data-stage] .sw-sim__top {
+    position: relative;
+    top: 0;
+  }
+  .sw-sim__head {
+    display: grid;
+    gap: var(--s-2);
+    max-width: min(34rem, 100%);
+    min-width: 0;
+  }
+  .sw-sim__head p,
+  .sw-sim__head h1 {
+    margin: 0;
+  }
+  .sw-sim__title {
+    font-size: clamp(2.1rem, 1.5rem + 1.8vw, 3.1rem);
+  }
+  .sw-sim__title:focus-visible {
+    outline: none;
+  }
+  .sw-sim__sub {
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+  }
+  .sw-sim__fine {
+    max-width: 30rem;
+  }
+  .sw-sim__bar {
+    --glass-radius: var(--r-pill);
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    padding: 0.3rem 0.4rem;
+    margin-left: auto;
+    flex: none;
+  }
+
+  .sw-net__controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3) var(--s-4);
+    margin-top: var(--s-2);
+  }
+  .sw-net__kinds {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-net__links {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-net__links li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-net__phrase {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-net__move {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+
+  .sw-sim-state {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: var(--s-4);
+    min-height: 60dvh;
+    padding: var(--s-6) var(--gutter);
+    color: var(--ink-3);
+  }
+  .sw-sim-state__skeleton {
+    width: min(100%, 32rem);
+    height: 14rem;
+    border-radius: var(--r-xl);
+  }
+  .sw-sim-state__notice {
+    display: grid;
+    width: min(100% - var(--gutter) * 2, 46rem);
+    margin: var(--s-6) auto 0;
+  }
+
+  .sw-sim[data-stage] {
+    --covered: 0px;
+  }
+  @media (min-width: 64rem) {
+    .sw-sim[data-stage] {
+      --covered: 400px;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-sim[data-stage] {
+      height: calc(100dvh - var(--topbar-h) - 0.75rem - var(--dock-h) - 1.5rem);
+      min-height: 30rem;
+    }
+    .sw-sim__top {
+      flex-direction: column;
+      gap: var(--s-3);
+    }
+    .sw-sim__bar {
+      margin-left: 0;
+      max-width: 100%;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .sw-sim__bar > * {
+      flex: none;
+    }
+  }
+}

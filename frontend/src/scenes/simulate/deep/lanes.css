@@ -1,0 +1,206 @@
+@layer scenes {
+  .sw-deep-lanes {
+    position: relative;
+    width: 100%;
+  }
+  .sw-deep-lanes svg {
+    display: block;
+    overflow: visible;
+    cursor: crosshair;
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .sw-deep-lanes__title {
+    fill: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+  }
+  .sw-deep-lanes__read {
+    fill: var(--ink);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+    font-weight: 560;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  .sw-deep-lanes__scale {
+    fill: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-deep-lanes__tick[data-now] {
+    fill: var(--ink);
+    font-weight: 650;
+  }
+  .sw-deep-lanes__rule {
+    stroke: var(--hairline);
+    stroke-width: 1;
+  }
+  .sw-deep-lanes__zero {
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+  }
+  .sw-deep-lanes__grid {
+    stroke: var(--hairline);
+    stroke-dasharray: 1 5;
+    stroke-linecap: round;
+  }
+  .sw-deep-lanes__ahead {
+    fill: color-mix(in oklab, var(--ink) 4%, transparent);
+  }
+  .sw-deep-lanes__copied {
+    stroke: var(--ink-3);
+    stroke-linecap: round;
+    stroke-width: 3;
+    opacity: 0.6;
+  }
+
+  .sw-deep-lanes__proxy {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.4;
+    opacity: 0.55;
+    stroke-dasharray: 1;
+    animation: sw-draw var(--dur-cinema) var(--ease-out) both;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      stroke-width var(--dur-base) var(--ease-out);
+  }
+  .sw-deep-lanes__proxy[data-follow='on'] {
+    opacity: 1;
+    stroke-width: 2.6;
+  }
+  .sw-deep-lanes__proxy[data-follow='off'] {
+    opacity: 0.14;
+  }
+  [data-theme='high-contrast'] .sw-deep-lanes__proxy {
+    opacity: 0.85;
+  }
+  [data-theme='high-contrast'] .sw-deep-lanes__proxy[data-follow='on'] {
+    opacity: 1;
+  }
+  [data-theme='high-contrast'] .sw-deep-lanes__proxy[data-follow='off'] {
+    opacity: 0.4;
+  }
+  .sw-deep-lanes__mean {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 3;
+    stroke-dasharray: 1;
+    animation: sw-draw var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-deep-lanes__dot {
+    fill: var(--bg);
+    stroke: var(--ink-2);
+    stroke-width: 1.4;
+  }
+  .sw-deep-lanes__dot--pol {
+    stroke: var(--accent);
+  }
+
+  .sw-deep-lanes__bar {
+    opacity: 0.74;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-deep-lanes__bar[data-now] {
+    opacity: 1;
+  }
+  .sw-deep-lanes__seg--against {
+    fill: var(--c-against);
+  }
+  .sw-deep-lanes__seg--undecided {
+    fill: color-mix(in oklab, var(--c-neutral) 40%, transparent);
+  }
+  .sw-deep-lanes__seg--favour {
+    fill: var(--c-favor);
+  }
+  .sw-deep-lanes__pol {
+    fill: none;
+    stroke: var(--accent);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.2;
+    stroke-dasharray: 1;
+    animation: sw-draw var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-deep-lanes__act {
+    fill: var(--ink-3);
+    opacity: 0.5;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      fill var(--dur-base) var(--ease-out);
+  }
+  .sw-deep-lanes__act[data-now] {
+    fill: var(--accent);
+    opacity: 1;
+  }
+
+  .sw-deep-lanes__event line {
+    stroke: var(--c-caution);
+    stroke-dasharray: 3 4;
+    stroke-width: 1.2;
+  }
+  .sw-deep-lanes__event path {
+    fill: var(--c-caution);
+    stroke: var(--c-caution);
+    stroke-linejoin: round;
+    stroke-width: 1.4;
+  }
+  .sw-deep-lanes__event text {
+    fill: var(--ink);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+  }
+  .sw-deep-lanes__event[data-applied='false'] line,
+  .sw-deep-lanes__event[data-applied='false'] path {
+    stroke: var(--ink-3);
+  }
+  .sw-deep-lanes__event[data-applied='false'] path {
+    fill: none;
+  }
+
+  .sw-deep-lanes__ghost line {
+    stroke: var(--ink-3);
+    stroke-dasharray: 2 4;
+    opacity: 0.6;
+  }
+  .sw-deep-lanes__scrub {
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-deep-lanes__scrub line {
+    stroke: var(--ink);
+    stroke-width: 1.2;
+    opacity: 0.75;
+  }
+  .sw-deep-lanes__glide {
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-deep-lanes[data-dragging] .sw-deep-lanes__scrub,
+  .sw-deep-lanes[data-dragging] .sw-deep-lanes__glide {
+    transition-duration: var(--dur-instant);
+  }
+  .sw-deep-lanes__now {
+    stroke: var(--bg);
+    stroke-width: 1.5;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-deep-lanes__now[data-follow='off'] {
+    opacity: 0.2;
+  }
+  .sw-deep-lanes__now-mean {
+    fill: var(--bg);
+    stroke: var(--ink);
+    stroke-width: 2.5;
+  }
+  .sw-deep-lanes__now-pol {
+    fill: var(--bg);
+    stroke: var(--accent);
+    stroke-width: 2.4;
+  }
+}

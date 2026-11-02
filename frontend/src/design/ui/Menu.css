@@ -1,0 +1,72 @@
+@layer components {
+  .sw-menu {
+    --glass-radius: var(--r-md);
+    z-index: var(--z-popover);
+    min-width: 13rem;
+    max-width: min(22rem, calc(100vw - 1.5rem));
+    /* A menu taller than the screen scrolls inside itself, so that its last items can be reached. */
+    max-height: var(--radix-dropdown-menu-content-available-height);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0.35rem;
+    transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+    animation: sw-scale-in var(--dur-base) var(--ease-spring-snappy) both;
+  }
+  .sw-menu[data-state='closed'] {
+    animation: sw-scale-out var(--dur-fast) var(--ease-in) both;
+  }
+  .sw-menu__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 2.25rem;
+    padding: 0 0.6rem;
+    border-radius: var(--r-sm);
+    color: var(--ink);
+    font-size: var(--fs-body);
+    cursor: pointer;
+    user-select: none;
+    outline: none;
+    transition: background-color var(--dur-instant) linear;
+  }
+  @media (pointer: coarse) {
+    .sw-menu__item {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-menu__item[data-highlighted] {
+    background: var(--accent-soft);
+  }
+  .sw-menu__item[data-disabled] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .sw-menu__item.is-danger {
+    color: var(--c-critical);
+  }
+  .sw-menu__icon {
+    display: inline-grid;
+    place-items: center;
+    width: 1.1rem;
+    color: var(--ink-3);
+  }
+  .sw-menu__item[data-highlighted] .sw-menu__icon {
+    color: var(--accent);
+  }
+  .sw-menu__text {
+    flex: 1;
+  }
+  .sw-menu__check {
+    color: var(--accent);
+    display: inline-grid;
+  }
+  .sw-menu__label {
+    padding: 0.5rem 0.6rem 0.25rem;
+  }
+  .sw-menu__sep {
+    height: 1px;
+    margin: 0.35rem 0.25rem;
+    background: var(--hairline);
+  }
+}

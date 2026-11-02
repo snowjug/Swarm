@@ -1,0 +1,58 @@
+@layer scenes {
+  .sw-diff {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-diff__count {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-3);
+    font-size: var(--fs-small);
+    color: var(--ink-3);
+  }
+  .sw-diff__stat {
+    font-weight: 620;
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-diff__stat--add {
+    color: var(--c-favor);
+  }
+  .sw-diff__stat--del {
+    color: var(--c-against);
+  }
+  .sw-diff__text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .sw-diff__ins {
+    padding: 0.05em 0.12em;
+    border-radius: var(--r-xs);
+    background: color-mix(in oklab, var(--c-favor) 16%, transparent);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--c-favor) 70%, transparent);
+    text-decoration-thickness: 0.09em;
+    text-underline-offset: 0.2em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .sw-diff__del {
+    padding: 0.05em 0.12em;
+    border-radius: var(--r-xs);
+    background: color-mix(in oklab, var(--c-against) 14%, transparent);
+    color: var(--ink-2);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in oklab, var(--c-against) 80%, transparent);
+    text-decoration-thickness: 0.09em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  [data-theme='high-contrast'] .sw-diff__ins {
+    background: transparent;
+    outline: 1px solid var(--c-favor);
+  }
+  [data-theme='high-contrast'] .sw-diff__del {
+    background: transparent;
+    outline: 1px dashed var(--c-against);
+  }
+}

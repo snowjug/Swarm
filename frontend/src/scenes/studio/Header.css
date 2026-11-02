@@ -1,0 +1,69 @@
+@layer scenes {
+  .sw-studio__head {
+    display: grid;
+    gap: var(--s-1);
+    padding-bottom: var(--s-3);
+  }
+  .sw-studio__crumbs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 var(--s-3);
+  }
+  .sw-studio__back {
+    margin-left: -0.8rem;
+  }
+  .sw-studio__crumbs .sw-eyebrow {
+    padding-left: var(--s-3);
+    border-left: 1px solid var(--hairline-strong);
+    line-height: 1.5rem;
+  }
+  /* Beneath Decide's own "Decision brief" bar the way back is already on screen once, so this one steps aside. */
+  .sw-decide-sub__nav ~ .sw-studio .sw-studio__back,
+  .sw-decide-sub__nav ~ .sw-studio .sw-open__back {
+    display: none;
+  }
+  .sw-decide-sub__nav ~ .sw-studio .sw-studio__crumbs .sw-eyebrow {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .sw-studio__titles {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-5);
+  }
+  .sw-studio__lede {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-studio__title {
+    min-width: 0;
+    max-width: 40ch;
+    font-size: clamp(1.75rem, 1.4rem + 1.1vw, 2.375rem);
+    overflow-wrap: anywhere;
+  }
+  .sw-studio__tools {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-studio__more {
+    display: none;
+    flex: none;
+  }
+  @media (max-width: 52rem) {
+    .sw-studio__tools {
+      display: none;
+    }
+    .sw-studio__more {
+      display: block;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-studio__lede {
+      display: none;
+    }
+  }
+}

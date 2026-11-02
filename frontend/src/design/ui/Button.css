@@ -1,0 +1,204 @@
+@layer components {
+  .sw-btn {
+    --btn-h: 2.5rem;
+    --btn-px: 1.1rem;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--btn-h);
+    padding: 0 var(--btn-px);
+    border: 1px solid transparent;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-body);
+    font-weight: 560;
+    letter-spacing: -0.005em;
+    line-height: 1;
+    white-space: nowrap;
+    text-decoration: none;
+    isolation: isolate;
+    overflow: hidden;
+    transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      box-shadow var(--dur-base) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      opacity var(--dur-fast) var(--ease-out);
+  }
+  .sw-btn svg {
+    flex: none;
+  }
+  .sw-btn--sm {
+    --btn-h: 2rem;
+    --btn-px: 0.8rem;
+    font-size: var(--fs-small);
+    gap: 0.4rem;
+  }
+  .sw-btn--lg {
+    --btn-h: 3.25rem;
+    --btn-px: 1.6rem;
+    font-size: 1.0625rem;
+    gap: 0.6rem;
+  }
+  .sw-btn--block {
+    display: flex;
+    width: 100%;
+  }
+  @media (pointer: coarse) {
+    .sw-btn {
+      min-height: max(var(--btn-h), 2.75rem);
+    }
+  }
+
+  /* The light that follows the pointer, only on devices that have one. */
+  .sw-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    opacity: 0;
+    background: radial-gradient(
+      120px circle at var(--mx, 50%) var(--my, 50%),
+      color-mix(in oklab, white 22%, transparent),
+      transparent 70%
+    );
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-btn:hover:not(:disabled)::after {
+      opacity: 1;
+    }
+    .sw-btn:hover:not(:disabled) {
+      transform: translate3d(var(--tx, 0px), calc(var(--ty, 0px) - 1px), 0);
+    }
+  }
+  .sw-btn:active:not(:disabled) {
+    transform: translate3d(var(--tx, 0px), var(--ty, 0px), 0) scale(0.975);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-btn:disabled {
+    opacity: 0.45;
+  }
+  .sw-btn[aria-busy='true']:disabled {
+    opacity: 1;
+  }
+
+  .sw-btn--primary {
+    background: var(--ink);
+    color: var(--ink-inverse);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 22%, transparent),
+      var(--shadow-2);
+  }
+  @media (hover: hover) {
+    .sw-btn--primary:hover:not(:disabled) {
+      box-shadow:
+        inset 0 1px 0 color-mix(in oklab, white 28%, transparent),
+        var(--shadow-3);
+    }
+  }
+
+  .sw-btn--accent {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent) 88%, white),
+      var(--accent)
+    );
+    color: var(--accent-ink);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, white 35%, transparent),
+      0 8px 28px -8px color-mix(in oklab, var(--accent) 70%, transparent),
+      var(--shadow-2);
+  }
+  [data-theme='dark'] .sw-btn--accent {
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--accent) 86%, white),
+      var(--accent)
+    );
+  }
+  @media (hover: hover) {
+    .sw-btn--accent:hover:not(:disabled) {
+      box-shadow:
+        inset 0 1px 0 color-mix(in oklab, white 40%, transparent),
+        0 12px 36px -8px color-mix(in oklab, var(--accent) 80%, transparent),
+        var(--shadow-3);
+    }
+  }
+
+  .sw-btn--glass {
+    background: var(--glass-raised);
+    color: var(--ink);
+    border-color: var(--glass-edge);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge-hi),
+      var(--shadow-1);
+    -webkit-backdrop-filter: blur(var(--blur-sm));
+    backdrop-filter: blur(var(--blur-sm));
+  }
+  .sw-btn--glass::after {
+    background: radial-gradient(
+      120px circle at var(--mx, 50%) var(--my, 50%),
+      var(--accent-soft),
+      transparent 70%
+    );
+  }
+  @media (hover: hover) {
+    .sw-btn--glass:hover:not(:disabled) {
+      border-color: var(--hairline-strong);
+      box-shadow:
+        inset 0 1px 0 var(--glass-edge-hi),
+        var(--shadow-2);
+    }
+  }
+
+  .sw-btn--ghost {
+    background: transparent;
+    color: var(--ink-2);
+  }
+  .sw-btn--ghost::after {
+    background: var(--accent-soft);
+  }
+  @media (hover: hover) {
+    .sw-btn--ghost:hover:not(:disabled) {
+      color: var(--ink);
+    }
+  }
+
+  .sw-btn--danger {
+    background: var(--c-critical-soft);
+    color: var(--c-critical);
+    border-color: color-mix(in oklab, var(--c-critical) 30%, transparent);
+  }
+  .sw-btn--danger::after {
+    background: radial-gradient(
+      120px circle at var(--mx, 50%) var(--my, 50%),
+      var(--c-critical-soft),
+      transparent 70%
+    );
+  }
+
+  .sw-btn--primary .sw-orbit__track,
+  .sw-btn--accent .sw-orbit__track {
+    stroke: color-mix(in oklab, currentColor 30%, transparent);
+  }
+  .sw-btn--primary .sw-orbit__dot,
+  .sw-btn--accent .sw-orbit__dot {
+    fill: currentColor;
+  }
+
+  [data-theme='high-contrast'] .sw-btn {
+    border-color: var(--ink);
+  }
+  [data-theme='high-contrast'] .sw-btn--primary {
+    background: var(--ink);
+    color: var(--ink-inverse);
+  }
+  [data-theme='high-contrast'] .sw-btn--glass {
+    background: var(--bg);
+  }
+}

@@ -1,0 +1,212 @@
+@layer scenes {
+  .sw-cmp-chain {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-5);
+  }
+  .sw-cmp-chain .sw-cmp-note b {
+    color: var(--ink);
+    font-weight: 620;
+  }
+
+  /* The run's stance, with a pin where each event happened. */
+  .sw-cmp-tl {
+    min-width: 0;
+  }
+  .sw-cmp-tl > div {
+    contain: inline-size;
+  }
+  .sw-cmp-tl svg {
+    display: block;
+    max-width: none;
+    overflow: visible;
+  }
+  .sw-cmp-tl__grid line {
+    stroke: var(--hairline);
+    stroke-width: 1;
+  }
+  .sw-cmp-tl__grid line[data-zero] {
+    stroke: var(--hairline-strong);
+  }
+  .sw-cmp-tl__grid text {
+    fill: var(--ink-3);
+    font: 500 var(--fs-micro) / 1 var(--font-ui);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-cmp-tl__lands line {
+    stroke: var(--ink-3);
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
+    opacity: 0.75;
+  }
+  .sw-cmp-tl__lands text {
+    fill: var(--ink-2);
+    font: 560 var(--fs-micro) / 1 var(--font-ui);
+  }
+  .sw-cmp-tl__line {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset var(--dur-cinema) var(--ease-out);
+  }
+  .sw-cmp-tl[data-in] .sw-cmp-tl__line {
+    stroke-dashoffset: 0;
+  }
+  .sw-cmp-tl__pins line {
+    stroke: var(--accent);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    opacity: 0.7;
+  }
+  .sw-cmp-tl__pins circle {
+    fill: var(--accent);
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-tl__pins text {
+    fill: var(--accent-ink);
+    font: 650 var(--fs-micro) / 1 var(--font-ui);
+    pointer-events: none;
+  }
+  .sw-cmp-tl__pins g[data-focus] circle {
+    transform: scale(1.25);
+  }
+
+  /* The chain: each event, with its round and what it came of. */
+  .sw-cmp-chain__steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-cmp-step {
+    display: grid;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+    gap: var(--s-5);
+    padding: var(--s-5) 0;
+    border-top: 1px solid var(--hairline);
+    transition: background-color var(--dur-base) var(--ease-out);
+  }
+  .sw-cmp-step[data-focus] {
+    background: linear-gradient(90deg, var(--accent-soft), transparent 70%);
+  }
+  .sw-cmp-step__when {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-3);
+  }
+  .sw-cmp-step__no {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-top: 0.2rem;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+  }
+  .sw-cmp-step__round {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .sw-cmp-step__round .sw-numeral {
+    font-size: 2.4rem;
+    line-height: 0.95;
+    color: var(--ink);
+  }
+  .sw-cmp-step__body {
+    display: grid;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .sw-cmp-step__title {
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+  .sw-cmp-step__title::first-letter {
+    text-transform: uppercase;
+  }
+  .sw-cmp-step__title span {
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: var(--fs-body);
+    font-weight: 500;
+    letter-spacing: 0;
+  }
+  .sw-cmp-step__because {
+    max-width: 62ch;
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.6;
+  }
+  .sw-cmp-step__because b {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  .sw-cmp-step__engine {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    overflow-wrap: anywhere;
+  }
+  .sw-cmp-step__note {
+    max-width: 62ch;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+
+  .sw-cmp-chain__across {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-cmp-chain__across ul {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-cmp-chain__across li {
+    display: grid;
+    grid-template-columns: minmax(0, 62ch) auto;
+    justify-content: start;
+    align-items: start;
+    gap: var(--s-2) var(--s-5);
+  }
+  .sw-cmp-chain__across p {
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+  }
+  @media (max-width: 40rem) {
+    .sw-cmp-chain__across li {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .sw-cmp-step {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-2);
+    }
+    .sw-cmp-step__round {
+      grid-auto-flow: column;
+      align-items: baseline;
+      gap: var(--s-2);
+    }
+    .sw-cmp-step__round .sw-numeral {
+      font-size: 2rem;
+    }
+  }
+}

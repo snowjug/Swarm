@@ -1,0 +1,165 @@
+@layer scenes {
+  /* Notes in the margin beside the statements they are about. Where there is no margin they become a small count. */
+  .sw-decide-notes {
+    display: none;
+  }
+  .sw-decide-notes-inline {
+    --sev: var(--c-caution);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    justify-self: start;
+    min-height: 1.75rem;
+    margin-top: var(--s-1);
+    padding: 0 0.6rem 0 0.5rem;
+    border: 1px solid color-mix(in oklab, var(--sev) 30%, transparent);
+    border-radius: var(--r-pill);
+    background: color-mix(in oklab, var(--sev) 10%, transparent);
+    color: color-mix(in oklab, var(--sev) 75%, var(--ink));
+    font-size: var(--fs-micro);
+    font-weight: 560;
+  }
+  .sw-decide-notes-inline[data-severity='blocking'] {
+    --sev: var(--c-critical);
+  }
+  .sw-decide-notes-inline[data-severity='major'] {
+    --sev: var(--c-against);
+  }
+  .sw-decide-notes-inline[data-severity='note'] {
+    --sev: var(--c-neutral);
+  }
+  .sw-decide-notes-inline__chev {
+    transform: rotate(-90deg);
+  }
+  @media (pointer: coarse) {
+    .sw-decide-notes-inline {
+      min-height: 2.75rem;
+      padding-inline: 0.9rem;
+    }
+  }
+
+  .sw-decide-note {
+    --sev: var(--c-caution);
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.1rem 0 0.1rem var(--s-3);
+    border: 0;
+    border-left: 2px solid color-mix(in oklab, var(--sev) 45%, transparent);
+    background: none;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.4;
+    text-align: left;
+    animation: sw-decide-arrive var(--dur-slow) var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 45ms + 160ms);
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-decide-note[data-severity='blocking'] {
+    --sev: var(--c-critical);
+  }
+  .sw-decide-note[data-severity='major'] {
+    --sev: var(--c-against);
+  }
+  .sw-decide-note[data-severity='note'] {
+    --sev: var(--c-neutral);
+  }
+  .sw-decide-note[data-status='accepted'],
+  .sw-decide-note[data-status='disputed'],
+  .sw-decide-note[data-status='responded'] {
+    border-left-style: solid;
+    border-left-color: color-mix(in oklab, var(--sev) 25%, transparent);
+  }
+  @media (hover: hover) {
+    .sw-decide-note:hover {
+      border-left-color: var(--sev);
+      color: var(--ink-2);
+      transform: translateX(2px);
+    }
+  }
+  .sw-decide-note:active {
+    transform: translateX(1px) scale(0.99);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-decide-note__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem;
+    color: color-mix(in oklab, var(--sev) 80%, var(--ink-2));
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .sw-decide-note__role {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  /* The dot between the kind and the critic is drawn, not written, so that it is not part of the name. */
+  .sw-decide-note__role::before {
+    content: '';
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .sw-decide-note__status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+    color: var(--ink-3);
+  }
+  .sw-decide-note__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+  /* Where several stand beside one statement, each is shorter, so that the row does not grow to hold them. */
+  .sw-decide-notes[data-many] .sw-decide-note__text {
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  @keyframes sw-decide-arrive {
+    from {
+      opacity: 0;
+      transform: translateX(10px) scale(0.98);
+    }
+  }
+  /* The notes stand in the margin where there is one, and as a count in the text where there is not. */
+  @media (min-width: 64rem) {
+    .sw-decide-notes {
+      display: grid;
+      gap: var(--s-3);
+      align-content: start;
+      padding-top: 0.35rem;
+    }
+    .sw-decide-notes-inline {
+      display: none;
+    }
+  }
+  @media print {
+    .sw-decide .sw-decide-notes {
+      display: grid;
+      gap: var(--s-2);
+    }
+    .sw-decide .sw-decide-notes-inline {
+      display: none;
+    }
+    .sw-decide .sw-decide-note {
+      animation: none;
+    }
+    .sw-decide .sw-decide-note__text {
+      -webkit-line-clamp: unset;
+      line-clamp: unset;
+      display: block;
+    }
+  }
+}

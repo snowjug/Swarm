@@ -1,0 +1,187 @@
+@layer scenes {
+  .sw-decide-state {
+    display: grid;
+    gap: var(--s-5);
+    padding-block: var(--s-7) var(--s-8);
+  }
+  .sw-decide-state--center {
+    max-width: 40rem;
+    min-height: 50dvh;
+    margin-inline: auto;
+    align-content: center;
+  }
+  .sw-decide-state__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-3);
+  }
+
+  .sw-decide-skel {
+    display: grid;
+    gap: var(--s-5);
+  }
+  .sw-decide-skel__verdict {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-decide-skel__numerals {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--s-5) var(--s-6);
+  }
+  .sw-decide-skel__numerals > div {
+    display: grid;
+    gap: var(--s-3);
+    align-content: start;
+  }
+
+  /* No brief yet: the one thing to do is to write it. */
+  .sw-decide-write {
+    position: relative;
+    max-width: 64rem;
+    padding-top: var(--s-7);
+    isolation: isolate;
+  }
+  .sw-decide-write::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    top: -2rem;
+    left: 0;
+    width: min(46rem, 100%);
+    height: 26rem;
+    background: radial-gradient(closest-side, var(--accent-soft), transparent);
+    opacity: 0.8;
+    pointer-events: none;
+  }
+  .sw-decide-write__title {
+    margin: 0;
+    max-width: 14em;
+  }
+  .sw-decide-write__lead {
+    max-width: 38rem;
+    margin: 0;
+  }
+  .sw-decide-write__list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11.5rem, 1fr));
+    gap: var(--s-5) var(--s-6);
+    margin: var(--s-5) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-write__list li {
+    display: grid;
+    gap: 0.25rem;
+    align-content: start;
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline-strong);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-decide-write__list strong {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-decide-write__icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    margin-bottom: var(--s-2);
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .sw-decide-write__act {
+    display: grid;
+    justify-items: start;
+    gap: var(--s-4);
+    margin-top: var(--s-4);
+  }
+  .sw-decide-write__note {
+    max-width: 52ch;
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+
+  /* The brief is being written. */
+  .sw-decide-gen__head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-5);
+  }
+  .sw-decide-gen__title {
+    margin: 0.2rem 0 var(--s-2);
+  }
+  .sw-decide-gen__head .sw-lead {
+    margin: 0;
+    max-width: 36rem;
+  }
+  .sw-decide-gen__chapters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-3);
+    margin: var(--s-2) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-gen__chapters li {
+    padding: 0.35rem 0.8rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      var(--accent-soft) 50%,
+      transparent 80%
+    );
+    background-size: 220% 100%;
+    animation: sw-shimmer 2.4s linear infinite;
+    animation-delay: calc(var(--i, 0) * 140ms);
+  }
+
+  /* While the brief is written again, what is there stays, quieter, with one line saying so. */
+  .sw-decide[data-busy] .sw-decide-hero,
+  .sw-decide[data-busy] .sw-decide-body {
+    opacity: 0.5;
+    filter: saturate(0.6);
+    pointer-events: none;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      filter var(--dur-base) var(--ease-out);
+  }
+  .sw-decide-busy {
+    --glass-radius: var(--r-pill);
+    position: fixed;
+    z-index: var(--z-chrome);
+    top: calc(0.75rem + 3.5rem + 0.5rem);
+    left: 50%;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    padding: 0.5rem 1rem 0.5rem 0.7rem;
+    transform: translateX(-50%);
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    animation: sw-rise var(--dur-base) var(--ease-out) both;
+  }
+
+  @media (max-width: 40rem) {
+    .sw-decide-gen__head {
+      flex-direction: column;
+      gap: var(--s-3);
+    }
+    .sw-decide-busy {
+      top: calc(0.5rem + 3.25rem + 0.5rem);
+    }
+  }
+}

@@ -1,0 +1,173 @@
+@layer components {
+  .sw-field {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .sw-field__label {
+    font-size: var(--fs-small);
+    font-weight: 560;
+    color: var(--ink-2);
+  }
+  .sw-field__hint {
+    font-size: var(--fs-small);
+    color: var(--ink-3);
+  }
+  .sw-field__error {
+    font-size: var(--fs-small);
+    color: var(--c-critical);
+  }
+
+  .sw-input {
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-md);
+    background: var(--glass-raised);
+    color: var(--ink);
+    font-size: var(--fs-body);
+    line-height: 1.4;
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  .sw-input::placeholder {
+    color: var(--ink-3);
+  }
+  @media (hover: hover) {
+    .sw-input:hover:not(:disabled) {
+      border-color: color-mix(in oklab, var(--ink) 30%, transparent);
+    }
+  }
+  .sw-input:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .sw-input:disabled {
+    opacity: 0.55;
+  }
+  .sw-input[aria-invalid='true'] {
+    border-color: var(--c-critical);
+  }
+  @media (pointer: coarse) {
+    .sw-input {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-textarea {
+    resize: none;
+    min-height: 5rem;
+    overflow-y: hidden;
+  }
+  .sw-textarea-bare {
+    width: 100%;
+    resize: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    outline: none;
+    overflow-y: hidden;
+  }
+  .sw-textarea-bare::placeholder {
+    color: var(--ink-3);
+  }
+  .sw-textarea-bare:focus-visible {
+    outline: none;
+  }
+
+  .sw-select {
+    position: relative;
+    display: block;
+  }
+  .sw-select__control {
+    appearance: none;
+    padding-right: 2.25rem;
+  }
+  .sw-select__caret {
+    position: absolute;
+    right: 0.8rem;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    transform: translateY(-50%);
+    color: var(--ink-3);
+    pointer-events: none;
+  }
+
+  .sw-switch {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    cursor: pointer;
+  }
+  .sw-switch__input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+  }
+  .sw-switch__track {
+    position: relative;
+    flex: none;
+    width: 2.5rem;
+    height: 1.5rem;
+    margin-top: 0.05rem;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--hairline-strong);
+    background: var(--glass-raised);
+    transition:
+      background-color var(--dur-base) var(--ease-out),
+      border-color var(--dur-base) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out);
+  }
+  .sw-switch__thumb {
+    position: absolute;
+    top: 50%;
+    left: 0.2rem;
+    width: 1.05rem;
+    height: 1.05rem;
+    border-radius: 50%;
+    background: var(--ink-3);
+    transform: translateY(-50%);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      background-color var(--dur-base) var(--ease-out),
+      width var(--dur-fast) var(--ease-out);
+  }
+  .sw-switch__input:checked + .sw-switch__track {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .sw-switch__input:checked + .sw-switch__track .sw-switch__thumb {
+    transform: translate(1rem, -50%);
+    background: var(--accent-ink);
+  }
+  .sw-switch:active .sw-switch__thumb {
+    width: 1.3rem;
+  }
+  .sw-switch__input:checked:active + .sw-switch__track .sw-switch__thumb {
+    transform: translate(0.75rem, -50%);
+  }
+  .sw-switch__input:focus-visible + .sw-switch__track {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .sw-switch__input:disabled + .sw-switch__track {
+    opacity: 0.45;
+  }
+  .sw-switch__text {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .sw-switch__label {
+    font-weight: 540;
+  }
+  .sw-switch__desc {
+    font-size: var(--fs-small);
+    color: var(--ink-3);
+  }
+}

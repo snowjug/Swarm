@@ -1,0 +1,152 @@
+@layer scenes {
+  .sw-cmp-fnds {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4);
+  }
+  .sw-cmp-fnds__list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-cmp-fnd {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 13rem;
+    gap: var(--s-3) var(--s-6);
+    align-items: start;
+    padding: var(--s-5) 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-cmp-fnd__main {
+    display: grid;
+    gap: var(--s-2);
+    justify-items: start;
+    min-width: 0;
+  }
+  .sw-cmp-fnd__kind {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--s-3);
+  }
+  .sw-cmp-fnd__scenario {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-fnd__text {
+    max-width: 66ch;
+    color: var(--ink);
+    font-size: var(--fs-read);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .sw-cmp-fnd__why {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 1.9rem;
+    margin-left: -0.15rem;
+    padding: 0 0.15rem;
+    border: 0;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 520;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .sw-cmp-fnd__why svg {
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-fnd__why[aria-expanded='true'] svg {
+    transform: rotate(180deg);
+  }
+  @media (hover: hover) {
+    .sw-cmp-fnd__why:hover {
+      color: var(--ink);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-cmp-fnd__why {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-cmp-fnd__more {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--dur-slow) var(--ease-spring-smooth),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-cmp-fnd__more[data-open='true'] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .sw-cmp-fnd__more-in {
+    display: grid;
+    gap: var(--s-2);
+    min-height: 0;
+    overflow: hidden;
+    max-width: 60ch;
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+  }
+  .sw-cmp-fnd__label {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* How steady it was: a word, a bar against all the runs with its interval, and the count. */
+  .sw-cmp-fnd__count {
+    display: grid;
+    gap: var(--s-2);
+    justify-items: start;
+    padding-top: 0.15rem;
+  }
+  .sw-cmp-fnd__holds {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.35rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-cmp-fnd__holds b {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  .sw-cmp-fnd__interval {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-fnd__engine {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 48rem) {
+    .sw-cmp-fnd {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-3);
+      padding: var(--s-4) 0;
+    }
+    .sw-cmp-fnd__count {
+      grid-auto-flow: column;
+      align-items: center;
+      justify-content: start;
+      gap: var(--s-3) var(--s-4);
+      flex-wrap: wrap;
+    }
+    .sw-cmp-fnd__count {
+      display: flex;
+      flex-wrap: wrap;
+    }
+  }
+}

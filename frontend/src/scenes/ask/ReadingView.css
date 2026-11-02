@@ -1,0 +1,73 @@
+@layer scenes {
+  .sw-reading {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-5);
+    width: min(48rem, 100%);
+    margin: 0 auto;
+    padding-top: clamp(2rem, 10vh, 6rem);
+    text-align: center;
+  }
+  .sw-reading > .sw-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .sw-reading__question {
+    font-size: clamp(1.8rem, 1.3rem + 2vw, 3rem);
+    background: linear-gradient(100deg, var(--ink-3) 30%, var(--ink) 50%, var(--ink-3) 70%) 160% 0 /
+      250% 100% no-repeat;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: sw-reading-sweep 2.2s var(--ease-in-out) infinite;
+  }
+  @keyframes sw-reading-sweep {
+    to {
+      background-position: -60% 0;
+    }
+  }
+  .sw-reading__fields {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-4) var(--s-6);
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    text-align: left;
+  }
+  .sw-reading__fields li {
+    display: grid;
+    gap: 0.5rem;
+    animation: sw-fade var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i) * 140ms);
+  }
+  .sw-reading__fields span {
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .sw-reading__fields i {
+    display: block;
+    height: 0.7rem;
+    border-radius: var(--r-pill);
+    background-color: var(--hairline);
+    background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in oklab, var(--ink) 10%, transparent) 50%,
+      transparent 80%
+    );
+    background-size: 220% 100%;
+    animation: sw-shimmer 1.6s linear infinite;
+    animation-delay: calc(var(--i) * 140ms);
+  }
+  @media (max-width: 40rem) {
+    .sw-reading__fields {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+}

@@ -1,0 +1,96 @@
+@layer scenes {
+  .sw-studio__notices {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-studio__notices:not(:empty) {
+    margin-top: var(--s-4);
+  }
+
+  /* One column on a phone, the outline beside the page from 64rem, the tools in a margin from 80rem. */
+  .sw-benchwrap {
+    margin-top: var(--s-4);
+  }
+  .sw-bench {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'page'
+      'tools';
+    align-items: start;
+    gap: var(--s-6);
+    margin-top: var(--s-5);
+  }
+  /* The one line that stands for the outline on a narrow screen stays under the top bar while the page scrolls. */
+  .sw-bench__switch {
+    position: sticky;
+    top: calc(var(--topbar-h) + 1.1rem);
+    z-index: var(--z-chrome);
+  }
+  .sw-bench__outline {
+    display: none;
+    grid-area: outline;
+  }
+  .sw-bench__page {
+    grid-area: page;
+    min-width: 0;
+    width: 100%;
+    max-width: 44rem;
+    justify-self: center;
+    scroll-margin-top: 3.5rem;
+  }
+  .sw-bench__tools {
+    grid-area: tools;
+    min-width: 0;
+    width: 100%;
+    max-width: 44rem;
+    justify-self: center;
+    scroll-margin-top: 3.5rem;
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--hairline);
+  }
+
+  @media (min-width: 64rem) {
+    .sw-bench {
+      grid-template-columns: 14.5rem minmax(0, 1fr);
+      grid-template-areas:
+        'outline page'
+        'outline tools';
+      column-gap: var(--s-7);
+      margin-top: var(--s-6);
+    }
+    .sw-bench__switch {
+      display: none;
+    }
+    .sw-bench__outline {
+      display: block;
+      position: sticky;
+      top: calc(var(--topbar-h) + var(--s-6));
+    }
+    .sw-bench__page,
+    .sw-bench__tools {
+      justify-self: start;
+      scroll-margin-top: 0;
+    }
+  }
+  @media (min-width: 80rem) {
+    .sw-bench {
+      grid-template-columns: 14.5rem minmax(0, 1fr) 24rem;
+      grid-template-areas: 'outline page tools';
+    }
+    .sw-bench__page {
+      justify-self: center;
+    }
+    .sw-bench__tools {
+      max-width: none;
+      padding: 0 0 0 var(--s-5);
+      border-top: 0;
+      border-left: 1px solid var(--hairline);
+    }
+  }
+  @media (min-width: 100rem) {
+    .sw-bench {
+      grid-template-columns: 15rem minmax(0, 1fr) 26rem;
+    }
+  }
+}

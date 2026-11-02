@@ -38,12 +38,14 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   the pages in a real browser, with the public pages served from fixtures. None of it has been compared
   with what really happened.
 - Light, dark and high-contrast themes that follow the device until a choice is made; the contrast of
-  every declared text colour is computed in each theme, and axe-core is run on the demonstration in each.
+  the colour tokens is computed in each theme, and axe-core is run in a real browser (see
+  [TESTING.md](../TESTING.md) for what, at which sizes and in which themes).
 - Report Studio: a person opens the generated report as a copy and edits it section by section, every
   save a new version; locks sections; a reviewer approves or sends it back with a reason; an approval
   holds a hash of the exact text; a printable memo, Markdown and JSON say what was approved. An edited
-  chapter's statements are shown as describing the earlier text. The whole workflow runs in a browser
-  test on the demonstration, in each theme and on a phone, and 25 mutations of its rules are caught.
+  chapter's statements are shown as describing the earlier text. The workflow runs in a browser test
+  (see [TESTING.md](../TESTING.md) for where, and in which themes and sizes), and 25 mutations of its
+  rules are caught.
 
 ## Built with limits
 
@@ -57,12 +59,12 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - **The assumption register** is derived from the scenario and read-only. An analyst cannot add an
   assumption of their own.
 - **Sign-in** is verified against a test identity provider only. No real tenant has been used. People are added
-  to a workspace or a project by Entra object ID from the People and Access screens; there is no directory
-  lookup, so the page cannot say who an ID belongs to.
+  to a workspace or a project by Entra object ID from the **People** (workspace) and **Who has access**
+  (project) dialogs; there is no directory lookup, so the dialog cannot say who an ID belongs to.
 - **PostgreSQL, the job queue and telemetry** have not met the real thing: no deployed database, no
   separate worker containers, no Application Insights resource.
-- **Accessibility** is checked by automated tools at four viewports, and on the demonstration in each
-  of the three themes. No assistive-technology testing has been done.
+- **Accessibility** is checked by automated tools in a real browser (see [TESTING.md](../TESTING.md) for the
+  scenes, sizes and themes). No assistive-technology testing has been done.
 - **Cost and budget controls** limit calls and run time, and each project has a model budget (calls and tokens)
   that only a workspace owner or administrator can change. There is no per-tenant total and no spend alert.
 - **Report Studio** has run on a recording, not in use. Writing a chapter again has been tested only

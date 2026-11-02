@@ -1,0 +1,62 @@
+@layer scenes {
+  .sw-dialog--form {
+    width: min(34rem, calc(100vw - var(--s-5)));
+    max-height: min(46rem, calc(100dvh - var(--s-6)));
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+  .sw-dialog__bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding: var(--s-5) var(--s-5) var(--s-3) var(--s-6);
+  }
+  .sw-dialog--form .sw-dialog__title {
+    margin: 0;
+  }
+  .sw-sform {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+  .sw-sform__body {
+    display: grid;
+    gap: var(--s-5);
+    padding: var(--s-2) var(--s-6) var(--s-4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    min-height: 0;
+  }
+  .sw-sform__row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-4);
+  }
+  .sw-sform__group {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-sform__more {
+    display: grid;
+    gap: var(--s-5);
+    padding: var(--s-2) 0 var(--s-3);
+  }
+  .sw-sform__foot {
+    flex: none;
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--s-3);
+    padding: var(--s-4) var(--s-6) var(--s-5);
+    border-top: 1px solid var(--hairline);
+  }
+  @media (max-width: 40rem) {
+    .sw-sform__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

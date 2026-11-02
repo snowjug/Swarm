@@ -24,15 +24,16 @@ Of 26 observable capabilities in the matrix: **4 better, 6 equivalent, 9 partial
 ## Where Swarm is the same
 
 Seed intake of PDF, Markdown and text; graph visualisation with inspection; report viewing and
-download; the five-stage console; any OpenAI-compatible provider at the protocol level; Docker and
-source deployment.
+download; the five gated stages (shown in the interface as a journey of six scenes); any
+OpenAI-compatible provider at the protocol level; Docker and source deployment.
 
 ## Where Swarm is better, with evidence
 
 - Start, stop and status of a running simulation, including pause, intervention and resume.
 - Counterfactual branches from a checkpoint with a run comparison.
 - Runs with no hosted service at all.
-- Accessibility of the console, by automated measurement at four viewports.
+- Accessibility of the interface, by automated measurement in a real browser (the states, sizes and
+  themes are in [TESTING.md](../TESTING.md)).
 
 ## Where it is deliberately different
 

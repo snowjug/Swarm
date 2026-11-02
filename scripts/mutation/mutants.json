@@ -1332,28 +1332,28 @@
       "id": "U7",
       "area": "access",
       "claim": "A person who may not change who has access to a project is shown the controls for it",
-      "file": "frontend/src/components/console/AccessDialog.tsx",
-      "find": "const manageable = state.mayManage && mayManageRow(member.role);",
-      "replace": "const manageable = mayManageRow(member.role);",
-      "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
+      "file": "frontend/src/panels/AccessDialog.tsx",
+      "find": "const manageable = state.mayManage && scheme.mayManageRow(member.role);",
+      "replace": "const manageable = scheme.mayManageRow(member.role);",
+      "tests": ["frontend/src/panels/panels.test.tsx"]
     },
     {
       "id": "U8",
       "area": "access",
       "claim": "A person who may not change who has access to a project is offered the form that adds someone",
-      "file": "frontend/src/components/console/AccessDialog.tsx",
-      "find": "{state.mayManage ? (",
-      "replace": "{true ? (",
-      "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
+      "file": "frontend/src/panels/AccessDialog.tsx",
+      "find": "{members && state.mayManage && (",
+      "replace": "{members && true && (",
+      "tests": ["frontend/src/panels/panels.test.tsx"]
     },
     {
       "id": "U9",
       "area": "access",
       "claim": "An administrator is offered the owner role in the form that adds a person to the workspace",
-      "file": "frontend/src/components/console/AccessDialog.tsx",
-      "find": "view={WORKSPACE_ROLE_VIEW}\n            assignable={assignable}\n            initial=\"member\"",
-      "replace": "view={WORKSPACE_ROLE_VIEW}\n            assignable={WORKSPACE_ROLES}\n            initial=\"member\"",
-      "tests": ["frontend/src/components/console/AccessDialog.test.tsx"]
+      "file": "frontend/src/panels/accessView.ts",
+      "find": "assignable: workspaceRolesGrantableBy(actor),",
+      "replace": "assignable: WORKSPACE_ROLES,",
+      "tests": ["frontend/src/panels/views.test.ts"]
     },
     {
       "id": "L1",
@@ -1431,37 +1431,37 @@
       "id": "L9",
       "area": "lab",
       "claim": "A question read from the intake page is sent to a model although the project is in Local rules mode",
-      "file": "frontend/src/components/intake/ScenarioIntake.tsx",
-      "find": "const result = await reading.read(asked, documentSummaries(documents), useModel);",
-      "replace": "const result = await reading.read(asked, documentSummaries(documents), true);",
-      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+      "file": "frontend/src/scenes/ask/AskScene.tsx",
+      "find": "const result = await reading.read(question.trim(), documentSummaries(documents), useModel);",
+      "replace": "const result = await reading.read(question.trim(), documentSummaries(documents), true);",
+      "tests": ["frontend/src/scenes/ask/ask.interaction.test.tsx"]
     },
     {
       "id": "L10",
       "area": "lab",
       "claim": "Add an alternative does nothing",
-      "file": "frontend/src/components/intake/IntakeEditor.tsx",
-      "find": "          onClick={addAlternative}",
-      "replace": "          onClick={() => undefined}",
-      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+      "file": "frontend/src/scenes/ask/ScenarioReview.tsx",
+      "find": "setFreshAlternative(id);",
+      "replace": "return;",
+      "tests": ["frontend/src/scenes/ask/ask.interaction.test.tsx"]
     },
     {
       "id": "L11",
       "area": "lab",
       "claim": "Remove a change does not remove it",
-      "file": "frontend/src/components/intake/IntakeRows.tsx",
-      "find": "                onClick={() => {\n                  onChange(rows.filter((_, position) => position !== index));\n                  focusAdd();\n                }}\n              >\n                <Trash2 size={16} aria-hidden=\"true\" />\n              </button>\n            </li>\n          );",
-      "replace": "                onClick={() => {\n                  focusAdd();\n                }}\n              >\n                <Trash2 size={16} aria-hidden=\"true\" />\n              </button>\n            </li>\n          );",
-      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+      "file": "frontend/src/scenes/ask/ScenarioReview.tsx",
+      "find": "onChange(rows.filter((_, at) => at !== index));\n                refocus();",
+      "replace": "refocus();",
+      "tests": ["frontend/src/scenes/ask/ask.interaction.test.tsx"]
     },
     {
       "id": "L12",
       "area": "lab",
       "claim": "Editing the decision of a scenario changes nothing",
-      "file": "frontend/src/components/intake/IntakeEditor.tsx",
-      "find": "onChange={(value) => set({ decision: value })}",
-      "replace": "onChange={() => undefined}",
-      "tests": ["frontend/src/components/intake/ScenarioIntake.interaction.test.tsx"]
+      "file": "frontend/src/scenes/ask/ScenarioReview.tsx",
+      "find": "onCommit={(decision) => change({ decision })}",
+      "replace": "onCommit={() => undefined}",
+      "tests": ["frontend/src/scenes/ask/ask.interaction.test.tsx"]
     },
     {
       "id": "L13",

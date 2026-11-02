@@ -1,0 +1,81 @@
+@layer components {
+  /* A sphere of two category colours, from an identifier. Decorative: the name is written beside it. */
+  .sw-porb {
+    flex: none;
+    width: var(--orb, 1.75rem);
+    height: var(--orb, 1.75rem);
+    border-radius: 50%;
+    background:
+      radial-gradient(
+        120% 120% at 28% 20%,
+        color-mix(in oklab, white 58%, transparent),
+        transparent 48%
+      ),
+      conic-gradient(from var(--orb-turn, 0deg), var(--orb-a), var(--orb-b), var(--orb-a));
+    box-shadow:
+      inset 0 0 0 1px color-mix(in oklab, var(--ink) 14%, transparent),
+      0 6px 16px -8px color-mix(in oklab, var(--orb-a) 70%, transparent);
+  }
+
+  /* The search field every list in a panel shares. */
+  .sw-psearch {
+    position: relative;
+    display: block;
+  }
+  .sw-psearch .sw-input {
+    padding-left: 2.6rem;
+    padding-right: 2.75rem;
+    border-radius: var(--r-pill);
+  }
+  .sw-psearch input::-webkit-search-cancel-button,
+  .sw-psearch input::-webkit-search-decoration {
+    appearance: none;
+    display: none;
+  }
+  .sw-psearch__icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    margin-top: -0.5rem;
+    color: var(--ink-3);
+    pointer-events: none;
+  }
+  .sw-psearch__clear {
+    position: absolute;
+    right: 0.25rem;
+    inset-block: 0;
+    margin-block: auto;
+    animation: sw-fade var(--dur-fast) var(--ease-out) both;
+  }
+
+  /*
+   * A line of small facts joined by a quiet dot. Each fact brings the dot that precedes it, and the line
+   * is clipped at the left edge of the text, so that a dot is never left at the start of a wrapped line.
+   */
+  .sw-pmeta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-left: -0.9rem;
+    clip-path: inset(0 0 0 0.9rem);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-pmeta > * {
+    position: relative;
+    padding-left: 0.9rem;
+  }
+  .sw-pmeta > *::before {
+    content: '';
+    position: absolute;
+    left: 0.35rem;
+    top: 50%;
+    width: 0.2rem;
+    height: 0.2rem;
+    margin-top: -0.1rem;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.55;
+  }
+}

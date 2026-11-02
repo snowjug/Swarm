@@ -1,0 +1,84 @@
+@layer components {
+  .sw-slider {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 1.5rem;
+    touch-action: none;
+    user-select: none;
+  }
+  .sw-slider[data-disabled] {
+    opacity: 0.5;
+  }
+  .sw-slider__track {
+    position: relative;
+    flex: 1;
+    height: 0.3rem;
+    border-radius: var(--r-pill);
+    background: var(--hairline-strong);
+  }
+  .sw-slider__range {
+    position: absolute;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--accent) 70%, transparent),
+      var(--accent)
+    );
+  }
+  .sw-slider--diverging .sw-slider__range {
+    background: var(--accent);
+  }
+  .sw-slider__mid {
+    position: absolute;
+    left: 50%;
+    top: -0.2rem;
+    width: 1px;
+    height: 0.7rem;
+    background: var(--ink-3);
+    opacity: 0.6;
+  }
+  .sw-slider__thumb {
+    display: block;
+    /* 24px is the least a pointer should be asked to hit (WCAG 2.5.8). */
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    border: 1px solid var(--glass-edge);
+    background: var(--bg-raised);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge-hi),
+      var(--shadow-2),
+      0 0 0 1px var(--hairline);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      box-shadow var(--dur-base) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-slider__thumb:hover {
+      transform: scale(1.1);
+    }
+  }
+  .sw-slider__thumb:active {
+    transform: scale(1.25);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge-hi),
+      var(--shadow-3),
+      0 0 0 6px var(--accent-soft);
+  }
+  .sw-slider__thumb:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+  @media (pointer: coarse) {
+    .sw-slider {
+      height: 2.75rem;
+    }
+    .sw-slider__thumb {
+      width: 1.75rem;
+      height: 1.75rem;
+    }
+  }
+}

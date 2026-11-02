@@ -1,0 +1,277 @@
+@layer scenes {
+  .sw-round {
+    --glass-radius: var(--r-xl);
+    position: absolute;
+    z-index: 6;
+    top: 5.2rem;
+    right: var(--s-4);
+    max-height: calc(100% - 5.2rem - var(--s-5) - 5.2rem);
+    width: min(23rem, calc(100% - var(--s-4) * 2));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sw-round--tall {
+    bottom: var(--s-4);
+    max-height: none;
+  }
+  .sw-round__scroll {
+    display: grid;
+    gap: var(--s-5);
+    align-content: start;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--s-5) var(--s-5) var(--s-6);
+    scrollbar-width: thin;
+    /* What is below the edge fades out rather than being cut: the padding at the end keeps the last line clear of it. */
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 1.75rem), transparent);
+    mask-image: linear-gradient(to bottom, black calc(100% - 1.75rem), transparent);
+  }
+  .sw-round__head {
+    display: grid;
+    gap: var(--s-1);
+  }
+  .sw-round__head p {
+    margin: 0;
+  }
+  .sw-round__title {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .sw-round__number {
+    font-size: 3.1rem;
+    line-height: 0.95;
+  }
+  .sw-round__of {
+    color: var(--ink-3);
+    font-size: var(--fs-body);
+    margin-right: auto;
+  }
+  .sw-round__block {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-round__block h3 {
+    margin: 0;
+  }
+  .sw-round__signals {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-round__signals li {
+    display: grid;
+    grid-template-columns: 6.2rem 1fr 2.6rem;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-round__signal {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-round__pct {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-round__events {
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-round__events p {
+    margin: 0;
+  }
+  .sw-round__events .sw-round__event-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-bottom: 4px;
+  }
+  .sw-round__actor {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.5rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font-weight: 560;
+    text-align: left;
+  }
+  @media (pointer: coarse) {
+    .sw-round__actor {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-round__desc {
+    color: var(--ink);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+
+  /* ---- One actor in this run ---- */
+  .sw-trace {
+    display: grid;
+    gap: var(--s-3);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-trace__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-trace__head p {
+    margin: 0;
+  }
+  .sw-trace__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 1.6rem;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+  .sw-trace__now {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    margin: 0;
+    font-weight: 560;
+  }
+  .sw-trace .sw-caption {
+    margin: 0;
+  }
+  .sw-trace__swatch {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+  }
+  .sw-spark {
+    width: 100%;
+    height: 4rem;
+    overflow: visible;
+  }
+  .sw-spark__zero {
+    stroke: var(--hairline-strong);
+    stroke-dasharray: 3 4;
+    vector-effect: non-scaling-stroke;
+  }
+  .sw-spark__change {
+    stroke: var(--accent);
+    stroke-opacity: 0.5;
+    stroke-width: 1.5;
+    vector-effect: non-scaling-stroke;
+  }
+  .sw-spark__line {
+    fill: none;
+    stroke: var(--ink-2);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+  .sw-spark__dot {
+    stroke: var(--bg);
+    stroke-width: 2;
+  }
+
+  .sw-round__fold {
+    display: grid;
+    grid-template-rows: 1fr;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .sw-round__fold > .sw-round__scroll {
+    min-height: 0;
+  }
+  .sw-round__line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 var(--s-2);
+  }
+  .sw-round__state {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-round__toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    width: 100%;
+    min-height: 3.25rem;
+    padding: var(--s-2) var(--s-3) var(--s-2) var(--s-5);
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .sw-round__toggle .sw-round__number {
+    font-size: 1.9rem;
+    line-height: 1;
+  }
+  .sw-round__toggle .sw-round__of {
+    margin-right: var(--s-1);
+  }
+  .sw-round__peek {
+    flex: 1;
+    min-width: 0;
+  }
+  .sw-round__chev {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    color: var(--ink-2);
+    transition: transform var(--dur-base) var(--ease-spring);
+  }
+  .sw-round--compact.is-open .sw-round__chev {
+    transform: rotate(180deg);
+  }
+  .sw-round__glance {
+    padding: 0 var(--s-5) var(--s-4);
+  }
+
+  @media (max-width: 63.99rem) {
+    .sw-round {
+      top: auto;
+      left: var(--s-3);
+      right: var(--s-3);
+      bottom: calc(var(--s-3) + 4.6rem);
+      width: auto;
+      max-height: min(56%, 28rem);
+    }
+    .sw-round--tall {
+      bottom: var(--s-3);
+    }
+    .sw-round--compact .sw-round__fold {
+      transition: grid-template-rows var(--dur-base) var(--ease-out);
+    }
+    .sw-round--compact:not(.is-open) .sw-round__fold {
+      grid-template-rows: 0fr;
+    }
+    .sw-round--compact:not(.is-open) .sw-round__scroll {
+      overflow: hidden;
+      padding-block: 0;
+    }
+    .sw-round--compact .sw-round__scroll {
+      padding-top: var(--s-2);
+    }
+  }
+}

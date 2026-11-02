@@ -1,0 +1,79 @@
+@layer scenes {
+  .sw-inline {
+    display: inline;
+    max-width: 100%;
+    margin: 0 -0.2em;
+    padding: 0.05em 0.2em;
+    border: 0;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    line-height: inherit;
+    text-align: inherit;
+    overflow-wrap: anywhere;
+  }
+  .sw-inline--text {
+    cursor: text;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    background-image: linear-gradient(var(--accent-line), var(--accent-line));
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0% 1px;
+    transition:
+      background-size var(--dur-base) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-inline--text:hover:not(:disabled) {
+      background-color: var(--accent-soft);
+      background-size: 100% 1px;
+    }
+  }
+  .sw-inline--text:focus-visible {
+    background-color: var(--accent-soft);
+    background-size: 100% 1px;
+  }
+  .sw-inline--text.is-empty .sw-inline__value {
+    color: var(--ink-3);
+  }
+  .sw-inline__pencil {
+    display: inline-block;
+    margin-left: 0.35em;
+    vertical-align: 0.05em;
+    color: var(--accent);
+    opacity: 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-inline--text:hover .sw-inline__pencil {
+      opacity: 1;
+    }
+  }
+  .sw-inline--text:focus-visible .sw-inline__pencil {
+    opacity: 1;
+  }
+  @media (pointer: coarse) {
+    .sw-inline__pencil {
+      opacity: 0.55;
+    }
+    /* Text that is pressed to be edited is a target like any other: a finger needs 44px of it, however small the text. */
+    .sw-inline--text {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2.75rem;
+      text-align: left;
+    }
+  }
+  .sw-inline--field {
+    display: block;
+    width: 100%;
+    resize: none;
+    overflow: hidden;
+    background: var(--accent-soft);
+    outline: 1px solid var(--accent);
+    outline-offset: 2px;
+  }
+}

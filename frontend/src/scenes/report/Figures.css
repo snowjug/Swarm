@@ -1,0 +1,368 @@
+@layer scenes {
+  .sw-figs {
+    display: grid;
+    gap: var(--s-6);
+  }
+  /* Four figures in a row, parted by hairlines: nothing around them. */
+  .sw-figs__row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-5) 0;
+  }
+  .sw-fig {
+    display: grid;
+    align-content: start;
+    gap: 0.5rem;
+    min-width: 0;
+    padding: 0 var(--s-5);
+    border-left: 1px solid var(--hairline);
+  }
+  .sw-fig:first-child {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .sw-fig:last-child {
+    padding-right: 0;
+  }
+  @media (max-width: 64rem) {
+    .sw-figs__row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .sw-fig:nth-child(odd) {
+      padding-left: 0;
+      border-left: 0;
+    }
+    .sw-fig:nth-child(even) {
+      padding-right: 0;
+    }
+  }
+  @media (max-width: 30rem) {
+    .sw-figs__row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-fig,
+    .sw-fig:nth-child(even) {
+      padding: var(--s-4) 0 0;
+      border-left: 0;
+      border-top: 1px solid var(--hairline);
+    }
+    .sw-fig:first-child {
+      padding-top: 0;
+      border-top: 0;
+    }
+  }
+  .sw-fig__label {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .sw-fig__numeral {
+    display: block;
+    color: var(--ink);
+    font-size: clamp(2.4rem, 2rem + 1.4vw, 3.25rem);
+  }
+  .sw-fig__note {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  /* The scale from against to in favour, with a dot where the mean began and one where it ended. */
+  .sw-fig__track {
+    position: relative;
+    height: 1.25rem;
+    margin-top: 0.35rem;
+    container-type: inline-size;
+  }
+  .sw-fig__axis {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--c-against) 55%, transparent),
+      var(--hairline-strong) 50%,
+      color-mix(in oklab, var(--c-favor) 55%, transparent)
+    );
+    transform: translateY(-50%);
+  }
+  .sw-fig__zero {
+    position: absolute;
+    left: 50%;
+    top: 20%;
+    bottom: 20%;
+    width: 1px;
+    background: var(--ink-3);
+    opacity: 0.55;
+  }
+  .sw-fig__span {
+    position: absolute;
+    top: 50%;
+    height: 4px;
+    border-radius: 4px;
+    background: var(--ink-2);
+    opacity: 0.55;
+    transform: translateY(-50%);
+    animation: sw-fade var(--dur-slow) var(--ease-out) 500ms both;
+  }
+  .sw-fig__dot {
+    position: absolute;
+    top: 50%;
+    width: 0.8rem;
+    height: 0.8rem;
+    margin: -0.4rem 0 0 -0.4rem;
+    border-radius: 50%;
+  }
+  .sw-fig__dot--from {
+    border: 2px solid var(--ink-2);
+    background: var(--bg);
+  }
+  /* It starts on the first dot and glides to where the mean ended: the distance is in track-widths. */
+  .sw-fig__dot--to {
+    --dot: var(--c-neutral);
+    background: var(--dot);
+    box-shadow:
+      0 0 0 3px var(--bg),
+      0 0 14px color-mix(in oklab, var(--dot) 60%, transparent);
+    transform: translate3d(calc(var(--delta, 0) * 1cqw), 0, 0);
+    animation: sw-fig-glide 900ms var(--ease-spring-smooth) 250ms both;
+  }
+  .sw-fig__dot--to[data-side='favor'] {
+    --dot: var(--c-favor);
+  }
+  .sw-fig__dot--to[data-side='against'] {
+    --dot: var(--c-against);
+  }
+  @keyframes sw-fig-glide {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+  }
+  .sw-fig__ends {
+    display: flex;
+    justify-content: space-between;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+
+  /* One bar cut three ways: supportive, undecided, opposing. */
+  .sw-fig__split {
+    display: flex;
+    gap: 3px;
+    height: 0.75rem;
+    margin-top: 0.85rem;
+  }
+  .sw-fig__cut {
+    min-width: 4px;
+    border-radius: var(--r-pill);
+    transform-origin: left center;
+    animation: sw-fig-grow var(--dur-slow) var(--ease-out) 120ms both;
+  }
+  @keyframes sw-fig-grow {
+    from {
+      opacity: 0;
+      transform: scaleX(0.2);
+    }
+  }
+  .sw-fig__cut--support {
+    background: var(--c-favor);
+  }
+  .sw-fig__cut--opposition {
+    background: var(--c-against);
+  }
+  .sw-fig__cut--undecided {
+    background: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--c-neutral) 70%, transparent) 0 3px,
+      color-mix(in oklab, var(--c-neutral) 28%, transparent) 3px 6px
+    );
+  }
+  .sw-fig__legend {
+    display: grid;
+    gap: 0.2rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-fig__key {
+    display: grid;
+    grid-template-columns: 0.75rem 2.6rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-fig__pct {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  .sw-fig__swatch {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--c-neutral);
+  }
+  .sw-fig__key--support .sw-fig__swatch {
+    background: var(--c-favor);
+  }
+  .sw-fig__key--opposition .sw-fig__swatch {
+    background: var(--c-against);
+  }
+  .sw-fig__key--undecided .sw-fig__swatch {
+    border-radius: 2px;
+  }
+
+  /* The line of the mean across the rounds. */
+  .sw-traj {
+    display: grid;
+    gap: var(--s-3);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-traj__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-5);
+  }
+  .sw-traj__readout {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem var(--s-3);
+    font-size: var(--fs-small);
+  }
+  .sw-traj__round {
+    color: var(--ink-3);
+  }
+  .sw-traj__mean {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  .sw-traj__muted {
+    color: var(--ink-3);
+  }
+  .sw-traj__chart {
+    position: relative;
+    width: 100%;
+    border-radius: var(--r-md);
+    touch-action: pan-y;
+  }
+  .sw-traj__chart svg {
+    overflow: visible;
+    cursor: crosshair;
+  }
+  .sw-traj__grid {
+    stroke: var(--hairline);
+    stroke-width: 1;
+  }
+  .sw-traj__grid.is-zero {
+    stroke: var(--hairline-strong);
+    stroke-dasharray: 3 4;
+  }
+  .sw-traj__tick {
+    fill: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-traj__tag {
+    fill: var(--ink-3);
+    font-size: var(--fs-micro);
+    letter-spacing: 0.04em;
+  }
+  .sw-traj__marker {
+    stroke: var(--accent);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+    opacity: 0.8;
+  }
+  .sw-traj__guide {
+    stroke: var(--ink-3);
+    stroke-width: 1;
+    opacity: 0.7;
+  }
+  .sw-traj__area {
+    opacity: 0;
+    transition: opacity var(--dur-slow) var(--ease-out) 500ms;
+  }
+  .sw-traj__area--favor {
+    fill: color-mix(in oklab, var(--c-favor) 22%, transparent);
+  }
+  .sw-traj__area--against {
+    fill: color-mix(in oklab, var(--c-against) 22%, transparent);
+  }
+  .is-drawn .sw-traj__area {
+    opacity: 1;
+  }
+  .sw-traj__line {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .is-drawn .sw-traj__line {
+    animation: sw-draw 1100ms var(--ease-out) both;
+    --len: 1;
+  }
+  .sw-traj__dot {
+    fill: var(--bg);
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    opacity: 0;
+  }
+  .is-drawn .sw-traj__dot {
+    animation: sw-fade var(--dur-base) var(--ease-out) both;
+  }
+  .sw-traj__dot.is-on {
+    fill: var(--ink);
+  }
+  .sw-traj__chart:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 4px;
+  }
+  .sw-traj__legend {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+    max-width: 68ch;
+    text-wrap: pretty;
+  }
+  .sw-traj__table-wrap {
+    overflow-x: auto;
+    padding-bottom: var(--s-3);
+  }
+  .sw-traj__table {
+    width: 100%;
+    min-width: 28rem;
+    font-size: var(--fs-small);
+    text-align: right;
+  }
+  .sw-traj__table th,
+  .sw-traj__table td {
+    padding: 0.4rem 0.6rem;
+    border-bottom: 1px solid var(--hairline);
+    font-weight: 500;
+  }
+  .sw-traj__table thead th {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sw-traj__table th:first-child {
+    text-align: left;
+  }
+  [data-theme='high-contrast'] .sw-traj__area {
+    display: none;
+  }
+}

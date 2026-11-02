@@ -1,0 +1,192 @@
+@layer scenes {
+  .sw-deep-insp {
+    display: grid;
+    gap: var(--s-6);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-deep-insp__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--s-3) var(--s-5);
+  }
+  .sw-deep-insp__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 1.6rem + 1.4vw, 2.8rem);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .sw-deep-insp__of {
+    color: var(--ink-3);
+    font-size: 0.55em;
+    letter-spacing: 0;
+  }
+  .sw-deep-insp__meta {
+    margin: var(--s-2) 0 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-insp__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-deep-insp__event {
+    display: flex;
+    gap: var(--s-3);
+    max-width: 44rem;
+    padding-left: var(--s-4);
+    border-left: 2px solid var(--c-caution);
+    color: var(--c-caution);
+  }
+  .sw-deep-insp__event > svg {
+    flex: none;
+    margin-top: 0.15rem;
+  }
+  .sw-deep-insp__event-title {
+    margin: 0;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-deep-insp__event-text {
+    margin: var(--s-1) 0 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .sw-deep-insp__event-facts {
+    margin: var(--s-1) 0 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+
+  .sw-deep-insp__figures {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5) var(--s-5);
+    margin: 0;
+  }
+  @media (min-width: 40rem) {
+    .sw-deep-insp__figures {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 72rem) {
+    .sw-deep-insp__figures {
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+    }
+  }
+
+  .sw-deep-insp__cols {
+    display: grid;
+    gap: var(--s-7) var(--s-8);
+  }
+  @media (min-width: 60rem) {
+    .sw-deep-insp__cols {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: start;
+    }
+  }
+  .sw-deep-insp__col {
+    display: grid;
+    align-content: start;
+    gap: var(--s-3);
+    min-width: 0;
+  }
+  .sw-deep-insp__sub {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .sw-deep-stands {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--hairline);
+    list-style: none;
+  }
+  .sw-deep-stands li {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-deep-stand {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--s-3);
+    width: 100%;
+    min-height: 3rem;
+    padding: var(--s-2) var(--s-1);
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-deep-stand:hover {
+      background: color-mix(in oklab, var(--accent) 7%, transparent);
+    }
+  }
+  .sw-deep-stand__name {
+    overflow: hidden;
+    font-weight: 560;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-deep-stand__change {
+    min-width: 3rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    text-align: right;
+  }
+  .sw-deep-stand .sw-deep-position__text {
+    min-width: 2.6rem;
+  }
+  @media (max-width: 30rem) {
+    .sw-deep-stand .sw-deep-dial {
+      --dial-w: 3.25rem;
+    }
+  }
+
+  .sw-deep-dos {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--hairline);
+    list-style: none;
+  }
+  .sw-deep-do {
+    display: grid;
+    gap: var(--s-2);
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+  .sw-deep-do__who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-body);
+  }
+  .sw-deep-do__pos {
+    margin-left: auto;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+}

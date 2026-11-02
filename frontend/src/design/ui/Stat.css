@@ -1,0 +1,43 @@
+@layer components {
+  .sw-stat {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .sw-stat__figure {
+    font-size: 2.6rem;
+    color: var(--stat, var(--ink));
+  }
+  .sw-stat--sm .sw-stat__figure {
+    font-size: 1.9rem;
+  }
+  .sw-stat--lg .sw-stat__figure {
+    font-size: clamp(3.5rem, 2.4rem + 4vw, 6rem);
+  }
+  .sw-stat__suffix {
+    margin-left: 0.15em;
+    font-size: 0.5em;
+    color: var(--ink-3);
+  }
+  .sw-stat__label {
+    font-size: var(--fs-small);
+    font-weight: 540;
+    color: var(--ink-2);
+  }
+  .sw-stat__caption {
+    font-size: var(--fs-small);
+    color: var(--ink-3);
+  }
+  .sw-stat--against {
+    --stat: var(--c-against);
+  }
+  .sw-stat--favor {
+    --stat: var(--c-favor);
+  }
+  .sw-stat--caution {
+    --stat: var(--c-caution);
+  }
+  .sw-stat--accent {
+    --stat: var(--accent);
+  }
+}

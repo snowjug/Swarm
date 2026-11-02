@@ -1,0 +1,153 @@
+@layer scenes {
+  .sw-decide-stmts {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-decide-stmts__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A statement is a paragraph on the page. Where there is a margin, the notes sit in it, level with the text. */
+  .sw-decide-stmt {
+    padding: var(--s-3) 0;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-decide-stmts__list > .sw-decide-stmt:first-child {
+    border-top: 0;
+  }
+  .sw-decide-stmt__main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-2) var(--s-6);
+    align-items: start;
+  }
+  @media (min-width: 64rem) {
+    .sw-decide-stmt__main {
+      grid-template-columns: minmax(0, 1fr) var(--note-w, 14rem);
+      width: calc(100% + var(--note-w, 14rem) + var(--s-6));
+    }
+    .sw-decide-stmt__text {
+      grid-column: 1;
+    }
+    .sw-decide-notes {
+      grid-column: 2;
+      grid-row: 1;
+    }
+  }
+  .sw-decide-stmt__text {
+    margin: 0;
+    max-width: 66ch;
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.68;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+  .sw-decide-stmt__label {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-decide-tag {
+    display: inline-flex;
+    align-items: center;
+    height: 1.35rem;
+    padding: 0 0.55rem;
+    border-radius: var(--r-pill);
+    background: var(--c-neutral-soft);
+    color: var(--ink-2);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: 0.1em;
+  }
+  .sw-decide-tag[data-tone='risk'] {
+    background: var(--c-against-soft);
+    color: color-mix(in oklab, var(--c-against) 80%, var(--ink));
+  }
+  .sw-decide-tag[data-tone='opportunity'] {
+    background: var(--c-favor-soft);
+    color: color-mix(in oklab, var(--c-favor) 80%, var(--ink));
+  }
+
+  /* The statements past the first few: folded, not left out. The row grows from nothing, so that the page does not jump. */
+  .sw-decide-fold {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--dur-slow) var(--ease-spring-smooth),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-decide-fold[data-open='true'] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .sw-decide-fold__inner {
+    min-height: 0;
+    /* A containing block for what is positioned inside it, so that the clip below takes it too (see the chapter). */
+    position: relative;
+    /* Clipped above and below, never to the sides, so that notes may stand in the margin. A clip, unlike a
+       clip-path, leaves nothing behind in the page's scrollable height. */
+    overflow-x: visible;
+    overflow-y: clip;
+  }
+  .sw-decide-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    justify-self: start;
+    min-height: 2.25rem;
+    margin-top: var(--s-1);
+    padding: 0 0.85rem 0 0.9rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-decide-more svg {
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-decide-more[aria-expanded='true'] svg {
+    transform: rotate(180deg);
+  }
+  @media (hover: hover) {
+    .sw-decide-more:hover {
+      border-color: var(--hairline-strong);
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+  }
+  .sw-decide-more:active {
+    transform: scale(0.96);
+    transition-duration: var(--dur-instant);
+  }
+  @media (pointer: coarse) {
+    .sw-decide-more {
+      min-height: 2.75rem;
+    }
+  }
+  @media print {
+    .sw-decide .sw-decide-fold {
+      grid-template-rows: 1fr;
+      opacity: 1;
+      transition: none;
+    }
+    .sw-decide .sw-decide-fold__inner {
+      overflow: visible;
+    }
+    .sw-decide .sw-decide-more {
+      display: none;
+    }
+  }
+}

@@ -3,6 +3,7 @@ import initScript from '../../public/theme-init.js?raw';
 import {
   PREFERENCES,
   THEMES,
+  THEME_COLOR,
   parsePreference,
   readStored,
   readSystem,
@@ -109,7 +110,7 @@ describe('the script that themes the page before it is drawn', () => {
   });
 
   it('colours the browser chrome to match, and shows the light theme where nothing can be asked', () => {
-    expect(run({ stored: 'dark' })['meta.content']).toBe('#1c1f24');
+    expect(run({ stored: 'dark' })['meta.content']).toBe(THEME_COLOR.dark);
     expect(run({ stored: 'high-contrast' })['meta.content']).toBe('#000000');
     expect(run({ stored: 'throws', noMatchMedia: true })['data-theme']).toBe('light');
     expect(run({ noMatchMedia: true })['data-theme']).toBe('light');

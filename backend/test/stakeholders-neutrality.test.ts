@@ -17,11 +17,12 @@ const SOURCES = [
   'backend/src/stakeholders',
   'backend/src/routes/stakeholders.ts',
   'shared/stakeholders.ts',
-  'frontend/src/components/stakeholders',
+  'frontend/src/scenes/map',
+  'frontend/src/lib/stakeholders',
+  'frontend/src/viz',
   'frontend/src/api/stakeholders.ts',
   'frontend/src/api/stakeholderFlows.ts',
   'frontend/src/hooks/useStakeholders.ts',
-  'frontend/src/styles/stakeholders.css',
 ];
 
 function filesOf(path: string): string[] {

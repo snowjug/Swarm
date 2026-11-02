@@ -1,0 +1,77 @@
+@layer scenes {
+  /* ---- The response mix bar ---- */
+  .sw-sim-mix {
+    display: grid;
+    gap: var(--s-3);
+    min-width: 0;
+  }
+  .sw-sim-mix__bar {
+    display: flex;
+    height: 10px;
+    gap: 2px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
+  }
+  .sw-sim-mix--sm .sw-sim-mix__bar {
+    height: 6px;
+  }
+  .sw-sim-mix__part {
+    flex-basis: 0;
+    min-width: 0;
+    border-radius: 3px;
+    background: var(--seg, var(--c-neutral));
+    transition: flex-grow var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-sim-mix [data-cat='adopt'] {
+    --seg: var(--c-favor);
+  }
+  .sw-sim-mix [data-cat='accept-with-conditions'] {
+    --seg: color-mix(in oklab, var(--c-favor) 55%, var(--c-neutral));
+  }
+  .sw-sim-mix [data-cat='wait'] {
+    --seg: var(--c-neutral);
+  }
+  .sw-sim-mix [data-cat='adapt-defensively'] {
+    --seg: var(--c-caution);
+  }
+  .sw-sim-mix [data-cat='switch'] {
+    --seg: color-mix(in oklab, var(--c-against) 62%, var(--c-neutral));
+  }
+  .sw-sim-mix [data-cat='resist'] {
+    --seg: var(--c-against);
+  }
+  .sw-sim-mix__legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--fs-small);
+  }
+  .sw-sim-mix__legend li {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  .sw-sim-mix__dot {
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--seg);
+  }
+  .sw-sim-mix__word {
+    color: var(--ink-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sw-sim-mix__pct {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 560;
+  }
+}

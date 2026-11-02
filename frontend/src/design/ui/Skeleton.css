@@ -1,0 +1,21 @@
+@layer components {
+  .sw-skeleton {
+    display: block;
+    min-height: 0.5rem;
+    border-radius: var(--r-xs);
+    background-color: var(--hairline);
+    background-image: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in oklab, var(--ink) 9%, transparent) 50%,
+      transparent 80%
+    );
+    background-size: 220% 100%;
+    animation: sw-shimmer 1.6s linear infinite;
+  }
+  .sw-skeleton-text {
+    display: grid;
+    gap: 0.6rem;
+    width: 100%;
+  }
+}

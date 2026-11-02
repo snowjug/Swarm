@@ -1,0 +1,287 @@
+@layer scenes {
+  .sw-deep-hide-sm {
+    display: inline;
+  }
+  .sw-deep-show-sm {
+    display: none;
+  }
+  @media (max-width: 40rem) {
+    .sw-deep-hide-sm {
+      display: none;
+    }
+    .sw-deep-show-sm {
+      display: inline;
+    }
+  }
+
+  /* Where an inclination sits between against and in favour. The number always stands beside it. */
+  .sw-deep-dial {
+    --dial-w: 5.5rem;
+    position: relative;
+    display: inline-grid;
+    flex: none;
+    grid-template-columns: 1fr 1fr;
+    width: var(--dial-w);
+    height: 0.34rem;
+    border-radius: var(--r-pill);
+    background: var(--hairline-strong);
+    container-type: inline-size;
+    vertical-align: middle;
+  }
+  .sw-deep-dial[data-size='sm'] {
+    --dial-w: 3.75rem;
+    height: 0.28rem;
+  }
+  .sw-deep-dial[data-size='lg'] {
+    --dial-w: 8rem;
+  }
+  .sw-deep-dial::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: -0.22rem;
+    bottom: -0.22rem;
+    width: 1px;
+    background: var(--ink-3);
+    opacity: 0.55;
+  }
+  .sw-deep-dial__half {
+    position: relative;
+    overflow: hidden;
+  }
+  .sw-deep-dial__half--neg {
+    border-radius: var(--r-pill) 0 0 var(--r-pill);
+  }
+  .sw-deep-dial__half--pos {
+    border-radius: 0 var(--r-pill) var(--r-pill) 0;
+  }
+  .sw-deep-dial__bar {
+    position: absolute;
+    inset: 0;
+    background: var(--c);
+    transform: scaleX(var(--neg));
+    transform-origin: right center;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-deep-dial__half--pos .sw-deep-dial__bar {
+    transform: scaleX(var(--pos));
+    transform-origin: left center;
+  }
+  .sw-deep-dial__dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.72rem;
+    height: 0.72rem;
+    border-radius: 50%;
+    background: var(--c);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      var(--shadow-1);
+    transform: translate(calc(var(--v) * 50cqw - 50%), -50%);
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-deep-dial[data-size='sm'] .sw-deep-dial__dot {
+    width: 0.6rem;
+    height: 0.6rem;
+  }
+
+  .sw-deep-position {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-3);
+    min-width: 0;
+  }
+  .sw-deep-position__text {
+    display: grid;
+    line-height: 1.2;
+    min-width: 3.4rem;
+  }
+  .sw-deep-position__value {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 560;
+  }
+  .sw-deep-position__word {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+
+  /* A part of a tab: its serif title, one line under it, and what a person may do to it. */
+  .sw-deep-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--s-3) var(--s-5);
+    margin-bottom: var(--s-5);
+  }
+  .sw-deep-head__text {
+    display: grid;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .sw-deep-head__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 1.35rem + 1vw, 2.2rem);
+    font-weight: 400;
+    letter-spacing: -0.018em;
+    line-height: 1.08;
+  }
+  .sw-deep-head__lead {
+    max-width: 54ch;
+    margin: 0;
+    color: var(--ink-2);
+  }
+  .sw-deep-head__aside {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  .sw-deep-figure {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+  }
+  .sw-deep-figure__label {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 540;
+  }
+  .sw-deep-figure__value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem var(--s-2);
+    margin: 0;
+  }
+  .sw-deep-figure__value .sw-numeral {
+    color: var(--ink);
+    font-size: 2.1rem;
+  }
+  .sw-deep-figure__change {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+
+  .sw-deep-clamp {
+    display: grid;
+    justify-items: start;
+    gap: 0.1rem;
+  }
+  .sw-deep-clamp__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--lines, 3);
+    margin: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+  }
+  .sw-deep-clamp__text[data-open='true'] {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+
+  .sw-deep-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-deep-link:hover {
+      color: var(--accent-strong);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-deep-link {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-deep-link__chev {
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-deep-link__chev[data-open='true'] {
+    transform: rotate(180deg);
+  }
+
+  .sw-deep-reason {
+    display: grid;
+    gap: 0.2rem;
+    margin-top: var(--s-2);
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--accent-line);
+  }
+  .sw-deep-reason__text {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+  .sw-deep-reason__label {
+    margin-right: 0.3rem;
+    color: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sw-deep-reason__note {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-reason__note:empty {
+    display: none;
+  }
+
+  .sw-deep-fine {
+    margin: 0;
+    max-width: 64ch;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+
+  /* Three shares as one bar. Each part is moved and scaled, so that a change in the round glides. */
+  .sw-deep-shares {
+    position: relative;
+    display: block;
+    height: 0.62rem;
+    overflow: hidden;
+    border-radius: var(--r-pill);
+    background: var(--hairline);
+  }
+  .sw-deep-shares__seg {
+    position: absolute;
+    inset: 0;
+    transform-origin: left center;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-deep-shares__seg--against {
+    background: var(--c-against);
+    transform: scaleX(var(--a));
+  }
+  .sw-deep-shares__seg--undecided {
+    background: color-mix(in oklab, var(--c-neutral) 42%, transparent);
+    transform: translateX(calc(var(--a) * 100%)) scaleX(var(--u));
+  }
+  .sw-deep-shares__seg--favour {
+    background: var(--c-favor);
+    transform: translateX(calc((var(--a) + var(--u)) * 100%)) scaleX(var(--f));
+  }
+}

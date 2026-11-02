@@ -1,0 +1,114 @@
+@layer scenes {
+  .sw-deep-bs__form {
+    display: grid;
+    gap: var(--s-6);
+  }
+  .sw-deep-bs__part {
+    display: grid;
+    gap: var(--s-3);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-deep-bs__part:first-of-type {
+    padding-top: 0;
+    border-top: 0;
+  }
+  .sw-deep-bs__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+  .sw-deep-bs__sub {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-bs__error {
+    margin: 0;
+    color: var(--c-critical);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-bs__status {
+    flex: 1 1 100%;
+    min-height: 1.3rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    text-align: left;
+  }
+  .sw-deep-bs__problem {
+    color: var(--c-caution);
+  }
+  .sw-deep-bs__failed {
+    color: var(--c-critical);
+  }
+
+  /* One proxy change: who, and the three numbers that can be set. */
+  .sw-deep-bp {
+    display: grid;
+    gap: var(--s-4);
+    justify-items: start;
+  }
+  .sw-deep-bp__row {
+    display: grid;
+    gap: var(--s-3);
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: 0 0 var(--s-4);
+    border: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-deep-bp__who {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--s-2);
+  }
+  .sw-deep-bp__who > .sw-icon-btn {
+    margin-top: 1.7rem;
+  }
+  .sw-deep-bp__numbers {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+  .sw-deep-bp__num {
+    display: grid;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .sw-deep-bp__label {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-deep-bp__num .sw-deep-number {
+    width: 100%;
+    text-align: left;
+  }
+  .sw-deep-bp__error {
+    margin: 0;
+    color: var(--c-critical);
+    font-size: var(--fs-small);
+  }
+  @media (max-width: 30rem) {
+    .sw-deep-bp__numbers {
+      grid-template-columns: 1fr;
+    }
+  }
+  /* On a phone the footer is a column: what is wrong or what will happen, the main action, then the way out. */
+  @media (max-width: 40rem) {
+    .sw-deep-bs .sw-sheet__foot > .sw-btn {
+      flex: 1 1 100%;
+    }
+    .sw-deep-bs .sw-sheet__foot > .sw-deep-bs__status {
+      order: -2;
+    }
+    .sw-deep-bs .sw-sheet__foot > .sw-btn--accent {
+      order: -1;
+    }
+  }
+}

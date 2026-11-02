@@ -1,0 +1,425 @@
+@layer scenes {
+  /*
+   * The colour of each response, from in favour to against. They are declared on the root, not on the page, so
+   * that a popover or a tooltip, which is drawn outside it, reads the same key.
+   */
+  :root {
+    --cmp-adopt: var(--c-favor);
+    --cmp-accept: color-mix(in oklab, var(--c-favor) 52%, var(--c-neutral));
+    --cmp-wait: color-mix(in oklab, var(--c-neutral) 62%, var(--bg));
+    --cmp-adapt: color-mix(in oklab, var(--c-against) 42%, var(--c-neutral));
+    --cmp-switch: color-mix(in oklab, var(--c-against) 82%, var(--c-neutral));
+    --cmp-resist: var(--c-against);
+  }
+
+  /* ---- The page ---------------------------------------------------------------------------------------- */
+  .sw-cmp {
+    position: relative;
+    width: min(calc(100% - 2 * var(--gutter)), var(--w-content));
+    margin: 0 auto;
+    padding: var(--s-5) 0 11rem;
+  }
+  .sw-cmp-section {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-6);
+    margin-top: var(--s-8);
+    padding-top: var(--s-6);
+    scroll-margin-top: calc(var(--topbar-h) + var(--s-5));
+  }
+  @media (max-width: 40rem) {
+    .sw-cmp-section {
+      gap: var(--s-5);
+      margin-top: var(--s-8);
+      padding-top: var(--s-5);
+    }
+  }
+  /* A rule that opens each part and fades out to the right, rather than a box around it. */
+  .sw-cmp-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--hairline-strong), transparent 85%);
+  }
+  .sw-cmp-section__head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: var(--s-2) var(--s-5);
+  }
+  .sw-cmp-section__head > * {
+    grid-column: 1;
+  }
+  .sw-cmp-section__aside {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: end;
+    min-width: 0;
+  }
+  @media (max-width: 48rem) {
+    .sw-cmp-section__head {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-cmp-section__aside {
+      grid-column: 1;
+      grid-row: auto;
+      justify-self: start;
+      max-width: 100%;
+    }
+  }
+  .sw-cmp-section__no {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-cmp-section__no .num {
+    color: var(--accent);
+    font-weight: 650;
+  }
+  .sw-cmp-section__title {
+    max-width: 22ch;
+    font-size: clamp(1.9rem, 1.45rem + 1.7vw, 2.9rem);
+  }
+  .sw-cmp-section__lede {
+    max-width: 44ch;
+    color: var(--ink-2);
+    font-size: var(--fs-read);
+    line-height: 1.5;
+  }
+
+  /* A part that has not come into view yet waits a little lower and a little fainter, and rises into place. */
+  .sw-cmp-section__body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4);
+    min-width: 0;
+  }
+  .sw-cmp-section > * {
+    transition:
+      opacity var(--dur-slow) var(--ease-out),
+      transform var(--dur-cinema) var(--ease-spring-smooth);
+  }
+  .sw-cmp-section:not([data-in]) > * {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0);
+  }
+  .sw-cmp-section[data-in] > .sw-cmp-section__body {
+    transition-delay: 70ms;
+  }
+
+  /* ---- A table of the data of a chart --------------------------------------------------------------------- */
+  .sw-cmp-data {
+    min-width: 0;
+    margin-top: var(--s-4);
+  }
+  /* A wide table scrolls inside its own region; it must not make the page wider while the panel is shut. */
+  .sw-cmp-data .sw-disc__panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sw-cmp-data__summary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-cmp-table {
+    overflow-x: auto;
+    margin-top: var(--s-1);
+    padding-bottom: var(--s-3);
+  }
+  .sw-cmp-table table {
+    width: 100%;
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+  .sw-cmp-table caption {
+    padding: var(--s-2) 0 var(--s-3);
+    color: var(--ink-3);
+    text-align: left;
+    line-height: 1.45;
+  }
+  .sw-cmp-table th,
+  .sw-cmp-table td {
+    padding: var(--s-2) var(--s-4) var(--s-2) 0;
+    border-bottom: 1px solid var(--hairline);
+    text-align: right;
+    white-space: nowrap;
+    vertical-align: baseline;
+  }
+  .sw-cmp-table thead th {
+    color: var(--ink-3);
+    font-weight: 560;
+    white-space: normal;
+    vertical-align: bottom;
+  }
+  .sw-cmp-table th:first-child,
+  .sw-cmp-table tbody th {
+    text-align: left;
+  }
+  .sw-cmp-table tbody th {
+    color: var(--ink);
+    font-weight: 560;
+  }
+  .sw-cmp-table td {
+    color: var(--ink-2);
+  }
+
+  /* ---- Where simulated members end up: a bar of six responses -------------------------------------- */
+  .sw-cmp-resp {
+    --bar-h: 2.25rem;
+    display: flex;
+    gap: 2px;
+    height: var(--bar-h);
+    overflow: hidden;
+    border-radius: var(--r-pill);
+  }
+  .sw-cmp-resp--sm {
+    --bar-h: 1.125rem;
+  }
+  .sw-cmp-resp--lg {
+    --bar-h: 2.75rem;
+  }
+  .sw-cmp-resp__seg {
+    display: grid;
+    flex-basis: 0;
+    flex-shrink: 1;
+    min-width: 3px;
+    place-items: center;
+    overflow: hidden;
+    background: var(--seg);
+    color: var(--seg-ink, var(--ink-inverse));
+    font-size: var(--fs-micro);
+    line-height: 1;
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      flex-grow var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-cmp-resp__seg b {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  [data-cat='adopt'] {
+    --seg: var(--cmp-adopt);
+  }
+  [data-cat='accept-with-conditions'] {
+    --seg: var(--cmp-accept);
+  }
+  [data-cat='wait'] {
+    --seg: var(--cmp-wait);
+    --seg-ink: var(--ink);
+  }
+  [data-cat='adapt-defensively'] {
+    --seg: var(--cmp-adapt);
+  }
+  [data-cat='switch'] {
+    --seg: var(--cmp-switch);
+  }
+  [data-cat='resist'] {
+    --seg: var(--cmp-resist);
+  }
+  /* Resisting is hatched, so that it is told from switching by more than a shade. */
+  .sw-cmp-resp__seg[data-cat='resist'] {
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--bg) 26%, transparent) 5px 7px
+    );
+  }
+  .sw-cmp-resp[data-active='adopt'] .sw-cmp-resp__seg:not([data-cat='adopt']),
+  .sw-cmp-resp[data-active='accept-with-conditions']
+    .sw-cmp-resp__seg:not([data-cat='accept-with-conditions']),
+  .sw-cmp-resp[data-active='wait'] .sw-cmp-resp__seg:not([data-cat='wait']),
+  .sw-cmp-resp[data-active='adapt-defensively']
+    .sw-cmp-resp__seg:not([data-cat='adapt-defensively']),
+  .sw-cmp-resp[data-active='switch'] .sw-cmp-resp__seg:not([data-cat='switch']),
+  .sw-cmp-resp[data-active='resist'] .sw-cmp-resp__seg:not([data-cat='resist']) {
+    opacity: 0.22;
+  }
+
+  /* The key: six responses, each a small control. */
+  .sw-cmp-key {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-2);
+  }
+  .sw-cmp-key__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 1.875rem;
+    padding: 0 0.7rem 0 0.55rem;
+    border: 1px solid transparent;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 520;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  @media (hover: hover) {
+    .sw-cmp-key__item:hover {
+      color: var(--ink);
+      background: color-mix(in oklab, var(--ink) 5%, transparent);
+    }
+  }
+  .sw-cmp-key__item:active {
+    transform: scale(0.96);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-cmp-key__item[aria-pressed='true'] {
+    color: var(--ink);
+    background: var(--accent-soft);
+    border-color: var(--accent-line);
+  }
+  .sw-cmp-key__swatch {
+    flex: none;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: var(--seg);
+  }
+  .sw-cmp-key__swatch[data-cat='resist'] {
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 2px,
+      color-mix(in oklab, var(--bg) 30%, transparent) 2px 3px
+    );
+  }
+  .sw-cmp-key__help {
+    display: inline-grid;
+    place-items: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-3);
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-cmp-key__help:hover {
+      color: var(--ink);
+      background: color-mix(in oklab, var(--ink) 6%, transparent);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-cmp-key__item {
+      min-height: 2.75rem;
+    }
+    .sw-cmp-key__help {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
+  .sw-cmp-means {
+    display: grid;
+    gap: var(--s-3);
+    margin: var(--s-3) 0;
+  }
+  .sw-cmp-means dt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+  .sw-cmp-means dd {
+    margin: 0.1rem 0 0 1.2rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+
+  /* ---- A finding's steadiness, drawn --------------------------------------------------------------------- */
+  .sw-cmp-meter {
+    flex: none;
+    overflow: visible;
+  }
+  .sw-cmp-meter__track {
+    fill: color-mix(in oklab, var(--ink) 11%, transparent);
+  }
+  .sw-cmp-meter__whisker line {
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    opacity: 0.8;
+  }
+
+  /* ---- Marks that stand for a scenario on a number line ------------------------------------------------- */
+  .sw-cmp-mark {
+    display: inline-block;
+    flex: none;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    vertical-align: -0.05em;
+  }
+  .sw-cmp-mark[data-side='a'] {
+    border: 2px solid var(--ink-2);
+    background: var(--bg);
+  }
+  .sw-cmp-mark[data-side='b'] {
+    background: var(--mark, var(--accent));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--mark, var(--accent)) 22%, transparent);
+  }
+
+  .sw-cmp-more {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    gap: 0.4rem;
+    min-height: 2.25rem;
+    padding: 0 var(--s-2);
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .sw-cmp-more svg {
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-more svg[data-up] {
+    transform: rotate(180deg);
+  }
+  @media (hover: hover) {
+    .sw-cmp-more:hover {
+      background: var(--accent-soft);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-cmp-more {
+      min-height: 2.75rem;
+    }
+  }
+
+  .sw-cmp-quiet {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-cmp-note {
+    max-width: 62ch;
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+  }
+
+  @media print {
+    .sw-cmp-section:not([data-in]) > * {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}

@@ -1,0 +1,30 @@
+@layer scenes {
+  .sw-cmp-method {
+    display: grid;
+    gap: var(--s-5);
+    padding-bottom: var(--s-4);
+  }
+  .sw-cmp-method section {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-cmp-method h3 {
+    font-family: var(--font-display);
+    font-size: var(--fs-h3);
+    font-weight: 400;
+    letter-spacing: -0.012em;
+    line-height: 1.15;
+  }
+  .sw-cmp-method p,
+  .sw-cmp-method li {
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.6;
+  }
+  .sw-cmp-method ul {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+}

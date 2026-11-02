@@ -1,0 +1,100 @@
+@layer scenes {
+  .sw-evm {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-evm__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-evm__count {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-evm__pane {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-evm__drop {
+    display: grid;
+    justify-items: center;
+    gap: 0.4rem;
+    padding: var(--s-6) var(--s-4);
+    border: 1px dashed var(--hairline-strong);
+    border-radius: var(--r-lg);
+    background: radial-gradient(120% 120% at 50% 0%, var(--accent-soft), transparent 70%);
+    color: var(--ink-2);
+    text-align: center;
+    transition:
+      border-color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  @media (hover: hover) {
+    .sw-evm__drop:hover:not(:disabled) {
+      border-color: var(--accent);
+    }
+  }
+  .sw-evm__drop:active:not(:disabled) {
+    transform: scale(0.985);
+  }
+  .sw-evm__drop:disabled {
+    opacity: 0.5;
+  }
+  .sw-evm__drop strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-evm__drop span {
+    font-size: var(--fs-small);
+    color: var(--ink-3);
+  }
+  .sw-evm__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-evm__url {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--s-2);
+    align-items: start;
+  }
+  .sw-evm__preview {
+    display: grid;
+    gap: var(--s-2);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-evm__title {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-evm__facts {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-evm__excerpt {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    overflow-wrap: anywhere;
+  }
+  .sw-evm__notes {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-evm__error {
+    white-space: pre-line;
+  }
+  .sw-evm__foot {
+    margin: 0;
+  }
+  .sw-evm__done {
+    display: flex;
+    justify-content: flex-end;
+  }
+}

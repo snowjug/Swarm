@@ -1,0 +1,43 @@
+@layer scenes {
+  .sw-decide-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-decide-tools__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    margin-left: 0.45rem;
+    padding: 0 0.35rem;
+    border-radius: var(--r-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+    line-height: 1;
+  }
+  .sw-decide-tools__narrow {
+    display: none;
+  }
+  @media (max-width: 40rem) {
+    .sw-decide-tools__wide {
+      display: none;
+    }
+    .sw-decide-tools__narrow {
+      display: flex;
+    }
+  }
+  .sw-decide-menu {
+    min-width: 15rem;
+  }
+  .sw-decide-menu__note {
+    margin: var(--s-2) 0 0;
+    padding: 0.4rem 0.6rem;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    line-height: 1.4;
+  }
+}

@@ -1,0 +1,99 @@
+@layer scenes {
+  .sw-deep-rounds {
+    display: grid;
+    gap: var(--s-6);
+  }
+  .sw-deep-rounds > .sw-deep-head {
+    margin-bottom: 0;
+  }
+
+  /* Playing, stepping and the track, on one line: it is the same slider as the chart, for keys and fingers. */
+  .sw-deep-transport {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-2) var(--s-4);
+  }
+  .sw-deep-transport__buttons {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .sw-deep-transport__read {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 4.6rem;
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-transport__read .sw-numeral {
+    color: var(--ink);
+    font-size: 2rem;
+  }
+  @media (max-width: 40rem) {
+    .sw-deep-transport {
+      grid-template-columns: 1fr auto;
+    }
+    .sw-deep-transport__track {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+  }
+
+  .sw-deep-chart {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-deep-chart__foot {
+    display: grid;
+    gap: var(--s-4);
+    align-items: start;
+  }
+  @media (min-width: 52rem) {
+    .sw-deep-chart__foot {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: var(--s-8);
+    }
+  }
+
+  /* The same numbers, as a table, for the keyboard and for a screen reader. */
+  .sw-deep-table-wrap {
+    max-width: 100%;
+    margin-bottom: var(--s-4);
+    overflow-x: auto;
+    border-radius: var(--r-sm);
+  }
+  .sw-deep-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-deep-table caption {
+    padding: 0 0 var(--s-3);
+    color: var(--ink-3);
+    text-align: left;
+  }
+  .sw-deep-table th,
+  .sw-deep-table td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--hairline);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .sw-deep-table thead th {
+    color: var(--ink-3);
+    font-weight: 560;
+  }
+  .sw-deep-table th:first-child,
+  .sw-deep-table td:first-child {
+    text-align: left;
+  }
+  .sw-deep-table tbody th {
+    color: var(--ink);
+    font-weight: 560;
+  }
+}

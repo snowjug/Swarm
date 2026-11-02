@@ -1,0 +1,99 @@
+@layer scenes {
+  /* A number that can be typed: narrow, because it holds a few digits. */
+  .sw-deep-number {
+    width: 5.5rem;
+    min-height: 2.25rem;
+    padding: 0.35rem 0.6rem;
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  @media (pointer: coarse) {
+    .sw-deep-number {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* A slider with its name, its number and what it means in words above it. */
+  .sw-deep-sf {
+    display: grid;
+    gap: var(--s-1);
+    min-width: 0;
+  }
+  .sw-deep-sf__top {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-deep-sf__label {
+    flex: none;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-deep-sf__words {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-deep-sf__box {
+    margin-left: auto;
+  }
+  .sw-deep-sf__hint,
+  .sw-deep-sf__error {
+    margin: 0;
+    font-size: var(--fs-small);
+  }
+  .sw-deep-sf__hint {
+    color: var(--ink-3);
+  }
+  .sw-deep-sf__error {
+    color: var(--c-critical);
+  }
+
+  /* A whole number to step with: minus, the number set large in the serif, plus. */
+  .sw-deep-stepper {
+    display: grid;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+  .sw-deep-stepper__label {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-deep-stepper__row {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  .sw-deep-stepper .sw-deep-stepper__box {
+    width: 4.2rem;
+    min-height: 2.9rem;
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    font-family: var(--font-display);
+    font-size: 2.4rem;
+    line-height: 1;
+    text-align: center;
+    -moz-appearance: textfield;
+  }
+  .sw-deep-stepper__box::-webkit-outer-spin-button,
+  .sw-deep-stepper__box::-webkit-inner-spin-button {
+    margin: 0;
+    -webkit-appearance: none;
+  }
+  .sw-deep-stepper__suffix {
+    margin-left: var(--s-1);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-stepper[data-invalid] .sw-deep-stepper__box {
+    border-color: var(--c-critical);
+  }
+}

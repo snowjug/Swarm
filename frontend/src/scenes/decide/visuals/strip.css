@@ -1,0 +1,105 @@
+@layer scenes {
+  .sw-decide-strip {
+    margin: 0;
+  }
+  .sw-decide-strip__plot {
+    position: relative;
+    padding-top: 1.25rem;
+  }
+  .sw-decide-strip svg {
+    display: block;
+    overflow: visible;
+  }
+  .sw-decide-strip__axis {
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+  }
+  .sw-decide-strip__zero {
+    stroke: var(--ink-3);
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+    stroke-linecap: round;
+    opacity: 0.8;
+  }
+  .sw-decide-strip__band {
+    fill: color-mix(in oklab, var(--accent) 14%, transparent);
+  }
+  .sw-decide-strip__mean {
+    stroke: var(--ink);
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .sw-decide-strip__tick line {
+    stroke: var(--hairline-strong);
+  }
+  .sw-decide-strip__tick text {
+    fill: var(--ink-3);
+    font-family: var(--font-ui);
+    font-size: var(--fs-micro);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-decide-strip__dot {
+    stroke: var(--bg);
+    stroke-width: 1.25;
+    fill: var(--c-neutral);
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .sw-decide-strip__dot[data-tone='up'] {
+    fill: var(--c-against);
+  }
+  .sw-decide-strip__dot[data-tone='down'] {
+    fill: var(--c-favor);
+  }
+  .sw-decide-strip__mean-label,
+  .sw-decide-strip__zero-label {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .sw-decide-strip__mean-label {
+    color: var(--ink);
+  }
+  .sw-decide-strip__zero-label {
+    letter-spacing: 0.02em;
+  }
+
+  @keyframes sw-decide-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.2);
+    }
+  }
+  .sw-decide-strip[data-intro] .sw-decide-strip__dot {
+    animation: sw-decide-pop var(--dur-slow) var(--ease-spring-lively) backwards;
+    animation-delay: calc(var(--i, 0) * 16ms + 520ms);
+  }
+
+  /* The same from the count alone: as many dots as there were paired runs. */
+  .sw-decide-dots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .sw-decide-dots span {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--hairline-strong);
+  }
+  .sw-decide-dots span[data-on] {
+    border-color: var(--c-against);
+    background: var(--c-against);
+  }
+
+  @media print {
+    .sw-decide .sw-decide-strip[data-intro] .sw-decide-strip__dot {
+      animation: none;
+    }
+  }
+}

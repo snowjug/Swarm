@@ -16,8 +16,8 @@ export const THEME_LABELS: Record<ThemePreference, string> = {
 
 /** The colour of the browser's own chrome (the address bar on a phone) for each theme. */
 export const THEME_COLOR: Record<Theme, string> = {
-  light: '#ffffff',
-  dark: '#1c1f24',
+  light: '#f8f7f4',
+  dark: '#0a0b10',
   'high-contrast': '#000000',
 };
 

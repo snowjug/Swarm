@@ -1,213 +1,64 @@
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import {
-  expect,
-  test,
-  type APIRequestContext,
-  type APIResponse,
-  type Locator,
-  type Page,
-} from '@playwright/test';
-import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios';
-import type { LabProgress } from '../../shared/lab';
+  SCENES,
+  addressOf,
+  expectScene,
+  journey,
+  notices,
+  openApp,
+  settled,
+  step,
+  type SceneName,
+} from '../support/app';
+import { apiContext, watchPage } from '../support/helpers';
 import {
-  advance,
-  apiContext,
-  createGuided,
-  expectNoAxeViolations,
-  expectNoHorizontalOverflow,
-  expectReadableText,
-  expectTargetSizes,
-  watchPage,
-} from '../support/helpers';
+  PHONE,
+  expectGates,
+  forget,
+  historyButton,
+  historyDialog,
+  makeLegacy,
+  makeProject,
+  readJourney,
+  recordOf,
+  stepName,
+  type Expected,
+  type Made,
+  type Stage,
+} from '../support/shell';
 
-// Simulation and Report are opened by what the project's own record holds (the stakeholders a person
-// approved, the actors made from them, a comparison that finished), not only by the engine's stages.
-// Here each point of that way is made on the server through the same routes the pages use, and the
-// page is read at it: what is locked and what it says it needs, what the journey shows, the one next
-// step it names, and what happens when a person follows it, with the mouse and with the keyboard.
+// The journey opens step by step, by what the project's own record holds (the evidence read, the stakeholders a
+// person approved, the actors made from them, a comparison that finished), not by a button that was pressed.
+// Here each point of that way is made on the server through the routes the pages use, and the page is read at
+// it: which scenes are open, which are locked and the reason in the name of the step, where the project opens,
+// what pressing a locked step does, and what happens when the record moves on while the page is open.
 // Rules mode, so nothing here needs a model.
 
-type Stage = 'Graph Build' | 'Env Setup' | 'Simulation' | 'Report' | 'Interaction';
-const STAGES: readonly Stage[] = [
-  'Graph Build',
-  'Env Setup',
-  'Simulation',
-  'Report',
-  'Interaction',
-];
-const THEMES = ['light', 'dark', 'high-contrast'] as const;
+type Level = Stage;
 
-// ---------------------------------------------------------------------------------------------
-// The page
-// ---------------------------------------------------------------------------------------------
+const GROUND_IT = 'Ground it first';
+const NEEDS_ACTORS = 'Needs actors';
+const RUN_FIRST = 'Run a simulation first';
+const LEGACY = 'Not in this record';
 
-const stepper = (page: Page): Locator =>
-  page.getByRole('navigation', { name: 'Guided workflow steps' });
-const stageButton = (page: Page, name: Stage): Locator =>
-  stepper(page).getByRole('button', { name: new RegExp(`^${name}`, 'u') });
-const path = (page: Page): Locator =>
-  page.getByRole('group', { name: 'Your path through the scenario' });
-const nextBar = (page: Page): Locator => page.getByRole('group', { name: 'Next step' });
-const workbench = (page: Page, name: Stage): Locator =>
-  page.getByRole('region', { name: `${name} workbench` });
-const mode = (page: Page, name: 'Guided' | 'Advanced'): Locator =>
-  page.getByRole('group', { name: 'Interface mode' }).getByRole('button', { name });
-
-async function inTheme(page: Page, theme: (typeof THEMES)[number]): Promise<void> {
-  await page.addInitScript((value) => window.localStorage.setItem('swarm.theme', value), theme);
-}
-
-// ---------------------------------------------------------------------------------------------
-// The server: a project at each point of the way, made through the API
-// ---------------------------------------------------------------------------------------------
-
-async function json<T>(response: APIResponse): Promise<T> {
-  expect(response.ok(), await response.text()).toBe(true);
-  return (await response.json()) as T;
-}
-
-const readLab = async (api: APIRequestContext, id: string): Promise<LabProgress> =>
-  (await json<{ lab: LabProgress }>(await api.get(`/api/projects/${id}`))).lab;
-
-/** The question of the project is read into a scenario, which is stored with the project, as in intake. */
-async function storeScenario(api: APIRequestContext, id: string): Promise<void> {
-  const project = await json<{ question: string; documents: { name: string }[] }>(
-    await api.get(`/api/projects/${id}`),
-  );
-  const reading = await json<{ frame: unknown }>(
-    await api.post('/api/scenario/parse', {
-      data: {
-        question: project.question,
-        documents: project.documents.map((document) => ({ name: document.name, characters: 400 })),
-      },
-    }),
-  );
-  await json(await api.put(`/api/projects/${id}/scenario`, { data: { scenario: reading.frame } }));
-}
-
-async function proposeStakeholders(api: APIRequestContext, id: string): Promise<number> {
-  const found = await json<{ revision: number }>(
-    await api.post(`/api/projects/${id}/stakeholders/discover`, { data: { mode: 'rules' } }),
-  );
-  return found.revision;
-}
-
-async function approveStakeholders(api: APIRequestContext, id: string): Promise<void> {
-  const revision = await proposeStakeholders(api, id);
-  await json(
-    await api.post(`/api/projects/${id}/stakeholders/approve`, {
-      data: { expectedRevision: revision },
-    }),
-  );
-}
-
-const makeActors = async (api: APIRequestContext, id: string): Promise<void> => {
-  await json(await api.post(`/api/projects/${id}/actors/generate`, { data: {} }));
-};
-
-async function startComparison(
-  api: APIRequestContext,
-  id: string,
-  body: Record<string, unknown> = { runsPerVariant: 10 },
-): Promise<string> {
-  const started = await json<{ analysis: { id: string } }>(
-    await api.post(`/api/projects/${id}/analysis`, { data: body }),
-  );
-  return started.analysis.id;
-}
-
-const statusOf = async (api: APIRequestContext, id: string, analysisId: string) =>
-  (
-    await json<{ analysis: { status: string } }>(
-      await api.get(`/api/projects/${id}/analysis/${analysisId}`),
-    )
-  ).analysis.status;
-
-async function compare(api: APIRequestContext, id: string): Promise<void> {
-  const analysisId = await startComparison(api, id);
-  await expect
-    .poll(() => statusOf(api, id, analysisId), { timeout: 60_000, intervals: [100, 250, 500] })
-    .toBe('completed');
-}
-
-/**
- * A project whose cast is big enough for a comparison to take some seconds, so that a comparison can
- * be seen while it runs and stopped before it finishes. It is only an example's question and evidence.
- */
-async function bigProject(api: APIRequestContext, name: string): Promise<string> {
-  const example = EXAMPLE_SCENARIOS.find((item) => item.id === 'regional-price-change');
-  expect(example, 'the example the heavy comparison is made from').toBeDefined();
-  const response = await api.post('/api/projects', {
-    data: {
-      name,
-      question: example!.question,
-      workflow: 'guided',
-      documents: example!.documents,
-      settings: { mode: 'local', agentCount: 6, rounds: 4, seed: 42, network: 'community' },
-    },
-  });
-  expect(response.status(), await response.text()).toBe(201);
-  const { id } = (await response.json()) as { id: string };
-  await advance(api, id, 'knowledge');
-  await storeScenario(api, id);
-  await approveStakeholders(api, id);
-  await makeActors(api, id);
-  return id;
-}
-
-/** Eight scenarios of 150 runs each, with the sensitivity runs that follow: about as large as one may be. */
-const LONG_COMPARISON = {
-  runsPerVariant: 150,
-  rounds: 36,
-  sensitivity: true,
-  variants: [
-    { id: 'baseline', label: 'No change', kind: 'baseline', round: 1, intensity: 0 },
-    ...[1, 2, 3, 4, 5, 6, 7].map((index) => ({
-      id: `option-${index}`,
-      label: `Option ${index}`,
-      kind: 'alternative',
-      round: 1 + index,
-      intensity: index / 10,
-    })),
-  ],
-};
-
-// ---------------------------------------------------------------------------------------------
-// What each point of the way should look like
-// ---------------------------------------------------------------------------------------------
-
-type Level =
-  | 'fresh'
-  | 'graph'
-  | 'proposed'
-  | 'approved'
-  | 'actors'
-  | 'stopped'
-  | 'compared'
-  | 'reviewed'
-  | 'brief';
-
-interface Expected {
+interface Reading {
   /** What the server says, so that the way the project was made is not taken on trust. */
-  lab: Omit<LabProgress, 'actors'> & { actors: 'none' | 'some' };
-  /** The word under each stage's name; `locked` is a stage that cannot be opened. */
-  stages: Record<Stage, string>;
-  /** The steps of the path that are ticked, in the order of the path. */
-  done: string[];
-  /** The one next step, or none. */
-  next: { says: RegExp; button: string; opens: Stage } | null;
-  /** What the path says in the stages that can be opened. */
-  inView: Partial<Record<Stage, string>>;
+  lab: {
+    stakeholders: string;
+    actors: 'none' | 'some';
+    analysis: string;
+    critiques: boolean;
+    brief: boolean;
+  };
+  /** The scene a project with this record opens on when the address names none. */
+  opensTo: SceneName;
+  /** Which scenes can be opened, and for the ones that cannot, the reason the step gives. */
+  gates: Partial<Record<SceneName, Expected>>;
+  /** The state each step carries: the scene in view is `current` unless it has a state of its own to show. */
+  states: Record<SceneName, string>;
 }
-
-const LOCKED_REASON: Partial<Record<Stage, string>> = {
-  'Env Setup': 'Needs Graph Build first',
-  Simulation: 'Needs actors from Env Setup',
-  Report: 'Needs a finished comparison',
-  Interaction: 'Needs the detailed report',
-};
 
 const NOTHING = {
-  scenario: false,
   stakeholders: 'none',
   actors: 'none',
   analysis: 'none',
@@ -215,810 +66,574 @@ const NOTHING = {
   brief: false,
 } as const;
 
-const COMPARED = {
-  'Graph Build': 'ready',
-  'Env Setup': 'actors ready',
-  Simulation: 'compared',
-  Report: 'ready to write',
-  Interaction: 'locked',
-} as const;
-const COMPARED_DONE = [
-  'Question',
-  'Evidence',
-  'Stakeholders',
-  'Actors',
-  'Scenarios',
-  'Run',
-  'Progress',
-  'Results',
-];
-const COMPARED_VIEW = {
-  'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage',
-  'Env Setup': 'STEP 4 OF 12 Actors · in the Env Setup stage',
-  Simulation: 'STEP 7 OF 12 Progress · in the Simulation stage',
-  Report: 'STEP 8 OF 12 Results · in the Report stage',
-} as const;
-const TO_THE_BRIEF = {
-  says: /The comparison has finished/u,
-  button: 'See the decision brief',
-  opens: 'Report',
-} as const;
+const ONLY_GROUND: Partial<Record<SceneName, Expected>> = {
+  ground: 'open',
+  map: { locked: GROUND_IT },
+  simulate: { locked: NEEDS_ACTORS },
+  compare: { locked: RUN_FIRST },
+  decide: { locked: RUN_FIRST },
+};
+const THROUGH_MAP = { ...ONLY_GROUND, map: 'open' } satisfies Partial<Record<SceneName, Expected>>;
+const THROUGH_ACTORS = { ...THROUGH_MAP, simulate: 'open' } satisfies Partial<
+  Record<SceneName, Expected>
+>;
+const EVERYTHING: Partial<Record<SceneName, Expected>> = {
+  ground: 'open',
+  map: 'open',
+  simulate: 'open',
+  compare: 'open',
+  decide: 'open',
+};
 
-const LEVELS: Record<Level, Expected> = {
+const READINGS: Record<Level, Reading> = {
   fresh: {
     lab: NOTHING,
-    stages: {
-      'Graph Build': 'pending',
-      'Env Setup': 'locked',
-      Simulation: 'locked',
-      Report: 'locked',
-      Interaction: 'locked',
+    opensTo: 'ground',
+    gates: ONLY_GROUND,
+    states: {
+      ask: 'done',
+      ground: 'current',
+      map: 'locked',
+      simulate: 'locked',
+      compare: 'locked',
+      decide: 'locked',
     },
-    done: ['Question'],
-    next: null,
-    inView: { 'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage' },
   },
-  graph: {
+  ground: {
     lab: NOTHING,
-    stages: {
-      'Graph Build': 'ready',
-      'Env Setup': 'pending',
-      Simulation: 'locked',
-      Report: 'locked',
-      Interaction: 'locked',
-    },
-    done: ['Question', 'Evidence'],
-    next: null,
-    inView: {
-      'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage',
-      'Env Setup': 'STEP 3 OF 12 Stakeholders · in the Env Setup stage',
+    opensTo: 'map',
+    gates: THROUGH_MAP,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'current',
+      simulate: 'locked',
+      compare: 'locked',
+      decide: 'locked',
     },
   },
   proposed: {
-    lab: { ...NOTHING, scenario: true, stakeholders: 'proposed' },
-    stages: {
-      'Graph Build': 'ready',
-      'Env Setup': 'pending',
-      Simulation: 'locked',
-      Report: 'locked',
-      Interaction: 'locked',
-    },
-    // Proposed is not approved: nothing is ticked that a person has not decided.
-    done: ['Question', 'Evidence'],
-    next: {
-      says: /Review them and approve the list/u,
-      button: 'Review the stakeholders',
-      opens: 'Env Setup',
-    },
-    inView: {
-      'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage',
-      'Env Setup': 'STEP 3 OF 12 Stakeholders · in the Env Setup stage',
+    // Proposed is not approved: nothing is opened that a person has not decided.
+    lab: { ...NOTHING, stakeholders: 'proposed' },
+    opensTo: 'map',
+    gates: THROUGH_MAP,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'current',
+      simulate: 'locked',
+      compare: 'locked',
+      decide: 'locked',
     },
   },
   approved: {
-    lab: { ...NOTHING, scenario: true, stakeholders: 'approved' },
-    stages: {
-      'Graph Build': 'ready',
-      'Env Setup': 'pending',
-      Simulation: 'locked',
-      Report: 'locked',
-      Interaction: 'locked',
-    },
-    done: ['Question', 'Evidence', 'Stakeholders'],
-    next: { says: /The stakeholders are approved/u, button: 'Make the actors', opens: 'Env Setup' },
-    inView: {
-      'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage',
-      'Env Setup': 'STEP 4 OF 12 Actors · in the Env Setup stage',
+    lab: { ...NOTHING, stakeholders: 'approved' },
+    opensTo: 'map',
+    gates: THROUGH_MAP,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'current',
+      simulate: 'locked',
+      compare: 'locked',
+      decide: 'locked',
     },
   },
   actors: {
-    lab: { ...NOTHING, scenario: true, stakeholders: 'approved', actors: 'some' },
-    stages: {
-      'Graph Build': 'ready',
-      'Env Setup': 'actors ready',
-      Simulation: 'ready to compare',
-      Report: 'locked',
-      Interaction: 'locked',
-    },
-    done: ['Question', 'Evidence', 'Stakeholders', 'Actors'],
-    next: {
-      says: /The simulated actors are ready/u,
-      button: 'Compare the scenarios',
-      opens: 'Simulation',
-    },
-    inView: {
-      'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage',
-      'Env Setup': 'STEP 5 OF 12 Scenarios · in the Env Setup stage',
-      Simulation: 'STEP 6 OF 12 Run · in the Simulation stage',
+    lab: { ...NOTHING, stakeholders: 'approved', actors: 'some' },
+    opensTo: 'simulate',
+    gates: THROUGH_ACTORS,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'done',
+      simulate: 'current',
+      compare: 'locked',
+      decide: 'locked',
     },
   },
   stopped: {
-    lab: {
-      ...NOTHING,
-      scenario: true,
-      stakeholders: 'approved',
-      actors: 'some',
-      analysis: 'failed',
-    },
-    stages: {
-      'Graph Build': 'ready',
-      'Env Setup': 'actors ready',
-      Simulation: 'stopped',
-      Report: 'locked',
-      Interaction: 'locked',
-    },
-    done: ['Question', 'Evidence', 'Stakeholders', 'Actors'],
-    next: {
-      says: /stopped before it finished/u,
-      button: 'Compare the scenarios',
-      opens: 'Simulation',
-    },
-    inView: {
-      'Graph Build': 'STEP 2 OF 12 Evidence · in the Graph Build stage',
-      'Env Setup': 'STEP 5 OF 12 Scenarios · in the Env Setup stage',
-      Simulation: 'STEP 6 OF 12 Run · in the Simulation stage',
+    // A comparison that was stopped is a step that needs a look, and opens nothing after it.
+    lab: { ...NOTHING, stakeholders: 'approved', actors: 'some', analysis: 'failed' },
+    opensTo: 'simulate',
+    gates: THROUGH_ACTORS,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'done',
+      simulate: 'attention',
+      compare: 'locked',
+      decide: 'locked',
     },
   },
   compared: {
-    lab: {
-      ...NOTHING,
-      scenario: true,
-      stakeholders: 'approved',
-      actors: 'some',
-      analysis: 'completed',
+    lab: { ...NOTHING, stakeholders: 'approved', actors: 'some', analysis: 'completed' },
+    opensTo: 'decide',
+    gates: EVERYTHING,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'done',
+      simulate: 'done',
+      compare: 'ready',
+      decide: 'current',
     },
-    stages: COMPARED,
-    done: COMPARED_DONE,
-    next: TO_THE_BRIEF,
-    inView: COMPARED_VIEW,
   },
   reviewed: {
+    // The critics' review is part of the record and does not change what can be opened.
     lab: {
       ...NOTHING,
-      scenario: true,
       stakeholders: 'approved',
       actors: 'some',
       analysis: 'completed',
       critiques: true,
     },
-    // The critics' review is part of the record and does not change what can be opened.
-    stages: COMPARED,
-    done: COMPARED_DONE,
-    next: TO_THE_BRIEF,
-    inView: COMPARED_VIEW,
+    opensTo: 'decide',
+    gates: EVERYTHING,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'done',
+      simulate: 'done',
+      compare: 'ready',
+      decide: 'current',
+    },
   },
   brief: {
     lab: {
       ...NOTHING,
-      scenario: true,
       stakeholders: 'approved',
       actors: 'some',
       analysis: 'completed',
       critiques: true,
       brief: true,
     },
-    stages: { ...COMPARED, Report: 'brief written' },
-    done: [...COMPARED_DONE, 'Export'],
-    next: TO_THE_BRIEF,
-    inView: COMPARED_VIEW,
+    opensTo: 'decide',
+    gates: EVERYTHING,
+    states: {
+      ask: 'done',
+      ground: 'done',
+      map: 'done',
+      simulate: 'done',
+      compare: 'ready',
+      decide: 'done',
+    },
   },
 };
 
-// ---------------------------------------------------------------------------------------------
+test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
 
-test.use({ viewport: { width: 1440, height: 900 } });
-
-const ids = {} as Record<Level | 'big' | 'unlocking' | 'starting' | 'cancelling', string>;
+const projects = {} as Record<Level, Made>;
+let legacy = '';
 let api: APIRequestContext;
+/** Names are made once per setup: a worker that restarts after a failure sets up again, and must not repeat them. */
+const tag = Date.now().toString(36);
+const nameOf = (what: string): string => `Gates ${tag}: ${what}`;
 
 test.beforeAll(async ({ playwright }) => {
   api = await apiContext(playwright);
-  const made = async (level: Level, build: (id: string) => Promise<void>): Promise<void> => {
-    ids[level] = await createGuided(api, { name: `Gates: ${level}` });
-    await build(ids[level]);
-  };
-  await made('fresh', async () => {});
-  await made('graph', (id) => advance(api, id, 'knowledge'));
-  await made('proposed', async (id) => {
-    await advance(api, id, 'knowledge');
-    await storeScenario(api, id);
-    await proposeStakeholders(api, id);
-  });
-  await made('approved', async (id) => {
-    await advance(api, id, 'knowledge');
-    await storeScenario(api, id);
-    await approveStakeholders(api, id);
-  });
-  const withActors = async (id: string): Promise<void> => {
-    await advance(api, id, 'knowledge');
-    await storeScenario(api, id);
-    await approveStakeholders(api, id);
-    await makeActors(api, id);
-  };
-  await made('actors', withActors);
-  await made('compared', async (id) => {
-    await withActors(id);
-    await compare(api, id);
-  });
-  await made('reviewed', async (id) => {
-    await withActors(id);
-    await compare(api, id);
-    await json(await api.post(`/api/projects/${id}/critiques/run`, { data: {} }));
-  });
-  await made('brief', async (id) => {
-    await withActors(id);
-    await compare(api, id);
-    await json(await api.post(`/api/projects/${id}/critiques/run`, { data: {} }));
-    await json(await api.post(`/api/projects/${id}/brief`, { data: {} }));
-  });
-  ids.big = await bigProject(api, 'Gates: a long comparison');
-  // A comparison that a person stopped: it is cancelled while it is still running.
-  ids.stopped = await bigProject(api, 'Gates: stopped');
-  const stopping = await startComparison(api, ids.stopped, LONG_COMPARISON);
-  await json(await api.post(`/api/projects/${ids.stopped}/analysis/${stopping}/cancel`));
-  await expect
-    .poll(() => statusOf(api, ids.stopped, stopping), { timeout: 30_000 })
-    .toBe('cancelled');
-  ids.unlocking = await createGuided(api, { name: 'Gates: unlocking' });
-  await advance(api, ids.unlocking, 'knowledge');
-  await storeScenario(api, ids.unlocking);
-  await approveStakeholders(api, ids.unlocking);
-  // The two that a comparison is started from in the page itself.
-  ids.starting = await createGuided(api, { name: 'Gates: started from the page' });
-  await withActors(ids.starting);
-  ids.cancelling = await bigProject(api, 'Gates: stopped from the page');
+  for (const level of Object.keys(READINGS) as Level[]) {
+    projects[level] = await makeProject(api, level, { name: nameOf(level) });
+  }
+  legacy = await makeLegacy(api, nameOf('legacy'));
 });
 
 test.afterAll(async () => {
+  await forget(api, [...Object.values(projects).map((made) => made.id), legacy]);
   await api.dispose();
 });
 
+/** A marker that a reload would remove: what carries it has not been loaded again. */
+const mark = (page: Page) =>
+  page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
+const marked = (page: Page) =>
+  page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded === true);
+
 // ---------------------------------------------------------------------------------------------
 
-test.describe('what is locked at each point of the way, and what the page says about it', () => {
-  for (const [level, expected] of Object.entries(LEVELS) as [Level, Expected][]) {
-    test(`${level}: the stages, the path and the next step are what the record holds`, async ({
+test.describe('what is locked at each point of the way, and what the step says about it', () => {
+  for (const [level, reading] of Object.entries(READINGS) as [Level, Reading][]) {
+    test(`${level}: the scenes that are open, the ones that are locked and why, and where it opens`, async ({
       page,
     }) => {
       const problems = watchPage(page);
-      const lab = await readLab(api, ids[level]);
-      const { actors, ...rest } = expected.lab;
+      const { lab } = await recordOf(api, projects[level].id);
+      const { actors, ...rest } = reading.lab;
       expect(lab, `the server's record of the ${level} project`).toMatchObject(rest);
       if (actors === 'none') expect(lab.actors).toBe(0);
       else expect(lab.actors).toBeGreaterThan(0);
 
-      await page.goto(`/?project=${ids[level]}`);
-      await expect(workbench(page, 'Graph Build')).toBeVisible();
+      // Opened with no scene in the address, the project goes to where its work has got to, and says so.
+      await page.goto(addressOf({ project: projects[level].id }));
+      await settled(page);
+      await expectScene(page, reading.opensTo);
+      await expectGates(page, reading.gates, level);
 
-      for (const name of STAGES) {
-        const button = stageButton(page, name);
-        const label = expected.stages[name];
-        await expect(button, `${name} at ${level}`).toContainText(label);
-        if (label === 'locked') {
-          // It cannot be opened, it says so in words, and says what it needs.
-          await expect(button).toBeDisabled();
-          await expect(button).toContainText(LOCKED_REASON[name]!);
-        } else {
-          await expect(button).toBeEnabled();
-          await expect(button.locator('small.step-lock')).toHaveCount(0);
-        }
-      }
-
-      // The path ticks only what the record shows, in the order of the path.
-      await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText(
-        expected.done,
+      const found = await readJourney(page);
+      expect(
+        Object.fromEntries(SCENES.map((scene) => [scene, found[scene]?.state])),
+        `the state each step carries at ${level}`,
+      ).toEqual(reading.states);
+      // What the glyph shows is in the name too, so that it is not left to the eye: done, or locked for a reason.
+      expect(
+        Object.fromEntries(SCENES.map((scene) => [scene, found[scene]?.name])),
+        `what each step is called at ${level}`,
+      ).toEqual(
+        Object.fromEntries(
+          SCENES.map((scene) => {
+            const gate = reading.gates[scene];
+            const reason = typeof gate === 'object' ? gate.locked : undefined;
+            return [scene, stepName(scene, reading.states[scene], reason)];
+          }),
+        ),
       );
-      await expect(path(page).locator('[aria-current="step"]')).toHaveCount(1);
-
-      // The one next step, or none, and it is a single button.
-      if (expected.next) {
-        await expect(nextBar(page)).toBeVisible();
-        await expect(nextBar(page)).toContainText(expected.next.says);
-        await expect(nextBar(page).getByRole('button')).toHaveCount(1);
-        await expect(nextBar(page).getByRole('button')).toHaveText(expected.next.button);
-      } else {
-        await expect(nextBar(page)).toHaveCount(0);
-      }
+      expect(
+        SCENES.filter((scene) => found[scene]?.current),
+        'exactly one step is the one in view',
+      ).toEqual([reading.opensTo]);
       expect(problems).toEqual([]);
     });
+  }
+});
 
-    test(`${level}: the path follows the stage in view`, async ({ page }) => {
-      await page.goto(`/?project=${ids[level]}`);
-      for (const [name, summary] of Object.entries(expected.inView) as [Stage, string][]) {
-        await stageButton(page, name).click();
-        await expect(workbench(page, name)).toBeVisible();
-        await expect(path(page)).toContainText(summary);
-        await expect(path(page).locator('[aria-current="step"]')).toHaveCount(1);
-      }
-    });
+// ---------------------------------------------------------------------------------------------
 
-    if (expected.next) {
-      const { button, opens } = expected.next;
-      test(`${level}: the next step opens ${opens}, and puts focus there`, async ({ page }) => {
-        await page.goto(`/?project=${ids[level]}`);
-        await nextBar(page).getByRole('button', { name: button }).click();
-        await expect(workbench(page, opens)).toBeVisible();
-        // The brief is what the person came for, so Report hands focus on to the brief itself.
-        await expect(
-          opens === 'Report' ? page.locator('#report-brief') : workbench(page, opens),
-        ).toBeFocused();
-        await expect(stageButton(page, opens)).toHaveAttribute('aria-current', 'step');
-        // Where the work of that step is done, the stage says what to do, and the bar steps aside;
-        // from the comparison's brief it offers the way back.
-        if (opens === 'Report') {
-          await expect(nextBar(page)).toContainText('Back to the comparison');
-          await expect(nextBar(page).getByRole('button')).toHaveText('Back to the comparison');
-        } else {
-          await expect(nextBar(page)).toHaveCount(0);
-        }
+test.describe('pressing a step that is locked', () => {
+  test('says what is needed, with the pointer or the keyboard, and stays where it is', async ({
+    page,
+  }) => {
+    await openApp(page, { project: projects.approved.id, scene: 'map' });
+
+    // A locked step is still a button that can be reached and read: it says why it is locked in its name.
+    const simulate = step(page, 'simulate');
+    await expect(simulate).toHaveAccessibleName(`Simulate, locked: ${NEEDS_ACTORS}`);
+    await expect(simulate).toHaveAttribute('aria-disabled', 'true');
+    await expect(simulate).toHaveJSProperty('disabled', false);
+
+    await simulate.click({ force: true });
+    await expect(notices(page).getByRole('status')).toContainText(NEEDS_ACTORS);
+    await expectScene(page, 'map');
+    // The notice leaves by itself.
+    await expect(notices(page).getByRole('status')).toHaveCount(0, { timeout: 15_000 });
+
+    const compare = step(page, 'compare');
+    await compare.focus();
+    await expect(compare).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(notices(page).getByRole('status')).toContainText(RUN_FIRST);
+    await notices(page).getByRole('button', { name: 'Dismiss' }).click();
+    await expect(notices(page).getByRole('status')).toHaveCount(0);
+
+    const decide = step(page, 'decide');
+    await decide.focus();
+    await page.keyboard.press('Space');
+    await expect(notices(page).getByRole('status')).toContainText(RUN_FIRST);
+    await expectScene(page, 'map');
+  });
+
+  test('is a stop on the way along the journey: the keyboard reaches every step, locked or not', async ({
+    page,
+  }) => {
+    await openApp(page, { project: projects.approved.id, scene: 'map' });
+    await step(page, 'ask').focus();
+    const reached: string[] = [];
+    for (const scene of ['ground', 'map', 'simulate', 'compare', 'decide'] as const) {
+      await page.keyboard.press('Tab');
+      await expect(step(page, scene)).toBeFocused();
+      reached.push(scene);
+    }
+    expect(reached).toEqual(['ground', 'map', 'simulate', 'compare', 'decide']);
+  });
+
+  test('on a record the guided journey did not make, says it is not in the record', async ({
+    page,
+  }) => {
+    await openApp(page, { project: legacy });
+    await step(page, 'map').click({ force: true });
+    await expect(notices(page).getByRole('status')).toContainText(LEGACY);
+    await step(page, 'compare').click({ force: true });
+    await expect(notices(page).getByRole('status').last()).toContainText(LEGACY);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+
+test.describe('opening a scene that the record has not opened, by its address', () => {
+  test('shows where the work is instead, and shows it again after a reload', async ({ page }) => {
+    const problems = watchPage(page);
+    for (const requested of ['decide', 'compare', 'simulate', 'ask', 'nonsense']) {
+      await page.goto(`/?project=${projects.approved.id}&scene=${requested}`);
+      await settled(page);
+      await expect(step(page, 'map'), `?scene=${requested}`).toHaveAttribute(
+        'aria-current',
+        'step',
+      );
+      await expect(page).toHaveTitle(/ · Map \| Swarm$/u);
+      // The address says what is shown, so that a reload and a shared link land where the page is.
+      await expect(page, `?scene=${requested}`).toHaveURL(/[?&]scene=map(?:&|$)/u);
+      await expectGates(page, {
+        simulate: { locked: NEEDS_ACTORS },
+        decide: { locked: RUN_FIRST },
       });
     }
-  }
-});
+    await page.reload();
+    await settled(page);
+    await expect(step(page, 'map')).toHaveAttribute('aria-current', 'step');
+    await expect(page).toHaveURL(/[?&]scene=map(?:&|$)/u);
+    expect(problems).toEqual([]);
+  });
 
-// ---------------------------------------------------------------------------------------------
+  test('replaces the address it was given: Back does not return to a scene that was never shown', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await settled(page);
+    await page.goto(`/?project=${projects.approved.id}&scene=decide&view=report`);
+    await settled(page);
+    await expect(step(page, 'map')).toHaveAttribute('aria-current', 'step');
+    await expect(page).toHaveURL(/[?&]scene=map(?:&|$)/u);
+    await expect(page).not.toHaveURL(/[?&]view=/u);
 
-test.describe('opening a stage that the record has not opened', () => {
-  test('a locked stage cannot be opened, by a click or from the keyboard', async ({ page }) => {
-    await page.goto(`/?project=${ids.approved}`);
-    for (const name of ['Simulation', 'Report', 'Interaction'] as const) {
-      const button = stageButton(page, name);
-      await expect(button).toBeDisabled();
-      await button.click({ force: true });
-      await expect(workbench(page, name)).toHaveCount(0);
-      await expect(workbench(page, 'Graph Build')).toBeVisible();
+    await page.goBack();
+    await expect(page).not.toHaveURL(/[?&]project=/u);
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'Explore what could happen next.',
+    );
+  });
+
+  test('never trusts a view it does not know, whatever the address says', async ({ page }) => {
+    const problems = watchPage(page);
+    for (const view of [
+      '%3Cscript%3Ealert(1)%3C/script%3E',
+      'x'.repeat(60),
+      '..%2F..%2Fetc',
+      'nonsense',
+    ]) {
+      await page.goto(`/?project=${projects.compared.id}&scene=compare&view=${view}`);
+      await settled(page);
+      await expectScene(page, 'compare');
     }
-    // A locked stage is not a tab stop: the keyboard goes from the stages that can be opened to the
-    // controls after them, and never to one that does nothing.
-    await stageButton(page, 'Graph Build').focus();
-    await page.keyboard.press('Tab');
-    await expect(stageButton(page, 'Env Setup')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(stepper(page).getByRole('button', { name: /^Simulation/u })).not.toBeFocused();
-    expect(
-      await page.evaluate(() => document.activeElement?.closest('nav.console-stepper') === null),
-      'focus has left the stages',
-    ).toBe(true);
+    expect(problems).toEqual([]);
   });
 
-  test('Simulation opens from the actors alone, and Report from a finished comparison alone', async ({
+  test('keeps a scene the record has opened, with its view, after a reload', async ({ page }) => {
+    await openApp(page, { project: projects.compared.id, scene: 'simulate', view: 'timeline' });
+    await expectScene(page, 'simulate');
+    await page.reload();
+    await settled(page);
+    await expectScene(page, 'simulate');
+    await expect(page).toHaveURL(/[?&]view=timeline(?:&|$)/u);
+    await expectGates(page, EVERYTHING);
+  });
+
+  test('on a record the guided journey did not make, opens the report and keeps the map and the comparison shut', async ({
     page,
   }) => {
-    // Neither of the engine's stages behind them was run: the graph is all it has built.
-    const project = await json<{ console: { steps: Record<string, string> } }>(
-      await api.get(`/api/projects/${ids.compared}`),
-    );
-    expect(project.console.steps).toMatchObject({
-      knowledge: 'ready',
-      environment: 'pending',
-      simulation: 'pending',
-      report: 'pending',
+    const problems = watchPage(page);
+    await openApp(page, { project: legacy });
+    await expectScene(page, 'decide');
+    await expectGates(page, {
+      ground: 'open',
+      map: { locked: LEGACY },
+      simulate: 'open',
+      compare: { locked: LEGACY },
+      decide: 'open',
     });
-    await page.goto(`/?project=${ids.compared}`);
-    await stageButton(page, 'Simulation').click();
-    await expect(workbench(page, 'Simulation')).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Compare scenarios' })).toBeVisible();
-    await stageButton(page, 'Report').click();
-    await expect(workbench(page, 'Report')).toBeVisible();
-    await expect(page.getByRole('region', { name: 'Decision brief' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Generate decision brief' })).toBeVisible();
-  });
-
-  test('Interaction stays locked on the lab’s record, which does not make the detailed report', async ({
-    page,
-  }) => {
-    await page.goto(`/?project=${ids.brief}`);
-    await expect(stageButton(page, 'Interaction')).toBeDisabled();
-    await expect(stageButton(page, 'Interaction')).toContainText(LOCKED_REASON.Interaction!);
-    await expect(nextBar(page)).toBeVisible();
+    for (const requested of ['map', 'compare']) {
+      await page.goto(`/?project=${legacy}&scene=${requested}`);
+      await settled(page);
+      await expect(step(page, 'decide'), `?scene=${requested}`).toHaveAttribute(
+        'aria-current',
+        'step',
+      );
+    }
+    expect(problems).toEqual([]);
   });
 });
 
 // ---------------------------------------------------------------------------------------------
 
-test.describe('how a person unlocks the next stage', () => {
-  test('approved stakeholders lead to the actors, and the actors open Simulation without a reload', async ({
+test.describe('how a person opens the next step, and how the page finds out', () => {
+  test('making the actors in the Map opens Simulate without a reload, and the way on is Simulate', async ({
     page,
   }) => {
-    await page.goto(`/?project=${ids.unlocking}`);
-    // A marker that a reload would remove: the page below is never loaded again.
-    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
-    await expect(stageButton(page, 'Simulation')).toBeDisabled();
-    await expect(stageButton(page, 'Simulation')).toContainText('Needs actors from Env Setup');
-    await expect(nextBar(page)).toContainText('The stakeholders are approved');
+    const made = await makeProject(api, 'approved', { name: nameOf('making the actors') });
+    await openApp(page, { project: made.id, scene: 'map' });
+    await mark(page);
+    await expectGates(page, { simulate: { locked: NEEDS_ACTORS } });
 
-    // The bar names the thing to do and takes the person to where it is done.
-    await nextBar(page).getByRole('button', { name: 'Make the actors' }).click();
-    await expect(workbench(page, 'Env Setup')).toBeFocused();
-    await expect(page.getByRole('heading', { name: 'Stakeholders and actors' })).toBeVisible();
-    await expect(nextBar(page)).toHaveCount(0);
-
-    // The person makes the actors in the panel, which says so in its own words.
-    await workbench(page, 'Env Setup')
-      .getByRole('button', { name: /make the actors|create actors/iu })
-      .first()
-      .click();
-    await expect(stageButton(page, 'Simulation')).toBeEnabled();
-    await expect(stageButton(page, 'Simulation')).toContainText('ready to compare');
-    await expect(stageButton(page, 'Env Setup')).toContainText('actors ready');
-    await expect(stageButton(page, 'Report')).toBeDisabled();
-
-    // With the actors made, the way on is named from where the person is, and it opens Simulation.
-    await expect(nextBar(page)).toContainText('The simulated actors are ready');
-    await nextBar(page).getByRole('button', { name: 'Compare the scenarios' }).click();
-    await expect(workbench(page, 'Simulation')).toBeFocused();
-    await expect(nextBar(page)).toHaveCount(0);
-    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
-      true,
-    );
-    expect((await readLab(api, ids.unlocking)).actors).toBeGreaterThan(0);
-  });
-
-  test('a comparison that is running keeps Report locked, and opens it when it finishes, by itself', async ({
-    page,
-  }) => {
-    await page.goto(`/?project=${ids.big}`);
-    await expect(stageButton(page, 'Simulation')).toContainText('ready to compare');
-    await stageButton(page, 'Simulation').click();
-    await expect(workbench(page, 'Simulation')).toBeVisible();
-    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
-
-    // The comparison is started on the server and the page told to read the project again.
-    await startComparison(api, ids.big, LONG_COMPARISON);
-    await page.getByRole('button', { name: 'Refresh project from server' }).click();
-    await expect(stageButton(page, 'Simulation')).toContainText('comparing');
-    expect(
-      (await readLab(api, ids.big)).analysis,
-      'the comparison is still running when the page is read: it is made long enough for that',
-    ).toBe('running');
-    await expect(stageButton(page, 'Report')).toBeDisabled();
-    await expect(stageButton(page, 'Report')).toContainText('Needs a finished comparison');
-    await expect(nextBar(page)).toHaveCount(0);
-    await expect(path(page)).toContainText('STEP 7 OF 12 Progress');
-
-    // The page reads the project again while it runs, so nothing is done to open Report.
-    await expect(stageButton(page, 'Report')).toBeEnabled({ timeout: 90_000 });
-    await expect(stageButton(page, 'Simulation')).toContainText('compared');
-    await expect(stageButton(page, 'Report')).toContainText('ready to write');
-    await expect(nextBar(page)).toContainText('The comparison has finished');
-    await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText([
-      ...COMPARED_DONE,
-    ]);
-    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
-      true,
-    );
-  });
-
-  test('a comparison started in the page opens Report when it finishes, and the brief ticks the path, with no reload', async ({
-    page,
-  }) => {
-    await page.goto(`/?project=${ids.starting}`);
-    await expect(stageButton(page, 'Report')).toBeDisabled();
-    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
-    await stageButton(page, 'Simulation').click();
-    await expect(workbench(page, 'Simulation')).toBeVisible();
-
-    // The person does it all in the page: no request from here, and the refresh button is not touched.
-    await workbench(page, 'Simulation')
-      .getByRole('button', { name: 'Compare scenarios', exact: true })
-      .click();
-    await expect(page.getByRole('heading', { name: 'What this comparison says' })).toBeVisible({
-      timeout: 60_000,
+    await page.getByRole('button', { name: 'Make the actors' }).click();
+    await expectGates(page, {
+      map: 'open',
+      simulate: 'open',
+      compare: { locked: RUN_FIRST },
+      decide: { locked: RUN_FIRST },
     });
-    await expect(stageButton(page, 'Report')).toBeEnabled();
-    await expect(stageButton(page, 'Report')).toContainText('ready to write');
-    await expect(stageButton(page, 'Simulation')).toContainText('compared');
-    await expect(nextBar(page)).toContainText('The comparison has finished');
-    await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText(COMPARED_DONE);
+    await expect(step(page, 'map')).toHaveAttribute('data-state', 'done');
+    await expect(step(page, 'simulate')).toHaveAttribute('data-state', 'ready');
+    expect((await recordOf(api, made.id)).lab.actors).toBeGreaterThan(0);
 
-    // On to the brief, and writing it in the page: the stage and the path follow it.
-    await nextBar(page).getByRole('button', { name: 'See the decision brief' }).click();
-    await expect(page.locator('#report-brief')).toBeFocused();
-    await page.getByRole('button', { name: 'Generate decision brief' }).click();
-    await expect(stageButton(page, 'Report')).toContainText('brief written');
-    await expect(path(page).locator('.journey-step.done .journey-label')).toHaveText([
-      ...COMPARED_DONE,
-      'Export',
-    ]);
-    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
-      true,
-    );
-    expect(await readLab(api, ids.starting)).toMatchObject({ analysis: 'completed', brief: true });
+    await page
+      .getByRole('group', { name: 'Next' })
+      .getByRole('button', { name: 'Simulate' })
+      .click();
+    await expectScene(page, 'simulate');
+    expect(await marked(page), 'the page was not loaded again').toBe(true);
   });
 
-  test('a comparison stopped in the page leaves Report locked, and Simulation says it stopped, with no reload', async ({
+  test('running the simulation from the page opens Compare and Decide when it finishes, with no reload', async ({
     page,
   }) => {
-    await page.goto(`/?project=${ids.cancelling}`);
-    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
-    await stageButton(page, 'Simulation').click();
-    const simulation = workbench(page, 'Simulation');
-    await simulation.getByLabel('Seeded runs of each scenario').selectOption({ label: '100 runs' });
-    await simulation.getByRole('button', { name: 'Compare scenarios', exact: true }).click();
-    await simulation.getByRole('button', { name: 'Cancel the comparison' }).click();
+    const made = await makeProject(api, 'actors', { name: nameOf('run from the page') });
+    await openApp(page, { project: made.id, scene: 'simulate' });
+    await mark(page);
+    await expectGates(page, { compare: { locked: RUN_FIRST }, decide: { locked: RUN_FIRST } });
 
-    await expect(stageButton(page, 'Simulation')).toContainText('stopped');
-    await expect(stageButton(page, 'Report')).toBeDisabled();
-    await expect(stageButton(page, 'Report')).toContainText('Needs a finished comparison');
-    expect((await readLab(api, ids.cancelling)).analysis).toBe('failed');
-    // From another stage the next step says that it stopped and offers to run it again.
-    await stageButton(page, 'Graph Build').click();
-    await expect(nextBar(page)).toContainText('stopped before it finished');
-    await expect(nextBar(page).getByRole('button')).toHaveText('Compare the scenarios');
-    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
-      true,
-    );
+    await page.getByRole('radio', { name: '10', exact: true }).check();
+    await page.getByRole('button', { name: 'Run the simulation' }).click();
+    await expectGates(page, EVERYTHING, 'after the simulation finished');
+    await expect(step(page, 'simulate')).toHaveAttribute('data-state', 'done');
+    await expect(step(page, 'compare')).toHaveAttribute('data-state', 'ready');
+    expect(await readJourney(page).then((found) => found.decide?.state)).toBe('ready');
+    expect(await marked(page), 'the page was not loaded again').toBe(true);
+    expect((await recordOf(api, made.id)).lab.analysis).toBe('completed');
   });
 
-  test('a running comparison is named from the stages that are not showing it, until it finishes', async ({
+  test('a comparison that finishes elsewhere, while the page is open on Simulate, is found by the page', async ({
     page,
   }) => {
-    const id = await bigProject(api, 'Gates: running');
-    await startComparison(api, id, LONG_COMPARISON);
-    await page.goto(`/?project=${id}`);
-    await page.evaluate(() => ((window as unknown as { loaded: boolean }).loaded = true));
-    expect(
-      (await readLab(api, id)).analysis,
-      'the comparison is still running when the page is read: it is made long enough for that',
-    ).toBe('running');
-    await expect(workbench(page, 'Graph Build')).toBeVisible();
-    await expect(nextBar(page)).toContainText('A comparison is running');
-    await expect(nextBar(page).getByRole('button')).toHaveText('Follow the comparison');
-    await expect(stageButton(page, 'Simulation')).toContainText('comparing');
-    await expect(stageButton(page, 'Report')).toBeDisabled();
+    const made = await makeProject(api, 'actors', { name: nameOf('finishing elsewhere') });
+    await openApp(page, { project: made.id, scene: 'simulate' });
+    await mark(page);
+    await expectGates(page, { compare: { locked: RUN_FIRST }, decide: { locked: RUN_FIRST } });
 
-    // The stage in view is not the one that shows the comparison, and the bar does not go on saying
-    // that it runs once it has finished.
-    await expect(nextBar(page).getByRole('button')).toHaveText('See the decision brief', {
-      timeout: 90_000,
+    const started = await api.post(`/api/projects/${made.id}/analysis`, {
+      data: { runsPerVariant: 100 },
     });
-    await expect(stageButton(page, 'Report')).toBeEnabled();
-    expect(await page.evaluate(() => (window as unknown as { loaded?: boolean }).loaded)).toBe(
-      true,
-    );
+    expect(started.status(), await started.text()).toBe(202);
+    // The page reads the project again on its own: a few seconds while it waits, then while it runs.
+    await expectGates(page, EVERYTHING, 'after the comparison finished', 120_000);
+    await expect(step(page, 'simulate')).toHaveAttribute('data-state', 'done');
+    expect(await marked(page), 'the page was not loaded again').toBe(true);
+  });
+
+  test('follows the record while the page is open: a comparison that runs keeps Compare and Decide locked, one that stops needs a look', async ({
+    page,
+  }) => {
+    // A comparison is seconds of work on a server like this one, too short to be caught running. So the record is
+    // held at each point by answering the project's own request, and the page is left to read it as it does.
+    let held: 'running' | 'failed' | null = 'running';
+    await page.route(new RegExp(`/api/projects/${projects.compared.id}$`, 'u'), async (route) => {
+      const response = await route.fetch();
+      if (held === null || route.request().method() !== 'GET') return route.fulfill({ response });
+      const body = (await response.json()) as { lab: Record<string, unknown> };
+      return route.fulfill({ response, json: { ...body, lab: { ...body.lab, analysis: held } } });
+    });
+    await openApp(page, { project: projects.compared.id, scene: 'simulate' });
+    await mark(page);
+    await expect(step(page, 'simulate')).toHaveAttribute('data-state', 'working');
+    await expect(step(page, 'simulate')).toHaveAccessibleName('Simulate, in progress');
+    await expectGates(page, {
+      simulate: 'open',
+      compare: { locked: RUN_FIRST },
+      decide: { locked: RUN_FIRST },
+    });
+
+    // Stopped somewhere else: the page reads the project again, and the step asks for a look.
+    held = 'failed';
+    await expect(step(page, 'simulate')).toHaveAttribute('data-state', 'attention', {
+      timeout: 30_000,
+    });
+    await expect(step(page, 'simulate')).toHaveAccessibleName('Simulate, stopped: needs a look');
+    await expectGates(page, { compare: { locked: RUN_FIRST }, decide: { locked: RUN_FIRST } });
+
+    // And when the record says it finished, the two scenes after it open, by themselves.
+    held = null;
+    await expectGates(page, EVERYTHING, 'once the record says it finished', 30_000);
+    await expect(step(page, 'simulate')).toHaveAttribute('data-state', 'done');
+    await expect(step(page, 'simulate')).toHaveAccessibleName('Simulate, done');
+    expect(await marked(page), 'the page was not loaded again').toBe(true);
   });
 });
 
 // ---------------------------------------------------------------------------------------------
 
-test.describe('the next step from the keyboard', () => {
-  test('is a tab stop between the stages and the work, and Enter and Space both take it', async ({
+test.describe('the first step, and the other ways of reading the same record', () => {
+  test('the first step starts a new question and the exploration is kept in the history', async ({
     page,
   }) => {
-    await page.goto(`/?project=${ids.compared}`);
-    const button = nextBar(page).getByRole('button', { name: 'See the decision brief' });
-    // From the last control of the stage navigation, the next stop is the one next step.
-    await page.getByRole('group', { name: 'Console view' }).getByRole('button').last().focus();
-    await page.keyboard.press('Tab');
-    await expect(button).toBeFocused();
-    expect(
-      Number.parseFloat(await button.evaluate((element) => getComputedStyle(element).outlineWidth)),
-      'a visible focus ring',
-    ).toBeGreaterThanOrEqual(2);
+    await openApp(page, { project: projects.ground.id, scene: 'ground' });
+    await step(page, 'ask').click();
+    await expect(page.getByRole('heading', { level: 1 })).toContainText(
+      'Explore what could happen next.',
+    );
+    await expect(page).not.toHaveURL(/[?&]scene=/u);
+    await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
 
-    await page.keyboard.press('Enter');
-    await expect(page.locator('#report-brief')).toBeFocused();
-    await expect(page.locator('body')).not.toBeFocused();
-
-    // Back the same way: the button now says where it goes, and Space takes it too.
-    const back = nextBar(page).getByRole('button', { name: 'Back to the comparison' });
-    await back.focus();
-    await page.keyboard.press('Space');
-    await expect(workbench(page, 'Simulation')).toBeFocused();
-    await expect(stageButton(page, 'Simulation')).toHaveAttribute('aria-current', 'step');
-
-    // Focus is on the stage, so the next Tab goes into it, not back to the top of the page. The
-    // comparison is read as the stage opens, and until it is drawn there is nothing in it to reach.
+    await historyButton(page).click();
     await expect(
-      workbench(page, 'Simulation').getByRole('heading', { name: 'What this comparison says' }),
+      historyDialog(page).getByRole('button', { name: new RegExp(`^${nameOf('ground')}\\b`, 'u') }),
     ).toBeVisible();
-    await page.keyboard.press('Tab');
-    expect(
-      await page.evaluate(() => document.activeElement?.closest('section.console-stage') !== null),
-      'the next stop is inside the stage',
-    ).toBe(true);
   });
 
-  test('moves focus to the stage even when only the graph was showing', async ({ page }) => {
-    await page.goto(`/?project=${ids.actors}`);
-    await page
-      .getByRole('group', { name: 'Console view' })
-      .getByRole('button', { name: 'Graph' })
-      .click();
-    await expect(workbench(page, 'Graph Build')).toHaveCount(0);
-    await nextBar(page).getByRole('button', { name: 'Compare the scenarios' }).click();
-    await expect(workbench(page, 'Simulation')).toBeFocused();
+  test('after a reload the same scenes are open and the same ones locked', async ({ page }) => {
+    await openApp(page, { project: projects.approved.id, scene: 'map' });
+    const before = await readJourney(page);
+    await page.reload();
+    await settled(page);
+    expect(await readJourney(page)).toEqual(before);
+    await expectGates(page, { simulate: { locked: NEEDS_ACTORS }, compare: { locked: RUN_FIRST } });
   });
-});
 
-// ---------------------------------------------------------------------------------------------
-
-test.describe('the view a stage opens in', () => {
-  test('is the stage’s own, and a narrow screen does not keep the workbench for good', async ({
+  test('Advanced shows more of the engine and opens nothing more: the same scenes are open', async ({
     page,
   }) => {
-    const view = (name: string): Locator =>
-      page.getByRole('group', { name: 'Console view' }).getByRole('button', { name });
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/?project=${ids.actors}`);
-    // The map is beside Graph Build, which is about it, and Env Setup has the whole width.
-    await expect(view('Split')).toHaveAttribute('aria-pressed', 'true');
-    await stageButton(page, 'Env Setup').click();
-    await expect(view('Workbench')).toHaveAttribute('aria-pressed', 'true');
-    await stageButton(page, 'Graph Build').click();
-    await expect(view('Split')).toHaveAttribute('aria-pressed', 'true');
-
-    // On a phone the map that was opened on its own gives way to the stage that is opened next...
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page
-      .getByRole('group', { name: 'Console pane' })
-      .getByRole('button', { name: 'Graph' })
-      .click();
-    await expect(workbench(page, 'Graph Build')).toHaveCount(0);
-    await stageButton(page, 'Env Setup').click();
-    await expect(workbench(page, 'Env Setup')).toBeVisible();
-    // ...and is not held to once the window is wide again.
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await stageButton(page, 'Graph Build').click();
-    await expect(view('Split')).toHaveAttribute('aria-pressed', 'true');
-  });
-});
-
-// ---------------------------------------------------------------------------------------------
-
-test.describe('Guided and Advanced', () => {
-  test('both say that a stage is locked; Guided says in words what it needs, Advanced to a screen reader', async ({
-    page,
-  }) => {
-    await page.goto(`/?project=${ids.approved}`);
-    await expect(mode(page, 'Guided')).toHaveAttribute('aria-pressed', 'true');
-    // A locked stage says what it is for, and under that what it needs.
-    await expect(stageButton(page, 'Simulation').locator('.step-help')).toHaveText([
-      'Run and compare scenarios',
-      'Needs actors from Env Setup',
-    ]);
-    await expect(stageButton(page, 'Env Setup').locator('.step-help')).toHaveText(
-      'Review stakeholders and actors',
-    );
-
-    await mode(page, 'Advanced').click();
-    await expect(page.locator('.step-help')).toHaveCount(0);
-    await expect(stageButton(page, 'Simulation')).toBeDisabled();
-    await expect(stageButton(page, 'Simulation')).toContainText('locked');
-    await expect(stageButton(page, 'Simulation')).toHaveAccessibleName(
-      /Simulation.*locked.*step 3 of 5\. Needs actors from Env Setup/u,
-    );
-    // The next step is the same in both modes.
-    await expect(nextBar(page)).toContainText('The stakeholders are approved');
-
-    await mode(page, 'Guided').click();
-    await expect(stageButton(page, 'Simulation').locator('.step-lock')).toHaveText(
-      'Needs actors from Env Setup',
-    );
-  });
-
-  test('Advanced keeps every stage reachable that the record opens', async ({ page }) => {
     await page.addInitScript(() => window.localStorage.setItem('swarm.mode', 'advanced'));
-    await page.goto(`/?project=${ids.compared}`);
-    for (const name of ['Graph Build', 'Env Setup', 'Simulation', 'Report'] as const) {
-      await expect(stageButton(page, name)).toBeEnabled();
-    }
-    await expect(stageButton(page, 'Interaction')).toBeDisabled();
-    await nextBar(page).getByRole('button', { name: 'See the decision brief' }).click();
-    await expect(workbench(page, 'Report')).toBeVisible();
+    await openApp(page, { project: projects.approved.id, scene: 'map' });
+    await expectGates(page, THROUGH_MAP, 'approved, in Advanced');
+    await openApp(page, { project: projects.compared.id, scene: 'compare' });
+    await expectGates(page, EVERYTHING, 'compared, in Advanced');
   });
 });
 
 // ---------------------------------------------------------------------------------------------
 
-test.describe('after a reload', () => {
-  test('the same stages are open, the same ones locked, and the next step is named again', async ({
+test.describe('on a phone', () => {
+  test.use(PHONE);
+
+  test('the dock holds the five scenes of the journey, names the locked ones, and is the only journey', async ({
     page,
   }) => {
-    await page.goto(`/?project=${ids.compared}`);
-    await stageButton(page, 'Report').click();
-    await expect(workbench(page, 'Report')).toBeVisible();
-    await page.reload();
+    const problems = watchPage(page);
+    await openApp(page, { project: projects.approved.id, scene: 'map' });
 
-    // What opens a stage is on the server: the page reads it again and lands where the engine is.
-    await expect(workbench(page, 'Graph Build')).toBeVisible();
-    await expect(stageButton(page, 'Report')).toBeEnabled();
-    await expect(stageButton(page, 'Report')).toContainText('ready to write');
-    await expect(stageButton(page, 'Simulation')).toContainText('compared');
-    await expect(stageButton(page, 'Interaction')).toBeDisabled();
-    await expect(nextBar(page).getByRole('button')).toHaveText('See the decision brief');
-    await expect(path(page).locator('.journey-step.done')).toHaveCount(COMPARED_DONE.length);
-  });
+    // The bar's journey is hidden on a phone, so only one journey is in the page for a screen reader.
+    await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(1);
+    await expect(journey(page).getByRole('button')).toHaveCount(5);
+    await expectGates(page, THROUGH_MAP);
+    await expectScene(page, 'map');
 
-  test('a locked stage is still locked, and the mode that was chosen is kept', async ({ page }) => {
-    await page.goto(`/?project=${ids.approved}`);
-    await mode(page, 'Advanced').click();
-    await page.reload();
-    await expect(mode(page, 'Advanced')).toHaveAttribute('aria-pressed', 'true');
-    await expect(stageButton(page, 'Simulation')).toBeDisabled();
-    await expect(stageButton(page, 'Simulation')).toContainText('locked');
-    await expect(page.locator('.step-help')).toHaveCount(0);
-    await expect(nextBar(page)).toContainText('The stakeholders are approved');
-  });
-});
-
-// ---------------------------------------------------------------------------------------------
-
-test.describe('in every theme, on a laptop and on a phone', () => {
-  for (const [name, size] of [
-    ['laptop', { width: 1366, height: 768 }],
-    ['phone', { width: 390, height: 844 }],
-  ] as const) {
-    test.describe(name, () => {
-      test.use({ viewport: size });
-
-      for (const theme of THEMES) {
-        test(`the locked stages and the next step are clean in the ${theme} theme`, async ({
-          page,
-        }) => {
-          const problems = watchPage(page);
-          await inTheme(page, theme);
-          for (const level of ['approved', 'actors', 'compared'] as const) {
-            await page.goto(`/?project=${ids[level]}`);
-            await expect(stageButton(page, 'Report')).toContainText(LEVELS[level].stages.Report);
-            const label = `${theme} ${name}: ${level}`;
-            await expectNoAxeViolations(page, label);
-            await expectNoHorizontalOverflow(page);
-            await expectReadableText(page, label);
-            await expectTargetSizes(page, label);
-          }
-          expect(problems).toEqual([]);
-        });
-      }
-    });
-  }
-
-  test.describe('phone', () => {
-    test.use({ viewport: { width: 390, height: 844 } });
-
-    test('no stage name is broken in two, and the next step is whole on the screen', async ({
-      page,
-    }) => {
-      await page.goto(`/?project=${ids.actors}`);
-      const names = stepper(page).locator('strong');
-      await expect(names).toHaveCount(5);
-      for (const [index, expected] of STAGES.entries()) {
-        const box = await names.nth(index).evaluate((element) => {
-          const words = element.textContent!.split(' ');
-          const range = document.createRange();
-          range.selectNodeContents(element);
-          const lines = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+    // Each one is at least a finger wide and tall.
+    const sizes = await journey(page)
+      .getByRole('button')
+      .evaluateAll((buttons) =>
+        buttons.map((button) => {
+          const box = button.getBoundingClientRect();
           return {
-            words: words.length,
-            lines: lines.size,
-            width: element.scrollWidth,
-            room: element.clientWidth,
+            name: button.getAttribute('aria-label') ?? button.textContent,
+            width: box.width,
+            height: box.height,
           };
-        });
-        // One line per word at most, and no word wider than the room it has.
-        expect(box.lines, `${expected}: lines`).toBeLessThanOrEqual(box.words);
-        expect(box.width, `${expected}: a name wider than its room`).toBeLessThanOrEqual(
-          box.room + 1,
-        );
-      }
-      const bar = nextBar(page);
-      await bar.scrollIntoViewIfNeeded();
-      await expect(bar).toBeInViewport({ ratio: 1 });
-      await expect(bar.getByRole('button')).toBeInViewport({ ratio: 1 });
-      await expectNoHorizontalOverflow(page);
-    });
+        }),
+      );
+    for (const size of sizes) {
+      expect(size.width, `${size.name}: width`).toBeGreaterThanOrEqual(44);
+      expect(size.height, `${size.name}: height`).toBeGreaterThanOrEqual(44);
+    }
 
-    test('the header goes with the page instead of keeping a quarter of the screen', async ({
-      page,
-    }) => {
-      await page.goto(`/?project=${ids.actors}`);
-      // The console is fetched when a project opens: measure the page once it is there.
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-      const header = page.locator('header.app-header');
-      expect((await header.boundingBox())!.height).toBeLessThan(200);
-      expect(await header.evaluate((element) => getComputedStyle(element).position)).toBe('static');
-      await page.evaluate(() => window.scrollTo(0, 400));
-      expect((await header.boundingBox())!.y).toBeLessThan(0);
-    });
+    // Pressed, a locked step says what it needs, the same as on a wide screen.
+    await step(page, 'compare').click({ force: true });
+    await expect(notices(page).getByRole('status')).toContainText(RUN_FIRST);
+    expect(problems).toEqual([]);
   });
 });

@@ -1,0 +1,95 @@
+@layer scenes {
+  .sw-tally {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-tally__bar {
+    display: flex;
+    gap: 3px;
+    height: 0.5rem;
+    transform-origin: left center;
+    animation: sw-tally-grow var(--dur-slow) var(--ease-out) both;
+  }
+  @keyframes sw-tally-grow {
+    from {
+      opacity: 0;
+      transform: scaleX(0.2);
+    }
+  }
+  .sw-tally__seg {
+    --seg: var(--c-neutral);
+    min-width: 8px;
+    border-radius: var(--r-pill);
+    background: var(--seg);
+  }
+  .sw-tally__seg[data-tone='accent'] {
+    --seg: var(--accent);
+  }
+  .sw-tally__seg[data-tone='favor'] {
+    --seg: var(--c-favor);
+  }
+  .sw-tally__seg[data-tone='caution'] {
+    --seg: var(--c-caution);
+  }
+  .sw-tally__seg[data-tone='against'] {
+    --seg: var(--c-against);
+  }
+  .sw-tally__seg[data-tone='critical'] {
+    --seg: var(--c-critical);
+  }
+  .sw-tally__seg[data-tone='neutral'] {
+    background: repeating-linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--c-neutral) 70%, transparent) 0 3px,
+      color-mix(in oklab, var(--c-neutral) 28%, transparent) 3px 6px
+    );
+  }
+  .sw-tally__seg--empty {
+    background: var(--hairline-strong);
+  }
+  .sw-tally__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-tally__item {
+    --seg: var(--c-neutral);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-tally__item[data-tone='accent'] {
+    --seg: var(--accent);
+  }
+  .sw-tally__item[data-tone='favor'] {
+    --seg: var(--c-favor);
+  }
+  .sw-tally__item[data-tone='caution'] {
+    --seg: var(--c-caution);
+  }
+  .sw-tally__item[data-tone='against'] {
+    --seg: var(--c-against);
+  }
+  .sw-tally__item[data-tone='critical'] {
+    --seg: var(--c-critical);
+  }
+  .sw-tally__item svg {
+    flex: none;
+    color: var(--seg);
+  }
+  .sw-tally__item[data-zero] {
+    opacity: 0.5;
+  }
+  .sw-tally__count {
+    color: var(--ink);
+    font-weight: 620;
+  }
+  [data-theme='high-contrast'] .sw-tally__seg {
+    outline: 1px solid var(--ink);
+  }
+}

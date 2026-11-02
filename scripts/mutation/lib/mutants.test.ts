@@ -40,7 +40,7 @@ describe('the security mutation list', () => {
     const reached = reachableFrom('backend/test/session.test.ts');
     expect(reached.has(resolve(ROOT, 'backend/src/auth/oidc.ts'))).toBe(true);
     expect(reached.has(resolve(ROOT, 'backend/src/storage/sessions.ts'))).toBe(true);
-    expect(reached.has(resolve(ROOT, 'frontend/src/App.tsx'))).toBe(false);
+    expect(reached.has(resolve(ROOT, 'frontend/src/main.tsx'))).toBe(false);
     expect(reached.has(resolve(ROOT, 'backend/src/auth/audit-policy.ts'))).toBe(true);
   });
 
@@ -49,13 +49,13 @@ describe('the security mutation list', () => {
       id: 'M0',
       area: 'sign-in' as const,
       claim: 'A rule in a file that no named test reaches',
-      file: 'frontend/src/App.tsx',
-      find: 'export default function App() {',
-      replace: 'export default function App2() {',
+      file: 'frontend/src/main.tsx',
+      find: 'createRoot(root).render(',
+      replace: 'createRoot(root).hydrate(',
       tests: ['backend/test/session.test.ts'],
     };
     expect(problemsWith([unreachable])).toEqual([
-      'M0: no named test can reach frontend/src/App.tsx.',
+      'M0: no named test can reach frontend/src/main.tsx.',
     ]);
     expect(problemsWith([{ ...unreachable, file: 'backend/src/auth/oidc.ts' }])).toEqual([
       'Mutant M0: the text to replace occurs 0 times, not once.',

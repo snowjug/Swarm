@@ -1,0 +1,83 @@
+@layer scenes {
+  /* Full width and out of the way of the pointer; only the bar itself takes it. */
+  .sw-actionbar__dock {
+    position: fixed;
+    inset: auto 0 calc(1.25rem + env(safe-area-inset-bottom)) 0;
+    z-index: var(--z-chrome);
+    display: flex;
+    justify-content: center;
+    padding-inline: var(--s-3);
+    pointer-events: none;
+  }
+  @media (max-width: 40rem) {
+    .sw-actionbar__dock {
+      bottom: calc(var(--dock-h) + 1.1rem + env(safe-area-inset-bottom));
+    }
+  }
+  .sw-actionbar {
+    --glass-radius: var(--r-xl);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3) var(--s-4);
+    width: min(46rem, 100%);
+    padding: 0.6rem 0.65rem 0.6rem var(--s-4);
+    box-shadow: var(--shadow-4);
+    pointer-events: auto;
+  }
+  .sw-actionbar__status {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-actionbar__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--ink-3);
+  }
+  .sw-actionbar__status[data-state='dirty'] .sw-actionbar__dot,
+  .sw-actionbar__status[data-state='proposal'] .sw-actionbar__dot {
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    animation: sw-breathe 2.4s var(--ease-in-out) infinite;
+  }
+  .sw-actionbar__status[data-state='behind'] .sw-actionbar__dot {
+    background: var(--c-caution);
+    box-shadow: 0 0 10px var(--c-caution);
+  }
+  .sw-actionbar__problem {
+    color: var(--c-caution);
+    font-weight: 500;
+  }
+  .sw-actionbar__why {
+    flex: 1 1 10rem;
+    min-width: 0;
+  }
+  .sw-actionbar__why .sw-input {
+    min-height: 2.25rem;
+    padding-block: 0.3rem;
+    border-radius: var(--r-pill);
+    font-size: var(--fs-small);
+  }
+  .sw-actionbar__buttons {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--s-2);
+    margin-left: auto;
+  }
+  @media (max-width: 40rem) {
+    .sw-actionbar {
+      padding: 0.6rem;
+    }
+    .sw-actionbar__buttons {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+}

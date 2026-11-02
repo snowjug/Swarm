@@ -113,9 +113,11 @@ against it. Earlier runs failed or half-passed; every failure is listed under
 | 6 (fresh server, no tracing) | 187 s    | 67                 | 11                 | 24 (12 / 4 / 7 / 0 / 1)                                                               | 15/15  |
 
 Each run is four fictional proxies on two platforms over three rounds, then a branch from round 1,
-a report, an analyst chat, an actor chat and an export. The header badge in a real browser read
-**REAL AZURE AI · swarm-chat · connected**, and **Verify connection** completed one real round trip
-(about 4 s); the provider panel showed "Microsoft Entra ID — no API key" and 0 failures.
+a report, an analyst chat, an actor chat and an export. The provider badge of the earlier interface (in its
+header) in a real browser read **REAL AZURE AI · swarm-chat · connected**, and **Verify connection**
+completed one real round trip (about 4 s); the provider panel showed "Microsoft Entra ID — no API key" and
+0 failures. The chip in the top bar that replaced the badge names the provider, the deployment and whether a
+real request has succeeded in the same way.
 
 Read these numbers for what they are:
 
@@ -294,8 +296,8 @@ deletes only what carries the `app=swarm-lab` tag and purges the soft-deleted ac
 the name can be reused.
 
 After provisioning, role assignments can take several minutes to propagate. Start
-the app, open the provider panel in the header and choose **Verify connection**.
-`REAL AZURE AI · connected` is shown only after a real call has succeeded.
+the app, open the engine chip in the top bar and choose **Verify connection** in its popover.
+The chip shows `REAL AZURE AI` and `connected` only after a real call has succeeded.
 
 ## Verifying the live integration
 
@@ -391,8 +393,8 @@ chat message or an image. Credentials are required only for actual Azure inferen
 never for the rules-based local engine.
 
 Then verify with a real round trip (it makes exactly one tiny model call and never
-falls back to local mode): `POST /api/provider/check`, or the **Verify connection**
-button in the header's provider panel.
+falls back to local mode): `POST /api/provider/check`, or **Verify connection** in the popover of the engine
+chip in the top bar.
 
 Validate a small four-agent/three-round scenario first. Check actual JSON
 compatibility, valid project citations, reported usage, rate-limit errors,

@@ -1,0 +1,278 @@
+@layer scenes {
+  /* Sensitivity: bars from the middle, to the left where an assumption lowered the share and to the right where it raised it. */
+  .sw-decide-tn {
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-tn__row {
+    display: grid;
+    gap: 0.35rem;
+  }
+  .sw-decide-tn__label {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-body);
+    line-height: 1.4;
+  }
+  .sw-decide-tn__flag {
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    background: var(--c-caution-soft);
+    color: var(--c-caution);
+  }
+  .sw-decide-tn__plot {
+    position: relative;
+    height: 1.2rem;
+  }
+  .sw-decide-tn__mid {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 1px;
+    background: var(--ink-3);
+    opacity: 0.7;
+  }
+  .sw-decide-tn__plot::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 1px;
+    background: var(--hairline);
+  }
+  .sw-decide-tn__bar {
+    --tone: var(--c-favor);
+    position: absolute;
+    top: 0.2rem;
+    bottom: 0.2rem;
+    min-width: 2px;
+    border-radius: 3px;
+    background: linear-gradient(
+      90deg,
+      var(--tone),
+      color-mix(in oklab, var(--tone) 55%, transparent)
+    );
+    transform-origin: right center;
+  }
+  .sw-decide-tn__bar[data-up='true'] {
+    --tone: var(--c-against);
+    background: linear-gradient(
+      90deg,
+      color-mix(in oklab, var(--tone) 55%, transparent),
+      var(--tone)
+    );
+    transform-origin: left center;
+  }
+  .sw-decide-tn__whisker {
+    position: absolute;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    border-radius: 2px;
+    background: var(--ink);
+    opacity: 0.7;
+  }
+  .sw-decide-tn__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-tn__meta b {
+    color: var(--ink);
+    font-weight: 650;
+  }
+  .sw-decide-tn__sep {
+    color: var(--ink-3);
+  }
+  .sw-decide-tn__ev,
+  .sw-decide-tn__origin {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .sw-decide-tn__bar {
+    animation: sw-decide-grow var(--dur-cinema) var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 60ms);
+  }
+  @supports (animation-timeline: view()) {
+    .sw-decide[data-reveal='on'] .sw-decide-tn__bar {
+      animation: sw-decide-grow linear forwards;
+      animation-timeline: view();
+      animation-range: entry 0px entry 220px;
+      animation-delay: 0s;
+    }
+  }
+
+  /* Stability: each finding as the interval for the share of runs it held in. */
+  .sw-decide-sb {
+    display: grid;
+    gap: var(--s-5);
+  }
+  .sw-decide-sb__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--s-3);
+    padding-bottom: var(--s-2);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-decide-sb__name {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .sw-decide-sb__count {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-sb__meaning {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-sb__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-sb__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(7rem, 12rem) 3.2rem;
+    align-items: center;
+    gap: var(--s-4);
+    width: 100%;
+    min-height: 2.5rem;
+    padding: 0.2rem var(--s-2);
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-decide-sb__row:hover {
+      background: color-mix(in oklab, var(--accent) 6%, transparent);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-decide-sb__row {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-decide-sb__row[aria-expanded='true'] {
+    background: var(--accent-soft);
+  }
+  .sw-decide-sb__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .sw-decide-sb__track {
+    --tone: var(--accent);
+    position: relative;
+    height: 0.9rem;
+  }
+  .sw-decide-sb__track[data-class='unstable'] {
+    --tone: var(--c-caution);
+  }
+  .sw-decide-sb__track[data-class='rare'] {
+    --tone: var(--c-neutral);
+  }
+  .sw-decide-sb__track::before {
+    content: '';
+    position: absolute;
+    inset: 50% 0 auto 0;
+    height: 1px;
+    background: var(--hairline-strong);
+  }
+  .sw-decide-sb__span {
+    position: absolute;
+    top: 50%;
+    height: 0.45rem;
+    margin-top: -0.225rem;
+    border-radius: 0.3rem;
+    background: color-mix(in oklab, var(--tone) 32%, transparent);
+    border: 1px solid color-mix(in oklab, var(--tone) 55%, transparent);
+  }
+  .sw-decide-sb__dot {
+    position: absolute;
+    top: 50%;
+    width: 0.6rem;
+    height: 0.6rem;
+    margin: -0.3rem 0 0 -0.3rem;
+    border-radius: 50%;
+    background: var(--tone);
+  }
+  .sw-decide-sb__value {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .sw-decide-sb__value b {
+    color: var(--ink);
+    font-weight: 650;
+  }
+  .sw-decide-sb__axis {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(7rem, 12rem) 3.2rem;
+    gap: var(--s-4);
+    padding: 0 var(--s-2);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-decide-sb__axis span {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .sw-decide-sb__axis span:nth-child(1) {
+    justify-self: start;
+  }
+  .sw-decide-sb__axis span:nth-child(2) {
+    justify-self: center;
+  }
+  .sw-decide-sb__axis span:nth-child(3) {
+    justify-self: end;
+  }
+  @media (max-width: 40rem) {
+    .sw-decide-sb__row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--s-1) var(--s-3);
+      padding-block: var(--s-2);
+    }
+    .sw-decide-sb__track {
+      grid-column: 1 / -1;
+      grid-row: 2;
+    }
+    .sw-decide-sb__axis {
+      display: none;
+    }
+  }
+  @media print {
+    .sw-decide .sw-decide-tn__bar {
+      animation: none;
+    }
+  }
+}

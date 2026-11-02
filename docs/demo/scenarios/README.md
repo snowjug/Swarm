@@ -5,8 +5,8 @@ stakeholder discovery, synthetic actors, repeated runs, independent review and a
 
 Each example is only **a question and a few documents**. It carries no answer, no list of
 stakeholders, no result and no conclusion. Everything after the evidence is made by the same code
-that handles any question typed into the entry form, so what the audience sees is what Swarm does
-with evidence, not what an author wrote down.
+that handles any question typed into the question field on the first screen, so what the audience sees
+is what Swarm does with evidence, not what an author wrote down.
 
 Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.
 
@@ -34,12 +34,12 @@ into the stakeholder list, the analysis and the brief.
 | [AI-first support](./ai-first-support/README.md)                        | What could happen if an AI assistant handles initial troubleshooting before a customer reaches a human support engineer?    | 4         | One source conflict; a pilot that covers only part of the work; nothing on customers who give up   |
 | [Launch pricing](./launch-pricing/README.md)                            | What could happen if we launch the new plan at a higher price with a free trial removed?                                    | 4         | One source conflict, plus two sales views that disagree; no price tested above $34                 |
 
-A custom scenario needs no content here: the entry form is that path. Type any "What could happen
+A custom scenario needs no content here: the first screen is that path. Type any "What could happen
 if...?" question and add your own documents or a public address.
 
 Each folder holds the example's scripts and a readable copy of every document. The copies are the
-same text the picker loads from [`shared/examples`](../../../shared/examples), and a test fails if
-they drift apart.
+same text the example chips load from [`shared/examples`](../../../shared/examples), and a test fails
+if they drift apart.
 
 | Example                                                                 | Five-minute script                                                   | Ten-minute script                                                  |
 | ----------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
@@ -54,13 +54,13 @@ they drift apart.
 The product is the same for every example, so the scripts share a shape. Each one says what to
 click, what to say and what to point at, with the details of its own evidence.
 
-- **Five minutes:** choose the example (30 s); the question (40 s); the evidence (30 s);
-  stakeholders and actors (60 s); compare scenarios (60 s); the decision brief (50 s); one objection
+- **Five minutes:** choose the example (30 s); your scenario (40 s); Ground (30 s); Map: stakeholders
+  and actors (60 s); Simulate and Compare (60 s); Decide: the decision brief (50 s); one objection
   from the independent review (20 s); close (10 s).
-- **Ten minutes:** open (1 min); the question and the scenario (1.5 min); the evidence (1 min);
-  stakeholders and actors (1.5 min); compare scenarios (1.5 min); sensitivity (1 min); review and
-  brief (1.5 min); exports and a question to the analyst (1 min). The online-store script adds a
-  step for the public page.
+- **Ten minutes:** open (1 min); the question and the scenario (1.5 min); Ground (1 min); Map:
+  stakeholders and actors (1.5 min); Simulate and Compare (1.5 min); what the result depends on
+  (1 min); Decide: review and brief (1.5 min); exports and a question to the analyst (1 min). The
+  online-store script adds a step for the public page.
 
 Run an example once before you present it. The scripts contain no results, because the results
 depend on the run: read the real screen and quote that.
@@ -88,43 +88,47 @@ pack: tests check for the obvious forms of it.
 1. Start Swarm as the [README](../../../README.md#quick-start) describes (`npm.cmd run build`, then
    `npm.cmd start`, and open <http://127.0.0.1:3001>), ideally with a fresh `DATA_DIR` so that
    rehearsal projects do not mix with real ones.
-2. Read the header chip. With no model configured it says `LOCAL / RULES MODE`. With a model it
-   names the provider (for example `REAL AZURE AI`, `REAL MODEL · OpenAI` or `REAL MODEL · Ollama
-(local)`) and says `connected` after **Verify connection**. Say which one you are in.
-3. Choose **Use this example** on a card in **Not sure what to ask? Try an example**, on the entry page. It fills the question and the documents, with their
-   provenance, and focuses the first action. Choosing an example only fills the form.
+2. Read the chip at the right of the top bar. With no model configured it says **Local rules**. With
+   a model it names the provider (for example `REAL AZURE AI`, `REAL MODEL · OpenAI` or
+   `REAL MODEL · Ollama (local)`) and the deployment, and says `connected` after **Verify connection**
+   (open the chip to find it). Say which one you are in.
+3. Choose an example chip under **Start from an example** on the first screen. It fills the question
+   and the documents, with their provenance, and puts the cursor in the question field. Choosing an
+   example only fills the question and the evidence: nothing is read or run until you press
+   **Explore**.
 4. Rehearse the example you will show once end to end. A run in rules mode takes seconds; a model
    run takes minutes.
 
-The scripts below name buttons and stages as the interface gives them (**Use this example**,
-**Understand my question**, **Use this scenario**, **Find stakeholders** (which is **Find stakeholders by
-reading the text** or **Find stakeholders with the model**), **Go to approval**, **Approve stakeholders and create actors**, **Compare
-scenarios**, **Run independent review**, **Generate decision brief**). If a label has moved in the build you
+The scripts below name buttons and scenes as the interface gives them (**Explore**, **Ground it**,
+**Find who is affected**, **Approve & create actors**, **Run the simulation**, **Compare**, **Decide**,
+**Write the brief**, **Review**, **Run the independent review**). If a label has moved in the build you
 are showing, the step is the same. The [demo guide](../README.md) has the ten-minute script across the
-flagship examples. A browser test (`e2e/lab/examples.spec.ts`) takes the three flagship examples and a
-question of its own through the real pages, with the public pages served from fixtures; rehearse the
-example you will show before you rely on a script.
+flagship examples. The browser tests (see [TESTING.md](../../TESTING.md)) take the three flagship
+examples and a question of its own through the real pages, with the public pages served from fixtures;
+rehearse the example you will show before you rely on a script.
 
 ## Screens and what to point at
 
-The order is the order of the product. Each row is something to show, in the words you can use.
+The order is the order of the product: Ask, Ground, Map, Simulate, Compare, Decide. Each row is
+something to show, in the words you can use.
 
-| Step                  | Point at                                                                                                                                                                                                                                                                               | What it proves                                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Question and evidence | The question, then the document list: each document is labelled as a sample with the licence `Synthetic, CC0`.                                                                                                                                                                         | Evidence has a provenance, and invented evidence says so.                                                          |
-| Scenario understood   | The structured form read from the question: decision, changes, baseline, alternatives, assumptions, ambiguities.                                                                                                                                                                       | The question is made explicit and editable before anything runs. Assumptions say who made them: you or the system. |
-| Evidence ledger       | Once the deep dive's report exists, the **Evidence ledger** in the Report stage: **Conflicts between sources**, two quotes side by side, marked **Different figures**. The brief lists the same conflicts under **Evidence base and quality** (closed until opened from the contents). | Swarm does not choose a side. A person confirms the conflict or dismisses it.                                      |
-| Stakeholders          | The four counts, one row opened to its cited quote and uncertainty level; the prompt about roles nobody was found for.                                                                                                                                                                 | Stakeholders are discovered from the evidence, with the passage shown, not asserted.                               |
-| Actors                | The trait table: each trait carries a badge for where it came from (evidence, assumption, you).                                                                                                                                                                                        | Synthetic actors are not people. Every number they run on is an assumption you can edit.                           |
-| Compare scenarios     | The spread across seeded runs for the baseline and each alternative; "holds in N of 30 seeded runs" with its interval.                                                                                                                                                                 | One run is never the answer. Repeatability is measured, not asserted.                                              |
-| Sensitivity           | The assumptions the result moves with, and which of them have no evidence behind them.                                                                                                                                                                                                 | The result's weak points are on the screen.                                                                        |
-| Second-order effects  | The chain read from the representative run (what each event acted on, then what only came first).                                                                                                                                                                                      | Competitor, partner and regulator reactions come from generic rules, not a script.                                 |
-| Independent review    | One objection, its basis, and the response form (respond, accept, dispute).                                                                                                                                                                                                            | Challenge stays visible. A critic never edits the analysis.                                                        |
-| Decision brief        | The executive answer with origin chips, then the **Validation plan** (open, right after the recommendations) and, from the contents, **Important assumptions**, **Uncertainty and sensitivity** and **Limitations** (closed until opened).                                             | Every statement names where it came from, and the brief says what to check in the real world.                      |
+| Step                          | Point at                                                                                                                                                                                                                                                                                                                                                              | What it proves                                                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Ask: question and evidence    | The question, then the **Evidence** count and the tray of documents: each document opens to its text and says "Sample evidence: invented, describes no real case". In Ground, each source is tagged **Synthetic sample** and opens to its licence `Synthetic, CC0`.                                                                                                   | Evidence has a provenance, and invented evidence says so.                                                          |
+| Ask: your scenario            | The scenario read from the question: the decision, **What changes**, **If nothing changes**, **Ways to do it**, **Who is affected**, **Assumed** and what **Swarm asks**.                                                                                                                                                                                             | The question is made explicit and editable before anything runs. Assumptions say who made them: you or the system. |
+| Ground: conflicts             | **Conflicts**: two quotes side by side, marked **Different figures** or **Opposite statements**, with **Confirm** and **Not a conflict**. The brief lists the same conflicts under **Evidence base and quality** (closed until opened from the contents). Once the deep dive's report exists, **Statements** lists every statement with how well the sources back it. | Swarm does not choose a side. A person confirms the conflict or dismisses it.                                      |
+| Map: stakeholders             | The map: parties in clusters, "N to review", one party opened to its cited quote and its confidence; the dashed **Nobody found for** prompts for roles nobody was found for.                                                                                                                                                                                          | Stakeholders are discovered from the evidence, with the passage shown, not asserted.                               |
+| Map: actors                   | An actor's **Traits**: each carries a chip for where it came from (assumption, evidence, model, you).                                                                                                                                                                                                                                                                 | Synthetic actors are not people. Every number they run on is an assumption you can edit.                           |
+| Simulate: the replay          | **Live**: one typical run on the map, with the scrubber, the round card and what each round **Set off**. **Story** for the answer written from the numbers.                                                                                                                                                                                                           | A run can be watched, round by round, and it is one run, not the answer.                                           |
+| Compare: the futures          | The gap chart: a tick for each seeded run of the baseline and each alternative, "It held in N of 30 seeded runs" with its class.                                                                                                                                                                                                                                      | One run is never the answer. Repeatability is measured, not asserted.                                              |
+| Compare: depends on           | **Depends on**: the assumptions the result moves with, and which of them have no evidence behind them.                                                                                                                                                                                                                                                                | The result's weak points are on the screen.                                                                        |
+| Compare: second-order effects | **Sets off**: the chain read from the representative run (what each event acted on, then what only came first).                                                                                                                                                                                                                                                       | Competitor, partner and regulator reactions come from generic rules, not a script.                                 |
+| Decide: independent review    | **Review**, then one objection, its basis, and the response form (**Respond**, **Accept**, **Dispute**).                                                                                                                                                                                                                                                              | Challenge stays visible. A critic never edits the analysis.                                                        |
+| Decide: decision brief        | The verdict and **What happened** with origin marks, then the **Validation plan** (open, right after the recommendations) and, from the contents, **Important assumptions**, **Uncertainty and sensitivity** and **Limitations** (closed until opened).                                                                                                               | Every statement names where it came from, and the brief says what to check in the real world.                      |
 
-In rules mode the interface says so at each step (for example, that stakeholders were found by
-reading the text for roles, and that outcomes are a mechanical consequence of declared
-assumptions). Point at that wording. It is the honest description of what rules mode is.
+In rules mode the interface says so at each step (for example, the chip on the map says the stakeholders
+were read from your text for roles, and **How far to rely on this** says that outcomes follow from the
+declared assumptions). Point at that wording. It is the honest description of what rules mode is.
 
 ## Speaking points
 
@@ -182,8 +186,9 @@ only public pages are allowed.
 instructions, and text that addresses a model is flagged. That lowers the risk. It does not remove
 it.
 
-**"Why do the results change when I change an assumption?"** That is the point of the sensitivity
-view: it shows which assumptions the result depends on and which of them have no evidence yet.
+**"Why do the results change when I change an assumption?"** That is the point of the **Depends on**
+section (the sensitivity view): it shows which assumptions the result depends on and which of them have
+no evidence yet.
 
 ## If the model is unavailable
 
@@ -193,22 +198,24 @@ What has been checked, and what has not: the packs pass their tests, and `backen
 walks every example, and a question that no example knows, from the question to the brief through the
 routes the pages use, in rules mode with no model, checking that it completes and that the brief carries
 its origins, recommendations and validation plan. The scenario, stakeholder, analysis, critic and brief
-steps each have a rules path. `e2e/lab/examples.spec.ts` walks the three flagship examples and a question of
-its own through the pages in a real browser, with fixtures for the public pages, so rehearse the example you
-will show.
+steps each have a rules path. The browser tests (see [TESTING.md](../../TESTING.md)) walk the three
+flagship examples and a question of its own through the pages in a real browser, with fixtures for the
+public pages, so rehearse the example you will show.
 
-- Leave `AI_PROVIDER` as `none` (the default), or choose local rules when you create the project.
-  The header chip reads `LOCAL / RULES MODE`.
+- Leave `AI_PROVIDER` as `none` (the default), or choose **Local rules** under **Options** when you
+  create the project. The chip at the right of the top bar reads **Local rules**.
 - Intake, stakeholders, actors, runs, review and the brief all have a rules path. Each says it was
   produced by rules. Expect the groups that a text names with a role word, a mechanical simulation and a
   brief assembled from data, not worded by a model.
-- In the detailed report, the existing evidence ledger's sufficiency banner can read "insufficient"
-  in rules mode, because rules mode classifies no statements. Say that it is informative only with a
+- Rules mode classifies no statements, so Ground's **Statements** has nothing to list and says so; the
+  sufficiency pill beside it (**Supports a recommendation**, **Limited: treat as tentative**, **Not
+  enough yet**) appears only once there are statements to rate. Say that it is informative only with a
   model; see the [known limits of the demonstration packs](../README.md#known-limits-of-these-demos).
 - The model is never replaced silently. If a model step fails you see the error and the rules
   result that was used instead, or you are asked to choose it.
-- Fetching a public address needs the network. If it fails, or the page cannot be read, the form
-  says so and offers to let you paste the text. The bundled documents are complete without it.
+- Fetching a public address needs the network. If it fails, or the page cannot be read, the notice
+  says so and offers to let you paste the text (**Evidence** → **Paste**). The bundled documents are
+  complete without it.
 
 Do not hide a failure behind another mode. If something breaks, say what happened and move to the
 nearest fallback; the [presenter guide](../presentation.md#if-something-fails) has the full table.
@@ -218,8 +225,9 @@ nearest fallback; the [presenter guide](../presentation.md#if-something-fails) h
 The examples live in the application (`shared/examples`), so choosing one always starts from the
 same text. There is nothing to restore.
 
-- A rehearsal is an ordinary project. Open **History**, choose the trash-can button on its card (named
-  **Delete** and the project's name), then **Delete permanently**, or leave it and start another.
+- A rehearsal is an ordinary project. Open **History** in the top bar, choose the trash-can button on its
+  row (named **Delete** and the project's name), then **Delete permanently**, or leave it and start
+  another with the Swarm mark at the top left.
 - For a clean machine, start the server with an empty `DATA_DIR`.
 - The audit log is append-only by design: a rehearsal stays in it, as ordinary entries with
   identifiers and counts and no document text.

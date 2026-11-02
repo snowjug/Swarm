@@ -1,0 +1,114 @@
+@layer scenes {
+  .sw-deep-setup {
+    display: grid;
+    gap: var(--s-8);
+  }
+  .sw-deep-locked {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    max-width: 48rem;
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+
+  .sw-deep-timing {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--s-5) var(--s-8);
+  }
+  .sw-deep-timing__total {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0;
+    padding-bottom: 0.5rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-timing__total .sw-numeral {
+    color: var(--ink);
+    font-size: 2.4rem;
+  }
+  .sw-deep-timing__read {
+    max-width: 44rem;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-lead);
+    line-height: 1.7;
+  }
+  .sw-deep-timing__read .sw-numeral {
+    color: var(--ink);
+    font-size: 1.7rem;
+  }
+
+  .sw-deep-platform-pick {
+    display: grid;
+    gap: var(--s-3);
+    margin: var(--s-6) 0 var(--s-4);
+    padding: 0;
+    border: 0;
+  }
+  .sw-deep-platform-pick__legend {
+    margin-bottom: var(--s-3);
+    padding: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-deep-platform-pick__grid {
+    display: grid;
+    gap: var(--s-4) var(--s-8);
+  }
+  @media (min-width: 48rem) {
+    .sw-deep-platform-pick__grid {
+      grid-template-columns: repeat(2, minmax(0, 20rem));
+    }
+  }
+
+  .sw-deep-seeds {
+    display: grid;
+    gap: var(--s-6);
+    margin-bottom: var(--s-4);
+  }
+  .sw-deep-seed {
+    display: grid;
+    gap: var(--s-4);
+    max-width: 52rem;
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-deep-seed__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-deep-seed__head .sw-eyebrow {
+    white-space: nowrap;
+  }
+  .sw-deep-seed__head .sw-select {
+    width: 13rem;
+  }
+  .sw-deep-seed__pair {
+    display: grid;
+    gap: var(--s-5) var(--s-6);
+  }
+  @media (min-width: 44rem) {
+    .sw-deep-seed__pair {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .sw-deep-seed__text {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    line-height: 1.65;
+  }
+  .sw-deep-seed__facts {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+}

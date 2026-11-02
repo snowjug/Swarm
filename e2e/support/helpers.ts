@@ -12,6 +12,7 @@ export const viewports = [
   { name: '1920x1080', width: 1920, height: 1080 },
   { name: '1440x900', width: 1440, height: 900 },
   { name: '1366x768', width: 1366, height: 768 },
+  { name: '768x1024', width: 768, height: 1024 },
   { name: '390x844', width: 390, height: 844 },
 ] as const;
 
@@ -114,9 +115,18 @@ export async function seed(
   return id;
 }
 
-/** Every serious, moderate or minor axe finding fails: the audited surfaces are expected to be clean. */
+/**
+ * Every serious, moderate or minor axe finding fails: the audited surfaces are expected to be clean.
+ *
+ * One rule is read differently while a menu or a popover is open: `region` asks that all content sit in a landmark,
+ * and the content of a menu is drawn by its library into the end of the page, outside the landmarks, by design (it is
+ * a `menu`, named and announced as one). The page itself is held to the rule whenever nothing of the kind is open.
+ */
 export async function expectNoAxeViolations(page: Page, label: string): Promise<void> {
-  const result = await new AxeBuilder({ page }).analyze();
+  const floating =
+    (await page.locator('[role="menu"], [data-radix-popper-content-wrapper]').count()) > 0;
+  const builder = new AxeBuilder({ page });
+  const result = await (floating ? builder.disableRules(['region']) : builder).analyze();
   expect(
     result.violations.map(
       (violation) =>
@@ -200,15 +210,23 @@ export function watchPage(page: Page, options: { refusals?: boolean } = {}): str
   return problems;
 }
 
-/** Opens a disclosure that may be open already: clicking its summary a second time would close it. */
-export async function openDetails(scope: Locator, summaryText: string): Promise<Locator> {
-  const summary = scope.getByText(summaryText);
-  const details = summary.locator('xpath=ancestor::details[1]');
-  if (!(await details.evaluate((element) => (element as HTMLDetailsElement).open))) {
-    await summary.click();
-  }
-  await expect(details).toHaveJSProperty('open', true);
-  return details;
+/**
+ * Opens a disclosure that may be open already: pressing its button a second time would close it. The
+ * disclosure is found by the name of its button, and its panel is the region the button controls.
+ */
+export async function openDisclosure(
+  scope: Locator | Page,
+  name: string | RegExp,
+): Promise<Locator> {
+  const button = scope
+    .getByRole('button', { name, expanded: false })
+    .or(scope.getByRole('button', { name, expanded: true }))
+    .first();
+  if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click();
+  await expect(button).toHaveAttribute('aria-expanded', 'true');
+  const panel = scope.locator(`#${await button.getAttribute('aria-controls')}`);
+  await expect(panel).toBeVisible();
+  return panel;
 }
 
 export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -221,7 +239,7 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   );
 }
 
-/** Visible HTML text must be at least 11 CSS px; SVG text is measured by its rendered scale instead. */
+/** Visible HTML text must be at least 12 CSS px (the floor of the type scale); SVG text is measured by its rendered scale instead. */
 export async function expectReadableText(page: Page, label: string): Promise<void> {
   const tiny = await page.evaluate(() => {
     const found: string[] = [];
@@ -236,14 +254,14 @@ export async function expectReadableText(page: Page, label: string): Promise<voi
       if (style.visibility === 'hidden' || style.display === 'none' || !box.width || !box.height)
         continue;
       const size = Number.parseFloat(style.fontSize);
-      if (size < 11)
+      if (size < 11.99)
         found.push(
           `${element.tagName.toLowerCase()}.${element.className} ${size}px "${node.textContent.trim().slice(0, 28)}"`,
         );
     }
     return found;
   });
-  expect(tiny, `text under 11px: ${label}`).toEqual([]);
+  expect(tiny, `text under 12px: ${label}`).toEqual([]);
 }
 
 /**
@@ -271,28 +289,6 @@ export async function svgLabelCollisions(page: Page, scope: string): Promise<str
       }
     }
     return found;
-  }, scope);
-}
-
-/**
- * Labels that are painted under a node marker: a later marker in document order is drawn over an
- * earlier label, which cuts a name in half in a crowded graph. Labels must come after every marker.
- */
-export async function svgLabelsUnderMarkers(page: Page, scope: string): Promise<string[]> {
-  return page.evaluate((selector) => {
-    const markers = [
-      ...document.querySelectorAll(
-        `${selector} .graph-node > circle:not(.node-hit), ${selector} .graph-node > rect, ${selector} .graph-node > polygon`,
-      ),
-    ];
-    return [...document.querySelectorAll(`${selector} text`)]
-      .filter((text) => text.getClientRects().length > 0 && !text.closest('.graph-edge'))
-      .filter((text) =>
-        markers.some(
-          (marker) => text.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING,
-        ),
-      )
-      .map((text) => (text.textContent ?? '').trim());
   }, scope);
 }
 

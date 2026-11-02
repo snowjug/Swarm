@@ -1,0 +1,29 @@
+@layer scenes {
+  .sw-tools {
+    min-width: 0;
+  }
+  .sw-tools__list {
+    gap: 0;
+  }
+  .sw-tools .sw-tab {
+    min-height: 2.5rem;
+    padding: 0 0.7rem;
+    font-size: var(--fs-small);
+  }
+  .sw-tools .sw-tab__mark {
+    left: 0.45rem;
+    right: 0.45rem;
+  }
+  @media (pointer: coarse) {
+    .sw-tools .sw-tab {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-tools__panel {
+    padding-top: var(--s-4);
+    animation: sw-fade var(--dur-base) var(--ease-out) both;
+  }
+  .sw-tools__panel:focus-visible {
+    outline-offset: 4px;
+  }
+}

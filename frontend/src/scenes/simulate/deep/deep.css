@@ -1,0 +1,27 @@
+@layer scenes {
+  .sw-deep {
+    position: relative;
+    width: min(100%, var(--w-content));
+    margin-inline: auto;
+    padding: var(--s-4) var(--gutter) calc(var(--s-9) + var(--s-6));
+  }
+  .sw-deep-tabs {
+    margin-top: var(--s-5);
+    scroll-margin-top: calc(var(--topbar-h) + var(--s-3));
+  }
+  .sw-deep-panel {
+    padding-top: var(--s-7);
+    animation: sw-rise var(--dur-slow) var(--ease-out) both;
+  }
+  .sw-deep-panel:focus-visible {
+    outline: none;
+  }
+  @media (max-width: 40rem) {
+    .sw-deep {
+      padding-bottom: calc(var(--s-9) + var(--dock-h));
+    }
+    .sw-deep-panel {
+      padding-top: var(--s-6);
+    }
+  }
+}

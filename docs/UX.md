@@ -1,520 +1,653 @@
 # Interface design and patterns
 
-How the interface is built, and how a feature adds a panel to it without breaking what is already
-there. This describes the code in `frontend/src` as it is; where something is not done, it says so.
+How the interface is built, and how a feature adds a scene or a panel to it without breaking what is
+already there. This describes the code in `frontend/src` as it is; where something is not done, it
+says so. Why it is built this way, and what was rejected, is
+[ADR 0015](./adr/0015-premium-interface.md). The rules of the design system are also written beside
+its code, in [`frontend/src/design/README.md`](../frontend/src/design/README.md).
 
-## What a first-time visitor sees
+![The first screen: the heading "Explore what could happen next.", a large question field with Evidence and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./assets/swarm-ask.png)
 
-The aim is that a person who has never seen Swarm understands what it does in about thirty seconds
-and can ask a what-if question at once.
+## The shape of it
 
-- **The first screen** (`components/console/LandingHero.tsx`). One heading, the only h1 on the page:
-  "What could happen if…?". Under it a short description, the sentence the product is never to be
-  read without, and the path Swarm takes: Evidence, Scenario, Stakeholders, Actors, Interactions,
-  Alternative outcomes, Analysis, Decision. The sentence is
-  `Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.`; it
-  lives in `lib/product.ts` (`POSITIONING_STATEMENT`) and unit and end-to-end tests assert its exact
-  words.
-- **The question** is the first field of the form and is on the first screen at 1366×768 and larger;
-  on a phone the introduction is shorter so that the field starts on the first screen, and the
-  path under the heading runs on like a sentence instead of sitting in columns.
-  The project name is optional: when it is empty, it is the start of the question
-  (`nameFromQuestion` in `lib/entryValidation.ts`).
-- **Examples** (`ExamplePicker.tsx`) are read from `EXAMPLE_SCENARIOS` in
-  `shared/example-scenarios.ts`, and the fictional starter is one more card, so the picker is never an
-  empty box. Each card's button is named "Use this example: <title>" (the last is **Use this example:
-  Fictional library hours**). Choosing one fills the project name, the question and the documents with
-  their provenance, clears any scenario read from an earlier question, says what was loaded, and moves
-  focus to the question. An example brings a question and evidence, nothing else: no scenario,
-  stakeholder or result comes with it. Once something is loaded the cards fold into one line, "Example
-  loaded: <title> (N documents · sample evidence)" (the starter says "Fictional starter INPUT loaded: …"
-  and that its input is invented), so that the question and the evidence are what is on the screen.
-  **Change example** brings the cards back and puts focus on the first; **Keep “<title>”** folds them
-  again. On a phone the cards sit in one row that scrolls sideways, so that six of them do not push the
-  evidence far down the page.
-- **The scenario** is read by `ScenarioIntake`, mounted between the question and the evidence. The
-  frame it returns is held in the entry form and sent as `scenario` in the create request when
-  present; the request is validated with the same schema as any other. Rules on the server read the
-  question and it goes nowhere else, unless the form's mode is **Model assisted**: then the page asks
-  for a model (`useModel`) and the question goes to the provider. The line under the button says which
-  of the two applies, and a model that fails or takes more than 170 seconds ends in a reading by rules
-  with a note. What was read opens as a review that a person checks and edits (**Check and edit the
-  scenario**: alternatives and changes can be added, removed or edited, and so can the decision). Its
-  **Use this scenario** and **Discard** buttons sit in a bar that stays in reach until the end of the
-  review; focus goes to the review's heading when it appears.
-- **Evidence** is `SourceInput` (files and pasted text) and, when the server reports
-  `urlIngestion: true`, the `UrlEvidence` panel (a plain `div`, not a form: it sits inside the entry
-  form, and Enter in its address field fetches the page and never submits the form around it). A
-  fetched page is added to the same list of documents with its provenance. There is exactly one file
-  input on the page.
-- **Run settings** (mode, fictional proxies, rounds, random seed) stay visible under the evidence, in
-  a quiet group. They were not put behind a disclosure because the end-to-end specs fill them in
-  directly.
-- **Building** is one button, **Build Graph**, in a bar at the foot of the form that stays in reach
-  (sticky inside the form, never fixed) once the question has ten characters. Beside it a line says where
-  the form stands, from the same rules that accept or refuse the form when it is sent
-  (`components/console/entryReadiness.ts`): "N documents attached · ready to build", or what is still
-  missing ("Write your question first: 10 characters or more", "No documents attached yet · attach at
-  least one to build"). An error from the server ("Cannot build this project") appears in that bar. A
-  note above the bar says what the button does and does not: it saves a draft and starts Graph Build only.
-  While a scenario is being checked the bar stops sticking, because the review has its own; a field that
-  takes focus is scrolled clear of the bar, and on a phone with its keyboard open the bar is one row.
-- Below the form: the recorded demonstration workspace, which is unchanged.
+One page. `frontend/src/main.tsx` renders `app/Root.tsx`, which renders `app/Application.tsx`, inside
+an error boundary. The work is in six **scenes** along a journey, **Ask → Ground → Map → Simulate →
+Compare → Decide**. The engine, the API, the data model, the evidence provenance and the security
+model are the ones the rest of the documents describe: only the browser interface is described here.
 
-## Guided and Advanced
+| Part                 | Where                           | What it is                                                                                                                                                                                                                                                                                        |
+| -------------------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The shell            | `frontend/src/app/`             | The frame of the page (`AppShell`), the top bar with the journey, the dock on phones, the settings and tools menu, the scene host, the panel host, the error boundary, the address (`route.ts`), the rules of the scenes (`scenes.ts`) and the `Workspace` that every scene reads (`context.tsx`) |
+| The scenes           | `frontend/src/scenes/<scene>/`  | One folder for each part of the journey: `ask`, `ground`, `map`, `simulate` (with `deep/`), `compare`, `decide`, and under Decide `studio` and `report`                                                                                                                                           |
+| The design system    | `frontend/src/design/`          | Tokens and three themes, base styles, glass, the motion system, type, the primitives (`ui/`), the ambient background (`ambient/`) and a development gallery                                                                                                                                       |
+| Shared visualisation | `frontend/src/viz/`             | The interactive ecosystem map (`ecosystem/`) and the colour scales (`palette.ts`)                                                                                                                                                                                                                 |
+| Panels               | `frontend/src/panels/`          | The overlays any scene can ask for: History, Ask (the analyst and the actors), the audit log, who has access, the model budget, the provider status and the sign-in problem screen                                                                                                                |
+| The data layer       | `frontend/src/{api,hooks,lib}/` | The API client, the hooks that read and poll a project, and the pure rules (what opens a scene, how a stakeholder is reviewed, how a number is worded). Their contracts did not change with the interface                                                                                         |
 
-The header has a two-button switch named "Interface mode". The choice is kept in the browser under
-`localStorage['swarm.mode']` and is `guided` or `advanced`; nothing stored yet, or anything else
-stored, means Guided.
+Everything a scene shows comes from the project's record: nothing is mocked, a figure the engine has
+not yet given is a dash, and a run that holds no events says so. The sentence the product is never to be
+read without, `Swarm explores scenarios. It does not guarantee or precisely predict real-world
+behavior.`, lives in `lib/product.ts` (`POSITIONING_STATEMENT`), is on the first screen, while a
+simulation runs, in the story of the simulation and at the foot of the brief, and tests assert its exact
+words. Actors are called synthetic stand-ins, not real people, where they are introduced: on the map, in
+the theatre, in the story and in the deep dive.
 
-| Where                | Guided (default)                                 | Advanced                         |
-| -------------------- | ------------------------------------------------ | -------------------------------- |
-| Stage steps          | The engine's name, its state, a line of help     | The engine's name and state only |
-| A locked stage       | Says `locked` and, under its help, what it needs | Says `locked`                    |
-| Next step bar        | Shown from the lab's record                      | The same                         |
-| Entry: readiness     | One line, details a click away                   | Details open                     |
-| Entry: engine stages | One click away                                   | Open                             |
-| Project details      | Project ID and usage a click away                | Open                             |
-| Operation log        | One line, expandable                             | Expanded                         |
+### The journey and the address
 
-A screen reader is told what a locked stage needs in both modes, whatever is drawn.
+The address holds the state: `/?project=<id>&scene=<scene>&view=<view>`. `?project=` is read and written
+by the engine hook (`hooks/useConsole.ts`); `scene` and `view` by `app/route.ts`, so that a link, a reload
+and the browser's Back button all land where the person was.
 
-Neither mode removes or hides a control or a capability. Audit log, Access, Budget, Duplicate and
-Export stay where they were, grouped as "Project tools" in a quieter style, because the end-to-end
-specs click them directly. Not done: a Guided mode that hides technical controls behind an
-"Advanced" area. That needs the affected specs to change, and was left out on purpose.
+| Scene    | Answers                        | Code              | `?view=`                                                | Opens when                                                     |
+| -------- | ------------------------------ | ----------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
+| Ask      | The change you want to explore | `scenes/ask`      | none                                                    | Always. It is the screen before there is a project             |
+| Ground   | The evidence it rests on       | `scenes/ground`   | `graph`, `sources`, `conflicts`, `statements`, `trace`  | Always, for an open project                                    |
+| Map      | Who is affected                | `scenes/map`      | `list`                                                  | The evidence has been read, or stakeholders have been found    |
+| Simulate | Watch it unfold                | `scenes/simulate` | `story`, `live`, `network`, `timeline`, `setup`, `deep` | There are actors (or the deep dive's own environment is ready) |
+| Compare  | Set the futures side by side   | `scenes/compare`  | `runs`                                                  | A simulation has finished                                      |
+| Decide   | What to do about it            | `scenes/decide`   | `review`, `studio`, `report`                            | A simulation has finished                                      |
 
-## The workspace
+- **The words in the first column** are the only names the interface gives its parts. The second column
+  is the line under each name on the first screen and in the tooltip of its point on the journey
+  (`SCENE_PURPOSE` in `app/scenes.ts`).
+- **`scene`** is one of the six names; anything else is ignored. **`view`** is one to twenty-four
+  lowercase letters and hyphens, and what it means is the scene's own business. A scene's default view
+  is never written into the address, an unknown view falls back to the default, and the view is dropped
+  when the scene changes. Ground accepts a few older names for its parts (`evidence` and `documents` for
+  `sources`, `ledger` and `claims` for `statements`, `log` for `trace`, `topics` for `graph`).
+- **A project opens where its record has got to** (`frontierScene`): Decide once a simulation has
+  finished, Simulate while one runs or once there are actors, Map once the evidence is read, and
+  otherwise Ground. A project opened without a scene is given that one in the address, so that a reload
+  and a shared link land in the same place. A scene named in the address that is not open yet is
+  replaced by that one.
+- **A scene that is locked says what opens it**: Ground it first (Map), Needs actors (Simulate), Run a
+  simulation first (Compare and Decide). A record that the guided flow did not make, such as a quick
+  run saved before the staged engine, locks Map and Compare ("Not in this record") and lets the other
+  scenes show what it holds. Asking for a locked scene, from the journey or from a button, does not open it:
+  a toast says why.
+- **The engine's own stage names are not part of this.** `console.steps` (`knowledge`, `environment`,
+  `simulation`, `report`, `interaction`) still exists in the API and the engine, and the interface reads
+  it to know what is ready. It names the stages only where the engine's record is the subject: the deep
+  dive's engine records, the Advanced status line of Ground, one line in the deep dive that says what its
+  environment waits for, and one error message.
 
-- **The five stages keep their names**: Graph Build, Env Setup, Simulation, Report, Interaction. The
-  stage regions are named "<name> workbench" and the step list "Guided workflow steps", as the
-  end-to-end specs expect. Each step's accessible name starts with the engine's name, then its state
-  and "step N of 5", and the help line after that.
-- **Help** under each step (`stepHelp` in `lib/console.ts`): Understand the evidence; Review
-  stakeholders and actors; Run and compare scenarios; Decision brief; Ask questions.
-- **Project tools** groups Audit log, Access (when people sign in), Budget (model projects),
-  Duplicate as guided and Export JSON. The audit log names every action in plain words ("Stakeholders
-  found", "Decision brief generated", "Public web page refused", "Signed in"), and shows the recorded
-  code under the label only when it differs from it (`lib/audit.ts`; `audit.test.ts` reads the backend
-  for every action it records and fails when one has no label, so there are no unlabelled entries).
-- **A project opens at the stage the engine is at**, which for a project made in the lab is usually
-  Graph Build, whatever the lab has done since. The next step bar below is what says where the work
-  has got to.
-- **A stage opens in the view that suits it** (`defaultView` in `lib/console.ts`). The console has a
-  report-or-graph pane, a workbench and both beside each other; the control named "Console view" says
-  **Graph** (or **Report**), **Split** and **Workbench**. Graph Build and Interaction open in Split, so that
-  the graph, or the report, sits beside the stage. Env Setup opens in the Workbench, because the
-  stakeholders and actors are tables that need the whole width, so approving the stakeholders moves
-  nothing. Simulation opens in the Workbench once there are actors, and Report once a comparison has
-  finished; before that, and for a guided project with only the engine's own record, they open in Split
-  with the engine's graph and report reader beside them. The view does not change while the person works
-  in a stage, and one the person chose is kept when they move on. Under 900px there is one pane at a
-  time (the control is named "Console pane"): Split shows the Workbench, and a pane the person opened on
-  its own (the graph) is let go of when they move to another stage, so that a narrow screen does not pin
-  the Workbench for good.
-- **Interaction**'s tab **Any fictional agent** lists the proxies of the agent-by-agent deep dive, in a
-  group named "Deep-dive proxies (N)", with a line saying that these are not every actor approved in Env
-  Setup: Report chat answers from the report, and Env Setup shows each actor's traits.
-- **History** lists each saved project as a card with an **Open** button (named "Open <project name>", so
-  that an icon is not the only cue), a small **Compare** beside it for a guided project that has a saved
-  round, and a delete control that asks before it deletes.
+## The shell
 
-### What opens a stage, and what the page says when it is locked
+![The Map scene on a wide screen: the floating top bar with the journey, the model chip, History and the settings menu, a map of stakeholders in clusters, the details of one party in a floating panel, and the next action in a pill at the bottom](./assets/swarm-map.png)
 
-A stage opens when the engine's own order allows it, or, for two of them, when the scenario lab's
-record does (`stepAvailable` in `lib/console.ts`). The record comes from `GET /api/projects/:id`,
-which adds `lab` (`shared/lab.ts`, worked out in `backend/src/lab/progress.ts`): whether a scenario
-was stored, whether the stakeholders are `none`, `proposed` or `approved`, how many simulated actors
-there are, whether the comparison of scenarios is `none`, `running`, `completed` or `failed`, and
-whether a review and a brief exist. A `running` comparison is one that is queued or running;
-`failed` means every comparison there is stopped without a result (a finished one earlier is not
-forgotten because a later one was cancelled).
+### The top bar and the dock
 
-| Stage       | Opens when                                                      | What it says under its name                                             |
-| ----------- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Graph Build | Always                                                          | The engine's state                                                      |
-| Env Setup   | Graph Build is ready                                            | `actors ready` once there are simulated actors, else the engine's       |
-| Simulation  | There are simulated actors, or the engine's Env Setup is ready  | `ready to compare`, `comparing`, `compared`, `stopped`, or the engine's |
-| Report      | A comparison has finished, or the engine's Simulation is ready  | `ready to write`, `brief written`, or the engine's                      |
-| Interaction | The engine's Report is ready. The lab's record does not open it | The engine's state                                                      |
+The top bar floats over the page as one piece of glass, a pill. From the left:
 
-A stage that cannot be opened is a disabled button, so it is not a tab stop. It says `locked` with
-a lock icon in place of its state and, in Guided, a line under its help says what it needs
-(`stepLock`): "Needs Graph Build first", "Needs actors from Env Setup", "Needs a finished
-comparison", "Needs the detailed report". Nothing opens it from a click or from the keyboard. Once
-the record allows it, it opens without a reload and without pressing Refresh.
+- **The mark** (named "Swarm: start a new question"), which goes to the first screen. It is disabled while
+  an engine operation is in flight, so that a running request is never walked away from.
+- **The journey** (`JourneyRail`, a navigation named "Journey"), once a project is open: six points
+  joined by a line that fills as the work does. Each point says its state with an icon and in words to a
+  screen reader: done (a check), current, ready, working (a ring turns while the engine is doing something
+  for it), needs attention (a mark on a step that stopped) and locked (a lock; "Simulate, locked: Needs
+  actors"). Below 78rem the names go, except the one in view; a point's tooltip says what the part is for
+  or what opens it. A point that is locked is `aria-disabled` and answers a press with a toast.
+- **The model chip** (`panels/ProviderStatus.tsx`). It says **Local rules** when no model is in use, and
+  otherwise names the provider, the model and whether a real request has succeeded. It opens a popover
+  ("Model provider") with the provider, the deployment, the authentication, what the connection last did and
+  **Verify connection**, which makes one real request. A chip never claims a connection that has not been
+  made.
+- **Ask about this** (with a project open), **History** (with the number of explorations) and **Settings
+  and tools**.
 
-The workspace is told when the stakeholders or the actors change (`onChanged` of the stakeholder
-panel), but not when a comparison starts, finishes or is stopped, or when the brief is written: those
-panels keep their own state. So the workspace looks for the change itself (`labWatch` in
-`lib/console.ts`, `useLabRefresh`), and reads the project again:
+On a phone (40rem and below) the journey leaves the bar for a **dock** along the bottom edge, under the
+thumb (`Dock`, also a navigation named "Journey": Ground, Map, Simulate, Compare and Decide, with the mark in
+the bar as the way back to Ask), and the bar names the scene in view. The page leaves room above the dock.
 
-- when Simulation or Report is opened;
-- every two seconds while a comparison runs, in every stage but Interaction, since the stage in view
-  may be naming it;
-- every five seconds in Simulation, while there are actors and no comparison has finished, and in
-  Report, while the comparison has finished and no brief is written, which ends of itself;
-- 0.8 seconds after a click in a stage it is watching, so that what the click started (a
-  comparison, a brief) is seen at once and not at the next five seconds.
+**Settings and tools** is one menu for everything that is not a step of the journey:
 
-These reads are quiet: the refresh button does not spin and a screen reader is told nothing. Nothing
-is read in Interaction. A comparison started again after one has finished is not noticed until
-Simulation or Report is opened again or Refresh is pressed; the page then shows what the server
-says, which is that the newest comparison, if it is running, decides. The brief and the review in the
-Report stage also read again when the lab's record changes and when **Refresh project from server** is
-pressed (`briefRefreshToken` and `reviewRefreshToken` in `ReportSeam`), so that a change made in another
-tab shows up as a notice that the brief is out of date and not as a silent difference. A read that fails
-while a brief or a review is already shown leaves it on the page and says so, in a notice with a way to
-try again ("The brief could not be refreshed", "The review could not be refreshed"); only a page with
-nothing to show is replaced by the error.
+| Section          | What it holds                                                                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Appearance       | System, Light, Dark, High contrast. System follows the device: high contrast when the device asks for more contrast, otherwise dark when it prefers a dark colour scheme, otherwise light |
+| Motion           | Follow device, Reduced, Full                                                                                                                                                              |
+| Detail           | Guided (the default) and Advanced                                                                                                                                                         |
+| This exploration | Refresh, Duplicate as a new question, Export snapshot (the project as JSON), Audit log, Model budget (a model-assisted project) and Who has access (when people sign in)                  |
+| The account      | The mode ("Local · single user" or "Signed in · Microsoft Entra"), People (a workspace owner or administrator) and Sign out; and the version, the licence and a link to the source        |
 
-### The next step
+The three choices are kept in this browser only, each under a key that holds nothing but its own value:
+`swarm.theme` (`system`, `light`, `dark` or `high-contrast`), `swarm.motion` (`system`, `reduced` or
+`full`) and `swarm.mode` (`guided` or `advanced`). The theme is applied before the page is drawn
+(`frontend/public/theme-init.js`, a file of its own because the page's content-security policy allows
+scripts from this origin only), so there is no flash of the wrong one.
 
-`NextStepBar` sits above the stage and names the one next piece of work from the lab's record
-(`nextStep` in `lib/console.ts`), with one button. It is shown from any stage that can be opened
-except the one where that work is done, and never in Interaction, in the comparison of two runs or
-in Report Studio.
+**Guided and Advanced** change how much of the engine is shown, not what can be done. Guided is the
+default. Advanced adds the engine's own names, identifiers and records, to read, where they are the
+subject: the status line and the operations log in Ground, the identifiers and engine strings in Compare,
+the engine records tab and the memory identifiers in the deep dive, the operations of the detailed report,
+the analysis identifier in the brief's foot, and every reference chapter of the brief open at once. No
+control depends on it, and the deep dive's engine records are one disclosure away in Guided too ("Engine
+records: traces, the log and the raw state").
 
-| The record says                                  | The bar says                                                    | The button              |
-| ------------------------------------------------ | --------------------------------------------------------------- | ----------------------- |
-| Stakeholders proposed, not approved              | They are proposed from the evidence: review and approve them    | Review the stakeholders |
-| Approved, no actors yet                          | The actors are made from the approved stakeholders              | Make the actors         |
-| Actors, and no comparison, or only stopped ones  | Compare no change with the change, under the stated assumptions | Compare the scenarios   |
-| A comparison is running                          | Its progress is shown in Simulation; the brief opens after it   | Follow the comparison   |
-| A comparison has finished                        | The brief says what it shows and what to do about it            | See the decision brief  |
-| A comparison has finished, and Report is in view | The brief is written from the comparison                        | Back to the comparison  |
+### What a scene is allowed to ask of the shell
 
-The bar offers a stage only when it can be opened (Env Setup needs a built graph), and says nothing
-before the lab has recorded anything: until then the stage's own button leads on. The button names
-what it does and never a stage's name, so that it is not mistaken for the stage list. Following it
-moves focus to the stage it opens (the region named "<name> workbench", which takes focus without
-being a tab stop) and, if only the graph or the report was showing, gives that pane up so that the stage
-opens in its own view; the keyboard then
-continues inside the stage. **See the decision brief** is the one exception: it moves focus to the
-brief itself (the document, named by its title, or the region named "Decision brief" while there is
-none), so that a screen reader starts at the answer, and a brief that has just been made from the
-stage's own button takes focus the same way. If the brief is still loading when the person arrives, focus is
-taken when it has settled (the element that held it while loading is replaced by the one that stays), and
-is left alone if the person has moved on by then. Where the work is more than a click, the stage still has its own
-primary button: the bar only says where to go.
+Scenes take no props. A scene is a default export that calls `useWorkspace()` and gets:
 
-### The journey
+- **`project`**, the open `ProjectDetail`, and `config`, `mode` (Guided or Advanced) and `sharing` (whether
+  people sign in);
+- **`busy`** and **`refreshing`**, and **`refresh()`**, which reads the project again;
+- **the engine's operations**: `run(step)`, `cancel`, `pause`, `resume`, `setIntervention`, `branch`,
+  `saveEnvironment` and `recordSurvey`, each of which resolves when the server has accepted it. Progress
+  is read by polling, not awaited;
+- **navigation**: `scene`, `view`, `go(scene, { view })` (a locked scene is refused with a toast),
+  `setView(view)`, `openProject(id, { scene, view })`, `duplicate()`, the `journey` as the rail shows it and
+  the list of `projects`;
+- **`panels`**: `history()`, `ask({ target, message })`, `audit()`, `budget()`, `access()`, `provider()` and
+  `snapshot()`, so that a scene opens an overlay without owning one.
 
-`JourneyStrip` shows twelve steps: Question, Evidence, Stakeholders, Actors, Scenarios, Run,
-Progress, Results, Explore, Change, Compare, Export. It follows the stage in view and is not
-navigation. Every step's name is read by a screen reader at every width, with whether it is done and
-which is in view; below 1500px the names are hidden from the eye, not removed. A step is marked done
-only when the project's own record shows it, by the engine's
-record or the lab's (`journeyItems` in `lib/console.ts`):
+The shell owns the rest: the polling, the operations, the address, the focus and the page title. **Ask is
+the one scene that is not like this**: it exists before there is a project, so the shell mounts it
+directly and gives it a few props (the server's settings, the history, and what to do on submit). The five
+project scenes are lazy modules (`app/loaders.ts`), each a chunk of its own that is fetched when the scene
+is opened, and the next ones are fetched while the person is still in this one.
 
-| Step         | Done when                                                                       |
-| ------------ | ------------------------------------------------------------------------------- |
-| Question     | Always: the project exists                                                      |
-| Evidence     | Graph Build is ready                                                            |
-| Stakeholders | The stakeholders are approved, or Env Setup is ready                            |
-| Actors       | There are simulated actors, or Env Setup is ready                               |
-| Scenarios    | A comparison is running or has finished, or Env Setup is ready                  |
-| Run          | A comparison is running or has finished, or the engine's simulation has started |
-| Progress     | A comparison has finished, or the engine's simulation is ready                  |
-| Results      | A comparison has finished, or the engine's report is ready                      |
-| Explore      | Never: it leaves no mark on a project                                           |
-| Change       | The project is a branch or carries an intervention                              |
-| Compare      | Never: it leaves no mark on a project                                           |
-| Export       | A decision brief is written                                                     |
+### Reading the project again
 
-Proposed stakeholders are not ticked, and neither are approved stakeholders with no actors made, a
-stopped comparison or a review with no brief: nothing is ticked that a person or the server has not
-done. Exactly one step is current: the first of the stage's own steps that is not done, or the last
-of them when all are.
+The shell reads the open project again by itself, so that a scene opens, and a result appears, without a
+reload and without pressing Refresh:
 
-### The stakeholder review
+- `hooks/useConsole.ts` reads an open project every 1.8 seconds while an engine stage or a survey is queued or
+  running;
+- `hooks/useAnalysis.ts` reads a simulation every second while it runs, which is what the rings of the
+  running view fill from;
+- `hooks/useLabRefresh.ts` reads the project every 2 seconds while a simulation runs and every 5 seconds
+  where one could be started or a brief written and none has been yet (in Simulate while there are actors and
+  no finished comparison, and in Decide while a finished comparison has no brief), which ends of itself. It
+  also reads once when Simulate, Compare or Decide is opened;
+- a refresh the person did not ask for is quiet: nothing spins and a screen reader is told nothing.
 
-`StakeholderPanel` mounts `StakeholderWorkspace` (`components/stakeholders/`). The panel is a view of one
-`StakeholderState` (`hooks/useStakeholders.ts`) and asks for nothing itself, so that a project that never
-used the feature makes no call that can fail. It is compact on purpose: the lab's work in Env Setup must not
-push the engine's own **Start Simulation** button off the screen, and the browser specs hold that at
-1366×768 and 1440×900.
+### Focus, scroll, title and failures
 
-- **Small until opened.** Before anything is found the panel is a title, one line saying that actors are
-  synthetic stand-ins, **Find stakeholders by reading the text** (with its twin **Find stakeholders with the
-  model** when the project has one), **Or add stakeholders yourself** and a toggle, **How stakeholders are
-  found**. After finding it is a title with four counts as text (**found**, **need review**, **approved**,
-  **actors**), one button for the next step and two toggles, **Stakeholders** and **Actors**, that open the
-  list and the actors. Finding opens the list and moves focus to its heading; approving shuts it and moves
-  focus to the next step's button.
-- **One next step.** The button says what it will do (`nextAction` in `review.ts`): **Review N
-  stakeholders**, **Add a stakeholder** when there are fewer than two, **Approve and create actors**
-  (**Approve stakeholders** when actors a person edited are kept), **Make the actors**, **Review the N
-  actors** (a way to look, not the next step) or **Read the N stakeholders** for a person who may only
-  read. The panel has one main (orange) button at a time. While the list is open and some stakeholders
-  still need review, the person is reading and the way on is the approval at the foot of the list, so the
-  bar offers a secondary **Go to approval**, which moves focus to **Approve stakeholders and create
-  actors**. Once everything is reviewed and the list is open, the bar's **Approve and create actors**
-  is a secondary shortcut and the approval card's button is the main one; with the list shut the bar's
-  button is the main one. It is one element from step to step, so focus stays on it as its label
-  changes.
-- **Rows to scan.** A stakeholder is one line, key actors first and then the cohorts, in an order that never
-  depends on the review status, so a row does not move when it is accepted: the name and role, the direction
-  of impact in words with where it came from, the uncertainty in words, whether it cites a quote or is an
-  assumption with no cited evidence, and whether it needs review. Opening a row shows the quotes, word for
-  word with the passage they are from, what is assumed, and the means to act on it (accept, edit, merge,
-  remove, priority). What is an assumption and not evidence says so in words, and an assumed direction or a
-  stakeholder with no cited evidence also has a dashed edge, so that colour is never the only signal. The
-  actors are rows too, with a slider for each trait and where its value came from.
-- **What a change takes away.** An accepted row loses **Accept**, a removed one leaves the list for
-  **Removed**, from which it is restored, an added one appears, and approving replaces the button that was
-  pressed. Each change is said to a screen reader and focus goes to the row, its neighbour or the next step
-  (`focus.ts`), never back to the top of the page.
-- **Headings and targets.** The panel's title is a third-level heading, its parts the fourth and the rows the
-  fifth. Every control has a name, and on a phone the counts come before the buttons and every toggle, row and
-  disclosure is at least 44px high.
-- **The fixed proxies are a deep dive, not a step.** Under the panel Env Setup has a heading "Deep dive
-  (optional): fixed proxies" and a line saying that the setup for the slower agent-by-agent simulation runs
-  on a small fixed set of fictional proxies, that it is separate from the stakeholder actors above, and that
-  the comparison does not need it. Its status reads "Fixed proxies · pending" or "· ready", and its buttons
-  (**Prepare fictional environment**, **Save environment**, **Review saved checkpoint recovery**, and
-  **Start Simulation**) are secondary, so that the stakeholder step has the page's one main button. The
-  Simulation stage frames the engine's own run the same way, as "Deep dive (optional): agent-by-agent
-  simulation" below the comparison, with **Start Simulation**, **Generate Report** and **Inspect report
-  stage** secondary. A project with no stakeholder panel (the engine's own record only) keeps them as the
-  main action. Graph Build's **Prepare environment** and **Inspect environment** follow the same rule for
-  a guided project, so that the journey bar's button is the main one there.
-- **The actors' traits** are a table of four columns; when its own pane is narrower than 640px (the split
-  view, or a phone) each trait is stacked, so that the reason is never squeezed into a strip.
+- **A skip link** ("Skip to content") is the first stop on every page, and the shell is one `main`
+  landmark (`#main-content`). Scenes render sections, never another `main`, and one `h1` at a time names
+  the screen.
+- **When the scene or the project changes**, focus moves to the `main` element (it takes focus without being
+  a tab stop) and the page scrolls to the top, so that focus is never left on something that has gone.
+- **The title** is `<project name> · <Scene> | Swarm`, and `Swarm | Explore what could happen next` on the first
+  screen.
+- **An operation that was not confirmed** (the server refused or did not answer) is a toast, "That was not
+  confirmed", with what the server said and a note that what is saved has been read again, and **Dismiss**.
+- **A read that fails** leaves what is shown on the page and says so in a notice with **Retry**: "Could not
+  refresh this exploration" in a project, "The server's settings could not be read" on the first screen.
+- **A screen that cannot render** is caught by the error boundary: "Something didn’t render correctly.", with
+  **Reload**, **Start over** and a disclosure of the technical detail. It sits outside every provider, so it is
+  plain markup in the design's own classes. A sign-in that did not produce a session is explained on a screen
+  of its own (`panels/SignInProblem.tsx`), not behind the shell.
+- **A model-assisted project** shows a line above the work when its budget is nearly or wholly used
+  (`panels/BudgetGuard.tsx`), with **Model budget** to open the dialog.
 
-`e2e/lab/stakeholders.spec.ts` holds this at desktop, laptop and phone size, from the keyboard alone and in
-all three themes. The method is in [stakeholders.md](./stakeholders.md#reviewing) and the steps are in the
-[user guide](./USER_GUIDE.md#reviewing-the-stakeholders-and-the-actors).
+### The overlays
 
-### The Report stage
+Panels are overlays that the shell mounts only while they are open (`app/PanelHost.tsx`, one at a time, each
+lazy). Each is told `open` and `onOpenChange` and leaves by itself (`panels/shared/usePanelLifecycle.ts`:
+it closes first, plays its exit, then tells the shell, and gives focus back to where the person was).
 
-The Report stage is a page to read, not a stack to scroll through. `ReportSeam` puts three things in
-order: a bar, the decision brief (`DecisionBriefView`) and the independent review (`CriticPanel`); the
-engine's own report follows under the heading "Detailed report".
+| Panel           | Opens from                                             | What it is                                                                                                                                                                                             |
+| --------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| History         | History in the top bar; Continue on the first screen   | A sheet, "Your explorations": search, filters (All, Working, Done, Stopped, Branches), each exploration as a row that opens it, **Compare** for one with a saved run, and delete behind a confirmation |
+| Ask             | "Ask about this"; a scene, with a target and a message | A sheet, "Ask", with tabs Analyst, Actors and Survey. It answers from the deep dive's written report: until there is one, it says so                                                                   |
+| Audit log       | Settings and tools                                     | A sheet with the integrity of the hash chain, search and filters. Every action is named in plain words, and the recorded code is shown only when it differs                                            |
+| Model budget    | Settings and tools; the budget line                    | A dialog: what the project has used and its two limits (calls and tokens). Only a workspace owner or administrator changes them                                                                        |
+| Who has access  | Settings and tools (when people sign in)               | A dialog: the people on the project and their roles. **People** in the same menu is the workspace's list                                                                                               |
+| Provider status | The chip in the top bar                                | A popover (see above)                                                                                                                                                                                  |
 
-- **A bar that stays in view.** The navigation named "Jump within the report" sticks under the header and
-  has three links: **Decision brief**, **Independent review** and **Detailed report and studio**. The
-  review's link says where the review stands, from what the page has already read and with no request of
-  its own (`reviewStatus`): "not run yet", "no analysis to review yet", "N not yet closed" (a criticism is
-  closed when it has been accepted, as the brief counts it), "all N closed", "no criticism raised" (the last
-  three may end ", of an earlier analysis") or "could not be read". On a phone the words read Brief, Review
-  and Details to the eye, and the accessible names stay whole. A link scrolls to its target without leaving
-  it under the bar or the header.
-- **The brief is a document with a contents.** Its sections are native collapsible `details`, so they work
-  from the keyboard and without script, and what is closed is still in the page: find in the page, print and
-  a screen reader all reach it. These are open when the report opens: the executive answer, the decision
-  evaluated, the main reaction patterns, alternative outcomes, first-order and second-order effects,
-  behavioural drivers, risks and opportunities, the prioritised recommendations and the validation plan.
-  These are closed until wanted, and listed in the contents with the others: the evidence base, the
-  stakeholder landscape, the assumptions, uncertainty and sensitivity, the sources, the limitations and the
-  technical appendix. A heading is the toggle and says how many statements the section holds ("N
-  statements"). The contents card has **Expand all sections** and **Collapse all sections**, each section
-  has **Back to contents**, and an address of the form `#brief-<id>` or `#brief-<number>` opens its section
-  before it scrolls to it. A test holds the page with the reference closed to under 60% of the height it
-  has with everything open. The Markdown, JSON and printable exports are unchanged and still contain
-  everything.
-- **Printing** (Ctrl+P on this stage) prints the project's name and question, the whole brief, whatever is
-  closed on the screen, and the review. It leaves out the application's header and footer, the journey, the
-  bar, the contents, the review's controls, the detailed report, and the "Show this as a table" copies of
-  charts (the one chart with no visible numbers keeps its table). The other stages print as they always did.
-- **What is current.** The page says when a brief or a review no longer matches what it was made from. A
-  comparison records the revision of the scenario, the stakeholders and the actors it ran on. When any of
-  them has changed since, the brief says so and asks for the comparison to be run again and then the brief
-  written again; when only the review changed, or a newer comparison exists, it asks only for the brief to
-  be written again. A review of an earlier comparison says so, and the exports carry the same notice. A
-  response to a criticism carries the revision of the review it answers and is refused (409
-  `CRITIQUES_CHANGED`) when another person changed it; the page then reads the review again and keeps the
-  words that were typed ([the brief](./analysis/brief.md#reading-it), [the review](./analysis/critics.md),
-  [the API](./API.md#independent-review)).
+## The scenes
 
-`e2e/lab/report-page.spec.ts` holds the first three at desktop, laptop and phone size, and
-`e2e/lab/freshness.spec.ts` the last.
+Each scene says, in the same order, what it is for, what it can be in, and what it must keep. The steps
+are in the [user guide](./USER_GUIDE.md).
 
-## Seams: where a feature adds a panel
+### Ask
 
-A seam is a place in the shell where a feature's component is mounted. The layout reserves no room
-for one that has nothing to show.
+The first screen, and the only one before there is a project. Its heading is "Explore what could
+_happen_ next." under "What change do you want to explore?", and while a scenario is being reviewed the
+heading is "Your scenario".
 
-| Component           | Where                                                 | Props                                                   | Only for             |
-| ------------------- | ----------------------------------------------------- | ------------------------------------------------------- | -------------------- |
-| `ScenarioIntake`    | Entry form, between the question and the evidence     | question, frame, onFrame, disabled, documents, useModel | New projects         |
-| `UrlEvidence`       | Entry form, under the evidence                        | onAdd, disabled, remainingDocuments                     | `urlIngestion: true` |
-| `StakeholderPanel`  | Env Setup, under the stage heading                    | project, onChanged                                      | Guided projects      |
-| `AnalysisPanel`     | Simulation, under the heading, above the run controls | project                                                 | Guided projects      |
-| `DecisionBriefView` | Report, under the jump bar, above the report          | project                                                 | Guided projects      |
-| `CriticPanel`       | Report, after the brief                               | project                                                 | Guided projects      |
+- **One composer** takes the question in the serif, on glass that lights at its edge while it is written in
+  (`Ctrl`/`⌘` + Enter explores). **Evidence** is a popover to bring files, pasted text, or a public web page
+  that the server fetches (offered only when the server reports URL ingestion); everything attached sits
+  in a tray of pills that open the text Swarm will work from. **Options** is a popover: the engine
+  (**Local rules** or **Model assisted**), a name, and the deep dive's Proxies, Rounds and Seed. The
+  example chips fill the question and its evidence and nothing else.
+- **Explore** reads the question into a scenario that the person reviews and corrects in place: the
+  decision, what it affects, where and over what time, what changes, what is expected if nothing changes,
+  ways to do it, who is affected, what is assumed (each marked as the person's or the system's), the
+  questions Swarm asks, and the evidence. **Ground it** creates the project and starts reading the
+  evidence; nothing runs before that. A reading that fails offers **Try again** and **Continue without
+  reading**.
+- **Continue** lists the newest explorations and, when the workspace has them, the recorded
+  demonstration.
+- **It must keep** the positioning statement in its exact words, the line in Options that says whether the
+  question goes anywhere (rules on this machine read it unless **Model assisted** was chosen), the rule
+  that nothing is run until the person says so, and the one `h1`.
 
-The Report seams (`ReportSeam`) are a jump bar, then a stack (`.seam-stack`) above the existing report;
-the review is read once, by the seam, so that the bar and the panel show the same read. When the stack
-has content, the heading "Detailed report" appears between it and the report; when it is empty, neither
-takes any room. `onChanged` of the stakeholder panel refreshes the project from the server.
+### Ground
 
-To add a panel at a seam:
+What the evidence says, before anything is simulated. The question is the heading, with a status (Not
+started, Queued, Reading, Ready, Failed, Stopped, or Saved record), four figures that are also the way into
+the rest of the page (Sources, Passages, Topics or Entities, Conflicts), the one primary action and a
+constellation graph of what the sources talk about.
 
-1. Change the component in the feature's own folder and keep its props.
-2. Render nothing when there is nothing to show, and make no API call for a project that never used
-   the feature: the end-to-end specs fail on a console error or a failed request in any stage.
-3. Keep the styles in the feature's own stylesheet, with theme tokens only and no text below 12px.
-4. Mind what the specs assert about the screen: one `input[type=file]` on the entry; the primary
-   button of a stage (Prepare environment, Start Simulation, Generate Report) is inside the viewport
-   at 1366px and wider, so a panel above it should be compact or collapsed to start with; no button
-   named exactly "Graph" or "Report" and none whose name contains "History"; in Env Setup the first
-   `summary` containing "Synthetic" is the persona list.
-5. Test it the way `ConsoleWorkspace.test.tsx` tests the mount points: replace the panel with a
-   marker and check where it is mounted and with what.
+- **The primary action** is **Ground it** until reading has started, **Stop** while it runs, **Try again** or
+  **Start again** after a failure, and **Map the stakeholders** once the evidence is read. The same action
+  waits at the bottom edge once the first one has scrolled away.
+- **Sources** are drawn as threads, each as long as its document with its numbered passages (S1, S2, …) along
+  it. **Conflicts** puts two sources that give different figures or say opposite things side by side, each to be
+  settled by a person (**Confirm**, **Not a conflict**, **Mark resolved**, with an optional note, and **Change
+  decision**). **Statements** lists what a model-written report says and how well the sources back each, with a
+  filter by verdict; a statement opens in a sheet with its passages and **Accept**, **Needs revision** or
+  **Reject**. **Operations** (the engine's recorded operations and events) is Advanced only.
+- **It must keep** the figures honest (a dash until the engine has said), the line "Found from wording alone.
+  Neither side is declared true." beside the conflicts, and "How well the sources back each statement, not
+  whether they are true." beside the statements. Where a report lists no statements, the page says so quietly.
 
-## Design tokens
+### Map
 
-Colours are tokens, not literals. `frontend/src/styles/theme-tokens.css` is generated by
-`scripts/ui/themes.mjs`; do not edit it by hand.
+Who is in play. Before anything is found, one invitation: **Find who is affected** (by a model when the
+project has one, otherwise by reading the text), **Read the text instead**, and **Add one yourself**.
 
-- A token is named for its role and its light value: `--t-bg-ffffff` (a background), `--t-fg-24282e`
-  (text, icons, strokes), `--t-bd-cdd1d5` (a border). The three themes give each token its value.
-- The dark and high-contrast values are derived from the light one. In the dark theme the page is
-  the lowest surface, the panel (white in the light theme) one step above it, and what is a little
-  darker than white in the light theme (hover, wells, chips) a little lighter than the panel; a state
-  tint is made stronger so that it can be seen; body text is nearly white and dimmer greys keep
-  their order; a border sits one step above the surface it is on. In the high-contrast theme every
-  surface is black, text and borders are white, and a saturated fill is darkened until white text on
-  it reads at 7:1.
-- Meaning has a name in `styles.css` (`--text`, `--muted`, `--panel`, `--border`, `--orange`,
-  `--orange-fill`, the `--verdict-*` set, `--chart-*`): style with those, not with the tokens.
-- To change a colour: change its light value, or use a new `var(--t-bg-xxxxxx)` in a stylesheet,
-  then run `node scripts/ui/themes.mjs tokens`. `node scripts/ui/themes.mjs check` fails on a hex,
-  `rgb()`, `hsl()` or `color-mix()` literal in a stylesheet or a source file, and on a generated
-  value that was edited by hand. What a derivation gets wrong is corrected in `theme.css`.
-- Guards: `frontend/src/test/theme-contrast.test.ts` (WCAG contrast of the token pairs in all three
-  themes, and that the themes define the same tokens), `accessibility.test.ts` (no text below 12px,
-  every declared text colour readable on its surface, restrained decoration and motion) and
-  `scripts/ui/themes.test.ts`. In the browser, `e2e/journey/themes.spec.ts` and
-  `e2e/lab/shell.spec.ts` run axe in every theme.
+- **The map** (see below) draws the stakeholders as an ecosystem. A floating **inspector** shows the party in
+  view (below 64rem, a strip with **Details**, which opens a sheet): where it stands, its evidence word for
+  word, why it is here, how it is connected, and, for an actor, every trait on a slider with where its value
+  came from. A
+  toolbar offers Map or List, Stakeholders or Actors, Groups, focus on what is connected (`F`), **Add a
+  stakeholder** and, under More, **Find stakeholders again…** and **Reset all actors…**.
+- **One pill says the one thing to do next:** "N to review" (it opens the next), **Approve & create actors**
+  (**Approve** when actors the person changed are kept, **Make the actors** once approved), then "N actors
+  ready" with **Simulate**. Changes to an actor are held, with **Save** and **Discard**, until saved.
+- **List** (`?view=list`) is the same parties as text, in groups, with the ones removed under "Removed" and
+  the places where nobody was found under "Nobody found for".
+- **It must keep** the line that says actors are synthetic stand-ins and every number an assumption, the
+  rule that approving needs at least two stakeholders, and the model's privacy line before the source text
+  is sent.
 
-### The scale
+### Simulate
 
-| Thing     | Variables in `styles.css`                                                                                            |
-| --------- | -------------------------------------------------------------------------------------------------------------------- |
-| Type      | `--fs-xs` 12px, `--fs-sm` 13px, `--fs-md` 14px, `--fs-lg` 16px, `--fs-xl` 20px, `--fs-2xl` 26px, `--fs-hero` 34–54px |
-| Spacing   | `--space-1` 4px, 2 8px, 3 12px, 4 16px, 5 24px, 6 32px, 7 48px                                                       |
-| Radius    | `--radius-xs` 4px, `--radius-sm` 6px, `--radius-md` 8px, `--radius-lg` 12px                                          |
-| Elevation | `--elevation-1` (a hairline lift), `--elevation-2` (a raised card or a dialog)                                       |
-| Motion    | `--dur-fast` 120ms, `--dur-base` 200ms, `--ease`                                                                     |
+The hero of the product. It is in one of these states:
 
-Elevation is a solid shadow colour with a wide blur, so it needs no transparency. The colour is
-`--shadow`: a light grey in the light theme, a dark surface in the dark theme and none in the
-high-contrast theme. Not every existing rule uses the scale yet: the older, denser stylesheets keep
-their own sizes where they were not part of this work.
+- **No actors**: "No actors to simulate yet", with **Open the map**.
+- **Setup** (`?view=setup`): "Set the futures side by side". The scenarios (no change, the proposed change and
+  any alternatives), how strongly the change lands in each and from which round, how many seeded runs of
+  each (10, 30 or 100), whether to test which assumptions the result leans on, an estimate of the runs and
+  the time, and **Run the simulation**. Every scenario runs on the same seeds.
+- **Running**: one ring for each scenario, and one for the sensitivity runs, filled from the number of runs
+  the server has saved ("N of M simulated runs"), and **Cancel**. Nothing is drawn that has not happened.
+  Results are not shown until the run is done, because a stopped run would leave the scenarios on
+  different seeds.
+- **The theatre**, four ways to look at the same run: **Story** (`?view=story`, a headline written from the
+  numbers, who moves most, what it sets off, how steady it is, how far to rely on it), **Live** (the default;
+  the actors on the map coloured by where each stands in the round shown, a round card with the share of each
+  response and the signals, and a scrubber), **Network** (`?view=network`, the relations the comparison used)
+  and **Timeline** (`?view=timeline`, the spread of the runs over the rounds with the change and the events
+  marked). When no run was kept in detail, only Story and Timeline are offered. The scrubber plays by itself
+  the first time a finished run is opened in a session, and when the person watched it run, and never for a
+  person who has asked for less motion.
+- **The deep dive** (`?view=deep`, `scenes/simulate/deep/`): the older, slower engine, optional and apart from
+  everything above. Setup, Run, Rounds, Memory and (in Advanced) the engine records; pause, an assumed event
+  at a future round, branching from a checkpoint and the comparison of two recorded runs; the detailed report
+  and a way to ask a proxy.
+- **It must keep** "Synthetic actors, simulated under stated assumptions. Not a prediction." in the live and
+  network views, the positioning statement in the running view and in the story, an honest empty state where
+  a run has no events, and the rule that what the page shows is one run, not the answer.
 
-## Decoration and motion
+### Compare
 
-- A gradient and a grid appear on the landing hero and nowhere else. They are dropped in the
-  high-contrast theme and under forced colours. Dense work areas never get either. A test fails
-  if a gradient is added elsewhere.
-- Motion is short and answers something the person did: a hover, a state change, a step marked
-  done. It is on transform, border and background colours, never on text opacity, so that no scan or
-  screenshot catches text half drawn.
-- Under `prefers-reduced-motion: reduce` every transition stops and every animation is cut to a
-  single frame (a global rule in `styles.css`); the card lift and the loading pulse are also not
-  declared at all. Tests check both.
+The scenarios side by side, as an editorial document. The first screen is the answer as a sentence ("Under
+_Proposed change_, simulated members end up …"), the shares under each scenario and the gap between them
+with its spread, how often it held across the seeded runs, and a table of contents of seven parts: Futures,
+Who moves, Over time, What holds, Depends on (the sensitivity of the result to one assumption at a time),
+Sets off (a chain of second-order events from one run) and How far to rely. A bar at the foot keeps the pair
+being compared, **Method**, a jump menu, **Run again** and **Decide** in reach. A chip says when the comparison
+describes the project as it was ("Out of date") or a newer one exists. **Compare two recorded runs**
+(`?view=runs`) lays two deep-dive runs side by side, round by round.
+
+**It must keep** the sentence that a result is a simulation under stated assumptions, "holds in k of n
+seeded runs" worded as repeatability and never as a probability, and, next to the answer, the warning that
+appears when no stakeholder has an expected direction of impact.
+
+### Decide
+
+The decision brief as a document, with the independent review beside it and in its place.
+
+- **The answer first**, then the story in four parts (What happened, Why, What to do, On what ground), each made
+  of chapters. A chapter of reference (the assumptions, the evidence base, the sources, the limitations and the
+  technical appendix) is closed until it is wanted, and stays in the page; the contents, the address
+  (`#brief-<chapter>`) and the tools open a chapter before they take the reader to it.
+- **Tools for the brief**: **Review** (the critics' objections, `?view=review`, with **Run the independent
+  review**), **Edit report** (Report Studio, `?view=studio`), **Detailed report** (the deep dive's report,
+  `?view=report`, when one exists), **Export** (Markdown, JSON with the data behind the charts, a printable
+  page, or print this page) and, under More, **Write the brief again**.
+- **Before there is a brief** the scene offers one action, **Write the brief**; while it is written it says
+  so. A brief that no longer matches what it was made from says what changed.
+- **Report Studio** is where a person works on a copy of the generated report: sections, versions, notes, a
+  review workflow (**Submit for review**, **Approve…**, **Request changes…**) and export. The generated
+  report is never changed ([ADR 0011](./adr/0011-report-studio.md)). It works on the deep dive's detailed
+  report, so until one is written it says "There is no report to work on yet" and points to it. A save
+  made over a section that someone else has saved keeps the person's words and says so, and makes a new
+  version on top of the other, which stays in the history.
+- **It must keep** the positioning statement at the foot, the origin of every statement, the criticisms
+  that stay visible beside a finding, and the rule that a critic never edits.
+
+## The ecosystem map
+
+`frontend/src/viz/ecosystem/` is one component, `Ecosystem`, used by the Map scene and by the live and
+network views of Simulate. It is SVG, not canvas (see [ADR 0015](./adr/0015-premium-interface.md)).
+
+- **What it draws.** Parties gather in clusters by kind (eight groups, from the stakeholder categories: Decide,
+  Use & benefit, Bear cost & risk, Influence & reach, Rivals, Partners & operations, Regulators, Others). A
+  party's size is how much it weighs, its colour what it is expected to suffer (or, in a run, where it stands:
+  against to in favour), a dashed ring marks an indirect effect, paler means less sure, dots around it mean a
+  cohort of many, and lines are the relations between parties, an arrow where they run one way. Places where
+  nobody was found are drawn as empty slots that a person can fill. The legend in the Map scene says all
+  this ("How to read this map").
+- **Meaning is never colour alone.** A party's accessible name says its kind, whether it is a key actor or a
+  cohort, its effect, whether it is reached directly and how sure Swarm is; a dashed ring marks an indirect
+  effect; and the stance scale follows the data (stance values are small, so the colour range is fitted to
+  them), with the words ("against", "leaning in favour") beside it.
+- **One loop writes everything.** Positions come from a layout that is the same every time (a seeded
+  force simulation, so a map is recognisable from one visit to the next), and one animation loop writes every
+  party, line and halo straight to its element with a spring, so that a line stays attached to a party as it
+  moves. The loop stops while the map is off screen, and under reduced motion every party goes to its place
+  at once.
+- **It is a real group of buttons.** Each party is a button with a name; the arrow keys move to the nearest party
+  in that direction, Enter or Space selects it, Escape lets go. Zoom with the buttons ("Zoom in", "Zoom out",
+  "Fit everything") or with `Ctrl`/`⌘` and the wheel (a plain wheel scrolls the page, which a map must never take);
+  a mouse or pen drags the background to pan, and a finger scrolls the page. A tooltip opens only on keyboard
+  focus or a hover that is not touch.
+- **The same parties are a list.** The Map scene offers them as text (`?view=list`) beside the map, and the
+  live view's information is in the round card and the story.
+
+## The design system
+
+`frontend/src/design/` is the one place the look is decided.
+
+### The idea
+
+- **Whitespace and type group things, not boxes.** Content that sits on the page (charts, lists, text) is not
+  put in a container: use a hairline or space.
+- **Glass is for things that float:** the top bar, the dock, popovers, menus, sheets, dialogs, toasts and the
+  composer. Never nest glass in glass, and never put long text on glass that has not been checked for contrast
+  over the ambient light.
+- **The simulation is the hero.** Data is drawn straight onto the page, large, with light and motion.
+- **Little English.** Default screens speak through hierarchy, numbers, state and direct manipulation.
+  Method, provenance and caveats live in a disclosure, a tooltip, a popover or a sheet, one gesture away and
+  never gone. Responsible-use wording that matters stays visible, short.
+- **Nothing is faked.** Decorative motion (the ambient light, the swarm behind the question) never imitates
+  data.
+
+### Tokens and themes
+
+Colour, space, radius, type, shadow, blur, duration and easing all come from `design/tokens.css`, which is
+plain custom properties and holds nothing else. A raw colour or a magic duration anywhere else is a defect.
+
+| Family     | Tokens                                                                                                                                                                                                                                 |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page       | `--bg`, `--bg-sunk`, `--bg-raised`                                                                                                                                                                                                     |
+| Ink        | `--ink`, `--ink-2`, `--ink-3`, `--ink-inverse`, and the rules `--hairline` and `--hairline-strong`                                                                                                                                     |
+| Glass      | `--glass`, `--glass-raised`, `--glass-overlay`, `--glass-edge`, `--glass-edge-hi`, `--glass-tint`, `--scrim`, with `--blur-sm`, `--blur-md`, `--blur-lg` and `--glass-saturate`                                                        |
+| Accent     | `--accent`, `--accent-strong`, `--accent-ink`, `--accent-soft`, `--accent-line`, `--focus-ring`                                                                                                                                        |
+| Meaning    | `--c-against` (ember), `--c-favor` (teal), `--c-neutral`, `--c-caution`, `--c-critical`, each with a `-soft` tint, and `--eco-quiet` for a party whose effect is not known                                                             |
+| Categories | `--cat-1` to `--cat-8`, for groups and documents                                                                                                                                                                                       |
+| Ambient    | `--aura-a`, `--aura-b`, `--aura-c`, `--aura-hue` (set by scene) and `--grain-opacity`                                                                                                                                                  |
+| Elevation  | `--shadow-1` to `--shadow-4` and `--glow`                                                                                                                                                                                              |
+| Type       | `--font-display` (Instrument Serif), `--font-ui` (Geist), `--font-mono` (Geist Mono), and `--fs-micro` (12px, the floor), `--fs-small`, `--fs-body`, `--fs-read`, `--fs-lead`, `--fs-h4`, `--fs-h3`, `--fs-h2`, `--fs-h1`, `--fs-hero` |
+| Space      | `--s-1` to `--s-9`, on a 4px grid                                                                                                                                                                                                      |
+| Shape      | `--r-xs`, `--r-sm`, `--r-md`, `--r-lg`, `--r-xl`, `--r-pill`                                                                                                                                                                           |
+| Layout     | `--topbar-h`, `--dock-h`, `--w-prose`, `--w-content`, `--w-wide`, `--gutter` and the layers `--z-canvas` to `--z-tip`                                                                                                                  |
+| Motion     | `--dur-instant`, `--dur-fast`, `--dur-base`, `--dur-slow`, `--dur-cinema` (90, 160, 260, 480 and 840 ms), `--ease-out`, `--ease-in`, `--ease-in-out` and the spring curves `--ease-spring-snappy`, `-smooth`, `-lively`                |
+
+**Three themes** share one set of names: `light` (warm paper), `dark` (ink) and `high-contrast` (opaque, no
+glass, no ambient light, outlined, a yellow focus ring that is three pixels wide). `data-theme` on `<html>`
+picks one. System follows the device (`prefers-contrast: more` first, because it is a need and not a taste, then
+dark, then light); the choice is made in Settings and tools and read by `hooks/useTheme.ts`, and the browser's
+own chrome (the address bar on a phone) is painted from `THEME_COLOR` in `lib/theme.ts`, which is kept in step
+with `public/theme-init.js` by a test. Each scene tints the ambient light a little, by `[data-scene]` on the
+frame (ask 275, ground 235, map 305, simulate 35, compare 185, decide 85 in hue), as a slow crossfade. On
+paper every theme prints as the light one: ink on white, no glass.
+
+The values hold what the tests hold ([Guards](#guards)): text on the page and on every glass surface at
+least 4.5:1 (7:1 in high contrast), the data colours at least 3:1 as graphics, and a chip's colour on its own
+tint. A theme that is added or changed must define every token the others do.
+
+### Layers, names and rules
+
+- **Every rule is in a layer.** `design/index.css` fixes the order, `@layer tokens, base, components, scenes,
+utilities`; a shared piece puts its rules in `components`, a scene in `scenes`, and `tokens.css` alone is
+  outside, because it holds only custom properties. No rule wins by being later in the bundle or more
+  specific than it needed to be, and `!important` appears only in `base.css`.
+- **Names.** Every class is prefixed `sw-` and named for its component (`sw-ground__rail`); a state is a
+  second class, `is-on` or `is-open`. `sr-only` and `num` are the two utilities without the prefix.
+- **Type.** `.sw-hero`, `.sw-display` and `.sw-title` are the serif, for what is _said_: the question, the
+  answer, a number that matters (`.sw-numeral`). The grotesque is for everything that is _done_. `.sw-eyebrow` is
+  the small uppercase label, and `.sw-read` is long reading text (17px, at most 68 characters wide). Nothing is
+  set smaller than `--fs-micro`.
+- **Layout.** The document scrolls: there are no nested scrollers except sheets. A scene's content is
+  `--w-content` wide, the simulation's stage `--w-wide`, with `--gutter` at the sides. The bar is `--topbar-h`
+  tall and the dock `--dock-h`.
+
+### Motion
+
+Motion is a system with a vocabulary, not decoration (`design/motion/` and `design/motion.css`).
+
+| Use                         | Curve                                                        | Time                        |
+| --------------------------- | ------------------------------------------------------------ | --------------------------- |
+| hover, press, focus         | `--ease-spring-snappy`                                       | 90–260 ms                   |
+| content arriving            | `.sw-rise` (stagger `--i`)                                   | 480 ms                      |
+| panels, sheets, popovers    | spring `smooth` or `snappy`                                  | 260–480 ms                  |
+| a scene change              | a quick fade out, then a rise of 18px on the `gentle` spring | about 0.14 s, then a spring |
+| a number the engine reports | `useTween`, an ease-out                                      | 700 ms                      |
+| a thing that just happened  | `sw-pulse-ring`                                              | once                        |
+
+The rules: an animation explains a cause; springs for things that are moved and short ease-outs for things
+that appear; every animation can be interrupted (a new target redirects it, nothing queues); entrances take at
+most about half a second, apart from the few that the person started; no keyframe animates a property that
+costs layout. In script, the same numbers are `DURATION`, `EASE` and `SPRING` in `design/motion/tokens.ts`, and
+`useSpotlight` and `useMagnetic` give a surface light and a pull that follow the pointer (never for touch).
+Components use `m` from `motion/react`, not `motion`, because the page loads its features lazily and strictly.
+
+**Reduced motion** is honoured at three levels, so that no part of the page can ignore it:
+
+- the CSS reset in `base.css` makes every animation and transition about one millisecond, and the duration
+  tokens become 1ms, both for `prefers-reduced-motion: reduce` and for **Reduced** in the menu
+  (`html[data-motion='reduced']`);
+- `useReducedMotion()` is for script and canvas: the person's choice if they made one, else the device's. The
+  swarm behind the question draws one still frame, the map's parties go to their places at once, the
+  scrubber never autoplays, and numbers are their target at once;
+- `m` components follow the same setting through `MotionRoot` (`reducedMotion` is `always`, `never` or `user`):
+  distance goes and a short fade stays, so that a change is still shown.
+
+Ambient loops stop. **Reduced transparency** (`prefers-reduced-transparency`) turns every glass surface solid
+and drops the blur, and so does the high-contrast theme.
+
+### Primitives
+
+`design/ui/` holds what every scene is built from. A scene does not draw its own button, popover or dialog.
+
+| Primitive                                                  | For                                                                                                                                                           |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Button` (`primary`, `accent`, `glass`, `ghost`, `danger`) | `primary` is the one action of a screen and `accent` the single "go" (run, start). `busy` disables it and says so, and never hides its label                  |
+| `IconButton`                                               | An icon alone says nothing to a screen reader: it needs a `label`, which is its name and its tooltip                                                          |
+| `Chip`, `ChipButton`                                       | A status, an origin or a count, text first; a toggle that is a filter or a choice                                                                             |
+| `Segmented`, `Tabs`, `TabPanel`                            | One of a few, and the views of one thing                                                                                                                      |
+| `Field`, `Input`, `Textarea`, `Select`, `Switch`, `Slider` | Forms. A field has a visible or hidden label, a hint and an error                                                                                             |
+| `Popover`, `Menu`, `Tooltip`                               | Small floating things, from Radix: focus is managed, Escape closes                                                                                            |
+| `Sheet`, `Dialog`                                          | Big floating things: a sheet comes from the side (from the bottom on a phone), the page behind is inert, and focus is trapped and returned                    |
+| `Disclosure`                                               | Method, provenance or a table, one gesture away. It opens by growing, and what is shut is inert but still in the document, so print and find-in-page reach it |
+| `Notice`, `Toast` (`useToast`), `EmptyState`               | A line of status; a message that leaves by itself (errors stay until dismissed); a state with nothing to show                                                 |
+| `Meter`, `Ring`, `Stat`, `Skeleton`, `Orbit`, `Mark`       | A bar, a ring, a number with its label (it tweens), a shape while something loads, the loader and the logo                                                    |
+
+`Aurora` (the ambient light) and `SwarmField` (the canvas of drifting points behind the question) are the
+ambient layer: identity, not data. `/gallery.html` shows every primitive in every state, with switches for the
+theme, the scene's tint and the motion setting, in development; no build includes it.
+
+## Accessibility
+
+- **Every interactive thing is a real button, link or input with a name.** Every chart has a text alternative
+  (`role="img"` with a label that summarises it) or is a list or a table, and the map has its list.
+- **Meaning is never colour alone.** `--c-against`, `--c-favor`, `--c-neutral`, `--c-caution` and `--c-critical`
+  are paired with a word, an icon or a shape: a done step has a check, a stance has its words, an effect on the
+  map has its name, and an assumption is called one in words.
+- **Focus is visible** (`--focus-ring`, a two-pixel outline, three in high contrast, the system's highlight under
+  forced colours) and is moved on purpose: to the main area when the scene changes, to a sheet when it opens,
+  back to what opened it when it closes, to the row, its neighbour or the next step after a review action. A
+  control that moves the person on is never left as the place focus was lost to.
+- **Keyboard.** The composer explores on `Ctrl`/`⌘` + Enter. The map: arrows, Enter or Space, Escape, and `F` for
+  focus on what is connected. The graph in Ground: `[` and `]` to move between topics, Enter or Space to open
+  one, arrows to pan, `+` and `-` to zoom, `R` to fit, Escape to close. The playback: arrows for a round, Page Up
+  and Page Down for three, Home and End, Space to play or pause. Dialogs, sheets, menus and popovers are Radix:
+  Tab is trapped, Escape closes.
+- **Live status** uses `role="status"` (polite) and `role="alert"` only for a failure that needs action. A
+  change a person must hear about (stakeholders found, approved, a simulation finished) is said in a status
+  region, and a progress ring says its value in tenths so that it is not read out every second.
+- **Headings** run in order, with one `h1` at a time; the browser tests run axe-core with its default rules,
+  which include heading order and colour contrast.
+- **Touch targets** are at least 2.75rem on a coarse pointer, whatever the width; the primitives do this
+  themselves.
+- **Contrast** is held in every theme (see Guards); the high-contrast theme is opaque and outlined, and glass,
+  blur and the ambient light go under `prefers-reduced-transparency` and under forced colours.
+- **Print.** Ctrl+P on the decision brief or on the detailed report prints the content and leaves the
+  application's own chrome (the bars, the tools, the ambient light) out, with every chapter open. The brief's
+  printable page and the studio's memo are pages of their own that the server serves for printing.
 
 ## Responsive
 
-The shell changes layout at these widths:
+The design is checked at five sizes: 390×844 (a phone), 768×1024, 1366×768, 1440×900 and 1920×1080, in light and
+dark.
 
-- 1499px: the journey keeps numbers and draws the name of only the current step; at 1500px and wider
-  all twelve names show. The names of the others stay in the page for a screen reader.
-- 1199px: the header, which is one row from 1200px, takes two rows or, with a project's back
-  button, sometimes three.
-- 1120px: the stage list and the view control take their own rows. 1100px: the hero is one column
-  and the path takes two rows of four. 1050px: the form and the side column stack.
-- 900px: the console shows one pane at a time (Graph | Workbench; a Split view shows the Workbench), the
-  header drops "LOCAL · SINGLE USER" and "/ CONSOLE" to save a row, and the project tools take their own
-  row.
-- 700px: the header's padding tightens.
-- 640px (phone): 44px touch targets. Every custom control has one: the stakeholder toggles and rows, the
-  disclosures of the intake, the comparison, the brief and the review, the brief's contents links, the
-  entries of the history and the review's checkbox. The header is not sticky and its controls flow after
-  the brand in the order of the page, with the model chip on a row of its own. The path runs on like a
-  sentence and wraps between whole steps. The examples and the project tools are one row each that
-  scrolls sideways. The five stage names share the width by what they need, so none is broken in
-  two. A button that stands alone is as wide as its words on a desktop and takes the whole column on a
-  phone. The Report page's bar reads Brief, Review and Details.
-- 470px and 390px: the form's groups become one column.
+![The interface on a phone-sized screen](./assets/swarm-mobile.png)
 
-No page scrolls sideways at 390px; the end-to-end specs check it. Pointer targets are at least 24px,
-and 44px on a phone (`shell.spec.ts` measures them in the first stage, the stakeholders, the comparison,
-the report and the dialogs). The actors' traits stack by the width of their own pane, not the window's.
+- **64rem (1024px) and above is wide.** The Map's inspector and the live view's round card float beside the
+  picture, which moves its view to keep every party clear of them, and the next-action pill sits under it.
+- **Below 64rem** (a tablet, a phone) a floating panel would cover the picture, so it becomes a strip: the
+  Map's inspector is a short strip with **Details**, which opens the rest in a sheet, and the round card is one
+  line that opens in place.
+- **40rem (640px) and below is a phone.** The journey moves from the top bar to the dock, the bar names the
+  scene, sheets come from the bottom, the page leaves room for the dock, and the first screen's composer, tray
+  and tools share the width.
+- **78rem (1248px) and below**: the journey in the top bar shows only the name of the scene in view; the
+  other points are icons, with their names in a tooltip and in their accessible names.
+- **On a coarse pointer** (a finger) controls are at least 2.75rem, whatever the width. `(hover: hover)`
+  effects and `(pointer: coarse)` sizes are separate queries, so that a touch screen is never given a hover.
+- No page scrolls sideways: `body` clips it, and the browser tests measure it.
 
-## Accessibility rules
-
-- Text is 12px or larger, and in every theme meets 4.5:1 (7:1 in the high-contrast theme) on the
-  surface it is on.
-- Colour is never the only signal: a done step has a check, a state has a word, a selected button
-  has an outline.
-- Every control has a visible keyboard focus (a 2px outline in the accent colour) and is reachable
-  in a sensible order; the question is within the first ten tab stops of the entry page.
-- Headings do not skip a level: one h1 per page, the form's heading is an h2.
-- A disclosure is a native `details` element, so it works from the keyboard and without script.
-- The header is sticky from 641px, so `html` has a `scroll-padding-top` (72px, and 140px below 1200px,
-  where the header takes more rows) and a control that takes focus is never left under it. On a
-  phone the header scrolls away instead of keeping a quarter of the screen.
-- A control that moves the person to another stage moves focus to that stage, so that it is never
-  lost to the page when the control goes away.
-- Under forced colours (Windows high contrast) the fills that tell the stage in view and the chosen mode
-  apart are gone, so each stage and each choice has a plain 2px edge; the current one has a 3px double edge
-  in the system's highlight colour, which says it by its shape as well as its colour, and a stage that
-  cannot be opened has a dashed one.
-- A locked stage says that it is locked in words and says what it needs; the reason is also in the
-  accessible name, in both modes.
-- Changes of state that a person must hear about are in a `role="status"` or `role="alert"` region.
+![A scene of the interface in the dark theme: pale type on a near-black page, with the floating top bar as glass](./assets/swarm-dark.png)
 
 ## Guards
 
-- `frontend/src/lib/console.test.ts`: what opens each stage, the label and the lock under it, the
-  journey, the view each stage opens in, and the next step for every state of the record.
-- `ConsoleWorkspace.test.tsx` and `ConsoleAccessibility.test.tsx`: what the workspace renders from
-  the record (including the view it starts in), and the stage names and their hidden context.
-- `e2e/lab/journey-gates.spec.ts`: projects made through the API at each point of the way (nothing,
-  graph built, stakeholders proposed, approved, actors, a comparison stopped, finished, reviewed,
-  brief written) and read in the browser: what is locked and why, the path, the next step and where
-  it leads, a comparison started, stopped and finished in the page, and the brief written there,
-  each without a reload or a press of Refresh (these fail if the workspace stops looking for the
-  change), Guided and Advanced, the keyboard and focus, a reload, the view each stage opens in and a narrow
-  screen that does not keep the Workbench for good, three themes on a laptop and a
-  phone, and the phone's header and stage names. `e2e/lab/shell.spec.ts` covers the first screen, the
-  examples, the modes and the workspace in every theme.
-- `e2e/lab/stakeholders.spec.ts`: the stakeholder review through the real screens, for three examples, with
-  the stage's own button on the screen at laptop size, on a phone, from the keyboard, and in every theme.
-- `e2e/lab/analysis.spec.ts`: the Simulation stage, its progress, its refusals and what it says and must
-  not say. `e2e/lab/examples.spec.ts`: the flagship demonstrations and a question of the person's own, from
-  the first screen to the exported brief, in the page. `e2e/lab/deep-dive.spec.ts`: the engine's own stages
-  on the approved actors, with the report below the brief.
-- `e2e/lab/entry-screen.spec.ts` and `e2e/lab/intake.spec.ts`: the first screen (the bar that keeps Build
-  Graph in reach, the folded cards, the starter card, the scenario's own bar) and the edits to the scenario
-  that was read. `components/console/ExamplePicker.test.tsx`, `entryReadiness.test.ts` and
-  `components/intake/ScenarioIntake.interaction.test.tsx` hold the same at the component.
-- `e2e/lab/report-page.spec.ts`: the Report page (open and closed sections, the contents, the addresses
-  that open a section, the bar, the review's status, printing, axe) and `e2e/lab/freshness.spec.ts` (what a
-  change made in another tab or on the same page does to the brief and the review).
-  `components/brief/ReportSeam.test.tsx`, `reportNavigation.test.ts` and `components/critics/reviewStatus.test.ts`
-  hold the bar, the choice of what is open and the review's words at the component.
-- `frontend/src/test/accessibility.test.ts` and `components/brief/briefStyles.test.ts`: no text below 12px in
-  any stylesheet, readable pairs in every theme, and the brief's layouts for a narrow screen and for print.
-  `components/console/HistoryDrawer.test.tsx` and `lib/audit.test.ts`: a saved project opens by a button that
-  says so, and every action the backend records has a plain label.
+These hold the rules above. Each lists every offender it finds, not the first, so that one run is enough to fix
+a stylesheet. The results of a run are not recorded here: see the [testing guide](./TESTING.md).
+
+| Guard              | Where                                                                                                    | What it holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| UI guards          | `frontend/src/test/ui-guards.test.ts`                                                                    | Reads every stylesheet and source under `frontend/src`. No text below 12px (and `--fs-micro` is `0.75rem`). Every rule of every stylesheet is in a layer, the tokens file declares nothing but custom properties, and `!important` is only in `base.css`. Every class is `sw-`, an `is-` state or one of two utilities. No keyframe animates a property that costs layout. The reduced-motion reset, the near-instant duration tokens and the solid glass under reduced transparency and in high contrast exist. The code imports nothing from the interface it replaced, has no raw-HTML or dynamic-code sink (`dangerouslySetInnerHTML`, `.innerHTML`, `insertAdjacentHTML`, `document.write`, `eval`, `new Function`) and loads no resource of another origin |
+| Contrast           | `frontend/src/test/design-contrast.test.ts`, `design-palette.ts`                                         | Computed from `tokens.css` with the WCAG formula, in each theme, with every translucent surface laid over the page and over the lightest and darkest backdrop it can sit on: the three inks on every surface, the accent as text and as a fill, the colours of meaning as text, a chip's colour on its own tint, every data colour as a graphic (3:1), the edge of a surface; that the three themes define the same tokens; and that high contrast is opaque                                                                                                                                                                                                                                                                                                     |
+| Colour literals    | `scripts/ui/colours.mjs` (run as `node scripts/ui/colours.mjs check`), with `scripts/ui/colours.test.ts` | No hex, `rgb()`, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()` or `oklch()` in a stylesheet or source under `frontend/src` except `design/tokens.css` and the browser-chrome colours in `lib/theme.ts`. A named colour, `currentColor`, `var(--token)` and a `color-mix()` of them are fine. It runs on the real tree as part of the unit suite                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| What opens a scene | `frontend/src/app/scenes.test.ts`, `frontend/src/lib/console.test.ts`                                    | The rules in this page: what opens each scene, what the journey says of it, where a project opens, and the engine's own gating                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Scene tests        | beside each scene (`scene.test.tsx`, `model.test.ts`)                                                    | The pure rules of the scene, and its states rendered to static markup inside a workspace made from fixtures (`frontend/src/test/`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Interaction tests  | `*.interaction.test.tsx`, with `frontend/src/test/dom.ts`                                                | A person's actions on the real components in a simulated DOM (`// @vitest-environment jsdom`): the first screen, the map, the playback, the ecosystem and the primitives. Only the network is replaced                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Neutrality         | `backend/test/stakeholders-neutrality.test.ts`, `backend/test/brief-neutrality.test.ts`                  | They read the sources of the scenes that show stakeholders (`scenes/map`, `lib/stakeholders`, `viz`) and the brief (`scenes/decide`, `report`, `studio`) and keep every market, product and industry word out of them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Browser            | `e2e/`                                                                                                   | Real-browser projects that run axe-core in each theme and check reduced motion, the shell and the journey from the question to the brief, and that fail on a console error or warning, a failed request, an unprovoked API answer of 400 or more, or a control painted with the browser's own colours. [The testing guide](./TESTING.md) lists them                                                                                                                                                                                                                                                                                                                                                                                                              |
+| The audit          | `npm run audit:ui`                                                                                       | Screenshots and layout and accessibility metrics of every scene at five viewports in light and dark. It asserts nothing, and reports findings for a person to read                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+## Adding to the interface without breaking what is there
+
+Most features add a section to a scene, a view inside one, or a panel. A new scene changes the journey, which
+every person sees at the top of every screen: do it last.
+
+### Before anything
+
+1. **Show what the record holds.** Everything a screen shows is in `project`, in `project.lab` (what the
+   scenario lab has done) or in the hook for the feature (`hooks/`, `api/`). The interface words and arranges
+   what the engine reports and does not invent a number: a new fact is added to the engine first, with its
+   contract in `shared/`, and shown second.
+2. **Use the tokens and the primitives.** Do not write a colour, a duration, a button or a dialog of your own.
+3. **Run the guards.** `npx vitest run frontend/src/test scripts/ui frontend/src/app` is the quick check; the
+   offenders are named by file and line.
+
+### A section in a scene
+
+1. Render nothing when there is nothing to show, and make no request for a project that never used the
+   feature. A scene opens for every project that unlocks it, and the browser tests fail on a console error or
+   a failed request.
+2. Put its styles in its own stylesheet, in `@layer scenes`, with `sw-` names, tokens only, and no text below
+   `--fs-micro`.
+3. Say where it comes from. Method, provenance and caveats go in a `Disclosure`, a popover or a sheet; wording
+   the product must not be read without stays visible.
+4. State every state: loading (a `Skeleton`, not a spinner in a void), empty (an `EmptyState` that says why and
+   what to do), failed (a `Notice` with **Retry**) and not allowed (say which role may).
+5. Give it a heading at the right level (the scene's `h1` is already taken), a name for every control, and a
+   real place for focus when it appears and when it goes.
+6. Test it the way the scene tests do: render it inside a `WorkspaceContext.Provider` with a project from
+   `frontend/src/test/project.ts`, and test the pure rules apart from the markup. To click, type and tab,
+   write a `*.interaction.test.tsx` and use `renderWithApp` from `frontend/src/test/dom.ts`.
+
+### A view in a scene
+
+A view is `?view=<word>`: the scene reads it from `useWorkspace().view` and changes it with `setView(view)` or
+`go(scene, { view })`. Keep the default view out of the address (pass `null`), fall back to it for a name the
+scene does not know, make no view the only way to something a person needs, and never make a view of one
+scene depend on another's. A link into a locked scene lands on the scene the project has reached and drops the
+view, so nothing may depend on a view being there.
+
+### A panel
+
+A panel is an overlay that no scene owns. Add it to `app/PanelHost.tsx` (a lazy import, one `PanelName`, mounted
+only while open) and to `PanelControls` in `app/context.tsx` and to the `panels` object in
+`app/Application.tsx`, so that any scene opens it with `useWorkspace().panels.<name>()`. Build it from `Sheet`
+or `Dialog`, give it `open` and `onOpenChange`, and let `usePanelLifecycle` close it (it plays the exit and gives
+focus back). Put its trigger in the top bar only if it is needed from every screen, and otherwise in Settings
+and tools or in the scene that needs it. The shell mounts one panel at a time.
+
+### A scene
+
+A scene is a folder with a default export and no props. Add its name to `SCENE_IDS` and `PROJECT_SCENES` in
+`app/scenes.ts`, and TypeScript lists most of the rest:
+
+1. `SCENE_LABELS`, `SCENE_PURPOSE` and `LOCKS` in `app/scenes.ts`; `sceneAvailable` and `sceneInfos` (when it
+   opens, and what the journey says of it); `frontierScene` if it can be where a project opens;
+2. `SCENE_ICONS` in `app/icons.ts`, and `loaders` in `app/loaders.ts` and the component map in
+   `app/SceneHost.tsx` (a chunk of its own);
+3. `STEP_OF_SCENE` in `app/Application.tsx`, which says which engine step the shell watches while the scene is
+   in view;
+4. `[data-scene='<name>']` in `design/tokens.css`, a hue for the ambient light;
+5. `app/scenes.test.ts`, for what opens it and what the journey says.
+
+The rail and the dock are drawn for six places (five in the dock): check a seventh at 390px and at 1366px,
+and that the names still fit.
+
+### A token, a colour, a primitive
+
+- **A token** goes in `design/tokens.css` for all three themes. A token that the contrast test reads must be a
+  hex colour or `rgb(r g b / a)`, and a new text, meaning or graphic colour is added to the lists in
+  `design-contrast.test.ts`.
+- **A colour** is a `var(--token)`, or a `color-mix()` of tokens. A literal fails `scripts/ui/colours.mjs`.
+- **A primitive** goes in `design/ui/` with a stylesheet in `@layer components`, an entry in `ui/index.ts` and a
+  case in `design/design.test.tsx` for its name and its roles. Promote a piece to a primitive only when a
+  second scene needs it.
+
+### What the guards will not say
+
+- That the screen is good. They say it is readable, labelled, layered and quiet, not that it is clear.
+- That a number is right. Every figure is the engine's, and the tests that hold it are the engine's.
+- That a screen reader reads it well. No screen reader has been used on it.
 
 ## Not done
 
-- No new screenshots were made for the README or `docs/assets`.
-- The opening stage is the engine's, not the lab's: a project with a finished comparison still opens
-  in Graph Build, and the next step bar is what points on. Choosing the opening stage from the
-  record was left out so that where a project opens does not change under the specs and the people
-  that rely on it.
-- Run settings (mode, proxies, rounds, seed) are still in front of every first-time visitor, in a
-  quiet group. Putting them behind a disclosure needs the specs that fill them in to change.
-- The names and reasons of the stages were checked with accessible-name queries, axe and keyboard
-  tests, not with a screen reader.
-- Windows forced-colours mode has rules, and `e2e/lab/shell.spec.ts` reads the computed edges of the stages
-  and of the Guided and Advanced choice under the browser's emulation of forced colours; Windows high
-  contrast itself was not tried.
-- The older stylesheets (stages, report, charts, ledger, studio and others) were not restyled; only
-  the shared radii, the focus and the colour palette reach them.
+- **No screen reader, real touch device or Windows high-contrast session** was used on this interface. The
+  browser tests emulate forced colours and reduced motion; they do not replace them.
+- **The themes are written, not designed by a person.** Their contrast is computed and held, and the browser
+  tests run axe-core on every theme, but no designer has reviewed them.
+- **Full motion is not honoured everywhere.** **Full** in the menu overrides the device's setting for the
+  global reset, the duration tokens, the ambient light, `m` components and everything that calls
+  `useReducedMotion()`. Two component rules (the map's entrance and pulse animations and the scroll-driven
+  reveal) still follow the device.
+- **The database-location warning is not shown.** The server detects a database in a synchronised folder and
+  reports it as `storage.warning` in `GET /api/config`; this interface does not show it. It is logged at
+  start-up.
+- **Two tooltips name a `/` key that nothing handles**: "Ask about this" in the top bar and "Find a topic" in the
+  graph of Ground. Use the buttons. The keys listed under Accessibility are all of the shortcuts.
+- **No figure on this page is a measurement.** How many tests there are, how long a run takes and what a
+  browser audit found are in the [testing guide](./TESTING.md), not here.

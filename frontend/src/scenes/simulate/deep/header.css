@@ -1,0 +1,161 @@
+@layer scenes {
+  .sw-deep-header {
+    display: grid;
+    justify-items: start;
+    gap: var(--s-2);
+    margin-bottom: var(--s-6);
+  }
+  .sw-deep-back {
+    margin: 0 0 var(--s-3) -0.8rem;
+    color: var(--ink-2);
+  }
+  .sw-deep-title {
+    max-width: 18ch;
+    margin: 0;
+  }
+  .sw-deep-title:focus-visible {
+    outline: none;
+  }
+  .sw-deep-lead {
+    max-width: 46ch;
+    margin: var(--s-2) 0 0;
+  }
+  .sw-deep-caution {
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  /* Where the run stands, on a line between two hairlines, with the one action that moves it on. */
+  .sw-deep-strip {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-3) var(--s-5);
+    padding: var(--s-4) 0;
+    border-block: 1px solid var(--hairline);
+  }
+  .sw-deep-strip[data-live]::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    width: 34%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    animation: sw-deep-sweep calc(var(--dur-cinema) * 3) var(--ease-in-out) infinite;
+  }
+  /* The light travels the strip and stays inside it: past the edge it would widen the page. */
+  @keyframes sw-deep-sweep {
+    0% {
+      opacity: 0;
+      transform: translateX(0);
+    }
+    15%,
+    85% {
+      opacity: 0.9;
+    }
+    100% {
+      opacity: 0;
+      transform: translateX(194%);
+    }
+  }
+  @keyframes sw-deep-ping {
+    from {
+      opacity: 0.7;
+      transform: scale(0.7);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.3);
+    }
+  }
+  .sw-deep-strip__mark {
+    position: relative;
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+  .sw-deep-strip__mark[data-empty] {
+    border: 1px dashed var(--hairline-strong);
+    border-radius: 50%;
+    color: var(--ink-3);
+  }
+  .sw-deep-strip__ping {
+    position: absolute;
+    inset: 0.45rem;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: sw-deep-ping var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-deep-strip__num {
+    color: var(--ink);
+    font-size: 1.55rem;
+  }
+  .sw-deep-strip__text {
+    min-width: 0;
+  }
+  .sw-deep-strip__label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+    margin: 0;
+    outline: none;
+  }
+  .sw-deep-strip__word {
+    font-family: var(--font-display);
+    font-size: clamp(1.7rem, 1.35rem + 1vw, 2.2rem);
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+  }
+  .sw-deep-strip__detail {
+    margin: 0.2rem 0 0;
+    color: var(--ink-2);
+  }
+  .sw-deep-strip__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--s-2);
+  }
+  .sw-deep-strip__why {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-strip__error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--c-critical);
+    font-size: var(--fs-small);
+  }
+  @media (max-width: 52rem) {
+    .sw-deep-strip {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .sw-deep-strip__actions {
+      grid-column: 1 / -1;
+      justify-content: flex-start;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-deep-strip__actions > .sw-btn {
+      flex: 1 1 auto;
+    }
+  }
+
+  .sw-deep-engine {
+    display: grid;
+    gap: var(--s-2);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+  .sw-deep-engine p {
+    margin: 0;
+  }
+}

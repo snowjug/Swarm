@@ -1,0 +1,215 @@
+@layer scenes {
+  .sw-composer {
+    --glass-radius: var(--r-xl);
+    position: relative;
+    display: grid;
+    gap: var(--s-3);
+    width: min(54rem, 100%);
+    padding: var(--s-5) var(--s-5) var(--s-3);
+    box-shadow: var(--shadow-4);
+    transition:
+      transform var(--dur-slow) var(--ease-spring-smooth),
+      box-shadow var(--dur-slow) var(--ease-out);
+  }
+  .sw-composer.is-active {
+    transform: translateY(-2px);
+    box-shadow:
+      var(--shadow-4),
+      0 28px 80px -30px color-mix(in oklab, var(--accent) 55%, transparent);
+  }
+
+  /* The edge that lights while a question is being written: a thin conic gradient that turns slowly. */
+  .sw-composer__edge {
+    position: absolute;
+    inset: -1px;
+    padding: 1.5px;
+    border-radius: inherit;
+    background: conic-gradient(
+      from var(--edge-angle),
+      transparent 0%,
+      var(--accent) 12%,
+      transparent 28%,
+      var(--c-favor) 52%,
+      transparent 68%,
+      var(--c-against) 86%,
+      transparent 100%
+    );
+    -webkit-mask:
+      linear-gradient(black 0 0) content-box,
+      linear-gradient(black 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-slow) var(--ease-out);
+  }
+  .sw-composer.is-active .sw-composer__edge {
+    opacity: 0.85;
+    animation: sw-edge-turn 9s linear infinite;
+  }
+  [data-theme='high-contrast'] .sw-composer__edge {
+    display: none;
+  }
+  [data-theme='high-contrast'] .sw-composer.is-active {
+    outline: 3px solid var(--focus-ring);
+  }
+
+  .sw-composer__field {
+    position: relative;
+    min-height: 5.2rem;
+  }
+  .sw-composer__input,
+  .sw-composer__ghost {
+    font-family: var(--font-display);
+    font-size: clamp(1.4rem, 1.05rem + 1.1vw, 1.9rem);
+    line-height: 1.28;
+    letter-spacing: -0.012em;
+  }
+  .sw-composer__input {
+    display: block;
+    position: relative;
+    z-index: 1;
+    color: var(--ink);
+    caret-color: var(--accent);
+  }
+  .sw-composer__ghost {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    color: var(--ink-3);
+    font-style: italic;
+    overflow: hidden;
+  }
+  .sw-composer__ghost span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+  .sw-composer.is-invalid .sw-composer__input {
+    caret-color: var(--c-critical);
+  }
+
+  .sw-composer__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-top: var(--s-2);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-composer__tools {
+    display: flex;
+    align-items: center;
+    gap: var(--s-1);
+    flex-wrap: wrap;
+  }
+  .sw-composer__go {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin-left: auto;
+  }
+
+  .sw-composer__drop {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    background: color-mix(in oklab, var(--bg) 70%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: 2px dashed var(--accent);
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 1.8rem;
+  }
+
+  .sw-tray {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-tray__pill {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    background: var(--glass);
+    overflow: hidden;
+  }
+  .sw-tray__open {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    min-height: 2rem;
+    padding: 0 0.5rem 0 0.7rem;
+    border: 0;
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-tray__open:hover {
+      color: var(--ink);
+    }
+  }
+  .sw-tray__name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 13rem;
+    font-weight: 540;
+  }
+  .sw-tray__remove {
+    display: grid;
+    place-items: center;
+    align-self: stretch;
+    width: 1.9rem;
+    border: 0;
+    border-left: 1px solid var(--hairline);
+    background: transparent;
+    color: var(--ink-3);
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-tray__remove:hover:not(:disabled) {
+      background: var(--c-critical-soft);
+      color: var(--c-critical);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-tray__remove {
+      width: 2.75rem;
+    }
+    .sw-tray__open {
+      min-height: 2.75rem;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-composer {
+      padding: var(--s-4) var(--s-4) var(--s-3);
+    }
+    .sw-composer__go {
+      width: 100%;
+    }
+    .sw-composer__go .sw-btn {
+      flex: 1;
+    }
+    .sw-tray__name {
+      max-width: 9rem;
+    }
+  }
+}

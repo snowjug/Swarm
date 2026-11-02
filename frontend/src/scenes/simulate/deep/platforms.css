@@ -1,0 +1,102 @@
+@layer scenes {
+  .sw-deep-plats {
+    display: grid;
+    gap: var(--s-7) var(--s-8);
+  }
+  @media (min-width: 56rem) {
+    .sw-deep-plats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .sw-deep-plat {
+    display: grid;
+    align-content: start;
+    gap: var(--s-3);
+    min-width: 0;
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-deep-plat__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+  .sw-deep-plat__name {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+    line-height: 1.1;
+  }
+  .sw-deep-plat__blurb {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-plat__none {
+    margin: var(--s-3) 0 0;
+    color: var(--ink-3);
+  }
+  .sw-deep-plat__mean {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--s-4);
+    margin-top: var(--s-3);
+  }
+  .sw-deep-plat__value {
+    font-size: 3.2rem;
+    line-height: 0.95;
+  }
+  .sw-deep-plat__caption {
+    display: grid;
+    gap: var(--s-2);
+    padding-bottom: 0.35rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-plat__shares {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-deep-plat__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem var(--s-4);
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .sw-deep-key::before {
+    content: '';
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 2px;
+    background: var(--swatch);
+  }
+  .sw-deep-key--against {
+    --swatch: var(--c-against);
+  }
+  .sw-deep-key--undecided {
+    --swatch: color-mix(in oklab, var(--c-neutral) 55%, transparent);
+  }
+  .sw-deep-key--favour {
+    --swatch: var(--c-favor);
+  }
+  .sw-deep-plat__meta {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-deep-plat__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s-5);
+  }
+}

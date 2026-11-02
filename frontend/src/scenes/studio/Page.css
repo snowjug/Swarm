@@ -1,0 +1,148 @@
+@layer scenes {
+  .sw-page {
+    display: grid;
+    gap: var(--s-5);
+    min-width: 0;
+  }
+  .sw-page__head {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-page__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    min-height: 2.25rem;
+  }
+  .sw-page__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .sw-page__sep {
+    width: 1.25rem;
+    height: 1px;
+    background: var(--hairline-strong);
+  }
+  /* A new version arrives with a small lift, so that a save is seen where it lands. */
+  .sw-page__version {
+    animation: sw-version-in var(--dur-slow) var(--ease-spring-snappy) both;
+  }
+  @keyframes sw-version-in {
+    from {
+      opacity: 0;
+      color: var(--accent);
+      transform: translate3d(0, 6px, 0);
+    }
+  }
+  .sw-page__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-page__frozen {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 540;
+  }
+  .sw-page__title {
+    font-size: clamp(2rem, 1.5rem + 1.5vw, 2.75rem);
+    overflow-wrap: anywhere;
+  }
+  .sw-page__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-page__counts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem 0.45rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-page__counts button {
+    padding: 0.2rem 0;
+    border: 0;
+    border-radius: var(--r-xs);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: inherit;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-page__counts button:hover {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 0.2em;
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-page__counts button {
+      min-height: 2.5rem;
+      padding-inline: 0.2rem;
+    }
+  }
+  .sw-page__body {
+    display: grid;
+    gap: var(--s-5);
+    min-width: 0;
+  }
+  .sw-page__pane {
+    min-width: 0;
+  }
+  .sw-page__note {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    max-width: 66ch;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-page__note svg {
+    flex: none;
+    margin-top: 0.15rem;
+  }
+
+  .sw-proposal,
+  .sw-compare {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-proposal__head,
+  .sw-compare__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding-bottom: var(--s-3);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-proposal__kicker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .sw-compare__head p {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+}

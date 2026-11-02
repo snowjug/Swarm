@@ -31,21 +31,31 @@ Two contradictions are planted deliberately:
 
 ## How to run it
 
-1. Start Swarm (see the [README](../../../README.md#quick-start)) and open the console.
-2. Create a guided project, attach the five files and paste the question above.
-3. Run **Graph Build**, open a few nodes, and check that each quote is marked as checked verbatim
-   against a numbered passage (S1, S2, …).
-4. Run **Env Setup**. Read the proxies and the seed posts, which are labelled _assumed input_. Edit
-   one persona if you like; your edit is saved and labelled as an assumption.
-5. Run **Simulation**. You can pause after a round, schedule an intervention for a later round, and
-   resume. The demo scheduled an assumed operator notice before round 4.
-6. **Branch from here** at round 3, replace the intervention (for example, an assumed council
-   guarantee of six winter sailings and a 5% fare cap) and change one proxy assumption. Rounds 1–3
-   are copied unchanged. Use **Compare with parent**.
-7. Generate the **Report**, inspect the **Grounding review**, and open a citation to read the exact
-   source passage.
-8. In **Interaction**, ask the report a question and ask a fictional proxy a question. Then export
-   Markdown or JSON.
+1. Start Swarm (see the [README](../../../README.md#quick-start)) and open it. On the first screen, paste
+   the question above into the question field and attach the five files (**Evidence** → **Files**, or drop
+   them on the question field). Choose **Explore**, read **Your scenario**, then choose **Ground it**.
+2. In **Ground**, open a few entities in the source graph, and check that each quote is marked "Quote
+   checked character for character against" a numbered passage (S1, S2, …). The disagreement between the
+   council note and the operator memo is listed under **Conflicts**.
+3. In **Map**, choose **Find who is affected**, review the parties, and **Approve & create actors**. The
+   scenario comparison in **Simulate** (**Run the simulation**) is what opens **Compare** and **Decide**,
+   so run it if you want those scenes.
+4. For the engine's own run, open **Simulate** → **More** → **Deep dive**. **Prepare the environment**,
+   then on **Setup** read the proxies and the seed posts, which are labelled _Assumed input_. Edit one
+   proxy if you like (**Save the setup**); your edit is saved and labelled as an assumption.
+5. **Start the simulation**. You can pause after a round (**Pause at the last saved round**), schedule an
+   assumed event for a later round, and resume. The demo scheduled an assumed operator notice before
+   round 4.
+6. **Branch from a round** at round 3 (the sheet is titled **Branch from a checkpoint**), replace the event
+   (for example, an assumed council guarantee of six winter sailings and a 5% fare cap) and change one
+   proxy assumption under **Proxy assumptions**. Rounds 1–3 are copied unchanged. Then use **Compare with
+   the parent**, which opens the comparison of two recorded runs. **Compare** opens from the scenario
+   comparison of step 3, so that has to have run first.
+7. **Write the detailed report**, then **Open the detailed report**. Back in **Ground**, **Statements**
+   is the grounding review: open a statement and its cited passage to read the exact source passage.
+8. Open **Ask about this** and, on **Analyst**, ask the report a question; on **Actors**, ask a fictional
+   proxy a question. Then export the detailed report with **Export** → **Markdown** or **Snapshot, as
+   JSON**.
 
 With a model provider configured, every one of these steps calls the model. In **rules mode**
 (no provider), graph, actors, simulation and report are produced by deterministic local rules
@@ -63,8 +73,9 @@ is not reproducible.
 - **Simulation.** Six rounds on each of two platforms. Every decision has a stated reason, and the
   chart shows the recorded trajectory.
 - **Branch.** An assumed council guarantee at round 4 instead of an assumed operator notice, plus one
-  proxy made more open to persuasion. The comparison shows the runs are identical through round 3
-  and then diverge, and it states that a difference is not a causal estimate.
+  proxy made more open to persuasion. The comparison of the two recorded runs shows they are identical
+  through round 3 and then diverge, and its **Read with care** notes say that a difference is not a
+  causal estimate.
 - **Report (on the branch).** 28 statements were checked: 21 supported, 3 partly supported, 4 not
   supported, 0 contradicted and 0 not checkable. Each statement carries one of six labels (source
   fact, extracted claim, user assumption, AI hypothesis, simulated event, analytical conclusion);

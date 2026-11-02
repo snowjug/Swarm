@@ -1,0 +1,42 @@
+@layer components {
+  .sw-mark {
+    overflow: visible;
+    flex: none;
+  }
+  .sw-mark__links path {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-width: 1;
+    stroke-linecap: round;
+    opacity: 0.55;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-mark__ring {
+    opacity: 0.35;
+  }
+  .sw-mark__core {
+    fill: var(--accent);
+  }
+  .sw-mark__node {
+    fill: var(--ink);
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform var(--dur-slow) var(--ease-spring-lively);
+  }
+  .sw-mark__node--2,
+  .sw-mark__node--5 {
+    fill: var(--c-favor);
+  }
+  .sw-mark__node--3,
+  .sw-mark__node--6 {
+    fill: var(--c-against);
+  }
+  :where(a, button):hover > .sw-mark .sw-mark__node,
+  .sw-mark:hover .sw-mark__node {
+    transform: scale(1.35);
+  }
+  :where(a, button):hover > .sw-mark .sw-mark__links path,
+  .sw-mark:hover .sw-mark__links path {
+    opacity: 0.9;
+  }
+}

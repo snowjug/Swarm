@@ -1,0 +1,215 @@
+@layer scenes {
+  .sw-decide-fig {
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+  }
+  .sw-decide-fighead {
+    display: grid;
+    gap: 0.15rem;
+  }
+  .sw-decide-fighead__title {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-decide-fighead__note {
+    max-width: 62ch;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+
+  /* A direction: a glyph and a word, the colour only helps the eye to find it. */
+  .sw-decide-dir {
+    --d: var(--c-neutral);
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--d) 14%, transparent);
+    color: var(--d);
+  }
+  .sw-decide-dir[data-direction='harmed'] {
+    --d: var(--c-against);
+  }
+  .sw-decide-dir[data-direction='benefited'] {
+    --d: var(--c-favor);
+  }
+  .sw-decide-dir[data-direction='mixed'] {
+    --d: var(--c-caution);
+  }
+
+  /* The six responses as one bar, on the diverging scale from in favour to against. */
+  .sw-decide-resp {
+    display: flex;
+    gap: 2px;
+    height: 1.9rem;
+    border-radius: var(--r-pill);
+    overflow: hidden;
+  }
+  .sw-decide-resp[data-size='sm'] {
+    height: 0.6rem;
+  }
+  .sw-decide-resp[data-size='lg'] {
+    height: 2.6rem;
+  }
+  .sw-decide-resp__seg {
+    --seg: var(--c-neutral);
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 2px;
+    background: var(--seg);
+    transition:
+      opacity var(--dur-base) var(--ease-out),
+      flex-grow var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-decide-resp__seg[data-cat='adopt'] {
+    --seg: var(--c-favor);
+  }
+  .sw-decide-resp__seg[data-cat='accept-with-conditions'] {
+    --seg: color-mix(in oklab, var(--c-favor) 52%, var(--c-neutral));
+  }
+  .sw-decide-resp__seg[data-cat='wait'] {
+    --seg: color-mix(in oklab, var(--c-neutral) 62%, var(--bg));
+  }
+  .sw-decide-resp__seg[data-cat='adapt-defensively'] {
+    --seg: color-mix(in oklab, var(--c-against) 42%, var(--c-neutral));
+  }
+  .sw-decide-resp__seg[data-cat='switch'] {
+    --seg: color-mix(in oklab, var(--c-against) 82%, var(--c-neutral));
+  }
+  .sw-decide-resp__seg[data-cat='resist'] {
+    --seg: var(--c-against);
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 5px,
+      color-mix(in oklab, var(--bg) 38%, transparent) 5px 7px
+    );
+  }
+  /* The figure inside a segment is set in the page's own ground colour, which stands out from the fill in either theme. */
+  .sw-decide-resp__label {
+    color: var(--bg);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+  }
+  .sw-decide-resp__seg[data-cat='wait'] .sw-decide-resp__label {
+    color: var(--ink);
+  }
+  .sw-decide-fig[data-dim] .sw-decide-resp__seg {
+    opacity: 0.28;
+  }
+  .sw-decide-fig[data-dim] .sw-decide-resp__seg[data-on] {
+    opacity: 1;
+  }
+
+  .sw-decide-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-legend__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 1.9rem;
+    padding: 0 0.5rem 0 0.2rem;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out);
+  }
+  .sw-decide-legend__item:disabled {
+    cursor: default;
+  }
+  .sw-decide-legend__swatch {
+    display: inline-block;
+    flex: none;
+    width: 0.85rem;
+    height: 0.85rem;
+    min-width: 0.85rem;
+    border-radius: 50%;
+  }
+  .sw-decide-legend__value {
+    color: var(--ink);
+    font-weight: 650;
+  }
+  @media (hover: hover) {
+    .sw-decide-legend__item:not(:disabled):hover {
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+  }
+  .sw-decide-legend li[data-active] .sw-decide-legend__item {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  @media (pointer: coarse) {
+    .sw-decide-legend__item {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* The table behind a chart: closed until it is wanted, and printed with the page. */
+  .sw-decide-tablealt {
+    margin-top: var(--s-1);
+  }
+  .sw-decide-tablewrap {
+    overflow-x: auto;
+    padding-bottom: var(--s-3);
+  }
+  .sw-decide-table {
+    width: 100%;
+    min-width: 30rem;
+    border-collapse: collapse;
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  .sw-decide-table caption {
+    padding-bottom: var(--s-2);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    text-align: left;
+  }
+  .sw-decide-table th,
+  .sw-decide-table td {
+    padding: 0.45rem var(--s-3) 0.45rem 0;
+    border-top: 1px solid var(--hairline);
+    text-align: left;
+    vertical-align: top;
+  }
+  .sw-decide-table thead th {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border-top: 0;
+    border-bottom: 1px solid var(--hairline-strong);
+  }
+  .sw-decide-table tbody th {
+    color: var(--ink);
+    font-weight: 560;
+  }
+  .sw-decide-table td {
+    color: var(--ink-2);
+  }
+  @media print {
+    .sw-decide .sw-decide-tablealt:not(.sw-decide-tablealt--printed) {
+      display: none;
+    }
+    .sw-decide .sw-decide-tablewrap {
+      overflow: visible;
+    }
+  }
+}

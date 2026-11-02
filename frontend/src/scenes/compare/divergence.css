@@ -1,0 +1,194 @@
+@layer scenes {
+  .sw-cmp-div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4);
+    min-width: 0;
+  }
+  .sw-cmp-div > .sw-seg {
+    justify-self: start;
+  }
+
+  .sw-cmp-div__readout {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: var(--s-3) var(--s-6);
+    align-items: start;
+    min-height: 4.4rem;
+  }
+  .sw-cmp-div__round {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 3.2rem;
+  }
+  .sw-cmp-div__round .sw-numeral {
+    font-size: 3rem;
+    line-height: 0.95;
+    color: var(--ink);
+  }
+  .sw-cmp-div__readout dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: var(--s-3) var(--s-5);
+    margin: 0;
+  }
+  .sw-cmp-div__readout dl > div {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+  .sw-cmp-div__readout dt {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 540;
+  }
+  .sw-cmp-div__readout dd {
+    margin: 0;
+    color: var(--ink);
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .sw-cmp-div__readout [data-side='delta'] dd {
+    color: var(--accent);
+  }
+  .sw-cmp-div__key {
+    flex: none;
+    width: 0.65rem;
+    height: 0.65rem;
+  }
+  .sw-cmp-div__key[data-side='base'] {
+    border: 2px solid var(--ink-2);
+    border-radius: 50%;
+    background: var(--bg);
+  }
+  .sw-cmp-div__key[data-side='other'] {
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .sw-cmp-div__stage {
+    position: relative;
+  }
+  .sw-cmp-div__plot {
+    min-width: 0;
+    border-radius: var(--r-md);
+    contain: inline-size;
+  }
+  .sw-cmp-div__plot svg {
+    display: block;
+    max-width: none;
+    overflow: visible;
+    touch-action: pan-y;
+  }
+  .sw-cmp-div__stage:has(.sw-cmp-div__slider:focus-visible) .sw-cmp-div__plot {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 6px;
+  }
+  .sw-cmp-div__grid line {
+    stroke: var(--hairline);
+    stroke-width: 1;
+  }
+  .sw-cmp-div__grid text {
+    fill: var(--ink-3);
+    font: 500 var(--fs-micro) / 1 var(--font-ui);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-cmp-div__parts line {
+    stroke: var(--ink-3);
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
+    opacity: 0.8;
+  }
+  .sw-cmp-div__parts text {
+    fill: var(--ink-2);
+    font: 560 var(--fs-micro) / 1 var(--font-ui);
+  }
+  .sw-cmp-div__area {
+    fill: var(--accent);
+    fill-opacity: 0.16;
+    stroke: none;
+  }
+  .sw-cmp-div__line {
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .sw-cmp-div__line[data-side='base'] {
+    stroke: var(--ink-2);
+  }
+  .sw-cmp-div__line[data-side='other'] {
+    stroke: var(--accent);
+  }
+  .sw-cmp-div__dot[data-side='base'] {
+    fill: var(--bg);
+    stroke: var(--ink-2);
+    stroke-width: 1.8;
+  }
+  .sw-cmp-div__dot[data-side='other'] {
+    fill: var(--accent);
+    stroke: var(--bg);
+    stroke-width: 1.2;
+  }
+  .sw-cmp-div__zero {
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+  }
+  .sw-cmp-div__bar {
+    fill: var(--accent);
+    opacity: 0.85;
+  }
+  .sw-cmp-div__bar[data-flat] {
+    fill: var(--ink-3);
+    opacity: 0.45;
+  }
+  .sw-cmp-div__striptitle {
+    fill: var(--ink-3);
+    font: 560 var(--fs-micro) / 1 var(--font-ui);
+    letter-spacing: 0.04em;
+  }
+  .sw-cmp-div__guide {
+    opacity: 0.4;
+    transition:
+      transform var(--dur-fast) var(--ease-out),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-cmp-div__guide[data-scrub] {
+    opacity: 1;
+  }
+  .sw-cmp-div__guide line {
+    stroke: var(--ink-2);
+    stroke-width: 1;
+  }
+  .sw-cmp-div__hit {
+    fill: transparent;
+    cursor: crosshair;
+  }
+  .sw-cmp-div__wipe {
+    transform-box: fill-box;
+    transform-origin: 0 0;
+    transform: scaleX(0);
+    transition: transform var(--dur-cinema) var(--ease-out);
+  }
+  .sw-cmp-div__plot[data-in] .sw-cmp-div__wipe {
+    transform: scaleX(1);
+  }
+  @media (max-width: 40rem) {
+    .sw-cmp-div__readout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-cmp-div__round {
+      grid-auto-flow: column;
+      align-items: baseline;
+      justify-content: start;
+      gap: var(--s-3);
+    }
+    .sw-cmp-div__round .sw-numeral {
+      font-size: 2.4rem;
+    }
+  }
+}

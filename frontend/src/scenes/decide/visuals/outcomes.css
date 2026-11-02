@@ -1,0 +1,144 @@
+@layer scenes {
+  .sw-decide-oc {
+    display: grid;
+    gap: var(--s-5);
+  }
+  .sw-decide-oc__row {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-decide-oc__label {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 var(--s-3);
+    margin: 0;
+  }
+  .sw-decide-oc__label strong {
+    color: var(--ink);
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-decide-oc__label small {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-oc .sw-decide-resp {
+    transform-origin: left center;
+  }
+  @keyframes sw-decide-wipe {
+    from {
+      clip-path: inset(0 100% 0 0 round var(--r-pill));
+    }
+    to {
+      clip-path: inset(0 0 0 0 round var(--r-pill));
+    }
+  }
+  @supports (animation-timeline: view()) {
+    .sw-decide[data-reveal='on'] .sw-decide-oc .sw-decide-resp {
+      animation: sw-decide-wipe linear forwards;
+      animation-timeline: view();
+      animation-range: entry 0px entry 240px;
+    }
+  }
+  .sw-decide-oc__read {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-1) var(--s-5);
+    min-height: 1.6rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-oc__read strong {
+    color: var(--ink);
+  }
+  .sw-decide-oc__read b {
+    color: var(--ink);
+    font-weight: 650;
+  }
+  .sw-decide-oc__hint {
+    color: var(--ink-3);
+  }
+  @media print {
+    .sw-decide .sw-decide-oc .sw-decide-resp {
+      animation: none;
+    }
+  }
+
+  /* Each change against the baseline. */
+  .sw-decide-cmp {
+    display: grid;
+    gap: var(--s-7);
+  }
+  .sw-decide-cmp__row {
+    display: grid;
+    gap: var(--s-3);
+    transition: opacity var(--dur-slow) var(--ease-out);
+  }
+  .sw-decide-cmp__row[data-unread] {
+    opacity: 0.55;
+  }
+  .sw-decide-cmp__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-4);
+  }
+  .sw-decide-cmp__head h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .sw-decide-cmp__wait {
+    height: 8rem;
+    border-radius: var(--r-md);
+  }
+  .sw-decide-cmp__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+    gap: var(--s-3) var(--s-5);
+    margin: 0;
+  }
+  .sw-decide-cmp__facts > div {
+    display: grid;
+    gap: 0.1rem;
+    padding-top: var(--s-2);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-decide-cmp__facts dt {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .sw-decide-cmp__facts dd {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-decide-cmp__facts dd b {
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: 1.7rem;
+    font-weight: 400;
+    letter-spacing: -0.015em;
+  }
+  .sw-decide-reading {
+    margin: 0;
+    padding-left: var(--s-4);
+    border-left: 2px solid var(--c-caution);
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    line-height: 1.55;
+  }
+  .sw-decide-note-line {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+}

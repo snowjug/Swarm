@@ -1,0 +1,167 @@
+@layer scenes {
+  .sw-discover {
+    min-height: calc(100dvh - var(--topbar-h) - 1rem);
+    display: grid;
+    place-items: center;
+    padding: var(--s-6) var(--gutter) var(--s-9);
+  }
+  .sw-discover__body {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-4);
+    width: min(100%, 40rem);
+    text-align: center;
+  }
+  .sw-discover__title {
+    margin: 0;
+  }
+  .sw-discover__lead {
+    margin: 0;
+    max-width: 34rem;
+  }
+  .sw-discover__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-3);
+    margin-top: var(--s-3);
+  }
+  .sw-discover__status {
+    min-height: 1.4em;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-discover__truth {
+    margin: 0;
+    max-width: 30rem;
+  }
+  .sw-discover__how {
+    width: min(100%, 34rem);
+    text-align: left;
+  }
+  .sw-discover__how .sw-disc__head {
+    justify-content: center;
+    gap: var(--s-2);
+  }
+  .sw-how {
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+  .sw-how dt {
+    color: var(--ink);
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .sw-how dd {
+    margin: 0;
+  }
+  .sw-how__hint {
+    color: var(--ink-3);
+  }
+
+  /* ---- The picture: a change at the centre, parties that gather round it ---- */
+  .sw-discover__art {
+    width: min(22rem, 78vw);
+    aspect-ratio: 4 / 3;
+    margin-bottom: var(--s-2);
+  }
+  .sw-discover__art svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+  .sw-da-ring {
+    fill: none;
+    stroke: var(--hairline-strong);
+    stroke-width: 1;
+    stroke-dasharray: 2 6;
+    transform-origin: 0 0;
+    animation: sw-da-spin 90s linear infinite;
+  }
+  .sw-da-ring--2 {
+    animation-duration: 130s;
+    animation-direction: reverse;
+  }
+  .sw-da-ring--3 {
+    animation-duration: 180s;
+  }
+  @keyframes sw-da-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .sw-da-center {
+    fill: var(--accent);
+  }
+  .sw-da-center-halo {
+    fill: var(--accent);
+    opacity: 0.16;
+    transform-origin: 0 0;
+    animation: sw-da-breathe 3.6s var(--ease-in-out) infinite;
+  }
+  @keyframes sw-da-breathe {
+    50% {
+      transform: scale(1.35);
+      opacity: 0.06;
+    }
+  }
+  .sw-da-dot {
+    animation: sw-da-float 7s var(--ease-in-out) var(--d) infinite alternate;
+  }
+  @keyframes sw-da-float {
+    from {
+      transform: translate(0, 0);
+    }
+    to {
+      transform: translate(4px, -5px);
+    }
+  }
+  .sw-da-core {
+    fill: currentColor;
+    opacity: 0.88;
+  }
+  .sw-da-halo {
+    fill: currentColor;
+    opacity: 0.12;
+  }
+  .sw-da-tie {
+    stroke: currentColor;
+    stroke-opacity: 0;
+    stroke-width: 1;
+    stroke-dasharray: 3 5;
+    transition: stroke-opacity var(--dur-slow) var(--ease-out);
+  }
+  .sw-da-scan {
+    opacity: 0;
+    transform-origin: 0 0;
+  }
+  .sw-da-scan path {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    opacity: 0.6;
+  }
+
+  .sw-discover__art.is-working .sw-da-tie {
+    stroke-opacity: 0.5;
+  }
+  .sw-discover__art.is-working .sw-da-scan {
+    opacity: 1;
+    animation: sw-da-spin 2.4s linear infinite;
+  }
+  .sw-discover__art.is-working .sw-da-dot {
+    animation-duration: 1.8s;
+  }
+  .sw-discover__art.is-working .sw-da-ring {
+    animation-duration: 18s;
+    stroke: var(--accent-line);
+  }
+  .sw-discover__art.is-working .sw-da-center-halo {
+    animation-duration: 1.4s;
+  }
+}

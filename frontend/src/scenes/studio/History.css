@@ -1,0 +1,81 @@
+@layer scenes {
+  .sw-versions {
+    position: relative;
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+    padding: 0 0 0 var(--s-5);
+    list-style: none;
+  }
+  .sw-versions::before {
+    content: '';
+    position: absolute;
+    left: 0.3125rem;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    width: 1px;
+    background: var(--hairline-strong);
+  }
+  .sw-version {
+    position: relative;
+    display: grid;
+    gap: 0.3rem;
+  }
+  .sw-version__dot {
+    position: absolute;
+    left: calc(-1 * var(--s-5));
+    top: 0.4rem;
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 2px solid var(--hairline-strong);
+    border-radius: 50%;
+    background: var(--bg);
+    transition:
+      border-color var(--dur-base) var(--ease-out),
+      background-color var(--dur-base) var(--ease-out);
+  }
+  .sw-version.is-current .sw-version__dot {
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: 0 0 12px color-mix(in oklab, var(--accent) 60%, transparent);
+  }
+  .sw-version.is-comparing .sw-version__dot {
+    border-color: var(--c-caution);
+    background: var(--c-caution);
+  }
+  .sw-version__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2);
+  }
+  .sw-version__name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-weight: 600;
+  }
+  .sw-version__now {
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-version__meta {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    overflow-wrap: anywhere;
+  }
+  .sw-version__why {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-style: italic;
+    overflow-wrap: anywhere;
+  }
+  .sw-version__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1);
+    margin-left: -0.5rem;
+  }
+}

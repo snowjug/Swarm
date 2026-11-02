@@ -1,0 +1,311 @@
+import { AnimatePresence, m } from 'motion/react';
+import { ArrowRight, CircleCheck, CircleX, PauseCircle, Sparkles, Square } from 'lucide-react';
+import { useMemo, type ReactNode } from 'react';
+import { Button, Chip, Notice, Popover, PopoverContent, PopoverTrigger } from '../../design/ui';
+import { SPRING, useReducedMotion } from '../../design/motion';
+import type { Tone } from '../../design/ui';
+import { useWorkspace } from '../../app/context';
+import { openConflicts } from '../../lib/ledger';
+import { Figures, type FigureSpec } from './Figures';
+import { Method } from './Method';
+import { Phases } from './Phases';
+import { SourceRows, type Reading } from './SourceRows';
+import { useGroundActions, useGroundData } from './context';
+import { vars } from './css';
+import {
+  elapsedSeconds,
+  elapsedText,
+  entityNoun,
+  failureReason,
+  isWorking,
+  knowledgePhases,
+  latestEvent,
+  mayRun,
+  nextStep,
+  type GroundStage,
+} from './model';
+import { useNow } from './useNow';
+import { ConstellationGraph } from './ConstellationGraph';
+
+const STATUS: Record<GroundStage, { label: string; tone: Tone; dot?: boolean }> = {
+  idle: { label: 'Not started', tone: 'neutral' },
+  queued: { label: 'Queued', tone: 'accent', dot: true },
+  running: { label: 'Reading', tone: 'accent', dot: true },
+  ready: { label: 'Ready', tone: 'favor' },
+  failed: { label: 'Failed', tone: 'critical' },
+  stopped: { label: 'Stopped', tone: 'caution' },
+  record: { label: 'Saved record', tone: 'neutral' },
+};
+
+function StatusChip({
+  stage,
+  advanced,
+  step,
+}: {
+  stage: GroundStage;
+  advanced: boolean;
+  step: string | undefined;
+}) {
+  const status = STATUS[stage];
+  const icon =
+    stage === 'ready' ? (
+      <CircleCheck aria-hidden="true" />
+    ) : stage === 'failed' ? (
+      <CircleX aria-hidden="true" />
+    ) : stage === 'stopped' ? (
+      <PauseCircle aria-hidden="true" />
+    ) : undefined;
+  return (
+    <Chip
+      tone={status.tone}
+      dot={status.dot}
+      icon={icon}
+      size="sm"
+      className="sw-ground__status"
+      data-stage={stage}
+    >
+      {status.label}
+      {advanced && step ? <span className="sw-ground__engine">· Graph Build: {step}</span> : null}
+    </Chip>
+  );
+}
+
+function Question({ text }: { text: string }) {
+  const long = text.length > 170;
+  return (
+    <div className="sw-ground__ask">
+      <h1 className="sw-ground__question" id="ground-question" data-long={long || undefined}>
+        {text}
+      </h1>
+      {long && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="sw-ground__more">
+              Read it all
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent width="24rem" align="start" aria-label="The question">
+            <p className="sw-ground__full">{text}</p>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  );
+}
+
+/** The first screen: what the evidence is, how much of it there is, whether anything disagrees, and what to do next. */
+export function Hero() {
+  const { project, busy, journey, go, run, cancel, mode } = useWorkspace();
+  const data = useGroundData();
+  const actions = useGroundActions();
+  const reduced = useReducedMotion();
+  const { stage, documents, passages, graph, ledger, conflictsKnown } = data;
+  const working = isWorking(stage);
+  const now = useNow(working);
+  const next = nextStep(journey);
+  const noun = entityNoun(project.graph);
+  const phases = useMemo(() => knowledgePhases(project), [project]);
+  const reason = failureReason(project);
+  const event = latestEvent(project);
+
+  // A figure is a dash while the engine has not said, and a number once it has: a saved record that holds
+  // no graph says none, since nothing more will arrive for it.
+  const settled = stage === 'ready' || stage === 'record';
+  const all = conflictsKnown && ledger.ledger ? ledger.ledger.contradictions : null;
+  const open = all ? openConflicts(all).length : settled && documents.length === 0 ? 0 : null;
+  const conflictNote =
+    all || open === 0
+      ? all && all.length > 0
+        ? open
+          ? 'to review'
+          : 'all reviewed'
+        : 'none found'
+      : undefined;
+  const figures: FigureSpec[] = [
+    {
+      id: 'sources',
+      label: 'Sources',
+      value: documents.length,
+      tip: 'The documents it rests on',
+      // Before there is a graph the sources are the whole of the first screen: there is nowhere to go.
+      onPress: graph ? () => actions.goTo('sources') : null,
+    },
+    {
+      id: 'passages',
+      label: 'Passages',
+      value: documents.length === 0 ? 0 : passages.index ? passages.index.all.length : null,
+      tip: 'Numbered excerpts, S1 to Sn',
+      onPress: documents.length > 0 ? () => actions.openBrowse() : null,
+    },
+    {
+      id: 'entities',
+      label: noun.many,
+      value: graph ? graph.nodes.length : settled ? 0 : null,
+      tip: graph ? 'What the sources talk about' : 'Known once the sources are read',
+      onPress: graph ? () => actions.goTo('graph') : null,
+    },
+    {
+      id: 'conflicts',
+      label: 'Conflicts',
+      value: open,
+      note: conflictNote,
+      tone: open ? 'caution' : undefined,
+      tip: 'Sources that give different figures',
+      onPress: all ? () => actions.goTo('conflicts') : null,
+    },
+  ];
+
+  const startRun = () => void run('knowledge').catch(() => undefined);
+  const stopRun = () => void cancel().catch(() => undefined);
+  const reading: Reading =
+    stage === 'running' ? 'active' : stage === 'ready' || stage === 'record' ? 'done' : 'idle';
+  const startedAt = phases.find((phase) => phase.trace)?.trace?.startedAt ?? null;
+  const elapsed = elapsedSeconds(latestEvent(project)?.at ?? null, now);
+
+  let primary: ReactNode = null;
+  if (stage === 'idle' && mayRun(project)) {
+    primary = (
+      <Button
+        variant="accent"
+        size="lg"
+        icon={<Sparkles size={18} aria-hidden="true" />}
+        busy={busy}
+        onClick={startRun}
+      >
+        Ground it
+      </Button>
+    );
+  } else if ((stage === 'failed' || stage === 'stopped') && mayRun(project)) {
+    primary = (
+      <Button variant="accent" size="lg" busy={busy} onClick={startRun}>
+        {stage === 'failed' ? 'Try again' : 'Start again'}
+      </Button>
+    );
+  } else if (working) {
+    primary = (
+      <Button
+        variant="glass"
+        size="lg"
+        icon={<Square size={15} aria-hidden="true" />}
+        busy={busy}
+        onClick={stopRun}
+      >
+        Stop
+      </Button>
+    );
+  } else if ((stage === 'ready' || stage === 'record') && next) {
+    primary = (
+      <Button
+        variant="primary"
+        size="lg"
+        iconEnd={<ArrowRight size={18} aria-hidden="true" />}
+        onClick={() => go(next.scene)}
+      >
+        {next.label}
+      </Button>
+    );
+  }
+
+  const status =
+    stage === 'ready'
+      ? `Ready. ${documents.length} sources${passages.index ? `, ${passages.index.all.length} passages` : ''}${graph ? `, ${graph.nodes.length} ${noun.many.toLowerCase()}` : ''}.`
+      : stage === 'running'
+        ? 'Reading the sources.'
+        : stage === 'queued'
+          ? 'Waiting to start.'
+          : stage === 'failed'
+            ? 'Reading the sources failed.'
+            : stage === 'stopped'
+              ? 'Stopped before it finished.'
+              : '';
+
+  return (
+    <section className="sw-ground__hero" aria-labelledby="ground-question" data-stage={stage}>
+      <div className="sw-ground__lead">
+        <div className="sw-ground__kicker sw-rise">
+          <span className="sw-eyebrow">Ground</span>
+          <StatusChip
+            stage={stage}
+            advanced={mode === 'advanced'}
+            step={project.console?.steps.knowledge}
+          />
+        </div>
+        <div className="sw-rise" style={vars({ '--i': 1 })}>
+          <Question text={project.question} />
+        </div>
+
+        <Figures items={figures} />
+
+        {working && (
+          <div className="sw-ground__progress">
+            <Phases phases={phases} stage={stage} mode={mode} now={now} startedAt={startedAt} />
+            {mode === 'advanced' && event && (
+              <p className="sw-ground__event sw-caption">
+                {event.message}
+                {elapsed !== null ? ` · ${elapsedText(elapsed)}` : ''}
+              </p>
+            )}
+          </div>
+        )}
+
+        {(stage === 'failed' || stage === 'stopped') && (
+          <m.div
+            initial={reduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={SPRING.smooth}
+          >
+            <Notice
+              tone={stage === 'failed' ? 'error' : 'caution'}
+              title={
+                stage === 'failed' ? 'Reading the sources failed' : 'Stopped before it finished'
+              }
+            >
+              {stage === 'failed'
+                ? (reason ?? 'The engine gave no reason.')
+                : 'It did not finish. Start again when you are ready.'}
+            </Notice>
+          </m.div>
+        )}
+
+        <div className="sw-ground__actions sw-rise" style={vars({ '--i': 6 })} data-hero-action>
+          {primary}
+          <Method
+            graph={project.graph}
+            ontology={project.console?.ontology ?? null}
+            sampleEvidence={documents.some((doc) => doc.synthetic)}
+          />
+        </div>
+        <p className="sr-only" role="status">
+          {status}
+        </p>
+      </div>
+
+      <div className="sw-ground__stage" aria-label="Evidence">
+        <AnimatePresence mode="wait" initial={false}>
+          {graph ? (
+            <m.div
+              key="graph"
+              className="sw-ground__stage-in"
+              initial={reduced ? false : { opacity: 0, scale: 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              transition={SPRING.gentle}
+            >
+              <ConstellationGraph />
+            </m.div>
+          ) : (
+            <m.div
+              key="field"
+              className="sw-ground__stage-in"
+              initial={reduced ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <SourceRows variant="field" reading={reading} />
+            </m.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </section>
+  );
+}

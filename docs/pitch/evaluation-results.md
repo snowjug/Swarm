@@ -65,12 +65,12 @@ ledger. They do not measure how well it does so.
 
 ## Tests and load
 
-| Check                                 | Result                                                                                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Unit and integration tests            | 4,918 in 209 files (baseline 935 in 56), and the same 4,918 on PostgreSQL in-process                                                       |
-| End-to-end, Chromium on Linux         | 317 passed, 0 failed, 0 flaky (baseline 78). Axe and keyboard checks at four viewports on the ledger and in each theme on the presentation |
-| Evaluation floors                     | all hold                                                                                                                                   |
-| Load test (rules engine, one machine) | See below                                                                                                                                  |
+| Check                                 | Result                                                                                                                                                |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit and integration tests            | See [TESTING.md](../TESTING.md) for the current counts (they changed when the interface was rebuilt), and for the same suite on PostgreSQL in-process |
+| End-to-end, Chromium on Linux         | See [TESTING.md](../TESTING.md) for the current count and what it covers: browser tests of the rebuilt interface, with axe and keyboard checks        |
+| Evaluation floors                     | all hold                                                                                                                                              |
+| Load test (rules engine, one machine) | See below                                                                                                                                             |
 
 The load test (`npm run test:load`) drives the deterministic engine, with no model, on one Windows
 machine, and now also the evidence ledger, the model budget, the audit log and Report Studio. In one run

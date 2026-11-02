@@ -1,0 +1,420 @@
+@layer scenes {
+  .sw-cmp-mvs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-6) var(--s-7);
+    align-items: start;
+  }
+  .sw-cmp-mvs[data-wide] {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+  .sw-cmp-mvs__list {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4);
+    min-width: 0;
+  }
+  .sw-cmp-mvs__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-cmp-mvs__chips .num {
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-cmp-mvs__swatch {
+    flex: none;
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+  }
+
+  /* The ruler: the same columns as every row, so that a tick sits above the lines it measures. */
+  .sw-cmp-mvs__scale,
+  .sw-cmp-mv__head {
+    display: grid;
+    grid-template-columns: minmax(7rem, 11.5rem) minmax(7rem, 1fr) 3.6rem 1rem;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-cmp-mvs__scale {
+    align-items: end;
+    padding: 0 var(--s-1);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-cmp-mvs__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem 0.9rem;
+    font-weight: 540;
+  }
+  .sw-cmp-mvs__legend > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    white-space: nowrap;
+  }
+  .sw-cmp-mvs__legend .sw-cmp-mark {
+    width: 0.65rem;
+    height: 0.65rem;
+  }
+  .sw-cmp-mvs__axis {
+    position: relative;
+    height: 1.1rem;
+  }
+  .sw-cmp-mvs__axis > span {
+    position: absolute;
+    bottom: 0;
+    transform: translateX(-50%);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .sw-cmp-mvs__axis > span[data-edge='start'] {
+    transform: none;
+  }
+  .sw-cmp-mvs__axis > span[data-edge='end'] {
+    transform: translateX(-100%);
+  }
+  .sw-cmp-mvs__diff {
+    text-align: right;
+  }
+
+  .sw-cmp-mvs__rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-cmp-mv {
+    --tone: var(--c-neutral);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-cmp-mv[data-tone='against'] {
+    --tone: var(--c-against);
+  }
+  .sw-cmp-mv[data-tone='favor'] {
+    --tone: var(--c-favor);
+  }
+  .sw-cmp-mv__head {
+    width: 100%;
+    min-height: 2.9rem;
+    padding: 0.2rem var(--s-1);
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--ink);
+    text-align: left;
+    transition: background-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-cmp-mv__head:hover {
+      background: color-mix(in oklab, var(--ink) 4%, transparent);
+    }
+  }
+  .sw-cmp-mv__name {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+    font-weight: 540;
+    line-height: 1.25;
+  }
+  .sw-cmp-mv__name > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-cmp-mv__dot {
+    flex: none;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--group);
+  }
+  .sw-cmp-mv__delta {
+    color: var(--tone);
+    font-weight: 620;
+    text-align: right;
+  }
+  .sw-cmp-mv__chev {
+    color: var(--ink-3);
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-cmp-mv[data-selected] .sw-cmp-mv__chev {
+    transform: rotate(180deg);
+  }
+
+  /* Each actor on the ruler: a hollow end for the reference, a filled end for the scenario set against it. */
+  .sw-cmp-mv__track {
+    position: relative;
+    container-type: inline-size;
+    height: 1.5rem;
+  }
+  .sw-cmp-mv__zero {
+    position: absolute;
+    top: 0.1rem;
+    bottom: 0.1rem;
+    left: 0;
+    width: 1px;
+    background: var(--hairline-strong);
+    transform: translateX(calc(var(--x0) * 1cqw));
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-cmp-mv__link {
+    position: absolute;
+    top: calc(50% - 1px);
+    left: 0;
+    width: 100%;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--tone);
+    opacity: 0.7;
+    transform-origin: 0 50%;
+    transform: translateX(calc(var(--lo) * 1cqw)) scaleX(calc(var(--span) / 100));
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-cmp-mv__end {
+    position: absolute;
+    top: calc(50% - 0.4rem);
+    left: -0.4rem;
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 50%;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-cmp-mv__end[data-side='a'] {
+    border: 2px solid var(--ink-2);
+    background: var(--bg);
+    transform: translateX(calc(var(--xa) * 1cqw));
+  }
+  .sw-cmp-mv__end[data-side='b'] {
+    background: var(--fill);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 3px color-mix(in oklab, var(--fill) 50%, transparent);
+    transform: translateX(calc(var(--xb) * 1cqw));
+  }
+
+  /* What a selected actor's members did in each scenario opens in place, under the line. */
+  .sw-cmp-mv__panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--dur-slow) var(--ease-spring-smooth),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-cmp-mv__panel[data-open='true'] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .sw-cmp-mv__panel-in {
+    min-height: 0;
+    overflow: hidden;
+  }
+  .sw-cmp-mv__detail {
+    display: grid;
+    gap: var(--s-4);
+    padding: var(--s-2) var(--s-1) var(--s-5) calc(0.55rem + 0.6rem + var(--s-1));
+  }
+  .sw-cmp-mv__facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.9rem;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-mv__facts > span:first-child {
+    color: var(--ink-2);
+    font-weight: 560;
+  }
+  .sw-cmp-mv__mix {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--s-4) var(--s-5);
+  }
+  .sw-cmp-mv__mixrow {
+    display: grid;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .sw-cmp-mv__mixhead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem 0.5rem;
+    font-size: var(--fs-small);
+    color: var(--ink-2);
+  }
+  .sw-cmp-mv__mixhead b {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-cmp-mv__mixcap {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmp-mv__mixcap .num {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---- The map ------------------------------------------------------------------------------------------ */
+  .sw-cmp-mvs__map {
+    min-width: 0;
+  }
+  .sw-cmp-mvs[data-wide] .sw-cmp-mvs__map {
+    position: sticky;
+    top: calc(var(--topbar-h) + var(--s-5));
+  }
+  .sw-cmp-map {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-3);
+  }
+  .sw-cmp-map__canvas {
+    position: relative;
+    height: min(34rem, calc(100dvh - var(--topbar-h) - 11rem));
+    min-height: 22rem;
+    overflow: hidden;
+    border-radius: var(--r-xl);
+    -webkit-mask-image: radial-gradient(135% 125% at 50% 48%, black 60%, transparent 100%);
+    mask-image: radial-gradient(135% 125% at 50% 48%, black 60%, transparent 100%);
+  }
+  @media (max-width: 64rem) {
+    .sw-cmp-map__canvas {
+      height: 26rem;
+    }
+  }
+  .sw-cmp-mvs__peek {
+    display: grid;
+    gap: var(--s-2);
+    margin-top: var(--s-4);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-cmp-mvs__peek .sw-cmp-mv__detail {
+    padding: 0;
+  }
+  .sw-cmp-mvs__peekhead {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+  }
+  .sw-cmp-mvs__peekhead b {
+    flex: 1;
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    letter-spacing: -0.012em;
+  }
+  .sw-cmp-mvs__peekhead .num {
+    color: var(--ink-2);
+    font-weight: 620;
+  }
+  .sw-cmp-mvs__peekhead button {
+    min-height: 2.25rem;
+    padding: 0 var(--s-2);
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--accent);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  @media (pointer: coarse) {
+    .sw-cmp-mvs__peekhead button {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-cmp-dkey {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem var(--s-3);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-cmp-dkey__end[data-end='lo'] {
+    grid-area: 1 / 1;
+  }
+  .sw-cmp-dkey__bar {
+    grid-area: 2 / 1 / 3 / 3;
+    height: 0.5rem;
+    border-radius: var(--r-pill);
+  }
+  .sw-cmp-dkey__end[data-end='hi'] {
+    grid-area: 1 / 2;
+    text-align: right;
+  }
+  .sw-cmp-dkey__scale {
+    grid-area: 3 / 1 / 4 / 3;
+    display: flex;
+    justify-content: space-between;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (max-width: 40rem) {
+    .sw-cmp-mvs__chips {
+      flex-wrap: nowrap;
+      margin: 0 calc(var(--gutter) * -1);
+      padding: 0 var(--gutter);
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(
+        90deg,
+        transparent,
+        black var(--gutter),
+        black calc(100% - 2rem),
+        transparent
+      );
+      mask-image: linear-gradient(
+        90deg,
+        transparent,
+        black var(--gutter),
+        black calc(100% - 2rem),
+        transparent
+      );
+    }
+    .sw-cmp-mvs__chips::-webkit-scrollbar {
+      display: none;
+    }
+    .sw-cmp-mvs__chips > * {
+      flex: none;
+    }
+    /* On a phone the name and the difference share a line and the ruler runs the whole width beneath. */
+    .sw-cmp-mvs__scale {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-1);
+      padding: 0 0.1rem;
+    }
+    .sw-cmp-mvs__diff {
+      display: none;
+    }
+    .sw-cmp-mv__head {
+      grid-template-columns: minmax(0, 1fr) auto 1rem;
+      grid-template-areas:
+        'name delta chev'
+        'track track track';
+      gap: 0.1rem var(--s-2);
+      padding: 0.45rem 0.1rem 0.4rem;
+    }
+    .sw-cmp-mv__name {
+      grid-area: name;
+    }
+    .sw-cmp-mv__delta {
+      grid-area: delta;
+    }
+    .sw-cmp-mv__chev {
+      grid-area: chev;
+    }
+    .sw-cmp-mv__track {
+      grid-area: track;
+    }
+    .sw-cmp-mv__detail {
+      padding-left: var(--s-1);
+    }
+  }
+}

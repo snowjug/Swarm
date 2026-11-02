@@ -1,0 +1,7 @@
+@layer scenes {
+  /* A saved comparison has been asked for: what is on show dims until the other one is read. */
+  .sw-cmp[data-pending] > *:not(.sw-cmp-bar-wrap) {
+    opacity: 0.5;
+    transition: opacity var(--dur-base) var(--ease-out);
+  }
+}

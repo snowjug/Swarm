@@ -1,0 +1,158 @@
+@layer scenes {
+  .sw-rep__back {
+    justify-self: start;
+    margin-left: -0.8rem;
+  }
+  /* Beneath Decide's own "Decision brief" bar the way back is already on screen once, so this one steps aside. */
+  .sw-decide-sub__nav ~ .sw-rep .sw-rep__back,
+  .sw-decide-sub__nav ~ .sw-wr .sw-rep__back {
+    display: none;
+  }
+
+  /* Nothing written yet: what to do on the left, what the report holds on the right. */
+  .sw-wr {
+    display: grid;
+    gap: var(--s-6) var(--s-9);
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: var(--w-wide);
+    margin-inline: auto;
+    padding: var(--s-3) var(--gutter) var(--s-6);
+  }
+  .sw-wr__main {
+    display: grid;
+    align-content: start;
+    gap: var(--s-5);
+    max-width: 34rem;
+  }
+  .sw-wr__title {
+    font-size: clamp(2.5rem, 1.7rem + 3.2vw, 4.25rem);
+  }
+  .sw-wr__cta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-3) var(--s-4);
+  }
+  .sw-wr__cta .sw-caption {
+    max-width: 26ch;
+  }
+  .sw-wr__progress {
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+  }
+  .sw-wr__pct {
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .sw-wr--empty {
+    justify-items: center;
+    padding-top: var(--s-4);
+  }
+  .sw-wr--empty .sw-wr__main {
+    justify-self: start;
+    width: 100%;
+  }
+  .sw-wr--empty .sw-empty {
+    padding-top: var(--s-8);
+  }
+  .sw-wr__holds {
+    display: grid;
+    align-content: start;
+    max-width: 30rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-wr__holds li {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    align-items: start;
+    gap: var(--s-3);
+    padding: 1rem 0;
+    border-bottom: 1px solid var(--hairline);
+    animation: sw-rise var(--dur-slow) var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms + 120ms);
+  }
+  .sw-wr__holds li > span:last-child {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .sw-wr__holds strong {
+    font-weight: 600;
+  }
+  .sw-wr__holds li > span:last-child > span {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-wr__holdicon {
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 50%;
+    color: var(--ink-2);
+  }
+  @media (min-width: 60rem) {
+    .sw-wr {
+      grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
+      align-items: start;
+    }
+    .sw-wr__holds {
+      margin-top: var(--s-9);
+      justify-self: end;
+      width: 100%;
+    }
+    .sw-wr--empty {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* While it is being written: the progress strip above the report that is filling in. */
+  .sw-wstrip {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-4);
+    padding: var(--s-3) 0;
+    border-block: 1px solid var(--hairline);
+  }
+  .sw-wstrip__text {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+  .sw-wstrip__activity {
+    font-family: var(--font-display);
+    font-size: var(--fs-h4);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  .sw-wstrip__pct {
+    font-size: var(--fs-small);
+    font-weight: 620;
+  }
+  @media (max-width: 40rem) {
+    .sw-wstrip {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .sw-wstrip .sw-btn {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+
+  /* A chapter that has not come yet. */
+  .sw-wph .sw-rep__chhead .sw-title {
+    color: var(--ink-3);
+  }
+  .sw-wph.is-writing .sw-rep__chhead .sw-title {
+    color: var(--ink);
+  }
+  .sw-wph .sw-skeleton-text {
+    max-width: 40rem;
+  }
+}
