@@ -1,5 +1,4 @@
 import {
-  ANALYSIS_INPUT_NAMES,
   comparisonInputsUnrecorded,
   inputsInWords,
   staleComparisonInputs,
@@ -41,8 +40,6 @@ export function changedSentence(changed: readonly AnalysisInput[]): string {
   const words = inputsInWords(changed);
   return `${words.charAt(0).toUpperCase()}${words.slice(1)} ${changed.length === 1 && changed[0] !== 'actors' ? 'has' : 'have'} changed since this comparison ran, so it describes the project as it was.`;
 }
-
-export const CHANGED_NAMES = ANALYSIS_INPUT_NAMES;
 
 /** The newest finished comparison, when it is not the one on show: an older one is being read. */
 export function newerThan(

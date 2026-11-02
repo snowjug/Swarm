@@ -179,9 +179,9 @@ export function firstMoved(comparison: RunComparison): Metric | null {
 export type LineagePart = string | { run: 'base' | 'other' };
 
 /**
- * The sentence the server's lineage allows, in the same words as `lineageSentence`, with the runs as parts so that
- * their names can be set as controls. It never says more than the record of branching does: runs that are not
- * related by branching are said to be unrelated, and nothing of cause is said of them.
+ * The sentence the server's lineage allows, with the runs as parts so that their names can be set as controls. It
+ * never says more than the record of branching does: runs that are not related by branching are said to be
+ * unrelated, and nothing of cause is said of them.
  */
 export function lineageParts(lineage: RunComparison['lineage']): LineagePart[] {
   const base: LineagePart = { run: 'base' };

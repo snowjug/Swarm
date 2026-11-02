@@ -46,7 +46,6 @@ function workspaceOf(project: ProjectDetail, view: string | null): Workspace {
       budget: noop,
       access: noop,
       provider: noop,
-      snapshot: noop,
     },
   };
 }

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '../../design/motion';
 
 export type Speed = 0.5 | 1 | 2;
-export const SPEEDS: readonly Speed[] = [0.5, 1, 2];
 
 /** How long a round is shown at normal speed: long enough to read a change, short enough to watch a run in a breath. */
 const ROUND_MS = 900;

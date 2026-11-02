@@ -491,14 +491,3 @@ export function stanceAxis(values: readonly number[]): {
   for (let tick = min; tick <= max + 1e-9; tick += 0.25) ticks.push(Math.round(tick * 100) / 100);
   return { min, max, ticks };
 }
-
-export const VARIANT_STYLES: { color: string; dash: string | undefined }[] = [
-  { color: 'var(--chart-1)', dash: undefined },
-  { color: 'var(--chart-2)', dash: '8 3' },
-  { color: 'var(--chart-3)', dash: '3 3' },
-  { color: 'var(--chart-4)', dash: '8 3 2 3' },
-  { color: 'var(--chart-5)', dash: '2 4' },
-  { color: 'var(--graph-1)', dash: '12 4' },
-  { color: 'var(--graph-2)', dash: '6 2 2 2' },
-  { color: 'var(--graph-3)', dash: '1 3' },
-];

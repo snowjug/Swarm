@@ -1,24 +1,4 @@
-import type {
-  SectionOrigin,
-  StudioSectionView,
-  StudioState,
-  StudioView,
-} from '../../../shared/studio';
-import type { Tone } from './ledger';
-
-/** A different tone per state, and always a label beside it: colour is never the only cue. */
-export const STATE_TONE: Record<StudioState, Tone> = {
-  draft: 'neutral',
-  'in-review': 'info',
-  'changes-requested': 'caution',
-  approved: 'good',
-};
-
-export const ORIGIN_TONE: Record<SectionOrigin, Tone> = {
-  generated: 'neutral',
-  human: 'info',
-  regenerated: 'caution',
-};
+import type { StudioSectionView, StudioView } from '../../../shared/studio';
 
 /** Codes of refusals that mean the document is not what the person was looking at. */
 const OUT_OF_DATE = new Set([

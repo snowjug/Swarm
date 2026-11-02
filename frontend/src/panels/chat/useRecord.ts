@@ -81,8 +81,3 @@ export const fetchClaim = (
   id: string,
   signal: AbortSignal,
 ): Promise<ClaimDetail> => api.claim(projectId, id, signal);
-
-/** Forgets what was kept, for a test or for a project that was deleted. */
-export function forgetRecords(): void {
-  cache.clear();
-}

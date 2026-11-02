@@ -8,11 +8,8 @@ import type {
 } from '../../../shared/types';
 import { count } from './format';
 
-export const PROVIDER_PANEL_ID = 'provider-panel';
 export const PROVIDER_BADGE_ID = 'provider-badge';
 export const PROVIDER_HINT_ID = 'provider-badge-hint';
-export const PROVIDER_TITLE_ID = 'provider-panel-title';
-export const PROVIDER_REASON_ID = 'provider-verify-reason';
 export const LOCAL_MODE_LABEL = 'LOCAL / RULES MODE';
 export const STATUS_UNAVAILABLE = 'status unavailable';
 export const TOKENS_NOT_REPORTED = 'not reported by provider — zero does not mean zero cost';

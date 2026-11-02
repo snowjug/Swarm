@@ -101,12 +101,6 @@ export interface Anchors {
   ofTheWhole: Critique[];
 }
 
-export const EMPTY_ANCHORS: Anchors = {
-  byStatement: new Map(),
-  bySection: new Map(),
-  ofTheWhole: [],
-};
-
 function push<K>(map: Map<K, Critique[]>, key: K, critique: Critique): void {
   const list = map.get(key);
   if (list) list.push(critique);

@@ -6,7 +6,6 @@ import {
   type Stakeholder,
   type StakeholderCategory,
   type StakeholderSet,
-  type UncertaintyLevel,
 } from '../../../../shared/stakeholders';
 import { clusterGroup, clusterLabel, CLUSTER_ORDER } from '../../viz/palette';
 import {
@@ -161,25 +160,6 @@ export function connectionsOf(id: string, edges: readonly EcoEdge[]): Connection
   }
   return found.sort((a, b) => b.strength - a.strength || a.otherId.localeCompare(b.otherId));
 }
-
-export const CONFIDENCE_WORD: Record<EcoNode['confidence'], string> = {
-  high: 'high',
-  medium: 'medium',
-  low: 'low',
-};
-
-/** How much weight to put on a stakeholder being what it says it is, from the uncertainty it states. */
-export const confidenceOf = (level: UncertaintyLevel): 1 | 2 | 3 =>
-  level === 'low' ? 3 : level === 'medium' ? 2 : 1;
-
-/** The shares of a population that a node stands for: used for the "stands for about" wording. */
-export const standsFor = (count: number): string => count.toLocaleString('en-GB');
-
-/** The kinds of party, as the options of a form, in the order the contract lists them. */
-export const CATEGORY_OPTIONS = STAKEHOLDER_CATEGORIES.map((id) => ({
-  id,
-  label: STAKEHOLDER_CATEGORY_LABELS[id],
-}));
 
 /** Whether there is room, and the rule, for adding a stakeholder. */
 export function canAddMore(set: StakeholderSet, max: number): boolean {
