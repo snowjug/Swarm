@@ -77,9 +77,8 @@ and the browser's Back button all land where the person was.
 - **The engine's own stage names are not part of this.** `console.steps` (`knowledge`, `environment`,
   `simulation`, `report`, `interaction`) still exists in the API and the engine, and the interface reads
   it to know what is ready. It names the stages only where the engine's record is the subject: the deep
-  dive's engine records, the Advanced status line of Ground, one line in the deep dive that says what its
-  environment waits for, and four messages from the server that still say "the Env Setup step" where
-  the Map is meant (see Not done).
+  dive's engine records, the Advanced status line of Ground, and one line in the deep dive that says what
+  its environment waits for.
 
 ## The shell
 
@@ -1160,10 +1159,6 @@ it is done.
   regroup an actor (`ACTORS_CHANGED` and `ACTOR_LOCKED`, in `backend/src/stakeholders/actors.ts`): who an
   actor is comes from its stakeholder, so that changes only by changing the stakeholders and making the
   actors again.
-- **Four server messages still say "the Env Setup step"** where the Map is meant (`backend/src/analysis/service.ts`:
-  stakeholders that are not approved, actors that are out of date, no actors yet, and the engine refusing the
-  actors or a scenario). They show under "The simulation did not start" and in a simulation or comparison
-  that failed.
 - **No screen reader, real touch device or Windows high-contrast session** was used on this interface. The
   browser tests emulate forced colours, reduced motion and touch; they do not replace them.
 - **Backdrop blur was judged at a device-pixel ratio of 1 only.** It could not be judged at 2 in the
