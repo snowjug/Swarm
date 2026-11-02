@@ -307,6 +307,18 @@ export async function settledCount(items: Locator): Promise<number> {
   return last;
 }
 
+/** Every transition and animation that ends has ended: a colour is measured where it will stay, not on its way. */
+export async function atRest(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+  });
+}
+
 /** The screen that says the question is being read, with its way to stop: not the status inside the busy Explore button. */
 export const readingView = (page: Page): Locator =>
   page.getByRole('status').filter({ has: page.getByRole('button', { name: 'Stop', exact: true }) });

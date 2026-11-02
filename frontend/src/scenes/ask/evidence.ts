@@ -199,6 +199,21 @@ export function totalOf(documents: readonly DocumentInput[]): number {
   return documents.reduce((sum, document) => sum + document.content.length, 0);
 }
 
+/**
+ * Why one more source of this many characters cannot join those attached, in a sentence, or null when it can. The
+ * same sentence for a pasted text, a fetched page and a file that was read while something else was attached.
+ */
+export function roomProblem(
+  attached: readonly DocumentInput[],
+  characters: number,
+  limits: EvidenceLimits,
+): string | null {
+  if (attached.length < limits.maxDocuments && totalOf(attached) + characters <= limits.maxTotal) {
+    return null;
+  }
+  return `Use at most ${limits.maxDocuments} documents and ${limits.maxTotal.toLocaleString('en-GB')} total characters.`;
+}
+
 /** A name for the next pasted source that no attached source has. */
 export function nextPasteName(documents: readonly DocumentInput[]): string {
   const taken = new Set(documents.map((document) => document.name));

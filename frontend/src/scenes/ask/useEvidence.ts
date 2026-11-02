@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { documentInputSchema } from '../../../../shared/types';
 import type { AppConfig } from '../../../../shared/types';
 import { api, errorMessage } from '../../api';
@@ -10,6 +10,7 @@ import {
   fileProblem,
   limitsOf,
   nextPasteName,
+  roomProblem,
   totalOf,
   withText,
   type DocumentInput,
@@ -25,7 +26,8 @@ export interface Evidence {
   full: boolean;
   addFiles: (files: FileList | readonly File[] | null) => Promise<void>;
   addPaste: (name: string, text: string) => boolean;
-  addDocument: (document: DocumentInput) => void;
+  /** A page the server fetched. False, with the reason in `error`, when it does not fit among those attached. */
+  addDocument: (document: DocumentInput) => boolean;
   update: (index: number, content: string) => void;
   remove: (index: number) => void;
   cancel: () => void;
@@ -57,13 +59,27 @@ export function useEvidence({
   const limits = limitsOf(config);
   const total = totalOf(documents);
 
+  // The list as it is now, not as it was when a call began: a file takes time to read, and what was attached in the
+  // meantime (or by another call in the same moment) must not be written over when it is done.
+  const latest = useRef(documents);
+  useLayoutEffect(() => {
+    latest.current = documents;
+  }, [documents]);
+  const commit = useCallback(
+    (next: DocumentInput[]) => {
+      latest.current = next;
+      onChange(next);
+    },
+    [onChange],
+  );
+
   useEffect(() => () => controller.current?.abort(), []);
 
   const addFiles = useCallback<Evidence['addFiles']>(
     async (input) => {
       const files = input ? Array.from(input) : [];
       if (!files.length || reading || disabled) return;
-      if (documents.length + files.length > limits.maxDocuments) {
+      if (latest.current.length + files.length > limits.maxDocuments) {
         setError(`Use at most ${limits.maxDocuments} source documents. No files were added.`);
         return;
       }
@@ -112,7 +128,8 @@ export function useEvidence({
             if (!validated.success) {
               throw new Error(documentProblem(validated.error.issues, limits));
             }
-            const nextTotal = total + totalOf(added) + validated.data.content.length;
+            const nextTotal =
+              totalOf(latest.current) + totalOf(added) + validated.data.content.length;
             if (nextTotal > limits.maxTotal) {
               throw new Error(
                 `Combined source text exceeds ${limits.maxTotal.toLocaleString('en-GB')} characters.`,
@@ -125,14 +142,21 @@ export function useEvidence({
           }
         }
         if (!request.signal.aborted) {
-          if (added.length) onChange([...documents, ...added]);
+          // They join what is attached now, as far as there is room for them.
+          let attached = latest.current;
+          for (const document of added) {
+            const problem = roomProblem(attached, document.content.length, limits);
+            if (problem) failures.push(`${document.name}: ${problem}`);
+            else attached = [...attached, document];
+          }
+          if (attached !== latest.current) commit(attached);
           if (failures.length) setError(failures.join('\n'));
         }
       } finally {
         if (!request.signal.aborted) setReading(null);
       }
     },
-    [config, disabled, documents, limits, onChange, reading, total],
+    [commit, config, disabled, limits, reading],
   );
 
   const addPaste = useCallback<Evidence['addPaste']>(
@@ -142,44 +166,46 @@ export function useEvidence({
         setError(documentProblem(parsed.error.issues, limits));
         return false;
       }
-      if (
-        documents.length >= limits.maxDocuments ||
-        total + parsed.data.content.length > limits.maxTotal
-      ) {
-        setError(
-          `Use at most ${limits.maxDocuments} documents and ${limits.maxTotal.toLocaleString('en-GB')} total characters.`,
-        );
+      const problem = roomProblem(latest.current, parsed.data.content.length, limits);
+      if (problem) {
+        setError(problem);
         return false;
       }
-      onChange([...documents, parsed.data]);
+      commit([...latest.current, parsed.data]);
       setError(null);
       return true;
     },
-    [documents, limits, onChange, total],
+    [commit, limits],
   );
 
   const addDocument = useCallback<Evidence['addDocument']>(
     (document) => {
-      onChange([...documents, document]);
+      const problem = roomProblem(latest.current, document.content.length, limits);
+      if (problem) {
+        setError(problem);
+        return false;
+      }
+      commit([...latest.current, document]);
       setError(null);
+      return true;
     },
-    [documents, onChange],
+    [commit, limits],
   );
 
   const update = useCallback<Evidence['update']>(
     (index, content) => {
       setError(null);
-      onChange(documents.map((item, at) => (at === index ? withText(item, content) : item)));
+      commit(latest.current.map((item, at) => (at === index ? withText(item, content) : item)));
     },
-    [documents, onChange],
+    [commit],
   );
 
   const remove = useCallback<Evidence['remove']>(
     (index) => {
       setError(null);
-      onChange(documents.filter((_, at) => at !== index));
+      commit(latest.current.filter((_, at) => at !== index));
     },
-    [documents, onChange],
+    [commit],
   );
 
   const cancel = useCallback(() => {
