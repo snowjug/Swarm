@@ -1,5 +1,5 @@
 import { branchInputSchema, interventionUpdateSchema } from '../../../shared/guided';
-import type { BranchChange, BranchInput, RunComparison } from '../../../shared/guided';
+import type { BranchChange, BranchInput } from '../../../shared/guided';
 import type { Intervention, ProjectDetail, ProjectSummary } from '../../../shared/types';
 import { isBusy, isGuided, stepStatus } from './console';
 import { signed } from './format';
@@ -119,12 +119,4 @@ export function describeChange(change: BranchChange, project?: ProjectDetail): s
   const name = project?.agents.find((agent) => agent.id === change.agentId)?.name ?? change.agentId;
   const label = change.field === 'opinion' ? 'inclination' : change.field;
   return `${name} — ${label}: ${change.from.toFixed(2)} → ${change.to.toFixed(2)}.`;
-}
-
-export function lineageSentence(comparison: RunComparison): string {
-  const { base, other, lineage } = comparison;
-  if (lineage === 'base-is-parent') return `${base.name} is the parent run of ${other.name}.`;
-  if (lineage === 'other-is-parent') return `${other.name} is the parent run of ${base.name}.`;
-  if (lineage === 'siblings') return `${base.name} and ${other.name} share a parent run.`;
-  return `${base.name} and ${other.name} are not in the same recorded parent/sibling relationship.`;
 }

@@ -74,9 +74,8 @@ stage where the work had got to. It worked and it was tested, and it had three c
    Report and Interaction remain the engine's and the API's (`console.steps`: `knowledge`,
    `environment`, `simulation`, `report`, `interaction`). The interface names none of them in its
    journey, its navigation or its buttons. They are shown only where the engine's own record is the
-   subject: the engine records of the deep dive, the Advanced status line of Ground, the line in the
-   deep dive that says what preparing its environment waits for, and four messages from the server that
-   still say "the Env Setup step" where the Map is meant. The slower
+   subject: the engine records of the deep dive, the Advanced status line of Ground, and the line in the
+   deep dive that says what preparing its environment waits for. The slower
    agent-by-agent engine, its pause, scheduled event, branching and run comparison, its report and its
    chat stay whole, one gesture from Simulate (the deep dive) and from Decide (the detailed report
    and the studio).
@@ -122,8 +121,8 @@ stage where the work had got to. It worked and it was tested, and it had three c
   reviewed by a designer; the browser's Back button is not asked about where a scene holds work that is not
   saved, and the first screen's question, the Simulate setup's scenarios and the deep dive's setup are not
   held as unsaved work at all; the Compare point on the journey stays "ready"; the actor API refuses to add,
-  remove, rename or regroup an actor; full motion does not reach two component rules; the database-location
-  warning is not shown; and four server messages still say "the Env Setup step".
+  remove, rename or regroup an actor; full motion does not reach two component rules; and the
+  database-location warning is not shown.
 
 ## Evidence
 

@@ -34,36 +34,3 @@ export function useSpotlight<T extends HTMLElement>(ref: RefObject<T | null>): v
     };
   }, [ref, reduced]);
 }
-
-/**
- * A gentle pull toward the pointer for one control that deserves it (the primary action of a screen).
- * `strength` is the fraction of the pointer's offset the element follows; it returns to rest on leave.
- */
-export function useMagnetic<T extends HTMLElement>(
-  ref: RefObject<T | null>,
-  strength = 0.18,
-): void {
-  const reduced = useReducedMotion();
-  useEffect(() => {
-    const element = ref.current;
-    if (!element || reduced) return undefined;
-    const move = (event: PointerEvent) => {
-      if (event.pointerType === 'touch') return;
-      const box = element.getBoundingClientRect();
-      const dx = event.clientX - (box.left + box.width / 2);
-      const dy = event.clientY - (box.top + box.height / 2);
-      element.style.setProperty('--tx', `${(dx * strength).toFixed(2)}px`);
-      element.style.setProperty('--ty', `${(dy * strength).toFixed(2)}px`);
-    };
-    const leave = () => {
-      element.style.setProperty('--tx', '0px');
-      element.style.setProperty('--ty', '0px');
-    };
-    element.addEventListener('pointermove', move);
-    element.addEventListener('pointerleave', leave);
-    return () => {
-      element.removeEventListener('pointermove', move);
-      element.removeEventListener('pointerleave', leave);
-    };
-  }, [ref, reduced, strength]);
-}

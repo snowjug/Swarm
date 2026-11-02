@@ -7,7 +7,6 @@ import {
   CRITIQUE_STATUSES,
   type CriticRole,
   type Critique,
-  type CritiqueResponseStatus,
   type CritiqueSet,
   type CritiqueSeverity,
   type CritiqueStatus,
@@ -52,16 +51,6 @@ export const ORIGIN_VIEW: Record<Critique['origin'], { label: string; meaning: s
       'A model’s reading of a digest of the analysis. Checked against the ids it was given, but still a model’s opinion.',
   },
 };
-
-/** What each answer means. Only a person can give one. */
-export const RESPONSE_ACTIONS: {
-  status: CritiqueResponseStatus;
-  label: string;
-}[] = [
-  { status: 'responded', label: 'Respond' },
-  { status: 'accepted', label: 'Accept the objection' },
-  { status: 'disputed', label: 'Dispute it' },
-];
 
 export interface ReviewSummary {
   total: number;

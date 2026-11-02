@@ -3,11 +3,6 @@ import type { SimulationLinkDatum, SimulationNodeDatum } from 'd3-force';
 import type { SimulationMemory } from '../../../shared/guided';
 import type { Agent, KnowledgeGraph } from '../../../shared/types';
 
-export type Inspection =
-  | { kind: 'sources'; query?: string }
-  | { kind: 'source' | 'document' | 'node' | 'agent' | 'memory' | 'interview'; id: string }
-  | { kind: 'edge'; index: number };
-
 export interface GraphInput {
   graph: KnowledgeGraph | null;
   agents: Pick<Agent, 'id' | 'name' | 'topicIds'>[];

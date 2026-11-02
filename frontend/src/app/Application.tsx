@@ -268,7 +268,6 @@ export function Application() {
       provider: () => {
         if (!providerOpenNow.current) toggleProvider();
       },
-      snapshot: () => undefined,
     }),
     [toggleProvider],
   );

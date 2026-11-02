@@ -326,7 +326,6 @@ export function workspaceStub(overrides: Partial<Workspace> = {}): Workspace {
       budget: vi.fn(),
       access: vi.fn(),
       provider: vi.fn(),
-      snapshot: vi.fn(),
     },
     ...overrides,
   };

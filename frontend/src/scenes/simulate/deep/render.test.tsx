@@ -43,7 +43,6 @@ function workspaceOf(project: ProjectDetail, mode: Workspace['mode'], whatIf: bo
       budget: noop,
       access: noop,
       provider: noop,
-      snapshot: noop,
     },
   };
 }

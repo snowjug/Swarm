@@ -13,12 +13,6 @@ export const PRIORITY_LABELS: Record<Stakeholder['priority'], string> = {
   background: 'Background cohort',
 };
 
-export const PRIORITY_HELP: Record<Stakeholder['priority'], string> = {
-  key: 'Modelled as one actor of its own.',
-  standard: 'Modelled as a cohort of simulated members.',
-  background: 'Modelled as a smaller cohort of simulated members.',
-};
-
 export const DIRECTNESS_LABELS: Record<Stakeholder['directness'], string> = {
   direct: 'Direct',
   indirect: 'Indirect',
@@ -94,10 +88,3 @@ export const TRAIT_LABELS: Record<TraitKey, string> = {
   authority: 'Authority',
   reactivity: 'Reactivity',
 };
-
-export function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? iso
-    : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
-}

@@ -88,6 +88,3 @@ export const clusterShortLabel = (id: string): string => SHORT_LABELS[id] ?? clu
 
 /** The ids of the groups, in the order they are listed in filters and legends. */
 export const CLUSTER_ORDER: readonly string[] = Object.keys(GROUPS);
-
-/** A category that stands for a group, for places that only know the group. */
-export const groupCategory = (id: string): StakeholderCategory => GROUPS[id]?.members[0] ?? 'other';

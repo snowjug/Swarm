@@ -9,12 +9,6 @@ const REQUEST_MS = 4_000;
 
 export type RequestFocus = (keys: readonly string[]) => void;
 
-/** What the parts of the review need to tell the person and to look after focus when they change something. */
-export interface ReviewHooks {
-  focus: RequestFocus;
-  say: (message: string) => void;
-}
-
 /**
  * Moves focus to a named element of the panel as soon as it is drawn. After a change the element that
  * had focus is often gone (an accepted row loses its Accept button, a removed one leaves the list), and
