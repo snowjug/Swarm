@@ -127,6 +127,11 @@
     min-height: 2.25rem;
     padding-block: 0.35rem;
   }
+  @media (pointer: coarse) {
+    .sw-budget__custom .sw-input {
+      min-height: 2.75rem;
+    }
+  }
   @media (max-width: 40rem) {
     .sw-budget__custom[data-open='true'] {
       max-width: 100%;
