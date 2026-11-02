@@ -304,13 +304,6 @@
   .sw-ground__stage-in {
     width: 100%;
   }
-  .sw-ground-closing {
-    display: flex;
-    justify-content: center;
-    margin-top: var(--s-8);
-    padding-top: var(--s-7);
-    border-top: 1px solid var(--hairline);
-  }
   .sw-ground-next {
     --glass-radius: var(--r-pill);
     position: fixed;

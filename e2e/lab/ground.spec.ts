@@ -149,7 +149,8 @@ test.describe('the states of the scene', () => {
     expect(await figureValue(page, 'Sources')).toBe(FERRY.documents.length);
     await expect(sourcesSection(page)).toBeVisible();
     await expect(conflictsSection(page)).toBeVisible();
-    await expect(statementsSection(page)).toBeVisible();
+    // A record that holds no statements does not end on an empty section.
+    await expect(statementsSection(page)).toHaveCount(0);
     // The steps that need the guided flow say so.
     await expectLocked(page, 'map');
     await expect(step(page, 'map')).toHaveAccessibleName(/Not in this record/u);
@@ -158,7 +159,7 @@ test.describe('the states of the scene', () => {
 });
 
 test.describe('deep links', () => {
-  for (const view of GROUND_VIEWS.filter((name) => name !== 'trace')) {
+  for (const view of GROUND_VIEWS.filter((name) => name !== 'trace' && name !== 'statements')) {
     test(`?view=${view} opens the page at its part, and the part has the focus`, async ({
       page,
       request,
@@ -170,6 +171,21 @@ test.describe('deep links', () => {
       expect(problems).toEqual([]);
     });
   }
+
+  // A part the project does not have is not an error and not an empty section: the page simply opens.
+  // (The link to statements that exist is proved in e2e/model/grounding.spec.ts, on a project a model has written.)
+  test('?view=statements on a project that has none opens the page, without an empty section', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, FERRY, 'ground');
+    await openApp(page, { project: id, scene: 'ground', view: 'statements' });
+    await expect(hero(page, FERRY)).toBeVisible();
+    await expect(conflictsSection(page)).toBeVisible();
+    await expect(statementsSection(page)).toHaveCount(0);
+    expect(problems).toEqual([]);
+  });
 });
 
 test.describe('the graph', () => {
@@ -752,7 +768,7 @@ test.describe('conflicts between sources', () => {
     expect(problems).toEqual([]);
   });
 
-  test('the arc between two sources leads to the conflict it stands for', async ({
+  test('a conflict is flagged on the two sources it is between, and the flag leads to it', async ({
     page,
     request,
   }) => {
@@ -761,12 +777,25 @@ test.describe('conflicts between sources', () => {
     const conflict = (await ledgerOf(request, id)).contradictions[0]!;
     await openApp(page, { project: id, scene: 'ground' });
 
-    const arc = sourcesSection(page)
+    // The conflict is flagged on each of the two sources it is between, and both flags lead to it.
+    const flags = sourcesSection(page)
       .getByRole('group', { name: 'Conflicts between documents' })
       .getByRole('button');
-    await expect(arc).toHaveAccessibleName(
-      `${conflict.id}: ${conflict.leftValue} against ${conflict.rightValue}, possible conflict, between ${conflict.left.documentName} and ${conflict.right.documentName}. Show conflict.`,
-    );
+    await expect(flags).toHaveCount(2);
+    const arc = flags.first();
+    for (const flag of await flags.all()) {
+      await expect(flag).toHaveAccessibleName(
+        `${conflict.id}: ${conflict.leftValue} against ${conflict.rightValue}, possible conflict, between ${conflict.left.documentName} and ${conflict.right.documentName}. Show conflict.`,
+      );
+    }
+    for (const doc of [conflict.left.documentName, conflict.right.documentName]) {
+      await expect(
+        sourcesSection(page)
+          .getByRole('listitem')
+          .filter({ has: sourceButton(page, doc) })
+          .getByText('Needs attention'),
+      ).toBeVisible();
+    }
     // The two passages it joins carry the mark of a conflict that is not settled.
     for (const side of [conflict.left, conflict.right]) {
       await expect(passageButton(page, side.passageId)).toHaveAccessibleName(
@@ -943,15 +972,22 @@ test.describe('while the engine is at work, and when it was not able to finish',
 
     await expect(hero(page, SHOP).getByText('Reading', { exact: true })).toBeVisible();
     const progress = page.getByRole('list', { name: 'Progress' });
-    await expect(progress.getByRole('listitem')).toHaveCount(3);
-    await expect(progress.getByRole('listitem').nth(0)).toContainText('Entity types');
+    await expect(progress.getByRole('listitem')).toHaveCount(4);
+    await expect(progress.getByRole('listitem').nth(0)).toContainText('Reading');
     await expect(progress.getByRole('listitem').nth(0)).toContainText('done');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Extracting');
     await expect(progress.getByRole('listitem').nth(1)).toHaveAttribute('aria-current', 'step');
     await expect(progress.getByRole('listitem').nth(1)).toContainText('in progress');
+    await expect(progress.getByRole('listitem').nth(2)).toContainText('Checking');
     await expect(progress.getByRole('listitem').nth(2)).toContainText('waiting');
+    await expect(progress.getByRole('listitem').nth(3)).toContainText('Ready');
     await expect(
-      page.getByRole('status').filter({ hasText: 'Reading the sources.' }),
+      page.getByRole('status').filter({ hasText: 'Extracting topics from the sources.' }),
     ).toBeAttached();
+    // Each source says where it stands, in a word.
+    await expect(
+      page.getByRole('list', { name: 'Sources' }).getByText('Extracting', { exact: true }),
+    ).toHaveCount(SHOP.documents.length);
     // What is known (the sources and their passages) is a number; what the engine has not read yet is a dash.
     expect(await figureValue(page, 'Sources')).toBe(SHOP.documents.length);
     await expect(figure(page, 'Topics').getByRole('img', { name: 'Not known yet' })).toBeVisible();

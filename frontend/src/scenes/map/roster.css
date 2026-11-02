@@ -91,10 +91,36 @@
     gap: 2px;
     min-width: 0;
   }
+  .sw-roster__gloss {
+    margin: 0;
+    max-width: 44ch;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
   .sw-roster__name {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 0.5rem;
     font-weight: 600;
     letter-spacing: -0.01em;
     overflow-wrap: anywhere;
+  }
+  .sw-roster__key {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sw-roster__facts {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-roster__orb[data-key] {
+    width: 1.15rem;
+    height: 1.15rem;
   }
   .sw-roster__why {
     color: var(--ink-2);
@@ -108,9 +134,64 @@
   .sw-roster__meta {
     display: flex;
     align-items: center;
-    gap: var(--s-2);
+    gap: var(--s-3);
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+  /* Influence: three notches that fill, with the word beside them. */
+  .sw-roster__influence {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-roster__notches {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .sw-roster__notches i {
+    width: 4px;
+    border-radius: 2px;
+    background: color-mix(in oklab, var(--ink) 18%, transparent);
+  }
+  .sw-roster__notches i:nth-child(1) {
+    height: 8px;
+  }
+  .sw-roster__notches i:nth-child(2) {
+    height: 12px;
+  }
+  .sw-roster__notches i:nth-child(3) {
+    height: 16px;
+  }
+  .sw-roster__influence[data-level='1'] i:nth-child(-n + 1),
+  .sw-roster__influence[data-level='2'] i:nth-child(-n + 2),
+  .sw-roster__influence[data-level='3'] i {
+    background: var(--ink-2);
+  }
+  /* What needs a person's eye is a word in the caution colour, not a pill that every row repeats. */
+  .sw-roster__review {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--c-caution);
+    font-size: var(--fs-small);
+    font-weight: 560;
+  }
+  .sw-roster__review::before {
+    content: '';
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .sw-roster__reviewed {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
   }
   .sw-roster__gap {
     display: flex;

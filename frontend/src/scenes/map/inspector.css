@@ -179,6 +179,37 @@
   .sw-insp__fine {
     margin: 0;
   }
+  .sw-insp__edit {
+    justify-self: start;
+    margin-left: -0.8rem;
+  }
+  /* The wording of an actor, edited in place: lines, not boxes. */
+  .sw-wants {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-wants__list {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .sw-wants__list legend {
+    padding: 0;
+    margin-bottom: var(--s-1);
+  }
+  .sw-wants__line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-wants__list > .sw-btn {
+    justify-self: start;
+    margin-left: -0.8rem;
+  }
 
   .sw-insp__discs {
     display: grid;

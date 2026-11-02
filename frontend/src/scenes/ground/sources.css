@@ -167,10 +167,13 @@
     font-size: var(--fs-small);
     line-height: 1.5;
   }
-  .sw-ground-src__signals li + li::before {
-    content: '·';
+  .sw-ground-src__signals span + span::before {
+    content: '·' / '';
     margin-right: 0.4rem;
     color: var(--ink-3);
+  }
+  .sw-ground-src__signals .sr-only + span::before {
+    content: none;
   }
   .sw-ground-src__more {
     color: var(--ink-3);
@@ -197,9 +200,6 @@
   }
   .sw-ground-src__state[data-state='attention'] .sw-ground-src__badge {
     color: var(--c-caution);
-  }
-  .sw-ground-src__state[data-state='stopped'] .sw-ground-src__badge {
-    color: var(--c-critical);
   }
   .sw-ground-src__state[data-state='working'] .sw-ground-src__badge {
     color: var(--accent);

@@ -1,4 +1,4 @@
-import { Check, GitMerge, Pencil, Trash2, Undo2 } from 'lucide-react';
+import { Check, Copy, GitMerge, Pencil, Trash2, Undo2 } from 'lucide-react';
 import type { Stakeholder } from '../../../../shared/stakeholders';
 import {
   Button,
@@ -20,6 +20,7 @@ export interface PartyActionsProps {
   compact?: boolean;
   onAccept: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
   onRemove: () => void;
   onRestore: () => void;
   onMerge: (targetId: string) => void;
@@ -34,6 +35,7 @@ export function PartyActions({
   compact = false,
   onAccept,
   onEdit,
+  onDuplicate,
   onRemove,
   onRestore,
   onMerge,
@@ -77,6 +79,16 @@ export function PartyActions({
       >
         <Pencil size={16} aria-hidden="true" />
       </IconButton>
+      {!compact && (
+        <IconButton
+          label={`Duplicate ${stakeholder.name}`}
+          tone="glass"
+          disabled={busy}
+          onClick={onDuplicate}
+        >
+          <Copy size={16} aria-hidden="true" />
+        </IconButton>
+      )}
       {!compact && (
         <Menu>
           <MenuTrigger asChild>

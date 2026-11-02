@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { Bot, UserRound, Wand2 } from 'lucide-react';
+import { Bot, UserRound, Users, Wand2 } from 'lucide-react';
 import type { Actor, TraitKey } from '../../../../shared/stakeholders';
 import { useWorkspace } from '../../app/context';
 import { useTween } from '../../design/motion';
@@ -121,7 +121,25 @@ function describeNode(node: EcoNode): string {
   return `${node.label}, ${node.categoryLabel}, ${node.kind === 'key' ? 'key actor' : 'cohort'}, ${DIRECTION_LABEL[node.direction].toLowerCase()}${reach}, ${node.confidence} confidence${review}`;
 }
 
-type DialogState = { mode: 'add'; ghost: Ghost | null } | { mode: 'edit'; id: string } | null;
+const INFLUENCE_WORD = (value: number): string =>
+  value < 0.34 ? 'Low' : value < 0.67 ? 'Medium' : 'High';
+
+/** What a bead says on hover before the panel is opened: who matters, how sure Swarm is, and where the evidence stands. */
+function tipFacts(node: EcoNode, subject: 'stakeholders' | 'actors'): string {
+  const facts: string[] = [node.kind === 'key' ? 'Key' : 'Cohort'];
+  if (subject === 'actors' && node.influence !== undefined)
+    facts.push(`${INFLUENCE_WORD(node.influence)} influence`);
+  if (node.direction !== 'unclear') facts.push(DIRECTION_LABEL[node.direction]);
+  facts.push(
+    node.evidenceCount === 0
+      ? 'assumed'
+      : `${node.evidenceCount} ${node.evidenceCount === 1 ? 'quote' : 'quotes'}`,
+  );
+  return facts.join(' · ');
+}
+
+type DialogState =
+  { mode: 'add'; ghost: Ghost | null; copyOf?: string } | { mode: 'edit'; id: string } | null;
 
 /**
  * Who is in play: the stakeholders around the change, found in the evidence, as a map to look at and a
@@ -271,7 +289,16 @@ export function MapScene() {
       (old ?? actorSet?.actors ?? []).map((actor) => (actor.id === next.id ? next : actor)),
     );
   const saveActors = async (): Promise<void> => {
-    if (draft && (await state.saveActors(draft))) {
+    // A line that was added and left empty is nothing, not a want with no words.
+    const trimmed = draft?.map((actor) => ({
+      ...actor,
+      role: actor.role.trim(),
+      priorBelief: actor.priorBelief.trim(),
+      objectives: actor.objectives.map((line) => line.trim()).filter(Boolean),
+      concerns: actor.concerns.map((line) => line.trim()).filter(Boolean),
+      constraints: actor.constraints.map((line) => line.trim()).filter(Boolean),
+    }));
+    if (trimmed && (await state.saveActors(trimmed))) {
       focus(['inspector']);
       say('Saved your changes to the actors.');
     }
@@ -364,6 +391,20 @@ export function MapScene() {
     if (dialog.mode === 'edit') {
       const target = set?.stakeholders.find((item) => item.id === dialog.id);
       return target ? draftOf(target) : EMPTY_DRAFT;
+    }
+    if (dialog.copyOf) {
+      // A copy keeps what the person can say of the party (its kind, size and reasons) and leaves behind what only the
+      // sources can: its evidence cannot be added, so the copy says it is the person's own.
+      const original = set?.stakeholders.find((item) => item.id === dialog.copyOf);
+      if (original) {
+        const copy: typeof EMPTY_DRAFT = {
+          ...draftOf(original),
+          name: `${original.name} (copy)`.slice(0, 120),
+          uncertaintyLevel: 'high',
+          uncertaintyReason: 'Copied by you; no evidence has been checked for it.',
+        };
+        return copy;
+      }
     }
     return dialog.ghost
       ? { ...EMPTY_DRAFT, category: dialog.ghost.category, name: dialog.ghost.text ?? '' }
@@ -483,13 +524,31 @@ export function MapScene() {
         compact={compact}
         onAccept={() => void review.accept(party.id)}
         onEdit={() => setDialog({ mode: 'edit', id: party.id })}
+        onDuplicate={() => setDialog({ mode: 'add', ghost: null, copyOf: party.id })}
         onRemove={() => void review.remove(party.id)}
         onRestore={() => void review.restore(party.id)}
         onMerge={(target) => void review.merge(party.id, target)}
       />
     ) : null;
-  const stakeholderActions = stakeholderActionsOf(false);
-  const stripActions = stakeholderActionsOf(true);
+  // An actor is made from its stakeholder, so removing, duplicating or regrouping it is done there.
+  const actorActions =
+    party?.stakeholder && subject === 'actors' && may.edit ? (
+      <div className="sw-insp__actions">
+        <Button
+          variant="glass"
+          icon={<Users size={16} aria-hidden="true" />}
+          onClick={() => {
+            setSubjectChoice('stakeholders');
+            say('Showing the stakeholders. Changing them makes the actors out of date.');
+          }}
+          data-stk-focus="action"
+        >
+          Edit as a stakeholder
+        </Button>
+      </div>
+    ) : null;
+  const stakeholderActions = stakeholderActionsOf(false) ?? actorActions;
+  const stripActions = stakeholderActionsOf(true) ?? actorActions;
 
   return (
     <section
@@ -538,6 +597,7 @@ export function MapScene() {
               ) : (
                 <>
                   <strong>{node.label}</strong>
+                  <span className="sw-eco__tip-facts">{tipFacts(node, subject)}</span>
                   <span>{whyOf(node.id).slice(0, 96) || node.categoryLabel}</span>
                 </>
               )
@@ -668,6 +728,7 @@ export function MapScene() {
             ghosts={ghosts}
             onGhost={may.edit ? (ghost) => setDialog({ mode: 'add', ghost }) : undefined}
             label={subject === 'actors' ? 'Actors' : 'Stakeholders, key actors first'}
+            subject={subject}
           />
         )}
       </div>
@@ -715,7 +776,13 @@ export function MapScene() {
       <StakeholderDialog
         open={dialog !== null}
         onOpenChange={(open) => !open && setDialog(null)}
-        title={dialog?.mode === 'edit' ? 'Edit stakeholder' : 'Add a stakeholder'}
+        title={
+          dialog?.mode === 'edit'
+            ? 'Edit stakeholder'
+            : dialog?.mode === 'add' && dialog.copyOf
+              ? 'Duplicate stakeholder'
+              : 'Add a stakeholder'
+        }
         submitLabel={dialog?.mode === 'edit' ? 'Save changes' : 'Add stakeholder'}
         initial={dialogDraft}
         busy={busy}

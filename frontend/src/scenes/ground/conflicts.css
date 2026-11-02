@@ -197,9 +197,10 @@
     line-height: 1;
     color: var(--ink);
   }
-  .sw-ground-duel[data-status='dismissed'] .sw-ground-duel__arena,
-  .sw-ground-duel[data-status='resolved'] .sw-ground-duel__arena {
-    opacity: 0.72;
+  /* A settled conflict recedes by its figures, not by its words: dimmed text is unreadable text. */
+  .sw-ground-duel[data-status='dismissed'] .sw-ground-duel__figure,
+  .sw-ground-duel[data-status='resolved'] .sw-ground-duel__figure {
+    opacity: 0.6;
   }
   .sw-ground-duel__note {
     margin: 0;

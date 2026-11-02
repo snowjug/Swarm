@@ -4,7 +4,6 @@ import { openConflicts } from '../../lib/ledger';
 import { DURATION, useReducedMotion } from '../../design/motion';
 import { Conflicts } from './Conflicts';
 import { EvidenceSheet } from './EvidenceSheet';
-import { Closing } from './Closing';
 import { Hero } from './Hero';
 import { SectionHead } from './SectionHead';
 import { SourceRows } from './SourceRows';
@@ -306,7 +305,6 @@ export default function GroundScene() {
               ledger.ledger &&
               ledger.ledger.reviewedAt !== null && <NoStatements />}
             {mode === 'advanced' && <Trace />}
-            <Closing />
           </div>
           <EvidenceSheet stack={sheets} onStack={setSheets} />
           <StickyNext />

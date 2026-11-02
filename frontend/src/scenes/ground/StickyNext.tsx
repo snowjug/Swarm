@@ -17,7 +17,6 @@ export function StickyNext() {
   const reduced = useReducedMotion();
   const next = nextStep(journey);
   const [away, setAway] = useState(false);
-  const [atEnd, setAtEnd] = useState(false);
   const ready = stage === 'ready' || stage === 'record';
 
   useEffect(() => {
@@ -30,20 +29,9 @@ export function StickyNext() {
     return () => observer.disconnect();
   }, [stage]);
 
-  // The same action closes the page: while that one is on the screen, this one is not needed.
-  useEffect(() => {
-    const end = document.querySelector('[data-end-action]');
-    if (!end || typeof IntersectionObserver === 'undefined') return undefined;
-    const observer = new IntersectionObserver(([entry]) =>
-      setAtEnd(Boolean(entry?.isIntersecting)),
-    );
-    observer.observe(end);
-    return () => observer.disconnect();
-  }, [stage]);
-
   return (
     <AnimatePresence>
-      {away && !atEnd && ready && next && (
+      {away && ready && next && (
         <m.div
           key="next"
           className="sw-ground-next sw-glass sw-glass--overlay"

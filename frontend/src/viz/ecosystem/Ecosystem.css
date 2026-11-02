@@ -399,6 +399,10 @@
   .sw-eco__tip span {
     color: var(--ink-2);
   }
+  .sw-eco__tip .sw-eco__tip-facts {
+    color: var(--ink);
+    font-weight: 560;
+  }
   .sw-eco__controls {
     position: absolute;
     right: calc(var(--covered, 0px) + var(--s-3));

@@ -1,4 +1,4 @@
-import { Check, FileText, TriangleAlert, X } from 'lucide-react';
+import { Check, FileText, TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { isOpenConflict, type ContradictionRecord } from '../../../../shared/evidence';
 import { EmptyState, Notice, Button, Orbit, Skeleton } from '../../design/ui';
@@ -91,16 +91,7 @@ function SourceState({
       </div>
     );
   }
-  if (moment === 'failed' || moment === 'stopped') {
-    return (
-      <div className="sw-ground-src__state" data-state="stopped">
-        <span className="sw-ground-src__badge">
-          <X size={14} aria-hidden="true" />
-          {moment === 'failed' ? 'Failed' : 'Stopped'}
-        </span>
-      </div>
-    );
-  }
+  // A step that failed or was stopped is said once, above, with its reason: not again on every source.
   return null;
 }
 
@@ -199,18 +190,15 @@ export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; re
                 </span>
               </div>
               {variant === 'list' && signals.length > 0 && (
-                <ul
-                  className="sw-ground-src__signals"
-                  role="list"
-                  aria-label={`${noun.many} from ${doc.name}`}
-                >
+                <p className="sw-ground-src__signals">
+                  <span className="sr-only">{noun.many}: </span>
                   {signals.slice(0, 4).map((label) => (
-                    <li key={label}>{label}</li>
+                    <span key={label}>{label}</span>
                   ))}
                   {signals.length > 4 && (
-                    <li className="sw-ground-src__more num">+{signals.length - 4}</li>
+                    <span className="sw-ground-src__more num">+{signals.length - 4} more</span>
                   )}
-                </ul>
+                </p>
               )}
               <div className="sw-ground-src__thread">
                 <span className="sw-ground-src__scan" aria-hidden="true" />

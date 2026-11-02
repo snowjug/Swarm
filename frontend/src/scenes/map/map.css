@@ -35,6 +35,20 @@
   .sw-map[data-view='list'] .sw-peek {
     position: fixed;
   }
+  /* In the list the pill floats over the rows: they dissolve into the page before they reach it, and are never cut by it. */
+  .sw-map[data-view='list']::after {
+    content: '';
+    position: fixed;
+    z-index: 4;
+    inset: auto 0 0 0;
+    height: 8.5rem;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in oklab, var(--bg) 92%, transparent) 72%
+    );
+    pointer-events: none;
+  }
   .sw-map__scroll {
     position: relative;
     z-index: 4;
@@ -253,6 +267,10 @@
   }
   .sw-lg-faint {
     opacity: 0.4;
+  }
+  .sw-lg-key {
+    stroke: var(--ink);
+    stroke-width: 1.8;
   }
   .sw-lg-against {
     fill: var(--c-against);
