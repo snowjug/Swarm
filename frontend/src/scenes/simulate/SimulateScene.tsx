@@ -126,7 +126,12 @@ function Theatre({
       data-view={view}
       data-stage={stage || undefined}
       aria-label="Simulation"
-      style={{ '--stage-dock': `${boxes.dock}px` } as React.CSSProperties}
+      style={
+        {
+          '--stage-dock': `${boxes.dock}px`,
+          '--stage-top': `${boxes.top}px`,
+        } as React.CSSProperties
+      }
     >
       {view === 'live' && replay && (
         <LiveView

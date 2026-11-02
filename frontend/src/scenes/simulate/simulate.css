@@ -6,7 +6,8 @@
     min-height: calc(100dvh - var(--topbar-h) - 0.75rem);
   }
   .sw-sim[data-stage] {
-    height: calc(100dvh - var(--topbar-h) - 0.75rem);
+    --stage-h: calc(100dvh - var(--topbar-h) - 0.75rem);
+    height: var(--stage-h);
     min-height: 36rem;
     overflow: hidden;
   }
@@ -211,8 +212,12 @@
   }
   @media (max-width: 40rem) {
     .sw-sim[data-stage] {
-      height: calc(100dvh - var(--topbar-h) - 0.75rem - var(--dock-h) - 1.5rem);
+      --stage-h: calc(100dvh - var(--topbar-h) - 0.75rem - var(--dock-h) - 1.5rem);
       min-height: 30rem;
+    }
+    /* With the details open the picture is under them, and so is the zoom: it has nothing to zoom to see. */
+    .sw-sim[data-stage]:has(.sw-sim-dock.is-open) .sw-eco__controls {
+      display: none;
     }
     /* The zoom is a column at the edge, and the names of the groups, which have no room here, are left to the actors' own. */
     .sw-sim[data-stage] .sw-eco__controls {

@@ -64,7 +64,12 @@
   }
   .sw-sim-dock__scroll {
     min-height: 0;
-    max-height: min(52dvh, 28rem);
+    /* Open, the details reach up as far as the heading and its controls, and no further: what is above is theirs. */
+    max-height: min(
+      52dvh,
+      28rem,
+      max(8rem, calc(var(--stage-h, 100dvh) - var(--stage-top, 0px) - 11rem))
+    );
     overflow: hidden;
   }
   .sw-sim-dock.is-open .sw-sim-dock__scroll {
