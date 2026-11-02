@@ -18,14 +18,14 @@ export const VERDICT_MEANINGS: Record<SupportVerdict, string> = {
   unchecked: 'A hypothesis, assumption or interpretation that is not claimed to be evidence.',
 };
 
-export interface VerdictTally {
+interface VerdictTally {
   verdict: SupportVerdict;
   label: string;
   count: number;
 }
 
 /** One entry per verdict in the fixed reading order, whatever order the counts object was built in. */
-export function orderedTallies(counts: Record<SupportVerdict, number>): VerdictTally[] {
+function orderedTallies(counts: Record<SupportVerdict, number>): VerdictTally[] {
   return SUPPORT_VERDICTS.map((verdict) => ({
     verdict,
     label: SUPPORT_VERDICT_LABELS[verdict],
@@ -41,25 +41,9 @@ export function statementsText(total: number): string {
   return `${total} ${total === 1 ? 'statement' : 'statements'}`;
 }
 
-/** The one-line summary: `12 statements checked · 7 Supported · 2 Partly supported · …`. */
-export function summaryText(counts: Record<SupportVerdict, number>): string {
-  return [
-    `${statementsText(totalStatements(counts))} checked`,
-    ...orderedTallies(counts).map((tally) => `${tally.count} ${tally.label}`),
-  ].join(' · ');
-}
-
 /** Verdicts that mean the cited material gives a reader no reason to rely on the statement. */
 export function needsAttention(verdict: SupportVerdict): boolean {
   return verdict === 'unsupported' || verdict === 'contradicted';
-}
-
-export function tallyVerdicts(
-  claims: readonly Pick<GroundedClaim, 'verdict'>[],
-): Record<SupportVerdict, number> {
-  const counts = emptyVerdictCounts();
-  for (const claim of claims) counts[claim.verdict] += 1;
-  return counts;
 }
 
 export interface ClaimGroup {
@@ -96,10 +80,6 @@ export function groupBySection(
   return [...groups.values()].sort(
     (a, b) => (rank.get(a.section) ?? unknown) - (rank.get(b.section) ?? unknown),
   );
-}
-
-export function contradictedClaims(claims: readonly GroundedClaim[]): GroundedClaim[] {
-  return claims.filter((claim) => claim.verdict === 'contradicted');
 }
 
 /** Chapters in which no statement was listed, so nothing there was checked statement by statement. */

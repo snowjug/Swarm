@@ -239,8 +239,3 @@ export function ShareBar({
     </span>
   );
 }
-
-/** A line of small print that is part of the page, not hidden: the wording that keeps a number honest. */
-export function Fine({ children, className }: { children: ReactNode; className?: string }) {
-  return <p className={cx('sw-deep-fine', className)}>{children}</p>;
-}

@@ -1,5 +1,6 @@
 /**
- * The server for the end-to-end examples (`e2e/lab/examples.spec.ts`), and for nothing else.
+ * The server for the end-to-end specs that add public web pages as evidence (`e2e/lab/ask-pipeline.spec.ts`
+ * and the public-page tests of `e2e/lab/ask-evidence.spec.ts`), and for nothing else.
  *
  * It is the real application (`buildApp`, serving the built page) in rules mode, with its data in
  * memory, and with one difference: the web that a person's "Add a public web page" can reach. The page

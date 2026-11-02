@@ -147,8 +147,8 @@ Scenes take no props. A scene is a default export that calls `useWorkspace()` an
 - **navigation**: `scene`, `view`, `go(scene, { view })` (a locked scene is refused with a toast),
   `setView(view)`, `openProject(id, { scene, view })`, `duplicate()`, the `journey` as the rail shows it and
   the list of `projects`;
-- **`panels`**: `history()`, `ask({ target, message })`, `audit()`, `budget()`, `access()`, `provider()` and
-  `snapshot()`, so that a scene opens an overlay without owning one;
+- **`panels`**: `history()`, `ask({ target, message })`, `audit()`, `budget()`, `access()` and `provider()`,
+  so that a scene opens an overlay without owning one;
 - **unsaved work**, which is not on the workspace but beside it (`useUnsavedWork(sentence | null)` from
   `app/unsaved-context.ts`): while a scene holds words or edits that are not saved (the Map's changes to actors, the
   report studio's drafts) it says what they are, and the shell, which owns every exit (`go`, `openProject`, a new
@@ -937,7 +937,7 @@ The rules: an animation explains a cause; springs for things that are moved and 
 that appear; every animation can be interrupted (a new target redirects it, nothing queues); entrances take at
 most about half a second, apart from the few that the person started; no keyframe animates a property that
 costs layout. In script, the same numbers are `DURATION`, `EASE` and `SPRING` in `design/motion/tokens.ts`, and
-`useSpotlight` and `useMagnetic` give a surface light and a pull that follow the pointer (never for touch).
+`useSpotlight` gives a surface a light that follows the pointer (never for touch).
 Components use `m` from `motion/react`, not `motion`, because the page loads its features lazily and strictly.
 
 **Reduced motion** is honoured at three levels, so that no part of the page can ignore it:

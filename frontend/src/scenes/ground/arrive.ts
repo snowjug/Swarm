@@ -2,30 +2,15 @@
  * Getting somewhere on the page from a sheet. A sheet that is closing still holds the page behind it inert, so
  * focus put on the page in that moment is not heard; the page waits until the sheet is gone.
  */
+import { pressedControl } from '../../design/useReturnFocus';
 
 const SHEET = '.sw-ground-sheet[role="dialog"]';
-const CONTROL = 'button, a[href], [role="button"], [tabindex]';
-
-/** The control the last press landed on, for browsers that do not focus a button when it is pressed. */
-let pressed: WeakRef<HTMLElement> | null = null;
-if (typeof document !== 'undefined') {
-  document.addEventListener(
-    'pointerdown',
-    (event) => {
-      const target =
-        event.target instanceof Element ? event.target.closest<HTMLElement>(CONTROL) : null;
-      pressed = target ? new WeakRef(target) : null;
-    },
-    true,
-  );
-}
 
 /** What had the person's attention when something opened: the focused control, or else the one just pressed. */
 export function opener(): HTMLElement | null {
   const active = document.activeElement;
   if (active instanceof HTMLElement && active !== document.body) return active;
-  const control = pressed?.deref();
-  return control?.isConnected ? control : null;
+  return pressedControl();
 }
 
 /** Whether focus is on nothing: the page has not given it to anything since what held it went away. */

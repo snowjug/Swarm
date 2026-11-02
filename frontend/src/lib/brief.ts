@@ -1,5 +1,5 @@
 import type { StabilityClass } from '../../../shared/analysis';
-import type { BriefRefs, BriefSectionId, StatementOrigin } from '../../../shared/brief';
+import type { BriefRefs, StatementOrigin } from '../../../shared/brief';
 
 /** What each origin means, in a line, for the legend and for a tooltip. */
 export const ORIGIN_MEANINGS: Record<StatementOrigin, string> = {
@@ -35,18 +35,6 @@ export const STABILITY_LABELS: Record<StabilityClass, string> = {
   'mostly-repeatable': 'mostly repeatable',
   unstable: 'unstable',
   rare: 'rare',
-};
-
-/** Anchor of a section of the brief on the page. */
-export const sectionAnchor = (id: BriefSectionId): string => `brief-${id}`;
-
-/** A mean number of simulated members: whole above ten, one decimal place below. */
-export const approx = (value: number): string =>
-  value >= 10 ? String(Math.round(value)) : String(Number(value.toFixed(1)));
-
-export const signedNumber = (value: number, digits = 2): string => {
-  const rounded = Number(value.toFixed(digits));
-  return `${rounded > 0 ? '+' : ''}${rounded.toFixed(digits)}`;
 };
 
 export const hasRefs = (refs: BriefRefs): boolean =>

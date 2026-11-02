@@ -48,7 +48,6 @@ function workspaceOf(): Workspace {
       budget: noop,
       access: noop,
       provider: noop,
-      snapshot: noop,
     },
   };
 }

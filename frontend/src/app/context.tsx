@@ -17,7 +17,6 @@ export interface PanelControls {
   budget: () => void;
   access: () => void;
   provider: () => void;
-  snapshot: () => void;
 }
 
 /**

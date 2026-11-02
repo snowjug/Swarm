@@ -18,12 +18,17 @@ if (typeof document !== 'undefined') {
   );
 }
 
+/** The control the last press landed on, while it is still on the page. */
+export function pressedControl(): HTMLElement | null {
+  const control = pressed?.deref();
+  return control?.isConnected ? control : null;
+}
+
 /** What had the person's attention when something opened: the focused control, or else the one just pressed. */
 function opener(): HTMLElement | null {
   const active = document.activeElement;
   if (active instanceof HTMLElement && active !== document.body) return active;
-  const control = pressed?.deref();
-  return control?.isConnected ? control : null;
+  return pressedControl();
 }
 
 let handingBack = false;

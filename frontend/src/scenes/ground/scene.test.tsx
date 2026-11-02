@@ -60,7 +60,6 @@ function workspaceOf(source: ProjectDetail, overrides: Partial<Workspace> = {}):
       budget: noop,
       access: noop,
       provider: noop,
-      snapshot: noop,
     },
     ...overrides,
   };
