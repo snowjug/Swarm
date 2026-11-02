@@ -59,12 +59,6 @@ test.afterAll(async () => {
 
 test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
 
-/**
- * Screens that fail a scan because of a defect written up in .scratch/e2e/issues-shell.md. Their tests wait for the
- * fix: take the name out of this list, and the test runs.
- */
-const WAITING = new Set<string>([]);
-
 // ---------------------------------------------------------------------------------------------
 
 const SIZES = [
@@ -84,8 +78,7 @@ for (const size of SIZES) {
     });
 
     for (const screen of SCREENS) {
-      const run = WAITING.has(screen.name) ? test.fixme : test;
-      run(`${screen.name} has nothing for axe to find`, async ({ page }) => {
+      test(`${screen.name} has nothing for axe to find`, async ({ page }) => {
         const problems = watchPage(page);
         await page.goto(screenPath(screen, projects));
         await audit(page, `${size.name}: ${screen.name}`);
@@ -467,9 +460,13 @@ test.describe('a dialog keeps focus off the page behind it, closes with Escape, 
     });
     await remove.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('dialog', { name: /Delete this exploration/u })).toBeVisible();
+    const confirm = page.getByRole('dialog', { name: /Delete this exploration/u });
+    // The question has taken focus, so it is the layer that Escape reaches.
+    await expect(confirm.getByRole('button', { name: 'Keep it' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(remove).toBeFocused();
+    // The tooltip of the button is not opened by being given focus back: the next Escape belongs to the history.
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
   });
 
   test('the page behind is hidden from a screen reader while it is open, and a press on the dimmed part closes it', async ({

@@ -203,8 +203,8 @@ test.describe('the settings menu', () => {
     await expect(menu.getByRole('menuitemradio', { name: 'System' })).toBeChecked();
     await expect(menu.getByRole('menuitemradio', { name: 'Follow device' })).toBeChecked();
     await expect(menu.getByRole('menuitemradio', { name: /^Guided/u })).toBeChecked();
-    // No project, so no tools of one; on a local installation nobody signs in.
-    await expect(menu.getByRole('menuitem')).toHaveCount(0);
+    // No project, so no tools of one (only the way into the search); on a local installation nobody signs in.
+    await expect(menu.getByRole('menuitem')).toHaveText([/^Search and commands/u]);
     await expect(menu).toContainText('Local · single user');
     await expect(menu).toContainText(/Swarm v\d[\w.-]* · AGPL-3\.0/u);
     await page.keyboard.press('Escape');
@@ -212,6 +212,7 @@ test.describe('the settings menu', () => {
     await openApp(page, { project: projects.ground.id, scene: 'ground' });
     menu = await openSettings(page);
     await expect(menu.getByRole('menuitem')).toHaveText([
+      /^Search and commands/u,
       'Refresh',
       'Duplicate as a new question',
       'Export snapshot',
@@ -227,8 +228,10 @@ test.describe('the settings menu', () => {
     await page.keyboard.press('Enter');
     const menu = page.getByRole('menu', { name: 'Settings and tools' });
     await expect(menu).toBeVisible();
-    await expect(menu.getByRole('menuitemradio', { name: 'System' })).toBeFocused();
+    await expect(menu.getByRole('menuitem', { name: /^Search and commands/u })).toBeFocused();
     // One key at a time, as a person presses them: the menu moves focus after the key, not during it.
+    await page.keyboard.press('ArrowDown');
+    await expect(menu.getByRole('menuitemradio', { name: 'System' })).toBeFocused();
     await page.keyboard.press('ArrowDown');
     await expect(menu.getByRole('menuitemradio', { name: 'Light' })).toBeFocused();
     await page.keyboard.press('ArrowDown');
@@ -407,6 +410,25 @@ test.describe('the history', () => {
     await dialog.getByRole('button', { name: 'Clear the search' }).click();
     await expect(row(dialog, nameOf('ground'))).toBeVisible();
     await expect(search).toHaveValue('');
+  });
+
+  test('with nothing in it, offers to ask a question and leaves for the question field', async ({
+    page,
+  }) => {
+    await page.route('**/api/projects', (route) =>
+      route.request().method() === 'GET'
+        ? route.fulfill({
+            contentType: 'application/json',
+            body: JSON.stringify({ projects: [], total: 0 }),
+          })
+        : route.continue(),
+    );
+    await openApp(page);
+    const dialog = await openHistory(page);
+    await expect(dialog.getByRole('heading', { name: 'Nothing yet' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Ask a question' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('textbox', { name: 'Your what-if question' })).toBeFocused();
   });
 
   test('deletes an exploration only when asked twice, and leaves the others alone', async ({
@@ -601,6 +623,41 @@ test.describe('asking about an exploration', () => {
     expect(problems).toEqual([]);
   });
 
+  test('with no report to read from, it says where the report is written and opens that place', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await openApp(page, { project: projects.brief.id, scene: 'decide' });
+    await page.getByRole('button', { name: 'Ask about this' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Ask' });
+    await expect(
+      dialog.getByRole('heading', { name: 'Ask opens after the deep dive' }),
+    ).toBeVisible();
+    await expect(dialog).toContainText(
+      'The analyst and the actors answer from the report it writes.',
+    );
+    await dialog.getByRole('button', { name: 'Open the deep dive' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/[?&]scene=simulate&view=deep(?:&|$)/u);
+    await expect(page.getByRole('main')).toBeFocused();
+    expect(problems).toEqual([]);
+  });
+
+  test('where the deep dive is still shut, it says what opens it and offers nothing that would not work', async ({
+    page,
+  }) => {
+    await openApp(page, { project: projects.ground.id, scene: 'ground' });
+    await page.getByRole('button', { name: 'Ask about this' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Ask' });
+    await expect(
+      dialog.getByRole('heading', { name: 'Ask opens after the deep dive' }),
+    ).toBeVisible();
+    await expect(dialog).toContainText('The deep dive opens once the actors are made.');
+    await expect(dialog.getByRole('button', { name: /deep dive|Watch/u })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+  });
+
   test('the shortcut that the button advertises opens it, and Escape closes it', async ({
     page,
   }) => {
@@ -622,11 +679,12 @@ test.describe('asking about an exploration', () => {
     page,
   }) => {
     await openApp(page, { project: projects.brief.id, scene: 'ground' });
+    await page.getByRole('button', { name: 'Find a topic' }).click();
     const find = page.getByRole('searchbox', { name: 'Find in the graph' });
     await find.focus();
     await page.keyboard.type('and/or');
     await expect(find).toHaveValue('and/or');
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name: 'Ask' })).toHaveCount(0);
 
     // Nor on the first screen, where there is nothing yet to ask about.
     await page.goto(addressOf());
@@ -760,6 +818,7 @@ test('the top bar is reached in reading order from the keyboard', async ({ page 
     /^Compare, locked/u,
     /^Decide, locked/u,
     'Local rules',
+    'Search and commands',
     'Ask about this',
     'History',
     'Settings and tools',

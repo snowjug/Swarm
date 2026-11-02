@@ -45,12 +45,6 @@ const CHROME: Record<ThemeName, string> = {
 
 test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
 
-/**
- * Screens that fail a scan because of a defect written up in .scratch/e2e/issues-shell.md. Their tests wait for the
- * fix: take the name out of this list, and the test runs.
- */
-const WAITING = new Set<string>([]);
-
 const html = (page: Page) => page.locator('html');
 const chrome = (page: Page) => page.locator('meta[name="theme-color"]');
 
@@ -251,19 +245,17 @@ for (const theme of THEMES) {
     });
 
     for (const screen of SCREENS) {
-      const run = WAITING.has(screen.name) ? test.fixme : test;
-      run(
-        `${screen.name} passes axe and leaves no control in the browser's own colours`,
-        async ({ page }) => {
-          const problems = watchPage(page);
-          await page.goto(screenPath(screen, projects));
-          await expect(html(page)).toHaveAttribute('data-theme', theme);
-          await audit(page, `${theme}: ${screen.name}`);
-          if (theme !== 'light')
-            await expectNoBrowserPaintedControls(page, `${theme}: ${screen.name}`);
-          expect(problems).toEqual([]);
-        },
-      );
+      test(`${screen.name} passes axe and leaves no control in the browser's own colours`, async ({
+        page,
+      }) => {
+        const problems = watchPage(page);
+        await page.goto(screenPath(screen, projects));
+        await expect(html(page)).toHaveAttribute('data-theme', theme);
+        await audit(page, `${theme}: ${screen.name}`);
+        if (theme !== 'light')
+          await expectNoBrowserPaintedControls(page, `${theme}: ${screen.name}`);
+        expect(problems).toEqual([]);
+      });
     }
 
     test(`the first screen filled in from an example passes axe`, async ({ page }) => {
