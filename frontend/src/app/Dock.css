@@ -27,7 +27,8 @@
     width: 100%;
     height: 100%;
     border: 0;
-    border-radius: var(--r-lg);
+    /* Concentric with the dock's own curve, so that the step in view is the same shape set inside it and not a second capsule. */
+    border-radius: calc(var(--r-xl) - 0.35rem);
     background: transparent;
     color: var(--ink-2);
     font-size: var(--fs-micro);
@@ -44,15 +45,13 @@
   .sw-dock__item:active:not([aria-disabled='true']) {
     transform: scale(0.94);
   }
+  /* The step in view is a tint of the accent, not another floating surface: no shadow, no second highlight. */
   .sw-dock__pill {
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: var(--glass-overlay);
-    border: 1px solid var(--glass-edge);
-    box-shadow:
-      inset 0 1px 0 var(--glass-edge-hi),
-      var(--shadow-1);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
   }
   .sw-dock__icon {
     position: relative;

@@ -126,6 +126,7 @@
   .sw-settings__option {
     display: grid;
     gap: 0.1rem;
+    padding-block: 0.3rem;
   }
   .sw-settings__option small {
     color: var(--ink-3);
