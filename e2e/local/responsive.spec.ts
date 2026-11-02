@@ -49,17 +49,15 @@ test.use({ reducedMotion: 'reduce' });
 const GRAPH = 'main svg[role="group"]';
 
 /**
- * What each screen fails at today, for the defects written up in .scratch/e2e/issues-shell.md. A screen listed here is
- * not judged by that measure until the defect is fixed: take the entry out, and the measure applies. Each has a test
- * of its own below (`test.fixme`) that says what should be true.
+ * The one screen that fails a measure today, for a defect written up in .scratch/e2e/issues-shell.md (8) in a scene that
+ * is still being finished: it is not judged by that measure until the defect is fixed (take the entry out, and the
+ * measure applies). It has a test of its own below (`test.fixme`) that says what should be true.
  */
-const KNOWN: Record<'targets' | 'text' | 'graph', ReadonlySet<string>> = {
-  // Issue 8: on a phone, the pick of a scenario in the comparison is 23px tall. A screen that is held to this is held to
-  // the finger measure too, and fails it the same way.
-  targets: new Set(['compare@390']),
-  text: new Set(),
-  graph: new Set(),
-};
+const KNOWN_TARGETS: ReadonlySet<string> = new Set([
+  // On a phone, the pick of a scenario in the comparison is 23px tall. A screen that is held to this is held to the
+  // finger measure too, and fails it the same way.
+  'compare@390',
+]);
 
 /** The bar floats over the page: the page's first heading must start below it. */
 async function expectClearOfTheBar(page: Page, label: string): Promise<void> {
@@ -107,21 +105,17 @@ for (const viewport of viewports) {
         await arrived(page);
         await quiet(page);
         const heldToTargets = !(
-          KNOWN.targets.has(screen.name) || KNOWN.targets.has(`${screen.name}@${viewport.width}`)
+          KNOWN_TARGETS.has(screen.name) || KNOWN_TARGETS.has(`${screen.name}@${viewport.width}`)
         );
 
         await allOf({
           'no horizontal scroll': () => expectNoHorizontalOverflow(page),
           'the bar is clear of the heading': () => expectClearOfTheBar(page, label),
-          ...(KNOWN.text.has(screen.name)
-            ? {}
-            : { 'text of 12px or more': () => expectReadableText(page, label) }),
+          'text of 12px or more': () => expectReadableText(page, label),
           ...(heldToTargets
             ? { 'controls of 24px or more': () => expectPressable(page, label, { min: 24 }) }
             : {}),
-          ...(KNOWN.graph.has(`${screen.name}@${viewport.width}`)
-            ? {}
-            : { 'a legible graph': () => expectLegibleGraph(page, label) }),
+          'a legible graph': () => expectLegibleGraph(page, label),
           // Where a finger presses, docs/UX.md asks for 44px.
           ...(touched && heldToTargets
             ? { 'controls a finger wide': () => expectPressable(page, label, { min: 44 }) }
@@ -293,6 +287,55 @@ test.describe('between the sizes', () => {
         ),
       );
       await arrived(page);
+      await expectNoHorizontalOverflow(page);
+    });
+  }
+
+  // The bar holds the brand, the journey and the tools, and gives each its room as the width shrinks: at no width does a
+  // control run past the bar or lie on another (a tablet in portrait, at 768, has had both).
+  for (const width of [
+    320, 360, 390, 480, 640, 641, 700, 768, 833, 900, 1024, 1100, 1280, 1440, 1920,
+  ]) {
+    test(`at ${width}px every control of the top bar is inside it and none lies on another`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openApp(page, { project: projects.brief, scene: 'ground' });
+      await quiet(page);
+      const faults = await page.getByRole('banner').evaluate((bar) => {
+        const frame = bar.getBoundingClientRect();
+        const controls = [...bar.querySelectorAll<HTMLElement>('button, a[href]')]
+          .map((element) => ({
+            name: (element.getAttribute('aria-label') ?? element.textContent ?? '')
+              .trim()
+              .replace(/\s+/gu, ' ')
+              .slice(0, 36),
+            box: element.getBoundingClientRect(),
+          }))
+          .filter(({ box }) => box.width > 0 && box.height > 0);
+        const found: string[] = [];
+        for (const { name, box } of controls) {
+          if (
+            box.left < frame.left - 1 ||
+            box.right > frame.right + 1 ||
+            box.top < frame.top - 1 ||
+            box.bottom > frame.bottom + 1
+          ) {
+            found.push(`"${name}" runs past the bar`);
+          }
+        }
+        for (const [index, one] of controls.entries()) {
+          for (const other of controls.slice(index + 1)) {
+            const across =
+              Math.min(one.box.right, other.box.right) - Math.max(one.box.left, other.box.left);
+            const down =
+              Math.min(one.box.bottom, other.box.bottom) - Math.max(one.box.top, other.box.top);
+            if (across > 1 && down > 1) found.push(`"${one.name}" lies on "${other.name}"`);
+          }
+        }
+        return found;
+      });
+      expect(faults, `the top bar at ${width}px`).toEqual([]);
       await expectNoHorizontalOverflow(page);
     });
   }

@@ -5,6 +5,7 @@ import { projectFixture } from '../test/project';
 import { renderWithApp, screen, waitFor } from '../test/dom';
 import { AskSheet } from './AskSheet';
 import { HistorySheet } from './HistorySheet';
+import { PanelBoundary } from './shared/PanelBoundary';
 
 // A panel that has nothing to show must not be a dead end: it says what opens it, and offers the way there.
 
@@ -84,5 +85,25 @@ describe('the history, when there is nothing in it', () => {
     );
     await user.click(await screen.findByRole('button', { name: 'Ask a question' }));
     await waitFor(() => expect(onNew).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('a panel that cannot be drawn', () => {
+  it('is told to its owner and draws nothing, and the page beside it is not taken with it', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const onFail = vi.fn();
+    const Broken = (): never => {
+      throw new Error('The code of the panel did not arrive.');
+    };
+    renderWithApp(
+      <>
+        <p>The page</p>
+        <PanelBoundary onFail={onFail}>
+          <Broken />
+        </PanelBoundary>
+      </>,
+    );
+    expect(onFail).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('The page')).toBeTruthy();
   });
 });
