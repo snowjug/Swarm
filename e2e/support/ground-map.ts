@@ -468,6 +468,22 @@ export const inspector = (page: Page, name: string): Locator =>
   page
     .getByRole('complementary', { name, exact: true })
     .or(page.getByRole('region', { name, exact: true }));
+/** Waits until a control has stopped moving: a strip that is still sliding in is not yet under the finger that taps it. */
+export async function holdsStill(control: Locator): Promise<void> {
+  let last = '';
+  let steady = 0;
+  await expect
+    .poll(
+      async () => {
+        const box = JSON.stringify(await control.boundingBox());
+        steady = box === last ? steady + 1 : 0;
+        last = box;
+        return steady;
+      },
+      { intervals: [100], timeout: 10_000 },
+    )
+    .toBeGreaterThanOrEqual(3);
+}
 /** The one thing to do next. While it changes over, the one that is leaving is still there beside it: the last is the new one. */
 export const pill = (page: Page): Locator => page.getByRole('group', { name: 'Next' }).last();
 export const mapControls = (page: Page): Locator =>

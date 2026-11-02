@@ -166,8 +166,57 @@
     line-height: 1.45;
   }
   .sw-ground-claim-row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.75rem;
     color: var(--ink-3);
     font-size: var(--fs-small);
+  }
+  /* The kind of a statement: a glyph and a word in its own tint, the first thing a row says about itself. */
+  .sw-ground-kind {
+    --kind: var(--ink-2);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--kind);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .sw-ground-kind__type {
+    color: var(--ink-3);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    text-transform: none;
+  }
+  .sw-ground-kind[data-family='fact'],
+  .sw-ground-kindchip[data-family='fact'] {
+    --kind: var(--ink);
+  }
+  .sw-ground-kind[data-family='assumption'],
+  .sw-ground-kindchip[data-family='assumption'] {
+    --kind: var(--c-caution);
+  }
+  .sw-ground-kind[data-family='simulation'],
+  .sw-ground-kindchip[data-family='simulation'] {
+    --kind: var(--accent);
+  }
+  .sw-ground-kind[data-family='interpretation'],
+  .sw-ground-kindchip[data-family='interpretation'] {
+    --kind: var(--cat-5);
+  }
+  /* The shape differs as well as the tint: a solid mark for what a source says, a dashed one for what is only assumed. */
+  .sw-ground-kind[data-family='assumption'] svg {
+    opacity: 0.9;
+  }
+  .sw-ground-kindchip svg {
+    color: var(--kind);
+  }
+  .sw-ground-kinds {
+    margin-top: var(--s-2);
   }
   .sw-ground-claim-row__go {
     color: var(--ink-3);

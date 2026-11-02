@@ -820,6 +820,41 @@ test.describe('changing the list of stakeholders', () => {
     expect(problems).toEqual([]);
   });
 
+  test('one can be duplicated: the copy is the person’s own, carries no evidence and says so', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, SHOP, 'proposed');
+    const before = live(await stakeholdersViewOf(request, id));
+    const original = before.find((item) => item.name === 'Sellers')!;
+    await openApp(page, { project: id, scene: 'map' });
+
+    await party(page, 'Sellers').click();
+    await inspector(page, 'Sellers').getByRole('button', { name: 'Duplicate Sellers' }).click();
+    const form = page.getByRole('dialog', { name: 'Duplicate stakeholder' });
+    await expect(form.getByRole('textbox', { name: 'Name' })).toHaveValue('Sellers (copy)');
+    await form.getByRole('textbox', { name: 'Name' }).fill('Sellers on the new site');
+    await form.getByRole('button', { name: 'Add stakeholder' }).click();
+    await expect(form).toHaveCount(0);
+
+    const after = live(await stakeholdersViewOf(request, id));
+    expect(after).toHaveLength(before.length + 1);
+    const copy = after.find((item) => item.name === 'Sellers on the new site')!;
+    expect(copy.status).toBe('added');
+    expect(copy.origin).toBe('user');
+    expect(copy.evidence).toEqual([]);
+    expect(copy.category).toBe(original.category);
+    expect(copy.priority).toBe(original.priority);
+    // The original is untouched.
+    expect(after.find((item) => item.id === original.id)).toEqual(original);
+    await party(page, 'Sellers on the new site').click();
+    await expect(inspector(page, 'Sellers on the new site')).toContainText(
+      'Assumption, not evidence.',
+    );
+    expect(problems).toEqual([]);
+  });
+
   test('one can be removed, which keeps it in the record, and brought back from the message or from the list', async ({
     page,
     request,
@@ -1037,6 +1072,10 @@ test.describe('what the page says about its actors', () => {
     expect(claimsAgainst(rest.join('\n'))).toEqual([]);
     // A cohort stands for a number that is a weight, and the page says it is not a count of real people.
     await rosterRow(page, 'Buyers').click();
+    // The panel changes over from the party that was open: its traits are read once Buyers is what it holds.
+    await expect(
+      inspector(page, 'Buyers').getByRole('heading', { level: 2, name: 'Buyers' }),
+    ).toBeVisible();
     await openDisclosure(inspector(page, 'Buyers'), 'Traits 11');
     await expect(inspector(page, 'Buyers')).toContainText(
       'An assumption, not a count of real people.',
@@ -1160,6 +1199,82 @@ test.describe('the actors', () => {
     expect(problems).toEqual([]);
   });
 
+  test('what an actor wants, fears and is pushed by can be written in place, held until saved, kept by the server as the person’s own', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    const id = await makeProject(request, SHOP, 'actors');
+    const before = (await actorsViewOf(request, id)).actors!.actors.find(
+      (actor) => actor.name === 'Customers',
+    )!;
+    await openApp(page, { project: id, scene: 'map' });
+
+    await party(page, 'Customers').click();
+    const open = inspector(page, 'Customers');
+    // Its key assumption is on the panel, where the person reads who it is.
+    await expect(open).toContainText('Key assumption.');
+    await expect(open).toContainText(before.priorBelief);
+    await open.getByRole('button', { name: 'Edit what Customers wants and fears' }).click();
+
+    await open.getByRole('textbox', { name: 'Role' }).fill('The people the shop is for');
+    await open.getByRole('button', { name: 'Add a want' }).click();
+    await open
+      .getByRole('textbox', { name: `Wants: want ${before.objectives.length + 1} of Customers` })
+      .fill('Free delivery on a basket they would buy anyway.');
+    await open.getByRole('button', { name: 'Add a worry' }).click();
+    await open
+      .getByRole('textbox', { name: 'Worries: worry 1 of Customers' })
+      .fill('A fee at checkout.');
+    // A line that is added and left empty is nothing.
+    await open.getByRole('button', { name: 'Add a pressure' }).click();
+    await expect(pill(page)).toContainText('1 actor changed');
+    await expect(pill(page)).toContainText('Not saved yet');
+    expect(
+      (await actorsViewOf(request, id)).actors!.actors.find((actor) => actor.name === 'Customers')!
+        .role,
+    ).toBe(before.role);
+
+    await pill(page).getByRole('button', { name: 'Save' }).click();
+    await expect(pill(page)).toContainText('actors ready');
+    const saved = (await actorsViewOf(request, id)).actors!.actors.find(
+      (actor) => actor.name === 'Customers',
+    )!;
+    expect(saved.edited).toBe(true);
+    expect(saved.role).toBe('The people the shop is for');
+    expect(saved.objectives).toContain('Free delivery on a basket they would buy anyway.');
+    expect(saved.concerns).toEqual(['A fee at checkout.']);
+    expect(saved.constraints).toEqual(before.constraints);
+
+    // It reads back as written, and says it is the person's.
+    await page.reload();
+    await party(page, 'Customers').click();
+    await expect(inspector(page, 'Customers')).toContainText('The people the shop is for');
+    await expect(inspector(page, 'Customers')).toContainText('A fee at checkout.');
+    await expect(inspector(page, 'Customers')).toContainText('Edited by you');
+    expect(problems).toEqual([]);
+  });
+
+  test('an actor cannot be removed or copied on its own, so it offers its stakeholder, where both can be done', async ({
+    page,
+    request,
+  }) => {
+    const id = await makeProject(request, SHOP, 'actors');
+    await openApp(page, { project: id, scene: 'map' });
+    await party(page, 'Customers').click();
+    const open = inspector(page, 'Customers');
+    await expect(open.getByRole('button', { name: /^(?:Remove|Duplicate) / })).toHaveCount(0);
+    await open.getByRole('button', { name: 'Edit as a stakeholder' }).click();
+    await expect(mapControls(page).getByRole('radio', { name: 'Stakeholders' })).toBeChecked();
+    await expect(ecosystem(page)).toHaveAccessibleName('Stakeholders and how they relate');
+    await expect(
+      inspector(page, 'Customers').getByRole('button', { name: 'Duplicate Customers' }),
+    ).toBeVisible();
+    await expect(
+      inspector(page, 'Customers').getByRole('button', { name: 'Remove Customers' }),
+    ).toBeVisible();
+  });
+
   test('a cohort cannot simulate more members than it stands for, and the page will not save it', async ({
     page,
     request,
@@ -1255,6 +1370,86 @@ test.describe('the actors', () => {
     expect(after.stale).toBe(false);
     expect(after.actors!.actors).toHaveLength(count);
     expect(after.actors!.actors.some((actor) => actor.name === 'Frequent buyers')).toBe(true);
+    expect(problems).toEqual([]);
+  });
+});
+
+test.describe('from the keyboard alone', () => {
+  test('finds, reviews, edits and approves without a pointer, the focus is never lost, and what has it is shown by a ring of at least 2px', async ({
+    page,
+    request,
+  }) => {
+    test.setTimeout(120_000);
+    const problems = watchPage(page);
+    const id = await makeProject(request, SHOP, 'ground');
+    await openApp(page, { project: id, scene: 'map' });
+
+    // Wherever the focus is it is on something, and it shows.
+    const expectRing = async (what: string): Promise<void> => {
+      const ring = await page.evaluate(() => {
+        const active = document.activeElement as HTMLElement | null;
+        if (!active || active === document.body) return null;
+        const style = getComputedStyle(active);
+        return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) };
+      });
+      expect(ring, `${what} has the focus`).not.toBeNull();
+      expect(ring!.style, `the focus on ${what} is shown`).not.toBe('none');
+      expect(ring!.width, `the ring on ${what} is thick enough`).toBeGreaterThanOrEqual(2);
+    };
+    const tabTo = async (target: Locator, what: string): Promise<void> => {
+      for (let presses = 0; presses < 80; presses += 1) {
+        if (await target.evaluate((element) => element === document.activeElement)) {
+          await expectRing(what);
+          return;
+        }
+        await page.keyboard.press('Tab');
+      }
+      throw new Error(`Tab never reached ${what}`);
+    };
+    const keptSomewhere = async (what: string): Promise<void> => {
+      await expect(page.locator('body'), `${what}: the focus is not lost`).not.toBeFocused();
+      await expect(page.locator('main :focus, [role="dialog"] :focus')).toHaveCount(1);
+    };
+
+    // Finding: the button that was pressed goes, and the focus goes to the title of what came.
+    await page.getByRole('button', { name: 'Find who is affected' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(ecosystem(page)).toBeVisible();
+    await expect(mapRegion(page).getByRole('heading', { level: 1 })).toBeFocused();
+
+    // Reviewing: the pill opens the next party, which is read and accepted from the keyboard.
+    await tabTo(
+      pill(page).getByRole('button', { name: /to review, next/iu }),
+      'the next to review',
+    );
+    await page.keyboard.press('Enter');
+    const open = page.getByRole('complementary');
+    await expect(open).toBeVisible();
+    await tabTo(open.getByRole('button', { name: 'Accept' }), 'Accept');
+    await page.keyboard.press('Enter');
+    await expect(open).toContainText('Accepted');
+    await keptSomewhere('after Accept');
+
+    // Editing: the form takes the focus, saves from the keyboard, and the focus is given back.
+    await tabTo(open.getByRole('button', { name: /^Edit / }), 'Edit');
+    await page.keyboard.press('Enter');
+    const form = page.getByRole('dialog', { name: 'Edit stakeholder' });
+    const name = form.getByRole('textbox', { name: 'Name' });
+    await expect(name).toBeFocused();
+    await page.keyboard.press('End');
+    await page.keyboard.type(' (as we call them)');
+    await tabTo(form.getByRole('button', { name: 'Save changes' }), 'Save changes');
+    await page.keyboard.press('Enter');
+    await expect(form).toHaveCount(0);
+    await expect(page.getByRole('complementary')).toContainText('(as we call them)');
+    await keptSomewhere('after the form is saved');
+
+    // Approving: the actors are made, and the way on has the focus.
+    await tabTo(pill(page).getByRole('button', { name: 'Approve & create actors' }), 'Approve');
+    await page.keyboard.press('Enter');
+    await expect(pill(page)).toContainText('actors ready');
+    await expect(pill(page).getByRole('button', { name: 'Simulate' })).toBeFocused();
+    await expectRing('Simulate');
     expect(problems).toEqual([]);
   });
 });

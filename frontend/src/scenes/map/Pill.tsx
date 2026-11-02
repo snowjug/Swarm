@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowRight, Check, Save, Undo2, Users } from 'lucide-react';
@@ -98,6 +98,53 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
   );
 }
 
+/** How far the review is, and the way to the next party: one button, named by the words it shows. */
+function ReviewProgress({ model }: { model: Extract<PillModel, { kind: 'review' }> }) {
+  const left = model.total - model.reviewed;
+  const detail = useId();
+  return (
+    <button
+      type="button"
+      className="sw-pill__progress"
+      onClick={model.onNext}
+      disabled={left === 0}
+      aria-label={left > 0 ? `${left} to review, Next` : 'All reviewed'}
+      aria-describedby={detail}
+    >
+      {/* The ring only draws what the words say, and its own name would be words the button does not show. */}
+      <span aria-hidden="true">
+        <Ring
+          value={model.total ? model.reviewed / model.total : 0}
+          size={40}
+          stroke={4}
+          label="Reviewed"
+          valueText={`${model.reviewed} of ${model.total}`}
+          tone={left === 0 ? 'favor' : 'accent'}
+        >
+          <span className="sw-pill__ringnum">
+            {left === 0 ? <Check size={15} aria-hidden="true" /> : left}
+          </span>
+        </Ring>
+      </span>
+      {/* A reader of the page's text, not of its layout, finds the number and the words apart without this. */}{' '}
+      <span className="sw-pill__label">
+        {left === 0 ? 'All reviewed' : 'to review'}
+        {left > 0 && (
+          <>
+            {' '}
+            <span className="sw-pill__sub">
+              Next <ArrowRight size={11} aria-hidden="true" />
+            </span>
+          </>
+        )}
+      </span>
+      <span id={detail} hidden>
+        {model.reviewed} of {model.total} reviewed
+      </span>
+    </button>
+  );
+}
+
 function Body({ model }: { model: PillModel }): ReactNode {
   switch (model.kind) {
     case 'working':
@@ -135,42 +182,13 @@ function Body({ model }: { model: PillModel }): ReactNode {
           </div>
         </>
       );
-    case 'review': {
-      const left = model.total - model.reviewed;
+    case 'review':
       return (
         <>
-          <button
-            type="button"
-            className="sw-pill__progress"
-            onClick={model.onNext}
-            disabled={left === 0}
-            aria-label={left > 0 ? `${left} to review, Next` : 'All reviewed'}
-          >
-            <Ring
-              value={model.total ? model.reviewed / model.total : 0}
-              size={40}
-              stroke={4}
-              label="Reviewed"
-              valueText={`${model.reviewed} of ${model.total}`}
-              tone={left === 0 ? 'favor' : 'accent'}
-            >
-              <span className="sw-pill__ringnum">
-                {left === 0 ? <Check size={15} aria-hidden="true" /> : left}
-              </span>
-            </Ring>
-            <span className="sw-pill__label">
-              {left === 0 ? 'All reviewed' : 'to review'}
-              {left > 0 && (
-                <span className="sw-pill__sub">
-                  Next <ArrowRight size={11} aria-hidden="true" />
-                </span>
-              )}
-            </span>
-          </button>
+          <ReviewProgress model={model} />
           <ApproveButton approve={model.approve} />
         </>
       );
-    }
     case 'make':
       return (
         <>

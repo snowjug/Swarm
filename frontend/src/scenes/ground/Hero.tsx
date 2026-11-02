@@ -5,6 +5,7 @@ import { Button, Chip, Notice, Popover, PopoverContent, PopoverTrigger } from '.
 import { SPRING, useReducedMotion } from '../../design/motion';
 import type { Tone } from '../../design/ui';
 import { useWorkspace } from '../../app/context';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { openConflicts } from '../../lib/ledger';
 import { Figures, type FigureSpec } from './Figures';
 import { Method } from './Method';
@@ -79,7 +80,9 @@ function StatusChip({
 }
 
 function Question({ text }: { text: string }) {
-  const long = text.length > 170;
+  // On a phone the question keeps to three lines, so the figures and the action are not pushed off the first screen.
+  const phone = useMediaQuery('(max-width: 40rem)');
+  const long = text.length > (phone ? 96 : 170);
   return (
     <div className="sw-ground__ask">
       <h1 className="sw-ground__question" id="ground-question" data-long={long || undefined}>

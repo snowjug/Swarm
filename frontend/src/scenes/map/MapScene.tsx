@@ -288,9 +288,15 @@ export function MapScene() {
     setDraft((old) =>
       (old ?? actorSet?.actors ?? []).map((actor) => (actor.id === next.id ? next : actor)),
     );
+  // The button that saves is built when the number of changed actors changes, not on every change: what it saves is read
+  // from here, when it is pressed, so that the last thing the person changed is what is saved.
+  const draftNow = useRef(draft);
+  useEffect(() => {
+    draftNow.current = draft;
+  });
   const saveActors = async (): Promise<void> => {
     // A line that was added and left empty is nothing, not a want with no words.
-    const trimmed = draft?.map((actor) => ({
+    const trimmed = draftNow.current?.map((actor) => ({
       ...actor,
       role: actor.role.trim(),
       priorBelief: actor.priorBelief.trim(),

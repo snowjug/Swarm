@@ -88,6 +88,13 @@
       max-width: none;
     }
   }
+  @media (max-width: 40rem) {
+    .sw-ground__question {
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
+      max-width: none;
+    }
+  }
   .sw-ground__more {
     margin-left: -0.8rem;
   }
@@ -296,6 +303,12 @@
     align-items: center;
     gap: var(--s-2) var(--s-4);
     margin-top: var(--s-1);
+  }
+  @media (max-width: 40rem) {
+    /* The one action is as wide as the screen, as it is on the first screen of the product. */
+    .sw-ground__actions > .sw-btn--lg {
+      flex: 1 1 100%;
+    }
   }
   .sw-ground__stage {
     position: relative;

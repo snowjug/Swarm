@@ -369,8 +369,10 @@
       white-space: nowrap;
     }
     /* With the words gone, an option is an icon: it still has to be as wide as a finger. */
-    .sw-map__toolbar .sw-seg__option {
+    .sw-map__toolbar .sw-seg__option,
+    .sw-map__stats .sw-chip--button {
       min-width: 2.75rem;
+      justify-content: center;
     }
     .sw-map__legend {
       bottom: calc(var(--s-3) + 4.6rem);
