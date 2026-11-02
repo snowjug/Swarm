@@ -24,6 +24,12 @@ const PeopleDialog = lazy(() =>
 
 export type PanelName = 'history' | 'ask' | 'audit' | 'budget' | 'access' | 'people';
 
+/** The question field of the first screen, or failing that the page itself: where "Ask a question" leaves a person. */
+function focusTheQuestion(): void {
+  const field = document.querySelector<HTMLElement>('[aria-label="Your what-if question"]');
+  (field ?? document.getElementById('main-content'))?.focus();
+}
+
 /**
  * The overlays: each is mounted only while it is open, and its code is fetched when it is first wanted.
  * Closing one is the host's business; every panel is told `open` and `onOpenChange` and leaves by itself.
@@ -38,6 +44,7 @@ export function PanelHost({
   askSeed,
   onOpenProject,
   onSurvey,
+  onDeepDive,
 }: {
   panel: PanelName | null;
   onClose: () => void;
@@ -48,6 +55,8 @@ export function PanelHost({
   askSeed: { target?: string; message?: string };
   onOpenProject: (id: string, target?: { scene?: ProjectScene; view?: string | null }) => void;
   onSurvey: (record: SurveyRecord) => void;
+  /** Opens the deep dive of the open project, where Ask's report is written; null while it is shut. */
+  onDeepDive: (() => void) | null;
 }) {
   const change = (open: boolean) => {
     if (!open) onClose();
@@ -75,6 +84,10 @@ export function PanelHost({
           }}
           onRefresh={() => void engine.loadHistory()}
           onDelete={engine.remove}
+          onNew={() => {
+            onClose();
+            window.setTimeout(focusTheQuestion, 0);
+          }}
         />
       )}
       {panel === 'ask' && project && (
@@ -84,6 +97,14 @@ export function PanelHost({
           project={project}
           config={config}
           onSurvey={onSurvey}
+          onDeepDive={
+            onDeepDive
+              ? () => {
+                  onClose();
+                  onDeepDive();
+                }
+              : null
+          }
           initialTarget={askSeed.target}
           initialMessage={askSeed.message}
         />

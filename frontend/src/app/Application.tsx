@@ -584,6 +584,11 @@ export function Application() {
         askSeed={askSeed}
         onOpenProject={openProject}
         onSurvey={(record) => project && engine.recordSurvey(project.id, record)}
+        onDeepDive={
+          project && sceneAvailable(project, 'simulate')
+            ? () => go('simulate', { view: 'deep' })
+            : null
+        }
       />
     </AppShell>
   );
