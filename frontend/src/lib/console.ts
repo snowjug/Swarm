@@ -112,10 +112,6 @@ export function canExecute(project: ProjectDetail, step: ExecutionStep): boolean
   return index === 0 || state.steps[stepOrder[index - 1]!] === 'ready';
 }
 
-export function statusLabel(status: StepStatus | null): string {
-  return status ?? 'not recorded';
-}
-
 export function initialStep(project: ProjectDetail): ConsoleStep {
   if (isGuided(project)) return project.console!.activeStep;
   if (project.report) return 'report';
