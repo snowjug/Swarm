@@ -10,6 +10,7 @@ import {
   compared,
   compareAt,
   finished,
+  readViaApi,
   rename,
   run,
   seedByHand,
@@ -214,19 +215,29 @@ test.describe('a change made elsewhere', () => {
     await expect(outOfDate(page)).toHaveCount(0);
 
     // A finished one is: the newest is on show, the brief rests on the first, and the first says so when it is read.
-    await compared(api, id, { runsPerVariant: 12, baseSeed: 77, sensitivity: false });
+    const newer = await compared(api, id, { runsPerVariant: 12, baseSeed: 77, sensitivity: false });
+    expect(newer.id).not.toBe(olderId);
     await page.goto(compareAt(id));
     await arrived(page);
     await page.getByRole('button', { name: 'Parts of the page, saved comparisons' }).click();
-    const saved = page.getByRole('menuitemradio').filter({ hasText: '10 runs' });
-    await saved.click();
+    const readOf = (analysis: string) =>
+      page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' && response.url().endsWith(`/analysis/${analysis}`),
+      );
+    // The saved comparison that is chosen is read, and it is the older one that is on show: the one with ten runs each.
+    const readOlder = readOf(olderId);
+    await page.getByRole('menuitemradio').filter({ hasText: '10 runs' }).click();
+    await readOlder;
+    expect((await readViaApi(api, id, olderId)).config.runsPerVariant).toBe(10);
     await expect(page.getByRole('main')).toContainText('10 seeded runs each');
     await expect(olderOne(page)).toBeVisible();
     await olderOne(page).click();
     await expect(page.getByText('A newer one finished')).toBeVisible();
+    const readNewer = readOf(newer.id);
     await page.getByRole('button', { name: 'Read the newest' }).click();
+    await readNewer;
     await expect(page.getByRole('main')).toContainText('12 seeded runs each');
-    expect(olderId).toBeTruthy();
     expect(problems).toEqual([]);
   });
 });

@@ -241,8 +241,21 @@ test.describe('a finished simulation, looked at', () => {
       });
     const view = page.getByRole('group', { name: 'View' });
     await expect.poll(scale).toBeGreaterThan(0);
-    await page.waitForTimeout(800);
-    const start = await scale();
+    // The picture settles on its fit with a spring: its scale is the start once three readings in a row agree.
+    let before = Number.NaN;
+    let still = 0;
+    await expect
+      .poll(
+        async () => {
+          const now = await scale();
+          still = now === before ? still + 1 : 0;
+          before = now;
+          return still;
+        },
+        { intervals: [100] },
+      )
+      .toBeGreaterThanOrEqual(3);
+    const start = before;
 
     await view.getByRole('button', { name: 'Zoom in' }).click();
     await view.getByRole('button', { name: 'Zoom in' }).click();
