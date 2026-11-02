@@ -33,11 +33,9 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
   const [useModel, setUseModel] = useState(false);
   const [open, setOpen] = useState(false);
   const making = approve.mode === 'make';
-  const label = making
-    ? 'Make the actors'
-    : approve.keepsEdited > 0
-      ? 'Approve'
-      : 'Approve & create actors';
+  // The one thing to do is said in two words; what it also does (it accepts the list) is in the name a reader hears.
+  const label = approve.keepsEdited > 0 && !making ? 'Approve' : 'Create actors';
+  const name = !making && approve.keepsEdited === 0 ? 'Approve & create actors' : undefined;
   const press = (model: boolean) => {
     setOpen(false);
     approve.onConfirm({ model });
@@ -48,11 +46,11 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
       size="lg"
       icon={<Users size={18} aria-hidden="true" />}
       disabled={approve.disabled}
+      aria-label={name}
       data-stk-focus="approve"
       onClick={approve.modelAvailable ? undefined : () => press(false)}
     >
-      <span className="sw-pill__long">{label}</span>
-      <span className="sw-pill__short">{making ? 'Make actors' : 'Approve'}</span>
+      {label}
     </Button>
   );
   if (!approve.modelAvailable || approve.disabled) {
@@ -68,7 +66,7 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
       <PopoverTrigger asChild>{button}</PopoverTrigger>
       <PopoverContent side="top" align="end" width="22rem" className="sw-pill__pop">
         <p className="sw-pill__pop-title">
-          {making ? 'Make the actors' : 'Approve the stakeholders'}
+          {approve.keepsEdited > 0 && !making ? 'Approve the stakeholders' : 'Create the actors'}
         </p>
         <p className="sw-caption">
           {approve.keepsEdited > 0
@@ -90,7 +88,7 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
             icon={<Check size={16} aria-hidden="true" />}
             onClick={() => press(useModel && approve.keepsEdited === 0)}
           >
-            {making ? 'Make the actors' : 'Approve'}
+            {label}
           </Button>
         </div>
       </PopoverContent>
