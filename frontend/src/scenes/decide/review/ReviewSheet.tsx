@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { ArrowRight, Check, ChevronDown, Search } from 'lucide-react';
 import {
   UNRECORDED_INPUTS_ADVICE,
   comparisonInputsUnrecorded,
@@ -45,6 +45,7 @@ import {
   NO_FILTER,
   bySeriousness,
   filterCritiques,
+  mentionsConflicts,
   subjectOf,
   tally,
   type ReviewFilter,
@@ -388,6 +389,8 @@ export interface ReviewSheetProps {
   /** A critic to show alone, when the sheet was opened from one. */
   role: CriticRole | null;
   onRerun: () => void;
+  /** The way to the conflicts between the sources, for a note that says they were not checked. */
+  onConflicts?: () => void;
 }
 
 function useFocused(
@@ -462,6 +465,7 @@ export function ReviewSheet({
   focusId,
   role,
   onRerun,
+  onConflicts,
 }: ReviewSheetProps) {
   const { view } = state;
   const set = view?.critiques ?? null;
@@ -527,8 +531,33 @@ export function ReviewSheet({
                 <div className="sw-decide-review__sum">
                   <p className="sw-decide-review__meta">
                     {modeText(set.mode)} · made {day(set.generatedAt)}
-                    {set.notes && set.notes.length > 0 ? ` · ${set.notes.join(' ')}` : ''}
                   </p>
+                  {set.notes && set.notes.length > 0 && (
+                    <ul
+                      className="sw-decide-review__notes"
+                      role="list"
+                      aria-label="What to know about how this review was made"
+                    >
+                      {set.notes.map((note) => (
+                        <li key={note}>
+                          <span>{note}</span>
+                          {onConflicts && mentionsConflicts(note) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconEnd={<ArrowRight size={15} aria-hidden="true" />}
+                              onClick={() => {
+                                onOpenChange(false);
+                                onConflicts();
+                              }}
+                            >
+                              See the conflicts
+                            </Button>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <div
                     className="sw-decide-review__filters"
                     role="group"

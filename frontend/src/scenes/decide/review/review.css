@@ -298,6 +298,27 @@
     color: var(--ink-3);
     font-size: var(--fs-small);
   }
+  /* What the server says about how the review was made (an input that was missing, a check that could not run), as sentences of its own and not run into the line above. */
+  .sw-decide-review__notes {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-decide-review__notes li {
+    display: grid;
+    justify-items: start;
+    gap: var(--s-1);
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--c-caution);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-decide-review__notes .sw-btn {
+    margin-left: -0.8rem;
+  }
   .sw-decide-review__filters {
     display: flex;
     flex-wrap: wrap;
