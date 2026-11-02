@@ -6,7 +6,7 @@ says so. Why it is built this way, and what was rejected, is
 [ADR 0015](./adr/0015-premium-interface.md). The rules of the design system are also written beside
 its code, in [`frontend/src/design/README.md`](../frontend/src/design/README.md).
 
-![The first screen: the heading "Explore what could happen next.", a large question field with Evidence and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./assets/swarm-ask.png)
+![The first screen: the heading "Explore what could happen next.", a large question field with Evidence, Time frame, Assumptions and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./assets/swarm-ask.png)
 
 ## The shape of it
 
