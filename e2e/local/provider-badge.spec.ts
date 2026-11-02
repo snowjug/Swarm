@@ -91,3 +91,71 @@ for (const viewport of viewports) {
     });
   });
 }
+
+// The popover is glass, and glass is one surface: its edge is drawn once, on a frame that stays where it is. When what
+// it holds is longer than the screen (the details, on a phone), the body inside the frame scrolls and the frame does not;
+// if the frame itself scrolled, the lower edge of the glass would travel up with the text and cross it.
+for (const theme of ['light', 'dark'] as const) {
+  for (const size of [
+    { width: 390, height: 844 },
+    { width: 320, height: 568 },
+  ]) {
+    test(`on a phone ${size.width}px wide the model popover is one glass surface that does not scroll, in the ${theme} theme`, async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        viewport: size,
+        hasTouch: true,
+        reducedMotion: 'reduce',
+      });
+      await context.addInitScript(
+        (value) => window.localStorage.setItem('swarm.theme', value),
+        theme,
+      );
+      const page = await context.newPage();
+      const problems = watchPage(page);
+      await openApp(page);
+      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await page.getByRole('banner').getByRole('button', { name: 'Local rules' }).click();
+      const popover = page.getByRole('dialog', { name: 'Model provider' });
+      await openDisclosure(popover, 'Details');
+      await quiet(page);
+
+      const measured = await popover.evaluate((frame) => {
+        const scrolling = (element: Element) =>
+          /auto|scroll/u.test(getComputedStyle(element).overflowY) &&
+          element.scrollHeight > element.clientHeight + 1;
+        const scrollers = [frame, ...frame.querySelectorAll('*')].filter(scrolling);
+        const before = frame.getBoundingClientRect();
+        for (const scroller of scrollers) scroller.scrollTop = scroller.scrollHeight;
+        const after = frame.getBoundingClientRect();
+        return {
+          glass: frame.classList.contains('sw-glass'),
+          frameOverflow: getComputedStyle(frame).overflowY,
+          frameScrollTop: frame.scrollTop,
+          frameOverflows: frame.scrollHeight > frame.clientHeight + 1,
+          scrollers: scrollers.map((scroller) => scroller.className),
+          bodyScrollTop: scrollers.find((scroller) => scroller !== frame)?.scrollTop ?? 0,
+          moved: Math.abs(after.top - before.top) + Math.abs(after.bottom - before.bottom),
+        };
+      });
+      // The glass is not what scrolls: it holds, and one body inside it scrolls.
+      expect(measured.glass).toBe(true);
+      expect(measured.frameOverflow).not.toMatch(/auto|scroll/u);
+      expect(measured.frameOverflows).toBe(false);
+      expect(measured.frameScrollTop).toBe(0);
+      expect(measured.scrollers).toHaveLength(1);
+      expect(measured.bodyScrollTop).toBeGreaterThan(0);
+      expect(measured.moved).toBe(0);
+      // Scrolled to the end, the end of what it says is there, inside the frame.
+      await expect(
+        popover.getByText(/^Counters cover every real provider round trip/u),
+      ).toBeInViewport({
+        ratio: 1,
+      });
+      await expectNoHorizontalOverflow(page);
+      expect(problems).toEqual([]);
+      await context.close();
+    });
+  }
+}
