@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { m } from 'motion/react';
 import { Check, X } from 'lucide-react';
 import type { Analysis } from '../../../../shared/analysis';
@@ -100,6 +100,11 @@ export function Running({
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+  // The button that was pressed is gone: focus goes to what the screen is, and the page is not moved to bring it there.
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    title.current?.focus({ preventScroll: true });
+  }, []);
   const lanes = useMemo(() => lanesOf(analysis, perturbations), [analysis, perturbations]);
   const { completedRuns, totalRuns } = analysis.progress;
   const share = totalRuns > 0 ? Math.min(1, completedRuns / totalRuns) : 0;
@@ -107,11 +112,13 @@ export function Running({
   const elapsed = Math.max(0, now - new Date(analysis.createdAt).getTime());
   const phase = cancelling
     ? 'Stopping after the run in progress'
-    : lanes.phase === 'runs'
-      ? 'Running the scenarios'
-      : lanes.phase === 'sensitivity'
-        ? 'Testing which assumptions it leans on'
-        : 'Reading the results';
+    : analysis.status === 'queued'
+      ? 'Waiting to start'
+      : lanes.phase === 'runs'
+        ? 'Running the scenarios'
+        : lanes.phase === 'sensitivity'
+          ? 'Testing which assumptions it leans on'
+          : 'Reading the results';
   const colours = variantColours(lanes.lanes);
   // Said to a screen reader in tenths, so that it is not read out every second.
   const tenths = Math.floor(share * 10) * 10;
@@ -153,6 +160,7 @@ export function Running({
         </div>
         <h1
           id="run-title"
+          ref={title}
           className="sw-title sw-run__title"
           tabIndex={-1}
           data-focus-key="run-title"

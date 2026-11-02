@@ -24,6 +24,8 @@ import {
   type Tone,
 } from '../../../design/ui';
 import { stepLock } from '../../../lib/console';
+import { sceneAvailable } from '../../../app/scenes';
+import { readsThroughTheDeepDive } from '../engineOnly';
 import { resumeActionLabel } from '../../../lib/whatIf';
 import { LOCAL_NOTE, MODEL_NOTE, POSITION_NOTE, PROXY_LINE } from './copy';
 import { useDeep, type DeepState } from './context';
@@ -201,6 +203,26 @@ function Primary({ state }: { state: DeepState }): ReactNode {
       );
     }
     if (controls.report === 'open') {
+      // The report is a page of the decision scene, which opens once the scenarios have been compared.
+      if (!sceneAvailable(project, 'decide')) {
+        return (
+          <>
+            <span className="sw-deep-strip__why">
+              The report is written. It opens with the decision page, once the scenarios have been
+              compared.
+            </span>
+            {!readsThroughTheDeepDive(project) && (
+              <Button
+                variant="glass"
+                iconEnd={<ArrowRight size={16} aria-hidden="true" />}
+                onClick={() => go('simulate', { view: 'setup' })}
+              >
+                Set up the comparison
+              </Button>
+            )}
+          </>
+        );
+      }
       return (
         <Button
           variant="accent"
@@ -251,24 +273,28 @@ function EngineChip() {
 /** The title, and one line that says what this is and what it is not. */
 export function Header() {
   const ws = useWorkspace();
+  // A run the engine made on its own has no comparison to go back to: the deep dive is its simulation.
+  const alone = readsThroughTheDeepDive(ws.project);
   return (
     <header className="sw-deep-header">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="sw-deep-back"
-        icon={<ArrowLeft size={15} aria-hidden="true" />}
-        onClick={() => ws.setView(null)}
-      >
-        Simulation
-      </Button>
+      {!alone && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="sw-deep-back"
+          icon={<ArrowLeft size={15} aria-hidden="true" />}
+          onClick={() => ws.setView(null)}
+        >
+          Simulation
+        </Button>
+      )}
       <p className="sw-eyebrow">Deep dive</p>
       <h1 className="sw-title sw-deep-title" id="deep-title">
         A slower, <em>closer</em> look
       </h1>
       <p className="sw-lead sw-deep-lead">
-        Fictional proxies act on two simulated platforms, round by round. The comparison and the
-        decision brief do not wait for it.
+        Fictional proxies act on two simulated platforms, round by round.
+        {alone ? '' : ' The comparison and the decision brief do not wait for it.'}
       </p>
       <p className="sw-caption sw-deep-caution">{PROXY_LINE}</p>
     </header>

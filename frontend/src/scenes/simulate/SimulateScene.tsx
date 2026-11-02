@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowRight, Layers, MoreHorizontal, RotateCw, Telescope } from 'lucide-react';
@@ -26,13 +26,15 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { dateTime } from '../../lib/format';
 import type { Analysis } from '../../../../shared/analysis';
 import { LiveView } from './LiveView';
-import { NetworkControls, NetworkView } from './NetworkView';
-import { StoryView, TimelineView } from './Pages';
+import { NetworkColour, NetworkView, RelationKinds } from './NetworkView';
+import { Fine, StoryView, TimelineView } from './Pages';
+import { readsThroughTheDeepDive } from './engineOnly';
 import { Running } from './Running';
 import { Setup, type SetupSettings } from './Setup';
 import { NETWORK_DEFAULTS, replayOf, type NetworkSettings, type Replay } from './model';
 import { useCastMap } from './useCastMap';
 import { usePlayback } from './usePlayback';
+import { useStageBoxes } from './useStage';
 import './simulate.css';
 
 type TheatreView = 'story' | 'live' | 'network' | 'timeline';
@@ -102,6 +104,7 @@ function Theatre({
   const [network, setNetwork] = useState<NetworkSettings>(NETWORK_DEFAULTS);
   const cast = useCastMap(analysis);
   const stage = view === 'live' || view === 'network';
+  const boxes = useStageBoxes();
 
   useEffect(() => {
     if (autoplay) markReplayed(analysis.id);
@@ -124,31 +127,15 @@ function Theatre({
       data-view={view}
       data-stage={stage || undefined}
       aria-label="Simulation"
+      style={
+        {
+          '--stage-dock': `${boxes.dock}px`,
+          '--stage-top': `${boxes.top}px`,
+        } as React.CSSProperties
+      }
     >
-      {view === 'live' && replay && (
-        <LiveView
-          analysis={analysis}
-          cast={cast}
-          replay={replay}
-          playback={playback}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          wide={wide}
-        />
-      )}
-      {view === 'network' && replay && (
-        <NetworkView
-          analysis={analysis}
-          cast={cast}
-          settings={network}
-          replay={replay}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          wide={wide}
-        />
-      )}
-
-      <div className="sw-sim__top">
+      {/* The heading and the ways to look come first, in the page and for the keyboard; the picture is laid under them. */}
+      <div className="sw-sim__top" ref={boxes.topRef}>
         {stage && replay ? (
           <m.header
             className="sw-sim__head"
@@ -173,20 +160,22 @@ function Theatre({
                 </>
               )}
             </p>
-            <p className="sw-caption sw-sim__fine">
-              <span className="sw-hide-sm">
-                Synthetic actors, simulated under stated assumptions. Not a prediction.
-              </span>
-              <span className="sw-hide-lg">Synthetic actors. Not a prediction.</span>
-            </p>
+            <Fine className="sw-sim__fine" />
             {view === 'network' && (
-              <NetworkControls cast={cast} settings={network} onChange={setNetwork} />
+              <div className="sw-net__controls">
+                <NetworkColour settings={network} onChange={setNetwork} />
+                {wide && <RelationKinds cast={cast} settings={network} onChange={setNetwork} />}
+              </div>
             )}
           </m.header>
         ) : (
           <span />
         )}
-        <div className="sw-sim__bar sw-glass" role="toolbar" aria-label="Ways to look at it">
+        <div
+          className="sw-sim__bar sw-glass sw-glass--overlay"
+          role="toolbar"
+          aria-label="Ways to look at it"
+        >
           <Segmented<TheatreView>
             size="sm"
             label="View"
@@ -240,24 +229,61 @@ function Theatre({
         </div>
       </div>
 
+      {view === 'live' && replay && (
+        <LiveView
+          analysis={analysis}
+          cast={cast}
+          replay={replay}
+          playback={playback}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          wide={wide}
+          boxes={boxes}
+        />
+      )}
+      {view === 'network' && replay && (
+        <NetworkView
+          analysis={analysis}
+          cast={cast}
+          settings={network}
+          onSettings={setNetwork}
+          replay={replay}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          wide={wide}
+          boxes={boxes}
+        />
+      )}
+
       {view === 'story' && (
         <StoryView
           analysis={analysis}
           replay={replay}
           onWatch={(id) => (id && setSelectedId(id), ws.setView(replay ? null : 'timeline'))}
           onCompare={() => ws.go('compare')}
+          onReview={() => ws.go('map')}
+          onDeep={() => ws.go('simulate', { view: 'deep' })}
         />
       )}
       {view === 'timeline' && (
-        <TimelineView
-          analysis={analysis}
-          replay={replay}
-          round={playback.round}
-          onSeek={playback.seek}
-        />
+        <TimelineView analysis={analysis} replay={replay} playback={playback} />
       )}
     </section>
   );
+}
+
+/**
+ * A screen of the scene is a place of its own: when the one that is open changes (the form that was pressed gives way to
+ * the progress, a stopped run to its notice) the new one opens at its top, not where the last was scrolled to.
+ */
+function ScreenTop({ stage }: { stage: string }) {
+  const previous = useRef(stage);
+  useEffect(() => {
+    if (previous.current === stage) return;
+    previous.current = stage;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [stage]);
+  return null;
 }
 
 /**
@@ -288,7 +314,9 @@ export function SimulateScene() {
 
   let stage: string;
   let body: React.ReactNode;
-  if (ws.view === 'deep') {
+  // A run the engine made on its own has no comparison to watch: its simulation is its deep dive, whatever the address
+  // says, and the states of a comparison (no actors yet, the setup, the views of a finished one) are not its states.
+  if (ws.view === 'deep' || readsThroughTheDeepDive(ws.project)) {
     stage = 'deep';
     body = (
       <Suspense
@@ -341,8 +369,8 @@ export function SimulateScene() {
             </Button>
           }
         >
-          Approve the stakeholders and the actors are made from them. Then the futures can be set
-          side by side.
+          Approve the stakeholders, then create the actors from them on the map. Then the futures
+          can be set side by side.
         </EmptyState>
       </section>
     );
@@ -417,6 +445,7 @@ export function SimulateScene() {
 
   return (
     <>
+      <ScreenTop stage={stage} />
       <AnimatePresence mode="wait" initial={false}>
         <m.div
           key={stage}

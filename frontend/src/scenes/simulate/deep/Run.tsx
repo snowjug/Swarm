@@ -3,6 +3,7 @@ import {
   FileText,
   GitBranch,
   GitCompare,
+  Lock,
   MessageCircle,
   RotateCcw,
   Sparkles,
@@ -11,6 +12,7 @@ import {
 import type { ReactNode } from 'react';
 import { useWorkspace } from '../../../app/context';
 import { Notice, Stat } from '../../../design/ui';
+import { sceneAvailable } from '../../../app/scenes';
 import { resumeActionLabel } from '../../../lib/whatIf';
 import { PAUSE_HELP } from './copy';
 import { useDeep } from './context';
@@ -28,6 +30,7 @@ import {
 } from './model';
 import { SectionHead } from './parts';
 import { Platforms } from './Platforms';
+import { useRunsReach, useOpenRuns, type RunsReach } from './reach';
 import { RoundTrack } from './RoundTrack';
 import { Scheduled } from './Scheduled';
 import { maxBranchRound } from '../../../lib/whatIf';
@@ -82,12 +85,19 @@ function Row({
   icon: ReactNode;
   title: string;
   text: string;
-  onPress: () => void;
+  /** Null where it is not open yet: the row stays, says why, and does nothing. */
+  onPress: (() => void) | null;
   tone?: 'danger';
 }) {
   return (
     <li>
-      <button type="button" className="sw-deep-act" data-tone={tone} onClick={onPress}>
+      <button
+        type="button"
+        className="sw-deep-act"
+        data-tone={tone}
+        aria-disabled={onPress === null || undefined}
+        onClick={onPress ?? undefined}
+      >
         <span className="sw-deep-act__icon" aria-hidden="true">
           {icon}
         </span>
@@ -95,16 +105,21 @@ function Row({
           <span className="sw-deep-act__title">{title}</span>
           <span className="sw-deep-act__text">{text}</span>
         </span>
-        <ArrowRight className="sw-deep-act__go" size={17} aria-hidden="true" />
+        {onPress ? (
+          <ArrowRight className="sw-deep-act__go" size={17} aria-hidden="true" />
+        ) : (
+          <Lock className="sw-deep-act__go" size={16} aria-hidden="true" />
+        )}
       </button>
     </li>
   );
 }
 
 /** What a person can do with the run next, as a short list: each is one press. */
-function Next() {
+function Next({ reach }: { reach: RunsReach }) {
   const { project, controls, actions, whatIf, round, setTab, openBranch, askRestart } = useDeep();
   const ws = useWorkspace();
+  const openRuns = useOpenRuns(reach);
   const comparable =
     whatIf &&
     project.rounds.length > 0 &&
@@ -135,14 +150,20 @@ function Next() {
       />,
     );
   }
-  if (comparable) {
+  if (comparable && reach.way !== 'checking') {
     rows.push(
       <Row
         key="compare"
         icon={<GitCompare size={18} />}
         title="Compare two recorded runs"
-        text="Lay this run beside its parent, a branch or another run, round by round."
-        onPress={() => ws.go('compare', { view: 'runs' })}
+        text={
+          reach.way === 'closed'
+            ? 'Opens once the scenarios have been compared. Run that from the simulation first.'
+            : reach.way === 'parent'
+              ? 'Lay this run beside the one it was branched from, round by round. Opens on that run.'
+              : 'Lay this run beside its parent, a branch or another run, round by round.'
+        }
+        onPress={openRuns}
       />,
     );
   }
@@ -157,13 +178,18 @@ function Next() {
       />,
     );
   } else if (controls.report === 'open') {
+    const open = sceneAvailable(project, 'decide');
     rows.push(
       <Row
         key="report"
         icon={<FileText size={18} />}
         title="Open the detailed report"
-        text="The report and evidence trail written for this run."
-        onPress={actions.openReport}
+        text={
+          open
+            ? 'The report and evidence trail written for this run.'
+            : 'It is written. It opens with the decision page, once the scenarios have been compared.'
+        }
+        onPress={open ? actions.openReport : null}
       />,
     );
   }
@@ -214,6 +240,7 @@ export function Run() {
   const started = phase !== 'unprepared' && phase !== 'preparing' && phase !== 'prep-stopped';
   const proxies = project.agents.length;
   const planned = platforms.filter((item) => item.planned).length;
+  const reach = useRunsReach(project);
 
   if (!started) return null;
   return (
@@ -276,8 +303,8 @@ export function Run() {
 
       <Platforms />
       <Scheduled />
-      <Lineage />
-      <Next />
+      <Lineage reach={reach} />
+      <Next reach={reach} />
     </div>
   );
 }

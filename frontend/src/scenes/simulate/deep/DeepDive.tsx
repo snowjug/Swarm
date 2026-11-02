@@ -32,7 +32,7 @@ import {
 import './deep.css';
 
 /** Where to open: the setup before there is a run to look at, the run while there is one, the rounds once it is done. */
-function openingTab(phase: DeepPhase): DeepTab {
+function openingTab(phase: DeepPhase, branched: boolean): DeepTab {
   switch (phase) {
     case 'queued':
     case 'running':
@@ -42,6 +42,9 @@ function openingTab(phase: DeepPhase): DeepTab {
       return 'run';
     case 'complete':
       return 'rounds';
+    // A branch that has not started yet opens on what it declared, which is on the run.
+    case 'ready':
+      return branched ? 'run' : 'setup';
     default:
       return 'setup';
   }
@@ -65,7 +68,9 @@ export default function DeepDive() {
   const whatIf = guided && Boolean(config?.capabilities.whatIf);
   const advanced = mode === 'advanced';
 
-  const [tab, setTab] = useState<DeepTab>(() => openingTab(phase));
+  const [tab, setTab] = useState<DeepTab>(() =>
+    openingTab(phase, Boolean(project.console?.branch)),
+  );
   const [platform, setPlatform] = useState<Platform>(() => defaultPlatform(project));
   const [filter, setFilter] = useState<MemoryFilter>(NO_FILTER);
   const [proxy, setProxy] = useState<string | null>(null);
