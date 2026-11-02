@@ -29,6 +29,25 @@ test.describe('the connection check in the page, against a protocol-faithful fak
     const pings = async () =>
       ((await (await fake.get('/__stats')).json()) as { byKind: Record<string, number> }).byKind
         .ping ?? 0;
+    // The server remembers every call that went through it, and the specs before this one made some. What a server that has
+    // only been configured says is therefore served (from the real answer, with its last check taken out) until the first
+    // check made here; from then on every answer is the real one.
+    let checked = false;
+    await page.route('**/api/provider/status', async (route) => {
+      if (checked) return route.continue();
+      const response = await route.fetch();
+      const status = (await response.json()) as Record<string, unknown>;
+      return route.fulfill({
+        response,
+        json: {
+          ...status,
+          connectivity: 'unverified',
+          lastCheckedAt: null,
+          lastLatencyMs: null,
+          lastError: null,
+        },
+      });
+    });
 
     await openApp(page);
     await expect(chip(page)).toContainText('not verified yet');
@@ -45,6 +64,7 @@ test.describe('the connection check in the page, against a protocol-faithful fak
     });
 
     await test.step('verifying makes one request, and says what came of it', async () => {
+      checked = true;
       await panel.getByRole('button', { name: 'Verify connection' }).click();
       await expect(panel).toContainText('Connection verified: one real round trip completed');
       await expect(panel.getByRole('heading', { name: 'Connected' })).toBeVisible();

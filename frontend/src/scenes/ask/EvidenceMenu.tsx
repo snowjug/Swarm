@@ -179,6 +179,7 @@ function EvidencePanel({
           <Field label="Source text" labelHidden>
             <Textarea
               value={paste}
+              minRows={7}
               maxRows={7}
               maxLength={evidence.limits.maxChars}
               disabled={disabled}

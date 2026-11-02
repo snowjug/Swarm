@@ -73,8 +73,16 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
 /** A text area that grows with what is written, to a limit, so that a long question is never scrolled inside a box. */
 export const Textarea = forwardRef<
   HTMLTextAreaElement,
-  TextareaHTMLAttributes<HTMLTextAreaElement> & { maxRows?: number; bare?: boolean }
->(function Textarea({ className, maxRows = 12, bare, value, onChange, ...rest }, forwarded) {
+  TextareaHTMLAttributes<HTMLTextAreaElement> & {
+    /** A floor for the height, in lines: a field inside a floating panel that must not change size as it fills. */
+    minRows?: number;
+    maxRows?: number;
+    bare?: boolean;
+  }
+>(function Textarea(
+  { className, minRows = 0, maxRows = 12, bare, value, onChange, ...rest },
+  forwarded,
+) {
   const local = useRef<HTMLTextAreaElement | null>(null);
   const fit = useCallback(() => {
     const node = local.current;
@@ -82,9 +90,10 @@ export const Textarea = forwardRef<
     node.style.height = 'auto';
     const line = Number.parseFloat(getComputedStyle(node).lineHeight) || 24;
     const max = line * maxRows + 2;
-    node.style.height = `${Math.min(node.scrollHeight, max)}px`;
+    const min = minRows > 0 ? line * Math.min(minRows, maxRows) + 2 : 0;
+    node.style.height = `${Math.max(min, Math.min(node.scrollHeight, max))}px`;
     node.style.overflowY = node.scrollHeight > max ? 'auto' : 'hidden';
-  }, [maxRows]);
+  }, [minRows, maxRows]);
   // When what is written changes; and when the window or the fonts change how much a line holds.
   useLayoutEffect(() => {
     fit();

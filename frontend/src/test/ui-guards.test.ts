@@ -109,6 +109,12 @@ describe('type', () => {
   it('keeps the floor of the type scale at 12 pixels', () => {
     expect(text(join(source, TOKENS))).toMatch(/--fs-micro:\s*0\.75rem/u);
   });
+
+  it('never lets a display numeral break across lines: a document that breaks long words anywhere must not turn 13 into 1 over 3', () => {
+    const typography = stripComments(text(join(source, 'design/typography.css')));
+    const rule = /\.sw-numeral\s*\{([^}]*)\}/u.exec(typography)?.[1] ?? '';
+    expect(rule).toMatch(/white-space:\s*nowrap/u);
+  });
 });
 
 describe('the cascade', () => {

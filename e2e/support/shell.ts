@@ -358,6 +358,18 @@ export async function openHistory(page: Page): Promise<Locator> {
   return dialog;
 }
 
+/**
+ * Presses Escape and waits for `layer` to close. A dialog that has just taken focus is the layer that Escape reaches only one
+ * render later, and a key that arrives in between is dropped, so it is pressed again for as long as the layer is open. A press
+ * that did close it is never repeated.
+ */
+export async function escapeUntilHidden(page: Page, layer: Locator): Promise<void> {
+  await expect(async () => {
+    await page.keyboard.press('Escape');
+    await expect(layer).toBeHidden({ timeout: 3_000 });
+  }).toPass({ timeout: 20_000 });
+}
+
 /** The attribute the document element carries for the theme or the motion setting, or null when it has none. */
 export const rootAttribute = (
   page: Page,

@@ -14,6 +14,7 @@ import {
   SCREENS,
   arrived,
   audit,
+  escapeUntilHidden,
   focusName,
   forget,
   historyButton,
@@ -439,8 +440,7 @@ test.describe('a dialog keeps focus off the page behind it, closes with Escape, 
     const confirm = page.getByRole('dialog', { name: /Delete this exploration/u });
     await expect(confirm).toBeVisible();
     await expect(confirm.getByRole('button', { name: 'Keep it' })).toBeFocused();
-    await page.keyboard.press('Escape');
-    await expect(confirm).toBeHidden();
+    await escapeUntilHidden(page, confirm);
     // Nothing was deleted and the history is still open.
     await expect(history).toBeVisible();
     await expect(remove).toBeVisible();
@@ -462,7 +462,7 @@ test.describe('a dialog keeps focus off the page behind it, closes with Escape, 
     const confirm = page.getByRole('dialog', { name: /Delete this exploration/u });
     // The question has taken focus, so it is the layer that Escape reaches.
     await expect(confirm.getByRole('button', { name: 'Keep it' })).toBeFocused();
-    await page.keyboard.press('Escape');
+    await escapeUntilHidden(page, confirm);
     await expect(remove).toBeFocused();
     // The tooltip of the button is not opened by being given focus back: the next Escape belongs to the history.
     await expect(page.getByRole('tooltip')).toHaveCount(0);

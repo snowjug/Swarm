@@ -239,6 +239,31 @@ export async function expectNoHorizontalOverflow(page: Page): Promise<void> {
   );
 }
 
+/**
+ * A figure (the display numerals) and a one-word label are never split inside the word: "13" is not "1" over "3". A page
+ * that lets long words break anywhere can do this to a figure in a narrow column, and a screenshot is the only other way
+ * to see it.
+ */
+export async function expectNoBrokenFigures(page: Page): Promise<void> {
+  const broken = await page.evaluate(() => {
+    const found: string[] = [];
+    for (const node of document.querySelectorAll('.sw-numeral, .sw-decide-ie__corner')) {
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const text = walker.currentNode as Text;
+        const words = (text.textContent ?? '').trim().split(/\s+/u).filter(Boolean);
+        if (words.length !== 1) continue;
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        const lines = new Set([...range.getClientRects()].map((box) => Math.round(box.top)));
+        if (lines.size > 1) found.push(`${words[0]} (${node.className})`);
+      }
+    }
+    return found;
+  });
+  expect(broken, 'figures and labels split across lines').toEqual([]);
+}
+
 /** Visible HTML text must be at least 12 CSS px (the floor of the type scale); SVG text is measured by its rendered scale instead. */
 export async function expectReadableText(page: Page, label: string): Promise<void> {
   const tiny = await page.evaluate(() => {

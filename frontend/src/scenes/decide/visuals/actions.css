@@ -182,6 +182,8 @@
     left: 0.4rem;
     color: var(--ink-2);
     font-size: var(--fs-micro);
+    /* A cell is about 4rem wide: a name may wrap at a space, never inside a word. */
+    overflow-wrap: normal;
   }
   .sw-decide-ie__marks {
     display: flex;

@@ -1231,5 +1231,10 @@ it is done.
 - **The database-location warning is not shown.** The server detects a database in a synchronised folder and
   reports it as `storage.warning` in `GET /api/config`; this interface does not show it. It is logged at
   start-up.
+- **Without a model, the engine's own sentences are shown as it wrote them.** A rules-mode project has nothing
+  to phrase anything: the validation plan names a conflict by the key words its two passages share, the
+  detailed report opens with its figures and thresholds, and two stability findings that differ only in their
+  last words look alike (cut to two lines) until one is opened. The interface does not rewrite what the engine
+  returns.
 - **No figure on this page is a measurement.** How many tests there are, how long a run takes and what a
   browser audit found are in the [testing guide](./TESTING.md), not here.

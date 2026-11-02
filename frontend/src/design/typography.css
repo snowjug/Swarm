@@ -75,5 +75,8 @@
     font-variant-numeric: lining-nums tabular-nums;
     letter-spacing: -0.02em;
     line-height: 1;
+    /* A figure is one thing: a column that is short of room (or a document that lets long words break anywhere) must
+       never split "13" into "1" over "3". */
+    white-space: nowrap;
   }
 }

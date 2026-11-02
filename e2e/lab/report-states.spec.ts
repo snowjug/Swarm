@@ -2,6 +2,7 @@ import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   apiContext,
   expectNoAxeViolations,
+  expectNoBrokenFigures,
   expectNoHorizontalOverflow,
   watchPage,
 } from '../support/helpers';
@@ -294,6 +295,7 @@ test.describe('words that are longer than the screen', () => {
       await page.getByRole('menuitem', { name: 'Open every chapter' }).click();
       await quiet(page);
       await expectNoHorizontalOverflow(page);
+      await expectNoBrokenFigures(page);
 
       await tools(page)
         .getByRole('button', { name: /^Review/u })

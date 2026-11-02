@@ -123,8 +123,8 @@ stage where the work had got to. It worked and it was tested, and it had three c
   are not held as unsaved work at all; the People and Who has access dialogs close with Done and have no close
   mark; Export snapshot is the engine's record of the project as JSON and not the decision brief, whose
   export is in Decide; the Compare point on the journey stays "ready"; the actor API refuses to add,
-  remove, rename or regroup an actor; full motion does not reach two component rules; and the
-  database-location warning is not shown.
+  remove, rename or regroup an actor; without a model the engine's own sentences are shown as it wrote
+  them; full motion does not reach two component rules; and the database-location warning is not shown.
 
 ## Evidence
 

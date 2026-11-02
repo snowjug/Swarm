@@ -50,7 +50,7 @@ function ImpactEffort({
     '0-0': 'Quick wins',
     '0-2': 'Big bets',
     '2-0': 'Fill-ins',
-    '2-2': 'Reconsider',
+    '2-2': 'Rethink',
   };
   return (
     <figure className="sw-decide-ie">
