@@ -110,7 +110,7 @@ export function CompareView({
         headingRef={headingRef}
         onSelect={onSelect}
         pending={pending}
-        onRun={() => go('simulate')}
+        onRun={() => go('simulate', { view: 'setup' })}
         onDecide={() => go('decide')}
         onReview={() => go('map')}
         onRuns={onRuns}
@@ -209,7 +209,7 @@ function Scenarios() {
             freshness={freshness}
             newer={newer}
             canRun={canRun}
-            onRun={() => go('simulate')}
+            onRun={() => go('simulate', { view: 'setup' })}
             onNewer={(id) => {
               setAsked(id);
               state.select(id);

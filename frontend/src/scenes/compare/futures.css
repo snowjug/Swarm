@@ -136,7 +136,8 @@
   }
   @media (hover: none) {
     .sw-cmp-fut__hint {
-      opacity: 0.85;
+      color: var(--accent-strong);
+      opacity: 1;
       transform: none;
     }
   }
