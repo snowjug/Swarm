@@ -418,7 +418,8 @@ project's record, never kept by the page, and a new screen of the scene opens at
     whether its strength is the system's assumption or "was set by you". Where the question stated one
     amount and no alternative, the scenario that was read adds a smaller and a larger version, named as
     suggestions ("Smaller change (suggestion)"), which are the person's to edit or delete. **Add an
-    alternative** adds one (strength 0.5 from round 2); an alternative can be removed while another stays.
+    alternative** adds one (strength 0.5 from round 2) and is disabled at eight scenarios; an alternative can
+    be removed while another stays.
   - **Seeded runs of each** (10, 30 or 100) and a switch, **Test which assumptions it leans on**. A line
     says what the simulation will cost before it starts ("N simulated runs · K scenarios × R + S for
     sensitivity", and a time), and a disclosure says how that is estimated.
@@ -1109,8 +1110,31 @@ and that the names still fit.
 
 ## Not done
 
+What the interface does not do, and what nobody has checked. Each item is true of this code, and goes when
+it is done.
+
+- **The browser's Back button is not asked about.** The shell asks "Leave with unsaved changes?" before the
+  exits it controls (`go`, `openProject` and a new question from the mark or the palette), and the browser
+  asks before a tab is closed or reloaded. Back and Forward go by the address (`popstate`) and go on without
+  asking, even where a scene holds work.
+- **Not everything a person has typed is held.** The shell asks only about what a scene has told it it holds
+  (`useUnsavedWork`). The question being typed on the first screen, the scenarios edited on the Simulate
+  setup and the deep dive's unsaved setup are not held that way, so leaving them by the mark, the journey or
+  the palette does not ask.
+- **The Compare point on the journey stays "ready".** It does not tick once a comparison has finished, been
+  reviewed or been written up (`app/scenes.ts`; `e2e/lab/journey-gates.spec.ts` asserts it).
+- **The Map edits how an actor behaves and not who it is.** The actor API refuses to add, remove, rename or
+  regroup an actor (`ACTORS_CHANGED` and `ACTOR_LOCKED`, in `backend/src/stakeholders/actors.ts`): who an
+  actor is comes from its stakeholder, so that changes only by changing the stakeholders and making the
+  actors again.
+- **Four server messages still say "the Env Setup step"** where the Map is meant (`backend/src/analysis/service.ts`:
+  stakeholders that are not approved, actors that are out of date, no actors yet, and the engine refusing the
+  actors or a scenario). They show under "The simulation did not start" and in a simulation or comparison
+  that failed.
 - **No screen reader, real touch device or Windows high-contrast session** was used on this interface. The
-  browser tests emulate forced colours and reduced motion; they do not replace them.
+  browser tests emulate forced colours, reduced motion and touch; they do not replace them.
+- **Backdrop blur was judged at a device-pixel ratio of 1 only.** It could not be judged at 2 in the
+  headless browser used for the visual checks.
 - **The themes are written, not designed by a person.** Their contrast is computed and held, and the browser
   tests run axe-core on every theme, but no designer has reviewed them.
 - **Full motion is not honoured everywhere.** **Full** in the menu overrides the device's setting for the
