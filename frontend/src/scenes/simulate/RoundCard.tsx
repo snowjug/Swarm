@@ -1,13 +1,23 @@
 import { useMemo } from 'react';
 import { X } from 'lucide-react';
-import { Chip, IconButton, Meter } from '../../design/ui';
+import { Chip, IconButton } from '../../design/ui';
 import { stanceColor } from '../../viz/palette';
 import { signedNumber } from '../../lib/analysis';
 import type { ChainStep } from '../../lib/analysis';
 import { ShareBar } from './ShareBar';
-import { PeekCard } from './PeekCard';
+import { BarRows, ResponseRows } from './BarRows';
+import { RunBand } from './RunBand';
 import { StanceKey } from './StanceLegend';
-import { movementOf, roundOf, signalsOf, stanceSentence, traceOf, type Replay } from './model';
+import {
+  alignmentAt,
+  movementOf,
+  roundOf,
+  signalsOf,
+  stanceSentence,
+  traceOf,
+  type Alignment,
+  type Replay,
+} from './model';
 import './roundcard.css';
 
 /** One actor's stance across the rounds of the run, as a line on a symmetrical scale, with the change and the round shown marked. */
@@ -90,7 +100,7 @@ export function ActorTrace({
       <header className="sw-trace__head">
         <div>
           <p className="sw-eyebrow">{actor?.kind === 'cohort' ? 'Cohort' : 'Actor'}</p>
-          <h3 className="sw-trace__name">{actor?.name ?? actorId}</h3>
+          <h2 className="sw-trace__name">{actor?.name ?? actorId}</h2>
         </div>
         <IconButton label="Close" size="sm" onClick={onClose}>
           <X size={16} aria-hidden="true" />
@@ -124,113 +134,87 @@ export function ActorTrace({
   );
 }
 
-export interface RoundCardProps {
+/** How many of the related pairs lean the same way, and how many lean opposite ways, in the round shown. */
+function Related({ alignment }: { alignment: Alignment }) {
+  const { together, apart, quiet } = alignment;
+  // Where no pair leans clearly either way there is nothing to say about how they lean.
+  if (together + apart === 0) return null;
+  return (
+    <section className="sw-round__block" aria-label="How related actors lean">
+      <h2 className="sw-eyebrow">Related actors</h2>
+      <ul className="sw-lean">
+        <li data-lean="together">
+          <b className="sw-mono">{together}</b> {together === 1 ? 'pair leans' : 'pairs lean'}{' '}
+          together
+        </li>
+        <li data-lean="apart">
+          <b className="sw-mono">{apart}</b> {apart === 1 ? 'pair pulls' : 'pairs pull'} apart
+        </li>
+        <li data-lean="quiet">
+          <b className="sw-mono">{quiet}</b> {quiet === 1 ? 'pair is' : 'pairs are'} not clear
+        </li>
+      </ul>
+    </section>
+  );
+}
+
+export interface RoundDetailsProps {
   replay: Replay;
   round: number;
+  /** The relations drawn in the picture, for how the pairs they join lean. */
+  edges: readonly { id: string; from: string; to: string }[];
   chain: ReadonlyMap<string, ChainStep>;
+  /** How many seeded runs the comparison made of this scenario. */
+  runs: number;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  /** On a narrow screen the card is a line that opens, so that it does not cover the picture. */
+  /** On a narrow screen the card has no heading of its own: the line that opens it says the round. */
   compact?: boolean;
 }
 
-/** What is going on in the round shown: how the mix of responses stands, the signals the engine read, and what was set off. */
-export function RoundCard({
+/**
+ * What is going on in the round shown: what was set off, where the run stands among the others, how the simulated members
+ * respond, the signals the engine read and how the related actors lean. All of it is read from the run kept in full.
+ */
+export function RoundDetails({
   replay,
   round,
+  edges,
   chain,
+  runs,
   selectedId,
   onSelect,
   compact = false,
-}: RoundCardProps) {
+}: RoundDetailsProps) {
   const aggregate = roundOf(replay, round);
   const events = replay.eventsByRound.get(aggregate.round) ?? [];
   const signals = signalsOf(aggregate);
   const changeHere = aggregate.round === replay.changeRound;
-  const head = (
-    <header className="sw-round__head">
-      <p className="sw-eyebrow">Round</p>
-      <div className="sw-round__title">
-        <span className="sw-round__number sw-numeral">{aggregate.round}</span>
-        <span className="sw-round__of">of {replay.lastRound}</span>
-        {changeHere && <Chip tone="accent">The change lands</Chip>}
-      </div>
-      <p className="sw-caption">
-        Overall stance <span className="sw-mono">{signedNumber(aggregate.stanceMean)}</span> ·{' '}
-        {stanceSentence(aggregate.stanceMean, replay.scale)}
-      </p>
-    </header>
-  );
-  // A button holds phrasing content only, so the one line that opens the card is spans.
-  const peek = (
-    <span className="sw-round__line">
-      <span className="sw-round__number sw-numeral">{aggregate.round}</span>
-      <span className="sw-round__of">of {replay.lastRound}</span>
-      <span className="sw-round__state">
-        {changeHere ? 'The change lands · ' : ''}
-        <span className="sw-mono">{signedNumber(aggregate.stanceMean)}</span>{' '}
-        {stanceSentence(aggregate.stanceMean, replay.scale)}
-      </span>
-    </span>
+  const alignment = useMemo(
+    () => alignmentAt(replay, edges, aggregate.round),
+    [replay, edges, aggregate.round],
   );
   return (
-    <PeekCard
-      compact={compact}
-      label={`Round ${aggregate.round}`}
-      peek={peek}
-      glance={
-        <ShareBar
-          shares={aggregate.responseShares}
-          label={`Responses in round ${aggregate.round}`}
-          legend={false}
-          size="sm"
-        />
-      }
-      opensWith={selectedId}
-    >
-      {!compact && head}
-
-      <StanceKey scale={replay.scale} />
-
-      <section className="sw-round__block" aria-label="Responses">
-        <ShareBar
-          shares={aggregate.responseShares}
-          label={`Responses in round ${aggregate.round}`}
-        />
-      </section>
-
-      {signals.length > 0 && (
-        <section className="sw-round__block" aria-label="Signals read by the engine">
-          <h3 className="sw-eyebrow">Signals</h3>
-          <ul className="sw-round__signals">
-            {signals.map((signal) => (
-              <li key={signal.key}>
-                <span className="sw-round__signal">{signal.label}</span>
-                <Meter
-                  value={signal.value}
-                  label={signal.label}
-                  valueText={`${Math.round(signal.value * 100)}%`}
-                  size="sm"
-                  tone={
-                    signal.key === 'adoption'
-                      ? 'favor'
-                      : signal.key === 'adverse-share'
-                        ? 'against'
-                        : 'accent'
-                  }
-                />
-                <span className="sw-round__pct">{Math.round(signal.value * 100)}%</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+    <div className="sw-round__body">
+      {!compact && (
+        <header className="sw-round__head">
+          <p className="sw-eyebrow">Round</p>
+          <div className="sw-round__title">
+            <span className="sw-round__number sw-numeral">{aggregate.round}</span>
+            <span className="sw-round__of">of {replay.lastRound}</span>
+            {changeHere && <Chip tone="accent">The change lands</Chip>}
+          </div>
+        </header>
+      )}
+      {compact && changeHere && (
+        <p className="sw-round__flag">
+          <Chip tone="accent">The change lands</Chip>
+        </p>
       )}
 
-      <section className="sw-round__block" aria-label="Set off in this round">
-        <h3 className="sw-eyebrow">Set off</h3>
-        {events.length === 0 ? (
-          <p className="sw-caption">Nothing was set off in this round.</p>
-        ) : (
+      {events.length > 0 && (
+        <section className="sw-round__block" aria-label="Set off in this round">
+          <h2 className="sw-eyebrow">Set off</h2>
           <ul className="sw-round__events">
             {events.map((event) => {
               const step = chain.get(event.id);
@@ -282,8 +266,46 @@ export function RoundCard({
               );
             })}
           </ul>
-        )}
+        </section>
+      )}
+
+      <RunBand replay={replay} round={aggregate.round} runs={runs} />
+
+      <section className="sw-round__block" aria-label="Responses">
+        <h2 className="sw-eyebrow">How simulated members respond</h2>
+        <ResponseRows
+          shares={aggregate.responseShares}
+          label={`Responses in round ${aggregate.round}`}
+        />
       </section>
+
+      {signals.length > 0 && (
+        <section className="sw-round__block" aria-label="Signals read by the engine">
+          <h2 className="sw-eyebrow">Signals</h2>
+          <BarRows
+            label={`Signals in round ${aggregate.round}`}
+            rows={signals.map((signal) => ({
+              key: signal.key,
+              label: signal.label,
+              share: signal.value,
+              tone:
+                signal.key === 'adoption'
+                  ? 'favor'
+                  : signal.key === 'adverse-share'
+                    ? 'against'
+                    : 'accent',
+            }))}
+          />
+        </section>
+      )}
+
+      <Related alignment={alignment} />
+
+      {events.length === 0 && (
+        <p className="sw-caption sw-round__none">Nothing was set off in this round.</p>
+      )}
+
+      <StanceKey scale={replay.scale} />
 
       {selectedId && (
         <ActorTrace
@@ -293,6 +315,19 @@ export function RoundCard({
           onClose={() => onSelect(null)}
         />
       )}
-    </PeekCard>
+    </div>
+  );
+}
+
+/** The glance a narrow screen keeps in view while the details are closed: the mix of responses as one bar. */
+export function RoundGlance({ replay, round }: { replay: Replay; round: number }) {
+  const aggregate = roundOf(replay, round);
+  return (
+    <ShareBar
+      shares={aggregate.responseShares}
+      label={`Responses in round ${aggregate.round}`}
+      legend={false}
+      size="sm"
+    />
   );
 }

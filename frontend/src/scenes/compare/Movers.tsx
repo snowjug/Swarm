@@ -9,7 +9,7 @@ import { Ecosystem } from '../../viz/ecosystem/Ecosystem';
 import { edgesOf, nodesFromActors } from '../../viz/ecosystem/model';
 import { clusterColour, clusterLabel, stanceColor, stanceWord } from '../../viz/palette';
 import { vars } from './css';
-import { sectionInfo, STANCE_WORDS } from './copy';
+import { sectionInfo, STANCE_WORDS, ADVERSE_WORDS } from './copy';
 import { countText, shareText, signed } from './format';
 import { useInView } from './hooks';
 import {
@@ -72,7 +72,7 @@ function Detail({ mover, a, b }: { mover: Mover; a: Scenario; b: Scenario }) {
             />
             <p className="sw-cmp-mv__mixcap">
               <span className="num">{shareText(entry.adverse, entry.adverse < 0.1 ? 1 : 0)}</span>{' '}
-              look for an alternative or resist
+              of simulated members {ADVERSE_WORDS}
             </p>
           </div>
         ))}

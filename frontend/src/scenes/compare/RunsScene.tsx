@@ -10,6 +10,7 @@ import { useCompare } from './context';
 import { Divergence } from './Divergence';
 import { countText } from './format';
 import { Section } from './parts';
+import { readsThroughTheDeepDive } from '../simulate/engineOnly';
 import { RunHint, RunName } from './RunMenu';
 import {
   RELATION_WORDS,
@@ -166,14 +167,16 @@ export function RunsScene() {
     setMetric(firstMoved(comparison) ?? 'meanOpinion');
   }, [comparison, picked]);
 
+  // A run the engine made on its own has no comparison of scenarios behind this page: what it goes back to is the run.
+  const alone = readsThroughTheDeepDive(project);
   const back = (
     <Button
       variant="ghost"
       size="sm"
       icon={<ArrowLeft size={15} aria-hidden="true" />}
-      onClick={() => go('compare', { view: null })}
+      onClick={() => (alone ? go('simulate', { view: 'deep' }) : go('compare', { view: null }))}
     >
-      The comparison of scenarios
+      {alone ? 'The deep dive' : 'The comparison of scenarios'}
     </Button>
   );
 

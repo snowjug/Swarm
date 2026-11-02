@@ -87,7 +87,7 @@ export function NoneState({
         }
       >
         {needsActors
-          ? 'Approve the stakeholders and make the actors first. Then the scenarios can be run and set side by side.'
+          ? 'Approve the stakeholders and create the actors first. Then the scenarios can be run and set side by side.'
           : 'Simulate the baseline, the proposed change and its alternatives. They are set side by side here.'}
       </EmptyState>
     </div>

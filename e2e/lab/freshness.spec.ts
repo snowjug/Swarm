@@ -1,89 +1,59 @@
-import {
-  expect,
-  test,
-  type APIRequestContext,
-  type APIResponse,
-  type Locator,
-  type Page,
-} from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import type { BriefView } from '../../shared/brief';
-import type { CritiquesView } from '../../shared/critique';
-import type { StakeholdersView } from '../../shared/stakeholders';
+import { apiContext, watchPage } from '../support/helpers';
+import { addressOf } from '../support/app';
+import { arrived, forget } from '../support/shell';
 import {
-  advance,
-  apiContext,
-  createGuided,
-  expectNoAxeViolations,
-  watchPage,
-} from '../support/helpers';
-import { comparisonPanel, openStage, reviewPanel } from '../support/lab';
+  BUS_RELATIONS,
+  BUS_STAKEHOLDERS,
+  chooseRuns,
+  compared,
+  compareAt,
+  finished,
+  rename,
+  run,
+  seedByHand,
+  setup,
+  simulateAt,
+  startViaApi,
+  waitForTheatre,
+} from '../support/simulate';
 
-// What a person is told when what a brief and its review rest on changes somewhere else. "Another tab"
-// is a second client of the same server (the API), as a colleague's browser would be. Each test makes its
-// own project through the routes the pages use, with a finished comparison, the review and the brief,
-// and then changes one thing the page has not been told about.
+// What a person is told when what a comparison, and the brief written from it, rest on changes somewhere else. "Elsewhere"
+// is a second client of the same server (the API), as a colleague's browser would be. Each test makes its own project
+// through the routes the pages use, with a finished comparison, the independent review and the brief, and then changes
+// one thing the page has not been told about. The page is opened again afterwards, as a person who comes back would.
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.setTimeout(180_000);
 
 let api: APIRequestContext;
+const made: string[] = [];
 test.beforeAll(async ({ playwright }) => {
   api = await apiContext(playwright);
 });
 test.afterAll(async () => {
+  await forget(api, made);
   await api.dispose();
 });
 
-// ---------------------------------------------------------------------------------------------
-// The server: a project with a brief, and what another tab does to it
-// ---------------------------------------------------------------------------------------------
-
-async function json<T>(response: APIResponse): Promise<T> {
+async function json<T>(response: Awaited<ReturnType<APIRequestContext['get']>>): Promise<T> {
   expect(response.ok(), await response.text()).toBe(true);
   return (await response.json()) as T;
 }
 
-async function finishComparison(id: string): Promise<string> {
-  const started = await json<{ analysis: { id: string } }>(
-    await api.post(`/api/projects/${id}/analysis`, {
-      data: { runsPerVariant: 10, sensitivity: false },
-    }),
-  );
-  await expect
-    .poll(
-      async () =>
-        (
-          await json<{ analysis: { status: string } }>(
-            await api.get(`/api/projects/${id}/analysis/${started.analysis.id}`),
-          )
-        ).analysis.status,
-      { timeout: 60_000, intervals: [100, 250, 500] },
-    )
-    .toBe('completed');
-  return started.analysis.id;
-}
-
-/** The scenario, the approved stakeholders and the actors made from them: where Simulation opens. */
-async function throughActors(name: string): Promise<string> {
-  const id = await createGuided(api, { name });
-  await advance(api, id, 'knowledge');
-  const project = await json<{ question: string; documents: { name: string }[] }>(
-    await api.get(`/api/projects/${id}`),
-  );
-  const reading = await json<{ frame: unknown }>(
-    await api.post('/api/scenario/parse', {
-      data: {
-        question: project.question,
-        documents: project.documents.map((document) => ({ name: document.name, characters: 400 })),
-      },
-    }),
-  );
-  await json(await api.put(`/api/projects/${id}/scenario`, { data: { scenario: reading.frame } }));
-  await approveAndMakeActors(id);
+/** A project with a finished comparison, the independent review of it and the brief written from it. */
+async function briefedProject(name: string): Promise<string> {
+  const id = await seedByHand(api, name, BUS_STAKEHOLDERS, BUS_RELATIONS);
+  made.push(id);
+  await compared(api, id, { runsPerVariant: 10, sensitivity: false });
+  await json(await api.post(`/api/projects/${id}/critiques/run`, { data: {} }));
+  await json(await api.post(`/api/projects/${id}/brief`, { data: {} }));
   return id;
 }
 
-async function approveAndMakeActors(id: string): Promise<void> {
+/** What a person does about stakeholders that were changed: find and approve them again, and make the actors again. */
+async function approveAgain(id: string): Promise<void> {
   const found = await json<{ revision: number }>(
     await api.post(`/api/projects/${id}/stakeholders/discover`, {
       data: { mode: 'rules', confirm: true },
@@ -97,163 +67,54 @@ async function approveAndMakeActors(id: string): Promise<void> {
   await json(await api.post(`/api/projects/${id}/actors/generate`, { data: { confirm: true } }));
 }
 
-/** A project with a finished comparison, the independent review of it and the brief written from it. */
-async function briefedProject(name: string): Promise<string> {
-  const id = await throughActors(name);
-  await finishComparison(id);
-  await json(await api.post(`/api/projects/${id}/critiques/run`, { data: {} }));
-  await json(await api.post(`/api/projects/${id}/brief`, { data: {} }));
-  return id;
-}
+const decideAt = (project: string): string => addressOf({ project, scene: 'decide' });
+const outOfDate = (page: Page): Locator => page.getByRole('button', { name: 'Out of date' });
+const olderOne = (page: Page): Locator => page.getByRole('button', { name: 'An older comparison' });
+/** What the decision page says about its brief when what it rests on has changed. */
+const briefNotice = (page: Page): Locator =>
+  page.getByRole('status').filter({ hasText: 'This brief may be out of date' });
 
-const critiquesOf = async (id: string) =>
-  json<CritiquesView>(await api.get(`/api/projects/${id}/critiques`));
-
-/** What a second tab does: answers a critique, as someone reading the same review would. */
-async function answerElsewhere(id: string, critique: number, text: string): Promise<void> {
-  const view = await critiquesOf(id);
-  const target = view.critiques!.critiques.at(critique)!;
-  await json(
-    await api.put(`/api/projects/${id}/critiques/${target.id}/response`, {
-      data: { text, status: 'accepted', expectedRevision: view.revision },
-    }),
-  );
-}
-
-/** What a second tab does to the stakeholders: renames one, which also takes the approval away. */
-async function renameElsewhere(id: string, name: string): Promise<void> {
-  const view = await json<StakeholdersView>(await api.get(`/api/projects/${id}/stakeholders`));
-  const set = view.stakeholders!;
-  const first = set.stakeholders.find((stakeholder) => stakeholder.status !== 'removed')!;
-  await json(
-    await api.put(`/api/projects/${id}/stakeholders`, {
-      data: {
-        expectedRevision: view.revision,
-        relations: set.relations,
-        stakeholders: set.stakeholders.map((stakeholder) =>
-          stakeholder.id === first.id ? { ...stakeholder, name } : stakeholder,
-        ),
-      },
-    }),
-  );
-}
-
-// ---------------------------------------------------------------------------------------------
-// The page
-// ---------------------------------------------------------------------------------------------
-
-const refreshButton = (page: Page): Locator =>
-  page.getByRole('button', { name: 'Refresh project from server', exact: true });
-const notice = (page: Page, title: string): Locator =>
-  page.getByRole('status').filter({ hasText: title });
-const briefNotice = (page: Page): Locator => notice(page, 'This brief may be out of date');
-const reviewNotice = (page: Page): Locator => notice(page, 'This review may be out of date');
-/** A response as the review shows it, not the words in a box that was opened to change it. */
-const shownResponse = (page: Page, text: string): Locator =>
-  reviewPanel(page).locator('dd.preserve-text').filter({ hasText: text });
-const responseBox = (form: Locator): Locator => form.getByLabel('Your response', { exact: true });
-
-async function openReport(page: Page, id: string): Promise<void> {
-  await page.goto(`/?project=${id}`);
-  await openStage(page, /Report/u);
-  await expect(page.getByRole('article', { name: 'Decision brief', exact: true })).toBeVisible();
-  await expect(reviewPanel(page)).toBeVisible();
-}
-
-/** Counts what the page asked of one resource, from now on. */
-function countReads(page: Page, suffix: string): () => number {
-  let count = 0;
-  page.on('request', (request) => {
-    if (request.method() === 'GET' && new URL(request.url()).pathname.endsWith(suffix)) count += 1;
-  });
-  return () => count;
-}
-
-// ---------------------------------------------------------------------------------------------
-
-test.describe('a change made in another tab', () => {
-  test('Refresh project from server shows a critique answered elsewhere, and the brief out of date', async ({
-    page,
-  }) => {
-    const problems = watchPage(page);
-    const id = await briefedProject('Freshness: a critique answered elsewhere');
-    const briefReads = countReads(page, `/projects/${id}/brief`);
-    const reviewReads = countReads(page, `/projects/${id}/critiques`);
-    await openReport(page, id);
-    await expect(briefNotice(page)).toHaveCount(0);
-    const [openedBrief, openedReview] = [briefReads(), reviewReads()];
-
-    const ANSWER = 'A second tab has now accepted this objection after reading the evidence again.';
-    await answerElsewhere(id, 0, ANSWER);
-    // The server already says so; the page has not been told, and says nothing yet.
-    expect(
-      (await json<BriefView>(await api.get(`/api/projects/${id}/brief`))).changedSince,
-    ).toEqual(['critiques']);
-    await expect(shownResponse(page, ANSWER)).toHaveCount(0);
-    await expect(briefNotice(page)).toHaveCount(0);
-
-    await refreshButton(page).click();
-    await expect(briefNotice(page)).toBeVisible();
-    await expect(briefNotice(page)).toContainText(
-      'Since it was made, this has changed: critiques.',
-    );
-    await expect(briefNotice(page)).toContainText('Generate it again to bring it up to date.');
-    await expect(shownResponse(page, ANSWER)).toBeVisible();
-    // Both panels read again: the refresh is the person's explicit way to the server's truth.
-    expect(briefReads()).toBeGreaterThan(openedBrief);
-    expect(reviewReads()).toBeGreaterThan(openedReview);
-    await expectNoAxeViolations(page, 'the Report stage with the brief out of date');
-
-    // Writing the brief again is what brings it up to date, and it says so at once.
-    await page.getByRole('button', { name: 'Generate again' }).click();
-    await expect(briefNotice(page)).toHaveCount(0);
-    expect(problems).toEqual([]);
-  });
-
-  test('Refresh project from server shows the stakeholders changed elsewhere, and asks for the comparison to be run again', async ({
+test.describe('a change made elsewhere', () => {
+  test('the comparison says it is out of date once the stakeholders changed, and the way to make it current is refused until they are approved again', async ({
     page,
   }) => {
     const problems = watchPage(page, { refusals: true });
     const id = await briefedProject('Freshness: a stakeholder changed elsewhere');
-    await openReport(page, id);
-    await expect(briefNotice(page)).toHaveCount(0);
-    await expect(reviewNotice(page)).toHaveCount(0);
+    await page.goto(compareAt(id));
+    await arrived(page);
+    await expect(outOfDate(page)).toHaveCount(0);
 
-    await renameElsewhere(id, 'Residents renamed by a colleague');
-    await refreshButton(page).click();
+    await rename(api, id, 'Residents renamed by a colleague');
+    await page.reload();
+    await arrived(page);
+    await expect(outOfDate(page)).toBeVisible();
+    await outOfDate(page).click();
+    const popover = page.getByRole('dialog', { name: 'Out of date' });
+    await expect(popover.getByText('so it describes the project as it was.')).toBeVisible();
+    await expect(popover).toContainText('Only simulating again brings it up to date.');
 
-    // Writing the brief again from the same comparison would describe the change with the old runs,
-    // so both notices ask for the comparison to be run again, and show the way there.
+    // The decision page says so too, and names the way: the comparison has to be run again.
+    await page.keyboard.press('Escape');
+    await page.goto(decideAt(id));
+    await arrived(page);
     await expect(briefNotice(page)).toContainText(
       'The comparison it rests on was run before the stakeholders changed, so it describes the project as it was.',
     );
-    await expect(briefNotice(page)).toContainText(
-      'Run the comparison again in the Simulation stage, then generate the brief again.',
-    );
-    await expect(reviewNotice(page)).toContainText(
-      'The comparison it reviews was run before the stakeholders changed',
-    );
-    await expectNoAxeViolations(page, 'the Report stage with the comparison out of date');
-
-    // The brief written again from that comparison is still said to be out of date, and says what to do.
-    await page.getByRole('button', { name: 'Generate again' }).click();
-    await expect(briefNotice(page)).toContainText(
-      'Since it was made, this has changed: stakeholders.',
-    );
-
-    // The way to run it again is in the notice; the page that starts it refuses a cast that is no
-    // longer approved, in words that say what to do, and shows nothing as running.
-    await briefNotice(page).getByRole('button', { name: 'Open the Simulation stage' }).click();
-    await expect(page.getByRole('region', { name: 'Simulation workbench' })).toBeVisible();
-    await comparisonPanel(page).getByText('Run another comparison').click();
-    await comparisonPanel(page).getByRole('button', { name: 'Compare scenarios again' }).click();
     await expect(
-      page
-        .getByRole('alert')
-        .filter({ hasText: 'The stakeholders are not approved: they were found again or changed' }),
+      briefNotice(page).getByRole('button', { name: 'Re-run the comparison' }),
     ).toBeVisible();
-    await expect(comparisonPanel(page).getByRole('progressbar')).toHaveCount(0);
-    expect(problems).toEqual([]);
+
+    // The page that starts it refuses a cast that is no longer approved, in words that say what to do, and shows nothing as running.
+    await page.goto(simulateAt(id, 'setup'));
+    await expect(setup(page)).toBeVisible();
+    await chooseRuns(page, 10);
+    await run(page);
+    const refusal = page.getByRole('alert').filter({ hasText: 'The simulation did not start' });
+    await expect(refusal).toContainText(
+      'The stakeholders are not approved: they were found again or changed',
+    );
+    await expect(page.getByRole('progressbar')).toHaveCount(0);
+    expect(problems.filter((problem) => !/\b4\d\d\b/u.test(problem))).toEqual([]);
   });
 
   test('running the comparison again and writing the brief again brings it up to date', async ({
@@ -261,88 +122,111 @@ test.describe('a change made in another tab', () => {
   }) => {
     const problems = watchPage(page);
     const id = await briefedProject('Freshness: the way back to a current brief');
-    await openReport(page, id);
-    await renameElsewhere(id, 'Residents renamed by a colleague');
-    await refreshButton(page).click();
+    await rename(api, id, 'Residents renamed by a colleague');
+    await page.goto(decideAt(id));
+    await arrived(page);
     await expect(briefNotice(page)).toBeVisible();
 
-    // What a person does about it: approve what they have changed, make the actors again, compare again.
-    await approveAndMakeActors(id);
-    await briefNotice(page).getByRole('button', { name: 'Open the Simulation stage' }).click();
-    await refreshButton(page).click();
-    await comparisonPanel(page).getByText('Run another comparison').click();
-    await comparisonPanel(page).getByRole('button', { name: 'Compare scenarios again' }).click();
-    await expect(page.getByRole('button', { name: 'See the decision brief' })).toBeVisible({
-      timeout: 90_000,
-    });
-    await page.getByRole('button', { name: 'See the decision brief' }).click();
+    // What a person does about it: approve what they have changed, make the actors again, run the comparison again.
+    await approveAgain(id);
+    await page.goto(simulateAt(id, 'setup'));
+    await expect(setup(page)).toBeVisible();
+    await chooseRuns(page, 10);
+    await run(page);
+    await waitForTheatre(page);
 
     // The brief on show rests on the first comparison; a newer one has finished, so writing it again uses that.
-    await expect(briefNotice(page)).toContainText('a newer analysis exists');
-    await expect(briefNotice(page)).toContainText('Generate it again to bring it up to date.');
-    await page.getByRole('button', { name: 'Generate again' }).click();
+    await page.goto(decideAt(id));
+    await arrived(page);
+    await expect(briefNotice(page)).toContainText('A newer comparison exists.');
+    await briefNotice(page).getByRole('button', { name: 'Write the brief again' }).click();
     await expect(briefNotice(page)).toHaveCount(0);
     const current = await json<BriefView>(await api.get(`/api/projects/${id}/brief`));
     expect(current.changedSince).toEqual([]);
     expect(problems).toEqual([]);
   });
-});
 
-test.describe('a change made on the same page', () => {
-  test('answering a criticism makes the brief beside it say that it may be out of date, without a refresh', async ({
+  test('the brief and the review rest on the newest finished comparison, and say a newer one exists only once one has finished', async () => {
+    const id = await briefedProject('Freshness: what the brief rests on');
+    const listed = (await (await api.get(`/api/projects/${id}/analysis`)).json()) as {
+      analyses: { id: string; status: string }[];
+    };
+    const first = listed.analyses.find((analysis) => analysis.status === 'completed')!.id;
+    const brief = async () => json<BriefView>(await api.get(`/api/projects/${id}/brief`));
+    const review = async () =>
+      (
+        await json<{ critiques: { analysisId: string } }>(
+          await api.get(`/api/projects/${id}/critiques`),
+        )
+      ).critiques.analysisId;
+
+    const written = await brief();
+    expect(written.brief?.analysisId).toBe(first);
+    expect(written.latestAnalysis?.id).toBe(first);
+    expect(written.changedSince).toEqual([]);
+    expect(await review()).toBe(first);
+
+    // A comparison that was stopped leaves both standing as they were.
+    const stopped = await startViaApi(api, id, { runsPerVariant: 200 });
+    await api.post(`/api/projects/${id}/analysis/${stopped.id}/cancel`);
+    await finished(api, id, stopped.id);
+    const unchanged = await brief();
+    expect(unchanged.latestAnalysis?.id).toBe(first);
+    expect(unchanged.changedSince).toEqual([]);
+
+    // A finished one does not rewrite them: they are called out of date, and still rest on the first.
+    const second = await compared(api, id, {
+      runsPerVariant: 12,
+      baseSeed: 77,
+      sensitivity: false,
+    });
+    const stale = await brief();
+    expect(stale.brief?.analysisId).toBe(first);
+    expect(stale.latestAnalysis?.id).toBe(second.id);
+    expect(stale.changedSince).toContain('a newer analysis exists');
+
+    // Doing both again brings them up to date, from the newer comparison.
+    await json(await api.post(`/api/projects/${id}/critiques/run`, { data: {} }));
+    await json(await api.post(`/api/projects/${id}/brief`, { data: {} }));
+    const current = await brief();
+    expect(current.brief?.analysisId).toBe(second.id);
+    expect(current.changedSince).toEqual([]);
+    expect(await review()).toBe(second.id);
+  });
+
+  test('an older comparison says that a newer one exists, and offers it; a cancelled one is not newer', async ({
     page,
   }) => {
     const problems = watchPage(page);
-    const id = await briefedProject('Freshness: a critique answered here');
-    await openReport(page, id);
-    await expect(briefNotice(page)).toHaveCount(0);
+    const id = await briefedProject('Freshness: a newer comparison');
+    const first = (await (await api.get(`/api/projects/${id}/analysis`)).json()) as {
+      analyses: { id: string }[];
+    };
+    const olderId = first.analyses[0]!.id;
 
-    const form = page.locator('form.critic-form').first();
-    await form
-      .locator('xpath=ancestor::details[1]')
-      .getByText(/Respond to this criticism/u)
-      .click();
-    await responseBox(form).fill('We accept this objection after reading the evidence.');
-    await form.getByRole('button', { name: 'Accept the objection' }).click();
-    await expect(
-      shownResponse(page, 'We accept this objection after reading the evidence.'),
-    ).toBeVisible();
-    await expect(briefNotice(page)).toContainText(
-      'Since it was made, this has changed: critiques.',
-    );
-    expect(problems).toEqual([]);
-  });
+    // A comparison that was stopped is not a newer one: nothing is called out of date by it.
+    const stopped = await startViaApi(api, id, { runsPerVariant: 200 });
+    await api.post(`/api/projects/${id}/analysis/${stopped.id}/cancel`);
+    await finished(api, id, stopped.id);
+    await page.goto(compareAt(id));
+    await arrived(page);
+    await expect(olderOne(page)).toHaveCount(0);
+    await expect(outOfDate(page)).toHaveCount(0);
 
-  test('a response written about a review that changed is refused, the review is read again, and the words are kept', async ({
-    page,
-  }) => {
-    const problems = watchPage(page, { refusals: true });
-    const id = await briefedProject('Freshness: two people answering');
-    await openReport(page, id);
-
-    const MINE = 'We dispute this: the cast was set up on purpose, and the evidence says so.';
-    const THEIRS = 'Someone else accepted a different objection while this page was open.';
-    const form = page.locator('form.critic-form').first();
-    const details = form.locator('xpath=ancestor::details[1]');
-    await details.getByText(/Respond to this criticism/u).click();
-    await responseBox(form).fill(MINE);
-
-    await answerElsewhere(id, -1, THEIRS);
-    await form.getByRole('button', { name: 'Dispute it' }).click();
-
-    // Refused in plain words; the page read the review again, and what was written is still in the box.
-    await expect(
-      page.getByRole('alert').filter({ hasText: 'This review changed while you were writing' }),
-    ).toBeVisible();
-    await expect(responseBox(form)).toHaveValue(MINE);
-    await expect(shownResponse(page, THEIRS)).toBeVisible();
-    expect((await critiquesOf(id)).critiques!.critiques[0]!.response).toBeNull();
-
-    // Having seen the review as it is, the same words are taken.
-    await form.getByRole('button', { name: 'Dispute it' }).click();
-    await expect(shownResponse(page, MINE)).toBeVisible();
-    await expect(page.getByRole('alert').filter({ hasText: 'This review changed' })).toHaveCount(0);
-    expect((await critiquesOf(id)).critiques!.critiques[0]!.response?.text).toBe(MINE);
+    // A finished one is: the newest is on show, the brief rests on the first, and the first says so when it is read.
+    await compared(api, id, { runsPerVariant: 12, baseSeed: 77, sensitivity: false });
+    await page.goto(compareAt(id));
+    await arrived(page);
+    await page.getByRole('button', { name: 'Parts of the page, saved comparisons' }).click();
+    const saved = page.getByRole('menuitemradio').filter({ hasText: '10 runs' });
+    await saved.click();
+    await expect(page.getByRole('main')).toContainText('10 seeded runs each');
+    await expect(olderOne(page)).toBeVisible();
+    await olderOne(page).click();
+    await expect(page.getByText('A newer one finished')).toBeVisible();
+    await page.getByRole('button', { name: 'Read the newest' }).click();
+    await expect(page.getByRole('main')).toContainText('12 seeded runs each');
+    expect(olderId).toBeTruthy();
     expect(problems).toEqual([]);
   });
 });

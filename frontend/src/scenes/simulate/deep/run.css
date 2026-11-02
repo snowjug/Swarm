@@ -56,17 +56,24 @@
       transform var(--dur-base) var(--ease-spring-snappy);
   }
   @media (hover: hover) {
-    .sw-deep-act:hover {
+    .sw-deep-act:not([aria-disabled='true']):hover {
       background: color-mix(in oklab, var(--accent) 7%, transparent);
     }
-    .sw-deep-act:hover .sw-deep-act__go {
+    .sw-deep-act:not([aria-disabled='true']):hover .sw-deep-act__go {
       color: var(--accent);
       transform: translateX(3px);
     }
   }
-  .sw-deep-act:active {
+  .sw-deep-act:not([aria-disabled='true']):active {
     transform: scale(0.992);
     transition-duration: var(--dur-instant);
+  }
+  /* A row that is not open yet stays where it is and says why; it is not a control that fails. */
+  .sw-deep-act[aria-disabled='true'] {
+    cursor: default;
+  }
+  .sw-deep-act[aria-disabled='true'] .sw-deep-act__title {
+    color: var(--ink-2);
   }
   .sw-deep-act__icon {
     display: grid;

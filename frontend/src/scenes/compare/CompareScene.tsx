@@ -9,6 +9,7 @@ import { CompareDocument } from './Document';
 import { Fresh } from './Fresh';
 import { UNKNOWN, freshnessOf, newerThan } from './freshness';
 import { RunsScene } from './RunsScene';
+import { readsThroughTheDeepDive } from '../simulate/engineOnly';
 import { useBriefView } from './useFreshness';
 import {
   EmptyResults,
@@ -110,7 +111,7 @@ export function CompareView({
         headingRef={headingRef}
         onSelect={onSelect}
         pending={pending}
-        onRun={() => go('simulate')}
+        onRun={() => go('simulate', { view: 'setup' })}
         onDecide={() => go('decide')}
         onReview={() => go('map')}
         onRuns={onRuns}
@@ -209,7 +210,7 @@ function Scenarios() {
             freshness={freshness}
             newer={newer}
             canRun={canRun}
-            onRun={() => go('simulate')}
+            onRun={() => go('simulate', { view: 'setup' })}
             onNewer={(id) => {
               setAsked(id);
               state.select(id);
@@ -225,11 +226,13 @@ function Scenarios() {
 }
 
 export function CompareScene() {
-  const { view, mode } = useWorkspace();
+  const { view, mode, project } = useWorkspace();
   const scope = useMemo(() => ({ advanced: mode === 'advanced' }), [mode]);
+  // A run the engine made on its own has no scenarios to set side by side: what it can be compared is its recorded runs.
+  const runs = view === 'runs' || readsThroughTheDeepDive(project);
   return (
     <CompareScope.Provider value={scope}>
-      {view === 'runs' ? <RunsScene /> : <Scenarios />}
+      {runs ? <RunsScene /> : <Scenarios />}
     </CompareScope.Provider>
   );
 }

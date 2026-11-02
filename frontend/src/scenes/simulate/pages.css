@@ -11,6 +11,14 @@
     padding-top: var(--s-7);
     gap: var(--s-7);
   }
+  @media (max-width: 40rem) {
+    .sw-story {
+      padding-top: var(--s-4);
+    }
+    .sw-story--timeline {
+      padding-top: var(--s-3);
+    }
+  }
   .sw-story--timeline .sw-story__section {
     border-top: 0;
     padding-top: 0;
@@ -35,6 +43,10 @@
   .sw-story__sources {
     color: var(--ink-3);
     font-size: var(--fs-small);
+  }
+  .sw-story__foot {
+    display: grid;
+    gap: var(--s-1);
   }
   .sw-story__actions {
     display: flex;
@@ -276,6 +288,10 @@
   .sw-story__rely {
     padding-bottom: var(--s-6);
   }
+  .sw-story__deeper {
+    justify-items: start;
+    padding-bottom: var(--s-7);
+  }
   .sw-story__caveats {
     display: grid;
     gap: var(--s-2);
@@ -289,7 +305,7 @@
   @media (max-width: 40rem) {
     .sw-story {
       gap: var(--s-8);
-      padding-top: var(--s-9);
+      padding-top: var(--s-6);
     }
     .sw-story__mover {
       grid-template-columns: minmax(0, 1fr) 3.6rem;

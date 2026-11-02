@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { m } from 'motion/react';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, Layers, Play } from 'lucide-react';
+import { cx } from '../../design/cx';
 import { SPRING, useTween } from '../../design/motion';
 import { Button, Chip, Disclosure, Notice } from '../../design/ui';
 import { NO_DIRECTION_NOTICE, UNDIRECTED_NOTICE } from '../../../../shared/signal';
@@ -16,7 +17,20 @@ import {
 import { stanceColor } from '../../viz/palette';
 import { niceScale, storyOf, topFindings, type Mover, type Replay } from './model';
 import { TimelineChart } from './TimelineChart';
+import type { Playback } from './usePlayback';
 import './pages.css';
+
+/** What the simulation is, said short: the sentence that stays visible wherever a number is shown, in two lengths. */
+export function Fine({ className }: { className?: string }) {
+  return (
+    <p className={cx('sw-caption', className)}>
+      <span className="sw-hide-sm">
+        Synthetic actors, simulated under stated assumptions. Not a prediction.
+      </span>
+      <span className="sw-hide-lg">Synthetic actors. Not a prediction.</span>
+    </p>
+  );
+}
 
 const toneOf = {
   good: 'favor',
@@ -100,6 +114,10 @@ export interface StoryViewProps {
   replay: Replay | null;
   onWatch: (actorId?: string) => void;
   onCompare: () => void;
+  /** To the stakeholders, where who is helped or harmed is said. */
+  onReview: () => void;
+  /** To the deep dive, where an event can be added and a run branched. */
+  onDeep: () => void;
 }
 
 /**
@@ -107,7 +125,14 @@ export interface StoryViewProps {
  * or resist, who moves most, what the typical run sets off, how steady the findings are and how far to rely on them. It
  * is composed entirely from what the comparison states; where it cannot say something, it says nothing.
  */
-export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewProps) {
+export function StoryView({
+  analysis,
+  replay,
+  onWatch,
+  onCompare,
+  onReview,
+  onDeep,
+}: StoryViewProps) {
   const story = useMemo(() => storyOf(analysis), [analysis]);
   const findings = useMemo(() => topFindings(analysis, 3), [analysis]);
   const lines = comparisonSummary(analysis);
@@ -160,7 +185,6 @@ export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewPro
         {adverse && story.caution !== 'cannot-move' && (
           <Spread baseline={adverse.baseline} proposed={adverse.proposed} spread={adverse.spread} />
         )}
-        <p className="sw-story__sources">{lines[0]}</p>
         {story.caution && (
           <Notice
             tone="caution"
@@ -170,6 +194,11 @@ export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewPro
                 : story.caution === 'no-direction'
                   ? 'No one has a direction of impact yet'
                   : 'No stakeholder has an expected direction'
+            }
+            action={
+              <Button size="sm" variant="glass" onClick={onReview}>
+                Review stakeholders
+              </Button>
             }
           >
             {story.caution === 'no-direction'
@@ -198,6 +227,16 @@ export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewPro
           >
             Compare the scenarios
           </Button>
+        </div>
+        <div className="sw-story__foot">
+          {!replay && (
+            <p className="sw-story__sources">
+              No run was kept in detail, so there is nothing to watch round by round. Live and
+              Network are not offered; the timeline still shows how the runs spread.
+            </p>
+          )}
+          <p className="sw-story__sources">{lines[0]}</p>
+          <Fine />
         </div>
       </m.section>
 
@@ -336,6 +375,25 @@ export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewPro
           </ul>
         </Disclosure>
       </section>
+
+      <section className="sw-story__section sw-story__deeper" aria-labelledby="story-deeper">
+        <h2 id="story-deeper" className="sw-title">
+          Go deeper
+        </h2>
+        <p className="sw-story__lead">
+          A slower look at the same question, one fictional proxy at a time, on two simulated
+          platforms. Pause it to add one assumed event, or branch it from a round to try another
+          assumption and set the two runs side by side.
+        </p>
+        <Button
+          variant="glass"
+          size="lg"
+          icon={<Layers size={17} aria-hidden="true" />}
+          onClick={onDeep}
+        >
+          Open the deep dive
+        </Button>
+      </section>
     </div>
   );
 }
@@ -343,19 +401,35 @@ export function StoryView({ analysis, replay, onWatch, onCompare }: StoryViewPro
 export interface TimelineViewProps {
   analysis: Analysis;
   replay: Replay | null;
-  round: number;
-  onSeek: (round: number) => void;
+  playback: Playback;
 }
 
-/** The spread of the runs over the rounds, with the change and the events marked, and the round shown as a cursor. */
-export function TimelineView({ analysis, replay, round, onSeek }: TimelineViewProps) {
+/**
+ * The spread of the runs over the rounds, with the change and the events marked, the run that was kept in full drawn over
+ * it, and the round shown as a cursor that can be dragged, stepped with the keys or played along.
+ */
+export function TimelineView({ analysis, replay, playback }: TimelineViewProps) {
+  // Without a run to replay there is nothing to play, but the cursor still moves along the rounds the runs spread over.
+  const [own, setOwn] = useState<number | null>(null);
+  const round = replay ? playback.round : (own ?? 1);
   return (
     <div className="sw-story sw-story--timeline">
       <section className="sw-story__section" aria-labelledby="tl-title">
         <h1 id="tl-title" className="sw-display sw-story__title">
           How it <em>plays out</em>
         </h1>
-        <TimelineChart analysis={analysis} replay={replay} round={round} onSeek={onSeek} />
+        <Fine />
+        <TimelineChart
+          analysis={analysis}
+          replay={replay}
+          round={round}
+          onSeek={replay ? playback.seek : setOwn}
+          play={
+            replay
+              ? { playing: playback.playing, atEnd: playback.atEnd, toggle: playback.toggle }
+              : null
+          }
+        />
       </section>
     </div>
   );

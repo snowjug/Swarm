@@ -92,6 +92,12 @@
     border-color: var(--accent-line);
     box-shadow: var(--focus-ring);
   }
+  .sw-lane__aboutText {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
   .sw-lane__kind {
     flex: none;
     margin-left: auto;
@@ -189,14 +195,53 @@
     color: var(--c-critical);
     font-size: var(--fs-small);
   }
+  /* The way to start stays on the screen however many scenarios there are: the form can be eight scenarios long. */
   .sw-setup__foot {
+    position: sticky;
+    bottom: var(--s-4);
+    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: var(--s-3);
+    /* The band reaches the edges of the panel, so that it is the panel's own surface and not a strip laid over it. */
+    margin-inline: calc(var(--s-7) * -1);
+    padding: var(--s-4) var(--s-7) var(--s-1);
+    background: linear-gradient(to top, var(--glass-overlay) 72%, transparent);
   }
   .sw-setup__how {
     border-top: 1px solid var(--hairline);
+  }
+
+  /* A finger is the size of the control: the name, the strength and the choices are each at least 44px both ways. */
+  @media (pointer: coarse) {
+    .sw-lane__input {
+      min-height: 2.75rem;
+    }
+    .sw-setup__runs .sw-seg__option {
+      min-width: 2.75rem;
+    }
+    .sw-lane__slider .sw-slider__thumb {
+      display: grid;
+      place-items: center;
+      width: 2.75rem;
+      height: 2.75rem;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .sw-lane__slider .sw-slider__thumb::after {
+      content: '';
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 50%;
+      border: 1px solid var(--glass-edge);
+      background: var(--bg-raised);
+      box-shadow:
+        inset 0 1px 0 var(--glass-edge-hi),
+        var(--shadow-2),
+        0 0 0 1px var(--hairline);
+    }
   }
   .sw-setup__how .sw-caption {
     margin: 0 0 var(--s-3);
@@ -217,11 +262,26 @@
     .sw-lane__note {
       padding-left: 0;
     }
+    /* The name has the width of the screen: the kind of scenario and what it is stand under it, not beside it. */
+    .sw-lane__who {
+      flex-wrap: wrap;
+      row-gap: var(--s-1);
+    }
+    .sw-lane__input,
+    .sw-lane__name {
+      flex: 1 1 calc(100% - 1.4rem - var(--s-3));
+    }
+    .sw-lane__kind {
+      margin-left: calc(0.7rem + var(--s-3));
+    }
     .sw-setup__options {
       grid-template-columns: minmax(0, 1fr);
       gap: var(--s-4);
     }
     .sw-setup__foot {
+      bottom: var(--dock-h);
+      margin-inline: calc(var(--s-4) * -1);
+      padding: var(--s-4) var(--s-4) var(--s-3);
       flex-direction: column-reverse;
       align-items: stretch;
     }
