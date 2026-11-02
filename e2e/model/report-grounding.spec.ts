@@ -17,10 +17,12 @@ import { modelReport } from '../support/decide';
 
 // The statement checks of a detailed report written by a model, in a real browser, against the protocol-faithful
 // fake of the provider (e2e/support/fake-provider.ts): what the server checked is said in words and numbers, a
-// passage is one press away, and nothing the server sends is read as markup or breaks the page. The fake says nothing
-// about how a live model writes.
+// passage is one press away, an identifier that points at no stored passage is shown as nothing to rely on, and
+// nothing the server sends (hostile markup, a very long word or figure) is read as markup or breaks the page.
+// It replaces the report half of the old grounding-ui spec. The fake says nothing about how a live model writes.
 
 const providerUrl = `http://127.0.0.1:${process.env.E2E_PROVIDER_PORT || 11999}`;
+const BADGE = /^REAL MODEL · Ollama \(local\)/u;
 const HOSTILE = '<img src=x onerror="window.__pwned=1"> <script>window.__pwned=1</script>';
 const LONG = 'Unbroken'.repeat(60);
 
@@ -163,6 +165,11 @@ for (const viewport of viewports) {
       ).toBeGreaterThan(0);
 
       const review = await openChecks(page, reportId);
+      // A report written by a model says so, and where the bar has room it says which model.
+      await expect(page.getByRole('main')).toContainText('Model-assisted');
+      if (viewport.width >= 1024) {
+        await expect(page.getByRole('button', { name: BADGE })).toBeVisible();
+      }
       await expect(review).toContainText(/\d+\s*statements? checked/u);
       await expect(review).toContainText(
         'plus an independent model check that had to quote real text',
@@ -229,9 +236,19 @@ for (const viewport of viewports) {
       // An unknown passage id is a visible chip that opens an honest answer, not a crash.
       await review.getByRole('button', { name: 'Source passage S999' }).first().click();
       const unknown = page.getByRole('dialog', { name: 'Source passage S999' });
-      await expect(unknown).toContainText('is not in this project');
+      await expect(unknown).toContainText('Not among this project’s sources');
+      await expect(unknown).toContainText('not evidence for the statement');
+      await expect(unknown).not.toContainText('characters');
       await quiet(page);
       await expectNoAxeViolations(page, 'the answer for an unknown passage');
+      await page.keyboard.press('Escape');
+      await expect(unknown).toHaveCount(0);
+
+      // The passage that is stored, cited beside it, is shown as the passage it is.
+      await review.getByRole('button', { name: 'Source passage S1' }).first().click();
+      await expect(page.getByRole('dialog', { name: 'Source passage S1' })).toContainText(
+        'characters',
+      );
       expect(problems).toEqual([]);
     });
   });

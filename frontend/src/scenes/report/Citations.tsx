@@ -72,9 +72,10 @@ function SourceBody({
   }
   if (state.status === 'missing') {
     return (
-      <p className="sw-caption">
-        The passage {id} is not in this project’s stored sources any more.
-      </p>
+      <Notice tone="caution" title="Not among this project’s sources">
+        {id} is not a passage the project stored, so it cannot be read here. A citation that points
+        at nothing is not evidence for the statement.
+      </Notice>
     );
   }
   return <SkeletonText lines={5} />;
