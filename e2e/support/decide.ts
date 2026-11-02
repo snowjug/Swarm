@@ -188,6 +188,42 @@ export async function asReader(page: Page, project: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------------------------
+// How the page scrolls
+// ---------------------------------------------------------------------------------------------
+
+export interface Scroll {
+  /** The id of the element the page was asked to scroll to. */
+  id: string;
+  /** What the page asked for: `smooth` glides, `auto` and `instant` jump. */
+  behavior: string | null;
+}
+
+/**
+ * Records how the page asks to be scrolled to an element: which element, and whether it was asked to glide. The page
+ * still scrolls as it asked. What is held is that a person who has asked for less motion is not made to watch it glide,
+ * and that one who has not is. Call it before the page is opened; the returned function reads what was recorded.
+ */
+export async function watchScrolling(page: Page): Promise<() => Promise<Scroll[]>> {
+  await page.addInitScript(() => {
+    const record: { id: string; behavior: string | null }[] = [];
+    (window as unknown as { __scrolls: typeof record }).__scrolls = record;
+    const scrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function watched(
+      this: Element,
+      arg?: boolean | ScrollIntoViewOptions,
+    ) {
+      record.push({
+        id: this.id,
+        behavior: typeof arg === 'object' ? (arg.behavior ?? null) : null,
+      });
+      return scrollIntoView.call(this, arg as ScrollIntoViewOptions);
+    };
+  });
+  return () =>
+    page.evaluate(() => (window as unknown as { __scrolls: Scroll[] }).__scrolls.slice());
+}
+
+// ---------------------------------------------------------------------------------------------
 // What a download holds
 // ---------------------------------------------------------------------------------------------
 

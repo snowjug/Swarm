@@ -40,6 +40,7 @@ import { ActDivider, ChapterShell } from './ui/Chapter';
 import { DocContext, type DocContextValue } from './ui/context';
 import { Hero } from './ui/Hero';
 import { ContentsList, ContentsRail, DocBar, type Place } from './ui/Nav';
+import { smooth } from './ui/scroll';
 import { Tools } from './ui/Tools';
 import './document.css';
 import './forced.css';
@@ -60,8 +61,6 @@ export interface DocumentProps {
   justWritten?: boolean;
   go: { simulate: () => void; studio: () => void; report: () => void; ground: () => void };
 }
-
-const smooth = (reduced: boolean): ScrollBehavior => (reduced ? 'auto' : 'smooth');
 
 /**
  * The decision brief as a document: the answer first, then the story of it in four parts, with the

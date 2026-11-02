@@ -8,7 +8,15 @@ import {
 } from '../support/helpers';
 import { forget, quiet } from '../support/shell';
 import { openApp } from '../support/app';
-import { briefed, chapter, openDecide, reviewSheet, tools, unfold } from '../support/decide';
+import {
+  briefed,
+  chapter,
+  openDecide,
+  reviewSheet,
+  tools,
+  unfold,
+  watchScrolling,
+} from '../support/decide';
 
 // The independent review: critics challenge the analysis and never change it. It is a sheet over the brief, opened
 // from the tools, from the contents of the brief or from the note that stands beside the statement it is about; a
@@ -79,6 +87,11 @@ test.describe('the review on a desktop screen', () => {
   test('opens at the criticism that stands beside its statement, and gives focus back to the note', async ({
     page,
   }) => {
+    const scrolls = await watchScrolling(page);
+    const toCriticisms = async () =>
+      (await scrolls())
+        .filter((scroll) => scroll.id.startsWith('critique-'))
+        .map((scroll) => scroll.behavior);
     await openDecide(page, reviewed);
     const landscape = chapter(page, 'Stakeholder landscape');
     await unfold(landscape);
@@ -95,9 +108,17 @@ test.describe('the review on a desktop screen', () => {
     const openOne = sheet.getByRole('button', { expanded: true });
     await expect(openOne).toHaveCount(1);
     await expect(openOne).toContainText(objection.slice(0, 40));
+    // Motion is reduced for this file, so the sheet takes the reader to the criticism at once and does not glide there.
+    await expect.poll(toCriticisms).toEqual(['auto']);
     await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
     await expect(note).toBeFocused();
+
+    // For someone who has not asked for less motion it glides: the check above does see the difference.
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await note.click();
+    await expect(sheet).toBeVisible();
+    await expect.poll(toCriticisms).toEqual(['auto', 'smooth']);
   });
 
   test('says that a critic that raised nothing does not show the analysis is right', async ({

@@ -16,6 +16,7 @@ import {
   type CritiqueResponseStatus,
   type CritiquesView,
 } from '../../../../../shared/critique';
+import { useReducedMotion } from '../../../design/motion';
 import {
   Button,
   ChipButton,
@@ -52,6 +53,7 @@ import {
 } from '../model/critique-model';
 import { plural } from '../model/format';
 import { useDoc } from '../ui/context';
+import { smooth } from '../ui/scroll';
 import { OriginChip, SeverityChip, StatusChip } from './chips';
 import './review.css';
 
@@ -398,6 +400,7 @@ function useFocused(
   open: boolean,
   ready: boolean,
 ): [ReadonlySet<string>, (id: string) => void] {
+  const reduced = useReducedMotion();
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const served = useRef<string | null>(null);
   useEffect(() => {
@@ -407,11 +410,11 @@ function useFocused(
     // The card grows from nothing, so the page moves once it has begun to.
     const frame = requestAnimationFrame(() => {
       const card = document.getElementById(`critique-${focusId}`);
-      card?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      card?.scrollIntoView({ block: 'start', behavior: smooth(reduced) });
       card?.querySelector<HTMLElement>('.sw-decide-cc__head')?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
-  }, [focusId, open, ready]);
+  }, [focusId, open, ready, reduced]);
   useEffect(() => {
     if (!open) served.current = null;
   }, [open]);
