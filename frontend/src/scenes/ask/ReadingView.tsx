@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Button, Orbit } from '../../design/ui';
 import './ReadingView.css';
 
@@ -13,7 +14,8 @@ const FIELDS = [
 /**
  * What is on the screen while a question is being read, when the reading takes long enough to be noticed
  * (a model reading it can take a while). The question stays; light passes over it; the parts of a scenario
- * it will be broken into are named as they come into view. It ends the moment the reading does.
+ * it will be broken into are named as they come into view. It ends the moment the reading does. Focus is on the
+ * one thing that can be done (Stop, or Escape), since the button that was pressed has gone with the composer.
  */
 export function ReadingView({
   question,
@@ -24,8 +26,19 @@ export function ReadingView({
   model: boolean;
   onCancel: () => void;
 }) {
+  const stop = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    stop.current?.focus({ preventScroll: true });
+  }, []);
   return (
-    <div className="sw-reading" role="status" aria-live="polite">
+    <div
+      className="sw-reading"
+      role="status"
+      aria-live="polite"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onCancel();
+      }}
+    >
       <p className="sw-eyebrow sw-rise">
         <Orbit size={16} label="" />{' '}
         {model ? 'A model is reading your question' : 'Reading your question'}
@@ -39,7 +52,7 @@ export function ReadingView({
           </li>
         ))}
       </ul>
-      <Button variant="ghost" size="sm" onClick={onCancel}>
+      <Button ref={stop} variant="ghost" size="sm" onClick={onCancel}>
         Stop
       </Button>
     </div>

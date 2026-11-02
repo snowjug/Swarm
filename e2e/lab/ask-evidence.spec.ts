@@ -334,6 +334,47 @@ test.describe('files', () => {
     await expectAttached(page, EXAMPLES[0]!.documents.length - 1);
   });
 
+  test('the sources that stay are the same pills afterwards: taking one away moves nothing else out and in again', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await chooseExample(page, EXAMPLES[0]!);
+    const [first, second] = EXAMPLES[0]!.documents.map((document) => document.name);
+    await pill(page, second!).evaluate((button) => {
+      (button.closest('li') as HTMLElement & { kept?: boolean }).kept = true;
+    });
+    await removeSource(page, first!).click();
+    await expect(pill(page, first!)).toHaveCount(0);
+    expect(
+      await pill(page, second!).evaluate(
+        (button) => (button.closest('li') as HTMLElement & { kept?: boolean }).kept === true,
+      ),
+      'the pill that stayed is the one that was there, not a new one that looks like it',
+    ).toBe(true);
+  });
+
+  test('taking a source away with the keyboard leaves it on the next one, and on the evidence button after the last', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await chooseExample(page, EXAMPLES[0]!);
+    // An example puts the keyboard in the question; the keys that follow are the person's.
+    await expect(questionBox(page)).toBeFocused();
+    const names = EXAMPLES[0]!.documents.map((document) => document.name);
+    await removeSource(page, names[1]!).focus();
+    await page.keyboard.press('Enter');
+    await expect(pill(page, names[1]!)).toHaveCount(0);
+    await expect(pill(page, names[2]!), 'the source that took its place').toBeFocused();
+
+    for (const name of names.filter((_, index) => index !== 1)) {
+      await removeSource(page, name).focus();
+      await page.keyboard.press('Enter');
+      await expect(pill(page, name)).toHaveCount(0);
+    }
+    await expect(tray(page)).toHaveCount(0);
+    await expect(evidenceButton(page), 'with none left, the control that adds one').toBeFocused();
+  });
+
   test('at the most sources a project can hold, the menu says so and waits until one is taken away', async ({
     page,
   }) => {
@@ -706,7 +747,7 @@ test.describe('a public web page', () => {
     expect(answer.status()).toBe(200);
 
     const preview = fetchedPreview(page);
-    await expect(preview.getByRole('heading', { level: 4 })).toHaveText(
+    await expect(preview).toContainText(
       'Central zone charge pilot: findings from the first six weeks',
     );
     await expect(preview).toContainText('city-transport.example.org');
@@ -728,6 +769,41 @@ test.describe('a public web page', () => {
     const project = await groundIt(page);
     const [document] = (await kept(page, project)).documents;
     expect(document?.provenance).toMatchObject({ kind: 'url', fetchedByServer: true, url: PILOT });
+    expect(problems).toEqual([]);
+  });
+
+  test('named in the question it is offered as a source, fetched only when the person says so, and the offer goes once it is one', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await openAsk(page);
+    const made = recordRequests(page);
+    const offer = page.getByRole('button', {
+      name: 'Read city-transport.example.org as evidence',
+      exact: true,
+    });
+    await expect(offer).toHaveCount(0);
+
+    await questionBox(page).fill(`${CITY_QUESTION} The pilot is described at ${PILOT}.`);
+    await expect(offer).toBeVisible();
+    expect(
+      apiCalls(made).filter((call) => call === 'POST /api/evidence/url'),
+      'an address in the question is not read until the person asks',
+    ).toEqual([]);
+
+    const answered = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/api/evidence/url',
+    );
+    await offer.click();
+    expect((await answered).status()).toBe(200);
+    const dialog = evidenceDialog(page);
+    await expect(dialog.getByRole('radio', { name: 'Web page' })).toBeChecked();
+    await expect(dialog.getByRole('textbox', { name: 'Web address' })).toHaveValue(PILOT);
+    await expect(fetchedPreview(page)).toContainText('Central zone charge pilot');
+    await dialog.getByRole('button', { name: 'Add as evidence' }).click();
+    await closeEvidence(page);
+    await expectAttached(page, 1);
+    await expect(offer, 'the page is a source: there is nothing left to offer').toHaveCount(0);
     expect(problems).toEqual([]);
   });
 
@@ -760,7 +836,7 @@ test.describe('a public web page', () => {
         expect(answer.status(), address).toBeLessThan(500);
         await expect(menuProblem(page)).toContainText('The page could not be read');
         await expect(menuProblem(page)).toContainText(reason);
-        await expect(menuProblem(page)).toContainText('You can paste its text instead.');
+        await expect(menuProblem(page)).toContainText(/You can paste (?:its|the) text instead\./u);
         // A person is told what is wrong, not how the server found out, and is never read back an address or password.
         const said = (await menuProblem(page).innerText()).toLowerCase();
         for (const leak of ['hunter2', '/etc/passwd', '169.254', 'econn', 'getaddrinfo', 'stack']) {
@@ -894,6 +970,32 @@ test.describe('a public web page', () => {
     expect(problems).toEqual([]);
   });
 
+  test('a page that does not fit with the sources already there stays in the menu with the reason, and is not attached', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await questionBox(page).fill(CITY_QUESTION);
+    // Five files that leave no room for a sixth text of any size.
+    await uploadFiles(
+      page,
+      Array.from({ length: 5 }, (_, index) => textFile(`part-${index + 1}.txt`, filler(39_990))),
+    );
+    await expect(evidenceDialog(page)).toContainText('5/10');
+
+    const answer = await fetchPage(page, PILOT);
+    expect(answer.status()).toBe(200);
+    await expect(fetchedPreview(page)).toBeVisible();
+    await evidenceDialog(page).getByRole('button', { name: 'Add as evidence' }).click();
+
+    await expect(menuProblem(page)).toHaveText(
+      'Use at most 10 documents and 200,000 total characters.',
+    );
+    await expect(fetchedPreview(page)).toBeVisible();
+    await expect(evidenceDialog(page)).toContainText('5/10');
+    await closeEvidence(page);
+    await expect(tray(page).getByRole('listitem')).toHaveCount(5);
+  });
+
   test('a page that the person then changes is no longer called a retrieved page', async ({
     page,
   }) => {
@@ -903,8 +1005,20 @@ test.describe('a public web page', () => {
     await pill(page, added.name).click();
     const sheet = page.getByRole('dialog', { name: added.name });
     await expect(sheet).toContainText('public web page');
+    await expect(sheet).toContainText(PILOT);
     const text = sheet.getByRole('textbox', { name: 'The text Swarm will work from' });
-    await text.fill(`${await text.inputValue()}\nAn extra sentence the person added.`);
+    const original = await text.inputValue();
+    await text.fill(`${original}\nAn extra sentence the person added.`);
+    // The sheet says so as soon as the text is not the text that came, and not only once the project is made.
+    await expect(sheet).not.toContainText('public web page');
+    await expect(sheet).not.toContainText(PILOT);
+    await expect(sheet).toContainText('pasted text');
+    await expect(sheet).toContainText('You changed the text of a page Swarm fetched');
+    // Putting the text back as it came makes it the page that was fetched again.
+    await text.fill(original);
+    await expect(sheet).toContainText('public web page');
+    await expect(sheet).not.toContainText('You changed the text of a page');
+    await text.fill(`${original}\nAn extra sentence the person added.`);
     await sheet.getByRole('button', { name: 'Done' }).click();
 
     await readScenario(page);

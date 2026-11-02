@@ -7,6 +7,7 @@ import { describeChange } from '../../../lib/whatIf';
 import { LINEAGE_NOTE } from './copy';
 import { useDeep } from './context';
 import { SectionHead } from './parts';
+import { useOpenRuns, type RunsReach } from './reach';
 import './lineage.css';
 
 type Availability =
@@ -40,9 +41,10 @@ function useParent(parentId: string | undefined, known: boolean) {
 }
 
 /** Where a branch came from: its parent, the round it left at, and every change that was declared. */
-export function Lineage() {
+export function Lineage({ reach }: { reach: RunsReach }) {
   const { project, whatIf } = useDeep();
   const ws = useWorkspace();
+  const openRuns = useOpenRuns(reach);
   const branch = project.console?.branch ?? null;
   const parent = useParent(
     branch?.parentId,
@@ -92,16 +94,24 @@ export function Lineage() {
         ) : parent.state.state === 'unavailable' ? null : (
           <span className="sw-deep-fine">Checking that the parent is still there…</span>
         )}
-        {whatIf && parent.state.state === 'available' && project.rounds.length > 0 && (
+        {whatIf && parent.state.state === 'available' && project.rounds.length > 0 && openRuns && (
           <Button
             variant="ghost"
             icon={<GitCompare size={15} aria-hidden="true" />}
             iconEnd={<ExternalLink size={13} aria-hidden="true" />}
-            onClick={() => ws.go('compare', { view: 'runs' })}
+            onClick={openRuns}
           >
             Compare with the parent
           </Button>
         )}
+        {whatIf &&
+          parent.state.state === 'available' &&
+          project.rounds.length > 0 &&
+          reach.way === 'closed' && (
+            <span className="sw-deep-fine">
+              Comparing the two runs opens once the scenarios have been compared.
+            </span>
+          )}
       </div>
       {parent.state.state === 'unavailable' && (
         <Notice

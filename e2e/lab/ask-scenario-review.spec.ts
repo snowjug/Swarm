@@ -509,6 +509,13 @@ test.describe('going on from the scenario', () => {
     expect(kept.documents.map((document) => document.name)).toEqual(
       EXAMPLES[1]!.documents.slice(1).map((document) => document.name),
     );
+    // The scenario lists the evidence that the project has, and not the source that was taken away after the reading.
+    const listed = (await scenarioOf(page, project)).scenario?.evidenceAvailable ?? [];
+    expect(listed).toHaveLength(EXAMPLES[1]!.documents.length - 1);
+    expect(listed.join('\n')).not.toContain(gone);
+    for (const document of EXAMPLES[1]!.documents.slice(1)) {
+      expect(listed.some((entry) => entry.startsWith(`${document.name} (`))).toBe(true);
+    }
   });
 
   test('a project with every source taken away is not made, and the bar says why; a source brings it back', async ({

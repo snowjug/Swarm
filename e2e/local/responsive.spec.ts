@@ -49,15 +49,15 @@ test.use({ reducedMotion: 'reduce' });
 const GRAPH = 'main svg[role="group"]';
 
 /**
- * The one screen that fails a measure today, for a defect written up in .scratch/e2e/issues-shell.md (8) in a scene that
- * is still being finished: it is not judged by that measure until the defect is fixed (take the entry out, and the
- * measure applies). It has a test of its own below (`test.fixme`) that says what should be true.
+ * What each screen fails at today, for the defects written up in .scratch/e2e/issues-shell.md. A screen listed here is
+ * not judged by that measure until the defect is fixed: take the entry out, and the measure applies. Each has a test
+ * of its own below (`test.fixme`) that says what should be true.
  */
-const KNOWN_TARGETS: ReadonlySet<string> = new Set([
-  // On a phone, the pick of a scenario in the comparison is 23px tall. A screen that is held to this is held to the
-  // finger measure too, and fails it the same way.
-  'compare@390',
-]);
+const KNOWN: Record<'targets' | 'text' | 'graph', ReadonlySet<string>> = {
+  targets: new Set(),
+  text: new Set(),
+  graph: new Set(),
+};
 
 /** The bar floats over the page: the page's first heading must start below it. */
 async function expectClearOfTheBar(page: Page, label: string): Promise<void> {
@@ -105,17 +105,21 @@ for (const viewport of viewports) {
         await arrived(page);
         await quiet(page);
         const heldToTargets = !(
-          KNOWN_TARGETS.has(screen.name) || KNOWN_TARGETS.has(`${screen.name}@${viewport.width}`)
+          KNOWN.targets.has(screen.name) || KNOWN.targets.has(`${screen.name}@${viewport.width}`)
         );
 
         await allOf({
           'no horizontal scroll': () => expectNoHorizontalOverflow(page),
           'the bar is clear of the heading': () => expectClearOfTheBar(page, label),
-          'text of 12px or more': () => expectReadableText(page, label),
+          ...(KNOWN.text.has(screen.name)
+            ? {}
+            : { 'text of 12px or more': () => expectReadableText(page, label) }),
           ...(heldToTargets
             ? { 'controls of 24px or more': () => expectPressable(page, label, { min: 24 }) }
             : {}),
-          'a legible graph': () => expectLegibleGraph(page, label),
+          ...(KNOWN.graph.has(`${screen.name}@${viewport.width}`)
+            ? {}
+            : { 'a legible graph': () => expectLegibleGraph(page, label) }),
           // Where a finger presses, docs/UX.md asks for 44px.
           ...(touched && heldToTargets
             ? { 'controls a finger wide': () => expectPressable(page, label, { min: 44 }) }
@@ -354,23 +358,6 @@ test.describe('known defects of layout', () => {
     );
     await arrived(page);
     await expectPressable(page, 'ground', { min: 24 });
-  });
-
-  test.describe('on a phone', () => {
-    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-
-    test.fixme('(8) the pick of a scenario in the comparison is at least 24px tall', async ({
-      page,
-    }) => {
-      await page.goto(
-        screenPath(
-          SCREENS.find((item) => item.name === 'compare')!,
-          projects,
-        ),
-      );
-      await arrived(page);
-      await expectPressable(page, 'compare 390x844', { min: 24 });
-    });
   });
 });
 

@@ -7,15 +7,25 @@ import { POSITIONING_STATEMENT } from '../../lib/product';
 import { AskScene } from './AskScene';
 import {
   base64,
+  carryKey,
+  editedPage,
   fileKind,
   fileProblem,
+  firstUrl,
+  keyOf,
   limitsOf,
   nextPasteName,
+  roomProblem,
+  samePage,
+  siteOf,
   sizeText,
+  splitRequestId,
   totalOf,
+  withText,
 } from './evidence';
 import {
   EXAMPLE_SCENARIOS,
+  OFFERED_EXAMPLES,
   STARTER,
   exampleLabel,
   startingFromExample,
@@ -37,7 +47,9 @@ describe('what a file may be', () => {
   });
 
   it('says why a file cannot be read before anything is read from it', () => {
-    expect(fileProblem({ name: 'a.png', size: 10 }, limits, true)).toMatch(/UTF-8 TXT/u);
+    expect(fileProblem({ name: 'a.png', size: 10 }, limits, true)).toMatch(/UTF-8 TXT.*PDF/u);
+    // Where PDFs are not read, a person is not told to bring one.
+    expect(fileProblem({ name: 'a.png', size: 10 }, limits, false)).not.toMatch(/PDF/u);
     expect(fileProblem({ name: 'a.pdf', size: 10 }, limits, false)).toMatch(/unavailable/u);
     expect(fileProblem({ name: 'a.pdf', size: limits.maxBytes + 1 }, limits, true)).toMatch(
       /2 MB/u,
@@ -67,15 +79,123 @@ describe('what a file may be', () => {
     expect(totalOf([doc('a', 'abc'), doc('b', 'de')])).toBe(5);
   });
 
+  it('says in one sentence why a source has no room, whatever the source is, and says nothing when it has', () => {
+    const doc = (content: string) => ({ name: 'a.txt', content });
+    const small = { ...limits, maxDocuments: 2, maxTotal: 10 };
+    expect(roomProblem([], 10, small)).toBeNull();
+    expect(roomProblem([doc('abcde')], 5, small)).toBeNull();
+    const words = 'Use at most 2 documents and 10 total characters.';
+    // Too many sources, or too much text between them.
+    expect(roomProblem([doc('a'), doc('b')], 1, small)).toBe(words);
+    expect(roomProblem([doc('abcde')], 6, small)).toBe(words);
+  });
+
   it('encodes bytes in chunks a call can take', () => {
     const bytes = new Uint8Array(100_000).map((_, index) => index % 251);
     const encoded = base64(bytes);
     expect(atob(encoded).length).toBe(100_000);
     expect(atob(encoded).charCodeAt(250)).toBe(250);
   });
+
+  it('sets the number to quote apart from the words of what the server said', () => {
+    expect(splitRequestId('The PDF could not be read. Request ID: 0b1c-22')).toEqual({
+      words: 'The PDF could not be read.',
+      requestId: '0b1c-22',
+    });
+    expect(splitRequestId(' No number here. ')).toEqual({
+      words: 'No number here.',
+      requestId: null,
+    });
+  });
+
+  it('knows a source by what it is, so that taking one away moves no other, and a correction keeps its key', () => {
+    const first = { name: 'a.md', content: 'x'.repeat(100) };
+    const second = { name: 'a.md', content: 'x'.repeat(100) };
+    expect(keyOf(first)).toBe(keyOf(first));
+    expect(keyOf(first)).not.toBe(keyOf(second));
+    const corrected = carryKey(first, { ...first, content: 'y'.repeat(100) });
+    expect(keyOf(corrected)).toBe(keyOf(first));
+  });
+
+  it('stops calling a fetched page a retrieved page once its text is not the text that came, and says it is again when it is', () => {
+    const page = {
+      name: 'page.txt',
+      content: `${'The pilot ran for six weeks. '.repeat(5)}\n`,
+      provenance: {
+        kind: 'url' as const,
+        url: 'https://example.org/pilot',
+        sha256: 'a'.repeat(64),
+        fetchedByServer: true,
+      },
+    };
+    const edited = withText(page, `${page.content}One more sentence.`);
+    expect(edited.provenance).toEqual({ kind: 'paste' });
+    expect(editedPage(edited)).toBe(true);
+    expect(keyOf(edited)).toBe(keyOf(page));
+    // Edited again, and put back as it came (the ends do not count, as the server trims them): the page it was.
+    const again = withText(edited, `  ${page.content.trim()}  `);
+    expect(again.provenance).toEqual(page.provenance);
+    expect(editedPage(again)).toBe(false);
+    // A source that was never fetched is only given its new text.
+    const typed = {
+      name: 'n.md',
+      content: 'x'.repeat(100),
+      provenance: { kind: 'paste' as const },
+    };
+    expect(withText(typed, 'y'.repeat(100)).provenance).toEqual({ kind: 'paste' });
+    expect(editedPage(withText(typed, 'y'.repeat(100)))).toBe(false);
+    const sample = {
+      name: 's.md',
+      content: 'x'.repeat(100),
+      provenance: { kind: 'sample' as const },
+    };
+    expect(withText(sample, 'z'.repeat(100)).provenance).toEqual({ kind: 'sample' });
+  });
+});
+
+describe('a page named in the question', () => {
+  it('finds the address the question names, without the punctuation that closes the sentence', () => {
+    expect(firstUrl('What if we follow https://example.org/fees? Or not.')).toBe(
+      'https://example.org/fees',
+    );
+    expect(firstUrl('See (http://city.example.org/pilot), then decide.')).toBe(
+      'http://city.example.org/pilot',
+    );
+    expect(firstUrl('Nothing here, and ftp://example.org/file is not a page.')).toBeNull();
+    expect(firstUrl('https:// is not an address')).toBeNull();
+    expect(siteOf('https://www.example.org/a/b')).toBe('example.org');
+    expect(siteOf('not an address')).toBe('');
+  });
+
+  it('knows a source that is that page, by the address asked for or the one it ended on', () => {
+    const fetched = {
+      name: 'page.txt',
+      content: 'x'.repeat(100),
+      provenance: {
+        kind: 'url' as const,
+        url: 'https://example.org/fees',
+        finalUrl: 'https://example.org/fees/2025/',
+      },
+    };
+    expect(samePage(fetched, 'https://example.org/fees/')).toBe(true);
+    expect(samePage(fetched, 'HTTPS://EXAMPLE.ORG/fees#top')).toBe(true);
+    expect(samePage(fetched, 'https://example.org/fees/2025')).toBe(true);
+    expect(samePage(fetched, 'https://example.org/other')).toBe(false);
+    expect(samePage({ name: 'a.md', content: 'x'.repeat(100) }, 'https://example.org/fees')).toBe(
+      false,
+    );
+  });
 });
 
 describe('the ways to start', () => {
+  it('offers the examples in an order that leads with no company, and every one of them', () => {
+    expect(OFFERED_EXAMPLES.map((example) => example.id).sort()).toEqual(
+      EXAMPLE_SCENARIOS.map((example) => example.id).sort(),
+    );
+    expect(OFFERED_EXAMPLES[0]!.id).toBe('launch-pricing');
+    expect(OFFERED_EXAMPLES.at(-1)!.id).toBe('copilot-in-teams');
+  });
+
   it('turns an example into a question and its evidence, and says what comes with it', () => {
     const example = EXAMPLE_SCENARIOS[0]!;
     const starting = startingFromExample(example);

@@ -64,6 +64,6 @@ two workers writing them can lose an update, so they cannot be what a limit is h
 entries), `backend/test/model-budget.test.ts` (the client is asked and sends nothing once refused; the five
 places each hold their own project's budget; a whole run is stopped, says why, and carries on when the limit is
 lifted), `backend/test/budget-routes.test.ts`, `backend/test/membership.test.ts` (every role, the capability, and
-who is told they may), `frontend/src/lib/budget.test.ts`, `frontend/src/components/console/BudgetDialog.test.tsx`,
+who is told they may), `frontend/src/lib/budget.test.ts`, `frontend/src/panels/panels.test.tsx`,
 `e2e/model/budget.spec.ts`, and 17 mutations of its rules (`npm run mutation:security -- --area=budget`), each of
 which a test catches.

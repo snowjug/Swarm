@@ -30,14 +30,14 @@ A point that cannot be opened yet is locked and says what opens it ("Ground it f
 holds where you are (`?project=<id>&scene=<scene>&view=<view>`), so a reload, the Back button and a link
 all land in the same place.
 
-| Scene        | What the audience sees                                                                       | Inside it                                                                                  |
-| ------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| **Ask**      | One question field, evidence attached to it, and the scenario Swarm read from it, to correct | **Evidence**, **Options**, the example chips, **Continue** (earlier projects)              |
-| **Ground**   | What the evidence says: sources, what they talk about, where they disagree                   | The source graph, **Sources**, **Conflicts**, **Statements** (once a report exists)        |
-| **Map**      | Who is affected, as an ecosystem to look at, review and approve                              | The map and the **List** view, the inspector, **Approve & create actors**                  |
-| **Simulate** | The scenarios set against each other on the same seeds, then replayed                        | **Run the simulation**, then **Story**, **Live**, **Network**, **Timeline**; the deep dive |
-| **Compare**  | The futures side by side, as a document to read                                              | The gap chart, **Futures**, **Who moves**, **Depends on**, **How far to rely**             |
-| **Decide**   | The decision brief, the independent review, and the report studio                            | **Review**, **Export**, **Edit report**, **Detailed report**                               |
+| Scene        | What the audience sees                                                                       | Inside it                                                                                                      |
+| ------------ | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Ask**      | One question field, evidence attached to it, and the scenario Swarm read from it, to correct | **Evidence**, **Time frame**, **Assumptions**, **Options**, the example chips, **Continue** (earlier projects) |
+| **Ground**   | What the evidence says: sources, what they talk about, where they disagree                   | The source graph, **Sources**, **Conflicts**, **Statements** (once a report exists)                            |
+| **Map**      | Who is affected, as an ecosystem to look at, review and approve                              | The map and the **List** view, the inspector, **Create actors**                                                |
+| **Simulate** | The scenarios set against each other on the same seeds, then replayed                        | **Run the simulation**, then **Story**, **Live**, **Network**, **Timeline**; the deep dive                     |
+| **Compare**  | The futures side by side, as a document to read                                              | The gap chart, **Futures**, **Who moves**, **Depends on**, **How far to rely**                                 |
+| **Decide**   | The decision brief, the independent review, and the report studio                            | **Review**, **Export**, **Edit report**, **Detailed report**                                                   |
 
 Everything on these screens is read from the real engine. Nothing is mocked, and nothing in the script
 below is a result: read the real screen and quote that.
@@ -72,7 +72,7 @@ Allow ten minutes.
 
 Demo 1 is the full walk. Demos 2 to 4 show what changes when the input changes, and the pipeline does
 not. The labels are the ones in the interface (**Explore**, **Ground it**, **Find who is affected**,
-**Approve & create actors**, **Run the simulation**, **Compare**, **Decide**, **Write the brief**,
+**Create actors**, **Run the simulation**, **Compare**, **Decide**, **Write the brief**,
 **Review**, **Run the independent review**).
 
 | Time          | Where                                 | Click                                                                                                                                                                                                             | Point at                                                                                                                                                                                                                                                                                                        |
@@ -80,7 +80,7 @@ not. The labels are the ones in the interface (**Explore**, **Ground it**, **Fin
 | 0:00 to 0:45  | First screen: Ask                     | Nothing                                                                                                                                                                                                           | "Explore what could happen next.", the sentence about not predicting, the six-step line under the question field (Ask, Ground, Map, Simulate, Compare, Decide)                                                                                                                                                  |
 | 0:45 to 1:45  | Demo 1: the question and the evidence | The **Copilot in Teams** chip under **Start from an example** (it fills the question and the five documents, and the chips become one line, "Copilot in Teams · 5 documents · sample evidence"), then **Explore** | The count on **Evidence** and the five documents in the tray (open one: "Sample evidence: invented, describes no real case"); then **Your scenario**: what changes, if nothing changes, ways to do it, and **Assumed**, where a dot says who made each assumption; the open points under **Swarm asks**         |
 | 1:45 to 2:15  | Demo 1: Ground                        | **Ground it**, then open one conflict under **Conflicts**                                                                                                                                                         | The four figures (**Sources**, **Passages**, **Entities** or **Topics**, **Conflicts**); the source graph; two quotations side by side, each with its document, and "Neither side is declared true"                                                                                                             |
-| 2:15 to 3:30  | Demo 1: Map                           | **Map the stakeholders**, **Find who is affected**, select one party, then **Approve & create actors**                                                                                                            | The ecosystem: clusters of parties, the relations between them, a quiet tint where the effect is unclear; "N to review" and the **Read from your text** chip; a party opened to its quotes, **Why they are here** and its confidence; the dashed **Nobody found for** prompts; **Traits**, each with its origin |
+| 2:15 to 3:30  | Demo 1: Map                           | **Map the stakeholders**, **Find who is affected**, select one party, then **Create actors**                                                                                                                      | The ecosystem: clusters of parties, the relations between them, a quiet tint where the effect is unclear; "N to review" and the **Read from your text** chip; a party opened to its quotes, **Why they are here** and its confidence; the dashed **Nobody found for** prompts; **Traits**, each with its origin |
 | 3:30 to 4:45  | Demo 1: Simulate                      | **Simulate**, then **Run the simulation**. In the theatre: the scrubber's play button (it also plays by itself the first time), then **Network**, **Timeline** and **Story** in the **View** control              | Set the futures: the baseline and the alternatives on the same seeds, **Seeded runs of each**, the estimate. **Live**: one typical run on the map, the scrubber (a flag where the change lands, a dot where something was set off) and the round card. **Network**, **Timeline**, then **Story**                |
 | 4:45 to 5:45  | Demo 1: Compare                       | **Compare**                                                                                                                                                                                                       | The sentence that answers the question; the gap chart (a tick for each seeded run, a bar for the middle 80%, a dot for the mean, a bracket for the difference); "It held in k of n seeded runs" and its class; **Depends on**; **Sets off**; **How far to rely on this**                                        |
 | 5:45 to 6:45  | Demo 1: Decide                        | **Decide**, **Write the brief**, then **Review** and **Run the independent review**                                                                                                                               | The verdict and the four numbers under **What happened**; the origin mark on a statement and what it rests on; **Validation plan**, open just after the recommendations; one objection and its basis (the independent critic)                                                                                   |
@@ -99,7 +99,7 @@ writes (**Simulate** → **More** → **Deep dive**), so keep it for a longer sl
 explores scenarios. It does not predict the future, and every figure you will see comes from simulated
 members and seeded runs under stated assumptions, never from a real-world rate."
 
-![The first screen: the heading "Explore what could happen next.", a question field with Evidence, Options and Explore, and a row of example chips](../assets/swarm-ask.png)
+![The first screen: the heading "Explore what could happen next.", a question field with Evidence, Time frame, Assumptions, Options and Explore, and a row of example chips](../assets/swarm-ask.png)
 
 **0:45, the question and the evidence.** "These five documents are invented, and each says so. Every
 document keeps where it came from. **Your scenario** is Swarm's reading of my question, made explicit so
@@ -122,7 +122,7 @@ found. Where it could not read a direction of impact, nobody is assumed to be he
 group, and I would set it here, with my reasons: **Edit** on the party." Open one party to show its quotes,
 word for word, with the passage they come from, and what is assumed. A dashed **Nobody found for** prompt
 is a kind of party that nothing in the evidence named. "Every number an actor runs on says where it came
-from, and I can change it." **Approve & create actors**: the map switches to the actors and the pill
+from, and I can change it." **Create actors**: the map switches to the actors and the pill
 changes to "N actors ready · Synthetic stand-ins". Open one actor and move one trait's slider under
 **Traits**: its chip becomes **you** at once, and **Save** keeps it.
 
@@ -185,7 +185,7 @@ to one". Read the message, which ends by offering to let you paste the text inst
 
 **8:45, the audience's question.** Type what they ask. "No one prepared this. Whatever the evidence
 supports is what appears, and where it is thin, the gaps and the warnings say so." A page may name
-fewer than two stakeholders. **Approve & create actors** stays disabled until there
+fewer than two stakeholders. **Create actors** stays disabled until there
 are two ("Keep or add two or more"), so add the missing group yourself with **Add a stakeholder…** and
 label it as your assumption. If the setup warns that nobody has a direction of impact, say what that means:
 no group is set as helped or harmed yet, so any difference it shows comes from how widely the members of a

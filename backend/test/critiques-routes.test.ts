@@ -308,7 +308,7 @@ describe('running the review', () => {
     expect(set.mode).toBe('rules');
     expect(set.critiques.length).toBeGreaterThan(5);
     expect(set.critiques.every((critique) => critique.origin === 'rules')).toBe(true);
-    expect(set.notes?.join(' ')).toContain('ledger');
+    expect(set.notes?.join(' ')).toContain('Conflicts between sources were not checked');
     expect(view.may).toEqual({ run: true, respond: true });
     expect(await get()).toEqual(view);
 
@@ -335,7 +335,7 @@ describe('running the review', () => {
     const notes = view.critiques?.notes?.join(' ') ?? '';
     expect(notes).toContain('No scenario was recorded');
     expect(notes).toContain('No stakeholders were recorded');
-    expect(notes).toContain('ledger of conflicts');
+    expect(notes).toContain('Conflicts between sources were not checked');
   });
 
   it('reads the conflicts between sources from the ledger when it has been built', async () => {
@@ -368,7 +368,9 @@ describe('running the review', () => {
     );
     expect(found?.basis).toContain('Open conflicts in the ledger: 1.');
     expect(found?.evidence.map((passage) => passage.passageId)).toEqual(['d1-p1', 'd2-p1']);
-    expect(view.critiques?.notes?.join(' ') ?? '').not.toContain('ledger of conflicts');
+    expect(view.critiques?.notes?.join(' ') ?? '').not.toContain(
+      'Conflicts between sources were not',
+    );
   });
 
   it('challenges the brief of this analysis, and leaves alone one made from another', async () => {

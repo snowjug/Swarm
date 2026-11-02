@@ -4,6 +4,8 @@
   }
   .sw-rv {
     display: grid;
+    /* One column that is never wider than the page, whatever a row in it is made of. */
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-5);
     width: min(48rem, 100%);
     margin: 0 auto;
@@ -41,11 +43,13 @@
   }
   .sw-rv__grid {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-6);
     margin-top: var(--s-3);
   }
   .sw-rv__section {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-3);
     padding-top: var(--s-4);
     border-top: 1px solid var(--hairline);
@@ -54,6 +58,11 @@
     display: flex;
     align-items: baseline;
     justify-content: space-between;
+  }
+  /* What adds a row sits at the start of the line, under the rows, and does not stretch across the section. */
+  .sw-rv__section > .sw-btn {
+    justify-self: start;
+    margin-left: calc(var(--btn-px) * -1);
   }
   .sw-rv__rows,
   .sw-rv__alts,

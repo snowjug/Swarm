@@ -56,5 +56,5 @@ unreliably, and it cannot be tested without a model.
 ## Evidence
 
 `backend/test/evidence-gate.test.ts` (mutation-checked), `backend/test/demos.test.ts`,
-`e2e/model/ledger-ui.spec.ts`, `evaluation/test/evaluation.test.ts`; one live Azure run in which the
+`e2e/model/grounding.spec.ts`, `evaluation/test/evaluation.test.ts`; one live Azure run in which the
 analyst cited exactly the four statements the ledger classed as unsupported.

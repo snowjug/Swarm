@@ -10,7 +10,7 @@ Swarm explores what could happen if something changes. It does not guarantee or 
 real-world behavior: everything it shows is a simulation of synthetic actors under assumptions that are
 stated, and none of it is a measurement of real people.
 
-![The first screen: the heading "Explore what could happen next.", a large question field with Evidence and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./assets/swarm-ask.png)
+![The first screen: the heading "Explore what could happen next.", a large question field with Evidence, Time frame, Assumptions and Options tools and an Explore button, a row of example chips, and the six steps of the journey underneath](./assets/swarm-ask.png)
 
 ## The journey
 
@@ -57,34 +57,55 @@ results are made the same way as for a question of your own.
 - **A record that the guided flow did not make**, such as a quick run saved before the staged engine, keeps
   its results readable. Map and Compare say "Not in this record", and the other scenes show what the record
   holds without inventing what it did not record. See [History](#history-and-keeping-a-record).
+- **A run the engine made on its own**, such as the recorded demonstration, has nothing in the scenario lab
+  (no scenario, stakeholders, actors, comparison or brief) and is read through its own run. It opens on
+  Simulate. **Compare** opens once it has rounds, to read two recorded runs side by side, and **Decide** opens
+  once it has a detailed report, to say "Nothing to decide from yet" (there is no brief) with **Open Simulate**
+  and **Detailed report**.
 
 ## Ask: the question and the evidence
 
 The first screen, and the only one before there is a project. It asks "What change do you want to explore?".
 
 1. **Write the question.** Type a what-if question, one or two sentences, into **Your what-if question**, or
-   choose an example from the row under it: **Copilot in Teams**, **Cloud price change**, **Online store
-   checkout**, **AI-first support**, **Launch pricing**, or the fictional starter **Library hours**, which is
-   there to learn the workflow. An example fills in the question and its evidence and nothing else. A note
-   then names it and says how many documents it brought, and pressing the note brings the row back.
+   choose an example from the row under it: **Launch pricing**, **Cloud price change**, **Online store
+   checkout**, **AI-first support**, **Copilot in Teams**, or the fictional starter **Library hours**, which
+   is there to learn the workflow (on a phone the row is one line to swipe). An example fills in the question
+   and its evidence and nothing else. A note then names it and says how many documents it brought, and
+   pressing the note brings the row back. The question holds up to 2,000 characters: a longer text pasted
+   into it is cut, and from 1,700 characters a counter ("1,750 / 2,000") says how much room is left.
 2. **Add evidence.** **Evidence** opens a panel with three ways to add it: **Files** (drop them, or choose
-   them: TXT, MD, CSV, JSON or a text-based PDF), **Paste** (a name and the text, then **Attach**) and **Web
-   page**, which is offered only when the server allows it. For a page, type an address, choose **Fetch**,
-   read the title, site, size and time of retrieval, then choose **Add as evidence** (or **Discard**). The
+   them: TXT, MD, CSV, JSON or a text-based PDF, where the server reads PDFs), **Paste** (a name and the
+   text, then **Attach**) and **Web page**, which is offered only when the server allows it. For a page,
+   type an address, choose **Fetch**, read the title, site, size and time of retrieval, then choose **Add as
+   evidence** (or **Discard**). Or name the page in your question: a button that names the site ("Read
+   example.org as evidence") appears under the field, and the page is fetched only when you choose it, and
+   still previewed before you add it. The
    server fetches the page, not your browser: it runs no scripts, signs in nowhere, does not read private
    networks, and does not check that the page is true. If the page cannot be read, the message says why and
    you can paste its text instead. A project takes up to ten documents of 80 to 40,000 characters each.
-   Everything attached sits in a row of pills, and a pill opens the text that Swarm will work from. Every
-   document keeps where it came from.
-3. **Choose the engine, if you want to.** **Options** holds the engine (**Local rules**, or **Model
+   Everything attached sits in a row of pills, and a pill opens the text that Swarm will work from, to read
+   and correct. If you change the text of a page that was fetched, it is kept as pasted text and no longer
+   called a retrieved page (put the words back and it is the page again). Every document keeps where it came
+   from.
+3. **Say what to take as given, if you want to.** **Time frame** asks over what time the effects should be
+   judged (a few common spans, or your own words), and **Assumptions** what Swarm should take as given (up to
+   six lines). They are applied after your question is read, as yours: the time frame answers the question
+   about the period, and each assumption is marked **Yours**. They are not part of what is read, so nothing
+   that reads the question, a model included, sees them. If you change either, the question is read again.
+4. **Choose the engine, if you want to.** **Options** holds the engine (**Local rules**, or **Model
    assisted**, which stays off until the server has a provider), an optional name, and the settings of the
-   deep dive (proxies, rounds and seed). A line there says whether the question goes anywhere: "Rules run on
-   this machine. Nothing is sent anywhere.", or which provider a model would send it to.
-4. **Explore.** Choose **Explore** (or press Ctrl or ⌘ with Enter). It needs a sentence and at least one
-   source, and says which is missing. Swarm reads the question into a scenario: rules on the server read it
-   and it goes nowhere else, unless you chose **Model assisted**. Then it is sent to the model provider, and
-   if that fails or takes more than 170 seconds the rules read it and a note says so.
-5. **Review the scenario.** The heading becomes "Your scenario", and what Swarm read is laid out to read and
+   deep dive (proxies, rounds and seed), under **Deep dive**. A line there says whether the question goes
+   anywhere: "Rules run on this machine. Nothing is sent anywhere.", or which provider a model would send it
+   to. On a phone **Evidence**, **Time frame**, **Assumptions** and **Options** open from the foot of the
+   screen.
+5. **Explore.** Choose **Explore** (or press Ctrl or ⌘ with Enter, which the button's hint shows for your
+   device). It needs a sentence and at least one source, and says which is missing. Swarm reads the question
+   into a scenario: rules on the server read it and it goes nowhere else, unless you chose **Model
+   assisted**. Then it is sent to the model provider, and if that fails or takes more than 170 seconds the
+   rules read it and a note says so. A reading that takes a moment shows the question while it is read, with
+   focus on **Stop** (Escape does the same), which puts you back at the question with everything you wrote.
+6. **Review the scenario.** The heading becomes "Your scenario", and what Swarm read is laid out to read and
    correct, not as a form to fill. Everything is editable where it stands: the decision, what it affects,
    where and over what time, **What changes** (each with a from and a to), **If nothing changes**, **Ways to
    do it** (the alternatives to compare; **Add a way**), **Who is affected** and **Assumed**. Each assumption
@@ -92,10 +113,10 @@ The first screen, and the only one before there is a project. It asks "What chan
    three questions that it needs answered: **Answer** or **Skip** each. **Evidence** lists what was
    attached, and **How it was read** says how the question was read. A chip says whether it was read by
    rules, by a model, or edited by you. **Question** goes back to the first screen with everything you wrote.
-6. **Ground it.** **Ground it** creates the project and starts reading the evidence. Nothing ran before
+7. **Ground it.** **Ground it** creates the project and starts reading the evidence. Nothing ran before
    this: "Nothing runs until you continue." sits beside the button. If the reading of the question fails,
-   the page says so and offers **Try again** or **Continue without reading**, which starts without a
-   scenario.
+   the page says so and offers **Try again** (focus is already on it) or **Continue without reading**, which
+   starts without a scenario, and so without the time frame and assumptions you gave.
 
 Under the question, **Continue** lists your newest explorations (and the recorded demonstration, when the
 workspace has it), and **All explorations** opens History. **Duplicate as a new question**, under Settings
@@ -107,41 +128,56 @@ evidence and settings were copied. Nothing that was run."
 ![Ground: the question as the heading, four figures (sources, passages, topics and conflicts) and a constellation graph of the topics the sources talk about](./assets/swarm-ground.png)
 
 Ground is where the evidence is read, before anything is simulated. Its heading is your question. A status
-chip says where the reading stands (Not started, Queued, Reading, Ready, Failed, Stopped, or Saved record),
-and four figures, **Sources**, **Passages**, **Topics** (**Entities** in a project made in Model assisted
-mode) and **Conflicts**, are also the way into the rest of the page. The one main button changes as you go:
-**Ground it** before reading has started, **Stop** while it runs, **Try again** or **Start again** after a
-failure or a stop, and **Map the stakeholders** once the evidence is read. It waits at the bottom of the
-screen once it has scrolled away.
+chip says where the reading stands (Not started, Queued, Reading, Extracting, Checking, Ready, Failed,
+Stopped, or Saved record; Checking is the moment the sources are compared for conflicts), and four figures,
+**Sources**, **Passages**, **Topics** (**Entities** in a project made in Model assisted mode) and
+**Conflicts**, are also the way into the rest of the page: Sources goes to the list of sources, Passages
+opens a search of the numbered passages (by number or by a word), Topics goes to the graph and Conflicts to
+the conflicts. The one main button changes as you go: **Ground it** before reading has started, **Stop**
+while it runs, **Try again** or **Start again** after a failure or a stop, and **Map the stakeholders** once
+the evidence is read. It waits at the bottom of the screen once it has scrolled away. Until there is a graph,
+the sources fill the first screen.
 
-- **The graph** draws what the sources talk about. In rules mode its points are topics, the words the
-  sources lean on most, and a line joins two that share a passage: co-occurrence, not meaning. In a
-  model-assisted project a model proposed the entities and links, each with a quote that the server checked
-  word for word against the passage it cites, and it may be incomplete. A ring shows which documents cite a
-  topic. Choose a topic to read its passages. **Find a topic** searches, and **Zoom in**, **Zoom out**, **Fit
-  to view** and **Graph options** (which types to show) are beside it. With the keyboard, `[` and `]` step
-  between topics, Enter or Space opens one, the arrow keys move the view, `+` and `-` zoom, `R` fits
-  everything and Esc closes the panel.
+- **The graph** draws what the sources talk about, and says under it what a line means: "Shared passages, not
+  meaning" in rules mode. Its points are topics, the words the sources lean on most, and a line joins two that
+  share a passage: co-occurrence, not meaning. In a model-assisted project ("Extracted by a model · may be
+  incomplete") a model proposed the entities and links, each with a quote that the server checked word for
+  word against the passage it cites, and it may be incomplete. A ring shows which documents cite a topic. The
+  heaviest topics are named; the rest are named when you point at them. Choose a topic to read its passages.
+  **Find a topic** searches, and **Zoom in**, **Zoom out**, **Fit to view** and **Graph options** (which
+  types to show, how weak a link may be and whether to name the links) are beside it. With the keyboard, `[`
+  and `]` step between topics, Enter or Space opens one, the arrow keys move the view, `+` and `-` zoom, `R`
+  fits everything and Esc closes the panel.
 - **Method** says how the evidence was read, with the engine's notes and the types it looked for. The local
   schema is a topic and co-occurrence schema, not AI extraction. In model mode a quote that runs past the
   source is shortened to its verbatim start, and a relation whose type is not in the scenario's ontology is
   left out; the notes say how many of each. An invented citation, an unknown entity type or a duplicate id is
   still rejected.
-- **Sources** are drawn as threads, each as long as its document, with its numbered passages (S1, S2, …)
-  along it. Choose one to read the document with its passages marked. A tag says where each came from:
-  "Upload", "Pasted", "Synthetic sample" (an example's invented documents, which say they are not real
-  information), or the site that a fetched page came from. A page's sheet says "Retrieved by Swarm on" a date
-  and "Retrieved, not verified."
-- **Conflicts** puts two sources that give different figures ("Different figures") or say opposite things
-  ("Opposite statements") side by side. Swarm found them from wording alone, and "Neither side is declared
-  true."; **How it was found** says which words the passages share. Each is a **Possible conflict** until a
-  person settles it: **Confirm**, **Not a conflict** or **Mark resolved**, with an optional note (**Add a
-  note**), and **Change decision** if you change your mind. A conflict that you dismiss or resolve no longer
-  weighs on the statements it touched. Nothing requires you to settle them.
+- **Sources** are a tray, one row for each document, with its numbered passages (S1, S2, …) laid along a
+  thread as long as the document. A tag says where each came from: "Upload", "Pasted", "Synthetic sample" (an
+  example's invented documents, which say they are not real information), or the site that a fetched page
+  came from. Under **Sources** a row also names the topics that came from it, the heaviest first. Each row
+  says where its source stands: Queued, Reading, Extracting or Checking while the engine works, and Ready
+  when it is done. **Needs attention** marks a source that is in a conflict nobody has settled, with a flag
+  for each such conflict that takes you to it. Choose a source to read the document with its passages
+  marked, or a passage to read it on its own; pointing at either lights what it is tied to in the graph and
+  in the conflicts. A page's sheet says "Retrieved by Swarm on" a date and "Retrieved, not verified."
+- **Conflicts** come first when any is unsettled, ahead of the sources they are between. Each puts two
+  sources that give different figures ("Different figures") or say opposite things ("Opposite statements")
+  side by side, with the words each stands in. Swarm found them from wording alone, and "Neither side is
+  declared true."; **How it was found** says which words the passages share. Each is a **Possible conflict**
+  until a person settles it: **Confirm**, **Not a conflict** or **Mark resolved**, with an optional note
+  (**Add a note**), and **Change decision** if you change your mind; settled ones wait under **Reviewed**. A
+  conflict that you dismiss or resolve no longer weighs on the statements it touched. Nothing requires you
+  to settle them.
 - **Statements** lists what a report written by a model says and how well the sources back each statement,
-  not whether they are true: a bar counts the verdicts and filters the list, and a statement opens in a sheet
-  with its passages, where you can **Accept**, mark **Needs revision** or **Reject** it. Until there is such a
-  report the section says so quietly. See the [grounding review](#grounding-review-model-assisted-reports).
+  not whether they are true: a bar counts the verdicts and filters the list, and each statement is tagged
+  with what kind of thing it is, a **Fact** (a source says it), an **Assumption**, a **Simulation
+  observation** or an **Interpretation**, with a filter by kind when the list holds more than one. A
+  statement opens in a sheet with its passages, where you can **Accept**, mark **Needs revision** or
+  **Reject** it. The section appears only once a report has been checked and lists some; when the check
+  found none, a line says so, and until then there is no empty section. See the
+  [grounding review](#grounding-review-model-assisted-reports).
 - **Operations**, the engine's recorded operations and events, is shown in Advanced detail only.
 
 ## Map: who is affected, and the actors
@@ -162,13 +198,16 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    kept (marked inferred) only if your question or scenario names it; otherwise it is dropped and the note
    says so.
 2. **After finding**, the stakeholders are drawn as a map, in clusters by kind: Decide, Use & benefit, Bear
-   cost & risk, Influence & reach, Rivals, Partners & operations, Regulators and Others. Under the heading,
-   counts say how many parties there are, how many are key and how many are **to review**, and a chip says
-   how they were found ("Read from your text", "Found by a model" or "Built by you"). Press the chip for the
-   note, which says how many have a direction of impact read from the wording. In the toolbar, **Map** and
-   **List** switch between the map and the same parties as text, **Stakeholders** and **Actors** switch what
-   is drawn, **Groups** shows or hides a kind, and the focus control (`F`) dims all but what is connected to
-   the party you have open. With the keyboard, the arrow keys move to the nearest party in that direction,
+   cost & risk, Influence & reach, Rivals, Partners & operations, Regulators and Others. A key party is drawn
+   larger, with its name in bold (**How to read this map** says so). Under the heading, counts say how many
+   parties there are, how many are key and how many are **to review**, and a chip says how they were found
+   ("Read from your text", "Found by a model" or "Built by you"). Press the chip for the note, which says how
+   many have a direction of impact read from the wording. Point at a party to see, before you open it,
+   whether it is key or a cohort, its influence (for an actor), its effect and how many quotes it rests on.
+   In the toolbar, **Map** and **List** switch between the map and the same parties as text (in groups, the
+   weightiest first, each row saying its own facts in words), **Stakeholders** and **Actors** switch what is
+   drawn, **Groups** shows or hides a kind, and the focus control (`F`) dims all but what is connected to the
+   party you have open. With the keyboard, the arrow keys move to the nearest party in that direction,
    Enter or Space opens it, Esc lets go, Ctrl or ⌘ with the wheel zooms, a drag pans, and **Zoom in**, **Zoom
    out** and **Fit everything** sit beside the map.
 3. **A party** is a button on the map. Choose it to read it in the inspector, a floating panel (on a narrow
@@ -177,17 +216,20 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    is affected, how it is modelled (**Key**, **Cohort** or **Small**), how sure Swarm is, what it wants and
    worries about (assumed from its category, or read by a model; not found in the sources), the quotes it
    rests on under **Evidence**, word for word with the passage and the document each comes from, and **Why
-   they are here**. **Accept** is a button of its own, and beside it are icon buttons to edit, merge (into
-   another stakeholder) and remove it, each named for the party ("Edit <name>"). Quotations cannot be
+   they are here**. **Accept** is a button of its own, and beside it are icon buttons to edit, duplicate,
+   merge (into another stakeholder) and remove it, each named for the party ("Edit <name>"). A duplicate is
+   your own: its name ends in "(copy)", it cites no evidence and says so. Quotations cannot be
    changed here, and the server refuses an altered or invented one. Nothing is deleted: a removed or merged
    stakeholder moves to **Removed**, where **Restore** or **Undo the merge** brings it back. **Add a
    stakeholder** adds one of your own; it carries no evidence, says so and is marked "Added by you". The
    places marked "Nobody found for" (on the map, and under **List**) are the kinds of stakeholder that
    nobody was found for: a prompt to look, not an error, and a press adds one there. A project holds at
-   most 40.
+   most 40. If nobody is left, the page says "Nobody drawn yet" and offers **Add one yourself**.
 4. **Approving.** One pill at the foot of the map says the one thing to do next. While some stakeholders
-   need review it says "N to review" (press it to open the next one) beside **Approve & create actors**,
-   which stays disabled, with the hint "Keep or add two or more", until at least two stakeholders are kept.
+   need review it says "N to review" (press it to open the next one) beside **Create actors**, which stays
+   disabled, with the hint "Keep or add two or more", until at least two stakeholders are kept. (A screen
+   reader names that button "Approve & create actors", because it also accepts the stakeholders you did not
+   look at; where you have changed actors it reads **Approve** and leaves your changes as they are.)
    Approving accepts the ones you did not look at and makes the actors: a key actor for each key stakeholder
    and a cohort of simulated members for each of the others. When a model is available, pressing the button
    opens a small panel with the switch **Let the model read the key actors** (it sends your source text to
@@ -196,14 +238,19 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    **Find stakeholders again…** (under **More** in the toolbar) replaces a list you have reviewed only after
    you confirm ("Replace the list?").
 5. **The actors.** Once they are made the pill says "N actors ready", "Synthetic stand-ins", and offers
-   **Simulate**. **Actors** in the toolbar draws them, and an actor opens to its traits, each on a slider
-   with its origin (assumption, evidence, model or you) and the reason for its value. Moving a slider marks
-   the trait "Changed by you; not saved yet", and the pill offers **Save** and **Discard**; a saved actor is
-   "Edited by you". **Reset all actors…** (under **More**) makes every actor again from the approved list
-   after you confirm. If you change the stakeholders later, the page says "The actors are out of date" and
-   offers **Make them again**. A simulation will not start on a list that is no longer approved or on actors
-   that do not match it: the server answers in words, "approve them and make the actors again", and you do
-   that here.
+   **Simulate**. **Actors** in the toolbar draws them. An actor opens to its **Key assumption** (where it
+   starts), what it wants, worries about and is pressed by, and its traits, each on a slider with its origin
+   (assumption, evidence, model or you) and the reason for its value. **Edit what _name_ wants and fears**
+   opens its role, starting belief and those lines to change in your own words, and a cohort's size and
+   number of simulated members are fields. Moving a slider marks the trait "Changed by you; not saved yet",
+   and the pill offers **Save** and **Discard**; a saved actor is "Edited by you". **Reset all actors…**
+   (under **More**) makes every actor again from the approved list after you confirm. You cannot add,
+   remove, rename or regroup an actor itself, because the actors are made from the stakeholders and the
+   server refuses to change which they are: an actor offers **Edit as a stakeholder**, and there you
+   duplicate, remove, rename or regroup the stakeholder. Then the page says "The actors are out of date" and
+   offers **Make them again**, which asks before it replaces your changes. A simulation will not start on a
+   list that is no longer approved or on actors that do not match it: the server answers in words, "approve
+   them and make the actors again", and you do that here.
 
 The rules read the groups that the text names with a role word, and read a direction of impact only where a
 cited sentence has a word of concern or welcome. The others stay unclear until you say who is helped or
@@ -277,30 +324,38 @@ two recorded runs.
 
 Decide is the decision brief as a document, with the independent review beside it. Before there is a brief
 it says so and offers one action, **Write the brief**: it writes the answer-first document from the
-comparison, by rules, with no model, and says "Writing the brief" while it does. See [the brief](./analysis/brief.md)
-and [the critics](./analysis/critics.md).
+comparison, by rules, with no model, and says "Writing the brief" while it does. With no comparison to write
+it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
+[the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
 
-- **The brief opens on its answer**, with a caveat, then the story in four parts: **What happened**, **Why**,
-  **What to do** and **On what ground**. Five chapters of reference stay closed until they are wanted: the
-  assumptions, the evidence base, the sources, the limitations and the technical appendix. The contents
-  (beside the page where there is room, or from **Contents** on a small screen) opens one, and **Open every
-  chapter** opens them all (**Close the reference** shuts them again). A closed chapter is still in the page,
-  so find in the page and a screen reader reach it, and an address ending `#brief-<chapter>` opens it. A long
-  list of statements shows its first few, with **Show N more statements**. Press Ctrl+P (Cmd+P on a Mac): the
-  page prints the whole brief, whatever is closed on the screen, and the review, in ink on white and without
-  the application around them.
+- **The brief opens on its answer**: what happened (the verdict, in the simulation's own numbers), why (who
+  moved most, and how steadily it held), what matters (the biggest open caveat, and how the review stands) and
+  what to consider next, with a line under the verdict that these are counts from a simulation under stated
+  assumptions, not a forecast. Below it is the story in four parts: **What happened**, **Why**, **What to do**
+  and **On what ground**. Five chapters of reference stay closed until they are wanted: the assumptions, the
+  evidence base, the sources, the limitations and the technical appendix. The contents (beside the page where
+  there is room, or from **Contents** on a small screen) opens one, and **Open every chapter** opens them all
+  (**Close the reference** shuts them again). A closed chapter is still in the page, so find in the page and
+  a screen reader reach it, and an address ending `#brief-<chapter>` opens it (for example
+  `#brief-recommendations` or `#brief-limitations`; `#brief-answer` is the answer). A long list of
+  statements shows its first few, with **Show N more statements**. Press Ctrl+P (Cmd+P on a Mac), or choose
+  **Print this page**: the page prints the whole brief, whatever is closed on the screen, and the review, in
+  ink on white from any theme and without the application around it.
 - **Every statement shows its origin.** Press the mark beside it to see what it rests on: one of ten origins
   (supplied or retrieved evidence, a user or system assumption, an inferred stakeholder, actor behaviour, a
   simulation aggregation, a model interpretation, a historical comparison, or unresolved uncertainty).
 - **Tools for the brief** are at its head. **Review** opens the critics' objections and shows how many are
   open. **Edit report** opens [Report Studio](#report-studio). **Detailed report** opens the deep dive's
   report, when one was written. **Export** saves the brief as **Markdown**, as **JSON, with the data behind
-  the charts**, or as a **Printable page**, or prints this page. Under **More**, **Write the brief again**
-  and **Open every chapter**.
+  the charts**, or as a **Printable page** (opened in a tab of its own), or prints this page; a role that
+  may read the brief but not export it has the three files switched off, with the reason, and can still
+  print. Under **More**, **Write the brief again** and **Open every chapter**.
 - **The independent review.** **Run the independent review** has the critics check the work, and the page
-  shows each criticism with what it rests on and what it would do to the conclusion. For each you write a
-  response and say what it means: **Respond** (not settled), **Accept** (the objection stands, so its impact
-  applies to the conclusion) or **Dispute** (the disagreement stays in view), then **Save response**. The
+  shows each criticism with what it rests on and what it would do to the conclusion. A criticism that says
+  the comparison cannot say anything about the change comes first, and you can filter the rest (open,
+  answered, by severity). For each you write a response and say what it means: **Respond** (not settled),
+  **Accept** (the objection stands, so its impact applies to the conclusion) or **Dispute** (the
+  disagreement stays in view), then **Save response**. The
   switch **Also ask a model** adds a deeper reading, and is available only in a project made in **Model
   assisted** mode on a server with a provider. Your responses are kept for any criticism that comes back
   unchanged when you run the review again. If someone else has changed the review while you were writing, the
@@ -496,7 +551,9 @@ the independent check fails the report still completes with the deterministic
 checks and says so.
 
 You read the checks in the detailed report (**Statement checks**, and the sources and checks in each
-chapter's margin), in Ground under **Statements**, and in Report Studio under **Statements**.
+chapter's margin), in Ground under **Statements**, and in Report Studio under **Statements**. A citation in
+the detailed report opens the passage it points at; one that points at no passage the project stored says
+"Not among this project's sources", and a citation that points at nothing is not evidence for the statement.
 
 Limits: a citation proves provenance, not truth; only the statements the writer
 lists are checked; the rules-based report has no model-written statements and gets
@@ -552,16 +609,19 @@ it says "There is no report to work on yet" until one is written, and points to 
   too.
 - **Sections.** The summary, each chapter and the limitations are listed in an outline. A chapter shows the
   statements the server checked against the sources under **Statements**, and each statement opens to the
-  passages that support it, the passages that contradict it and the assumptions it rests on. **Review record**
-  (under **More**) holds the decisions made, the open conflicts between sources, the assumptions behind the
-  simulated results, and any earlier copies.
+  passages that support it, the passages that contradict it and the assumptions it rests on. **Record** (in
+  the header, or under **More** on a narrow screen) opens the Review record: the decisions made, the open
+  conflicts between sources, the assumptions behind the simulated results, and any earlier copies. It opens on
+  the decisions every time.
 - **Editing.** **Edit** a section, then **Save as version N**, with an optional reason. Every save is a new
   version. **History** compares any earlier version with the current text (added words are underlined,
   removed words are struck through, and a screen reader is told which is which) and **Restore** brings an
   earlier text back as a new version. A save that changes nothing is not offered. If someone else saved the
   section while you were writing, the page says "Version N was saved while you were writing", keeps your
   words and offers **See the differences** and **Drop mine**; saving then makes a new version on top of
-  theirs, and theirs stays in the history.
+  theirs, and theirs stays in the history. If you go back to the brief while words are unsaved, the studio
+  asks first ("Leave with unsaved changes?": **Keep editing** or **Leave anyway**), and so does the browser
+  if you close the tab.
 - **What an edit does to the checks.** The server checked the statements against the text it generated. Once
   the text of a chapter has changed, those statements describe an earlier text: they are still shown,
   marked as such ("These statements describe an earlier text"), and nothing says they check the new words.
@@ -591,7 +651,9 @@ it says "There is no report to work on yet" until one is written, and points to 
   command. A memo says at the top whether it is approved, in review, a draft, or carries an approval that no
   longer matches its text; lists as findings only statements a source passage supports; shows hypotheses,
   simulation results and statements that are not verified under their own headings; and says which
-  statements it left out because their text was changed.
+  statements it left out because their text was changed. Ctrl+P on the studio itself prints the whole
+  working copy, section by section, with where it stands in its review (and the fingerprint of the text once
+  it is approved), and none of the editor; the memo remains the formal record.
 - **Audit.** Each step is recorded in the [audit log](../README.md#security) with identifiers and counts,
   never with the text.
 

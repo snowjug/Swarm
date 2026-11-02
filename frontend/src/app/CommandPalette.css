@@ -72,6 +72,13 @@
   .sw-cmdk__esc {
     flex: none;
   }
+  /* Two classes: the button's own display must not win over the one that hides it. It sits in the field's corner. */
+  .sw-cmdk .sw-cmdk__close {
+    display: none;
+    position: absolute;
+    top: 0.375rem;
+    right: var(--s-2);
+  }
 
   .sw-cmdk__body {
     flex: 1;
@@ -183,11 +190,18 @@
     align-items: center;
     gap: var(--s-1);
   }
-  /* A touch screen has no keys to name. */
+  /* A touch screen has no keys to name: the keys give way to a button that closes it. */
   @media (hover: none) {
     .sw-cmdk__foot,
     .sw-cmdk__esc {
       display: none;
+    }
+    .sw-cmdk .sw-cmdk__close {
+      display: inline-grid;
+    }
+    /* The field leaves the corner to the button. */
+    .sw-cmdk__field {
+      padding-right: 3.25rem;
     }
   }
 

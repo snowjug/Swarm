@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Analysis } from '../../../shared/analysis';
 import type {
   AnalysisReadiness,
@@ -96,6 +96,15 @@ export function useAnalysis(projectId: string): AnalysisState {
   const [revision, setRevision] = useState(0);
   const [refreshes, setRefreshes] = useState(0);
 
+  // The choice of a comparison that is being read, if any. Only the newest choice may answer, and only while the project
+  // is open: a comparison that arrives after another was chosen, or after the project was left, is not the one to show.
+  const choosing = useRef<AbortController | null>(null);
+  const stopChoosing = useCallback(() => {
+    choosing.current?.abort();
+    choosing.current = null;
+  }, []);
+  useEffect(() => stopChoosing, [projectId, stopChoosing]);
+
   useEffect(() => {
     const controller = new AbortController();
     void (async () => {
@@ -169,7 +178,10 @@ export function useAnalysis(projectId: string): AnalysisState {
       setStarting(true);
       setStartError(null);
       try {
-        setCurrent(await analysisApi.start(projectId, input));
+        const started = await analysisApi.start(projectId, input);
+        // The comparison just started is the one to watch: a choice still being read must not take its place.
+        stopChoosing();
+        setCurrent(started);
         setError(null);
         return true;
       } catch (failure) {
@@ -179,7 +191,7 @@ export function useAnalysis(projectId: string): AnalysisState {
         setStarting(false);
       }
     },
-    [projectId],
+    [projectId, stopChoosing],
   );
 
   const currentId = current?.id ?? null;
@@ -197,12 +209,19 @@ export function useAnalysis(projectId: string): AnalysisState {
 
   const select = useCallback(
     (id: string) => {
-      void analysisApi.get(projectId, id).then(
-        (chosen) => setCurrent(chosen),
-        (failure: unknown) => setError(errorMessage(failure)),
+      stopChoosing();
+      const controller = new AbortController();
+      choosing.current = controller;
+      void analysisApi.get(projectId, id, controller.signal).then(
+        (chosen) => {
+          if (!controller.signal.aborted) setCurrent(chosen);
+        },
+        (failure: unknown) => {
+          if (!controller.signal.aborted) setError(errorMessage(failure));
+        },
       );
     },
-    [projectId],
+    [projectId, stopChoosing],
   );
 
   return {

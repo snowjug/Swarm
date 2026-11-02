@@ -34,6 +34,25 @@ const LABELS: Record<string, string> = {
 export const exampleLabel = (example: ExampleScenario): string =>
   LABELS[example.id] ?? example.title;
 
+/**
+ * The order the examples are offered in, and the empty box suggests its questions in. It does not lead with a
+ * company or a product: no example is what Swarm is for. One the list does not know follows the rest.
+ */
+const OFFERED = [
+  'launch-pricing',
+  'regional-price-change',
+  'ecommerce-experience',
+  'ai-first-support',
+  'copilot-in-teams',
+];
+const place = (example: ExampleScenario): number => {
+  const at = OFFERED.indexOf(example.id);
+  return at === -1 ? OFFERED.length : at;
+};
+export const OFFERED_EXAMPLES: readonly ExampleScenario[] = [...EXAMPLE_SCENARIOS].sort(
+  (a, b) => place(a) - place(b),
+);
+
 /** What an example puts into the composer. It is a question and its evidence, nothing else. */
 export interface Starting {
   id: string;

@@ -130,6 +130,39 @@
     border-color: var(--hairline-strong);
     box-shadow: none;
   }
+  /* A finger is the size of the control: the thumb is 44px, and the disc that is drawn stays the size it was. */
+  @media (pointer: coarse) {
+    .sw-deep-track__thumb {
+      width: 2.75rem;
+      height: 2.75rem;
+      margin-top: -1.375rem;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+    .sw-deep-track__thumb::after {
+      content: '';
+      position: absolute;
+      inset: 0.625rem;
+      box-sizing: border-box;
+      border: 3px solid var(--accent);
+      border-radius: 50%;
+      background: var(--bg-raised);
+      box-shadow: var(--shadow-2);
+    }
+    .sw-deep-track__thumb:focus-visible {
+      box-shadow: none;
+    }
+    .sw-deep-track__thumb:focus-visible::after {
+      box-shadow:
+        0 0 0 4px var(--accent-soft),
+        var(--shadow-2);
+    }
+    .sw-deep-track[data-disabled] .sw-deep-track__thumb::after {
+      border-color: var(--hairline-strong);
+      box-shadow: none;
+    }
+  }
   .sw-deep-track__bubble {
     position: absolute;
     left: 50%;

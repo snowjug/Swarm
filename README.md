@@ -24,7 +24,7 @@ stated assumptions, and read the [four rules for reading a result](#from-a-quest
 before acting on one. The [demo guide](./docs/demo/README.md) scripts a ten-minute walk-through of
 the four flagship demos.
 
-![The first screen: the heading "Explore what could happen next.", a large question field with Evidence and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./docs/assets/swarm-ask.png)
+![The first screen: the heading "Explore what could happen next.", a large question field with Evidence, Time frame, Assumptions and Options buttons and an Explore button, a row of example chips, and the six steps of the journey underneath](./docs/assets/swarm-ask.png)
 
 ## Quick start
 
@@ -55,18 +55,19 @@ keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is 
 **The first demo, a few minutes in rules mode.**
 
 1. On the first screen ("Explore what could happen next."), choose the example **Copilot in Teams**
-   under the question field. It fills the question and attaches five synthetic documents (**Evidence**
-   shows a 5), and a note names the example. Nothing is sent or run yet.
+   (the last of the five chips under the question field). It fills the question and attaches five
+   synthetic documents (**Evidence** shows a 5), and a note names the example. Nothing is sent or run
+   yet.
 2. Choose **Explore**. Read the scenario that Swarm made of the question (its heading is "Your
    scenario"), correct anything, then choose **Ground it**. That creates the project and starts
    reading the evidence; nothing ran before.
 3. **Ground** shows the evidence being read ("Reading", then "Ready"): the sources, the topics they
-   share and, further down, **Conflicts**, where two sources give different figures. Settle each
-   (**Confirm**, **Not a conflict** or **Mark resolved**), or leave it, then choose **Map the
-   stakeholders**.
+   share and **Conflicts**, where two sources give different figures (a conflict that is still open
+   comes before the sources). Settle each (**Confirm**, **Not a conflict** or **Mark resolved**), or
+   leave it, then choose **Map the stakeholders**.
 4. **Map** opens on "Who is in play?": choose **Find who is affected**. The stakeholders appear as a
    map. Choose one to read the quotes it rests on and **Accept** it; the pill at the foot counts what
-   is still "to review". Choose **Approve & create actors** (stakeholders you did not look at are
+   is still "to review". Choose **Create actors** (stakeholders you did not look at are
    accepted), then **Simulate**. **List** (in the toolbar) shows the same parties as text, and
    **Actors** shows the synthetic actors made from them, with every trait on a slider.
 5. **Simulate** opens on its setup, "Set the futures side by side": choose **Run the simulation**.
@@ -97,7 +98,9 @@ The [demo guide](./docs/demo/README.md) says what to point at on each screen and
 Every step is a real screen, backed by a stored, validated document. On screen the
 work is six **scenes** along one journey, **Ask → Ground → Map → Simulate → Compare → Decide**. The
 address holds where you are (`/?project=<id>&scene=<scene>`), a scene opens when the project has what
-it needs, and a scene that is locked says what opens it. The [user guide](./docs/USER_GUIDE.md) walks
+it needs, and a scene that is locked says what opens it. Press **Ctrl K** (**⌘K** on a Mac) anywhere to
+open a command palette: it goes to a scene, changes a setting or opens another exploration, and says what
+a step that is not open yet is waiting for. The [user guide](./docs/USER_GUIDE.md) walks
 the screens, [UX.md](./docs/UX.md) says how the interface is built,
 [ADR 0014](./docs/adr/0014-scenario-lab.md) records why the lab is built this way and
 [ADR 0015](./docs/adr/0015-premium-interface.md) why the interface is.
@@ -229,10 +232,12 @@ They describe no real company, price or customer.
    "Online store: delivery and checkout".
 2. **Add a public page (optional).** Choose **Evidence**, then **Web page**, type an address, choose
    **Fetch**, read the title, site, size, retrieval time and notes, then choose **Add as evidence**.
-   The server fetches the page, not your browser. If it fails, the message says why and you can
-   paste the text instead (**Paste**). The online-store example pack names `https://books.toscrape.com/`,
-   a public practice site whose prices and ratings are random, so it holds no real customer; the
-   interface does not offer it, so type it in yourself.
+   If the question already names a page, a button under it offers to read that site as evidence (for
+   example "Read example.org as evidence"): choosing it fetches the page and shows the same preview,
+   and nothing is fetched until you choose it. The server fetches the page, not your browser. If it
+   fails, the message says why and you can paste the text instead (**Paste**). The online-store
+   example pack names `https://books.toscrape.com/`, a public practice site whose prices and ratings
+   are random, so it holds no real customer; the interface does not offer it, so type it in yourself.
 3. **Explore**, then **Ground it.** The scenario that Swarm reads from the question is editable in
    place: change the decision or anything under it, answer the questions it asks ("Swarm asks"), and
    add alternatives. Nothing runs until you choose **Ground it**, which creates the project and starts
@@ -243,8 +248,8 @@ They describe no real company, price or customer.
 5. **Map.** Choose **Find who is affected**: it reads the text for roles, and in a Model assisted project
    on a server with a provider it asks the model instead, with **Read the text instead** beside it.
    Choose a party to read its cited quotes and assumptions in the inspector, and to **Accept**, edit
-   (the pencil), merge or remove it; **Add a stakeholder** adds one the text did not name. Then
-   **Approve & create actors** (stakeholders you did not look at are accepted) and read the actors:
+   (the pencil), duplicate, merge or remove it; **Add a stakeholder** adds one the text did not name. Then
+   **Create actors** (stakeholders you did not look at are accepted) and read the actors:
    **Actors** in the toolbar shows them, and an actor opens to its traits, each with a slider, an origin
    chip and the reason for its value. **Simulate** takes you on.
 6. **Simulate.** **Run the simulation** runs the baseline and the alternatives on the same seeds and
@@ -323,7 +328,8 @@ retrieval time, then choose **Add as evidence**. Then steps 3 to 7.
 ### Demo 4: Your own question and a public URL
 
 Type your own question into **Your what-if question**. Add a page you may read (**Evidence**,
-**Web page**, **Fetch**, then **Add as evidence**), and your own notes as pasted text or files if the
+**Web page**, **Fetch**, then **Add as evidence**; or write its address in the question and choose the
+button under it that offers to read that site), and your own notes as pasted text or files if the
 page alone is thin: each document needs at least 80 characters. Then **Explore** and steps 3 to 7.
 
 - **Check the intake.** Rules read patterns in English and can misread a question. Check every field
@@ -331,7 +337,7 @@ page alone is thin: each document needs at least 80 characters. Then **Explore**
 - **Check the stakeholders.** They are only as good as the text: the rules find the roles that a text
   names with a role word. Read the places marked "Nobody found for" (on the map, and under **List**)
   against your question and add the groups that matter yourself. **Before approving, keep or add at
-  least two stakeholders**: a simulation needs more than one party, and **Approve & create actors**
+  least two stakeholders**: a simulation needs more than one party, and **Create actors**
   stays disabled, with the hint "Keep or add two or more", until there are two. If the page names
   fewer, choose **Add a stakeholder** until the list has two. An added group is marked "Added by
   you" and quotes nothing: set "How the change lands on them" only where your evidence supports it,
@@ -413,9 +419,10 @@ independent review (a Local rules project is refused with `MODEL_NOT_AVAILABLE`)
 dive, drive each actor's decisions. A model gets 170 seconds for one step of the lab;
 after that the rules carry on, and a note says so. What it never does: decide an actor's behaviour in
 the repeated runs, which always use the rules engine, or word the brief. In model mode, bounded
-excerpts of your sources go to the provider you chose, so check its privacy terms first. Keyless
-Azure access has been run end to end against one development deployment, and nothing else about
-Azure is claimed.
+excerpts of your sources go to the provider you chose, together with the scenario you settled on (its
+time frame and every assumption, yours included) when it finds stakeholders, so check its privacy
+terms first. Keyless Azure access has been run end to end against one development deployment, and
+nothing else about Azure is claimed.
 
 ## Architecture
 
@@ -503,13 +510,13 @@ npm run scan:secrets   # credentials in every reachable commit and the working t
 npm run demo:journey   # the recorded Larkholm presentation, against a running server and a real model
 ```
 
-| Command                 | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build                                                             |
-| `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `lab` project takes the flagship demos and a question of its own from the first screen to the exported brief through the pages, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
-| `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                   |
-| `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                  |
-| `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                    |
+| Command                 | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build                                                                                                                                 |
+| `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `lab` project covers the first screen, Ground, Map and the decision brief (its review, its export and Report Studio) through the pages, and walks a question from the first screen to the decision, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
+| `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                                                                                       |
+| `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                                                                                        |
 
 Also: `npm run eval` (the offline evaluation), `npm run mutation:security`, `npm run test:load`,
 `npm run test:resilience`, `npm run audit:ui` (screenshots and layout and accessibility metrics of
@@ -620,8 +627,9 @@ Swarm supports human analysis. It must not make high-impact decisions on its own
 - Do not use Swarm to make or justify decisions about real individuals, or anything that affects
   people's rights, safety, employment, health or access to services, without human review.
 - A "supported" label means that a passage backs a statement, not that the passage is true.
-- With a model, bounded excerpts of your sources go to your provider. With a public page, the site
-  sees this server's address. Check both before using confidential material.
+- With a model, bounded excerpts of your sources, your question and the scenario you settled on go to
+  your provider. With a public page, the site sees this server's address. Check both before using
+  confidential material.
 - Say that content is simulated when you share it. Exports carry that statement.
 
 Swarm is an independent implementation inspired by a public idea: turn documents into a graph,

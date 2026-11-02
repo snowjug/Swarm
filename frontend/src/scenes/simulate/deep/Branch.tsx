@@ -40,6 +40,12 @@ const CHOICES: { value: InterventionChoice; label: string }[] = [
   { value: 'replace', label: 'Replace' },
 ];
 
+/** With no event scheduled there is nothing to keep, remove or replace: the choice is to add one or not. */
+const NO_EVENT_CHOICES: { value: InterventionChoice; label: string }[] = [
+  { value: 'inherit', label: 'No event' },
+  { value: 'replace', label: 'Add an event' },
+];
+
 const FIELD_ORDER: ProxyEditField[] = ['opinion', 'influence', 'openness'];
 
 function ProxyEdits({
@@ -287,7 +293,10 @@ export function BranchSheet({ from, onClose }: { from: number | undefined; onClo
                   fromRound: round,
                   intervention: {
                     ...draft.intervention,
-                    round: Math.max(round + 1, draft.intervention.round),
+                    // Until the round is chosen, the event follows the checkpoint: the first round that can change.
+                    round: touched.has('round')
+                      ? Math.max(round + 1, draft.intervention.round)
+                      : Math.min(project.roundCount, round + 1),
                   },
                 })
               }
@@ -316,7 +325,7 @@ export function BranchSheet({ from, onClose }: { from: number | undefined; onClo
               size="sm"
               value={draft.choice}
               onChange={(choice) => change({ ...draft, choice })}
-              options={CHOICES}
+              options={project.settings.intervention ? CHOICES : NO_EVENT_CHOICES}
             />
             {check.fields.choice && (
               <p className="sw-deep-bs__error" role="alert">
