@@ -1,8 +1,15 @@
 import { expect, test } from '@playwright/test';
 import type { ActorsView } from '../../shared/stakeholders';
-import { advance, apiContext, watchPage } from '../support/helpers';
-import { audit, makeProject } from '../support/shell';
-import { deepStrip, openDeep, openProjectId } from '../support/simulate';
+import {
+  advance,
+  apiContext,
+  expectNoAxeViolations,
+  expectNoHorizontalOverflow,
+  seed,
+  watchPage,
+} from '../support/helpers';
+import { PHONE, allOf, audit, expectPressable, makeProject, quiet } from '../support/shell';
+import { deepStrip, openBranch, openDeep, openProjectId } from '../support/simulate';
 
 // The agent-by-agent engine that was there before the lab is the deep dive of a lab project (`?view=deep`). It runs on
 // the key actors a person approved, in stages that were already there, and the report it writes is a page of the
@@ -106,3 +113,63 @@ test.describe('the deep dive of a lab project', () => {
     await expect(page).toHaveURL(/view=setup/u);
   });
 });
+
+// ---------------------------------------------------------------------------------------------
+// The deep dive of a finished run, tab by tab, at the sizes people use and in every theme
+// ---------------------------------------------------------------------------------------------
+
+const TABS = ['Setup', 'Run', 'Rounds', 'Memory'] as const;
+
+for (const [label, viewport, themes, touch] of [
+  ['a desktop', { width: 1440, height: 900 }, ['light', 'dark', 'high-contrast'], false],
+  ['a tablet', { width: 768, height: 1024 }, ['light'], true],
+  ['a phone', PHONE.viewport, ['light', 'dark'], true],
+] as const) {
+  test.describe(`on ${label}`, () => {
+    test.use({ viewport, hasTouch: touch, reducedMotion: 'reduce' });
+
+    test(`every tab of a finished run, and the sheet that branches it, pass axe in ${themes.join(', ')}, fit the page and are made for ${touch ? 'a finger' : 'a pointer'}`, async ({
+      page,
+      playwright,
+    }) => {
+      const problems = watchPage(page);
+      const api = await apiContext(playwright);
+      const id = await seed(api, 'simulation', { name: `Deep dive at ${label}`, rounds: 4 });
+      for (const theme of themes) {
+        await page.addInitScript(
+          (value) => window.localStorage.setItem('swarm.theme', value),
+          theme,
+        );
+        for (const tab of TABS) {
+          await openDeep(page, id, tab);
+          await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+          await audit(page, `the ${tab} tab of the deep dive, ${theme}, ${label}`);
+          if (theme !== themes[0]) continue;
+          await quiet(page);
+          await allOf({
+            'no horizontal scroll': () => expectNoHorizontalOverflow(page),
+            'controls of 24px or more': () =>
+              expectPressable(page, `the ${tab} tab ${label}`, { min: 24, scope: 'main' }),
+            ...(touch
+              ? {
+                  'controls a finger wide': () =>
+                    expectPressable(page, `the ${tab} tab ${label}`, { min: 44, scope: 'main' }),
+                }
+              : {}),
+          });
+        }
+        await openDeep(page, id, 'Run');
+        const sheet = await openBranch(page);
+        await expectNoAxeViolations(page, `the sheet that branches a run, ${theme}, ${label}`);
+        if (theme === themes[0] && touch)
+          await expectPressable(page, `the branch sheet ${label}`, {
+            min: 44,
+            scope: '[role=dialog]',
+          });
+        await sheet.getByRole('button', { name: 'Keep the source run unchanged' }).click();
+        await expect(sheet).toHaveCount(0);
+      }
+      expect(problems).toEqual([]);
+    });
+  });
+}
