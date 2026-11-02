@@ -80,6 +80,19 @@
     color: var(--ink-3);
     font-size: var(--fs-small);
   }
+  /* Beside the way forward, so that a person who chose a model sees what pressing it does. */
+  .sw-ask__engine {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    white-space: nowrap;
+  }
+  .sw-ask__engine svg {
+    color: var(--accent);
+  }
   .sw-ask__badge {
     min-width: 1.15rem;
     height: 1.15rem;

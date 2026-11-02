@@ -87,8 +87,18 @@
     color: var(--ink-3);
     font-size: var(--fs-small);
   }
-  .sw-evm__error {
-    white-space: pre-line;
+  .sw-evm__problem {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .sw-evm__line {
+    display: block;
+  }
+  .sw-evm__rid {
+    display: block;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    overflow-wrap: anywhere;
   }
   .sw-evm__foot {
     margin: 0;

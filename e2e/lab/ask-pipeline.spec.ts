@@ -190,7 +190,11 @@ async function journeyToActors(
       );
       await expect(sources.getByRole('listitem')).toHaveCount(attached);
       for (const { name } of (await stored(page, id)).documents) {
-        await expect(sources.getByRole('button', { name, exact: true }), name).toBeVisible();
+        // A source row names itself by its number and its name ("D1 01-it-office-brief.md"): the name is what is looked for.
+        await expect(
+          sources.getByRole('listitem').filter({ hasText: name }).first(),
+          name,
+        ).toBeVisible();
       }
       return id;
     });

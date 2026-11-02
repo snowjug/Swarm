@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
 import { Button, Chip, Sheet, SheetClose, SheetContent, Textarea } from '../../design/ui';
 import { SOURCE_KIND_LABELS } from '../../lib/product';
@@ -9,7 +10,7 @@ import './DocumentSheet.css';
  * work from, so a person can fix an extraction that read badly. Removing it is here too.
  */
 export function DocumentSheet({
-  document,
+  document: opened,
   maxChars,
   disabled,
   onChange,
@@ -23,8 +24,12 @@ export function DocumentSheet({
   onRemove: () => void;
   onClose: () => void;
 }) {
+  // The sheet leaves the way it came: what it showed stays until it is gone, also when the source was taken away.
+  const [last, setLast] = useState(opened);
+  if (opened && opened !== last) setLast(opened);
+  const document = opened ?? last;
   return (
-    <Sheet open={document !== null} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={opened !== null} onOpenChange={(open) => !open && onClose()}>
       {document && (
         <SheetContent
           width="lg"

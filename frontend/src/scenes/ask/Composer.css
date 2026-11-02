@@ -87,6 +87,10 @@
     line-clamp: 3;
     overflow: hidden;
   }
+  /* The same lines, out of sight, to know which of them are shown whole at this width. */
+  .sw-composer__probe {
+    visibility: hidden;
+  }
   .sw-composer.is-invalid .sw-composer__input {
     caret-color: var(--c-critical);
   }
@@ -136,6 +140,10 @@
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+  /* With no source there is no list: it stays while the last pill leaves, and is hidden with it. */
+  .sw-tray[hidden] {
+    display: none;
   }
   .sw-tray__pill {
     display: inline-flex;
@@ -207,6 +215,40 @@
     }
     .sw-composer__go .sw-btn {
       flex: 1;
+    }
+    /* The sources are one row to swipe, fading out at the edges, so that a handful of sources do not push the
+       question and the way forward off the screen. In the composer the row bleeds to the edges of the glass. */
+    .sw-tray {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(90deg, black calc(100% - 2rem), transparent);
+      mask-image: linear-gradient(90deg, black calc(100% - 2rem), transparent);
+    }
+    .sw-composer .sw-tray {
+      margin-inline: calc(var(--s-4) * -1);
+      padding-inline: var(--s-4);
+      scroll-padding-inline: var(--s-4);
+      -webkit-mask-image: linear-gradient(
+        90deg,
+        transparent,
+        black var(--s-4),
+        black calc(100% - 2rem),
+        transparent
+      );
+      mask-image: linear-gradient(
+        90deg,
+        transparent,
+        black var(--s-4),
+        black calc(100% - 2rem),
+        transparent
+      );
+    }
+    .sw-tray::-webkit-scrollbar {
+      display: none;
+    }
+    .sw-tray__pill {
+      flex: none;
     }
     .sw-tray__name {
       max-width: 9rem;

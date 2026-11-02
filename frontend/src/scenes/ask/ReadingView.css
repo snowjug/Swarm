@@ -15,16 +15,45 @@
   }
   .sw-reading__question {
     font-size: clamp(1.8rem, 1.3rem + 2vw, 3rem);
-    background: linear-gradient(100deg, var(--ink-3) 30%, var(--ink) 50%, var(--ink-3) 70%) 160% 0 /
-      250% 100% no-repeat;
+    /* A light that passes over the question: the words are always there in the quiet ink, and the sweep is a second
+       layer on top of them, so that no part of the question is ever left unpainted. */
+    background-image:
+      linear-gradient(100deg, transparent 30%, var(--ink) 50%, transparent 70%),
+      linear-gradient(var(--ink-3), var(--ink-3));
+    background-size:
+      250% 100%,
+      100% 100%;
+    background-position:
+      160% 0,
+      0 0;
+    background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: sw-reading-sweep 2.2s var(--ease-in-out) infinite;
   }
+  [data-theme='high-contrast'] .sw-reading__question {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
+  @media (forced-colors: active) {
+    .sw-reading__question {
+      background: none;
+      -webkit-text-fill-color: currentColor;
+      animation: none;
+    }
+  }
   @keyframes sw-reading-sweep {
+    from {
+      background-position:
+        160% 0,
+        0 0;
+    }
     to {
-      background-position: -60% 0;
+      background-position:
+        -60% 0,
+        0 0;
     }
   }
   .sw-reading__fields {

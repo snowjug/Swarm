@@ -7,15 +7,19 @@ import { POSITIONING_STATEMENT } from '../../lib/product';
 import { AskScene } from './AskScene';
 import {
   base64,
+  carryKey,
   fileKind,
   fileProblem,
+  keyOf,
   limitsOf,
   nextPasteName,
   sizeText,
+  splitRequestId,
   totalOf,
 } from './evidence';
 import {
   EXAMPLE_SCENARIOS,
+  OFFERED_EXAMPLES,
   STARTER,
   exampleLabel,
   startingFromExample,
@@ -73,9 +77,37 @@ describe('what a file may be', () => {
     expect(atob(encoded).length).toBe(100_000);
     expect(atob(encoded).charCodeAt(250)).toBe(250);
   });
+
+  it('sets the number to quote apart from the words of what the server said', () => {
+    expect(splitRequestId('The PDF could not be read. Request ID: 0b1c-22')).toEqual({
+      words: 'The PDF could not be read.',
+      requestId: '0b1c-22',
+    });
+    expect(splitRequestId(' No number here. ')).toEqual({
+      words: 'No number here.',
+      requestId: null,
+    });
+  });
+
+  it('knows a source by what it is, so that taking one away moves no other, and a correction keeps its key', () => {
+    const first = { name: 'a.md', content: 'x'.repeat(100) };
+    const second = { name: 'a.md', content: 'x'.repeat(100) };
+    expect(keyOf(first)).toBe(keyOf(first));
+    expect(keyOf(first)).not.toBe(keyOf(second));
+    const corrected = carryKey(first, { ...first, content: 'y'.repeat(100) });
+    expect(keyOf(corrected)).toBe(keyOf(first));
+  });
 });
 
 describe('the ways to start', () => {
+  it('offers the examples in an order that leads with no company, and every one of them', () => {
+    expect(OFFERED_EXAMPLES.map((example) => example.id).sort()).toEqual(
+      EXAMPLE_SCENARIOS.map((example) => example.id).sort(),
+    );
+    expect(OFFERED_EXAMPLES[0]!.id).toBe('launch-pricing');
+    expect(OFFERED_EXAMPLES.at(-1)!.id).toBe('copilot-in-teams');
+  });
+
   it('turns an example into a question and its evidence, and says what comes with it', () => {
     const example = EXAMPLE_SCENARIOS[0]!;
     const starting = startingFromExample(example);

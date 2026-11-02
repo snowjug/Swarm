@@ -3,6 +3,30 @@ import type { AppConfig, CreateProjectInput } from '../../../../shared/types';
 
 export type DocumentInput = CreateProjectInput['documents'][number];
 
+const keys = new WeakMap<object, number>();
+let issued = 0;
+
+/**
+ * What a source is known by while the others come and go: the list is replaced, never changed in place, so a
+ * position or a name cannot stand for a source (taking the first away would give every other one a new key and
+ * the whole row would leave and arrive again). A value that is made from another one (a correction of its text)
+ * carries the key on with `carryKey`.
+ */
+export function keyOf(document: DocumentInput): number {
+  let key = keys.get(document);
+  if (key === undefined) {
+    issued += 1;
+    key = issued;
+    keys.set(document, key);
+  }
+  return key;
+}
+
+export function carryKey(from: DocumentInput, to: DocumentInput): DocumentInput {
+  keys.set(to, keyOf(from));
+  return to;
+}
+
 export interface EvidenceLimits {
   maxDocuments: number;
   maxChars: number;
@@ -85,6 +109,14 @@ export function sizeText(characters: number): string {
   if (characters >= 10_000) return `${Math.round(characters / 1000)}k characters`;
   if (characters >= 1_000) return `${(characters / 1000).toFixed(1)}k characters`;
   return `${characters} characters`;
+}
+
+/** A message from the server in two parts: its words, and the number to quote when asking about it, if it gave one. */
+export function splitRequestId(message: string): { words: string; requestId: string | null } {
+  const found = /\s*Request ID: (\S+)\s*$/u.exec(message);
+  return found
+    ? { words: message.slice(0, found.index).trim(), requestId: found[1] ?? null }
+    : { words: message.trim(), requestId: null };
 }
 
 export function totalOf(documents: readonly DocumentInput[]): number {
