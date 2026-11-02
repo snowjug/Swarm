@@ -345,7 +345,10 @@ describe('asking for a reading', () => {
     // A person who then presses Explore is read what the example says, with its evidence.
     await waitFor(() => expect(document.activeElement).toBe(questionBox()));
 
-    const note = screen.getByRole('button', { name: `${example.title} loaded. Dismiss this note` });
+    // The name begins with the words on the chip, as a name must (WCAG 2.5.3), and then says what pressing does.
+    const note = screen.getByRole('button', {
+      name: (name) => name.startsWith(`${example.title} · `) && name.endsWith('Dismiss this note'),
+    });
     expect(note.getAttribute('aria-pressed')).toBe('true');
     expect(screen.queryByRole('list', { name: 'Start from an example' })).toBeNull();
     await user.click(note);

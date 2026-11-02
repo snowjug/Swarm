@@ -1,0 +1,207 @@
+@layer components {
+  /* One floating sheet of glass near the top of the page: the field, the rows, and a line of keys. */
+  .sw-cmdk {
+    --glass-radius: var(--r-xl);
+    position: fixed;
+    z-index: calc(var(--z-dialog) + 1);
+    top: max(4.5rem, 12vh);
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    width: min(40rem, calc(100vw - 1.5rem));
+    max-height: min(34rem, calc(100dvh - 6rem));
+    overflow: hidden;
+    border-radius: var(--r-xl);
+    color: var(--ink);
+    box-shadow: var(--shadow-4);
+    animation: sw-cmdk-in var(--dur-base) var(--ease-spring-smooth) both;
+  }
+  .sw-cmdk[data-state='closed'] {
+    animation: sw-cmdk-out var(--dur-fast) var(--ease-in) both;
+  }
+  .sw-cmdk:focus-visible {
+    outline: none;
+  }
+  @keyframes sw-cmdk-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, -0.6rem, 0) scale(0.98);
+    }
+  }
+  @keyframes sw-cmdk-out {
+    to {
+      opacity: 0;
+      transform: translate3d(0, -0.3rem, 0) scale(0.985);
+    }
+  }
+
+  .sw-cmdk__field {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    min-height: 3.5rem;
+    padding: 0 var(--s-4) 0 var(--s-5);
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink-3);
+    transition: box-shadow var(--dur-fast) var(--ease-out);
+  }
+  .sw-cmdk__field:focus-within {
+    box-shadow: inset 0 -1px 0 var(--accent-line);
+    color: var(--ink-2);
+  }
+  .sw-cmdk__input {
+    flex: 1;
+    min-width: 0;
+    height: 3.5rem;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    /* 16px: a smaller field makes a phone zoom the page when it takes focus. */
+    font-size: 1rem;
+  }
+  .sw-cmdk__input::placeholder {
+    color: var(--ink-3);
+    opacity: 1;
+  }
+  .sw-cmdk__input:focus-visible {
+    outline: none;
+  }
+  .sw-cmdk__esc {
+    flex: none;
+  }
+
+  .sw-cmdk__body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: var(--s-2);
+    scroll-padding-block: var(--s-2);
+  }
+  /* The ring is drawn inside the list: the sheet clips whatever is outside it. */
+  .sw-cmdk__body:focus-visible {
+    outline-offset: -2px;
+    border-radius: var(--r-lg);
+  }
+  .sw-cmdk__group {
+    padding: var(--s-3) var(--s-3) var(--s-1);
+  }
+  .sw-cmdk__section[data-first] .sw-cmdk__group {
+    padding-top: var(--s-2);
+  }
+
+  .sw-cmdk__option {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.25rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-3);
+    min-height: 2.5rem;
+    padding: 0 var(--s-3);
+    border-radius: var(--r-md);
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+    cursor: pointer;
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .sw-cmdk__option.is-marked {
+    color: var(--ink);
+  }
+  .sw-cmdk__option.is-locked {
+    color: var(--ink-3);
+  }
+  .sw-cmdk__option:active {
+    transform: scale(0.992);
+  }
+  @media (pointer: coarse) {
+    .sw-cmdk__option {
+      min-height: 2.75rem;
+    }
+  }
+  /* The mark glides from row to row, so that where the keys will act is never in doubt. */
+  .sw-cmdk__mark {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--accent-soft);
+    box-shadow: inset 0 0 0 1px var(--accent-line);
+  }
+  .sw-cmdk__icon,
+  .sw-cmdk__label,
+  .sw-cmdk__end {
+    position: relative;
+  }
+  .sw-cmdk__icon {
+    display: grid;
+    place-items: center;
+    color: var(--ink-3);
+  }
+  .sw-cmdk__option.is-marked .sw-cmdk__icon {
+    color: var(--accent);
+  }
+  .sw-cmdk__label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sw-cmdk__end {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmdk__check {
+    color: var(--accent);
+  }
+
+  .sw-cmdk__empty {
+    padding: var(--s-7) var(--s-4);
+    text-align: center;
+    color: var(--ink-3);
+    font-size: var(--fs-body);
+    overflow-wrap: anywhere;
+  }
+  .sw-cmdk__query {
+    color: var(--ink);
+  }
+
+  .sw-cmdk__foot {
+    display: flex;
+    gap: var(--s-5);
+    padding: var(--s-3) var(--s-5);
+    border-top: 1px solid var(--hairline);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-cmdk__foot > span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-1);
+  }
+  /* A touch screen has no keys to name. */
+  @media (hover: none) {
+    .sw-cmdk__foot,
+    .sw-cmdk__esc {
+      display: none;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .sw-cmdk {
+      top: 0.75rem;
+      max-height: calc(100dvh - 1.5rem);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .sw-cmdk__option.is-marked {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+  }
+}

@@ -405,7 +405,7 @@ export function AskScene({
                   wrap
                   pressed
                   onClick={() => setLoaded(null)}
-                  aria-label={`${loaded.title} loaded. Dismiss this note`}
+                  aria-label={`${loaded.title} · ${loaded.summary}, loaded. Dismiss this note`}
                 >
                   {loaded.title} · {loaded.summary}
                 </ChipButton>
