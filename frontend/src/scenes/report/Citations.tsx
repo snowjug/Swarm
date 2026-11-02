@@ -38,7 +38,7 @@ function SourceBody({
     const { passage } = state;
     return (
       <>
-        <h4 className="sw-cite__title">{passage.documentName}</h4>
+        <p className="sw-cite__title">{passage.documentName}</p>
         <p className="sw-cite__loc sw-mono">
           {passage.id} · characters {passage.start + 1} to {passage.end}
         </p>
@@ -96,7 +96,7 @@ function MemoryBody({ id }: { id: string }) {
     'Initial input';
   return (
     <>
-      <h4 className="sw-cite__title">{actionLabel(memory.actionType, project.mode === 'local')}</h4>
+      <p className="sw-cite__title">{actionLabel(memory.actionType, project.mode === 'local')}</p>
       <p className="sw-cite__loc">
         {platformNames[memory.platform]} · round {memory.round} · minute {memory.simulatedMinute} ·{' '}
         {proxy}
@@ -120,7 +120,7 @@ function InterviewBody({ id }: { id: string }) {
     project.agents.find((agent) => agent.id === interview.agentId)?.name ?? interview.agentId;
   return (
     <>
-      <h4 className="sw-cite__title">{proxy}</h4>
+      <p className="sw-cite__title">{proxy}</p>
       <p className="sw-cite__loc">{interview.question}</p>
       <blockquote className="sw-cite__quote">{interview.answer}</blockquote>
       <p className="sw-caption">Role-play written by a model, not testimony from a real person.</p>
@@ -144,7 +144,13 @@ export function CitationChip({ kind, id }: { kind: CitationKind; id: string }) {
           <span className="sw-mono">{id}</span>
         </ChipButton>
       </PopoverTrigger>
-      <PopoverContent width="26rem" align="start">
+      {/* Named for what it shows, and focusable, so that a keyboard can scroll what is taller than the room left for it. */}
+      <PopoverContent
+        tabIndex={0}
+        aria-label={`${KIND_LABEL[kind]} ${id}`}
+        width="26rem"
+        align="start"
+      >
         <div className="sw-cite">
           <p className="sw-eyebrow">{KIND_LABEL[kind]}</p>
           {kind === 'source' && <SourceBody projectId={project.id} id={id} enabled={open} />}
