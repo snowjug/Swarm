@@ -270,6 +270,22 @@ test.describe('asking', () => {
     const value = await questionBox(page).inputValue();
     expect(value.length).toBe(2000);
     await expect(asked(page).filter({ hasText: 'Say a little more' })).toHaveCount(0);
+    // Where it was cut is said beside Explore, and said to a screen reader once, when the limit is reached.
+    await expect(page.getByText('2,000 / 2,000', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'at its limit of 2,000' })).toHaveCount(
+      1,
+    );
+  });
+
+  test('the room a long question has left is shown only when it is nearly gone', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await questionBox(page).fill('x'.repeat(1650));
+    await expect(page.getByText(/^1,[0-9]{3} \/ 2,000$/u)).toHaveCount(0);
+    await questionBox(page).fill('x'.repeat(1750));
+    await expect(page.getByText('1,750 / 2,000', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'at its limit' })).toHaveCount(0);
   });
 
   test('a question without a source asks for one, and opens the evidence menu where it is added', async ({

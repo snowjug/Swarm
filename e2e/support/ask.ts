@@ -100,19 +100,22 @@ export const tray = (page: Page): Locator => page.getByRole('list', { name: 'Att
 export const asked = (page: Page): Locator =>
   page.getByRole('main').getByRole('status').or(page.getByRole('main').getByRole('alert'));
 
-/** Picks an example chip and waits until its question and every document are in the composer. */
+/** Picks an example chip and waits until its question and every document are in the composer, and have arrived. */
 export async function chooseExample(page: Page, example: ExampleScenario): Promise<void> {
   await examplesList(page)
     .getByRole('button', { name: chipName(example), exact: true })
     .click();
   await expect(questionBox(page)).toHaveValue(example.question);
   await expect(tray(page).getByRole('listitem')).toHaveCount(example.documents.length);
+  // A source arrives from a little smaller than it is: it is measured, and pressed, once it has.
+  await stays(tray(page).getByRole('button').first());
 }
 
 export async function chooseStarter(page: Page): Promise<void> {
   await examplesList(page).getByRole('button', { name: STARTER.chip, exact: true }).click();
   await expect(questionBox(page)).toHaveValue(STARTER.question);
   await expect(tray(page).getByRole('listitem')).toHaveCount(1);
+  await stays(tray(page).getByRole('button').first());
 }
 
 // ---------------------------------------------------------------------------------------------

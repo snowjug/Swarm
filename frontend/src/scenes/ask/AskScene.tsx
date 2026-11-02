@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { Globe, Paperclip, Server, SlidersHorizontal, X } from 'lucide-react';
-import type { ScenarioFrame } from '../../../../shared/scenario';
+import { SCENARIO_QUESTION_MAX, type ScenarioFrame } from '../../../../shared/scenario';
 import type {
   AppConfig,
   CreateProjectInput,
@@ -77,6 +77,9 @@ const DEFAULT_SETTINGS: SimulationSettings = {
 
 /** How long a reading may take before the screen says it is reading: quick ones just arrive. */
 const NOTICEABLE_MS = 280;
+
+/** From here the question says how much room is left: a person who pastes a long text should see where it was cut. */
+const QUESTION_COUNT_FROM = 1700;
 
 const POOL = [...OFFERED_EXAMPLES.map((example) => example.question), STARTER.question];
 
@@ -478,9 +481,27 @@ export function AskScene({
                         Model assisted
                       </span>
                     )}
-                    <span className="sw-ask__hint sw-hide-sm" aria-hidden="true">
-                      {missingSource ? 'Add a source' : <kbd className="sw-kbd">Ctrl ↵</kbd>}
-                    </span>
+                    {question.length >= QUESTION_COUNT_FROM ? (
+                      <>
+                        <span
+                          className={`sw-ask__count num${question.length >= SCENARIO_QUESTION_MAX ? ' is-full' : ''}`}
+                          aria-hidden="true"
+                        >
+                          {question.length.toLocaleString('en-GB')} /{' '}
+                          {SCENARIO_QUESTION_MAX.toLocaleString('en-GB')}
+                        </span>
+                        {question.length >= SCENARIO_QUESTION_MAX && (
+                          <span className="sr-only" role="status">
+                            The question is at its limit of{' '}
+                            {SCENARIO_QUESTION_MAX.toLocaleString('en-GB')} characters.
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="sw-ask__hint sw-hide-sm" aria-hidden="true">
+                        {missingSource ? 'Add a source' : <kbd className="sw-kbd">Ctrl ↵</kbd>}
+                      </span>
+                    )}
                   </>
                 }
               />

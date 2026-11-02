@@ -94,7 +94,12 @@ export function TimeFrame({
           aria-label={chosen ? `Time frame ${chosen}` : 'Time frame'}
         >
           <span className="sw-hide-sm">Time frame</span>
-          {chosen && <span className="sw-ctx__value sw-hide-sm">{chosen}</span>}
+          {chosen && (
+            <>
+              {' '}
+              <span className="sw-ctx__value sw-hide-sm">{chosen}</span>
+            </>
+          )}
         </Button>
       }
     >
@@ -216,7 +221,12 @@ export function Assumptions({
           aria-label={items.length > 0 ? `Assumptions ${items.length}` : 'Assumptions'}
         >
           <span className="sw-hide-sm">Assumptions</span>
-          {items.length > 0 && <span className="sw-ask__badge num">{items.length}</span>}
+          {items.length > 0 && (
+            <>
+              {' '}
+              <span className="sw-ask__badge num">{items.length}</span>
+            </>
+          )}
         </Button>
       }
     >
