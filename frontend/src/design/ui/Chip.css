@@ -102,4 +102,11 @@
       padding: 0 0.9rem;
     }
   }
+  /* A chip that is on differs from one that is off by its tint, which forced colors take away: it is outlined. */
+  @media (forced-colors: active) {
+    .sw-chip--button.is-on {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+  }
 }

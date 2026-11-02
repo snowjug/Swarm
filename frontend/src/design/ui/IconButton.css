@@ -70,4 +70,11 @@
   [data-theme='high-contrast'] .sw-icon-btn {
     border-color: var(--hairline-strong);
   }
+  /* A toggle that is on differs by its tint, which forced colors take away: it is outlined. */
+  @media (forced-colors: active) {
+    .sw-icon-btn.is-on {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+  }
 }

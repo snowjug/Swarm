@@ -81,4 +81,31 @@
       height: 1.75rem;
     }
   }
+  /* Forced colors take the track and its fill away: they are drawn again in the system's own colours. */
+  @media (forced-colors: active) {
+    .sw-slider__track {
+      forced-color-adjust: none;
+      background: ButtonText;
+    }
+    .sw-slider__range {
+      forced-color-adjust: none;
+      background: Highlight;
+    }
+    .sw-slider__mid {
+      forced-color-adjust: none;
+      background: ButtonText;
+      opacity: 1;
+    }
+    .sw-slider__thumb {
+      forced-color-adjust: none;
+      background: ButtonFace;
+      border: 2px solid ButtonText;
+      box-shadow: none;
+    }
+    .sw-slider[data-disabled] .sw-slider__track,
+    .sw-slider[data-disabled] .sw-slider__thumb {
+      background: GrayText;
+      border-color: GrayText;
+    }
+  }
 }

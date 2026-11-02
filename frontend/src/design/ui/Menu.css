@@ -69,4 +69,11 @@
     margin: 0.35rem 0.25rem;
     background: var(--hairline);
   }
+  /* The row the keys are on is a background in every theme, and forced colors take backgrounds away: it is outlined. */
+  @media (forced-colors: active) {
+    .sw-menu__item[data-highlighted] {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
+  }
 }

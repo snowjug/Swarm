@@ -183,4 +183,31 @@
     font-size: var(--fs-small);
     color: var(--ink-3);
   }
+  /* Forced colors take every background away: the track is outlined, the thumb is solid, and on is told by the fill and
+     by where the thumb is. The colours are the system's own, so that the person's theme decides them. */
+  @media (forced-colors: active) {
+    .sw-switch__track {
+      forced-color-adjust: none;
+      background: Canvas;
+      border: 2px solid ButtonText;
+    }
+    .sw-switch__thumb {
+      forced-color-adjust: none;
+      background: ButtonText;
+    }
+    .sw-switch__input:checked + .sw-switch__track {
+      background: Highlight;
+      border-color: Highlight;
+    }
+    .sw-switch__input:checked + .sw-switch__track .sw-switch__thumb {
+      background: HighlightText;
+    }
+    .sw-switch__input:disabled + .sw-switch__track {
+      border-color: GrayText;
+      opacity: 1;
+    }
+    .sw-switch__input:disabled + .sw-switch__track .sw-switch__thumb {
+      background: GrayText;
+    }
+  }
 }

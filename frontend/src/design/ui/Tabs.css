@@ -98,4 +98,17 @@
   [data-theme='high-contrast'] .sw-tabs--pill .sw-tab[data-state='active'] {
     color: var(--accent-ink);
   }
+  /* The mark that says which tab is on is a background: in forced colors it is drawn in the system's own colour, and the
+     pill's is an outline, so that the words on it stay readable. */
+  @media (forced-colors: active) {
+    .sw-tab__mark {
+      forced-color-adjust: none;
+      background: Highlight;
+    }
+    .sw-tabs--pill .sw-tab__mark {
+      background: transparent;
+      border: 2px solid Highlight;
+      box-shadow: none;
+    }
+  }
 }

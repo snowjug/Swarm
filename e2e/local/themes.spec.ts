@@ -234,6 +234,25 @@ test.describe('choosing a theme', () => {
     expect(edges.filter((item) => item.current && item.edged)).toHaveLength(1);
     expect(edges.filter((item) => !item.current && item.edged)).toHaveLength(0);
   });
+
+  test('when the device forces its own palette, the settings row the keys are on is outlined', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ forcedColors: 'active' });
+    await openApp(page);
+    const menu = await openSettings(page);
+    await page.keyboard.press('ArrowDown');
+    // Its tint is a background, and the device takes backgrounds away: without an outline the person could not tell
+    // which row Enter would act on.
+    const row = menu.locator('[data-highlighted]');
+    await expect(row).toHaveCount(1);
+    const outline = await row.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) };
+    });
+    expect(outline.style).toBe('solid');
+    expect(outline.width).toBeGreaterThanOrEqual(2);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------

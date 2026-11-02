@@ -212,6 +212,59 @@ describe('motion', () => {
   });
 });
 
+describe('forced colors', () => {
+  // Forced colors take every background, tint and shadow away. A primitive whose state is nothing but one of them
+  // (a switch being on, a slider's track, the menu row the keys are on, the tab that is open, a chip or a toggle
+  // that is pressed) must say what is drawn instead, in the system's own colours, in a block of its own stylesheet.
+  const STATES: [file: string, selector: string][] = [
+    ['design/ui/Field.css', '.sw-switch__thumb'],
+    ['design/ui/Slider.css', '.sw-slider__track'],
+    ['design/ui/Menu.css', '.sw-menu__item[data-highlighted]'],
+    ['design/ui/Tabs.css', '.sw-tab__mark'],
+    ['design/ui/Chip.css', '.sw-chip--button.is-on'],
+    ['design/ui/IconButton.css', '.sw-icon-btn.is-on'],
+  ];
+
+  /** The text of every `@media (forced-colors: active)` block of a stylesheet, braces matched. */
+  function forcedBlocks(css: string): string[] {
+    const blocks: string[] = [];
+    for (const match of css.matchAll(/@media \(forced-colors: active\)\s*\{/gu)) {
+      const start = match.index + match[0].length;
+      let depth = 1;
+      let end = start;
+      while (end < css.length && depth > 0) {
+        if (css[end] === '{') depth += 1;
+        else if (css[end] === '}') depth -= 1;
+        end += 1;
+      }
+      blocks.push(css.slice(start, end - 1));
+    }
+    return blocks;
+  }
+
+  it('draws the state of a switch, a slider, a menu row, a tab, a chip and a toggle in the system’s colours', () => {
+    const missing = STATES.filter(([file, selector]) => {
+      const blocks = forcedBlocks(stripComments(text(join(source, file))));
+      return !blocks.some((block) => block.includes(selector));
+    }).map(([file, selector]) => `${file}: ${selector}`);
+    expect(missing).toEqual([]);
+  });
+
+  it('names no colour of its own in those blocks: only the system’s', () => {
+    const own: string[] = [];
+    for (const [file] of STATES) {
+      for (const block of forcedBlocks(stripComments(text(join(source, file))))) {
+        for (const match of block.matchAll(
+          /(?:#[0-9a-f]{3,8}\b|\b(?:rgb|hsl|oklch|oklab)a?\()/giu,
+        )) {
+          own.push(`${file}: ${match[0]}`);
+        }
+      }
+    }
+    expect(own).toEqual([]);
+  });
+});
+
 describe('the code', () => {
   it('imports nothing from the interface it replaces', () => {
     const offenders: string[] = [];
