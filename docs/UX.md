@@ -727,9 +727,18 @@ The decision brief as a document, with the independent review beside it and in i
   `#brief-review` for the independent review). The contents, the address and the tools open a closed chapter
   before they take the reader to it. `?view=review`, `?view=studio` and `?view=report` open the review, Report
   Studio and the detailed report.
-- **Tools for the brief**: **Review** (the critics' objections, with **Run the independent review**),
-  **Edit report** (Report Studio), **Detailed report** (the deep dive's report, when one exists), **Export**
-  and, under More, **Write the brief again** and **Open every chapter**. **Export** is one menu: **Markdown**,
+- **Tools for the brief**: **Review** (the critics' objections, with **Run the independent review**), what the
+  detailed report offers, **Export** and, under More, **Write the brief again** and **Open every chapter**.
+  What the detailed report offers depends on where it stands. Once it is written: **Edit report** (Report
+  Studio) and **Detailed report**; a role that may not write the brief still has **Edit report**, because a
+  reviewer works on a written report too. Until it is written, **Write the detailed report** stands in their
+  place, in the row and, on a narrow screen, under More. It leads to the report page, which writes it, or says
+  "The deep dive comes first" and leads to the deep dive's own view; the studio is not offered, because it
+  would only say that there is nothing to work on. While the report is being written, or when it stopped with
+  part of it kept, only **Detailed report** is offered, to read how far it got, and one that stopped before
+  anything was kept offers **Write the detailed report** again. A role that may not write a report that is not
+  written is offered none of these, and More says so ("nor write its detailed report"). **Export** is one
+  menu: **Markdown**,
   **JSON, with the data behind the charts** and **Printable page** (a page the server makes for paper, opened in
   a tab of its own, which loads and runs nothing, so it uses the paper's own typefaces: it is set as a document,
   the question as its lede with the record's dates and identifiers in a small line, then the answer, each
@@ -747,24 +756,47 @@ The decision brief as a document, with the independent review beside it and in i
   criticism that says the comparison cannot say anything about the change leads it. The others can be
   filtered (Open, Answered, by severity), are grouped by critic, and each can be responded to, accepted or
   disputed, with what still stands; what a person typed is never lost. A review of an earlier comparison says
-  so.
+  so. Above the filters, the line that says how the review was made is followed by the notes the server makes
+  about what it could not check, as a list of their own with a sentence for each ("What to know about how this
+  review was made"). A note that speaks of conflicts between the sources ("Conflicts between sources were not
+  checked: the sources had not been compared when this review ran …") offers **Open the conflicts in
+  Ground**, which closes the sheet and opens Ground at its conflicts. Ground builds the check when it is
+  opened, and the review is then run again.
 - **Before there is a brief** the scene offers one action, **Write the brief**; while it is written it says
   so. A brief that no longer matches what it was made from says what changed. With no comparison to write
   from, and for a record the engine made on its own, it says "Nothing to decide from yet" and offers
   **Open Simulate**, and **Detailed report** where there is one.
 - **Report Studio** is where a person works on a copy of the generated report: sections, versions, notes, a
   review workflow (**Submit for review**, **Approve…**, **Request changes…**) and export. The generated
-  report is never changed ([ADR 0011](./adr/0011-report-studio.md)). It works on the deep dive's detailed
-  report, so until one is written it says "There is no report to work on yet" and points to it. A save
-  made over a section that someone else has saved keeps the person's words and says so, and makes a new
-  version on top of the other, which stays in the history. It has a level-one heading in each state once
-  loaded; a dialog or a sheet gives focus back to the button that opened it; and a way back that would drop
-  words that were not saved asks first ("Leave with unsaved changes?", with **Keep editing** and **Leave
-  anyway**), whether it is the studio's own **Back to the brief** or the **Decision brief** link at the head
-  of the page, and the browser asks before the tab is closed. **Ctrl+P** prints the whole working copy,
-  with where it stands in its review and the fingerprint of an approved text, and not the editor; the
-  printable memo is still the record. The **Record** sheet ("Review record") opens on **Decisions** every
-  time, before Conflicts, Assumptions and any earlier copies.
+  report is never changed ([ADR 0011](./adr/0011-report-studio.md)). A save made over a section that someone
+  else has saved keeps the person's words and says so, and makes a new version on top of the other, which
+  stays in the history. A dialog or a sheet gives focus back to the button that opened it. **Ctrl+P** prints
+  the whole working copy, with where it stands in its review and the fingerprint of an approved text, and not
+  the editor; the printable memo is still the record. The **Record** sheet ("Review record") opens on
+  **Decisions** every time, before Conflicts, Assumptions and any earlier copies.
+- **With no detailed report to work on** the studio says so, because it works on the deep dive's detailed
+  report ("There is no report to work on yet"), and offers the one thing that moves it on. **Write the
+  detailed report** is there, with what writing costs, and starts the report from the studio. A role that may
+  not write it is told who can ("Someone with the analyst or lead role needs to write it.", or "to run it"
+  where the deep dive is what is missing). Where the deep dive has not been run, the studio says so ("The
+  detailed report is written from a finished deep dive of the simulation. It has not been run for this
+  question.") and leads to the deep dive (**Go to the deep dive**, or **Watch it in the deep dive** while it
+  runs). While the report is written the studio shows how far it has got, with **Stop**; one that stopped
+  says why and offers **Try again** or **Write it again**. When the report is written the studio reads
+  again, says so aloud ("The detailed report is written. It can be opened in the studio.") and opens on the
+  page that offers it as a working copy ("Work on the report", with **Open in the studio**), with focus on
+  its heading. Each of these states has the page's one level-one heading, in every theme, as the studio has
+  once it is loaded.
+- **Words that are not saved are not lost by any way out of the studio.** The studio tells the shell what it
+  holds (`useUnsavedWork`: "1 section holds words that have not been saved."), and the shell asks "Leave with
+  unsaved changes?" before the exits it controls (the journey, the dock, the palette, another exploration, a
+  new question). The studio asks the same question before the exits that only change the view, which are not
+  the shell's: **Back to the brief**, the **Decision brief** link at the head of the page and **Detailed
+  report** (in the header and under More). There is one question for each exit, **Keep editing** has focus and
+  leaves the keyboard on the control that was used, and **Leave anyway** goes where the person was heading,
+  which is not always the brief. Words that were saved are not asked about, and the browser asks before the
+  tab is closed or reloaded. `e2e/lab/report-studio.spec.ts` ("every way out of the studio while words are
+  not saved") checks each of these.
 - **The detailed report** says what a citation rests on. A citation that points at no passage the project
   stored says "Not among this project's sources" and that a citation that points at nothing is not evidence
   for the statement, instead of showing a blank.
@@ -916,7 +948,8 @@ Components use `m` from `motion/react`, not `motion`, because the page loads its
   (`html[data-motion='reduced']`);
 - `useReducedMotion()` is for script and canvas: the person's choice if they made one, else the device's. The
   swarm behind the question draws one still frame, the map's parties go to their places at once, the
-  scrubber never autoplays, and numbers are their target at once;
+  scrubber never autoplays, a scroll that the brief makes itself (to a chapter, to a criticism, to a
+  recommendation) jumps instead of gliding, and numbers are their target at once;
 - `m` components follow the same setting through `MotionRoot` (`reducedMotion` is `always`, `never` or `user`):
   distance goes and a short fade stays, so that a change is still shown.
 
