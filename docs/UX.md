@@ -937,7 +937,7 @@ The rules: an animation explains a cause; springs for things that are moved and 
 that appear; every animation can be interrupted (a new target redirects it, nothing queues); entrances take at
 most about half a second, apart from the few that the person started; no keyframe animates a property that
 costs layout. In script, the same numbers are `DURATION`, `EASE` and `SPRING` in `design/motion/tokens.ts`, and
-`useSpotlight` and `useMagnetic` give a surface light and a pull that follow the pointer (never for touch).
+`useSpotlight` gives a surface a light that follows the pointer (never for touch).
 Components use `m` from `motion/react`, not `motion`, because the page loads its features lazily and strictly.
 
 **Reduced motion** is honoured at three levels, so that no part of the page can ignore it:

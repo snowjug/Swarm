@@ -11,4 +11,4 @@ export {
 } from './preference';
 export { MotionRoot } from './MotionRoot';
 export { useTween } from './useTween';
-export { useMagnetic, useSpotlight } from './usePointer';
+export { useSpotlight } from './usePointer';
