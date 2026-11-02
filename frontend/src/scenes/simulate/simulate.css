@@ -234,6 +234,18 @@
     .sw-sim[data-stage] .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__label {
       display: initial;
     }
+    /*
+     * On the narrowest phones the name that is put on for those who acted in the round can stand over a neighbour's. The
+     * ring says who acted and the line below names them; the name is there again when the actor is chosen or looked at.
+     */
+    @media (max-width: 23.5rem) {
+      .sw-sim[data-stage] .sw-eco__node.is-emphasis:not(.is-selected) .sw-eco__label {
+        display: none;
+      }
+      .sw-sim[data-stage] .sw-eco__node.is-emphasis:has(.sw-eco__hit:focus-visible) .sw-eco__label {
+        display: initial;
+      }
+    }
     .sw-sim__top {
       flex-direction: column;
       gap: var(--s-3);
