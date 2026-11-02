@@ -12,6 +12,10 @@ import { writtenByPerson } from '../../lib/studio';
 
 export type StudioDocument = NonNullable<StudioView['document']>;
 
+/** What the studio is headed with once it is read: the title of the report it works on. */
+export const studioTitle = (report: { title: string } | null | undefined): string =>
+  report?.title ?? 'Report';
+
 // ---- Sections ------------------------------------------------------------------------------------
 
 /** The number of a chapter (`S3` is chapter 3); the summary and the limitations have none. */

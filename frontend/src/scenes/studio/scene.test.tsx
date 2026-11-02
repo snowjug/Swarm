@@ -10,6 +10,7 @@ import { modelReportFixture } from '../../test/grounding';
 import { projectFixture } from '../../test/project';
 import { capabilities, defaultSections, hash, sectionView, studioView } from '../../test/studio';
 import type { StudioActions } from './actions';
+import StudioScene from './index';
 import { NoReport } from './NoReport';
 import { Opening } from './Opening';
 import { Workbench } from './Workbench';
@@ -52,26 +53,28 @@ function text(html: string): string {
     .replace(/\s+/gu, ' ');
 }
 
-function workbench(view: StudioView): string {
+function workbenchMarkup(view: StudioView): string {
   if (!view.document) throw new Error('The fixture needs a document.');
-  return text(
-    renderToStaticMarkup(
-      <TooltipProvider>
-        <ToastProvider>
-          <Workbench
-            projectId="project-1"
-            view={view}
-            document={view.document}
-            studio={handle(view)}
-            actions={actions}
-            onBack={noop}
-            onReport={noop}
-            onAudit={noop}
-          />
-        </ToastProvider>
-      </TooltipProvider>,
-    ),
+  return renderToStaticMarkup(
+    <TooltipProvider>
+      <ToastProvider>
+        <Workbench
+          projectId="project-1"
+          view={view}
+          document={view.document}
+          studio={handle(view)}
+          actions={actions}
+          onBack={noop}
+          onReport={noop}
+          onAudit={noop}
+        />
+      </ToastProvider>
+    </TooltipProvider>,
   );
+}
+
+function workbench(view: StudioView): string {
+  return text(workbenchMarkup(view));
 }
 
 function opening(view: StudioView): string {
@@ -169,6 +172,39 @@ describe('opening the studio', () => {
     );
     expect(html).not.toContain('Open in the studio');
     expect(html).toContain('needs to open it first');
+  });
+});
+
+describe('the studio while it is being read', () => {
+  /** The scene the moment it opens, before the server has answered: the skeleton. */
+  function reading(project: ProjectDetail): string {
+    return renderToStaticMarkup(
+      <TooltipProvider>
+        <ToastProvider>
+          <WorkspaceContext.Provider value={workspaceOf(project)}>
+            <StudioScene />
+          </WorkspaceContext.Provider>
+        </ToastProvider>
+      </TooltipProvider>,
+    );
+  }
+  const titleOfLoaded = (view: StudioView) =>
+    /<h1 class="sw-studio__title sw-title">(.*?)<\/h1>/u.exec(workbenchMarkup(view))?.[1];
+
+  it('has the page’s one level-one heading, out of sight, and it is the one the loaded studio has', () => {
+    const view = studioView();
+    const project = finishedRun();
+    project.report = { ...modelReportFixture(), title: view.report!.title };
+    const html = reading(project);
+    expect(html).toContain('aria-busy="true"');
+    expect(html.match(/<h1[\s>]/gu)).toHaveLength(1);
+    expect(html).toContain(`<h1 class="sr-only">${view.report!.title}</h1>`);
+    expect(titleOfLoaded(view)).toBe(view.report!.title);
+  });
+
+  it('is headed as the loaded studio is when the report has no title to give', () => {
+    expect(reading(finishedRun())).toContain('<h1 class="sr-only">Report</h1>');
+    expect(titleOfLoaded(studioView({ report: null }))).toBe('Report');
   });
 });
 

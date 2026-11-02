@@ -23,6 +23,7 @@ import {
   rebase,
   sectionAccess,
   startDraft,
+  studioTitle,
   toolsOf,
   unsavedSentence,
   type Draft,
@@ -222,7 +223,7 @@ export function Workbench({
   return (
     <>
       <StudioHeader
-        title={view.report?.title ?? 'Report'}
+        title={studioTitle(view.report)}
         onBack={back}
         tools={
           <>
@@ -464,7 +465,7 @@ export function Workbench({
         onOpenChange={setRecordOpen}
         onAudit={onAudit}
       />
-      <PrintCopy title={view.report?.title ?? 'Report'} document={document} />
+      <PrintCopy title={studioTitle(view.report)} document={document} />
     </>
   );
 }

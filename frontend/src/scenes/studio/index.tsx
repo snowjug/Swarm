@@ -7,6 +7,7 @@ import { resolveReport } from '../report/model';
 import { useStudioActions } from './actions';
 import { NoReport } from './NoReport';
 import { Opening } from './Opening';
+import { studioTitle } from './model';
 import { StudioSkeleton } from './Skeleton';
 import { Workbench } from './Workbench';
 import './Studio.css';
@@ -69,7 +70,7 @@ export default function StudioScene() {
         {announcement}
       </div>
 
-      {!view && studio.loading && <StudioSkeleton />}
+      {!view && studio.loading && <StudioSkeleton title={studioTitle(project.report)} />}
 
       {!view && !studio.loading && studio.loadError && (
         <div className="sw-open sw-open--empty">
