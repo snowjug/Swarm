@@ -74,4 +74,139 @@
     font-variant-numeric: tabular-nums;
     font-weight: 560;
   }
+
+  /* ---- A short list of shares: a word, a bar, a figure ---- */
+  .sw-rows {
+    display: grid;
+    gap: 7px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-rows li {
+    display: grid;
+    grid-template-columns: minmax(0, 10.4rem) minmax(2rem, 1fr) 2.6rem;
+    align-items: center;
+    gap: var(--s-3);
+    font-size: var(--fs-small);
+    line-height: 1.25;
+  }
+  .sw-rows__word {
+    color: var(--ink-2);
+    min-width: 0;
+  }
+  .sw-rows__track {
+    position: relative;
+    height: 6px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
+  }
+  .sw-rows__fill {
+    position: absolute;
+    inset: 0;
+    border-radius: 99px;
+    background: var(--seg, var(--c-neutral));
+    transform-origin: left;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-rows__pct {
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    font-weight: 560;
+    text-align: right;
+  }
+  .sw-rows [data-tone='adopt'],
+  .sw-rows [data-tone='favor'] {
+    --seg: var(--c-favor);
+  }
+  .sw-rows [data-tone='accept-with-conditions'] {
+    --seg: color-mix(in oklab, var(--c-favor) 55%, var(--c-neutral));
+  }
+  .sw-rows [data-tone='wait'] {
+    --seg: var(--c-neutral);
+  }
+  .sw-rows [data-tone='adapt-defensively'] {
+    --seg: var(--c-caution);
+  }
+  .sw-rows [data-tone='switch'] {
+    --seg: color-mix(in oklab, var(--c-against) 62%, var(--c-neutral));
+  }
+  .sw-rows [data-tone='resist'],
+  .sw-rows [data-tone='against'] {
+    --seg: var(--c-against);
+  }
+  .sw-rows [data-tone='accent'] {
+    --seg: var(--accent);
+  }
+
+  /* ---- The overall stance of the run on show, among the spread of the runs ---- */
+  .sw-band {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-band p {
+    margin: 0;
+  }
+  .sw-band__line {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0 var(--s-2);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-band__value {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-band__track {
+    position: relative;
+    height: 12px;
+    contain: layout;
+  }
+  .sw-band__track::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 2px;
+    margin-top: -1px;
+    border-radius: 99px;
+    background: color-mix(in oklab, var(--ink) 10%, transparent);
+  }
+  .sw-band__zero {
+    position: absolute;
+    left: 50%;
+    top: 1px;
+    bottom: 1px;
+    width: 1px;
+    background: var(--hairline-strong);
+  }
+  .sw-band__range {
+    position: absolute;
+    top: 3px;
+    height: 6px;
+    border-radius: 99px;
+    background: color-mix(in oklab, var(--accent) 30%, transparent);
+    transition:
+      left var(--dur-slow) var(--ease-spring-smooth),
+      width var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-band__dot {
+    position: absolute;
+    top: 50%;
+    width: 12px;
+    height: 12px;
+    margin: -6px 0 0 -6px;
+    border-radius: 50%;
+    border: 2px solid var(--bg-raised, var(--bg));
+    box-shadow: 0 0 0 1px var(--hairline-strong);
+    transition: left var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-band__note {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
 }

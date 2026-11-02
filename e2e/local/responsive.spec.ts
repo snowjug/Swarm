@@ -54,9 +54,9 @@ const GRAPH = 'main svg[role="group"]';
  * of its own below (`test.fixme`) that says what should be true.
  */
 const KNOWN: Record<'targets' | 'text' | 'graph', ReadonlySet<string>> = {
-  // Issue 8: the buttons that open a passage in the Ground are 22px tall; on a phone, so is the pick of a scenario in
-  // the comparison (23px). A screen that is held to this is held to the finger measure too, and fails it the same way.
-  targets: new Set(['ground', 'compare@390']),
+  // Issue 8: the buttons that open a passage in the Ground are 22px tall. A screen that is held to this is held to the
+  // finger measure too, and fails it the same way.
+  targets: new Set(['ground']),
   text: new Set(),
   graph: new Set(),
 };
@@ -311,23 +311,6 @@ test.describe('known defects of layout', () => {
     );
     await arrived(page);
     await expectPressable(page, 'ground', { min: 24 });
-  });
-
-  test.describe('on a phone', () => {
-    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-
-    test.fixme('(8) the pick of a scenario in the comparison is at least 24px tall', async ({
-      page,
-    }) => {
-      await page.goto(
-        screenPath(
-          SCREENS.find((item) => item.name === 'compare')!,
-          projects,
-        ),
-      );
-      await arrived(page);
-      await expectPressable(page, 'compare 390x844', { min: 24 });
-    });
   });
 });
 

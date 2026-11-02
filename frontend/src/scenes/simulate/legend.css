@@ -2,7 +2,7 @@
   .sw-key {
     display: flex;
     align-items: center;
-    gap: var(--s-3);
+    gap: var(--s-2);
   }
   .sw-key__scale {
     display: grid;

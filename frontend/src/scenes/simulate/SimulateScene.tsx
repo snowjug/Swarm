@@ -26,13 +26,14 @@ import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { dateTime } from '../../lib/format';
 import type { Analysis } from '../../../../shared/analysis';
 import { LiveView } from './LiveView';
-import { NetworkControls, NetworkView } from './NetworkView';
-import { StoryView, TimelineView } from './Pages';
+import { NetworkColour, NetworkView, RelationKinds } from './NetworkView';
+import { Fine, StoryView, TimelineView } from './Pages';
 import { Running } from './Running';
 import { Setup, type SetupSettings } from './Setup';
 import { NETWORK_DEFAULTS, replayOf, type NetworkSettings, type Replay } from './model';
 import { useCastMap } from './useCastMap';
 import { usePlayback } from './usePlayback';
+import { useStageBoxes } from './useStage';
 import './simulate.css';
 
 type TheatreView = 'story' | 'live' | 'network' | 'timeline';
@@ -102,6 +103,7 @@ function Theatre({
   const [network, setNetwork] = useState<NetworkSettings>(NETWORK_DEFAULTS);
   const cast = useCastMap(analysis);
   const stage = view === 'live' || view === 'network';
+  const boxes = useStageBoxes();
 
   useEffect(() => {
     if (autoplay) markReplayed(analysis.id);
@@ -124,6 +126,7 @@ function Theatre({
       data-view={view}
       data-stage={stage || undefined}
       aria-label="Simulation"
+      style={{ '--stage-dock': `${boxes.dock}px` } as React.CSSProperties}
     >
       {view === 'live' && replay && (
         <LiveView
@@ -134,6 +137,7 @@ function Theatre({
           selectedId={selectedId}
           onSelect={setSelectedId}
           wide={wide}
+          boxes={boxes}
         />
       )}
       {view === 'network' && replay && (
@@ -141,14 +145,16 @@ function Theatre({
           analysis={analysis}
           cast={cast}
           settings={network}
+          onSettings={setNetwork}
           replay={replay}
           selectedId={selectedId}
           onSelect={setSelectedId}
           wide={wide}
+          boxes={boxes}
         />
       )}
 
-      <div className="sw-sim__top">
+      <div className="sw-sim__top" ref={boxes.topRef}>
         {stage && replay ? (
           <m.header
             className="sw-sim__head"
@@ -173,14 +179,12 @@ function Theatre({
                 </>
               )}
             </p>
-            <p className="sw-caption sw-sim__fine">
-              <span className="sw-hide-sm">
-                Synthetic actors, simulated under stated assumptions. Not a prediction.
-              </span>
-              <span className="sw-hide-lg">Synthetic actors. Not a prediction.</span>
-            </p>
+            <Fine className="sw-sim__fine" />
             {view === 'network' && (
-              <NetworkControls cast={cast} settings={network} onChange={setNetwork} />
+              <div className="sw-net__controls">
+                <NetworkColour settings={network} onChange={setNetwork} />
+                {wide && <RelationKinds cast={cast} settings={network} onChange={setNetwork} />}
+              </div>
             )}
           </m.header>
         ) : (
@@ -249,12 +253,7 @@ function Theatre({
         />
       )}
       {view === 'timeline' && (
-        <TimelineView
-          analysis={analysis}
-          replay={replay}
-          round={playback.round}
-          onSeek={playback.seek}
-        />
+        <TimelineView analysis={analysis} replay={replay} playback={playback} />
       )}
     </section>
   );

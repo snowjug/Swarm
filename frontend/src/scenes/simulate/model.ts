@@ -22,6 +22,7 @@ import {
   chainOf,
   cannotMoveAnyone,
   rankFindings,
+  signedNumber,
   variantDistributions,
   type ChainStep,
   type VariantDistribution,
@@ -43,6 +44,14 @@ export interface Replay {
   eventsByRound: Map<number, SimEvent[]>;
   explained: boolean;
   actors: ReadonlyMap<string, Actor>;
+  /** How far each actor's mean stance moved from the round before to this one, by round (the first round has none). */
+  moves: ReadonlyMap<number, ReadonlyMap<string, number>>;
+  /** The largest such move in the run: what counts as having moved is measured against it. */
+  peakMove: number;
+  /** How every seeded run of this scenario spread, round by round: the run on show is one of them. */
+  band: ReadonlyMap<number, { p10: number; p50: number; p90: number }>;
+  /** How far, either way, a strip showing the overall stance and that spread has to reach for every round to fit. */
+  bandReach: number;
 }
 
 /**
@@ -84,6 +93,23 @@ export function replayOf(analysis: Analysis): Replay | null {
     else eventsByRound.set(event.round, [event]);
   }
   const values = rounds.flatMap((round) => round.byActor.map((entry) => entry.stanceMean));
+  const moves = new Map<number, Map<string, number>>();
+  let peakMove = 0;
+  for (let index = 1; index < rounds.length; index += 1) {
+    const before = new Map(
+      rounds[index - 1]!.byActor.map((entry) => [entry.actorId, entry.stanceMean]),
+    );
+    const here = new Map<string, number>();
+    for (const entry of rounds[index]!.byActor) {
+      const was = before.get(entry.actorId);
+      if (was === undefined) continue;
+      const moved = entry.stanceMean - was;
+      here.set(entry.actorId, moved);
+      peakMove = Math.max(peakMove, Math.abs(moved));
+    }
+    moves.set(rounds[index]!.round, here);
+  }
+  const trajectory = analysis.variants.find((entry) => entry.variantId === variant.id)?.trajectory;
   return {
     run,
     variant,
@@ -96,6 +122,20 @@ export function replayOf(analysis: Analysis): Replay | null {
     eventsByRound,
     explained: run.explained === true,
     actors: new Map(analysis.actors.map((actor) => [actor.id, actor])),
+    moves,
+    peakMove,
+    band: new Map(
+      (trajectory ?? []).map((point) => [
+        point.round,
+        { p10: point.p10, p50: point.p50, p90: point.p90 },
+      ]),
+    ),
+    bandReach:
+      Math.max(
+        0.04,
+        ...rounds.map((entry) => Math.abs(entry.stanceMean)),
+        ...(trajectory ?? []).flatMap((point) => [Math.abs(point.p10), Math.abs(point.p90)]),
+      ) * 1.15,
   };
 }
 
@@ -140,6 +180,141 @@ export function causalLinks(
     }),
   );
 }
+
+// ---------------------------------------------------------------------------------------------
+// What happens in a round: who moved, what was set off, and how the connected pairs lean
+// ---------------------------------------------------------------------------------------------
+
+export interface RoundMove {
+  actorId: string;
+  /** Its mean stance in this round less its mean stance in the round before. */
+  move: number;
+}
+
+/**
+ * The actors that moved most from the round before: those that moved at least a fifth of the largest single-round move in
+ * the run, largest first. Where nobody did, nothing is said to have moved, and nothing is drawn as moving.
+ */
+export function movesIn(replay: Replay, round: number, limit = 3): RoundMove[] {
+  const floor = Math.max(0.005, replay.peakMove * 0.2);
+  return [...(replay.moves.get(round) ?? [])]
+    .filter(([, move]) => Math.abs(move) >= floor)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]) || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([actorId, move]) => ({ actorId, move }));
+}
+
+export type NarrationKind = 'start' | 'change' | 'event' | 'move' | 'quiet';
+
+/** One line on what the round is about, written from what the run recorded in it; never from what is expected. */
+export interface Narration {
+  kind: NarrationKind;
+  text: string;
+  /** A short mark beside it: the kind of event, the strength of the change, the size of a move. */
+  tag?: string;
+  /** The actors it is about, so that a picture can point at them. */
+  actorIds: string[];
+}
+
+const nameList = (names: readonly string[]): string =>
+  names.length < 2
+    ? (names[0] ?? '')
+    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+
+export function narrationOf(replay: Replay, round: number): Narration {
+  const nameOf = (id: string): string => replay.actors.get(id)?.name ?? id;
+  if (round === replay.changeRound) {
+    const landing = landsOn([...replay.actors.values()], replay.variant);
+    return {
+      kind: 'change',
+      text:
+        landing.length > 0
+          ? `The change lands on ${landing.length} ${landing.length === 1 ? 'actor' : 'actors'}`
+          : 'The change lands, but no actor is set to feel it',
+      tag: `strength ${replay.variant.intensity.toFixed(2)}`,
+      actorIds: landing,
+    };
+  }
+  const events = replay.eventsByRound.get(round) ?? [];
+  if (events.length > 0) {
+    const ids = [...new Set(events.flatMap((event) => (event.actorId ? [event.actorId] : [])))];
+    const first = events[0]!;
+    return {
+      kind: 'event',
+      text:
+        events.length === 1
+          ? ids.length > 0
+            ? `${nameOf(ids[0]!)} set something off`
+            : 'Something was set off'
+          : `${events.length} things were set off${ids.length > 0 ? ` by ${nameList(ids.map(nameOf))}` : ''}`,
+      tag: events.length === 1 ? first.kind : undefined,
+      actorIds: ids,
+    } as Narration;
+  }
+  if (round === replay.firstRound) {
+    return { kind: 'start', text: 'Where each actor starts', actorIds: [] };
+  }
+  const moved = movesIn(replay, round, 2);
+  if (moved.length > 0) {
+    return {
+      kind: 'move',
+      text: `${nameList(moved.map((entry) => nameOf(entry.actorId)))} moved most`,
+      tag: signedNumber(moved[0]!.move),
+      actorIds: moved.map((entry) => entry.actorId),
+    };
+  }
+  return { kind: 'quiet', text: 'Little moved in this round', actorIds: [] };
+}
+
+export interface Alignment {
+  /** Connected pairs whose two ends lean the same way, clearly (outside the near-neutral band). */
+  together: number;
+  /** Connected pairs whose two ends lean opposite ways, clearly. */
+  apart: number;
+  /** Pairs where at least one end is near neutral. */
+  quiet: number;
+  byEdge: ReadonlyMap<string, 'together' | 'apart'>;
+}
+
+/**
+ * How the connected actors lean in a round, read from their stances alone: a relation whose two ends both lean the same
+ * way, or opposite ways, by at least a fifth of the scale. It says nothing about why, and the relations themselves do not
+ * change during a run: only where the actors stand does.
+ */
+export function alignmentAt(
+  replay: Replay,
+  edges: readonly { id: string; from: string; to: string }[],
+  round: number,
+): Alignment {
+  const stances = stancesAt(replay, round);
+  const band = replay.scale * 0.2;
+  const side = (value: number): number => (value <= -band ? -1 : value >= band ? 1 : 0);
+  const byEdge = new Map<string, 'together' | 'apart'>();
+  let together = 0;
+  let apart = 0;
+  let quiet = 0;
+  for (const edge of edges) {
+    const a = stances.get(edge.from);
+    const b = stances.get(edge.to);
+    if (a === undefined || b === undefined) continue;
+    const [left, right] = [side(a), side(b)];
+    if (left === 0 || right === 0) quiet += 1;
+    else if (left === right) {
+      together += 1;
+      byEdge.set(edge.id, 'together');
+    } else {
+      apart += 1;
+      byEdge.set(edge.id, 'apart');
+    }
+  }
+  return { together, apart, quiet, byEdge };
+}
+
+/** The spread of all the runs in a round, if the comparison kept it. */
+export const bandAt = (
+  replay: Replay,
+  round: number,
+): { p10: number; p50: number; p90: number } | null => replay.band.get(round) ?? null;
 
 /** The actors the change lands on: those whose impact is not 0 once the scenario's own settings are applied. */
 export function landsOn(actors: readonly Actor[], variant: Variant): string[] {

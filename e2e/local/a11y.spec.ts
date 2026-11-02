@@ -122,8 +122,7 @@ test.describe('the other views open without a fault and pass axe', () => {
     expect(problems).toEqual([]);
   });
 
-  // Written up in .scratch/e2e/issues-shell.md (3): label-content-name-mismatch ×6 in the deep dive.
-  test.fixme('the deep dive of a project the engine ran', async ({ page }) => {
+  test('the deep dive of a project the engine ran', async ({ page }) => {
     const problems = watchPage(page);
     await page.goto(addressOf({ project: engine, scene: 'simulate', view: 'deep' }));
     await audit(page, 'the deep dive');

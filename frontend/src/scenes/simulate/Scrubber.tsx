@@ -15,6 +15,8 @@ export interface ScrubberProps {
   changeRound: number;
   /** How many events happened in each round of this run. */
   events: ReadonlyMap<number, number>;
+  /** Sits inside a surface of its own, instead of floating as one. */
+  embedded?: boolean;
   className?: string;
 }
 
@@ -23,7 +25,15 @@ export interface ScrubberProps {
  * point for each round in which something was set off, so that the whole run is seen at a glance and any round can be
  * reached by a press or a drag. It is a real slider: arrow keys step, Home and End jump, Space plays and pauses.
  */
-export function Scrubber({ playback, first, last, changeRound, events, className }: ScrubberProps) {
+export function Scrubber({
+  playback,
+  first,
+  last,
+  changeRound,
+  events,
+  embedded = false,
+  className,
+}: ScrubberProps) {
   const track = useRef<HTMLDivElement>(null);
   const rounds = Array.from({ length: last - first + 1 }, (_, index) => first + index);
   const span = Math.max(last - first, 1);
@@ -69,12 +79,20 @@ export function Scrubber({ playback, first, last, changeRound, events, className
 
   return (
     <m.div
-      className={cx('sw-scrub sw-glass sw-glass--raised', className)}
+      className={cx(
+        'sw-scrub',
+        embedded ? 'sw-scrub--embedded' : 'sw-glass sw-glass--raised',
+        className,
+      )}
       role="group"
       aria-label="Playback"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={SPRING.smooth}
+      {...(embedded
+        ? {}
+        : {
+            initial: { opacity: 0, y: 20 },
+            animate: { opacity: 1, y: 0 },
+            transition: SPRING.smooth,
+          })}
     >
       <div className="sw-scrub__buttons">
         {playback.atEnd && !playback.playing ? (
@@ -178,7 +196,7 @@ export function Scrubber({ playback, first, last, changeRound, events, className
         size="sm"
         className="sw-scrub__speed"
         onClick={() => playback.setSpeed(playback.speed === 1 ? 2 : playback.speed === 2 ? 0.5 : 1)}
-        aria-label={`Speed ${playback.speed} times. Change`}
+        aria-label={`${playback.speed}× speed. Change`}
       >
         {playback.speed}×
       </Button>

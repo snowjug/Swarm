@@ -11,6 +11,14 @@
     padding-top: var(--s-7);
     gap: var(--s-7);
   }
+  @media (max-width: 40rem) {
+    .sw-story {
+      padding-top: var(--s-4);
+    }
+    .sw-story--timeline {
+      padding-top: var(--s-3);
+    }
+  }
   .sw-story--timeline .sw-story__section {
     border-top: 0;
     padding-top: 0;
@@ -35,6 +43,10 @@
   .sw-story__sources {
     color: var(--ink-3);
     font-size: var(--fs-small);
+  }
+  .sw-story__foot {
+    display: grid;
+    gap: var(--s-1);
   }
   .sw-story__actions {
     display: flex;

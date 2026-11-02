@@ -80,6 +80,11 @@
     padding: 0;
     list-style: none;
   }
+  .sw-net__count {
+    margin-left: 0.2rem;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
   .sw-net__links {
     display: grid;
     gap: var(--s-2);
@@ -88,18 +93,79 @@
     list-style: none;
   }
   .sw-net__links li {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 6.6rem minmax(0, 1fr) auto;
+    align-items: center;
     gap: var(--s-3);
   }
   .sw-net__phrase {
     color: var(--ink-3);
     font-size: var(--fs-small);
   }
-  .sw-net__move {
+  .sw-net__end {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--s-2);
     color: var(--ink-2);
     font-size: var(--fs-small);
+  }
+  .sw-net__lean {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-net__lean[data-lean='together'] {
+    color: var(--c-favor);
+  }
+  .sw-net__lean[data-lean='apart'] {
+    color: var(--c-against);
+  }
+
+  /* The ones that moved most: a bar that runs either way from where each began. */
+  .sw-movers {
+    display: grid;
+    gap: var(--s-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-movers li {
+    display: grid;
+    grid-template-columns: minmax(0, 8.2rem) minmax(3rem, 1fr) 3.2rem;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-movers__value {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    text-align: right;
+  }
+  .sw-dv {
+    position: relative;
+    height: 8px;
+  }
+  .sw-dv__zero {
+    position: absolute;
+    left: 50%;
+    top: -3px;
+    bottom: -3px;
+    width: 1px;
+    background: var(--hairline-strong);
+  }
+  .sw-dv__bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    border-radius: 99px;
+    transition: transform var(--dur-slow) var(--ease-spring-smooth);
+  }
+  .sw-dv__bar[data-side='more'] {
+    left: 50%;
+    transform-origin: left;
+  }
+  .sw-dv__bar[data-side='less'] {
+    right: 50%;
+    transform-origin: right;
   }
 
   .sw-sim-state {
@@ -128,6 +194,15 @@
   @media (min-width: 64rem) {
     .sw-sim[data-stage] {
       --covered: 400px;
+    }
+  }
+  /* The zoom of the picture sits above the dock where the dock is the width of the screen, and beside it where it is not. */
+  .sw-sim[data-stage] .sw-eco__controls {
+    bottom: calc(var(--stage-dock, 0px) + var(--s-3));
+  }
+  @media (min-width: 64rem) {
+    .sw-sim[data-stage] .sw-eco__controls {
+      bottom: var(--s-5);
     }
   }
   @media (max-width: 40rem) {
