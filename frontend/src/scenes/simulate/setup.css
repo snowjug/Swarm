@@ -214,6 +214,11 @@
       linear-gradient(180deg, color-mix(in oklab, white 5%, transparent), transparent 40%),
       var(--bg-raised);
   }
+  /* A field that takes the focus is brought clear of the bar that floats over the foot of the form, not left under it:
+     the page's scrolling treats the room the bar takes as not there. */
+  :root:has(.sw-setup__foot) {
+    scroll-padding-bottom: calc(var(--s-4) + 4.25rem + var(--s-4));
+  }
   .sw-setup__how {
     border-top: 1px solid var(--hairline);
   }
@@ -288,6 +293,11 @@
       justify-self: stretch;
       flex-direction: column-reverse;
       align-items: stretch;
+    }
+    :root:has(.sw-setup__foot) {
+      scroll-padding-bottom: calc(
+        var(--dock-h) + 0.5rem + var(--s-3) + env(safe-area-inset-bottom) + 7.5rem + var(--s-4)
+      );
     }
     .sw-setup__foot .sw-btn {
       width: 100%;
