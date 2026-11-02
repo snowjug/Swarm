@@ -131,7 +131,7 @@ finds its place by shape.
 | Appearance       | System, Light, Dark, High contrast. System follows the device: high contrast when the device asks for more contrast, otherwise dark when it prefers a dark colour scheme, otherwise light |
 | Motion           | Follow device, Reduced, Full                                                                                                                                                              |
 | Detail           | Guided (the default) and Advanced                                                                                                                                                         |
-| This exploration | Refresh, Duplicate as a new question, Export snapshot (the project as JSON), Audit log, Model budget (a model-assisted project) and Who has access (when people sign in)                  |
+| This exploration | Refresh, Duplicate as a new question, Export snapshot (the engine's record, as JSON), Audit log, Model budget (a model-assisted project) and Who has access (when people sign in)         |
 | The account      | The mode ("Local · single user" or "Signed in · Microsoft Entra"), People (a workspace owner or administrator) and Sign out; and the version, the licence and a link to the source        |
 
 The three choices are kept in this browser only, each under a key that holds nothing but its own value:
@@ -1195,11 +1195,21 @@ it is done.
 - **The browser's Back button is not asked about.** The shell asks "Leave with unsaved changes?" before the
   exits it controls (`go`, `openProject` and a new question from the mark or the palette), and the browser
   asks before a tab is closed or reloaded. Back and Forward go by the address (`popstate`) and go on without
-  asking, even where a scene holds work.
+  asking, even where the Map or the studio holds work.
 - **Not everything a person has typed is held.** The shell asks only about what a scene has told it it holds
-  (`useUnsavedWork`). The question being typed on the first screen, the scenarios edited on the Simulate
-  setup and the deep dive's unsaved setup are not held that way, so leaving them by the mark, the journey or
-  the palette does not ask.
+  (`useUnsavedWork`), and two scenes do: the Map (changes to actors) and the report studio (words in a section).
+  The question being typed on the first screen, the alternatives edited on the Simulate setup and the deep
+  dive's unsaved setup do not (nothing under `scenes/ask` or `scenes/simulate` calls it), so leaving them by
+  the mark, the journey or the palette does not ask.
+- **The People and Who has access dialogs have no close mark.** They close with **Done** or with Escape. The
+  sheets have a **Close** button, and a dialog is not given one (`design/ui/Dialog.tsx`).
+- **Export snapshot is the engine's record, not the decision brief.** In Settings and tools, and as **Snapshot,
+  as JSON** in the detailed report's Export menu, it downloads `swarm-lab-<id>.json` from
+  `GET /api/projects/:id/export?format=json` (`api.export`): the project as the engine stores it, its evidence
+  passages, its evidence ledger once there is a report, every chat message, and the time it was made. What the
+  lab keeps for a project (the scenario, stakeholders, actors, comparison, review and brief) is not in it, nor are
+  the studio's drafts, and nothing in the application reads such a file back (`npm run demo:seed` does, for the
+  three recorded projects). What a person takes to a meeting is the brief's **Export**, in Decide.
 - **The Compare point on the journey stays "ready".** It does not tick once a comparison has finished, been
   reviewed or been written up (`app/scenes.ts`; `e2e/lab/journey-gates.spec.ts` asserts it).
 - **The Map edits how an actor behaves and not who it is.** The actor API refuses to add, remove, rename or

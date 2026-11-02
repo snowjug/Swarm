@@ -223,8 +223,9 @@ and on what condition): about half a minute with a real model, and it cites the 
 unsupported one (for example, the ferry company's passenger revenue in 2018): immediate, the exact
 abstention sentence. Then the **Actors** tab: choose one fictional actor and ask what would reassure them.
 
-**9:15 to 10:00 Exports and the audit log.** **Settings and tools** → **Export snapshot**: the whole
-project as JSON, with its evidence records and its conversation. **Audit log**: what you just did is in
+**9:15 to 10:00 Exports and the audit log.** **Settings and tools** → **Export snapshot**: the engine's record
+of the project as JSON, with its evidence passages and its ledger and its conversation (a decision brief is
+exported from **Decide**, and a recording has none). **Audit log**: what you just did is in
 it, with no questions or answers. **Verify integrity**.
 
 **Optional, about ninety seconds more: the report studio.** It opens on the base recording: in its deep

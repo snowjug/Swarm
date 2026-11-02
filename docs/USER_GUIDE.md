@@ -861,8 +861,13 @@ groups line up and you find your place by shape.
   nothing, and no control depends on it. The choice is kept under `swarm.mode`, holding only `guided` or
   `advanced`.
 - **This exploration** (with a project open): **Refresh** reads it from the server again, **Duplicate as a new
-  question** (see [Ask](#ask-the-question-and-the-evidence)), **Export snapshot** saves the project as JSON,
-  **Audit log**, and, where they apply, **Model budget** and **Who has access**.
+  question** (see [Ask](#ask-the-question-and-the-evidence)), **Export snapshot** downloads the engine's record
+  of the exploration as one JSON file (`swarm-lab-<id>.json`: the project as the server stores it, its evidence
+  passages, its evidence ledger once there is a report, and every chat message, with the time it was made), which
+  is not the decision brief (that is exported from Decide) and holds none of the scenario lab's work (the scenario,
+  stakeholders, actors, comparison, review or brief) or the studio's drafts, **Audit log**, and, where they apply,
+  **Model budget** and **Who has access**. The detailed report's **Export** menu has the same file as **Snapshot,
+  as JSON**.
 - **The account** shows "Local · single user" or "Signed in · Microsoft Entra", **People** and **Sign out**
   where they apply, and, last, the version, the licence and a link to the source.
 - **The engine chip** opens "Model provider": the provider, the deployment, how it signs in, what the
