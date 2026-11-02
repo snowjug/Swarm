@@ -120,7 +120,7 @@ describe('the cascade', () => {
       for (const [prelude] of topLevel(stripComments(text(path)))) {
         // Tokens are plain custom properties and are the one file that needs no layer (design/index.css says so).
         const fine =
-          layered.test(prelude) || (tokens && /^(?::root|\[data-|@media)/u.test(prelude));
+          layered.test(prelude) || (tokens && /^(?::root|\[data-|@media|@supports)/u.test(prelude));
         if (!fine) offenders.push(`${name(path)}: ${prelude.slice(0, 70)}`);
       }
     }
@@ -203,6 +203,12 @@ describe('motion', () => {
       /prefers-reduced-transparency: reduce\)[^]*--glass:\s*var\(--bg-raised\)/u,
     );
     expect(tokens).toMatch(/\[data-theme='high-contrast'\][^]*--blur-md:\s*0px/u);
+  });
+
+  it('turns glass solid in a browser that cannot blur what is behind it, so text on it stays legible', () => {
+    expect(tokens).toMatch(
+      /@supports not \(\(backdrop-filter: blur\(1px\)\)[^]*--glass-overlay:\s*var\(--bg-raised\)/u,
+    );
   });
 });
 

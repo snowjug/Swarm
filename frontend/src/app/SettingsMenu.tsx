@@ -9,10 +9,12 @@ import {
   Monitor,
   Moon,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sun,
   Users,
 } from 'lucide-react';
+import { useRef } from 'react';
 import {
   MOTION_LABELS,
   MOTION_PREFERENCES,
@@ -33,6 +35,7 @@ import {
 } from '../design/ui';
 import { MODE_LABELS, MODE_SUMMARIES, UI_MODES, type UiMode } from '../lib/mode';
 import { THEME_LABELS, PREFERENCES, type ThemePreference } from '../lib/theme';
+import { paletteShortcut } from './commands';
 
 const THEME_ICONS: Record<ThemePreference, typeof Sun> = {
   system: Monitor,
@@ -60,6 +63,7 @@ export function SettingsMenu({
   onTheme,
   mode,
   onMode,
+  onPalette,
   project,
   account,
   version,
@@ -69,20 +73,46 @@ export function SettingsMenu({
   onTheme: (next: ThemePreference) => void;
   mode: UiMode;
   onMode: (next: UiMode) => void;
+  /** Opens the command palette: on a phone this is the way in, as the bar has no room for its button. */
+  onPalette: () => void;
   project: ProjectTools | null;
   account: { label: string; onPeople: (() => void) | null; onSignOut: (() => void) | null };
   version: string | null;
   sourceUrl: string | null;
 }) {
   const motion = useMotionPreference();
+  const trigger = useRef<HTMLButtonElement>(null);
+  const wantsPalette = useRef(false);
   return (
     <Menu>
       <MenuTrigger asChild>
-        <IconButton label="Settings and tools" size="md">
+        <IconButton ref={trigger} label="Settings and tools" size="md">
           <Ellipsis size={20} aria-hidden="true" />
         </IconButton>
       </MenuTrigger>
-      <MenuContent align="end" className="sw-settings">
+      <MenuContent
+        align="end"
+        className="sw-settings"
+        // A menu gives focus back to its button as it closes. The palette opens after that, from the button, so that
+        // closing the palette returns the keyboard to the button instead of to the top of the page.
+        onCloseAutoFocus={(event) => {
+          if (!wantsPalette.current) return;
+          wantsPalette.current = false;
+          event.preventDefault();
+          trigger.current?.focus({ preventScroll: true });
+          onPalette();
+        }}
+      >
+        <MenuItem
+          icon={<Search size={16} />}
+          shortcut={paletteShortcut()}
+          onSelect={() => {
+            wantsPalette.current = true;
+          }}
+        >
+          Search and commands
+        </MenuItem>
+        <MenuSeparator />
         <MenuLabel>Appearance</MenuLabel>
         <MenuRadioGroup value={theme} onValueChange={(value) => onTheme(value as ThemePreference)}>
           {PREFERENCES.map((name) => {

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { History, MessageCircleQuestion } from 'lucide-react';
+import { History, MessageCircleQuestion, Search } from 'lucide-react';
 import { IconButton } from '../design/ui';
 import { Mark } from '../design/ui';
+import { paletteShortcut } from './commands';
 import { JourneyRail } from './JourneyRail';
 import { SCENE_LABELS, type SceneId, type SceneInfo } from './scenes';
 import './TopBar.css';
@@ -20,6 +21,7 @@ export function TopBar({
   historyTotal,
   onHistory,
   onAsk,
+  onPalette,
   status,
   menu,
 }: {
@@ -32,6 +34,7 @@ export function TopBar({
   historyTotal: number | null;
   onHistory: () => void;
   onAsk: () => void;
+  onPalette: () => void;
   status: ReactNode;
   menu: ReactNode;
 }) {
@@ -63,6 +66,14 @@ export function TopBar({
       </div>
       <div className="sw-bar__end">
         {status}
+        <IconButton
+          label="Search and commands"
+          shortcut={paletteShortcut()}
+          className="sw-hide-sm"
+          onClick={onPalette}
+        >
+          <Search size={19} aria-hidden="true" />
+        </IconButton>
         {hasProject && (
           <IconButton label="Ask about this" shortcut="/" onClick={onAsk}>
             <MessageCircleQuestion size={19} aria-hidden="true" />

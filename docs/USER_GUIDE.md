@@ -31,9 +31,13 @@ results are made the same way as for a question of your own.
 ### Finding your way
 
 - **The top bar** floats over the page. From the left: the **Swarm** mark (it starts a new question), the
-  journey, a chip for the engine (**Local rules**, or the name of the provider), **Ask about this**,
-  **History** and **Settings and tools**. On a phone the journey moves to a dock along the bottom edge, and
-  the mark is the way back to the first screen.
+  journey, a chip for the engine (**Local rules**, or the name of the provider), **Search and commands**,
+  **Ask about this**, **History** and **Settings and tools**. On a phone the journey moves to a dock along the
+  bottom edge, and the mark is the way back to the first screen.
+- **Search and commands** (press Ctrl or ⌘ with K, from anywhere, also while you type; on a phone it is the first
+  item of Settings and tools) goes to any scene or view of one, opens History, the audit log and the other panels,
+  changes the theme, the motion and the detail level, and opens another exploration by its name. A scene that is not
+  open yet is listed with what opens it. Everything it does can also be done from the page: it is only quicker.
 - **The journey** shows each scene as done, current, ready, working, needing attention or locked, and ticks
   a scene only when the project's own record shows it. Proposed stakeholders do not tick Map, and a stopped
   comparison does not tick Simulate. A scene's tooltip says what it is for, or what opens it.
