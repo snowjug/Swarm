@@ -10,7 +10,14 @@ import { briefApi } from '../../api/brief';
 import type { UiMode } from '../../lib/mode';
 import { POSITIONING_STATEMENT } from '../../lib/product';
 import { ChapterBody } from './Chapters';
-import { useScrollProgress, useScrollSpy, usePassed, type BriefAnalysis } from './hooks';
+import {
+  keepInPlace,
+  usePassed,
+  usePinned,
+  useScrollProgress,
+  useScrollSpy,
+  type BriefAnalysis,
+} from './hooks';
 import {
   ACTS,
   ANSWER_ANCHOR,
@@ -49,6 +56,8 @@ export interface DocumentProps {
   reviewOpen: boolean;
   onReviewOpenChange: (open: boolean) => void;
   hasReport: boolean;
+  /** The brief is there because it was written a moment ago, on this page. */
+  justWritten?: boolean;
   go: { simulate: () => void; studio: () => void; report: () => void };
 }
 
@@ -69,6 +78,7 @@ export function DecideDocument({
   reviewOpen,
   onReviewOpenChange,
   hasReport,
+  justWritten = false,
   go,
 }: DocumentProps) {
   const { brief, visuals } = view;
@@ -146,10 +156,14 @@ export function DecideDocument({
   }, [references]);
 
   // ---- Going to a chapter ------------------------------------------------------------------------
+  const [pinned, pin] = usePinned<Place>();
+  const held = useRef<(() => void) | null>(null);
+  useEffect(() => () => held.current?.(), []);
   const reveal = useCallback(
     (place: Place, options: { hash?: boolean } = {}) => {
       const id = place === 'answer' ? ANSWER_ANCHOR : anchorOf(place);
       if (place !== 'answer') setOpen((old) => (old.has(place) ? old : new Set(old).add(place)));
+      pin(place);
       // The chapter is opened first and then reached: the page does not wait for it to finish growing,
       // since its top does not move while it does.
       requestAnimationFrame(() => {
@@ -158,9 +172,13 @@ export function DecideDocument({
         target.scrollIntoView({ block: 'start', behavior: smooth(reduced) });
         target.focus({ preventScroll: true });
         if (options.hash !== false) window.history.replaceState(window.history.state, '', `#${id}`);
+        held.current?.();
+        if (root.current && typeof ResizeObserver !== 'undefined') {
+          held.current = keepInPlace(target, root.current);
+        }
       });
     },
-    [reduced],
+    [reduced, pin],
   );
 
   const named = useRef(false);
@@ -178,12 +196,13 @@ export function DecideDocument({
   }, [present, reveal]);
 
   const active = useScrollSpy(useMemo(() => [ANSWER_ANCHOR, ...present.map(anchorOf)], [present]));
-  const place: Place | null =
+  const reading: Place | null =
     active === null
       ? null
       : active === ANSWER_ANCHOR
         ? 'answer'
         : (present.find((id) => anchorOf(id) === active) ?? null);
+  const place = pinned ?? reading;
   const where = useMemo(() => {
     if (place === null || place === 'answer') return { act: null, title: 'The answer' };
     const chapter = chapters.find((entry) => entry.spec.id === place);
@@ -220,6 +239,21 @@ export function DecideDocument({
     }
     wasRunning.current = running;
   }, [running, runError, reviewView, toast]);
+
+  // ---- The brief that was just written ----------------------------------------------------------------
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!justWritten || announced.current) return;
+    announced.current = true;
+    // The button that asked for it is gone: the reader's place is the answer.
+    document.getElementById(ANSWER_ANCHOR)?.focus({ preventScroll: true });
+    toast({
+      title: 'The brief is ready',
+      description: 'It was written from the newest comparison.',
+      tone: 'success',
+      duration: 4200,
+    });
+  }, [justWritten, toast]);
 
   // ---- Writing the brief again ----------------------------------------------------------------------
   const wasGenerating = useRef(false);
@@ -358,6 +392,7 @@ export function DecideDocument({
           review={{ view: review.view, failed: review.error !== null && review.view === null }}
           tools={tools}
           comparisonRunning={comparisonRunning}
+          onNext={present.includes('recommendations') ? () => reveal('recommendations') : null}
           topRef={heroTop}
         />
 

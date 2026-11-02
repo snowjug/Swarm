@@ -72,4 +72,13 @@
     justify-content: center;
     gap: var(--s-3);
   }
+  /* The way back to the brief is of no use on paper. */
+  @media print {
+    .sw-decide-sub {
+      display: block;
+    }
+    .sw-decide-sub__nav {
+      display: none;
+    }
+  }
 }

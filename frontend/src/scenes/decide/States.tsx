@@ -1,5 +1,13 @@
 import type { CSSProperties } from 'react';
-import { ArrowRight, Compass, FileText, ListChecks, Sparkles, Users } from 'lucide-react';
+import {
+  ArrowRight,
+  Compass,
+  FileText,
+  ListChecks,
+  OctagonAlert,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { BRIEF_SECTION_IDS, BRIEF_SECTION_TITLES } from '../../../../shared/brief';
 import { Button, EmptyState, Notice, Orbit, Skeleton } from '../../design/ui';
 import { POSITIONING_STATEMENT } from '../../lib/product';
@@ -52,18 +60,19 @@ export function BriefFailed({
   busy: boolean;
 }) {
   return (
-    <section className="sw-decide-state sw-decide-state--center">
-      <Notice
-        tone="error"
+    <section className="sw-decide-state sw-decide-state--center" role="alert">
+      <EmptyState
+        level={1}
+        icon={<OctagonAlert size={26} aria-hidden="true" />}
         title="The decision brief could not be loaded"
         action={
-          <Button size="sm" variant="glass" busy={busy} onClick={onRetry}>
+          <Button variant="glass" busy={busy} onClick={onRetry}>
             Try again
           </Button>
         }
       >
         {message} Nothing has been lost: the brief is stored on the server.
-      </Notice>
+      </EmptyState>
     </section>
   );
 }

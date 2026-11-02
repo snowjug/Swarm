@@ -25,7 +25,6 @@ export function EvidenceVisual({ visuals }: { visuals: BriefVisuals }) {
   const rows = evidenceByThinness(visuals.evidenceMap);
   const [all, setAll] = useState(false);
   if (rows.length === 0) return null;
-  const shown = all ? rows : rows.slice(0, 6);
   const gaps = rows.filter((row) => row.gap).length;
   return (
     <figure className="sw-decide-fig">
@@ -38,11 +37,12 @@ export function EvidenceVisual({ visuals }: { visuals: BriefVisuals }) {
         }
       />
       <ul className="sw-decide-ev" role="list">
-        {shown.map((row, index) => (
+        {rows.map((row, index) => (
           <li
             key={row.stakeholderId}
             className="sw-decide-ev__row"
             data-gap={row.gap || undefined}
+            data-folded={!all && index >= 6 ? 'true' : undefined}
             style={{ '--i': Math.min(index, 8) } as CSSProperties}
           >
             <span className="sw-decide-ev__name">{row.name}</span>
@@ -116,6 +116,8 @@ export function AssumptionVisual({ visuals }: { visuals: BriefVisuals }) {
   const register = visuals.assumptionRegister;
   if (register.length === 0) return null;
   const rows = filterAssumptions(register, filter);
+  // Every assumption is in the page: the ones the filter or the page leaves out are folded on screen, never on paper.
+  const shownIds = new Set(rows.slice(0, limit).map((row) => row.id));
   const counts: Record<AssumptionFilter, number> = {
     all: register.length,
     sensitive: filterAssumptions(register, 'sensitive').length,
@@ -143,10 +145,14 @@ export function AssumptionVisual({ visuals }: { visuals: BriefVisuals }) {
         ))}
       </div>
       <ul className="sw-decide-as" role="list" key={filter}>
-        {rows.slice(0, limit).map((row) => {
+        {register.map((row) => {
           const Icon = ORIGIN_ICONS[row.origin];
           return (
-            <li key={row.id} className="sw-decide-as__row">
+            <li
+              key={row.id}
+              className="sw-decide-as__row"
+              data-folded={shownIds.has(row.id) ? undefined : 'true'}
+            >
               <p className="sw-decide-as__text">{row.text}</p>
               <p className="sw-decide-as__meta">
                 <span className="sw-decide-as__origin" data-family={ORIGIN_FAMILY[row.origin]}>
@@ -214,7 +220,6 @@ export function TraitVisual({ visuals }: { visuals: BriefVisuals }) {
     .flatMap((row) => row.traits)
     .filter((trait) => trait.origin === 'system-assumption').length;
   const total = rows.flatMap((row) => row.traits).length;
-  const shown = all ? rows : rows.slice(0, 4);
   return (
     <figure className="sw-decide-fig">
       <FigureHead
@@ -222,8 +227,12 @@ export function TraitVisual({ visuals }: { visuals: BriefVisuals }) {
         note={`${defaults} of ${total} trait values were filled in by Swarm as defaults. A trait is on a scale from 0 to 1 (from −1 to 1 for stance and impact); the population an actor stands for is an assumption, never a count.`}
       />
       <ul className="sw-decide-tr" role="list">
-        {shown.map((row) => (
-          <li key={row.actorId} className="sw-decide-tr__actor">
+        {rows.map((row, index) => (
+          <li
+            key={row.actorId}
+            className="sw-decide-tr__actor"
+            data-folded={!all && index >= 4 ? 'true' : undefined}
+          >
             <p className="sw-decide-tr__head">
               <strong>{row.name}</strong>
               <span>

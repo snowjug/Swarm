@@ -98,6 +98,7 @@
   }
   .sw-rep__doc {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-8);
     min-width: 0;
     max-width: 62rem;
@@ -349,17 +350,41 @@
       max-width: none;
       padding: 0;
     }
-    .sw-rep__grid {
+    /* Plain blocks, not grids: a grid that a page break cuts lets its rows run over what follows them. */
+    .sw-rep__grid,
+    .sw-rep__doc,
+    .sw-rep__chapter,
+    .sw-figs,
+    .sw-traj {
       display: block;
     }
     .sw-rep__doc {
-      gap: 2rem;
       max-width: none;
     }
-    .sw-rep__chapter {
-      grid-template-columns: minmax(0, 1fr);
-      grid-template-areas: none;
+    .sw-rep__doc > * + * {
+      margin-top: 2rem;
+    }
+    .sw-rep__chapter > * + *,
+    .sw-traj > * + * {
+      margin-top: var(--s-3);
+    }
+    .sw-figs > * + * {
+      margin-top: var(--s-6);
+    }
+    .sw-rep__chapter,
+    .sw-traj,
+    .sw-figs__row {
       break-inside: avoid-page;
+    }
+    .sw-rep .sw-disc__panel {
+      display: block;
+      opacity: 1;
+    }
+    .sw-rep .sw-disc__inner {
+      overflow: visible;
+    }
+    .sw-rep .sw-disc__chevron {
+      display: none;
     }
     .sw-rep__chhead,
     .sw-rep__chbody,

@@ -182,13 +182,24 @@
   }
 
   @media print {
+    /*
+     * On paper the flow of a chapter is made of plain blocks. A grid that a page break cuts lets its rows run over
+     * what follows them, so the chapter, its body and the column of what it holds are not grids here.
+     */
+    .sw-decide .sw-decide-chapter__body,
     .sw-decide .sw-decide-chapter[data-reference] .sw-decide-chapter__body {
-      grid-template-rows: 1fr;
+      display: block;
       opacity: 1;
       transition: none;
     }
     .sw-decide .sw-decide-chapter[data-reference] .sw-decide-chapter__inner {
       overflow: visible;
+    }
+    .sw-decide .sw-decide-chapter__flow {
+      display: block;
+    }
+    .sw-decide .sw-decide-chapter__flow > * + * {
+      margin-top: var(--s-6);
     }
     .sw-decide .sw-decide-chapter__chevron {
       display: none;

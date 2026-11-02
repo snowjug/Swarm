@@ -274,15 +274,19 @@
   .sw-rev__figs {
     display: inline-flex;
     flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
     gap: 0.3rem;
   }
   .sw-rev__fig {
+    min-width: 0;
     padding: 0.1rem 0.5rem;
     border: 1px solid color-mix(in oklab, var(--c-caution) 40%, transparent);
     border-radius: var(--r-pill);
     background: var(--c-caution-soft);
     color: color-mix(in oklab, var(--c-caution) 72%, var(--ink));
     font-size: var(--fs-small);
+    overflow-wrap: anywhere;
   }
   .sw-rev__notes li {
     max-width: 68ch;
