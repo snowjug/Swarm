@@ -1,8 +1,9 @@
-import { Component, Suspense, lazy, useMemo, useState } from 'react';
+import { Component, Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react';
 import type { ComponentType, ErrorInfo, ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { Button, EmptyState, Orbit } from '../../design/ui';
 import { useWorkspace } from '../../app/context';
+import { LeaveGuardContext, type LeaveGuard } from './leaveGuard';
 import './sub.css';
 
 /**
@@ -104,24 +105,44 @@ function Attempt({
 export function SubScene({ name }: { name: SubName }) {
   const { setView } = useWorkspace();
   const [attempt, setAttempt] = useState(0);
-  const back = () => setView(null);
+  const asking = useRef<(() => void) | null>(null);
+  const guard = useMemo<LeaveGuard>(
+    () => ({
+      allowed: () => {
+        if (!asking.current) return true;
+        asking.current();
+        return false;
+      },
+      register: (ask) => {
+        asking.current = ask;
+      },
+    }),
+    [],
+  );
+  // The way back is the person's own: what the scene holds is asked about first, and "leave anyway" is final.
+  const back = useCallback(() => setView(null), [setView]);
+  const goBack = () => {
+    if (guard.allowed()) back();
+  };
   return (
-    <div className="sw-decide-sub">
-      <nav className="sw-decide-sub__nav" aria-label="Where you are">
-        <button type="button" className="sw-decide-sub__back" onClick={back}>
-          <ArrowLeft size={16} aria-hidden="true" />
-          <span>Decision brief</span>
-        </button>
-        <span className="sw-decide-sub__here" aria-current="page">
-          {TITLES[name]}
-        </span>
-      </nav>
-      <Attempt
-        key={`${name}-${attempt}`}
-        name={name}
-        onRetry={() => setAttempt((old) => old + 1)}
-        onBack={back}
-      />
-    </div>
+    <LeaveGuardContext.Provider value={guard}>
+      <div className="sw-decide-sub">
+        <nav className="sw-decide-sub__nav" aria-label="Where you are">
+          <button type="button" className="sw-decide-sub__back" onClick={goBack}>
+            <ArrowLeft size={16} aria-hidden="true" />
+            <span>Decision brief</span>
+          </button>
+          <span className="sw-decide-sub__here" aria-current="page">
+            {TITLES[name]}
+          </span>
+        </nav>
+        <Attempt
+          key={`${name}-${attempt}`}
+          name={name}
+          onRetry={() => setAttempt((old) => old + 1)}
+          onBack={back}
+        />
+      </div>
+    </LeaveGuardContext.Provider>
   );
 }

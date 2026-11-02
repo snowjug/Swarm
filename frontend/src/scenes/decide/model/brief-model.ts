@@ -197,7 +197,10 @@ export interface ChapterSpec {
   act: Act;
   /** Reference chapters are closed until they are wanted: one line of the page each. */
   reference: boolean;
-  /** How many statements are shown before "show all". */
+  /**
+   * How many statements are read before "show more". A chapter that draws its figures needs few: the chart says
+   * what a run of numbers in a sentence would, and the sentences stay one press away (and on paper).
+   */
   show: number;
 }
 
@@ -207,14 +210,14 @@ export interface ChapterSpec {
  */
 export const CHAPTERS: readonly ChapterSpec[] = [
   { id: 'decision', act: 'happened', reference: false, show: 4 },
-  { id: 'stakeholders', act: 'happened', reference: false, show: 2 },
-  { id: 'reaction-patterns', act: 'happened', reference: false, show: 3 },
-  { id: 'alternative-outcomes', act: 'happened', reference: false, show: 3 },
-  { id: 'first-order', act: 'happened', reference: false, show: 3 },
-  { id: 'second-order', act: 'happened', reference: false, show: 3 },
-  { id: 'drivers', act: 'why', reference: false, show: 3 },
+  { id: 'stakeholders', act: 'happened', reference: false, show: 1 },
+  { id: 'reaction-patterns', act: 'happened', reference: false, show: 1 },
+  { id: 'alternative-outcomes', act: 'happened', reference: false, show: 1 },
+  { id: 'first-order', act: 'happened', reference: false, show: 2 },
+  { id: 'second-order', act: 'happened', reference: false, show: 2 },
+  { id: 'drivers', act: 'why', reference: false, show: 2 },
   { id: 'assumptions', act: 'why', reference: true, show: 3 },
-  { id: 'uncertainty', act: 'why', reference: false, show: 3 },
+  { id: 'uncertainty', act: 'why', reference: false, show: 1 },
   { id: 'risks-opportunities', act: 'do', reference: false, show: 6 },
   { id: 'recommendations', act: 'do', reference: false, show: 1 },
   { id: 'validation-plan', act: 'do', reference: false, show: 1 },

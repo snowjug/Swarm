@@ -138,8 +138,19 @@
     }
   }
   @media print {
+    .sw-decide .sw-decide-stmts,
+    .sw-decide .sw-decide-stmts__list,
+    .sw-decide .sw-decide-stmt__main {
+      display: block;
+    }
+    .sw-decide .sw-decide-stmts > * + * {
+      margin-top: var(--s-2);
+    }
+    .sw-decide .sw-decide-stmt .sw-decide-notes {
+      margin-top: var(--s-2);
+    }
     .sw-decide .sw-decide-fold {
-      grid-template-rows: 1fr;
+      display: block;
       opacity: 1;
       transition: none;
     }
