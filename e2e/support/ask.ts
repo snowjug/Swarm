@@ -77,6 +77,11 @@ export const exploreButton = (page: Page): Locator =>
   page.getByRole('button', { name: 'Explore', exact: true });
 export const optionsButton = (page: Page): Locator =>
   page.getByRole('button', { name: 'Options', exact: true });
+/** The time frame and the assumptions of the question: each says what it holds once it holds something. */
+export const timeFrameButton = (page: Page): Locator =>
+  page.getByRole('button', { name: /^Time frame\b/u });
+export const assumptionsButton = (page: Page): Locator =>
+  page.getByRole('button', { name: /^Assumptions\b/u });
 /** The button that opens the evidence menu: on the first screen it says how many sources are attached. */
 export const evidenceButton = (page: Page): Locator =>
   page.getByRole('button', { name: /^Evidence\b|^Add evidence$/u });
@@ -95,19 +100,22 @@ export const tray = (page: Page): Locator => page.getByRole('list', { name: 'Att
 export const asked = (page: Page): Locator =>
   page.getByRole('main').getByRole('status').or(page.getByRole('main').getByRole('alert'));
 
-/** Picks an example chip and waits until its question and every document are in the composer. */
+/** Picks an example chip and waits until its question and every document are in the composer, and have arrived. */
 export async function chooseExample(page: Page, example: ExampleScenario): Promise<void> {
   await examplesList(page)
     .getByRole('button', { name: chipName(example), exact: true })
     .click();
   await expect(questionBox(page)).toHaveValue(example.question);
   await expect(tray(page).getByRole('listitem')).toHaveCount(example.documents.length);
+  // A source arrives from a little smaller than it is: it is measured, and pressed, once it has.
+  await stays(tray(page).getByRole('button').first());
 }
 
 export async function chooseStarter(page: Page): Promise<void> {
   await examplesList(page).getByRole('button', { name: STARTER.chip, exact: true }).click();
   await expect(questionBox(page)).toHaveValue(STARTER.question);
   await expect(tray(page).getByRole('listitem')).toHaveCount(1);
+  await stays(tray(page).getByRole('button').first());
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -145,12 +153,17 @@ export async function pasteSource(
 ): Promise<void> {
   const dialog = await openEvidence(page, 'Paste');
   await dialog.getByRole('textbox', { name: 'Source filename' }).fill(name);
-  await dialog.getByRole('textbox', { name: 'Source text, not your question' }).fill(content);
+  const text = dialog.getByRole('textbox', { name: 'Source text, not your question' });
+  await text.fill(content);
   await dialog.getByRole('button', { name: 'Attach', exact: true }).click();
+  // What was attached is taken out of the field (what was refused is left in it). The tray is looked at once the menu
+  // is closed: on a phone the menu is a sheet, and the page behind a sheet is out of reach.
+  await expect(text).toHaveValue('');
+  if (options.keepOpen) return;
+  await closeEvidence(page);
   await expect(
     tray(page).getByRole('button', { name: new RegExp(`^Read ${escapeRegExp(name)},`, 'u') }),
   ).toBeVisible();
-  if (!options.keepOpen) await closeEvidence(page);
 }
 
 export interface UploadedFile {
@@ -227,12 +240,14 @@ export async function addPage(page: Page, address: string): Promise<{ name: stri
   const dialog = evidenceDialog(page);
   await expect(fetchedPreview(page)).toBeVisible();
   await dialog.getByRole('button', { name: 'Add as evidence' }).click();
+  // Once it is a source its preview is gone; the tray is looked at when the menu is closed (a sheet, on a phone).
+  await expect(fetchedPreview(page)).toHaveCount(0);
+  await closeEvidence(page);
   await expect(
     tray(page).getByRole('button', {
       name: new RegExp(`^Read ${escapeRegExp(body.document.name)},`, 'u'),
     }),
   ).toBeVisible();
-  await closeEvidence(page);
   return { name: body.document.name, url: body.document.provenance.url ?? address };
 }
 

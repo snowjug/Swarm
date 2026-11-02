@@ -140,6 +140,34 @@ export function tidyFrame(frame: ScenarioFrame): ScenarioFrame {
   };
 }
 
+/** Words for what a source is called in a list that a person reads: printable, one line, and not too long. */
+const plain = (text: string, max: number): string =>
+  text
+    .replace(/\p{C}+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, max);
+
+/**
+ * The scenario's list of the evidence that is available, as it is when the project is made. The reading made it from
+ * the sources that were attached then; a source taken away since, or corrected, would otherwise be listed as it was,
+ * and the brief that is written later says that this is what the person listed.
+ */
+export function withEvidence(
+  frame: ScenarioFrame,
+  documents: readonly { name: string; content: string }[],
+): ScenarioFrame {
+  return {
+    ...frame,
+    evidenceAvailable: documents
+      .slice(0, LIMITS.missingEvidence)
+      .map(
+        (document) =>
+          `${plain(document.name, 120) || 'document'} (${document.content.length.toLocaleString('en-GB')} characters)`,
+      ),
+  };
+}
+
 /** What stops a frame from being used, in words, so that the person can put it right. */
 export function frameIssues(frame: ScenarioFrame): string[] {
   const issues: string[] = [];
@@ -235,6 +263,56 @@ export function applyAnswer(frame: ScenarioFrame, index: number, answer: string)
 /** Takes a question away without answering it. */
 export const skipQuestion = (frame: ScenarioFrame, index: number): ScenarioFrame =>
   edited(frame, { ambiguities: frame.ambiguities.filter((_, position) => position !== index) });
+
+/** What the person said about the question before it was read, as the composer holds it. */
+export interface Context {
+  /** "3 years", "the next two quarters": over what time the effects are judged. Empty for none. */
+  horizon: string;
+  /** What Swarm should take as given, one statement each. */
+  assumptions: readonly string[];
+}
+
+export const NO_CONTEXT: Context = { horizon: '', assumptions: [] };
+
+/** The most assumptions the composer takes: the room that is left is for what the reading itself assumes. */
+export const MAX_CONTEXT_ASSUMPTIONS = 6;
+
+export const hasContext = (context: Context): boolean =>
+  context.horizon.trim() !== '' || context.assumptions.length > 0;
+
+/**
+ * The scenario that was read from a question, with what the person said beside it put where it belongs: their time
+ * frame is the horizon (so the question about the period is answered), and each thing they assume is an assumption
+ * of their own, ahead of those the reading made. The reading itself is not touched, so the frame still says who read it.
+ */
+export function withContext(frame: ScenarioFrame, context: Context): ScenarioFrame {
+  const horizon = optional(context.horizon, LIMITS.horizon);
+  // Said once, however it is capitalised, and not again if the reading made the same assumption.
+  const seen = new Set(frame.assumptions.map((assumption) => assumption.text.toLowerCase()));
+  const fresh = tidyList(context.assumptions, LIMITS.assumption, MAX_CONTEXT_ASSUMPTIONS).filter(
+    (statement) => {
+      const key = statement.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    },
+  );
+  if (!horizon && fresh.length === 0) return frame;
+  const ids = new Set(frame.assumptions.map((assumption) => assumption.id));
+  const mine = fresh.map((statement): ScenarioAssumption => {
+    const id = newId('assumption', ids);
+    ids.add(id);
+    return { id, text: statement, origin: 'user' };
+  });
+  return {
+    ...frame,
+    horizon: horizon ?? frame.horizon,
+    assumptions: [...mine, ...frame.assumptions].slice(0, LIMITS.assumptions),
+    ambiguities: horizon
+      ? frame.ambiguities.filter((ambiguity) => canonicalField(ambiguity.field) !== 'horizon')
+      : frame.ambiguities,
+  };
+}
 
 /** How the frame came to be, in words: for the label above it. */
 export function originLabel(frame: ScenarioFrame, mode: 'rules' | 'model' | null): string {

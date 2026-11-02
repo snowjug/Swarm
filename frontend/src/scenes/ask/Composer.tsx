@@ -1,12 +1,12 @@
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode, Ref } from 'react';
-import { AnimatePresence, m } from 'motion/react';
+import { AnimatePresence, m, useIsPresent } from 'motion/react';
 import { ArrowRight, FileText, FlaskConical, Globe, X } from 'lucide-react';
 import { cx } from '../../design/cx';
 import { SPRING, useReducedMotion } from '../../design/motion';
 import { Button, Textarea } from '../../design/ui';
 import type { SourceKind } from '../../../../shared/scenario';
-import { sizeText, type DocumentInput } from './evidence';
+import { keyOf, sizeText, type DocumentInput } from './evidence';
 import './Composer.css';
 
 const ICONS: Record<SourceKind, typeof FileText> = {
@@ -17,30 +17,116 @@ const ICONS: Record<SourceKind, typeof FileText> = {
   historical: FileText,
 };
 
-/** The rotating line that says what a question could be, while the field is empty. */
+/**
+ * The rotating line that says what a question could be, while the field is empty. Only a question that is shown
+ * whole at this width is offered: one that would be cut off in the middle of its sentence (a phone is narrow) is not.
+ */
 function Prompts({ questions, visible }: { questions: readonly string[]; visible: boolean }) {
   const reduced = useReducedMotion();
-  const [index, setIndex] = useState(0);
+  const [turn, setTurn] = useState(0);
+  const [whole, setWhole] = useState<readonly number[] | null>(null);
+  const probe = useRef<HTMLDivElement>(null);
+
+  // The same lines, set in the same type and the same width but out of sight, are measured: a line that is cut by
+  // the limit of three lines is taller than the box it is in.
+  useLayoutEffect(() => {
+    const node = probe.current;
+    if (!node || !visible) return undefined;
+    const measure = () => {
+      const fit = Array.from(node.children).flatMap((child, at) =>
+        child.scrollHeight <= child.clientHeight + 1 ? [at] : [],
+      );
+      const next = fit.length > 0 ? fit : questions.map((_, at) => at);
+      setWhole((old) => (old && old.join() === next.join() ? old : next));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    void document.fonts?.ready.then(measure);
+    return () => observer.disconnect();
+  }, [questions, visible]);
+
+  const offered = whole ?? [];
   useEffect(() => {
-    if (reduced || questions.length < 2 || !visible) return undefined;
-    const timer = setInterval(() => setIndex((value) => (value + 1) % questions.length), 5200);
+    if (reduced || offered.length < 2 || !visible) return undefined;
+    const timer = setInterval(() => setTurn((value) => value + 1), 5200);
     return () => clearInterval(timer);
-  }, [reduced, questions.length, visible]);
+  }, [reduced, offered.length, visible]);
+
   if (!visible || questions.length === 0) return null;
+  const at = offered.length > 0 ? offered[turn % offered.length] : undefined;
   return (
-    <div className="sw-composer__ghost" aria-hidden="true">
-      <AnimatePresence mode="wait" initial={false}>
-        <m.span
-          key={index}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-        >
-          {questions[index]}
-        </m.span>
-      </AnimatePresence>
-    </div>
+    <>
+      <div className="sw-composer__ghost sw-composer__probe" aria-hidden="true" ref={probe}>
+        {questions.map((question) => (
+          <span key={question}>{question}</span>
+        ))}
+      </div>
+      <div className="sw-composer__ghost" aria-hidden="true">
+        <AnimatePresence mode="wait" initial={false}>
+          {at !== undefined && (
+            <m.span
+              key={at}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {questions[at]}
+            </m.span>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
+  );
+}
+
+/** One attached source: a pill that opens it and a control that takes it away. It is out of reach while it leaves. */
+function Pill({
+  document,
+  index,
+  disabled,
+  onOpen,
+  onRemove,
+}: {
+  document: DocumentInput;
+  index: number;
+  disabled: boolean;
+  onOpen: (index: number) => void;
+  onRemove: (index: number) => void;
+}) {
+  const present = useIsPresent();
+  const Icon = ICONS[document.provenance?.kind ?? 'upload'];
+  return (
+    <m.li
+      layout
+      className="sw-tray__pill"
+      inert={present ? undefined : true}
+      initial={{ opacity: 0, scale: 0.85, y: 6 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.14 } }}
+      transition={{ ...SPRING.snappy, delay: Math.min(index * 0.03, 0.24) }}
+    >
+      <button
+        type="button"
+        className="sw-tray__open"
+        onClick={() => onOpen(index)}
+        title={`${document.name} · ${sizeText(document.content.length)}`}
+        aria-label={`Read ${document.name}, ${sizeText(document.content.length)}`}
+      >
+        <Icon size={14} aria-hidden="true" />
+        <span className="sw-tray__name">{document.name}</span>
+      </button>
+      <button
+        type="button"
+        className="sw-tray__remove"
+        aria-label={`Remove ${document.name}`}
+        disabled={disabled}
+        onClick={() => onRemove(index)}
+      >
+        <X size={13} aria-hidden="true" />
+      </button>
+    </m.li>
   );
 }
 
@@ -56,45 +142,24 @@ export function Tray({
   onRemove: (index: number) => void;
   disabled: boolean;
 }) {
+  // With no source there is no list, but it stays until the last pill has left, and is there for the first to arrive.
+  const [listed, setListed] = useState(documents.length > 0);
+  if (documents.length > 0 && !listed) setListed(true);
   return (
-    <ul className="sw-tray" aria-label="Attached evidence">
-      <AnimatePresence initial={false}>
-        {documents.map((document, index) => {
-          const Icon = ICONS[document.provenance?.kind ?? 'upload'];
-          return (
-            <m.li
-              layout
-              key={`${index}-${document.name}`}
-              className="sw-tray__pill"
-              initial={{ opacity: 0, scale: 0.85, y: 6 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.85, transition: { duration: 0.14 } }}
-              transition={{ ...SPRING.snappy, delay: Math.min(index * 0.03, 0.24) }}
-            >
-              <button
-                type="button"
-                className="sw-tray__open"
-                onClick={() => onOpen(index)}
-                title={`${document.name} · ${sizeText(document.content.length)}`}
-                aria-label={`Read ${document.name}, ${sizeText(document.content.length)}`}
-              >
-                <Icon size={14} aria-hidden="true" />
-                <span className="sw-tray__name">{document.name}</span>
-              </button>
-              <button
-                type="button"
-                className="sw-tray__remove"
-                aria-label={`Remove ${document.name}`}
-                disabled={disabled}
-                onClick={() => onRemove(index)}
-              >
-                <X size={13} aria-hidden="true" />
-              </button>
-            </m.li>
-          );
-        })}
+    <m.ul className="sw-tray" aria-label="Attached evidence" layoutScroll hidden={!listed}>
+      <AnimatePresence initial={false} onExitComplete={() => setListed(documents.length > 0)}>
+        {documents.map((document, index) => (
+          <Pill
+            key={keyOf(document)}
+            document={document}
+            index={index}
+            disabled={disabled}
+            onOpen={onOpen}
+            onRemove={onRemove}
+          />
+        ))}
       </AnimatePresence>
-    </ul>
+    </m.ul>
   );
 }
 
@@ -107,6 +172,8 @@ export interface ComposerProps {
   invalid: boolean;
   pool: readonly string[];
   tray: ReactNode;
+  /** What the question brought up that can be done with it (a page it names), below the field while there is one. */
+  suggestion?: ReactNode;
   tools: ReactNode;
   note?: ReactNode;
   onSubmit: () => void;
@@ -198,6 +265,7 @@ export const Composer = forwardRef<HTMLFormElement, ComposerProps>(function Comp
           }}
         />
       </div>
+      <AnimatePresence initial={false}>{props.suggestion}</AnimatePresence>
       {props.tray}
       <div className="sw-composer__bar">
         <div className="sw-composer__tools">{props.tools}</div>

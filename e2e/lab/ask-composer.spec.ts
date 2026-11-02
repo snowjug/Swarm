@@ -18,6 +18,8 @@ import {
   READS_AT_OPEN,
   apiCalls,
   asked,
+  assumptionsButton,
+  bar,
   chipName,
   chooseExample,
   chooseStarter,
@@ -30,16 +32,22 @@ import {
   expectAttached,
   expectNothingClipped,
   focusedElement,
+  goOn,
   groundIt,
   openAsk,
   openEvidence,
   optionsButton,
+  part,
   pasteSource,
+  question as questionAsked,
   questionBox,
   readScenario,
   recordRequests,
   reviewHarbour,
   reviewHeading,
+  scenarioOf,
+  textOf,
+  timeFrameButton,
   tray,
 } from '../support/ask';
 
@@ -142,6 +150,11 @@ test.describe('the first screen', () => {
 
     await page.keyboard.press('Tab');
     await expect(evidenceButton(page)).toBeFocused();
+    // What can be said about the question comes next: the time it is judged over, and what is taken as given.
+    await page.keyboard.press('Tab');
+    await expect(timeFrameButton(page)).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(assumptionsButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(optionsButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
@@ -257,6 +270,22 @@ test.describe('asking', () => {
     const value = await questionBox(page).inputValue();
     expect(value.length).toBe(2000);
     await expect(asked(page).filter({ hasText: 'Say a little more' })).toHaveCount(0);
+    // Where it was cut is said beside Explore, and said to a screen reader once, when the limit is reached.
+    await expect(page.getByText('2,000 / 2,000', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'at its limit of 2,000' })).toHaveCount(
+      1,
+    );
+  });
+
+  test('the room a long question has left is shown only when it is nearly gone', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await questionBox(page).fill('x'.repeat(1650));
+    await expect(page.getByText(/^1,[0-9]{3} \/ 2,000$/u)).toHaveCount(0);
+    await questionBox(page).fill('x'.repeat(1750));
+    await expect(page.getByText('1,750 / 2,000', { exact: true })).toBeVisible();
+    await expect(page.getByRole('status').filter({ hasText: 'at its limit' })).toHaveCount(0);
   });
 
   test('a question without a source asks for one, and opens the evidence menu where it is added', async ({
@@ -339,6 +368,59 @@ test.describe('asking', () => {
     await expect(questionBox(page), `focus is on ${await focusedElement(page)}`).toBeFocused();
   });
 
+  test('a reading that is slow puts the keyboard on Stop, and stopping it, by the button or by Escape, returns it to the question', async ({
+    page,
+  }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/scenario/parse', async (route) => {
+      await gate;
+      await route.continue().catch(() => undefined);
+    });
+    await openAsk(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+
+    for (const stop of ['the button', 'Escape'] as const) {
+      await exploreButton(page).click();
+      const reading = page.getByRole('button', { name: 'Stop', exact: true });
+      await expect(reading).toBeFocused();
+      if (stop === 'Escape') await page.keyboard.press('Escape');
+      else await page.keyboard.press('Enter');
+      await expect(questionBox(page), `stopped with ${stop}`).toBeFocused();
+      await expect(questionBox(page)).toHaveValue(HARBOUR_QUESTION);
+      await expect(page.getByRole('button', { name: /^Read harbour-notes\.md/u })).toBeVisible();
+    }
+    release();
+  });
+
+  test('a reading that fails puts the keyboard on Try again, and Enter reads the question again', async ({
+    page,
+  }) => {
+    await page.route('**/api/scenario/parse', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'UNAVAILABLE', message: 'The reader is busy.' } }),
+      }),
+    );
+    const problems = watchPage(page, { refusals: true });
+    await openAsk(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+    await exploreButton(page).click();
+    const retry = page.getByRole('button', { name: 'Try again', exact: true });
+    await expect(retry, `focus is on ${await focusedElement(page)}`).toBeFocused();
+
+    // It fails again, and the keyboard is on the new Try again: the person is not sent back to the top of the page.
+    await page.keyboard.press('Enter');
+    await expect(retry).toBeFocused();
+    await page.unroute('**/api/scenario/parse');
+    await page.keyboard.press('Enter');
+    await expect(reviewHeading(page)).toBeVisible();
+    expect(problems.filter((problem) => !/status of 503/u.test(problem))).toEqual([]);
+  });
+
   test('a question that is read again after it changed gives a new scenario, and the old one is not used', async ({
     page,
   }) => {
@@ -378,6 +460,11 @@ test.describe('options', () => {
     await optionsButton(page).click();
     const options = page.getByRole('dialog', { name: 'Options' });
     await expect(options.getByRole('radio', { name: 'Local rules' })).toBeChecked();
+    // The deep dive is for the person who wants it: its numbers are one press away, and out of the way until then.
+    const deep = options.getByRole('button', { name: 'Deep dive' });
+    await expect(deep).toHaveAttribute('aria-expanded', 'false');
+    await deep.click();
+    await expect(deep).toHaveAttribute('aria-expanded', 'true');
     await expect(options.getByRole('spinbutton', { name: 'Proxies' })).toHaveValue('12');
     await expect(options.getByRole('spinbutton', { name: 'Rounds' })).toHaveValue('8');
     await expect(options.getByRole('spinbutton', { name: 'Seed' })).toHaveValue('42');
@@ -418,6 +505,109 @@ test.describe('options', () => {
     expect(made.name.length).toBeLessThanOrEqual(81);
     expect(HARBOUR_QUESTION.startsWith(made.name.replace(/…$/u, ''))).toBe(true);
     expect(made.name.length).toBeGreaterThan(40);
+  });
+});
+
+test.describe('beside the question', () => {
+  test('a time frame and what is assumed are said before the question is read, and are the person’s own in the scenario', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await openAsk(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+
+    await timeFrameButton(page).click();
+    const frame = page.getByRole('dialog', { name: 'Time frame' });
+    await frame.getByRole('button', { name: '3 years', exact: true }).click();
+    await expect(frame.getByRole('button', { name: '3 years', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(frame.getByRole('textbox', { name: 'Or in your own words' })).toHaveValue(
+      '3 years',
+    );
+    await frame.getByRole('button', { name: 'Done' }).click();
+    await expect(frame).toBeHidden();
+    await expect(timeFrameButton(page)).toHaveAccessibleName('Time frame 3 years');
+    await expect(
+      timeFrameButton(page),
+      'focus returns to the button that was pressed',
+    ).toBeFocused();
+
+    await assumptionsButton(page).click();
+    const assumed = page.getByRole('dialog', { name: 'Assumptions' });
+    const field = assumed.getByRole('textbox', { name: 'Your assumption' });
+    await field.fill('Visiting boats keep coming at the same rate.');
+    await field.press('Enter');
+    await expect(
+      assumed.getByRole('list', { name: 'Your assumptions' }).getByRole('listitem'),
+    ).toHaveCount(1);
+    await expect(field, 'the field is ready for the next one').toHaveValue('');
+    await assumed.getByRole('button', { name: 'Done' }).click();
+    await expect(assumptionsButton(page)).toHaveAccessibleName('Assumptions 1');
+
+    // What is read is the question and the notes. What the person assumes is not sent to be read by anyone.
+    const [exchange] = await Promise.all([
+      page.waitForResponse(
+        (response) => new URL(response.url()).pathname === '/api/scenario/parse',
+      ),
+      exploreButton(page).click(),
+    ]);
+    const sent = exchange.request().postDataJSON() as Record<string, unknown>;
+    expect(Object.keys(sent).sort()).toEqual(['documents', 'question', 'useModel']);
+    expect(exchange.request().postData()).not.toContain('Visiting boats keep coming');
+
+    await expect(reviewHeading(page)).toBeVisible();
+    await expect(goOn(page)).toBeVisible();
+    expect(await textOf(page, 'Over what time')).toBe('3 years');
+    await expect(
+      questionAsked(page, 'Over what period'),
+      'the question about the period has been answered',
+    ).toHaveCount(0);
+    const listed = part(page, 'Assumed');
+    await expect(listed).toContainText('Visiting boats keep coming at the same rate.');
+    await expect(listed.getByRole('img', { name: 'Yours' })).toHaveCount(1);
+
+    const project = await groundIt(page);
+    const kept = (await scenarioOf(page, project)).scenario;
+    expect(kept?.horizon).toBe('3 years');
+    expect(
+      kept?.assumptions
+        .filter((assumption) => assumption.origin === 'user')
+        .map((assumption) => assumption.text),
+    ).toEqual(['Visiting boats keep coming at the same rate.']);
+    expect(problems).toEqual([]);
+  });
+
+  test('what was said is part of what a reading is made from: unchanged it is kept, changed it is read again', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    const made = recordRequests(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+    const reads = () => apiCalls(made).filter((call) => call === 'POST /api/scenario/parse');
+
+    await readScenario(page);
+    expect(reads()).toHaveLength(1);
+    await bar(page).getByRole('button', { name: 'Question' }).click();
+    await exploreButton(page).click();
+    await expect(reviewHeading(page)).toBeVisible();
+    expect(reads(), 'nothing changed, so nothing is asked again').toHaveLength(1);
+
+    await bar(page).getByRole('button', { name: 'Question' }).click();
+    await timeFrameButton(page).click();
+    await page
+      .getByRole('dialog', { name: 'Time frame' })
+      .getByRole('textbox', { name: 'Or in your own words' })
+      .fill('the next two quarters');
+    await page.keyboard.press('Escape');
+    await exploreButton(page).click();
+    await expect(reviewHeading(page)).toBeVisible();
+    await expect(goOn(page)).toBeVisible();
+    expect(reads(), 'a time frame was added, so the question is read again').toHaveLength(2);
+    expect(await textOf(page, 'Over what time')).toBe('the next two quarters');
   });
 });
 
@@ -648,6 +838,32 @@ test.describe('on a phone', () => {
     await expect(dialog).toBeVisible();
   });
 
+  test('the time frame and the assumptions open from the foot of the screen, and are made of 44px targets', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await expectTouchTargets(page, 'the first screen on a phone', 'main');
+    for (const [button, name] of [
+      [timeFrameButton(page), 'Time frame'],
+      [assumptionsButton(page), 'Assumptions'],
+    ] as const) {
+      await button.tap();
+      const dialog = page.getByRole('dialog', { name });
+      await expect(dialog).toBeVisible();
+      const box = (await dialog.boundingBox())!;
+      expect(box.x, `${name}: starts on the screen`).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width, `${name}: ends on the screen`).toBeLessThanOrEqual(390 + 1);
+      expect(box.y + box.height, `${name}: rests on the foot of the screen`).toBeGreaterThanOrEqual(
+        844 - 2,
+      );
+      await expectNoHorizontalOverflow(page);
+      await expectTouchTargets(page, `${name} on a phone`, '[role=dialog]');
+      await dialog.getByRole('button', { name: 'Done' }).tap();
+      await expect(dialog).toBeHidden();
+      await expect(button).toBeFocused();
+    }
+  });
+
   test('the options fit the screen and are made of 44px targets', async ({ page }) => {
     await openAsk(page);
     await optionsButton(page).tap();
@@ -689,16 +905,17 @@ test.describe('with the keyboard of a phone open', () => {
         return found;
       });
 
-    // Forwards to Explore, then backwards to the question: each direction scrolls the page to the control.
+    // Forwards to Explore, then backwards to the question: each direction scrolls the page to the control. The
+    // stops between them are the source and what can be said about the question: a handful.
     await questionBox(page).focus();
-    for (let stops = 0; stops < 6; stops += 1) {
+    for (let stops = 0; stops < 10; stops += 1) {
       await page.keyboard.press('Tab');
       expect(await trouble(), `Tab to ${await focusedElement(page)}`).toEqual([]);
       if (await exploreButton(page).evaluate((button) => button === document.activeElement)) break;
     }
     await expect(exploreButton(page)).toBeFocused();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    for (let stops = 0; stops < 6; stops += 1) {
+    for (let stops = 0; stops < 10; stops += 1) {
       await page.keyboard.press('Shift+Tab');
       expect(await trouble(), `Shift+Tab to ${await focusedElement(page)}`).toEqual([]);
       if (await questionBox(page).evaluate((box) => box === document.activeElement)) break;
@@ -718,8 +935,9 @@ test.describe('motion', () => {
   const shown = async (page: import('@playwright/test').Page): Promise<string[]> => {
     const found: string[] = [];
     for (const example of EXAMPLES) {
-      if ((await page.getByText(example.question, { exact: true }).count()) > 0)
-        found.push(example.question);
+      // The lines are also set out of sight, to know which are shown whole: only what a person can see is counted.
+      const seen = page.getByText(example.question, { exact: true }).filter({ visible: true });
+      if ((await seen.count()) > 0) found.push(example.question);
     }
     return found;
   };
@@ -775,6 +993,27 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await expectNoAxeViolations(page, `${theme}: the options`);
     });
 
+    test('is clean with a time frame and an assumption said, and each of them open', async ({
+      page,
+    }) => {
+      await openAsk(page, { theme });
+      await timeFrameButton(page).click();
+      const frame = page.getByRole('dialog', { name: 'Time frame' });
+      await frame.getByRole('button', { name: '1 year', exact: true }).click();
+      await expectNoAxeViolations(page, `${theme}: the time frame open`);
+      await frame.getByRole('button', { name: 'Done' }).click();
+      await assumptionsButton(page).click();
+      const assumed = page.getByRole('dialog', { name: 'Assumptions' });
+      const field = assumed.getByRole('textbox', { name: 'Your assumption' });
+      await field.fill('Demand stays flat.');
+      await field.press('Enter');
+      await expectNoAxeViolations(page, `${theme}: the assumptions open`);
+      await assumed.getByRole('button', { name: 'Done' }).click();
+      await expect(assumed).toBeHidden();
+      await expect(timeFrameButton(page)).toHaveAccessibleName('Time frame 1 year');
+      await expectNoAxeViolations(page, `${theme}: both said`);
+    });
+
     test('is clean with a question that was refused', async ({ page }) => {
       await openAsk(page, { theme });
       await questionBox(page).fill('Why?');
@@ -813,4 +1052,24 @@ test.describe('the first screen at every size', () => {
       await expectReadableText(page, `${size.name}: the evidence menu`);
     });
   }
+});
+
+test.describe('the first screen at 320px, with a finger', () => {
+  test.use({ viewport: { width: 320, height: 568 }, hasTouch: true });
+
+  test('the four tools stay on one line, each a 44px target', async ({ page }) => {
+    await openAsk(page);
+    const tools = [
+      evidenceButton(page),
+      timeFrameButton(page),
+      assumptionsButton(page),
+      optionsButton(page),
+    ];
+    const boxes = await Promise.all(tools.map(async (tool) => (await tool.boundingBox())!));
+    expect(new Set(boxes.map((box) => Math.round(box.y))).size).toBe(1);
+    for (const box of boxes) {
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+  });
 });

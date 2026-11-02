@@ -190,7 +190,11 @@ async function journeyToActors(
       );
       await expect(sources.getByRole('listitem')).toHaveCount(attached);
       for (const { name } of (await stored(page, id)).documents) {
-        await expect(sources.getByRole('button', { name, exact: true }), name).toBeVisible();
+        // A source row names itself by its number and its name ("D1 01-it-office-brief.md"): the name is what is looked for.
+        await expect(
+          sources.getByRole('listitem').filter({ hasText: name }).first(),
+          name,
+        ).toBeVisible();
       }
       return id;
     });
@@ -226,13 +230,13 @@ async function journeyToActors(
         pack.group.toLowerCase(),
       );
 
-      // The list of the Map has every one of them, by name, and says how it was found.
+      // The list of the Map has every one of them, by name, and says what each rests on: quotes of the evidence.
       await page.getByRole('radio', { name: 'List' }).click();
       await expect(page).toHaveURL(/[?&]view=list(?:&|$)/u);
       for (const stakeholder of live) {
         await expect(inList(page, stakeholder.name), stakeholder.name).toBeVisible();
       }
-      await expect(inList(page, cited[0]!.name)).toContainText('Found by reading the text');
+      await expect(inList(page, cited[0]!.name)).toContainText(/\d+ quotes?/u);
 
       // The evidence is in the page: one stakeholder's quotes are opened and read there. One whose name is not the
       // start of another's is chosen, so that the row pressed is the one meant.

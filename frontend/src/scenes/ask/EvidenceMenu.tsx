@@ -1,24 +1,36 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { FileUp, Globe, Plus, StickyNote, X } from 'lucide-react';
-import {
-  Button,
-  Field,
-  Input,
-  Notice,
-  Orbit,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Segmented,
-  Textarea,
-} from '../../design/ui';
+import { Button, Field, Input, Notice, Orbit, Segmented, Textarea } from '../../design/ui';
 import { fetchOnEnter, useUrlEvidence } from '../../hooks/useUrlEvidence';
-import { sizeText } from './evidence';
+import { sizeText, splitRequestId } from './evidence';
+import { Surface } from './Surface';
 import type { Evidence } from './useEvidence';
 import './EvidenceMenu.css';
 
 type Way = 'files' | 'paste' | 'page';
+
+/**
+ * What went wrong, a line for each thing, in the words the server gave it. The number to quote when asking about it
+ * is set apart so that the words end where they end; `advice` is added to a line that does not give its own.
+ */
+function Problem({ text, advice }: { text: string; advice?: string }) {
+  return (
+    <span className="sw-evm__problem">
+      {text.split('\n').map((line, index) => {
+        const { words, requestId } = splitRequestId(line);
+        const needsAdvice = advice !== undefined && !/\bpaste\b/iu.test(words);
+        return (
+          <span className="sw-evm__line" key={`${index}-${line}`}>
+            {words}
+            {needsAdvice ? ` ${advice}` : ''}
+            {requestId && <span className="sw-evm__rid num">Request ID: {requestId}</span>}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
 
 function hostOf(address: string | undefined): string {
   try {
@@ -50,20 +62,27 @@ function EvidencePanel({
   urlEnabled,
   disabled,
   onClose,
+  page,
 }: {
   evidence: Evidence;
   urlEnabled: boolean;
   disabled: boolean;
   onClose: () => void;
+  /** An address that was found in the question: the menu opens on it, and fetches it. */
+  page: string | null;
 }) {
-  const [way, setWay] = useState<Way>('files');
+  const [way, setWay] = useState<Way>(page ? 'page' : 'files');
   const [pasteName, setPasteName] = useState(evidence.suggestedName);
   const [paste, setPaste] = useState('');
   const picker = useRef<HTMLInputElement>(null);
   const url = useUrlEvidence();
+  const { load } = url;
   const id = useId();
   const full = evidence.full;
   const busy = Boolean(evidence.reading);
+  useEffect(() => {
+    if (page) load(page);
+  }, [page, load]);
   const ways = [
     { value: 'files' as const, label: 'Files', icon: <FileUp size={15} aria-hidden="true" /> },
     { value: 'paste' as const, label: 'Paste', icon: <StickyNote size={15} aria-hidden="true" /> },
@@ -118,8 +137,8 @@ function EvidencePanel({
             {busy ? <Orbit size={26} label="Reading" /> : <FileUp size={26} aria-hidden="true" />}
             <strong>{busy ? `Reading ${evidence.reading}` : 'Drop files, or choose'}</strong>
             <span>
-              TXT · MD · CSV · JSON · PDF, up to {evidence.limits.maxChars.toLocaleString('en-GB')}{' '}
-              characters each
+              TXT · MD · CSV · JSON{evidence.pdf ? ' · PDF' : ''}, up to{' '}
+              {evidence.limits.maxChars.toLocaleString('en-GB')} characters each
             </span>
           </button>
           <input
@@ -129,7 +148,9 @@ function EvidencePanel({
             multiple
             tabIndex={-1}
             aria-label="Choose evidence files"
-            accept=".txt,.md,.markdown,.pdf,.csv,.json"
+            accept={
+              evidence.pdf ? '.txt,.md,.markdown,.pdf,.csv,.json' : '.txt,.md,.markdown,.csv,.json'
+            }
             onChange={(event) => {
               void evidence.addFiles(event.target.files);
               event.target.value = '';
@@ -230,7 +251,7 @@ function EvidencePanel({
           )}
           {url.status === 'error' && url.error && (
             <Notice tone="error" title="The page could not be read">
-              {url.error} You can paste its text instead.
+              <Problem text={url.error} advice="You can paste its text instead." />
             </Notice>
           )}
           {url.status === 'ready' && url.result && provenance && (
@@ -283,7 +304,7 @@ function EvidencePanel({
       )}
       {evidence.error && (
         <Notice tone="error">
-          <span className="sw-evm__error">{evidence.error}</span>
+          <Problem text={evidence.error} />
         </Notice>
       )}
       <p className="sw-caption sw-evm__foot" id={`${id}-foot`}>
@@ -298,7 +319,7 @@ function EvidencePanel({
   );
 }
 
-/** The evidence popover and the button that opens it (pass the button as `trigger`). */
+/** The evidence menu and the button that opens it (pass the button as `trigger`). */
 export function EvidenceMenu({
   evidence,
   urlEnabled,
@@ -306,6 +327,7 @@ export function EvidenceMenu({
   trigger,
   open,
   onOpenChange,
+  page = null,
 }: {
   evidence: Evidence;
   urlEnabled: boolean;
@@ -313,6 +335,8 @@ export function EvidenceMenu({
   trigger: ReactElement;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** A page named in the question, which the menu opens on and fetches. */
+  page?: string | null;
 }) {
   const [own, setOwn] = useState(false);
   const isOpen = open ?? own;
@@ -322,16 +346,20 @@ export function EvidenceMenu({
     if (!next) evidence.clearError();
   };
   return (
-    <Popover open={isOpen} onOpenChange={change}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent width="26rem" align="start" aria-label="Add evidence">
-        <EvidencePanel
-          evidence={evidence}
-          urlEnabled={urlEnabled}
-          disabled={disabled}
-          onClose={() => change(false)}
-        />
-      </PopoverContent>
-    </Popover>
+    <Surface
+      title="Add evidence"
+      trigger={trigger}
+      open={isOpen}
+      onOpenChange={change}
+      width="26rem"
+    >
+      <EvidencePanel
+        evidence={evidence}
+        urlEnabled={urlEnabled}
+        disabled={disabled}
+        onClose={() => change(false)}
+        page={page}
+      />
+    </Surface>
   );
 }
