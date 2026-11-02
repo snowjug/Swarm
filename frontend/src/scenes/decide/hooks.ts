@@ -142,6 +142,60 @@ export function useScrollSpy(ids: readonly string[]): string | null {
   return active;
 }
 
+const READER_INPUT = ['wheel', 'touchmove', 'keydown', 'pointerdown'] as const;
+
+/**
+ * Keeps an element at the top of the page where the reader was taken to it. What lies above it may still be
+ * arriving (a chart that is drawn when its figures are read), and the element itself may still be opening, so
+ * that the page could not be scrolled far enough at first; the page is moved again, until the reader scrolls for
+ * themselves or a few seconds have gone by.
+ */
+export function keepInPlace(target: HTMLElement, around: HTMLElement): () => void {
+  const observer = new ResizeObserver(() => {
+    const line = Number.parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
+    if (Math.abs(target.getBoundingClientRect().top - line) > 2) {
+      target.scrollIntoView({ block: 'start', behavior: 'instant' });
+    }
+  });
+  observer.observe(around);
+  let timer = 0;
+  const stop = () => {
+    observer.disconnect();
+    window.clearTimeout(timer);
+    for (const type of READER_INPUT) window.removeEventListener(type, stop);
+  };
+  timer = window.setTimeout(stop, 4000);
+  for (const type of READER_INPUT) window.addEventListener(type, stop, { passive: true });
+  return stop;
+}
+
+/**
+ * The chapter the reader was taken to, until they move on for themselves. Where a chapter is too short to
+ * reach the top of the page, the one after it is in reading position, and the contents must still say where
+ * the reader was taken.
+ */
+export function usePinned<T extends string>(): [T | null, (place: T | null) => void] {
+  const [pinned, setPinned] = useState<T | null>(null);
+  useEffect(() => {
+    if (pinned === null) return undefined;
+    const release = () => setPinned(null);
+    // A frame later, so that the scroll that took the reader there is not taken for the reader's own.
+    let armed = false;
+    const frame = requestAnimationFrame(() => {
+      armed = true;
+    });
+    const maybe = () => {
+      if (armed) release();
+    };
+    for (const type of READER_INPUT) window.addEventListener(type, maybe, { passive: true });
+    return () => {
+      cancelAnimationFrame(frame);
+      for (const type of READER_INPUT) window.removeEventListener(type, maybe);
+    };
+  }, [pinned]);
+  return [pinned, setPinned];
+}
+
 /** Whether an element has scrolled up past the top of the page, so that what it held can be kept in reach. */
 export function usePassed(ref: RefObject<HTMLElement | null>): boolean {
   const [passed, setPassed] = useState(false);
