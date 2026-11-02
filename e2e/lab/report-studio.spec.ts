@@ -565,6 +565,152 @@ test('leaving with words that are not saved asks first, and keeping them keeps t
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
+test.describe('every way out of the studio while words are not saved', () => {
+  // The shell asks before the ways out that are its own (the journey, the dock, the palette, another exploration, a new
+  // question); the studio asks before the ones that only change the view (the brief's bar, the detailed report), and
+  // the answer goes where the person was heading. Never two questions for one exit, and none for words that are saved.
+  const SENTENCE = '1 section holds words that have not been saved. They are lost if you leave.';
+  let project = '';
+  const question = (page: Page): Locator =>
+    page.getByRole('dialog', { name: 'Leave with unsaved changes?' });
+  const warnsTheBrowser = (page: Page): Promise<boolean> =>
+    page.evaluate(() => {
+      const closing = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(closing);
+      return closing.defaultPrevented;
+    });
+
+  /** Opens the studio and writes into its first section without saving: the words that would be lost. */
+  async function writeWithoutSaving(page: Page): Promise<{ box: Locator; text: string }> {
+    if (!project) {
+      project = await reportProject('Studio: every way out');
+      await startStudio(page, project);
+    } else {
+      await openStudio(page, project);
+    }
+    await sectionPage(page).getByRole('button', { name: 'Edit', exact: true }).click();
+    const box = sectionPage(page).getByRole('textbox', { name: /^Text of/u });
+    const text = `${await box.inputValue()} Unsaved words.`;
+    await box.fill(text);
+    return { box, text };
+  }
+
+  /**
+   * Asks to leave, keeps the words, asks again and leaves anyway: where the person was heading is where they arrive, and
+   * a keyboard that keeps the words is back at the control it used.
+   */
+  async function asksThenGoes(
+    page: Page,
+    way: { leave: () => Promise<void>; arrival: RegExp; control: Locator },
+  ): Promise<void> {
+    const { box, text } = await writeWithoutSaving(page);
+    expect(await warnsTheBrowser(page), 'the browser is warned while words are not saved').toBe(
+      true,
+    );
+    await way.leave();
+    await expect(question(page)).toBeVisible();
+    await expect(question(page)).toContainText(SENTENCE);
+    // One question for one exit, and nothing has moved while it is open.
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await expect(page).toHaveURL(/view=studio/u);
+    await expect(question(page).getByRole('button', { name: 'Keep editing' })).toBeFocused();
+    await question(page).getByRole('button', { name: 'Keep editing' }).click();
+    await expect(question(page)).toHaveCount(0);
+    await expect(page).toHaveURL(/view=studio/u);
+    await expect(box).toHaveValue(text);
+    await expect(way.control, 'focus goes back to the control that was used').toBeFocused();
+
+    await way.leave();
+    await question(page).getByRole('button', { name: 'Leave anyway' }).click();
+    await expect(page).toHaveURL(way.arrival);
+    await expect(question(page)).toHaveCount(0);
+    expect(await warnsTheBrowser(page), 'nothing is held once the studio has been left').toBe(
+      false,
+    );
+  }
+
+  const journeyStep = (page: Page): Locator =>
+    page.getByRole('navigation', { name: 'Journey' }).getByRole('button', { name: /^Ground/u });
+  const reportButton = (page: Page): Locator =>
+    studio(page).getByRole('button', { name: 'Detailed report', exact: true });
+
+  test('the journey asks, with the studio’s words, and goes to the step that was pressed', async ({
+    page,
+  }) => {
+    test.setTimeout(5 * 60_000);
+    await asksThenGoes(page, {
+      leave: () => journeyStep(page).click(),
+      arrival: /scene=ground/u,
+      control: journeyStep(page),
+    });
+  });
+
+  test('the detailed report asks, and goes to the report and not to the brief', async ({
+    page,
+  }) => {
+    test.setTimeout(5 * 60_000);
+    await asksThenGoes(page, {
+      leave: () => reportButton(page).click(),
+      arrival: /view=report/u,
+      control: reportButton(page),
+    });
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).not.toHaveText(
+      'Work on the report',
+    );
+  });
+
+  test('the brief’s bar asks, and goes to the brief', async ({ page }) => {
+    test.setTimeout(5 * 60_000);
+    const bar = page.getByRole('button', { name: 'Decision brief' });
+    await asksThenGoes(page, {
+      leave: () => bar.click(),
+      arrival: /^(?!.*view=)/u,
+      control: bar,
+    });
+  });
+
+  test('words that were saved are not asked about, and the browser is not warned', async ({
+    page,
+  }) => {
+    test.setTimeout(5 * 60_000);
+    await writeWithoutSaving(page);
+    await page
+      .getByRole('region', { name: 'Save your changes' })
+      .getByRole('button', { name: /^Save/u })
+      .click();
+    await expect(sectionPage(page).getByText('Version 2', { exact: true })).toBeVisible();
+    expect(await warnsTheBrowser(page)).toBe(false);
+
+    await reportButton(page).click();
+    await expect(page).toHaveURL(/view=report/u);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    await openStudio(page, project);
+    await journeyStep(page).click();
+    await expect(page).toHaveURL(/scene=ground/u);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test.describe('on a phone', () => {
+    test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
+
+    test('the detailed report of the menu asks as well, and goes to the report', async ({
+      page,
+    }) => {
+      test.setTimeout(5 * 60_000);
+      const more = studio(page).getByRole('button', { name: 'More' });
+      await asksThenGoes(page, {
+        leave: async () => {
+          await more.click();
+          await page.getByRole('menuitem', { name: 'Detailed report' }).click();
+        },
+        arrival: /view=report/u,
+        control: more,
+      });
+    });
+  });
+});
+
 test.describe('with no detailed report to work on', () => {
   // One project with a finished deep dive and no report is enough to look at the studio's explanation in every setting;
   // the test that writes the report has a project of its own.

@@ -114,7 +114,7 @@ test.describe('the review on a desktop screen', () => {
   test('says what it could not check, each note on its own, and shows every one that the server made', async ({
     page,
   }) => {
-    const notes = (await critiquesOf(reviewed)).critiques!.notes;
+    const notes = (await critiquesOf(reviewed)).critiques!.notes ?? [];
     await openDecide(page, reviewed, 'review');
     const list = reviewSheet(page).getByRole('list', {
       name: 'What to know about how this review was made',
