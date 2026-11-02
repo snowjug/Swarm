@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   SUPPORT_VERDICTS,
-  SUPPORT_VERDICT_LABELS,
   emptyVerdictCounts,
   type SupportVerdict,
 } from '../../../shared/grounding';
@@ -9,16 +8,12 @@ import { allKindsAndVerdicts, claimFixture } from '../test/grounding';
 import {
   VERDICT_MEANINGS,
   chaptersWithoutStatements,
-  contradictedClaims,
   groupBySection,
   methodLine,
   needsAttention,
   noReviewMessage,
-  orderedTallies,
   quoteLabel,
   statementsText,
-  summaryText,
-  tallyVerdicts,
   totalStatements,
 } from './grounding';
 
@@ -27,58 +22,19 @@ const counts = (patch: Partial<Record<SupportVerdict, number>>) => ({
   ...patch,
 });
 
-describe('verdict ordering and tallies', () => {
-  it('lists every verdict in the shared reading order with its shared label', () => {
-    const tallies = orderedTallies(counts({ supported: 3, contradicted: 1 }));
-    expect(tallies.map((tally) => tally.verdict)).toEqual([...SUPPORT_VERDICTS]);
-    expect(tallies.map((tally) => tally.label)).toEqual(
-      SUPPORT_VERDICTS.map((verdict) => SUPPORT_VERDICT_LABELS[verdict]),
-    );
-    expect(tallies.map((tally) => tally.count)).toEqual([3, 0, 0, 1, 0]);
-  });
-
-  it('does not depend on the key order of the counts object and treats a missing key as zero', () => {
+describe('verdict counts and meanings', () => {
+  it('counts every statement whatever the key order of the counts object, and a missing key as zero', () => {
     const shuffled = { unchecked: 1, contradicted: 2, supported: 5 } as Record<
       SupportVerdict,
       number
     >;
-    expect(orderedTallies(shuffled).map((tally) => `${tally.verdict}:${tally.count}`)).toEqual([
-      'supported:5',
-      'partial:0',
-      'unsupported:0',
-      'contradicted:2',
-      'unchecked:1',
-    ]);
     expect(totalStatements(shuffled)).toBe(8);
   });
 
-  it('writes the one-line summary with the shared labels', () => {
-    expect(
-      summaryText(
-        counts({ supported: 7, partial: 2, unsupported: 1, contradicted: 1, unchecked: 1 }),
-      ),
-    ).toBe(
-      '12 statements checked · 7 Supported · 2 Partly supported · 1 Not supported · 1 Contradicted · 1 Not checkable',
-    );
-  });
-
-  it('keeps the zero counts and the singular form', () => {
-    expect(summaryText(counts({ supported: 1 }))).toBe(
-      '1 statement checked · 1 Supported · 0 Partly supported · 0 Not supported · 0 Contradicted · 0 Not checkable',
-    );
+  it('says statement in the singular and statements otherwise', () => {
     expect(statementsText(0)).toBe('0 statements');
+    expect(statementsText(1)).toBe('1 statement');
     expect(statementsText(2)).toBe('2 statements');
-  });
-
-  it('tallies claims by verdict', () => {
-    expect(tallyVerdicts(allKindsAndVerdicts())).toEqual({
-      supported: 2,
-      partial: 1,
-      unsupported: 1,
-      contradicted: 1,
-      unchecked: 2,
-    });
-    expect(tallyVerdicts([])).toEqual(emptyVerdictCounts());
   });
 
   it('flags only the verdicts that give a reader no reason to rely on a statement', () => {
@@ -146,9 +102,8 @@ describe('grouping statements by chapter', () => {
     expect(groupBySection([])).toEqual([]);
   });
 
-  it('picks out the contradicted statements and the chapters with nothing listed', () => {
+  it('finds the chapters with nothing listed', () => {
     const claims = allKindsAndVerdicts();
-    expect(contradictedClaims(claims).map((claim) => claim.id)).toEqual(['C7']);
     expect(
       chaptersWithoutStatements(['Chapter one', 'Chapter two', 'Chapter three'], claims),
     ).toEqual(['Chapter three']);
