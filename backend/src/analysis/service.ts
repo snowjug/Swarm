@@ -163,14 +163,14 @@ export class AnalysisService {
       throw new AppError(
         409,
         'STAKEHOLDERS_NOT_APPROVED',
-        'The stakeholders are not approved: they were found again or changed after the simulated actors were made. Approve them and make the actors again (the Env Setup step), then compare scenarios.',
+        'The stakeholders are not approved: they were found again or changed after the simulated actors were made. Approve them and make the actors again (on the Map), then run the simulation.',
       );
     }
     if (actors.data.stakeholderRevision !== stakeholders.revision) {
       throw new AppError(
         409,
         'ACTORS_OUT_OF_DATE',
-        'The stakeholders changed after the simulated actors were made, so the comparison would simulate a cast that no longer matches them. Make the actors again from the approved stakeholders (the Env Setup step), then compare scenarios.',
+        'The stakeholders changed after the simulated actors were made, so the comparison would simulate a cast that no longer matches them. Make the actors again from the approved stakeholders (on the Map), then run the simulation.',
       );
     }
   }
@@ -244,7 +244,7 @@ export class AnalysisService {
         throw new AppError(
           409,
           'ACTORS_REQUIRED',
-          'There are no simulated actors yet. Approve the stakeholders and create the actors (the Env Setup step), then compare scenarios.',
+          'There are no simulated actors yet. Approve the stakeholders and create the actors (on the Map), then run the simulation.',
         );
       }
       const stakeholders = artifacts.get(projectId, 'stakeholders');
@@ -494,7 +494,7 @@ export class AnalysisService {
         ? {
             code: 'SPEC_NOT_ACCEPTED',
             message:
-              'The simulation engine did not accept the actors or one of the scenarios. Check the actors in the Env Setup step and the scenarios here, then run it again.',
+              'The simulation engine did not accept the actors or one of the scenarios. Check the actors on the Map and the scenarios here, then run it again.',
           }
         : {
             code: known ? error.code : 'ANALYSIS_FAILED',
