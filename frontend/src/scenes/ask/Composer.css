@@ -270,4 +270,15 @@
       max-width: 9rem;
     }
   }
+  /* The narrowest screens (a phone at 320px, or a page zoomed to 400%): the four tools still share one line, each a
+     target of 44px, instead of one of them wrapping onto a line of its own. */
+  @media (max-width: 22.5rem) {
+    .sw-composer__tools {
+      gap: 0;
+    }
+    .sw-composer__tools .sw-btn {
+      --btn-px: 0.5rem;
+      min-width: 2.75rem;
+    }
+  }
 }

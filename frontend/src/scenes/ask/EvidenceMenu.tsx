@@ -137,8 +137,8 @@ function EvidencePanel({
             {busy ? <Orbit size={26} label="Reading" /> : <FileUp size={26} aria-hidden="true" />}
             <strong>{busy ? `Reading ${evidence.reading}` : 'Drop files, or choose'}</strong>
             <span>
-              TXT · MD · CSV · JSON · PDF, up to {evidence.limits.maxChars.toLocaleString('en-GB')}{' '}
-              characters each
+              TXT · MD · CSV · JSON{evidence.pdf ? ' · PDF' : ''}, up to{' '}
+              {evidence.limits.maxChars.toLocaleString('en-GB')} characters each
             </span>
           </button>
           <input
@@ -148,7 +148,9 @@ function EvidencePanel({
             multiple
             tabIndex={-1}
             aria-label="Choose evidence files"
-            accept=".txt,.md,.markdown,.pdf,.csv,.json"
+            accept={
+              evidence.pdf ? '.txt,.md,.markdown,.pdf,.csv,.json' : '.txt,.md,.markdown,.csv,.json'
+            }
             onChange={(event) => {
               void evidence.addFiles(event.target.files);
               event.target.value = '';

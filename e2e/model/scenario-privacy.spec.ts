@@ -83,7 +83,9 @@ test.describe('a question is read by a model only when the person chose Model as
     await expect(options.getByRole('radio', { name: /Local rules/u })).toBeChecked();
     await expect(options).toContainText('Rules run on this machine. Nothing is sent anywhere.');
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('main').getByText('Model assisted', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('main').getByText('Model assisted', { exact: true })).toHaveCount(
+      0,
+    );
 
     await questionBox(page).fill(QUESTION);
     await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);

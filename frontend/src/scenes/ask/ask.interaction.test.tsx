@@ -791,9 +791,12 @@ describe('the evidence menu', () => {
     expect(
       screen.getByRole('button', { name: `Read harbour-notes.md, ${NOTES.length} characters` }),
     ).toBeTruthy();
+    // This server does not read PDFs (its capabilities say so), so a person is not told to bring one.
     expect((await within(menu).findByRole('alert')).textContent).toContain(
-      'harbour.png: Use UTF-8 TXT, Markdown, CSV, JSON or a text-based PDF.',
+      'harbour.png: Use UTF-8 TXT, Markdown, CSV or JSON.',
     );
+    expect(within(menu).queryByText(/PDF/u)).toBeNull();
+    expect(picker.getAttribute('accept')).not.toContain('.pdf');
     expect(net.extractDataFile).not.toHaveBeenCalled();
   });
 

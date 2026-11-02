@@ -46,7 +46,9 @@ describe('what a file may be', () => {
   });
 
   it('says why a file cannot be read before anything is read from it', () => {
-    expect(fileProblem({ name: 'a.png', size: 10 }, limits, true)).toMatch(/UTF-8 TXT/u);
+    expect(fileProblem({ name: 'a.png', size: 10 }, limits, true)).toMatch(/UTF-8 TXT.*PDF/u);
+    // Where PDFs are not read, a person is not told to bring one.
+    expect(fileProblem({ name: 'a.png', size: 10 }, limits, false)).not.toMatch(/PDF/u);
     expect(fileProblem({ name: 'a.pdf', size: 10 }, limits, false)).toMatch(/unavailable/u);
     expect(fileProblem({ name: 'a.pdf', size: limits.maxBytes + 1 }, limits, true)).toMatch(
       /2 MB/u,

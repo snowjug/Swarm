@@ -103,7 +103,11 @@ export function fileProblem(
   pdfAvailable: boolean,
 ): string | null {
   const kind = fileKind(file.name);
-  if (!kind) return 'Use UTF-8 TXT, Markdown, CSV, JSON or a text-based PDF.';
+  if (!kind) {
+    return pdfAvailable
+      ? 'Use UTF-8 TXT, Markdown, CSV, JSON or a text-based PDF.'
+      : 'Use UTF-8 TXT, Markdown, CSV or JSON.';
+  }
   if (kind === 'pdf' && !pdfAvailable) return 'PDF extraction is unavailable on this server.';
   if (kind === 'pdf' && file.size > limits.maxBytes)
     return 'PDF files must be at most 2 MB before extraction.';

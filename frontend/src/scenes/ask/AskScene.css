@@ -53,6 +53,14 @@
     -webkit-text-fill-color: currentColor;
     color: var(--accent);
   }
+  /* Under a forced palette backgrounds are one colour, and text that is painted by a gradient would be left with no
+     fill at all: the word is plain text, in the palette's colour. */
+  @media (forced-colors: active) {
+    .sw-ask__title em {
+      background: none;
+      -webkit-text-fill-color: currentColor;
+    }
+  }
   @keyframes sw-sheen {
     from {
       background-position: 100% 0;
