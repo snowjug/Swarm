@@ -251,7 +251,12 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    (assumption, evidence, model or you) and the reason for its value. **Edit what _name_ wants and fears**
    opens its role, starting belief and those lines to change in your own words, and a cohort's size and
    number of simulated members are fields. Moving a slider marks the trait "Changed by you; not saved yet",
-   and the pill offers **Save** and **Discard**; a saved actor is "Edited by you". **Reset all actors…**
+   and the pill offers **Save** and **Discard**; a saved actor is "Edited by you". Where the pill gives way to
+   the strip of a party (below 64rem), the strip and the sheet that opens from it say "N actors changed, not
+   saved yet" and carry the same two buttons. Leaving the Map with a change that is not saved, by the journey, the
+   dock, Search and commands, another exploration or a new question, asks first ("Leave with unsaved changes?":
+   **Keep editing** or **Leave anyway**), and the browser asks if you close the tab; a change you saved or
+   discarded is not asked about. **Reset all actors…**
    (under **More**) makes every actor again from the approved list after you confirm. You cannot add,
    remove, rename or regroup an actor itself, because the actors are made from the stakeholders and the
    server refuses to change which they are: an actor offers **Edit as a stakeholder**, and there you
@@ -551,7 +556,8 @@ and the raw state; in Guided detail these are one disclosure away).
    lists the proxies; open one to read its persona or to edit its name, role, persona assumptions, initial
    inclination, influence and openness (its identity, the topics it is linked to and its sources cannot be
    changed). A bar says "N changes not saved": **Save the setup** keeps them (**Discard** drops them), and
-   starting needs them saved. Editing closes once the simulation starts, because the setup is what the run
+   starting needs them saved. Leaving by the journey does not ask about them, so save or discard them first.
+   Editing closes once the simulation starts, because the setup is what the run
    started from; branch a run to try another.
 2. **Start the simulation** runs the platforms. Each has a separate population state, recorded rounds, clock
    and action stream, and they are never added together or averaged into one audience. **Run** shows where

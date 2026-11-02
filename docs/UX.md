@@ -164,12 +164,16 @@ Scenes take no props. A scene is a default export that calls `useWorkspace()` an
 - **`panels`**: `history()`, `ask({ target, message })`, `audit()`, `budget()`, `access()` and `provider()`,
   so that a scene opens an overlay without owning one;
 - **unsaved work**, which is not on the workspace but beside it (`useUnsavedWork(sentence | null)` from
-  `app/unsaved-context.ts`): while a scene holds words or edits that are not saved (the Map's changes to actors, the
-  report studio's drafts) it says what they are, and the shell, which owns every exit (`go`, `openProject`, a new
-  question from the mark or the palette), asks "Leave with unsaved changes?" before it leaves: **Keep editing**, which
-  has focus, or **Leave anyway**. The browser warns as well when the tab is closed or the page reloaded. `setView` is
-  not asked about: a change of view inside a scene is the scene's own business, and the scenes that hold work ask for
-  their own routes back (the studio's back button, the brief's bar, the detailed report).
+  `app/unsaved-context.ts`): while a scene holds words or edits that are not saved it says what they are, and the
+  shell, which owns every exit (`go`, `openProject`, a new question from the mark or the palette), asks "Leave with
+  unsaved changes?" before it leaves, with the sentence and "They are lost if you leave.": **Keep editing**, which
+  has focus, or **Leave anyway**. Two scenes say it. The Map holds a change to an actor until it is saved and says
+  "1 actor has changes that have not been saved." (`scenes/map/MapScene.tsx`); the report studio says how many
+  sections hold words that have not been saved (`scenes/studio/Workbench.tsx`). The browser warns as well when the
+  tab is closed or the page reloaded, while either holds something. `setView` is not asked about: a change of view
+  inside a scene is the scene's own business, and the scenes that hold work ask for their own routes back (the
+  studio's back button, the brief's bar, the detailed report). The deep dive and the Simulate setup do not call it
+  (see Not done).
 
 The shell owns the rest: the polling, the operations, the address, the focus and the page title. **Ask is
 the one scene that is not like this**: it exists before there is a project, so the shell mounts it
@@ -401,8 +405,13 @@ project has one, otherwise by reading the text), **Read the text instead**, and 
   "Approve & create actors", because it also accepts what nobody looked at; it reads **Approve** when actors
   the person changed are kept, which approving then leaves as they are. It waits, with the hint "Keep or add
   two or more", until at least two stakeholders are kept. With a model on offer it first asks whether the
-  model may read the key actors. Then "N actors ready" with **Simulate**. Changes to an actor are held,
-  with **Save** and **Discard**, until saved. When the stakeholders change after the actors were made, a
+  model may read the key actors. Then "N actors ready" with **Simulate**. A change to an actor is held until it
+  is saved, and the pill says so in place of the next step: "N actors changed", "Not saved yet", with **Discard**
+  and **Save** (**Save** waits while a cohort's simulated members outnumber its size). Below 64rem the pill gives
+  way to the strip of a party while one is open, and the same words, **Discard** and **Save** are in a bar of
+  their own (`scenes/map/UnsavedBar.tsx`, a group named "Unsaved changes") in the strip and in the sheet that
+  opens from it. Leaving the Map with a change that is held asks first (see the shell above); a change that was
+  saved or discarded is not asked about. When the stakeholders change after the actors were made, a
   notice says "The actors are out of date" and offers **Make them again**, which asks before it replaces
   what the person changed ("Reset all actors?").
 - **A stakeholder is accepted, edited, duplicated, merged or removed** from the inspector. **Duplicate**
@@ -572,7 +581,8 @@ project's record, never kept by the page, and a new screen of the scene opens at
   - **Four tabs** (five in Advanced): **Setup** (how many rounds, the minutes a round stands for and which
     platforms; the assumed inputs the proxies meet before round 1; the cast, each proxy opening in a sheet).
     Edits are held by a floating bar ("N changes not saved", **Discard** and **Save the setup**) and close
-    when the simulation starts. **Run** (the rounds on one track, the run in numbers, the two platforms kept
+    when the simulation starts; the shell is not told of them, so leaving by the journey does not ask.
+    **Run** (the rounds on one track, the run in numbers, the two platforms kept
     apart, the assumed event, where a branch came from, and a list of what can be done next). **Rounds** (one
     platform at a time: replay controls, four lanes on one clock, the round in view with who stood where and
     who did what, and the same numbers as a table). **Memory** (what was recorded, newest first, searched and
