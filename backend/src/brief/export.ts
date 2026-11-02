@@ -615,7 +615,7 @@ const esc = (value: string): string =>
 // page may load nothing), what each statement rests on beside it and quiet, and the one deliberate box, the caveat.
 const STYLE = `
   :root { color-scheme: light; --ink: #17171c; --soft: #4b4b57; --faint: #6e6e7a; --rule: #dcdce4; }
-  body { margin: 0; background: #fff; color: var(--ink); font: 1.0625rem/1.62 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 1.0625rem/1.62 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
   main { max-width: 54rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
   h1, h2 { font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Charter, Georgia, serif; font-weight: 500; letter-spacing: -.01em; text-wrap: balance; }
   h1 { font-size: 2.5rem; line-height: 1.08; margin: 0 0 1rem; }

@@ -1432,8 +1432,8 @@
       "area": "lab",
       "claim": "A question read from the intake page is sent to a model although the project is in Local rules mode",
       "file": "frontend/src/scenes/ask/AskScene.tsx",
-      "find": "const result = await reading.read(question.trim(), documentSummaries(documents), useModel);",
-      "replace": "const result = await reading.read(question.trim(), documentSummaries(documents), true);",
+      "find": "const result = await reading.read(question.trim(), sources, useModel);",
+      "replace": "const result = await reading.read(question.trim(), sources, true);",
       "tests": ["frontend/src/scenes/ask/ask.interaction.test.tsx"]
     },
     {

@@ -26,7 +26,7 @@
     padding: var(--s-6) var(--s-6) 1.75rem;
     scrollbar-width: thin;
     /* What is below the edge fades into it, so that a panel that goes on does not look cut off by a mistake. */
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent);
+    mask-image: linear-gradient(to bottom, black calc(100% - 1.5rem), transparent);
   }
   .sw-insp__foot {
     flex: none;
