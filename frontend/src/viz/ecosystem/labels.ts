@@ -270,11 +270,6 @@ export interface NamedNode {
   id: string;
   label: string;
   weight: number;
-  /**
-   * A key party is always given a name: its place is chosen before any other's (a group's name or a cohort's), and
-   * is found however crowded the picture is, by moving the name along its node or off it, with a line to join them.
-   */
-  key?: boolean;
 }
 
 /** Where a name stands: on a side of its node, and moved along or away from that side when its own place is taken. */
@@ -352,6 +347,8 @@ const DISTANCES: readonly { extra: number; cost: number }[] = [
   { extra: 16, cost: 8 },
   { extra: 26, cost: 13 },
   { extra: 38, cost: 20 },
+  { extra: 52, cost: 28 },
+  { extra: 68, cost: 38 },
 ];
 
 /** The distance from a point to a segment. */
@@ -370,7 +367,9 @@ function distanceToSegment(
   return Math.hypot(point.x - (a.x + t * dx), point.y - (a.y + t * dy));
 }
 
-export interface KeyNameOptions {
+export interface FirstNameOptions {
+  /** The nodes that are named before any other. */
+  first: ReadonlySet<string>;
   /** Relations, in the picture's units: a name prefers a place that no line runs through. */
   segments?: readonly Segment[];
   /** Rectangles on the screen that a name keeps out of: what floats over the picture, or a group's name already put there. */
@@ -384,18 +383,22 @@ const screenLines = (segments: readonly Segment[] | undefined, view: View) =>
   }));
 
 /**
- * Where the name of each key party goes. A key party is the one the page counts ("4 key") and the one a person
- * looks for first, so it is named before anything else is: its place is chosen first, and it is never left without
- * one. It goes below its node, then above, then beside it; where those are taken (a crowd, the edge of the canvas,
- * another key's name) it slides along the node, and then stands off it with a short line to join them. It never
- * stands over another name or off the canvas, and keeps off other nodes where there is any place that does.
+ * Where the names of the nodes that are named first go: the key parties, which a person looks for first (the page
+ * counts them, "4 key"), and the ones a scene points at (the movers of a comparison, the actors that just moved).
+ * They are named before anything else, so a group's name or a cohort's gives way to them and never the other way.
+ *
+ * Each goes below its node, then above, then beside it; where those are taken (a crowd, the edge of the canvas,
+ * another of these names) it slides along the node, and then stands off it with a short line to join them, as far as
+ * it takes. It is never put over another name or off the canvas: a name that has no such place in the whole of its
+ * reach is left out (the node is named when it is hovered or chosen), and it keeps off other nodes where any place
+ * does. The heaviest choose first.
  */
-export function placeKeyNames(
+export function placeFirstNames(
   nodes: readonly NamedNode[],
   layout: Layout,
   canvas: Bounds,
   view: View = IDENTITY,
-  options: KeyNameOptions = {},
+  options: FirstNameOptions,
 ): Map<string, NamePlace> {
   const circles = circlesOnScreen(nodes, layout, view);
   const where = new Map(circles.map((circle) => [circle.id, circle]));
@@ -408,13 +411,13 @@ export function placeKeyNames(
   };
   const placed: Box[] = [...(options.avoid ?? [])];
   const places = new Map<string, NamePlace>();
-  const keys = nodes
-    .filter((node) => node.key)
+  const chosen = nodes
+    .filter((node) => options.first.has(node.id))
     .sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
-  for (const node of keys) {
+  for (const node of chosen) {
     const circle = where.get(node.id);
     if (!circle) continue;
-    // A party that the camera has put off the canvas has nowhere to be named.
+    // A node that the camera has put off the canvas has nowhere to be named.
     if (
       circle.x + circle.r < bounds.left ||
       circle.x - circle.r > bounds.right ||
@@ -425,7 +428,7 @@ export function placeKeyNames(
     }
     const width = widthOf(node.label, true);
     const others = circles.filter((other) => other.id !== node.id);
-    let best: { score: number; place: NamePlace } | null = null;
+    let best: { score: number; clear: boolean; place: NamePlace } | null = null;
     for (const direction of DIRECTIONS) {
       const radians = (direction.angle * Math.PI) / 180;
       const ux = Math.cos(radians);
@@ -454,32 +457,39 @@ export function placeKeyNames(
         const dx = cx - (own.x0 + own.x1) / 2;
         const dy = cy - (own.y0 + own.y1) / 2;
         let score = direction.cost + distance.cost;
+        // A place off the canvas or over another name is no place; over another node is the last resort.
+        let clear = true;
         const over =
           Math.max(0, bounds.left - box.x0) +
           Math.max(0, box.x1 - bounds.right) +
           Math.max(0, bounds.top - box.y0) +
           Math.max(0, box.y1 - bounds.bottom);
-        if (over > 0) score += 5000 + over;
-        for (const other of placed) if (touches(box, other)) score += 800;
+        if (over > 0) {
+          score += 5000 + over;
+          clear = false;
+        }
+        for (const other of placed) {
+          if (touches(box, other)) {
+            score += 800;
+            clear = false;
+          }
+        }
         for (const other of others) if (touchesCircle(box, other, 1)) score += 150;
         for (const line of lines) if (crosses(box, line.from, line.to)) score += 1.6;
         const place: NamePlace = { side, dx, dy, width, box, leader: false };
         const join = leaderOf(place, circle.r);
         if (join) {
           place.leader = true;
-          const end = {
-            x: circle.x + join.x1,
-            y: circle.y + join.y1,
-          };
           const start = { x: circle.x + join.x0, y: circle.y + join.y0 };
+          const end = { x: circle.x + join.x1, y: circle.y + join.y1 };
           for (const other of others) {
             if (distanceToSegment(other, start, end) < other.r + 1) score += 40;
           }
         }
-        if (!best || score < best.score) best = { score, place };
+        if (!best || score < best.score) best = { score, clear, place };
       }
     }
-    if (!best) continue;
+    if (!best || !best.clear) continue;
     placed.push(best.place.box);
     places.set(node.id, best.place);
   }
@@ -489,21 +499,26 @@ export function placeKeyNames(
 export interface VisibleLabelOptions {
   /**
    * At most this many names are drawn: on a small canvas the heaviest nodes are named and the rest are left to be
-   * pointed at. The key parties are named first and count against it, so that it is the cohorts that are left out;
-   * it is never less than the number of key parties.
+   * pointed at. The nodes in `first` are named first and count against it, so that it is the others that are left
+   * out; it is never less than the number of them that were placed.
    */
   limit?: number;
-  /** The key parties' names, if they have been put already (so that a group's name could keep clear of them). */
-  keys?: ReadonlyMap<string, NamePlace>;
-  /** Relations, in the picture's units, for the names of key parties to keep off. */
+  /**
+   * The nodes that are named before any other (the key parties, and the ones a scene points at): each gets its place,
+   * or is nudged to one, or is joined to its name by a line, wherever it takes (see `placeFirstNames`).
+   */
+  first?: ReadonlySet<string>;
+  /** The places of the nodes in `first`, if they have been put already (so that a group's name can keep clear of them). */
+  placed?: ReadonlyMap<string, NamePlace>;
+  /** Relations, in the picture's units, for the names of the nodes in `first` to keep off. */
   segments?: readonly Segment[];
 }
 
 /**
- * The names that fit without touching, and where each goes. The key parties are named first, wherever it takes (see
- * `placeKeyNames`). The others go below their node where there is room, then above, then beside it, the heaviest
- * choosing first, and a name is never over another name, over a group's name, or over a node. A node that is left
- * out is named when it is hovered or selected.
+ * The names that fit without touching, and where each goes. The nodes in `first` are named first, wherever it takes
+ * (see `placeFirstNames`). The others go below their node where there is room, then above, then beside it, the
+ * heaviest choosing first, and a name is never over another name, over a group's name, or over a node. A node that is
+ * left out is named when it is hovered or selected.
  *
  * A name keeps the same size on the screen whatever the zoom, and the nodes do not: zoomed out they stand closer
  * and fewer names fit, zoomed in they stand apart and more do. So what fits is worked out on the screen, where the
@@ -520,21 +535,25 @@ export function placeNames(
 ): Map<string, NamePlace> {
   const circles = circlesOnScreen(nodes, layout, view);
   const where = new Map(circles.map((circle) => [circle.id, circle]));
-  const keys =
-    options.keys ??
-    placeKeyNames(
+  const firsts =
+    options.placed ??
+    placeFirstNames(
       nodes,
       layout,
       canvas ?? { left: Number.NEGATIVE_INFINITY, right: Number.POSITIVE_INFINITY },
       view,
-      { avoid: obstacles, ...(options.segments ? { segments: options.segments } : {}) },
+      {
+        first: options.first ?? new Set<string>(),
+        avoid: obstacles,
+        ...(options.segments ? { segments: options.segments } : {}),
+      },
     );
-  const placed: Box[] = [...obstacles, ...[...keys.values()].map((place) => place.box)];
-  const shown = new Map<string, NamePlace>(keys);
+  const placed: Box[] = [...obstacles, ...[...firsts.values()].map((place) => place.box)];
+  const shown = new Map<string, NamePlace>(firsts);
   const ordered = nodes
-    .filter((node) => !keys.has(node.id))
+    .filter((node) => !firsts.has(node.id) && !options.first?.has(node.id))
     .sort((a, b) => b.weight - a.weight || a.id.localeCompare(b.id));
-  const limit = Math.max(options.limit ?? Number.POSITIVE_INFINITY, keys.size);
+  const limit = Math.max(options.limit ?? Number.POSITIVE_INFINITY, firsts.size);
   for (const node of ordered) {
     if (shown.size >= limit) break;
     const circle = where.get(node.id);

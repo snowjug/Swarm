@@ -33,8 +33,9 @@ import { PositionField, edgePath, type Point } from './field';
 import {
   leaderOf,
   placeClusterLabels,
-  placeKeyNames,
+  placeFirstNames,
   placeNames,
+  type Box,
   type ClusterLabelSpot,
   type NamePlace,
   type View,
@@ -161,6 +162,9 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
     const uid = useId().replace(/:/g, '');
     const host = useRef<HTMLDivElement>(null);
     const svg = useRef<SVGSVGElement>(null);
+    const controlsEl = useRef<HTMLDivElement>(null);
+    // Where the zoom buttons are on the canvas: a name is not put under them.
+    const [controlsBox, setControlsBox] = useState<Box | null>(null);
     const [size, setSize] = useState({ width: 720, height: 480 });
     // Until the canvas has been measured the picture is not laid out: laying it out for a guess would draw it at the
     // wrong size and then glide it to the right one.
@@ -223,6 +227,39 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       observer.observe(element);
       return () => observer.disconnect();
     }, []);
+
+    // The buttons sit where the scene's styles put them, and glide when the panel opens: they are measured after each
+    // render and when they stop gliding.
+    const measureControls = useCallback(() => {
+      const root = host.current;
+      const element = controlsEl.current;
+      const next = (() => {
+        if (!root || !element) return null;
+        const at = root.getBoundingClientRect();
+        const box = element.getBoundingClientRect();
+        if (box.width < 1 || box.height < 1) return null;
+        return {
+          x0: Math.round(box.left - at.left) - 4,
+          x1: Math.round(box.right - at.left) + 4,
+          y0: Math.round(box.top - at.top) - 4,
+          y1: Math.round(box.bottom - at.top) + 4,
+        };
+      })();
+      setControlsBox((old) =>
+        old === next ||
+        (old &&
+          next &&
+          old.x0 === next.x0 &&
+          old.x1 === next.x1 &&
+          old.y0 === next.y0 &&
+          old.y1 === next.y1)
+          ? old
+          : next,
+      );
+    }, []);
+    useLayoutEffect(() => {
+      measureControls();
+    });
 
     // The nodes are as large as the canvas lets them be: a large screen is not a small picture in a big room.
     const maxScale = size.width < 560 ? 1.15 : size.width < 1500 ? 1.9 : 2.5;
@@ -317,23 +354,33 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       () => ({ left: 6, right: size.width - 6, top: free.top, bottom: free.bottom }),
       [size.width, free.top, free.bottom],
     );
-    // The names of the key parties are put first: a group's name and a cohort's keep clear of them, not the other way.
     const named = useMemo(
-      () =>
-        all.map((node) => ({
-          id: node.id,
-          label: node.label,
-          weight: node.weight,
-          key: node.kind === 'key' && !node.ghost,
-        })),
+      () => all.map((node) => ({ id: node.id, label: node.label, weight: node.weight })),
       [all],
     );
-    const keyNames = useMemo(
+    // The nodes that are named before any other: the key parties, which a person looks for first, and the ones the scene
+    // points at (the movers of a comparison, the actors that just moved). A group's name and a cohort's keep clear of
+    // them, not the other way, and each finds its place however crowded the picture is.
+    const first = useMemo(() => {
+      const ids = new Set<string>();
+      if (labels === 'all') return ids;
+      for (const node of all) {
+        if (node.ghost) continue;
+        if (emphasis?.has(node.id) || (labels === 'auto' && node.kind === 'key')) ids.add(node.id);
+      }
+      return ids;
+    }, [all, labels, emphasis]);
+    const keepOut = useMemo<Box[]>(() => (controlsBox ? [controlsBox] : []), [controlsBox]);
+    const firstNames = useMemo(
       () =>
-        labels === 'auto'
-          ? placeKeyNames(named, layout, bounds, settledView, { segments: lines })
+        first.size > 0
+          ? placeFirstNames(named, layout, bounds, settledView, {
+              first,
+              segments: lines,
+              avoid: keepOut,
+            })
           : new Map<string, NamePlace>(),
-      [labels, named, layout, bounds, settledView, lines],
+      [first, named, layout, bounds, settledView, lines, keepOut],
     );
     const clusterSpots = useMemo(
       () =>
@@ -346,13 +393,24 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
           {
             strict: true,
             segments: lines,
-            avoid: [...keyNames.values()].map((place) => place.box),
+            avoid: [...keepOut, ...[...firstNames.values()].map((place) => place.box)],
           },
         ),
-      [all, layout, clusterName, size.width, free.top, free.bottom, settledView, lines, keyNames],
+      [
+        all,
+        layout,
+        clusterName,
+        size.width,
+        free.top,
+        free.bottom,
+        settledView,
+        lines,
+        firstNames,
+        keepOut,
+      ],
     );
     const shownLabels = useMemo(() => {
-      if (labels === 'none') return new Map<string, NamePlace>();
+      if (labels === 'none') return firstNames;
       if (labels === 'all') {
         return new Map<string, NamePlace>(
           all.map((node) => [
@@ -371,10 +429,10 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       return placeNames(
         named,
         layout,
-        showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [],
+        [...keepOut, ...(showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [])],
         bounds,
         settledView,
-        { limit: compact ? 8 : undefined, keys: keyNames },
+        { limit: compact ? 8 : undefined, first, placed: firstNames },
       );
     }, [
       all,
@@ -386,7 +444,9 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       bounds,
       compact,
       settledView,
-      keyNames,
+      first,
+      firstNames,
+      keepOut,
     ]);
 
     // ---- One loop paints every node, line, halo and the view -------------------------------------------------
@@ -1050,12 +1110,14 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                 const dim = focus && around ? !around.nodes.has(node.id) : false;
                 const place = shownLabels.get(node.id);
                 const side = place?.side ?? 'below';
+                // A name is drawn where the allocation put it. The nodes the scene emphasises are among those it puts
+                // first, so that they are not drawn over one another; the chosen, the pointed at and what the focus keeps
+                // in the light are named as they stand.
                 const showLabel =
                   shownLabels.has(node.id) ||
                   selected ||
                   tip?.id === node.id ||
-                  (focus && around ? around.nodes.has(node.id) : false) ||
-                  (emphasis?.has(node.id) ?? false);
+                  (focus && around ? around.nodes.has(node.id) : false);
                 const members =
                   node.kind === 'cohort' && !node.ghost
                     ? Math.min(7, Math.max(3, Math.round(Math.sqrt(node.members ?? 6))))
@@ -1223,7 +1285,13 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         )}
 
         {controls && (
-          <div className="sw-eco__controls sw-glass" role="group" aria-label={zoomLabels.group}>
+          <div
+            ref={controlsEl}
+            className="sw-eco__controls sw-glass"
+            role="group"
+            aria-label={zoomLabels.group}
+            onTransitionEnd={measureControls}
+          >
             <IconButton label={zoomLabels.in} size="sm" onClick={() => zoomBy(1.25)}>
               <Plus size={16} aria-hidden="true" />
             </IconButton>
