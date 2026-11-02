@@ -99,16 +99,29 @@
   }
 
   .sw-switch {
+    position: relative;
     display: inline-flex;
     align-items: flex-start;
     gap: 0.7rem;
     cursor: pointer;
   }
+  /* The input is the whole switch, track and words: it is what a pointer lands on and what a check measures, and it
+     stays invisible, so the track and the thumb are what is seen. */
   .sw-switch__input {
     position: absolute;
+    z-index: 1;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
     opacity: 0;
-    width: 1px;
-    height: 1px;
+    cursor: inherit;
+  }
+  @media (pointer: coarse) {
+    .sw-switch {
+      align-items: center;
+      min-height: 2.75rem;
+    }
   }
   .sw-switch__track {
     position: relative;
