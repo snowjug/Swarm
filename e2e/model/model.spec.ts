@@ -166,14 +166,12 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
 
     await test.step('the report is planned by the provider, written in three chapters, and its statements are checked', async () => {
       await page.getByRole('button', { name: 'Write the detailed report', exact: true }).click();
+      // The report exists as a draft from its first chapter: it is written when the step is ready, not before.
       await expect
-        .poll(
-          async () =>
-            ((await getProject(api, id)) as unknown as { report: { title: string } | null }).report
-              ?.title ?? '',
-          { timeout: 120_000 },
-        )
-        .not.toBe('');
+        .poll(async () => (await getProject(api, id)).console?.steps.report, {
+          timeout: 120_000,
+        })
+        .toBe('ready');
       const stats = await fake.stats();
       expect(stats.byKind).toMatchObject({ plan: 1, summary: 1, chapter: 3 });
       // The report's statements were checked by an independent call that had to quote real text.
