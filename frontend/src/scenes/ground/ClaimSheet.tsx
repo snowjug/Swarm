@@ -4,7 +4,6 @@ import {
   MAX_REVIEW_NOTE_LENGTH,
   PUBLICATION_STATUS_LABELS,
   REVIEW_RESULT_LABELS,
-  STATEMENT_TYPE_LABELS,
   SUPPORT_CLASS_LABELS,
   SUPPORT_CLASS_MEANINGS,
   type ClaimDetail,
@@ -30,6 +29,8 @@ import {
 import { dateTime } from '../../lib/format';
 import { PUBLICATION_TONE, SUPPORT_TONE, splitAtQuote, type Tone } from '../../lib/ledger';
 import { useGroundActions, useGroundData } from './context';
+import { familyOf } from './families';
+import { Kind } from './Kind';
 import { clipAroundQuote, rangeText } from './passages';
 import { focusSheet } from './sheetFocus';
 import { CHIP_TONE, TONE_ICON } from './tones';
@@ -290,7 +291,7 @@ export function ClaimSheetContent({ claimId }: { claimId: string }) {
       className="sw-ground-sheet"
       width="xl"
       onOpenAutoFocus={focusSheet}
-      eyebrow={STATEMENT_TYPE_LABELS[claim.statementType]}
+      eyebrow={<Kind family={familyOf(claim.statementType)} type={claim.statementType} />}
       title={`Statement ${claim.id}`}
       description={claim.section}
       footer={

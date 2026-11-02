@@ -75,8 +75,24 @@ export interface Placement {
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
 
-/** Bigger for what the sources lean on more; a floor so that the smallest is still a thing to touch. */
-export const nodeRadius = (weight: number): number => 11 + 10 * Math.sqrt(clamp01(weight));
+/**
+ * Bigger for what the sources lean on more; a floor so that the smallest is still a thing to touch. Weights are read
+ * against the lightest and heaviest topic of this graph, so that the picture has a few large things and many small
+ * ones even where the sources lean almost equally on all of them.
+ */
+export const nodeRadius = (weight: number, low = 0, high = 1): number => {
+  const share = high > low ? (clamp01(weight) - low) / (high - low) : 0.5;
+  return 10 + 14 * Math.sqrt(clamp01(share));
+};
+
+/** How strong each link is among the others, 0 for the weakest and 1 for the strongest, so that the strong ones carry the picture. */
+export function linkRanks(weights: readonly number[]): number[] {
+  if (weights.length === 0) return [];
+  const sorted = [...weights].sort((a, b) => a - b);
+  const below = (weight: number) => sorted.findIndex((other) => other >= weight);
+  const last = Math.max(sorted.length - 1, 1);
+  return weights.map((weight) => below(weight) / last);
+}
 
 /**
  * A node with few links is pushed far out by the layout's repulsion, and fitting the whole drawing then makes
@@ -152,6 +168,9 @@ export function buildGraphView(
   documentOrder: readonly string[],
 ): GraphView {
   const at = new Map(placements.map((placement) => [placement.id, placement]));
+  const weights = graph.nodes.map((node) => clamp01(node.weight));
+  const lightest = Math.min(...weights);
+  const heaviest = Math.max(...weights);
   const nodes: GraphNode[] = graph.nodes.map((node, index) => {
     const sourceIds = uniquePassageIds(node.sourceIds);
     const shares = sharesOf(sourceIds, passages, documentOrder);
@@ -170,7 +189,7 @@ export function buildGraphView(
       shares,
       x: place?.x ?? 0,
       y: place?.y ?? 0,
-      radius: nodeRadius(node.weight),
+      radius: nodeRadius(node.weight, lightest, heaviest),
     };
   });
   const byId = new Map(nodes.map((node) => [node.id, node]));

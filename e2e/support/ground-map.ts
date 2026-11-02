@@ -399,6 +399,9 @@ export async function figureValue(page: Page, name: FigureName): Promise<number 
 
 export const sourcesSection = (page: Page): Locator =>
   page.getByRole('region', { name: /^Sources \d+$/u });
+/** The button that opens a source: it reads as its key and its file name, "D1 council-note.md". */
+export const sourceButton = (scope: Page | Locator, name: string): Locator =>
+  scope.getByRole('button', { name: new RegExp(`^D\\d+ ${escapeRegExp(name)}$`, 'u') });
 export const conflictsSection = (page: Page): Locator =>
   page.getByRole('region', { name: /^Conflicts \d+$/u });
 export const statementsSection = (page: Page): Locator =>
@@ -418,6 +421,9 @@ export const sheet = (page: Page): Locator => page.getByRole('dialog');
 /** A passage's button in the list of sources. */
 export const passageButton = (page: Page, id: string): Locator =>
   sourcesSection(page).getByRole('button', { name: new RegExp(`^Passage ${id}, `, 'u') });
+/** The word at the head of the page that says where the evidence is: Reading, Extracting, Checking, Ready, Failed. */
+export const groundStatus = (page: Page, word: string | RegExp): Locator =>
+  page.locator('[data-moment]').filter({ hasText: word });
 /** What the engine said it is doing, for people who cannot see the page change. */
 export const readyStatus = (page: Page): Locator =>
   page.getByRole('status').filter({ hasText: /^(?:Ready|Reading|Waiting|Stopped|Saved)/u });
@@ -465,6 +471,22 @@ export const inspector = (page: Page, name: string): Locator =>
   page
     .getByRole('complementary', { name, exact: true })
     .or(page.getByRole('region', { name, exact: true }));
+/** Waits until a control has stopped moving: a strip that is still sliding in is not yet under the finger that taps it. */
+export async function holdsStill(control: Locator): Promise<void> {
+  let last = '';
+  let steady = 0;
+  await expect
+    .poll(
+      async () => {
+        const box = JSON.stringify(await control.boundingBox());
+        steady = box === last ? steady + 1 : 0;
+        last = box;
+        return steady;
+      },
+      { intervals: [100], timeout: 10_000 },
+    )
+    .toBeGreaterThanOrEqual(3);
+}
 /** The one thing to do next. While it changes over, the one that is leaving is still there beside it: the last is the new one. */
 export const pill = (page: Page): Locator => page.getByRole('group', { name: 'Next' }).last();
 export const mapControls = (page: Page): Locator =>

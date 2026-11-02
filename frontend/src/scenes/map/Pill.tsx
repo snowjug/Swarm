@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowRight, Check, Save, Undo2, Users } from 'lucide-react';
@@ -33,11 +33,9 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
   const [useModel, setUseModel] = useState(false);
   const [open, setOpen] = useState(false);
   const making = approve.mode === 'make';
-  const label = making
-    ? 'Make the actors'
-    : approve.keepsEdited > 0
-      ? 'Approve'
-      : 'Approve & create actors';
+  // The one thing to do is said in two words; what it also does (it accepts the list) is in the name a reader hears.
+  const label = approve.keepsEdited > 0 && !making ? 'Approve' : 'Create actors';
+  const name = !making && approve.keepsEdited === 0 ? 'Approve & create actors' : undefined;
   const press = (model: boolean) => {
     setOpen(false);
     approve.onConfirm({ model });
@@ -48,11 +46,11 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
       size="lg"
       icon={<Users size={18} aria-hidden="true" />}
       disabled={approve.disabled}
+      aria-label={name}
       data-stk-focus="approve"
       onClick={approve.modelAvailable ? undefined : () => press(false)}
     >
-      <span className="sw-pill__long">{label}</span>
-      <span className="sw-pill__short">{making ? 'Make actors' : 'Approve'}</span>
+      {label}
     </Button>
   );
   if (!approve.modelAvailable || approve.disabled) {
@@ -68,7 +66,7 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
       <PopoverTrigger asChild>{button}</PopoverTrigger>
       <PopoverContent side="top" align="end" width="22rem" className="sw-pill__pop">
         <p className="sw-pill__pop-title">
-          {making ? 'Make the actors' : 'Approve the stakeholders'}
+          {approve.keepsEdited > 0 && !making ? 'Approve the stakeholders' : 'Create the actors'}
         </p>
         <p className="sw-caption">
           {approve.keepsEdited > 0
@@ -90,11 +88,62 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
             icon={<Check size={16} aria-hidden="true" />}
             onClick={() => press(useModel && approve.keepsEdited === 0)}
           >
-            {making ? 'Make the actors' : 'Approve'}
+            {label}
           </Button>
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** How far the review is, and the way to the next party: one button, named by the words it shows. */
+function ReviewProgress({ model }: { model: Extract<PillModel, { kind: 'review' }> }) {
+  const left = model.total - model.reviewed;
+  // With nobody found there is nothing that has been reviewed, and "all" of nothing is not said.
+  const done = left === 0 && model.total > 0;
+  const detail = useId();
+  return (
+    <button
+      type="button"
+      className="sw-pill__progress"
+      onClick={model.onNext}
+      disabled={left === 0}
+      aria-label={
+        done ? 'All reviewed' : left > 0 ? `${left} to review, Next` : `${left} to review`
+      }
+      aria-describedby={detail}
+    >
+      {/* The ring only draws what the words say, and its own name would be words the button does not show. */}
+      <span aria-hidden="true">
+        <Ring
+          value={model.total ? model.reviewed / model.total : 0}
+          size={40}
+          stroke={4}
+          label="Reviewed"
+          valueText={`${model.reviewed} of ${model.total}`}
+          tone={done ? 'favor' : 'accent'}
+        >
+          <span className="sw-pill__ringnum">
+            {done ? <Check size={15} aria-hidden="true" /> : left}
+          </span>
+        </Ring>
+      </span>
+      {/* A reader of the page's text, not of its layout, finds the number and the words apart without this. */}{' '}
+      <span className="sw-pill__label">
+        {done ? 'All reviewed' : 'to review'}
+        {left > 0 && (
+          <>
+            {' '}
+            <span className="sw-pill__sub">
+              Next <ArrowRight size={11} aria-hidden="true" />
+            </span>
+          </>
+        )}
+      </span>
+      <span id={detail} hidden>
+        {model.reviewed} of {model.total} reviewed
+      </span>
+    </button>
   );
 }
 
@@ -135,42 +184,13 @@ function Body({ model }: { model: PillModel }): ReactNode {
           </div>
         </>
       );
-    case 'review': {
-      const left = model.total - model.reviewed;
+    case 'review':
       return (
         <>
-          <button
-            type="button"
-            className="sw-pill__progress"
-            onClick={model.onNext}
-            disabled={left === 0}
-            aria-label={left > 0 ? `${left} to review, next: open the next one` : 'All reviewed'}
-          >
-            <Ring
-              value={model.total ? model.reviewed / model.total : 0}
-              size={40}
-              stroke={4}
-              label="Reviewed"
-              valueText={`${model.reviewed} of ${model.total}`}
-              tone={left === 0 ? 'favor' : 'accent'}
-            >
-              <span className="sw-pill__ringnum">
-                {left === 0 ? <Check size={15} aria-hidden="true" /> : left}
-              </span>
-            </Ring>
-            <span className="sw-pill__label">
-              {left === 0 ? 'All reviewed' : 'to review'}
-              {left > 0 && (
-                <span className="sw-pill__sub">
-                  Next <ArrowRight size={11} aria-hidden="true" />
-                </span>
-              )}
-            </span>
-          </button>
+          <ReviewProgress model={model} />
           <ApproveButton approve={model.approve} />
         </>
       );
-    }
     case 'make':
       return (
         <>
@@ -229,7 +249,7 @@ export function Pill({ model }: { model: PillModel | null }) {
       {model && (
         <m.div
           key={model.kind}
-          className="sw-pill sw-glass sw-glass--raised"
+          className="sw-pill sw-glass sw-glass--overlay"
           role="group"
           aria-label="Next"
           initial={{ opacity: 0, y: 24, scale: 0.97 }}

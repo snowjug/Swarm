@@ -11,6 +11,7 @@ import {
   failureReason,
   groundStage,
   knowledgePhases,
+  momentOf,
   nextStep,
   parseView,
 } from './model';
@@ -104,6 +105,31 @@ describe('knowledgePhases', () => {
     expect(knowledgePhases(withStatus('ready')).every((phase) => phase.state === 'done')).toBe(
       true,
     );
+  });
+});
+
+describe('momentOf', () => {
+  it('is reading until the engine is building the graph, then extracting', () => {
+    expect(momentOf('running', knowledgePhases(withStatus('running')), false)).toBe('reading');
+    const project = withStatus('running');
+    project.console!.traces = [
+      trace({ status: 'completed', completedAt: '2026-01-01T00:00:12.000Z' }),
+    ];
+    expect(momentOf('running', knowledgePhases(project), false)).toBe('extracting');
+  });
+
+  it('is checking while the conflicts of a finished graph are still being looked for, and only then ready', () => {
+    const phases = knowledgePhases(withStatus('ready'));
+    expect(momentOf('ready', phases, true)).toBe('checking');
+    expect(momentOf('ready', phases, false)).toBe('ready');
+    expect(momentOf('record', phases, true)).toBe('checking');
+  });
+
+  it('keeps the words of the stages that are not under way', () => {
+    const phases = knowledgePhases(withStatus('pending'));
+    for (const stage of ['idle', 'queued', 'failed', 'stopped'] as const) {
+      expect(momentOf(stage, phases, false)).toBe(stage);
+    }
   });
 });
 

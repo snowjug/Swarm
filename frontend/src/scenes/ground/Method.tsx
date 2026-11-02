@@ -10,11 +10,14 @@ export function Method({
   ontology,
   trigger,
   sampleEvidence,
+  awaitingStatements,
 }: {
   graph: KnowledgeGraph | null;
   ontology: Ontology | null;
   trigger?: ReactNode;
   sampleEvidence?: boolean;
+  /** No report has been checked yet: where its statements will appear is said here, not as an empty section. */
+  awaitingStatements?: boolean;
 }) {
   const model = graph?.method === 'llm';
   return (
@@ -53,6 +56,12 @@ export function Method({
           {graph && <li>A ring shows which documents cite a topic.</li>}
           {sampleEvidence && (
             <li>Sample evidence is synthetic: illustrative, not real information.</li>
+          )}
+          {awaitingStatements && (
+            <li>
+              A report written by a model lists every statement it makes below, with the passages
+              behind it.
+            </li>
           )}
         </ul>
         {graph && graph.notes.length > 0 && (
