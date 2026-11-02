@@ -319,6 +319,7 @@ test('a person works on the report, a reviewer decides on it, and what is export
   let hash = '';
   await test.step('the approval holds the hash of the text, and the printable memo says the same', async () => {
     await studio(page).getByRole('button', { name: 'Record', exact: true }).click();
+    // It opens on the decisions, although an earlier step left it on the assumptions: it does not keep its place.
     const record = page.getByRole('dialog', { name: 'Review record' });
     hash = ((await record.locator('code').first().textContent()) ?? '').trim();
     expect(hash).toMatch(/^[0-9a-f]{64}$/u);

@@ -129,6 +129,17 @@ export async function openExportMenu(page: Page): Promise<Locator> {
 export const reviewSheet = (page: Page): Locator =>
   page.getByRole('dialog', { name: 'Independent review' });
 
+/**
+ * Opens what a chapter keeps folded away after its first statements, when it keeps any. What is folded is in the page
+ * but is neither seen nor pressed (it is inert), so a statement or a note in it is reached by opening it first.
+ */
+export async function unfold(target: Locator): Promise<void> {
+  const more = target.getByRole('button', { name: /^Show \d+ more statements?/u });
+  if ((await more.count()) === 0) return;
+  await more.first().click();
+  await expect(target.getByRole('button', { name: 'Show fewer' }).first()).toBeVisible();
+}
+
 // ---------------------------------------------------------------------------------------------
 // What a download holds
 // ---------------------------------------------------------------------------------------------

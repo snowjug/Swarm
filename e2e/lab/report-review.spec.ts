@@ -8,7 +8,7 @@ import {
 } from '../support/helpers';
 import { forget, quiet } from '../support/shell';
 import { openApp } from '../support/app';
-import { briefed, chapter, openDecide, reviewSheet, tools } from '../support/decide';
+import { briefed, chapter, openDecide, reviewSheet, tools, unfold } from '../support/decide';
 
 // The independent review: critics challenge the analysis and never change it. It is a sheet over the brief, opened
 // from the tools, from the contents of the brief or from the note that stands beside the statement it is about; a
@@ -80,9 +80,9 @@ test.describe('the review on a desktop screen', () => {
     page,
   }) => {
     await openDecide(page, reviewed);
-    const note = chapter(page, 'Stakeholder landscape')
-      .getByRole('button', { name: /^Criticism:/u })
-      .first();
+    const landscape = chapter(page, 'Stakeholder landscape');
+    await unfold(landscape);
+    const note = landscape.getByRole('button', { name: /^Criticism:/u }).first();
     await note.scrollIntoViewIfNeeded();
     // What the note says is the objection itself: the open criticism of the sheet is the one that says it.
     const objection = (await note.innerText())
@@ -246,9 +246,9 @@ test.describe('the review on a tablet and a phone', () => {
       page,
     }) => {
       await openDecide(page, reviewed);
-      const mark = chapter(page, 'Stakeholder landscape')
-        .getByRole('button', { name: /criticism of this statement/u })
-        .first();
+      const landscape = chapter(page, 'Stakeholder landscape');
+      await unfold(landscape);
+      const mark = landscape.getByRole('button', { name: /criticism of this statement/u }).first();
       await mark.scrollIntoViewIfNeeded();
       await expect(mark).toBeVisible();
       const box = await mark.boundingBox();
