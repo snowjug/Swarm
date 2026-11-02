@@ -31,10 +31,12 @@ import {
 } from '../palette';
 import { PositionField, edgePath, type Point } from './field';
 import {
+  leaderOf,
   placeClusterLabels,
-  visibleLabels,
+  placeKeyNames,
+  placeNames,
   type ClusterLabelSpot,
-  type LabelSide,
+  type NamePlace,
   type View,
 } from './labels';
 import { layoutEcosystem, nearestInDirection, radiusOf, type Layout } from './layout';
@@ -178,6 +180,7 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
     const haloEls = useRef(new Map<string, SVGCircleElement>());
     const clusterTextEls = useRef(new Map<string, SVGTextElement>());
     const tagEls = useRef(new Map<string, SVGGElement>());
+    const leaderEls = useRef(new Map<string, SVGPathElement>());
     const viewport = useRef<SVGGElement>(null);
     const field = useRef(new PositionField());
     const frame = useRef(0);
@@ -198,7 +201,7 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       height: 480,
       covered: {} as Covered,
       spots: new Map<string, ClusterLabelSpot>(),
-      sides: new Map<string, LabelSide>(),
+      places: new Map<string, NamePlace>(),
     });
 
     // ---- Size ------------------------------------------------------------------------------------------
@@ -309,6 +312,29 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       [liveEdges, layout],
     );
 
+    // What is left to name things in, on the screen as the camera has put it.
+    const bounds = useMemo(
+      () => ({ left: 6, right: size.width - 6, top: free.top, bottom: free.bottom }),
+      [size.width, free.top, free.bottom],
+    );
+    // The names of the key parties are put first: a group's name and a cohort's keep clear of them, not the other way.
+    const named = useMemo(
+      () =>
+        all.map((node) => ({
+          id: node.id,
+          label: node.label,
+          weight: node.weight,
+          key: node.kind === 'key' && !node.ghost,
+        })),
+      [all],
+    );
+    const keyNames = useMemo(
+      () =>
+        labels === 'auto'
+          ? placeKeyNames(named, layout, bounds, settledView, { segments: lines })
+          : new Map<string, NamePlace>(),
+      [labels, named, layout, bounds, settledView, lines],
+    );
     const clusterSpots = useMemo(
       () =>
         placeClusterLabels(
@@ -317,33 +343,50 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
           clusterName,
           { left: 8, top: free.top, right: size.width - 8, bottom: free.bottom },
           settledView,
-          { strict: true, segments: lines },
+          {
+            strict: true,
+            segments: lines,
+            avoid: [...keyNames.values()].map((place) => place.box),
+          },
         ),
-      [all, layout, clusterName, size.width, free.top, free.bottom, settledView, lines],
+      [all, layout, clusterName, size.width, free.top, free.bottom, settledView, lines, keyNames],
     );
     const shownLabels = useMemo(() => {
-      if (labels === 'none') return new Map<string, LabelSide>();
-      if (labels === 'all')
-        return new Map<string, LabelSide>(all.map((node) => [node.id, 'below']));
-      return visibleLabels(
-        all,
+      if (labels === 'none') return new Map<string, NamePlace>();
+      if (labels === 'all') {
+        return new Map<string, NamePlace>(
+          all.map((node) => [
+            node.id,
+            {
+              side: 'below',
+              dx: 0,
+              dy: 0,
+              width: 0,
+              box: { x0: 0, x1: 0, y0: 0, y1: 0 },
+              leader: false,
+            },
+          ]),
+        );
+      }
+      return placeNames(
+        named,
         layout,
         showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [],
-        { left: 6, right: size.width - 6, top: free.top, bottom: free.bottom },
+        bounds,
         settledView,
-        { limit: compact ? 8 : undefined },
+        { limit: compact ? 8 : undefined, keys: keyNames },
       );
     }, [
       all,
+      named,
       layout,
       labels,
       clusterSpots,
       showClusters,
-      size.width,
-      free.top,
-      free.bottom,
+      bounds,
       compact,
       settledView,
+      keyNames,
     ]);
 
     // ---- One loop paints every node, line, halo and the view -------------------------------------------------
@@ -371,14 +414,31 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         // A name keeps its size on the screen whatever the zoom: it is moved and scaled against the view.
         const tag = tagEls.current.get(node.id);
         if (tag) {
-          const side = state.sides.get(node.id) ?? 'below';
+          const place = state.places.get(node.id);
+          const side = place?.side ?? 'below';
           const r = laid.radii.get(node.id) ?? 8;
-          const tx = side === 'right' ? r + 7 * ik : side === 'left' ? -(r + 7 * ik) : 0;
-          const ty = side === 'below' ? r + 15 * ik : side === 'above' ? -(r + 7 * ik) : 4 * ik;
+          // A name that was moved off its own side (its place was taken) is moved by pixels, whatever the zoom.
+          const tx =
+            (side === 'right' ? r + 7 * ik : side === 'left' ? -(r + 7 * ik) : 0) +
+            (place?.dx ?? 0) * ik;
+          const ty =
+            (side === 'below' ? r + 15 * ik : side === 'above' ? -(r + 7 * ik) : 4 * ik) +
+            (place?.dy ?? 0) * ik;
           tag.setAttribute(
             'transform',
             `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${ik.toFixed(4)})`,
           );
+          // The line that joins a name to its node where the name stands off it.
+          const leader = leaderEls.current.get(node.id);
+          if (leader) {
+            const join = place?.leader ? leaderOf(place, r / ik) : null;
+            leader.setAttribute(
+              'd',
+              join
+                ? `M${(join.x0 * ik).toFixed(2)} ${(join.y0 * ik).toFixed(2)}L${(join.x1 * ik).toFixed(2)} ${(join.y1 * ik).toFixed(2)}`
+                : '',
+            );
+          }
         }
       }
       for (const edge of state.edges) {
@@ -516,7 +576,7 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
         reduced,
         scale: layout.scale,
         spots: clusterSpots,
-        sides: shownLabels,
+        places: shownLabels,
         width: size.width,
         height: size.height,
       };
@@ -988,7 +1048,8 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                 const selected = selectedId === node.id;
                 const off = hiddenClusters?.has(node.cluster) ?? false;
                 const dim = focus && around ? !around.nodes.has(node.id) : false;
-                const side = shownLabels.get(node.id) ?? 'below';
+                const place = shownLabels.get(node.id);
+                const side = place?.side ?? 'below';
                 const showLabel =
                   shownLabels.has(node.id) ||
                   selected ||
@@ -1075,6 +1136,16 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
                         .map((entry) => (
                           <circle key={entry.key} className="sw-eco__pulse" r={radius} />
                         ))}
+                      {place?.leader && (
+                        <path
+                          className="sw-eco__leader"
+                          ref={(el) =>
+                            void (el
+                              ? leaderEls.current.set(node.id, el)
+                              : leaderEls.current.delete(node.id))
+                          }
+                        />
+                      )}
                       <g
                         className="sw-eco__tag"
                         ref={(el) =>

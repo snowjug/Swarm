@@ -16,7 +16,7 @@ import {
   nodesFromActors,
   nodesFromStakeholders,
 } from './model';
-import { placeClusterLabels, visibleLabels } from './labels';
+import { leaderOf, placeClusterLabels, placeKeyNames, placeNames, visibleLabels } from './labels';
 
 const nodes = Array.from({ length: 22 }, (_, index) => ({
   id: `n${index}`,
@@ -357,6 +357,158 @@ describe('placeClusterLabels', () => {
     const closeOffset = Math.abs([...near.values()][0]!.dy);
     const farOffset = Math.abs([...far.values()][0]!.dy);
     expect(farOffset).toBeGreaterThan(closeOffset);
+  });
+});
+
+describe('the names of key parties', () => {
+  const canvas = { left: 6, right: 384, top: 20, bottom: 560 };
+
+  /** A phone-sized picture with the given nodes put where the test wants them, and every circle 14px across. */
+  const crowd = (
+    spots: { id: string; x: number; y: number; weight: number; key?: boolean; label?: string }[],
+  ) => {
+    const layout = layoutEcosystem({
+      nodes: spots.map((spot) => ({ id: spot.id, cluster: 'use', weight: spot.weight })),
+      edges: [],
+      width: 390,
+      height: 580,
+    });
+    for (const spot of spots) {
+      layout.positions.set(spot.id, { x: spot.x, y: spot.y });
+      layout.radii.set(spot.id, 14);
+    }
+    const nodes = spots.map((spot) => ({
+      id: spot.id,
+      label: spot.label ?? `Party ${spot.id}`,
+      weight: spot.weight,
+      ...(spot.key ? { key: true } : {}),
+    }));
+    return { layout, nodes };
+  };
+
+  const ring = (centre: { x: number; y: number }, count: number, distance: number) =>
+    Array.from({ length: count }, (_, at) => {
+      const angle = (at / count) * Math.PI * 2;
+      return {
+        id: `c${at}`,
+        x: centre.x + Math.cos(angle) * distance,
+        y: centre.y + Math.sin(angle) * distance,
+        weight: 0.9,
+      };
+    });
+
+  it('names a key party before a cohort, however little it weighs, so that the limit is spent on it first', () => {
+    // Twelve cohorts that weigh more, well apart, and a key party that weighs the least.
+    const spread = Array.from({ length: 12 }, (_, at) => ({
+      id: `c${at}`,
+      x: 40 + (at % 4) * 100,
+      y: 60 + Math.floor(at / 4) * 160,
+      weight: 0.9 - at * 0.01,
+    }));
+    const { layout, nodes } = crowd([
+      ...spread,
+      { id: 'key', x: 190, y: 540, weight: 0.1, key: true, label: 'Administrators' },
+    ]);
+    const shown = placeNames(nodes, layout, [], canvas, undefined, { limit: 8 });
+    expect(shown.has('key')).toBe(true);
+    expect(shown.size).toBe(8);
+    expect([...shown.keys()].filter((id) => id !== 'key').sort()).toEqual([
+      'c0',
+      'c1',
+      'c2',
+      'c3',
+      'c4',
+      'c5',
+      'c6',
+    ]);
+    // Without the rule the key party, the lightest, would be the thirteenth and would be left out.
+    const plain = placeNames(
+      nodes.map((node) => ({ id: node.id, label: node.label, weight: node.weight })),
+      layout,
+      [],
+      canvas,
+      undefined,
+      { limit: 8 },
+    );
+    expect(plain.has('key')).toBe(false);
+  });
+
+  it('is never left without a name in a crowd: it stands off its node, with a line to it, where its own sides are taken', () => {
+    // A key party with a ring of cohorts close around it: below, above and both sides are all taken by other nodes.
+    const centre = { x: 195, y: 280 };
+    const { layout, nodes } = crowd([
+      { id: 'key', ...centre, weight: 0.4, key: true, label: 'Competitors' },
+      ...ring(centre, 10, 30),
+    ]);
+    const places = placeKeyNames(nodes, layout, canvas);
+    const place = places.get('key');
+    expect(place).toBeDefined();
+    // Inside the canvas, and off every other node.
+    expect(place!.box.x0).toBeGreaterThanOrEqual(canvas.left);
+    expect(place!.box.x1).toBeLessThanOrEqual(canvas.right);
+    expect(place!.box.y0).toBeGreaterThanOrEqual(canvas.top);
+    expect(place!.box.y1).toBeLessThanOrEqual(canvas.bottom);
+    for (const spot of ring(centre, 10, 30)) {
+      const nearest = {
+        x: Math.min(Math.max(spot.x, place!.box.x0), place!.box.x1),
+        y: Math.min(Math.max(spot.y, place!.box.y0), place!.box.y1),
+      };
+      expect(Math.hypot(nearest.x - spot.x, nearest.y - spot.y)).toBeGreaterThan(14);
+    }
+    // Where it is not beside its node, it is joined to it.
+    expect(place!.leader).toBe(true);
+  });
+
+  it('keeps the names of several key parties apart from one another and from the edge of the canvas', () => {
+    const { layout, nodes } = crowd([
+      { id: 'a', x: 20, y: 120, weight: 0.9, key: true, label: 'Administrators' },
+      { id: 'b', x: 60, y: 130, weight: 0.8, key: true, label: 'Competitors' },
+      { id: 'c', x: 100, y: 120, weight: 0.7, key: true, label: 'Regulators' },
+      { id: 'd', x: 370, y: 130, weight: 0.6, key: true, label: 'Sales director' },
+    ]);
+    const places = [...placeKeyNames(nodes, layout, canvas).entries()];
+    expect(places).toHaveLength(4);
+    for (const [, place] of places) {
+      expect(place.box.x0).toBeGreaterThanOrEqual(canvas.left);
+      expect(place.box.x1).toBeLessThanOrEqual(canvas.right);
+    }
+    for (let at = 0; at < places.length; at += 1) {
+      for (let other = at + 1; other < places.length; other += 1) {
+        const a = places[at]![1].box;
+        const b = places[other]![1].box;
+        const apart = a.x1 <= b.x0 || b.x1 <= a.x0 || a.y1 <= b.y0 || b.y1 <= a.y0;
+        expect(apart, `${places[at]![0]} and ${places[other]![0]} do not overlap`).toBe(true);
+      }
+    }
+  });
+
+  it('makes a group name give way to a key name, and a cohort name too', () => {
+    const { layout, nodes } = crowd([
+      { id: 'key', x: 195, y: 200, weight: 0.3, key: true, label: 'Clients' },
+      { id: 'cohort', x: 195, y: 262, weight: 0.9, label: 'Managers' },
+    ]);
+    const keys = placeKeyNames(nodes, layout, canvas);
+    const keyBox = keys.get('key')!.box;
+    const group = { x0: keyBox.x0 + 2, x1: keyBox.x1 - 2, y0: keyBox.y0 + 2, y1: keyBox.y1 - 2 };
+    const shown = placeNames(nodes, layout, [group], canvas, undefined, { keys });
+    expect(shown.get('key')!.box).toEqual(keyBox);
+    const cohort = shown.get('cohort');
+    if (cohort) {
+      const apart =
+        cohort.box.x1 <= keyBox.x0 ||
+        keyBox.x1 <= cohort.box.x0 ||
+        cohort.box.y1 <= keyBox.y0 ||
+        keyBox.y1 <= cohort.box.y0;
+      expect(apart).toBe(true);
+    }
+  });
+
+  it('joins a name to its node only when it stands off it', () => {
+    expect(leaderOf({ side: 'below', dx: 0, dy: 0, width: 80 }, 14)).toBeNull();
+    const line = leaderOf({ side: 'below', dx: 0, dy: 30, width: 80 }, 14)!;
+    expect(line).not.toBeNull();
+    expect(Math.hypot(line.x0, line.y0)).toBeGreaterThan(14);
+    expect(line.y1).toBeGreaterThan(line.y0);
   });
 });
 
