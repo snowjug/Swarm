@@ -389,6 +389,10 @@ test('on a phone the people dialogs can be used with a thumb: every control is 4
   const api = await changesAs(playwright, context, baseURL, closers);
   await api.put(`/api/workspace/members/${COLLEAGUE}`, { data: { role: 'member' } });
   const id = await createGuided(api, { name: 'Access: a phone' });
+  const added = await api.put(`/api/projects/${id}/members/${COLLEAGUE}`, {
+    data: { role: 'analyst' },
+  });
+  expect(added.status(), await added.text()).toBe(200);
   await page.goto(`/?project=${id}`);
   for (const [item, title] of [
     ['People', 'People in this workspace'],
@@ -399,7 +403,7 @@ test('on a phone the people dialogs can be used with a thumb: every control is 4
     await expectNoHorizontalOverflow(page);
     await quiet(page);
     await expectPressable(page, `phone: ${title}`, { min: 44, scope: '[role="dialog"]' });
-    await dialog.getByRole('button', { name: 'Close' }).click();
+    await dialog.getByRole('button', { name: 'Done', exact: true }).click();
     await expect(dialog).toBeHidden();
     await expect(settingsButton(page)).toBeFocused();
   }
