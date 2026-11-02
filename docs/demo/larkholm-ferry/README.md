@@ -37,7 +37,7 @@ Two contradictions are planted deliberately:
 2. In **Ground**, open a few entities in the source graph, and check that each quote is marked "Quote
    checked character for character against" a numbered passage (S1, S2, …). The disagreement between the
    council note and the operator memo is listed under **Conflicts**.
-3. In **Map**, choose **Find who is affected**, review the parties, and **Approve & create actors**. The
+3. In **Map**, choose **Find who is affected**, review the parties, and **Create actors**. The
    scenario comparison in **Simulate** (**Run the simulation**) is what opens **Compare** and **Decide**,
    so run it if you want those scenes.
 4. For the engine's own run, open **Simulate** → **More** → **Deep dive**. **Prepare the environment**,

@@ -99,8 +99,8 @@ checked against the sources, and a reader who sees a check mark beside it is mis
 the routes, the memo and the exports), `studio-access.test.ts` (every role, hidden and cross-tenant
 projects, anonymous callers, removal taking effect on the next request), `studio-regenerate.test.ts`
 (the provider protocol, hostile instructions, concurrency, availability), `studio-store.test.ts`
-(the store, migration 7 and its backup), `frontend/src/components/studio/studio.test.tsx` and
+(the store, migration 7 and its backup), `frontend/src/scenes/studio/scene.test.tsx` and
 `frontend/src/lib/studio.test.ts` (what the page shows for each state and capability),
-`e2e/journey/studio.spec.ts` (the whole workflow in a real browser on the demonstration, in each
+`e2e/lab/report-studio.spec.ts` (the whole workflow in a real browser on a rules-mode project, in each
 theme and on a phone), and 25 mutations of the rules above (`npm run mutation:security -- --area=studio`),
 each of which a test catches.

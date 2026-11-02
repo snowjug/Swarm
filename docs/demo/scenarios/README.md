@@ -100,7 +100,7 @@ pack: tests check for the obvious forms of it.
    run takes minutes.
 
 The scripts below name buttons and scenes as the interface gives them (**Explore**, **Ground it**,
-**Find who is affected**, **Approve & create actors**, **Run the simulation**, **Compare**, **Decide**,
+**Find who is affected**, **Create actors**, **Run the simulation**, **Compare**, **Decide**,
 **Write the brief**, **Review**, **Run the independent review**). If a label has moved in the build you
 are showing, the step is the same. The [demo guide](../README.md) has the ten-minute script across the
 flagship examples. The browser tests (see [TESTING.md](../../TESTING.md)) take the three flagship

@@ -12,12 +12,13 @@ does not predict what real people will do.
 
 1. **Find** stakeholders, by reading the text (always available) or by asking the model (when the project
    uses one). Each stakeholder comes with the passages that support it, or says that it has none.
-2. **Review** them: accept, edit, merge, remove, add, set priority. Nothing is ever deleted.
+2. **Review** them: accept, edit, duplicate, merge, remove, add, set priority. Nothing is ever deleted.
 3. **Approve** the list. Only an approved list can be turned into actors.
 4. **Make the actors**: a key actor for each key stakeholder and a cohort for each of the others. Every
-   trait starts from a [documented prior](#category-priors) and says where it came from.
-5. **Adjust** any trait on a slider. The simulation then runs on these actors, and the deep dive builds its
-   agents from them.
+   trait starts from a [documented prior](#category-priors) and says where it came from. On the Map one
+   button, **Create actors**, does steps 3 and 4 together.
+5. **Adjust** any trait on a slider, and the wording of an actor (its role, starting belief, wants, worries
+   and pressures). The simulation then runs on these actors, and the deep dive builds its agents from them.
 
 All of this happens on the **Map** scene, after the evidence has been read. It opens on one invitation
 ("Who is in play?") and then shows the stakeholders as a map, with one pill at the foot that says the next
@@ -188,14 +189,15 @@ as they are. _To review_ counts the stakeholders that nobody has accepted, edite
 list has been approved it is gone. One pill at the foot of the map says what to do next and changes as the
 work goes on:
 
-| Where the person has got to   | What the pill, or the page, offers                                                                                                                                                                                            |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nothing found yet             | The page asks "Who is in play?": **Find who is affected** (by the model when the project has one, which is then the main way, with **Read the text instead** beside it) and **Add one yourself**                              |
-| Some stakeholders need review | "N to review", which opens the next one, beside **Approve & create actors** (**Approve** when actors the person edited are kept). It waits, with the hint "Keep or add two or more", until at least two stakeholders are kept |
-| Approved, no actors yet       | **Make the actors**                                                                                                                                                                                                           |
-| Actors exist                  | "N actors ready", with **Simulate**. **Actors** in the toolbar is a way to look, and not the next step                                                                                                                        |
-| Actors changed                | "N actors changed", "Not saved yet", with **Save** and **Discard**                                                                                                                                                            |
-| A person who may only read    | A line that says what is missing ("Approving needs the right to edit and to run the project."); the stakeholders and their evidence can still be read                                                                         |
+| Where the person has got to                         | What the pill, or the page, offers                                                                                                                                                                                  |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing found yet                                   | The page asks "Who is in play?": **Find who is affected** (by the model when the project has one, which is then the main way, with **Read the text instead** beside it) and **Add one yourself**                    |
+| Some stakeholders need review                       | "N to review", which opens the next one, beside **Create actors** (**Approve** when actors the person edited are kept). It waits, with the hint "Keep or add two or more", until at least two stakeholders are kept |
+| Approved, no actors yet                             | **Create actors**                                                                                                                                                                                                   |
+| Actors exist                                        | "N actors ready", with **Simulate**. **Actors** in the toolbar is a way to look, and not the next step                                                                                                              |
+| Actors changed                                      | "N actors changed", "Not saved yet", with **Save** and **Discard**                                                                                                                                                  |
+| The stakeholders changed after the actors were made | A notice, "The actors are out of date", with **Make them again**, which asks before it replaces what the person changed (it approves the list again first when the change took the approval away)                   |
+| A person who may only read                          | A line that says what is missing ("Approving needs the right to edit and to run the project."); the stakeholders and their evidence can still be read                                                               |
 
 When a model is available, pressing the approving button opens a small panel first, with the switch **Let
 the model read the key actors**, so that the choice of letting the model read them, which sends the source
@@ -209,10 +211,14 @@ how much influence it has), colour is the effect, a solid ring is reached direct
 indirectly, and a paler party is one that Swarm is less sure of.
 
 **The list** (under **List**) is the same parties as text, in groups by kind and the weightiest first within
-each. A row shows the name, one line on why it is listed, **Key** where it is a key actor, the **direction
-of impact in words**, and a chip where it is still only _proposed_. The order never depends on the review
-status, so a row does not move when it is accepted. The kinds that nobody was found for are listed under
-"Nobody found for", each with a button to add one, and the removed stakeholders under **Removed**.
+each. A line that every row of a group would say alike is said once, under the group's name. A row shows the
+name, **Key** where it is a key actor, its own facts in words (direct or indirect, how many quotes it rests on
+or "Assumed", and for an actor whether it is one actor or a cohort and where it stands), one line on why it
+is listed where that line is its own, the **direction of impact in words** (nothing is printed for unclear),
+for an actor a cue for its influence with the word beside it, and where it stands in the review, as a word.
+The order never depends on the review status, so a row does not move when it is accepted. The kinds that
+nobody was found for are listed under "Nobody found for", each with a button to add one, and the removed
+stakeholders under **Removed**.
 
 A press on a party, on the map or in the list, shows it in the inspector: the **direction of impact in
 words** with where it came from (_read from the wording_, _assumption_, _set by you_ or _model's reading_),
@@ -221,8 +227,10 @@ and fear, the quotes it rests on under **Evidence**, word for word with the pass
 under **Why they are here** what is assumed and how it was found. A stakeholder with no quote says why: it
 was named in the question, inferred by a model, or added by the person. Anything that is an assumption and
 not evidence is labelled so in words, so that no colour is needed to tell. The actors are parties too:
-opening one shows what it is assumed to want and every trait on a slider, with where the number came from
-and why. They stay editable after approval.
+opening one shows its key assumption, what it is assumed to want and fear, and every trait on a slider,
+with where the number came from and why. They stay editable after approval: **Edit what _name_ wants and
+fears** opens the role, the starting belief and the lines of wants, worries and pressures to change in the
+person's own words, and everything is held until **Save**.
 
 What a change takes away, the page replaces: an accepted party loses its **Accept** button, a removed one
 leaves the map for **Removed**, an added one appears, and approving replaces the button that was pressed.
@@ -231,14 +239,15 @@ to the top of the page. The rules that hold the page to this are in [UX.md](./UX
 
 ### What a person can do
 
-| Action     | What it does                                                                                                                                         |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Accept     | Marks it as checked by a person.                                                                                                                     |
-| Edit       | Changes name, category, directness, priority, size, description, relevance, impact and uncertainty. The status becomes _edited_ if anything changed. |
-| Merge      | Marks one stakeholder removed and names the one it went into, which takes the other's evidence. **Undo the merge** brings it back.                   |
-| Remove     | Marks it removed. It stays in the record and can be restored.                                                                                        |
-| Add        | Adds a stakeholder of your own. It is marked _added by you_ and carries no evidence, because evidence comes from the sources.                        |
-| Prioritise | **Key** (one actor of its own), **Cohort** (standard) or **Small** (background), a cohort of simulated members.                                      |
+| Action     | What it does                                                                                                                                                              |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accept     | Marks it as checked by a person.                                                                                                                                          |
+| Edit       | Changes name, category, directness, priority, size, description, relevance, impact and uncertainty. The status becomes _edited_ if anything changed.                      |
+| Merge      | Marks one stakeholder removed and names the one it went into, which takes the other's evidence. **Undo the merge** brings it back.                                        |
+| Duplicate  | Opens the form for a copy: the name ends in "(copy)", and the kind, size and reasons are the original's. The copy is _added by you_ and carries no evidence, and says so. |
+| Remove     | Marks it removed. It stays in the record and can be restored.                                                                                                             |
+| Add        | Adds a stakeholder of your own. It is marked _added by you_ and carries no evidence, because evidence comes from the sources.                                             |
+| Prioritise | **Key** (one actor of its own), **Cohort** (standard) or **Small** (background), a cohort of simulated members.                                                           |
 
 The server enforces its rules whatever the screen offers: a stakeholder is never deleted; who found it cannot
 be changed; **evidence can be taken away but never added or rewritten** (the Map shows each quotation as it
@@ -270,9 +279,12 @@ Every actor trait is a value with a **spread**, an **origin** and a **rationale*
 | `user`              | you        | Set by the person on a slider.                           |
 
 A cohort's spread (0.15 for every trait) is the assumed difference between its members. A trait the person
-moves becomes theirs, and the actor is marked _edited by you_. The server refuses an edit that adds or
-removes an actor, changes a kind or a category, makes a key actor larger than one, or makes a sample larger
-than the group it stands for.
+moves becomes theirs, and the actor is marked _edited by you_. So does a line of wording the person changes:
+the role, the starting belief, and what the actor wants, worries about and is pressed by. The server refuses
+an edit that adds or removes an actor (`ACTORS_CHANGED`), that renames an actor or changes its stakeholder,
+kind or category (`ACTOR_LOCKED`), that makes a key actor larger than one, or that makes a sample larger
+than the group it stands for (`ACTOR_INVALID`). Who an actor is comes from its stakeholder: to add, remove,
+rename or regroup one, change the stakeholder and make the actors again.
 
 **What an impact rests on.** An impact has a direction (harmed or benefited) and a size, and they do not rest
 on the same thing. A cited passage can show which way a change points for a group, by the tone of the
@@ -373,7 +385,9 @@ words or whether it supports or contradicts) is refused with `EVIDENCE_ALTERED`,
 with `EVIDENCE_NOT_VERIFIED` (both HTTP 400, nothing is stored). Other refusals say what to do:
 `STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace your work), `STAKEHOLDERS_NOT_APPROVED`,
 `MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and `STAKEHOLDERS_BUSY` (one discovery or generation runs at a
-time for a project). Finding stakeholders and making actors are limited to ten a minute.
+time for a project), and, for `PUT /actors`, `ACTORS_CHANGED` and `ACTOR_LOCKED` (the actors come from the
+stakeholders, so one cannot be added, removed, renamed or regrouped there). Finding stakeholders and making
+actors are limited to ten a minute.
 
 Every change is recorded in the audit trail, in the same step as the change. The record holds **counts and
 the mode only**: never the question, the sources or a stakeholder's text.

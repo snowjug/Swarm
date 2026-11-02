@@ -66,12 +66,13 @@ export function JourneyRail({
                       />
                     )}
                     <span className="sw-rail__node" aria-hidden="true">
-                      {step.state === 'done' && !step.current ? (
-                        <Check size={13} strokeWidth={2.6} />
-                      ) : locked ? (
-                        <Lock size={12} />
-                      ) : (
-                        <Icon size={14} />
+                      {locked ? <Lock size={12} /> : <Icon size={14} />}
+                      {/* Done is said by the fill and a tick beside the glyph: when the names give way, a finished
+                          journey would otherwise be six identical ticks and nobody could tell which is which. */}
+                      {step.state === 'done' && !step.current && (
+                        <span className="sw-rail__tick">
+                          <Check size={8} strokeWidth={3.5} />
+                        </span>
                       )}
                       {step.state === 'working' && <span className="sw-rail__spin" />}
                       {step.state === 'attention' && <span className="sw-rail__alert" />}

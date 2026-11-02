@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
 import * as RadixDialog from '@radix-ui/react-dialog';
 import { m } from 'motion/react';
-import { Check, CornerDownLeft, Lock, Search } from 'lucide-react';
+import { Check, CornerDownLeft, Lock, Search, X } from 'lucide-react';
 import { cx } from '../design/cx';
 import { SPRING } from '../design/motion';
+import { IconButton } from '../design/ui';
 import { useReturnFocus } from '../design/useReturnFocus';
 import { COMMAND_GROUPS, GROUP_LABELS, findCommands, type Command } from './commands';
 import './CommandPalette.css';
@@ -240,6 +241,12 @@ export function CommandPalette({
               Run
             </span>
           </div>
+          {/* A touch screen has no Esc: the way out is a control, drawn in the field's corner where there is no key to name. */}
+          <RadixDialog.Close asChild>
+            <IconButton label="Close" tooltip={false} className="sw-cmdk__close">
+              <X size={18} aria-hidden="true" />
+            </IconButton>
+          </RadixDialog.Close>
         </RadixDialog.Content>
       </RadixDialog.Portal>
     </RadixDialog.Root>
