@@ -18,6 +18,7 @@ import {
   deleteMade,
   expectSound,
   graph,
+  groundStatus,
   hero,
   figure,
   figureValue,
@@ -541,10 +542,12 @@ test.describe('when the model is at work, and when it could not do it', () => {
 
     const progress = page.getByRole('list', { name: 'Progress' });
     await expect(progress).toBeVisible();
-    await expect(hero(page, LIBRARY).getByText(/^(?:Reading|Queued)$/u)).toBeVisible();
+    await expect(progress.getByRole('listitem')).toHaveCount(4);
+    await expect(groundStatus(page, /^(?:Reading|Queued)$/u)).toBeVisible();
     // The first thing the engine does is under way while the second waits; then the first is done and the second under way.
-    await expect(progress.getByRole('listitem').nth(0)).toContainText('Entity types');
+    await expect(progress.getByRole('listitem').nth(0)).toContainText('Reading');
     await expect(progress.getByRole('listitem').nth(0)).toContainText('in progress');
+    await expect(progress.getByRole('listitem').nth(1)).toContainText('Extracting');
     await expect(progress.getByRole('listitem').nth(1)).toContainText('waiting');
     await expect(progress.getByRole('listitem').nth(0)).toContainText('done', { timeout: 30_000 });
     await expect(progress.getByRole('listitem').nth(1)).toContainText('in progress');
@@ -552,7 +555,7 @@ test.describe('when the model is at work, and when it could not do it', () => {
     await expect(figure(page, 'Topics').getByRole('img', { name: 'Not known yet' })).toBeVisible();
     await expectSound(page, 'ground: the model at work');
 
-    await expect(hero(page, LIBRARY).getByText('Ready', { exact: true })).toBeVisible({
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible({
       timeout: 60_000,
     });
     expect(await figureValue(page, 'Entities')).toBe(
@@ -580,7 +583,7 @@ test.describe('when the model is at work, and when it could not do it', () => {
     expect(reason).toBeTruthy();
 
     await openApp(page, { project: id, scene: 'ground' });
-    await expect(hero(page, LIBRARY).getByText('Failed', { exact: true })).toBeVisible();
+    await expect(groundStatus(page, /^Failed$/u)).toBeVisible();
     const alert = hero(page, LIBRARY).getByRole('alert');
     await expect(alert).toContainText('Reading the sources failed');
     await expect(alert).toContainText(reason!);
@@ -590,7 +593,7 @@ test.describe('when the model is at work, and when it could not do it', () => {
     // The model is back; trying again is a real second attempt, and it works.
     await provider(playwright);
     await page.getByRole('button', { name: 'Try again' }).click();
-    await expect(hero(page, LIBRARY).getByText('Ready', { exact: true })).toBeVisible({
+    await expect(groundStatus(page, /^Ready$/u)).toBeVisible({
       timeout: 60_000,
     });
     await expect(page.getByRole('button', { name: 'Map the stakeholders' })).toBeVisible();

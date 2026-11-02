@@ -462,7 +462,7 @@ test.describe('how a person opens the next step, and how the page finds out', ()
     await mark(page);
     await expectGates(page, { simulate: { locked: NEEDS_ACTORS } });
 
-    await page.getByRole('button', { name: 'Make the actors' }).click();
+    await page.getByRole('button', { name: 'Create actors' }).click();
     await expectGates(page, {
       map: 'open',
       simulate: 'open',

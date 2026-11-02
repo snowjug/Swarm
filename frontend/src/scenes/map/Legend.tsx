@@ -43,6 +43,19 @@ export function Legend({ subject }: { subject: Subject }) {
           <div>
             <dt>
               <Glyph>
+                <circle cx="12" cy="14" r="8" className="sw-lg-fill sw-lg-key" />
+                <circle cx="32" cy="14" r="6" className="sw-lg-fill" />
+              </Glyph>
+            </dt>
+            <dd>
+              {subject === 'actors'
+                ? 'A bold name and a firm edge: a key actor, one of its own'
+                : 'A bold name and a firm edge: a key party, modelled as one actor'}
+            </dd>
+          </div>
+          <div>
+            <dt>
+              <Glyph>
                 <circle cx="6" cy="14" r="5" className="sw-lg-against" />
                 <circle cx="17" cy="14" r="5" className="sw-lg-mixed" />
                 <circle cx="28" cy="14" r="5" className="sw-lg-favor" />

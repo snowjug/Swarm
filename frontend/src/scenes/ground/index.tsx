@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspace } from '../../app/context';
+import { openConflicts } from '../../lib/ledger';
 import { DURATION, useReducedMotion } from '../../design/motion';
 import { Conflicts } from './Conflicts';
 import { EvidenceSheet } from './EvidenceSheet';
@@ -274,6 +275,19 @@ export default function GroundScene() {
 
   const claims = ledger.ledger?.claims ?? [];
   const showSources = graphView !== null && stableDocuments.length > 0;
+  // What asks for a decision comes first: a conflict that is not settled is read before the sources it is between.
+  const conflictsFirst = conflictsKnown && openConflicts(conflicts).length > 0;
+  const sources = showSources && (
+    <section className="sw-ground__section" aria-labelledby="ground-sources-title">
+      <SectionHead
+        id="ground-sources"
+        titleId="ground-sources-title"
+        title="Sources"
+        count={stableDocuments.length}
+      />
+      <SourceRows variant="list" reading="done" />
+    </section>
+  );
 
   return (
     <GroundDataContext.Provider value={data}>
@@ -282,23 +296,14 @@ export default function GroundScene() {
           <div className="sw-ground">
             <Hero />
 
-            {showSources && (
-              <section className="sw-ground__section" aria-labelledby="ground-sources-title">
-                <SectionHead
-                  id="ground-sources"
-                  titleId="ground-sources-title"
-                  title="Sources"
-                  count={stableDocuments.length}
-                />
-                <SourceRows variant="list" reading="done" />
-              </section>
-            )}
-
-            {conflictsKnown && <Conflicts flash={flash} seek={seek} />}
+            {conflictsFirst && <Conflicts flash={flash} seek={seek} />}
+            {sources}
+            {conflictsKnown && !conflictsFirst && <Conflicts flash={flash} seek={seek} />}
             {conflictsKnown && claims.length > 0 && <Statements />}
-            {conflictsKnown && claims.length === 0 && ledger.ledger && (
-              <NoStatements checked={ledger.ledger.reviewedAt !== null} />
-            )}
+            {conflictsKnown &&
+              claims.length === 0 &&
+              ledger.ledger &&
+              ledger.ledger.reviewedAt !== null && <NoStatements />}
             {mode === 'advanced' && <Trace />}
           </div>
           <EvidenceSheet stack={sheets} onStack={setSheets} />

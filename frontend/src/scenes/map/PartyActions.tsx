@@ -1,4 +1,4 @@
-import { Check, GitMerge, Pencil, Trash2, Undo2 } from 'lucide-react';
+import { Check, Copy, GitMerge, Pencil, Trash2, Undo2 } from 'lucide-react';
 import type { Stakeholder } from '../../../../shared/stakeholders';
 import {
   Button,
@@ -16,8 +16,11 @@ export interface PartyActionsProps {
   mergeTargets: readonly Stakeholder[];
   mergedInto: Stakeholder | null;
   busy: boolean;
+  /** The short strip on a phone: merging is in the sheet that opens from it, where there is room for it. */
+  compact?: boolean;
   onAccept: () => void;
   onEdit: () => void;
+  onDuplicate: () => void;
   onRemove: () => void;
   onRestore: () => void;
   onMerge: (targetId: string) => void;
@@ -29,8 +32,10 @@ export function PartyActions({
   mergeTargets,
   mergedInto,
   busy,
+  compact = false,
   onAccept,
   onEdit,
+  onDuplicate,
   onRemove,
   onRestore,
   onMerge,
@@ -74,25 +79,37 @@ export function PartyActions({
       >
         <Pencil size={16} aria-hidden="true" />
       </IconButton>
-      <Menu>
-        <MenuTrigger asChild>
-          <IconButton
-            label={`Merge ${stakeholder.name} into another`}
-            tone="glass"
-            disabled={busy || mergeTargets.length === 0}
-          >
-            <GitMerge size={16} aria-hidden="true" />
-          </IconButton>
-        </MenuTrigger>
-        <MenuContent align="end" side="top" className="sw-menu--tall">
-          <MenuLabel>Merge into</MenuLabel>
-          {mergeTargets.map((target) => (
-            <MenuItem key={target.id} onSelect={() => onMerge(target.id)}>
-              {target.name}
-            </MenuItem>
-          ))}
-        </MenuContent>
-      </Menu>
+      {!compact && (
+        <IconButton
+          label={`Duplicate ${stakeholder.name}`}
+          tone="glass"
+          disabled={busy}
+          onClick={onDuplicate}
+        >
+          <Copy size={16} aria-hidden="true" />
+        </IconButton>
+      )}
+      {!compact && (
+        <Menu>
+          <MenuTrigger asChild>
+            <IconButton
+              label={`Merge ${stakeholder.name} into another`}
+              tone="glass"
+              disabled={busy || mergeTargets.length === 0}
+            >
+              <GitMerge size={16} aria-hidden="true" />
+            </IconButton>
+          </MenuTrigger>
+          <MenuContent align="end" side="top" className="sw-menu--tall">
+            <MenuLabel>Merge into</MenuLabel>
+            {mergeTargets.map((target) => (
+              <MenuItem key={target.id} onSelect={() => onMerge(target.id)}>
+                {target.name}
+              </MenuItem>
+            ))}
+          </MenuContent>
+        </Menu>
+      )}
       <IconButton
         label={`Remove ${stakeholder.name}`}
         tone="glass"

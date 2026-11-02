@@ -9,6 +9,7 @@ import {
   fitViewport,
   keyboardOrder,
   layoutPlacements,
+  linkRanks,
   nodeRadius,
   ringArcs,
   screenX,
@@ -118,6 +119,15 @@ describe('buildGraphView', () => {
 
   it('draws bigger what the sources lean on more', () => {
     expect(nodeRadius(1)).toBeGreaterThan(nodeRadius(0.2));
+  });
+
+  it('ranks the links among one another, so that a picture of nearly equal weights still has strong and faint ones', () => {
+    expect(linkRanks([])).toEqual([]);
+    const ranks = linkRanks([0.9, 0.91, 0.92, 0.93, 0.94]);
+    expect(ranks[0]).toBe(0);
+    expect(ranks[4]).toBe(1);
+    expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    expect(linkRanks([0.5])).toEqual([0]);
   });
 
   it('puts the strongest topic first for the keyboard', () => {

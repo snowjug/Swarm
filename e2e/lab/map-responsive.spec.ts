@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { openApp, type ThemeName } from '../support/app';
 import {
+  expectNoBrowserPaintedControls,
   expectTargetSizes,
   expectTouchTargets,
   openDisclosure,
@@ -17,6 +18,7 @@ import {
   expectControlsInside,
   expectSound,
   findWho,
+  holdsStill,
   inspector,
   live,
   makeProject,
@@ -28,7 +30,6 @@ import {
   roster,
   rosterRow,
   stakeholdersViewOf,
-  type KnownFlaw,
 } from '../support/ground-map';
 
 // The Map scene at every size a person uses it at, in each theme: no sideways scroll, text that reads, a picture whose
@@ -41,8 +42,6 @@ test.afterEach(({ request }) => deleteMade(request));
 
 const SHOP = exampleSeed('ecommerce-experience');
 const THEMES: ThemeName[] = ['light', 'dark', 'high-contrast'];
-/** What the test of its own, below, shows: the name of the button that reviews the next party is not what it says. */
-const KNOWN: KnownFlaw[] = [{ rule: 'label-content-name-mismatch', selector: 'sw-pill__progress' }];
 const PICTURE = '[role="group"][aria-label$="how they relate"]';
 
 /** Every party that is drawn is inside the screen, and none is under what floats over the picture. */
@@ -116,18 +115,23 @@ test.describe('at every size', () => {
 
       for (const theme of THEMES) {
         const light = theme === 'light';
+        // A control the browser paints itself, in a theme that is not the light one, is a white box on a dark page.
+        const sound = async (what: string): Promise<void> => {
+          await expectSound(page, label(what, theme));
+          if (!light) await expectNoBrowserPaintedControls(page, label(what, theme));
+        };
         // Before anything is found: the way in.
         if (light) {
           await openApp(page, { project: first, scene: 'map', theme });
           await expect(page.getByRole('button', { name: 'Find who is affected' })).toBeVisible();
-          await expectSound(page, label('nothing found yet', theme));
+          await sound('nothing found yet');
         }
 
         // The stakeholders, none chosen and one chosen.
         await openApp(page, { project: proposed, scene: 'map', theme });
         await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
         await expect(partyNodes(page)).toHaveCount(names.length);
-        await expectSound(page, label('the stakeholders', theme), { without: KNOWN });
+        await sound('the stakeholders');
         if (light) {
           await expectPartiesClear(page, label('the stakeholders', theme));
           expect(
@@ -143,7 +147,7 @@ test.describe('at every size', () => {
         }
         await party(page, 'Sellers').click();
         await expect(inspector(page, 'Sellers')).toBeVisible();
-        await expectSound(page, label('a party chosen', theme), { without: KNOWN });
+        await sound('a party chosen');
         // Where the panel floats over the map, the map has moved so that no party is under it.
         if (light && viewport.width >= 1024) {
           await page.keyboard.press('f');
@@ -153,16 +157,16 @@ test.describe('at every size', () => {
         // The list.
         await openApp(page, { project: proposed, scene: 'map', view: 'list', theme });
         await expect(roster(page)).toBeVisible();
-        await expectSound(page, label('the list', theme), { without: KNOWN });
+        await sound('the list');
         if (light) {
           await rosterRow(page, 'Sellers').click();
           await expect(inspector(page, 'Sellers')).toBeVisible();
-          await expectSound(page, label('the list with a party open', theme), { without: KNOWN });
+          await sound('the list with a party open');
 
           // The actors.
           await openApp(page, { project: actors, scene: 'map', theme });
           await expect(partyNodes(page)).toHaveCount(names.length);
-          await expectSound(page, label('the actors', theme));
+          await sound('the actors');
         }
       }
       expect(problems).toEqual([]);
@@ -205,6 +209,35 @@ test.describe('at every size', () => {
   });
 });
 
+test.describe('on a laptop', () => {
+  test.use({ viewport: { width: 1366, height: 768 } });
+
+  test('the one thing to do next stays on the screen before, during and after the review', async ({
+    page,
+    request,
+  }) => {
+    const ground = await makeProject(request, SHOP, 'ground');
+    await openApp(page, { project: ground, scene: 'map' });
+    const find = page.getByRole('button', { name: 'Find who is affected' });
+    await expect(find).toBeInViewport({ ratio: 1 });
+    await find.click();
+    await expect(ecosystem(page)).toBeVisible();
+
+    const approve = pill(page).getByRole('button', { name: 'Approve & create actors' });
+    await expect(approve).toBeInViewport({ ratio: 1 });
+    // A party that is open is a panel beside the map: it does not push the action off the screen.
+    await pill(page)
+      .getByRole('button', { name: /to review, next/iu })
+      .click();
+    await expect(page.getByRole('complementary')).toBeVisible();
+    await expect(approve).toBeInViewport({ ratio: 1 });
+    await expectPartiesClear(page, 'laptop: a party open during the review');
+
+    await approve.click();
+    await expect(pill(page).getByRole('button', { name: 'Simulate' })).toBeInViewport({ ratio: 1 });
+  });
+});
+
 test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
@@ -237,7 +270,7 @@ test.describe('on a phone', () => {
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: 'How to read this map' }).tap();
     await expect(page.getByRole('dialog')).toContainText('Lines are relations');
-    await expectSound(page, 'map on a phone: the key open', { without: KNOWN });
+    await expectSound(page, 'map on a phone: the key open');
     expect(problems).toEqual([]);
   });
 
@@ -256,7 +289,7 @@ test.describe('on a phone', () => {
     await expect(strip.getByRole('heading', { level: 2, name: 'Sellers' })).toBeVisible();
     // The pill gives the strip the room, and everything the strip offers is on the screen.
     await expect(page.getByRole('group', { name: 'Next' })).toHaveCount(0);
-    await expectSound(page, 'map on a phone: the strip of a party', { without: KNOWN });
+    await expectSound(page, 'map on a phone: the strip of a party');
     await expectControlsInside(strip, 'the strip of a party on a phone');
     expect(problems).toEqual([]);
   });
@@ -269,6 +302,7 @@ test.describe('on a phone', () => {
     const proposed = await makeProject(request, SHOP, 'proposed');
     await openApp(page, { project: proposed, scene: 'map' });
     await party(page, 'Sellers').tap({ force: true });
+    await holdsStill(inspector(page, 'Sellers'));
     await inspector(page, 'Sellers').getByRole('button', { name: 'Details' }).tap({ force: true });
     const sheet = page.getByRole('dialog', { name: 'Sellers' });
     await expect(sheet).toBeVisible();
@@ -278,7 +312,7 @@ test.describe('on a phone', () => {
     expect(box.y + box.height).toBeGreaterThanOrEqual(843);
     await expectControlsInside(sheet, 'the sheet of a party on a phone');
     await openDisclosure(sheet, /^Evidence \d+$/u);
-    await expectSound(page, 'map on a phone: the sheet of a party', { without: KNOWN });
+    await expectSound(page, 'map on a phone: the sheet of a party');
     await sheet.getByRole('button', { name: 'Close', exact: true }).tap();
     await expect(sheet).toHaveCount(0);
     expect(problems).toEqual([]);
@@ -304,6 +338,7 @@ test.describe('on a phone', () => {
       'map on a phone: the strip of a party',
       '[role="region"][aria-label="Sellers"]',
     );
+    await holdsStill(inspector(page, 'Sellers'));
     await inspector(page, 'Sellers').getByRole('button', { name: 'Details' }).tap({ force: true });
     await expect(page.getByRole('dialog', { name: 'Sellers' })).toBeVisible();
     await expectTouchTargets(page, 'map on a phone: the sheet of a party', '[role="dialog"]');
@@ -320,6 +355,7 @@ test.describe('on a phone', () => {
     await expectSound(page, 'map on a phone: the list of actors');
 
     await rosterRow(page, 'Buyers').tap();
+    await holdsStill(inspector(page, 'Buyers'));
     await inspector(page, 'Buyers').getByRole('button', { name: 'Details' }).tap({ force: true });
     const sheet = page.getByRole('dialog', { name: 'Buyers' });
     await openDisclosure(sheet, 'Traits 11');
@@ -338,6 +374,7 @@ test.describe('on a phone', () => {
     await expect(roster(page)).toBeVisible();
     await expectTouchTargets(page, 'map on a phone: the list of actors', '[aria-label="Actors"]');
     await rosterRow(page, 'Buyers').tap();
+    await holdsStill(inspector(page, 'Buyers'));
     await inspector(page, 'Buyers').getByRole('button', { name: 'Details' }).tap({ force: true });
     const sheet = page.getByRole('dialog', { name: 'Buyers' });
     await expect(sheet.getByRole('heading', { level: 2, name: 'Buyers' })).toBeVisible();
@@ -355,7 +392,7 @@ test.describe('on a phone', () => {
     await expectSound(page, 'map on a phone: nothing found yet');
     await expectTouchTargets(page, 'map on a phone: nothing found yet', 'main');
     await findWho(page);
-    await expectSound(page, 'map on a phone: found', { without: KNOWN });
+    await expectSound(page, 'map on a phone: found');
     await expect(ecosystem(page)).toBeVisible();
   });
 });

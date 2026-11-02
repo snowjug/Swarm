@@ -187,19 +187,20 @@
   .sw-ground-duel__sign {
     display: grid;
     place-items: center;
-    min-width: 2.5rem;
-    height: 2.5rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
     padding: 0 0.5rem;
-    border: 1px solid var(--hairline-strong);
+    border: 1px solid color-mix(in oklab, var(--ink-2) 45%, transparent);
     border-radius: var(--r-pill);
     font-family: var(--font-display);
     font-size: var(--fs-h3);
     line-height: 1;
-    color: var(--ink-2);
+    color: var(--ink);
   }
-  .sw-ground-duel[data-status='dismissed'] .sw-ground-duel__arena,
-  .sw-ground-duel[data-status='resolved'] .sw-ground-duel__arena {
-    opacity: 0.72;
+  /* A settled conflict recedes by its figures, not by its words: dimmed text is unreadable text. */
+  .sw-ground-duel[data-status='dismissed'] .sw-ground-duel__figure,
+  .sw-ground-duel[data-status='resolved'] .sw-ground-duel__figure {
+    opacity: 0.6;
   }
   .sw-ground-duel__note {
     margin: 0;

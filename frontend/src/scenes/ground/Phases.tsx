@@ -29,12 +29,15 @@ export function Phases({
   mode,
   now,
   startedAt,
+  checking,
 }: {
   phases: readonly Phase[];
   stage: GroundStage;
   mode: UiMode;
   now: number;
   startedAt: string | null;
+  /** The engine has finished and the sources are being compared for conflicts. */
+  checking: boolean;
 }) {
   const items: Item[] = [
     ...phases.map((phase) => {
@@ -52,7 +55,18 @@ export function Phases({
         detail,
       };
     }),
-    { id: 'ready', label: 'Ready', state: stage === 'ready' ? 'done' : 'waiting', detail: null },
+    {
+      id: 'checking',
+      label: mode === 'advanced' ? 'Conflict check' : 'Checking',
+      state: checking ? 'active' : stage === 'ready' ? 'done' : 'waiting',
+      detail: null,
+    },
+    {
+      id: 'ready',
+      label: 'Ready',
+      state: stage === 'ready' && !checking ? 'done' : 'waiting',
+      detail: null,
+    },
   ];
   return (
     <ol className="sw-ground-phases" aria-label="Progress">

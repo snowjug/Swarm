@@ -77,6 +77,15 @@ export const clusterColour = (id: string): string => `var(${GROUPS[id]?.colour ?
 
 export const clusterLabel = (id: string): string => GROUPS[id]?.label ?? GROUPS.other!.label;
 
+/** The same names where the canvas has little room: a group's name is the first word or two of its long one. */
+const SHORT_LABELS: Record<string, string> = {
+  bear: 'Cost & risk',
+  reach: 'Influence',
+  work: 'Partners',
+  use: 'Users',
+};
+export const clusterShortLabel = (id: string): string => SHORT_LABELS[id] ?? clusterLabel(id);
+
 /** The ids of the groups, in the order they are listed in filters and legends. */
 export const CLUSTER_ORDER: readonly string[] = Object.keys(GROUPS);
 

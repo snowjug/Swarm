@@ -36,7 +36,7 @@ describe('a document read in the sheet', () => {
   it('lets go of a passage that was pressed without breaking the page', async () => {
     const { user } = openScene(serve());
     const sources = await screen.findByRole('list', { name: 'Sources' });
-    await user.click(within(sources).getByRole('button', { name: /01-note\.md/u }));
+    await user.click(within(sources).getByRole('button', { name: /01-note\.md$/u }));
     const sheet = await screen.findByRole('dialog');
     const chip = within(
       within(sheet).getByRole('list', { name: 'Passages in this document' }),

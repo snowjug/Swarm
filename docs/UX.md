@@ -279,9 +279,10 @@ project has one, otherwise by reading the text), **Read the text instead**, and 
   came from. A
   toolbar offers Map or List, Stakeholders or Actors, Groups, focus on what is connected (`F`), **Add a
   stakeholder** and, under More, **Find stakeholders again…** and **Reset all actors…**.
-- **One pill says the one thing to do next:** "N to review" (it opens the next), **Approve & create actors**
-  (**Approve** when actors the person changed are kept, **Make the actors** once approved), then "N actors
-  ready" with **Simulate**. Changes to an actor are held, with **Save** and **Discard**, until saved.
+- **One pill says the one thing to do next:** "N to review" (it opens the next), **Create actors** (the button
+  is named "Approve & create actors" while the list still has to be approved, and reads **Approve** when actors
+  the person changed are kept), then "N actors ready" with **Simulate**. Changes to an actor are held, with
+  **Save** and **Discard**, until saved.
 - **List** (`?view=list`) is the same parties as text, in groups, with the ones removed under "Removed" and
   the places where nobody was found under "Nobody found for".
 - **It must keep** the line that says actors are synthetic stand-ins and every number an assumption, the

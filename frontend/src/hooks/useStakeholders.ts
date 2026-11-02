@@ -29,7 +29,12 @@ export interface StakeholderState {
   save: (stakeholders: Stakeholder[], relations: StakeholderRelation[]) => Promise<boolean>;
   /** Approves the list, then makes the actors from it. */
   approve: (options: { model: boolean }) => Promise<boolean>;
-  makeActors: (options: { model: boolean; confirm: boolean }) => Promise<boolean>;
+  makeActors: (options: {
+    model: boolean;
+    confirm: boolean;
+    /** The list changed after it was approved: approve it as it is now, then make the actors from it. */
+    approveFirst?: boolean;
+  }) => Promise<boolean>;
   saveActors: (actors: Actor[]) => Promise<boolean>;
 }
 
@@ -159,14 +164,24 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
   );
 
   const makeActors = useCallback(
-    (options: { model: boolean; confirm: boolean }) =>
+    (options: { model: boolean; confirm: boolean; approveFirst?: boolean }) =>
       run('making-actors', async () => {
-        const made = await stakeholdersApi.makeActors(projectId, options);
+        if (options.approveFirst) {
+          if (!view || view.revision === null)
+            throw new Error('There are no stakeholders to approve.');
+          const approved = await stakeholdersApi.approve(projectId, view.revision);
+          if (!mounted.current) return;
+          setView(approved);
+        }
+        const made = await stakeholdersApi.makeActors(projectId, {
+          model: options.model,
+          confirm: options.confirm,
+        });
         if (!mounted.current) return;
         setActors(made);
         changed.current();
       }),
-    [projectId, run],
+    [projectId, run, view],
   );
 
   const saveActors = useCallback(

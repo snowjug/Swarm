@@ -27,7 +27,7 @@ import {
   Tooltip,
 } from '../../design/ui';
 import { clusterColour } from '../../viz/palette';
-import type { ClusterOption, Subject } from './model';
+import type { ClusterOption, Ghost, Subject } from './model';
 
 export type MapView = 'map' | 'list';
 
@@ -46,6 +46,9 @@ export interface ToolbarProps {
   onFocus: (on: boolean) => void;
   canAdd: boolean;
   onAdd: () => void;
+  /** Where nobody was found: on a phone the picture leaves them out, and the menu offers them. */
+  gaps: readonly Ghost[];
+  onGap: (ghost: Ghost) => void;
   /** The ways to start over from the list, which replace work. */
   canFind: boolean;
   onFindAgain: () => void;
@@ -111,8 +114,13 @@ export function Toolbar(props: ToolbarProps) {
 
   if (compact) {
     return (
-      <div className="sw-map__toolbar sw-glass" role="toolbar" aria-label="Map controls">
+      <div
+        className="sw-map__toolbar sw-glass sw-glass--overlay"
+        role="toolbar"
+        aria-label="Map controls"
+      >
         {views}
+        {subjects && <span className="sw-tb-sep" aria-hidden="true" />}
         {subjects}
         <Menu>
           <MenuTrigger asChild>
@@ -170,6 +178,22 @@ export function Toolbar(props: ToolbarProps) {
                 Add a stakeholder…
               </MenuItem>
             )}
+            {props.gaps.length > 0 && (
+              <>
+                <MenuSeparator />
+                <MenuLabel>Nobody found for</MenuLabel>
+                {props.gaps.map((gap) => (
+                  <MenuItem
+                    key={gap.id}
+                    icon={<Plus size={16} />}
+                    onSelect={() => props.onGap(gap)}
+                  >
+                    {gap.label}
+                    <span className="sr-only">: add one</span>
+                  </MenuItem>
+                ))}
+              </>
+            )}
             {more && <MenuSeparator />}
             {restart}
           </MenuContent>
@@ -179,9 +203,15 @@ export function Toolbar(props: ToolbarProps) {
   }
 
   return (
-    <div className="sw-map__toolbar sw-glass" role="toolbar" aria-label="Map controls">
+    <div
+      className="sw-map__toolbar sw-glass sw-glass--overlay"
+      role="toolbar"
+      aria-label="Map controls"
+    >
       {views}
+      {subjects && <span className="sw-tb-sep" aria-hidden="true" />}
       {subjects}
+      <span className="sw-tb-sep" aria-hidden="true" />
       <Popover>
         <Tooltip label="Show or hide groups">
           <PopoverTrigger asChild>
@@ -240,6 +270,7 @@ export function Toolbar(props: ToolbarProps) {
           <Focus size={16} aria-hidden="true" />
         </IconButton>
       )}
+      {(props.canAdd || more) && <span className="sw-tb-sep" aria-hidden="true" />}
       {props.canAdd && (
         <IconButton label="Add a stakeholder" size="sm" onClick={props.onAdd} data-stk-focus="add">
           <Plus size={17} aria-hidden="true" />

@@ -214,3 +214,11 @@ export function excerptAround(text: string, needle: string | null, radius = 110)
   const end = Math.min(flat.length, Math.round(centre + radius));
   return `${start > 0 ? '… ' : ''}${flat.slice(start, end).trim()}${end < flat.length ? ' …' : ''}`;
 }
+
+/**
+ * A quotation as it is read, without the list marker its source line began with ("- 44% said…" is "44% said…").
+ * The passage the quotation is opened in keeps its own text: this is only for the line that is shown.
+ */
+export function plainQuote(text: string): string {
+  return text.replace(/^\s*(?:[-*•–]|\d{1,2}[.)])\s+/u, '');
+}

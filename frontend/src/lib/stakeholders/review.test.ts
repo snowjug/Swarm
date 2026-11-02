@@ -203,7 +203,7 @@ describe('the summary and the one thing to do next', () => {
     const approved = setOf(live('accepted', 'accepted'), true);
     expect(nextAction({ set: approved, actors: null, may: MAY })).toEqual({
       id: 'make-actors',
-      label: 'Make the actors',
+      label: 'Create actors',
       primary: true,
     });
     expect(nextAction({ set: approved, actors: cast, may: MAY })).toEqual({
