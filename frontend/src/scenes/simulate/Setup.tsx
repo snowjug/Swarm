@@ -487,7 +487,7 @@ export function Setup({
           )}
         </div>
 
-        <footer className="sw-setup__foot">
+        <footer className="sw-setup__foot sw-glass sw-glass--overlay">
           {onBack && (
             <Button variant="ghost" onClick={onBack} type="button">
               Back to the results
