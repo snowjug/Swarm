@@ -230,6 +230,20 @@
     -webkit-line-clamp: 2;
     line-clamp: 2;
   }
+  @media (max-width: 40rem) {
+    /* A phone gives the name two lines and the question one: what it is called is how it is found again. */
+    .sw-hist__name {
+      display: -webkit-box;
+      white-space: normal;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+    }
+    .sw-hist__question {
+      -webkit-line-clamp: 1;
+      line-clamp: 1;
+    }
+  }
   .sw-hist__error {
     overflow: hidden;
     color: var(--c-critical);

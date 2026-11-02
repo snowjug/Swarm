@@ -43,6 +43,14 @@ export interface ProviderStatusProps {
   onRetry: () => void;
 }
 
+/** "REAL MODEL · Ollama (local)" as the kind of engine and the provider's own name, so that the bar can show the first alone. */
+function splitKind(label: string): { head: string; tail: string | null } {
+  const at = label.indexOf(' · ');
+  return at < 0
+    ? { head: label, tail: null }
+    : { head: label.slice(0, at), tail: label.slice(at + 3) };
+}
+
 /** Counts the times the state changed after the first reading, so that the lamp can say "this just happened" once. */
 function useLampChanges(lamp: Lamp): number {
   const previous = useRef(lamp);
@@ -235,6 +243,7 @@ export function ProviderStatus({
   onRetry,
 }: ProviderStatusProps) {
   const model = chipModel(state.status, state.error !== null);
+  const kind = splitKind(model.label);
   const changes = useLampChanges(model.lamp);
   return (
     <>
@@ -257,7 +266,8 @@ export function ProviderStatus({
               >
                 <LampIcon lamp={model.lamp} size={16} />
               </span>
-              <span className="sw-provider__label">{model.label}</span>
+              <span className="sw-provider__label">{kind.head}</span>
+              {kind.tail && <span className="sw-provider__kind"> · {kind.tail}</span>}
               {model.kind === 'real' && state.status?.model && (
                 <span className="sw-provider__model">{state.status.model}</span>
               )}

@@ -12,6 +12,12 @@
     overflow: hidden;
     padding-bottom: var(--s-4);
   }
+  /* Where there is nothing to ask yet, the one thing to say sits in the middle of the sheet and not at its top. */
+  .sw-chat-sheet .sw-sheet__body > .sw-empty {
+    flex: 1;
+    align-content: center;
+    padding-bottom: var(--s-8);
+  }
   @media (max-width: 40rem) {
     .sw-chat-sheet {
       height: min(92dvh, 56rem);
