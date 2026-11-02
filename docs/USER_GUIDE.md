@@ -425,11 +425,16 @@ it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
   (supplied or retrieved evidence, a user or system assumption, an inferred stakeholder, actor behaviour, a
   simulation aggregation, a model interpretation, a historical comparison, or unresolved uncertainty).
 - **Tools for the brief** are at its head. **Review** opens the critics' objections and shows how many are
-  open. **Edit report** opens [Report Studio](#report-studio). **Detailed report** opens the deep dive's
-  report, when one was written. **Export** saves the brief as **Markdown**, as **JSON, with the data behind
-  the charts**, or as a **Printable page** (opened in a tab of its own), or prints this page; a role that
-  may read the brief but not export it has the three files switched off, with the reason, and can still
-  print. Under **More**, **Write the brief again** and **Open every chapter**.
+  open. What the detailed report offers depends on whether it has been written. Once it has, **Edit report**
+  opens [Report Studio](#report-studio) and **Detailed report** opens the report itself. Until then **Write
+  the detailed report** stands in their place (on a small screen, under **More**): it takes you to the
+  report's page, which writes it from the deep dive, or says "The deep dive comes first" and takes you to the
+  deep dive. While the report is being written, or if it stopped with part of it kept, **Detailed report**
+  shows how far it got. A role that may not write the report is offered none of these. **Export** saves the
+  brief as **Markdown**, as **JSON, with the data behind the charts**, or as a **Printable page** (opened in a
+  tab of its own), or prints this page; a role that may read the brief but not export it has the three files
+  switched off, with the reason, and can still print. Under **More**, **Write the brief again** and **Open
+  every chapter**.
 - **The independent review.** **Run the independent review** has the critics check the work, and the page
   shows each criticism with what it rests on and what it would do to the conclusion. A criticism that says
   the comparison cannot say anything about the change comes first, and you can filter the rest (open,
@@ -439,7 +444,10 @@ it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
   switch **Also ask a model** adds a deeper reading, and is available only in a project made in **Model
   assisted** mode on a server with a provider. Your responses are kept for any criticism that comes back
   unchanged when you run the review again. If someone else has changed the review while you were writing, the
-  page reads it again and keeps your words.
+  page reads it again and keeps your words. Above the filters the sheet says how the review was made and, in a
+  list with a sentence for each, what it could not check. Where it says that the conflicts between the
+  sources were not checked, **Open the conflicts in Ground** takes you there: opening them in Ground makes
+  the check, and then you run the review again.
 - **When it is out of date.** "This brief may be out of date" says what changed since it was made. If the
   scenario, the stakeholders or the actors changed after the comparison ran, choose **Re-run the comparison**
   and then write the brief again; if only the review changed, or a newer comparison exists, choose **Write
@@ -548,7 +556,8 @@ and the raw state; in Guided detail these are one disclosure away).
    results. Model-assisted reports plan bounded tool use, search sources and memory, inspect timelines,
    optionally interview fictional proxies, and write real chapters progressively; in Advanced detail the
    operations behind the report are listed with it, and hidden model reasoning is not exposed. **Open the
-   detailed report** reads it. See [the grounding review](#grounding-review-model-assisted-reports).
+   detailed report** reads it. Until it is written, the tools of the brief in Decide offer **Write the
+   detailed report** too. See [the grounding review](#grounding-review-model-assisted-reports).
 4. **Ask** the report and the proxies: see [Asking the analyst and the actors](#asking-the-analyst-and-the-actors).
 
 Each execution step stops at **ready** and waits for the next explicit action. Later steps cannot bypass
@@ -694,7 +703,10 @@ Report Studio is where a person works on the detailed report that was generated:
 _document_, and the generated report itself is never changed. The design and its limits are in
 [ADR 0011](./adr/0011-report-studio.md). It opens from **Edit report** in Decide (or **Edit in the studio**
 on the detailed report), at `?scene=decide&view=studio`. Because it works on the deep dive's detailed report,
-it says "There is no report to work on yet" until one is written, and points to it.
+it says "There is no report to work on yet" until one is written, and offers **Write the detailed report**
+itself: the studio writes it from there, shows how far it has got with a **Stop** button, says when it is
+done and opens on the result. If you may not write it, it says who can; if the deep dive has not been run,
+it says so and takes you to the deep dive.
 
 - **Opening it.** The first time, choose **Open in the studio**. Analysts and project leads can; everyone
   else can read it once it is open. A report computed from recorded results, with no model, can be opened
@@ -711,9 +723,11 @@ it says "There is no report to work on yet" until one is written, and points to 
   earlier text back as a new version. A save that changes nothing is not offered. If someone else saved the
   section while you were writing, the page says "Version N was saved while you were writing", keeps your
   words and offers **See the differences** and **Drop mine**; saving then makes a new version on top of
-  theirs, and theirs stays in the history. If you go back to the brief while words are unsaved, the studio
-  asks first ("Leave with unsaved changes?": **Keep editing** or **Leave anyway**), and so does the browser
-  if you close the tab.
+  theirs, and theirs stays in the history. If you leave while words are unsaved you are asked first ("Leave
+  with unsaved changes?": **Keep editing** or **Leave anyway**), whichever way you go: back to the brief or on
+  to the detailed report, the journey, the dock, Search and commands, another exploration or a new question.
+  **Keep editing** leaves you where you were, and **Leave anyway** goes where you were heading. Words that
+  were saved are not asked about, and the browser asks if you close the tab.
 - **What an edit does to the checks.** The server checked the statements against the text it generated. Once
   the text of a chapter has changed, those statements describe an earlier text: they are still shown,
   marked as such ("These statements describe an earlier text"), and nothing says they check the new words.

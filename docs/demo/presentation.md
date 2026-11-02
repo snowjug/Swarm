@@ -214,7 +214,8 @@ it, with no questions or answers. **Verify integrity**.
 
 **Optional, about ninety seconds more: the report studio.** It cannot be opened on a recording (its
 route is **Decide** → **Edit report**, and **Decide** is locked there), so use a project you made from a
-flagship demo, after its deep dive has written a detailed report. Delete that project afterwards under
+flagship demo, after its deep dive has written a detailed report (until it has, the brief offers **Write the
+detailed report** in place of **Edit report**). Delete that project afterwards under
 **History**. In **Decide**, choose **Edit report**, then **Open in the studio**. "The generated report is
 never changed: this is a copy that a person works on." Open a chapter and its **Statements** tool: "Each
 statement shows what the server checked it against." Choose **Edit**, add a sentence, **Save as version
