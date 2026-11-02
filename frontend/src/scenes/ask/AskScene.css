@@ -13,6 +13,9 @@
     position: relative;
     max-width: 18ch;
     text-align: center;
+    /* Scales with the width and the height of the screen, so that the composer and the path stay in the first view on
+       a short laptop and the question is large on a big monitor. */
+    font-size: clamp(2.9rem, min(1.3rem + 6.2vw, 12vh), 8rem);
     animation: sw-rise var(--dur-cinema) var(--ease-out) both;
   }
   .sw-ask__title em {
@@ -141,6 +144,43 @@
       min-height: 2.75rem;
     }
   }
+  /* A phone: the examples are one row to swipe, bleeding to the edges and fading out at them, so that the path
+     below the composer is in the first view. Each is a button, so a keyboard reaches them and the row follows. */
+  @media (max-width: 40rem) {
+    .sw-ask__starts {
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      width: calc(100% + 2 * var(--gutter));
+      max-width: none;
+      margin-inline: calc(var(--gutter) * -1);
+      padding-inline: var(--gutter);
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      scroll-padding-inline: var(--gutter);
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(
+        90deg,
+        transparent,
+        black var(--gutter),
+        black calc(100% - 2.5rem),
+        transparent
+      );
+      mask-image: linear-gradient(
+        90deg,
+        transparent,
+        black var(--gutter),
+        black calc(100% - 2.5rem),
+        transparent
+      );
+    }
+    .sw-ask__starts::-webkit-scrollbar {
+      display: none;
+    }
+    .sw-ask__starts > li {
+      flex: none;
+      scroll-snap-align: start;
+    }
+  }
   .sw-ask__loaded {
     display: flex;
     justify-content: center;
@@ -170,6 +210,16 @@
   .sw-ask__recents {
     width: 100%;
     margin-top: var(--s-7);
+  }
+  /* A short laptop screen: the whole first view is one composition, so the margins give a little. */
+  @media (max-height: 820px) and (min-width: 62rem) {
+    .sw-ask {
+      padding-top: clamp(1.25rem, 3.5vh, 2.5rem);
+      gap: var(--s-3);
+    }
+    .sw-ask__stage {
+      gap: var(--s-4);
+    }
   }
 
   /* A refusal that is felt: the thing that is missing shakes once. */

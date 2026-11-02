@@ -28,8 +28,14 @@ import {
 
 test.use({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
 
+// The name begins with the words on the chip (WCAG 2.5.3 Label in Name) and then says what pressing it does.
 const note = (page: Parameters<typeof openAsk>[0], title: string) =>
-  page.getByRole('button', { name: `${title} loaded. Dismiss this note` });
+  page.getByRole('button', {
+    name: new RegExp(
+      `^${title.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')} · .*Dismiss this note$`,
+      'u',
+    ),
+  });
 
 const wordsOf = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}$-]+/gu) ?? [];
 
