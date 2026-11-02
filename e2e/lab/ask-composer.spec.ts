@@ -609,6 +609,42 @@ test.describe('beside the question', () => {
     expect(reads(), 'a time frame was added, so the question is read again').toHaveLength(2);
     expect(await textOf(page, 'Over what time')).toBe('the next two quarters');
   });
+
+  test('the sources are part of what a reading is made from: as they were it is kept, with another it is read again from both', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    const reads: { documents: { name: string; characters: number }[] }[] = [];
+    page.on('request', (request) => {
+      if (new URL(request.url()).pathname === '/api/scenario/parse') {
+        reads.push(request.postDataJSON() as (typeof reads)[number]);
+      }
+    });
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+    await readScenario(page);
+    expect(reads).toHaveLength(1);
+
+    await bar(page).getByRole('button', { name: 'Question' }).click();
+    await exploreButton(page).click();
+    await expect(reviewHeading(page)).toBeVisible();
+    expect(reads, 'the same source, so nothing is asked again').toHaveLength(1);
+
+    await bar(page).getByRole('button', { name: 'Question' }).click();
+    await pasteSource(
+      page,
+      'skippers.md',
+      'Skippers also say that the visiting season has grown longer, and that the harbour office has never published how the mooring fee is set.',
+    );
+    await exploreButton(page).click();
+    await expect(reviewHeading(page)).toBeVisible();
+    await expect(goOn(page)).toBeVisible();
+    expect(reads, 'a source was added, so the question is read again').toHaveLength(2);
+    expect(reads[1]!.documents.map((document) => document.name)).toEqual([
+      HARBOUR_NOTES.name,
+      'skippers.md',
+    ]);
+  });
 });
 
 test.describe('starting over', () => {

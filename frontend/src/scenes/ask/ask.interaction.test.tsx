@@ -707,6 +707,104 @@ describe('the scenario that was read', () => {
     expect(container.contains(document.activeElement)).toBe(true);
   });
 
+  describe('the sources behind a reading', () => {
+    const OTHER = `${NOTES} The council meets on the first Tuesday of each month.`;
+    const MORE = ' It is paid on arrival.';
+    const corrected = 'Double the mooring fee from the first of June';
+
+    /** What the person writes over the decision that was read: theirs, and not to be lost to a reading that is the same. */
+    async function correctTheDecision(user: UserEvent) {
+      await user.click(screen.getByRole('button', { name: /^The decision or event: .* Edit$/u }));
+      const field = screen.getByRole<HTMLTextAreaElement>('textbox', {
+        name: 'The decision or event',
+      });
+      await user.clear(field);
+      await user.type(field, corrected);
+      await user.keyboard('{Control>}{Enter}{/Control}');
+      await screen.findByRole('button', { name: `The decision or event: ${corrected}. Edit` });
+    }
+    async function backToTheQuestion(user: UserEvent) {
+      await user.click(screen.getByRole('button', { name: 'Question' }));
+      await screen.findByRole('textbox', { name: 'Your what-if question' });
+    }
+    async function takeAway(user: UserEvent, name: string) {
+      const tray = screen.getByRole('list', { name: 'Attached evidence' });
+      await user.click(within(tray).getByRole('button', { name: `Remove ${name}` }));
+      await waitFor(() =>
+        expect(screen.queryByRole('button', { name: `Remove ${name}` })).toBeNull(),
+      );
+    }
+    async function correctSource(user: UserEvent) {
+      await user.click(screen.getByRole('button', { name: /^Read notes\.txt/u }));
+      const sheet = await screen.findByRole('dialog', { name: 'notes.txt' });
+      await user.type(
+        within(sheet).getByRole('textbox', { name: 'The text Swarm will work from' }),
+        MORE,
+      );
+      await user.click(within(sheet).getByRole('button', { name: 'Done' }));
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'notes.txt' })).toBeNull());
+    }
+
+    it('keeps the reading, with what the person corrected in it, while its sources are as they were', async () => {
+      const { user } = await inReview();
+      await correctTheDecision(user);
+      await backToTheQuestion(user);
+
+      // A source taken away and attached again as it was changes nothing that a reading is made from.
+      await takeAway(user, 'notes.txt');
+      await pasteSource(user);
+      await user.click(explore());
+      await groundIt();
+
+      expect(net.parse).toHaveBeenCalledTimes(1);
+      expect(
+        screen.getByRole('button', { name: `The decision or event: ${corrected}. Edit` }),
+      ).toBeTruthy();
+    });
+
+    it.each([
+      [
+        'another source is attached',
+        (user: UserEvent) => pasteSource(user, OTHER),
+        [
+          { name: 'notes.txt', characters: NOTES.length, excerpt: NOTES },
+          { name: 'notes-2.txt', characters: OTHER.length, excerpt: OTHER },
+        ],
+      ],
+      [
+        'a source is corrected',
+        correctSource,
+        [{ name: 'notes.txt', characters: NOTES.length + MORE.length, excerpt: NOTES + MORE }],
+      ],
+      [
+        'a source is taken away and another attached',
+        async (user: UserEvent) => {
+          await takeAway(user, 'notes.txt');
+          await pasteSource(user, OTHER);
+        },
+        [{ name: 'notes.txt', characters: OTHER.length, excerpt: OTHER }],
+      ],
+    ])(
+      'reads again when %s, from the sources as they are now, and shows that reading instead of the old one',
+      async (_what, change, sources) => {
+        const { user } = await inReview(scenario({ decision: 'The first reading' }));
+        await correctTheDecision(user);
+        await backToTheQuestion(user);
+        await change(user);
+
+        net.parse.mockResolvedValue(reading(scenario({ decision: 'The second reading' })));
+        await user.click(explore());
+        await screen.findByRole('button', {
+          name: 'The decision or event: The second reading. Edit',
+        });
+
+        expect(net.parse).toHaveBeenCalledTimes(2);
+        expect(net.parse.mock.calls[1]![1]).toEqual(sources);
+        expect(screen.queryByText(corrected)).toBeNull();
+      },
+    );
+  });
+
   it('shows why the scenario could not be started, and can be started again', async () => {
     const { user, onSubmit } = await inReview();
     onSubmit.mockRejectedValueOnce(new Error('The server is full. Try again later.'));
