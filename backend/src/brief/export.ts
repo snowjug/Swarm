@@ -611,35 +611,50 @@ const esc = (value: string): string =>
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
 
+// A document to be read and handed on, not a dump of the record: the answer first, the paper's own typefaces (the
+// page may load nothing), what each statement rests on beside it and quiet, and the one deliberate box, the caveat.
 const STYLE = `
-  :root { color-scheme: light; }
-  body { margin: 0; background: #fff; color: #111; font: 11pt/1.5 'Segoe UI', Arial, sans-serif; }
-  main { max-width: 52rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
-  h1 { font-size: 1.7rem; line-height: 1.2; margin: 0 0 .25rem; }
-  h2 { font-size: 1.2rem; margin: 2rem 0 .5rem; padding-bottom: .2rem; border-bottom: 2px solid #111; }
-  .notice { font-style: italic; margin: 0 0 1rem; }
-  .alert { border: 2px solid #111; padding: .5rem .75rem; margin: 0 0 1rem; break-inside: avoid; }
-  .note { font-size: .9rem; color: #333; margin: .2rem 0; }
-  dl { margin: 1rem 0; display: grid; grid-template-columns: max-content 1fr; gap: .15rem 1rem; font-size: .9rem; }
-  dt { font-weight: 700; }
+  :root { color-scheme: light; --ink: #17171c; --soft: #4b4b57; --faint: #6e6e7a; --rule: #dcdce4; }
+  body { margin: 0; background: #fff; color: var(--ink); font: 1.0625rem/1.62 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+  main { max-width: 54rem; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  h1, h2 { font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Charter, Georgia, serif; font-weight: 500; letter-spacing: -.01em; text-wrap: balance; }
+  h1 { font-size: 2.5rem; line-height: 1.08; margin: 0 0 1rem; }
+  h2 { font-size: 1.55rem; line-height: 1.2; margin: 3rem 0 .9rem; padding-top: 1.1rem; border-top: 1px solid var(--rule); }
+  main > p { max-width: 42rem; }
+  .notice { font-style: italic; color: var(--soft); margin: 0 0 1.5rem; padding-left: .9rem; border-left: 3px solid var(--rule); }
+  .alert { border: 2px solid #111; padding: .65rem .9rem; margin: 0 0 1.25rem; break-inside: avoid; }
+  .note { font-size: .9rem; color: var(--soft); margin: .3rem 0; }
+  dl { margin: 1.25rem 0 1.5rem; display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1.25rem; font-size: .9rem; }
+  dt { font-weight: 600; color: var(--soft); }
   dd { margin: 0; overflow-wrap: anywhere; }
+  main > dl:first-of-type { display: block; font-size: .82rem; color: var(--soft); }
+  main > dl:first-of-type dt, main > dl:first-of-type dd { display: inline; }
+  main > dl:first-of-type dd { margin: 0 1.1rem 0 .3rem; }
+  main > dl:first-of-type dt:first-of-type { display: block; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); margin-bottom: .2rem; }
+  main > dl:first-of-type dd:first-of-type { display: block; margin: 0 0 1.1rem; max-width: 40rem; font: 1.45rem/1.3 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Charter, Georgia, serif; color: var(--ink); }
   ul { padding-left: 1.2rem; }
   li { margin: .5rem 0; }
-  .statement { break-inside: avoid; }
-  .origin { display: inline-block; border: 1px solid #111; padding: 0 .35rem; font-size: .8rem; font-weight: 700; margin-right: .35rem; }
-  .reliance { display: inline-block; border: 1px dashed #111; padding: 0 .35rem; font-size: .8rem; margin-right: .35rem; }
-  .id { font-size: .8rem; color: #333; }
-  .rests { font-size: .85rem; color: #222; margin: .2rem 0 0; }
-  .rests li { margin: .1rem 0; }
-  table { border-collapse: collapse; width: 100%; font-size: .8rem; margin: .5rem 0 1rem; }
-  caption { text-align: left; font-weight: 700; padding: .3rem 0; }
-  th, td { border: 1px solid #111; padding: .25rem .4rem; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
-  thead th { background: #eee; }
+  .statements { list-style: none; padding: 0; margin: 0; }
+  .statement { display: flex; flex-wrap: wrap; align-items: baseline; gap: .1rem .6rem; margin: 1.35rem 0; break-inside: avoid; }
+  .origin { order: 1; font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); }
+  .reliance { order: 2; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+  .reliance::before { content: '/'; margin-right: .6rem; color: var(--rule); }
+  .id { order: 3; margin-left: auto; font: .7rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--faint); }
+  .text { order: 4; flex: 1 1 100%; max-width: 42rem; }
+  .rests { order: 5; flex: 1 1 100%; list-style: none; max-width: 42rem; margin: .35rem 0 0; padding: 0 0 0 .85rem; border-left: 2px solid var(--rule); font-size: .86rem; color: var(--soft); }
+  .rests li { margin: .2rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: .8rem; line-height: 1.45; margin: .75rem 0 1.75rem; }
+  caption { text-align: left; font-weight: 650; font-size: .92rem; padding: 0 0 .6rem; }
+  th, td { border: 0; border-bottom: 1px solid var(--rule); padding: .5rem .7rem .5rem 0; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+  thead th { font-size: .74rem; font-weight: 650; color: var(--soft); border-bottom: 1.5px solid var(--ink); overflow-wrap: break-word; hyphens: auto; }
+  table:not(.wide) th, table:not(.wide) td { min-width: 4.5rem; }
+  .wide thead th { overflow-wrap: anywhere; }
+  tbody th { font-weight: 600; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
-  footer { margin-top: 2.5rem; border-top: 1px solid #111; padding-top: .6rem; font-size: .85rem; }
-  .print-hint { font-size: .85rem; border: 1px solid #333; padding: .4rem .6rem; }
-  @media print { .print-hint { display: none; } main { padding: 0; max-width: none; } h2 { break-after: avoid; } }
+  footer { margin-top: 3.5rem; border-top: 1px solid var(--rule); padding-top: .9rem; font-size: .82rem; color: var(--soft); max-width: 42rem; }
+  .print-hint { font-size: .8rem; color: var(--faint); margin: 0 0 1.5rem; }
+  @media print { body { font-size: 10pt; line-height: 1.45; } .print-hint { display: none; } main { padding: 0; max-width: none; } h1 { font-size: 22pt; margin-bottom: 8pt; } h2 { font-size: 14pt; margin: 16pt 0 6pt; padding-top: 8pt; break-after: avoid; } .statement { margin: .8rem 0; } .rests li { margin: .1rem 0; } table { font-size: 7.5pt; margin: 6pt 0 12pt; } th, td { padding: .3rem .5rem .3rem 0; } footer { margin-top: 18pt; } }
   @page { margin: 16mm; }
 `;
 
@@ -674,12 +689,12 @@ export function briefHtml(input: BriefExportInput): string {
         if (!open) body.push('<ul class="statements">');
         open = true;
         body.push(
-          `<li class="statement"><span class="origin">${esc(block.origin)}</span>${block.reliance ? `<span class="reliance">${esc(block.reliance)}</span>` : ''}<span class="id">${esc(block.id)}</span> ${esc(block.text)}${block.rests.length > 0 ? `<ul class="rests">${block.rests.map((rest) => `<li>${esc(rest)}</li>`).join('')}</ul>` : ''}</li>`,
+          `<li class="statement"><span class="origin">${esc(block.origin)}</span>${block.reliance ? `<span class="reliance">${esc(block.reliance)}</span>` : ''}<span class="id">${esc(block.id)}</span><span class="text">${esc(block.text)}</span>${block.rests.length > 0 ? `<ul class="rests">${block.rests.map((rest) => `<li>${esc(rest)}</li>`).join('')}</ul>` : ''}</li>`,
         );
         break;
       case 'table':
         body.push(
-          `<table><caption>${esc(block.caption)}</caption><thead><tr>${block.headers.map((header) => `<th scope="col">${esc(header)}</th>`).join('')}</tr></thead><tbody>${block.rows
+          `<table${block.headers.length > 7 ? ' class="wide"' : ''}><caption>${esc(block.caption)}</caption><thead><tr>${block.headers.map((header) => `<th scope="col">${esc(header)}</th>`).join('')}</tr></thead><tbody>${block.rows
             .map(
               (row) =>
                 `<tr>${row.map((value, index) => (index === 0 ? `<th scope="row">${esc(cell(value))}</th>` : `<td>${esc(cell(value))}</td>`)).join('')}</tr>`,
