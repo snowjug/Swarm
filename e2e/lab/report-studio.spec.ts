@@ -149,7 +149,7 @@ test('a person works on the report, a reviewer decides on it, and what is export
 
   const title = 'Scenario and evidence';
   await test.step('the record holds the open conflicts between sources and the assumptions behind the figures', async () => {
-    await studio(page).getByRole('button', { name: 'Record' }).click();
+    await studio(page).getByRole('button', { name: 'Record', exact: true }).click();
     const record = page.getByRole('dialog', { name: 'Review record' });
     await record.getByRole('tab', { name: /^Conflicts/u }).click();
     await expect(
@@ -318,7 +318,7 @@ test('a person works on the report, a reviewer decides on it, and what is export
 
   let hash = '';
   await test.step('the approval holds the hash of the text, and the printable memo says the same', async () => {
-    await studio(page).getByRole('button', { name: 'Record' }).click();
+    await studio(page).getByRole('button', { name: 'Record', exact: true }).click();
     const record = page.getByRole('dialog', { name: 'Review record' });
     hash = ((await record.locator('code').first().textContent()) ?? '').trim();
     expect(hash).toMatch(/^[0-9a-f]{64}$/u);
@@ -396,7 +396,7 @@ test('a person works on the report, a reviewer decides on it, and what is export
   });
 
   await test.step('the audit log names every step, and holds no text a person wrote', async () => {
-    await studio(page).getByRole('button', { name: 'Record' }).click();
+    await studio(page).getByRole('button', { name: 'Record', exact: true }).click();
     await page
       .getByRole('dialog', { name: 'Review record' })
       .getByRole('button', { name: 'Open the audit log' })
@@ -607,7 +607,7 @@ for (const theme of THEMES) {
     await page.getByRole('dialog').getByRole('button', { name: 'Approve this text' }).click();
     await expect(workflow(page)).toContainText('Approved by');
     await check('approved');
-    await studio(page).getByRole('button', { name: 'Record' }).click();
+    await studio(page).getByRole('button', { name: 'Record', exact: true }).click();
     await expect(page.getByRole('dialog', { name: 'Review record' })).toBeVisible();
     await check('record');
     expect(problems).toEqual([]);

@@ -4,7 +4,7 @@ import { extractText, getDocumentProxy } from 'unpdf';
 import type { BriefView } from '../../shared/brief';
 import type { StudioView } from '../../shared/studio';
 import { addressOf, openApp } from './app';
-import { advance } from './helpers';
+import { advance, createGuided } from './helpers';
 import { makeProject, type MakeOptions } from './shell';
 
 // What the specs of the Decide scene share: projects at each point of its life (a comparison, a brief with or
@@ -319,4 +319,47 @@ export async function openTool(page: Page, name: string | RegExp): Promise<Locat
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
   return sectionTools(page).getByRole('tabpanel');
+}
+
+// ---------------------------------------------------------------------------------------------
+// A report written by a model
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * A model-assisted exploration with the brief and the deep dive's report, made through the real stages against the
+ * provider the server was started with. The report is the provider's, so its chapters have statements that were checked
+ * against the sources and can be written again.
+ */
+export async function modelReport(api: APIRequestContext, name: string): Promise<string> {
+  const id = await createGuided(api, { name, mode: 'llm', agents: 4, rounds: 3 });
+  await advance(api, id, 'knowledge');
+  const found = await api.post(`/api/projects/${id}/stakeholders/discover`, {
+    data: { mode: 'rules' },
+  });
+  expect(found.status(), await found.text()).toBe(201);
+  const { revision } = (await found.json()) as { revision: number };
+  const approved = await api.post(`/api/projects/${id}/stakeholders/approve`, {
+    data: { expectedRevision: revision },
+  });
+  expect(approved.status(), await approved.text()).toBe(200);
+  const actors = await api.post(`/api/projects/${id}/actors/generate`, { data: {} });
+  expect(actors.status(), await actors.text()).toBe(201);
+  const started = await api.post(`/api/projects/${id}/analysis`, { data: { runsPerVariant: 10 } });
+  expect(started.status(), await started.text()).toBe(202);
+  const { analysis } = (await started.json()) as { analysis: { id: string } };
+  await expect
+    .poll(
+      async () =>
+        (
+          (await (await api.get(`/api/projects/${id}/analysis/${analysis.id}`)).json()) as {
+            analysis: { status: string };
+          }
+        ).analysis.status,
+      { timeout: 120_000, intervals: [100, 250, 500] },
+    )
+    .toBe('completed');
+  for (const step of ['environment', 'simulation', 'report'] as const) {
+    await advance(api, id, step);
+  }
+  return id;
 }
