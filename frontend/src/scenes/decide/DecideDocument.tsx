@@ -33,6 +33,7 @@ import {
 } from './model/brief-model';
 import { anchorCritiques, reviewHeadline, tally } from './model/critique-model';
 import { plural } from './model/format';
+import { reportTool } from './model/report-tool';
 import { ReviewChapter } from './review/Review';
 import { ReviewSheet } from './review/ReviewSheet';
 import { ActDivider, ChapterShell } from './ui/Chapter';
@@ -55,10 +56,9 @@ export interface DocumentProps {
   analysis: BriefAnalysis;
   reviewOpen: boolean;
   onReviewOpenChange: (open: boolean) => void;
-  hasReport: boolean;
   /** The brief is there because it was written a moment ago, on this page. */
   justWritten?: boolean;
-  go: { simulate: () => void; studio: () => void; report: () => void };
+  go: { simulate: () => void; studio: () => void; report: () => void; ground: () => void };
 }
 
 const smooth = (reduced: boolean): ScrollBehavior => (reduced ? 'auto' : 'smooth');
@@ -77,7 +77,6 @@ export function DecideDocument({
   analysis,
   reviewOpen,
   onReviewOpenChange,
-  hasReport,
   justWritten = false,
   go,
 }: DocumentProps) {
@@ -314,7 +313,7 @@ export function DecideDocument({
       openCount={review.view?.critiques ? counts.open : null}
       may={view.may}
       generating={generating}
-      hasReport={hasReport}
+      report={reportTool(project, view.may.generate)}
       url={url}
       onReview={() => openReview()}
       onStudio={go.studio}
@@ -462,6 +461,7 @@ export function DecideDocument({
         focusId={focus.id}
         role={focus.role}
         onRerun={go.simulate}
+        onConflicts={go.ground}
       />
 
       <Sheet open={contentsOpen} onOpenChange={setContentsOpen}>
