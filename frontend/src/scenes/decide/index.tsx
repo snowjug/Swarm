@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useWorkspace } from '../../app/context';
 import { useBrief } from '../../hooks/useBrief';
 import { useCritiques } from '../../hooks/useCritiques';
@@ -27,8 +27,14 @@ function Brief() {
   const analysis = useBriefAnalysis(project.id, handle.view?.brief?.analysisId ?? null);
   const hasReport = project.report !== null;
   const toReport = hasReport ? () => go('decide', { view: 'report' }) : null;
-
+  // A brief that appears because it was just written is announced and takes the reader's place; one that was
+  // there when the page opened is not.
+  const [written, setWritten] = useState(false);
   const loaded = handle.view;
+  const writing = handle.generating && !loaded?.brief;
+  useEffect(() => {
+    if (writing) setWritten(true);
+  }, [writing]);
   if (!loaded) {
     return (
       <Page>
@@ -56,6 +62,7 @@ function Brief() {
         reviewOpen={view === 'review'}
         onReviewOpenChange={(open) => setView(open ? 'review' : null)}
         hasReport={hasReport}
+        justWritten={written}
         go={{
           simulate: () => go('simulate'),
           studio: () => go('decide', { view: 'studio' }),

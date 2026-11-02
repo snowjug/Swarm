@@ -142,7 +142,9 @@ function RecommendationItem({
           <LevelMark label="Impact" level={recommendation.impact} />
           <LevelMark label="Effort" level={recommendation.effort} />
           <Chip size="sm">{REVERSIBILITY[recommendation.reversibility]}</Chip>
-          <Chip size="sm">{recommendation.horizon}</Chip>
+          <Chip size="sm" wrap>
+            {recommendation.horizon}
+          </Chip>
           {recommendation.ownerFunction ? (
             <span className="sw-decide-rc__owner">{sentence(recommendation.ownerFunction)}</span>
           ) : null}
@@ -253,7 +255,9 @@ export function ValidationVisual({ plan }: { plan: readonly ValidationExperiment
               <h3 className="sw-decide-vl__q">{check.question}</h3>
               <p className="sw-decide-vl__chips">
                 <LevelMark label="Effort" level={check.effort} />
-                <Chip size="sm">{check.duration}</Chip>
+                <Chip size="sm" wrap>
+                  {check.duration}
+                </Chip>
                 {check.ownerFunction ? (
                   <span className="sw-decide-rc__owner">{sentence(check.ownerFunction)}</span>
                 ) : null}

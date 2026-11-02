@@ -55,7 +55,7 @@ export function Opening({
         <EmptyState
           icon={<ScrollText size={22} aria-hidden="true" />}
           title="There is no report to work on yet"
-          level={2}
+          level={1}
           action={
             <Button
               variant="glass"

@@ -33,7 +33,6 @@ export function SensitivityVisual({ visuals }: { visuals: BriefVisuals }) {
     );
   }
   const reach = tornadoReach(rows);
-  const shown = all ? rows : rows.slice(0, SHOWN);
   const at = (value: number) => `${50 + (value / reach) * 50}%`;
   return (
     <figure className="sw-decide-fig">
@@ -42,7 +41,7 @@ export function SensitivityVisual({ visuals }: { visuals: BriefVisuals }) {
         note="Each bar is the change, in every 100 simulated members, in the share looking for an alternative or resisting when one assumption was moved and nothing else, on the same seeds. Left lowers it, right raises it; the thin line is the standard error."
       />
       <ol className="sw-decide-tn" role="list">
-        {shown.map((row, index) => {
+        {rows.map((row, index) => {
           const flagged = aboutTarget(critiques, 'assumption', row.id);
           const Origin = ORIGIN_ICONS[row.origin];
           const FlagIcon = flagged[0] ? SEVERITY_ICONS[flagged[0].severity] : null;
@@ -50,6 +49,7 @@ export function SensitivityVisual({ visuals }: { visuals: BriefVisuals }) {
             <li
               key={row.id}
               className="sw-decide-tn__row"
+              data-folded={!all && index >= SHOWN ? 'true' : undefined}
               style={{ '--i': Math.min(index, 8) } as CSSProperties}
             >
               <p className="sw-decide-tn__label">
@@ -186,8 +186,8 @@ export function StabilityVisual({ visuals }: { visuals: BriefVisuals }) {
               <span className="sw-decide-sb__meaning">{BAND_MEANING[band.classification]}</span>
             </header>
             <ul role="list" className="sw-decide-sb__list">
-              {band.findings.slice(0, limit).map((finding) => (
-                <li key={finding.id}>
+              {band.findings.map((finding, index) => (
+                <li key={finding.id} data-folded={index >= limit ? 'true' : undefined}>
                   <Popover>
                     <PopoverTrigger asChild>
                       <button type="button" className="sw-decide-sb__row">

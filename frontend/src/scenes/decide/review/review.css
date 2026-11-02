@@ -283,8 +283,11 @@
   /* The sheet. */
   .sw-decide-review {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-5);
     padding-bottom: var(--s-5);
+    /* A criticism quotes what a source or a person wrote: a long word breaks where it must, and does not widen the sheet. */
+    overflow-wrap: anywhere;
   }
   .sw-decide-review__sum {
     display: grid;

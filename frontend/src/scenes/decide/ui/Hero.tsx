@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
-import { ArrowRight, Info, Scale } from 'lucide-react';
+import { ArrowRight, Info, ListChecks, Scale } from 'lucide-react';
 import { UNRECORDED_INPUTS_ADVICE } from '../../../../../shared/analysis';
 import { BRIEF_SIGNAL_NOTICES, type BriefStatement } from '../../../../../shared/brief';
 import type { CritiquesView } from '../../../../../shared/critique';
@@ -222,6 +222,8 @@ export interface HeroProps {
   review: { view: CritiquesView | null; failed: boolean };
   tools: ReactNode;
   comparisonRunning: boolean;
+  /** Takes the reader to the chapter that says what to do. */
+  onNext: (() => void) | null;
   /** The row of tools, so that the page can tell when it has gone by and keep them in reach. */
   topRef: RefObject<HTMLDivElement | null>;
 }
@@ -241,6 +243,7 @@ export function Hero({
   review,
   tools,
   comparisonRunning,
+  onNext,
   topRef,
 }: HeroProps) {
   const { brief, visuals, facts, factsLoading } = useDoc();
@@ -548,24 +551,49 @@ export function Hero({
           <h2 id="hero-matters" className="sw-eyebrow">
             What matters
           </h2>
-          {recommendation && (
-            <p className="sw-decide-block__text">
-              <Labelled statement={recommendation} />
-            </p>
-          )}
           {caveat && (
             <p className="sw-decide-block__text" data-caveat>
               <Labelled statement={caveat} />
             </p>
           )}
-          {!recommendation && !caveat && brief.recommendations[0] && (
-            <p className="sw-decide-block__text">{brief.recommendations[0].text}</p>
-          )}
           <ReviewLine view={review.view} failed={review.failed} />
         </section>
+
+        {(recommendation || brief.recommendations[0]) && (
+          <section
+            className="sw-decide-block sw-rise"
+            aria-labelledby="hero-next"
+            style={{ '--i': 9 } as CSSProperties}
+          >
+            <h2 id="hero-next" className="sw-eyebrow">
+              What to consider next
+            </h2>
+            {recommendation ? (
+              <p className="sw-decide-block__text">
+                <Labelled statement={recommendation} />
+              </p>
+            ) : (
+              <p className="sw-decide-block__text">{brief.recommendations[0]?.text}</p>
+            )}
+            {onNext ? (
+              <button type="button" className="sw-decide-reviewline" onClick={onNext}>
+                <ListChecks size={16} aria-hidden="true" />
+                <span>
+                  {plural(brief.recommendations.length, 'recommendation')}
+                  {brief.validationPlan.length > 0
+                    ? ` · ${plural(brief.validationPlan.length, 'check')}`
+                    : ''}
+                </span>
+                <span className="sw-decide-reviewline__go">
+                  See what to do <ArrowRight size={14} aria-hidden="true" />
+                </span>
+              </button>
+            ) : null}
+          </section>
+        )}
       </div>
 
-      <div className="sw-decide-hero__foot sw-rise" style={{ '--i': 9 } as CSSProperties}>
+      <div className="sw-decide-hero__foot sw-rise" style={{ '--i': 10 } as CSSProperties}>
         <HowCounted />
         <Disclosure
           heading={2}

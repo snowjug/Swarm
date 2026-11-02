@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { MAX_NOTE, type StudioView } from '../../../../shared/studio';
 import { Button, Dialog, DialogContent, Textarea } from '../../design/ui';
@@ -37,6 +37,7 @@ function Confirm({
 }) {
   const [note, setNote] = useState('');
   const id = useId();
+  const field = useRef<HTMLTextAreaElement>(null);
   const needsNote = noteLabel !== undefined;
   const ready = !needsNote || note.trim().length >= 3;
   const submit = () => {
@@ -47,6 +48,16 @@ function Confirm({
       <DialogContent
         title={title}
         description={description}
+        // The reason is asked for first. It is focused here and not with `autoFocus`, which would move focus before the
+        // dialog has noted what had it, and the button that asked could not be given focus back.
+        onOpenAutoFocus={
+          needsNote
+            ? (event) => {
+                event.preventDefault();
+                field.current?.focus();
+              }
+            : undefined
+        }
         footer={
           <>
             <Button variant="ghost" disabled={working} onClick={onClose}>
@@ -72,11 +83,11 @@ function Confirm({
                 {noteLabel}
               </label>
               <Textarea
+                ref={field}
                 id={id}
                 maxRows={6}
                 maxLength={MAX_NOTE}
                 value={note}
-                autoFocus
                 onChange={(event) => setNote(event.target.value)}
                 onKeyDown={(event) => {
                   if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {

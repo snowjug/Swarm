@@ -1,381 +1,352 @@
-import { expect, test, type Page } from '@playwright/test';
-import { extractText, getDocumentProxy } from 'unpdf';
-import { BRIEF_SECTION_IDS, BRIEF_SECTION_TITLES } from '../../shared/brief';
-import type { CritiquesView } from '../../shared/critique';
-import { expectNoAxeViolations, expectNoHorizontalOverflow, watchPage } from '../support/helpers';
+import { expect, test, type APIRequestContext } from '@playwright/test';
+import { BRIEF_SECTION_TITLES, type BriefSectionId } from '../../shared/brief';
+import { openApp } from '../support/app';
 import {
-  CITY_BRIEFING,
-  CITY_QUESTION,
-  briefDocument,
+  apiContext,
+  expectNoAxeViolations,
+  expectNoHorizontalOverflow,
+  expectReadableText,
+  expectTouchTargets,
+  viewports,
+  watchPage,
+} from '../support/helpers';
+import { PHONE, forget, quiet } from '../support/shell';
+import {
+  blankAfterMain,
   briefOf,
-  expandBrief,
-  getJson,
-  openStage,
-  reviewPanel,
-  seedWithBrief,
-} from '../support/lab';
+  briefed,
+  chapter,
+  chapterToggle,
+  contents,
+  openDecide,
+  tools,
+  topOf,
+  verdict,
+} from '../support/decide';
 
-// The Report stage with a decision brief of seventeen sections used to be forty screens long, with the
-// independent review at the bottom of it. The answer is open when the page opens and the reference is
-// closed until it is wanted; a bar that stays in view leads to the brief, the review and the detailed
-// report; and the printed page is the brief, whole, and nothing of the application around it.
-// Rules mode: no model is called.
+// The decision brief as a page: an answer first, then the story of it, with the reference closed until it is
+// wanted. The first screen answers what happened, why, what matters and what to consider next; a contents beside
+// the document says where the reader is and opens a chapter before it takes the reader there; a bar keeps the
+// tools in reach. Rules mode: no model is called.
 
-const SEED = { title: 'Report page', question: CITY_QUESTION, documents: [CITY_BRIEFING] };
-const SIZES = [
-  { name: '1440x900', width: 1440, height: 900 },
-  { name: '1366x768', width: 1366, height: 768 },
-  { name: '390x844', width: 390, height: 844 },
-] as const;
+const REFERENCE: readonly BriefSectionId[] = [
+  'assumptions',
+  'evidence-base',
+  'sources',
+  'limitations',
+  'technical-appendix',
+];
 
-const OPEN = [
-  'decision',
-  'reaction-patterns',
-  'alternative-outcomes',
-  'first-order',
-  'second-order',
-  'drivers',
-  'risks-opportunities',
-  'recommendations',
-  'validation-plan',
-] as const;
-const CLOSED = BRIEF_SECTION_IDS.filter(
-  (id) => id !== 'executive-answer' && !(OPEN as readonly string[]).includes(id),
-);
+let api: APIRequestContext;
+let project = '';
 
-const jumpBar = (page: Page) => page.getByRole('navigation', { name: 'Jump within the report' });
-const contents = (page: Page) =>
-  page.getByRole('navigation', { name: 'Sections of the decision brief' });
-const section = (page: Page, id: string) => page.locator(`#brief-${id}`);
-const isOpen = (page: Page, id: string) => section(page, id).locator('details.brief-collapse');
+test.beforeAll(async ({ playwright }) => {
+  api = await apiContext(playwright);
+  project = await briefed(api, { name: 'Brief page' });
+});
 
-async function openReport(page: Page, project: string): Promise<void> {
-  await page.goto(`/?project=${project}`);
-  await openStage(page, /Report/u);
-  await expect(briefDocument(page)).toBeVisible();
-  await expect(reviewPanel(page)).toBeVisible();
-}
+test.afterAll(async () => {
+  await forget(api, [project]);
+  await api.dispose();
+});
 
-/** Where the app header ends: the bar sticks under it where it stays at the top, and at the top where it does not. */
-const headerBottom = (page: Page): Promise<number> =>
-  page.evaluate(() => {
-    const header = document.querySelector('.app-header') as HTMLElement;
-    return getComputedStyle(header).position === 'sticky'
-      ? header.getBoundingClientRect().bottom
-      : 0;
-  });
+test.use({ reducedMotion: 'reduce' });
 
-const documentHeight = (page: Page): Promise<number> =>
-  page.evaluate(() => document.documentElement.scrollHeight);
-
-test.describe('the report page', () => {
+test.describe('the brief on a desktop screen', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('opens on the answer, keeps the reference one click away, and lists every section in the contents', async ({
+  test('opens on its answer: what happened, why, what matters, what to consider next, and that none of it is a forecast', async ({
     page,
   }) => {
     const problems = watchPage(page);
-    const project = await seedWithBrief(page, SEED);
-    await openReport(page, project);
+    await openDecide(page, project);
 
-    for (const id of OPEN) await expect(isOpen(page, id), id).toHaveJSProperty('open', true);
-    for (const id of CLOSED) await expect(isOpen(page, id), id).toHaveJSProperty('open', false);
-    await expect(page.locator('h1')).toHaveCount(1);
-
-    const list = contents(page).getByRole('link');
-    await expect(list).toHaveCount(BRIEF_SECTION_IDS.length);
-    for (const id of ['validation-plan', 'limitations'] as const) {
-      await expect(list.filter({ hasText: BRIEF_SECTION_TITLES[id] })).toHaveCount(1);
+    await expect(verdict(page)).toHaveCount(1);
+    await expect(verdict(page)).toContainText('the share of simulated members looking');
+    // The four questions are answered on the first screen, each under its own heading.
+    for (const name of ['What happened', 'Why', 'What matters', 'What to consider next']) {
+      await expect(
+        page.getByRole('main').getByRole('heading', { level: 2, name }),
+        `${name} is on the first screen`,
+      ).toBeInViewport();
     }
-
-    // Closed is closed on the screen: what is in the sections is still in the page.
-    const brief = await briefOf(page, project);
-    for (const id of CLOSED) {
-      const first = brief.brief?.sections.find((entry) => entry.id === id)?.statements[0]?.text;
-      if (first) await expect(section(page, id)).toContainText(first.slice(0, 40));
-    }
-
-    // The page is a few screens, not forty, and the review and the detailed report are not at the end of it.
-    const closed = await documentHeight(page);
-    const review = (await reviewPanel(page).boundingBox())!;
-    await expandBrief(page);
-    const expanded = await documentHeight(page);
-    expect(closed, 'the page with the reference closed').toBeLessThan(expanded * 0.6);
-    expect(
-      review.y + (await page.evaluate(() => window.scrollY)),
-      'where the review sits',
-    ).toBeLessThan(closed);
-
-    await expectNoHorizontalOverflow(page);
+    // What the answer rests on is said as numbers, and the words that say what they are come with them.
+    const figures = page.getByRole('group', { name: /^The comparison of .+ with .+/u });
+    await expect(figures).toContainText('Paired difference');
+    await expect(figures).toContainText('Higher under the change');
+    await expect(
+      page.getByText('Counts from a simulation under stated assumptions, not a forecast.'),
+    ).toBeInViewport();
+    await expect(
+      page.getByText(/Simulated members are synthetic stand-ins/u).first(),
+    ).toBeVisible();
+    // Who moved is named, and what is still open is said.
+    await expect(
+      page.getByRole('region', { name: 'Why' }).getByRole('listitem').first(),
+    ).toContainText(/in 100 from/u);
+    await expect(page.getByRole('region', { name: 'What matters' })).toContainText(
+      'Biggest open caveat',
+    );
     expect(problems, 'what the page logged or failed at').toEqual([]);
   });
 
-  test('can be moved around with the keyboard: a section opens and closes from its heading', async ({
+  test('keeps the reference closed until it is wanted, and what is in it stays in the page', async ({
     page,
   }) => {
-    const project = await seedWithBrief(page, SEED);
-    await openReport(page, project);
-    const toggle = section(page, 'limitations').locator('summary.brief-section-toggle');
+    await openDecide(page, project);
+    const { brief } = await briefOf(api, project);
+    for (const id of REFERENCE) {
+      const title = BRIEF_SECTION_TITLES[id];
+      const toggle = chapterToggle(page, title);
+      await expect(toggle, `${title} is closed`).toHaveAttribute('aria-expanded', 'false');
+      // Closed is closed on the screen: what it says is still in the page for find-in-page and for paper.
+      const first = brief!.sections.find((section) => section.id === id)!.statements[0]!.text;
+      await expect(chapter(page, title)).toContainText(first.slice(0, 40));
+    }
+    // The story is not closed: it has no button to open it.
+    await expect(chapterToggle(page, BRIEF_SECTION_TITLES['reaction-patterns'])).toHaveCount(0);
+
+    const limits = chapterToggle(page, BRIEF_SECTION_TITLES.limitations);
+    await limits.click();
+    await expect(limits).toHaveAttribute('aria-expanded', 'true');
+    await expect(
+      chapter(page, BRIEF_SECTION_TITLES.limitations).getByRole('listitem').first(),
+    ).toBeVisible();
+    await limits.click();
+    await expect(limits).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('a chapter of reference opens and closes from the keyboard, and its heading is still a heading', async ({
+    page,
+  }) => {
+    await openDecide(page, project);
+    const toggle = chapterToggle(page, BRIEF_SECTION_TITLES['technical-appendix']);
     await toggle.focus();
-    await expect(toggle).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(isOpen(page, 'limitations')).toHaveJSProperty('open', true);
-    await expect(
-      section(page, 'limitations')
-        .locator('.brief-text')
-        .filter({ hasText: 'Synthetic actors are not real people' }),
-    ).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Space');
-    await expect(isOpen(page, 'limitations')).toHaveJSProperty('open', false);
-    // The heading is still a heading of the page, whether its section is open or not.
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(
-      page.getByRole('heading', {
-        level: 3,
-        name: `${BRIEF_SECTION_IDS.indexOf('limitations') + 1}. ${BRIEF_SECTION_TITLES.limitations}`,
-      }),
+      page.getByRole('heading', { level: 2, name: /^Technical appendix/u }),
     ).toBeVisible();
-  });
-
-  test('opens a closed section before it scrolls to it: from the contents, from the address and from Expand all', async ({
-    page,
-  }) => {
-    const project = await seedWithBrief(page, SEED);
-    await openReport(page, project);
-    const bar = jumpBar(page);
-
-    await contents(page)
-      .getByRole('link', { name: /Sources and provenance/u })
-      .click();
-    await expect(isOpen(page, 'sources')).toHaveJSProperty('open', true);
-    await expect(section(page, 'sources')).toBeFocused();
-    const barBox = (await bar.boundingBox())!;
-    const sourcesBox = (await section(page, 'sources').boundingBox())!;
-    expect(sourcesBox.y, 'the section is not under the bar').toBeGreaterThanOrEqual(
-      barBox.y + barBox.height - 1,
-    );
-    expect(sourcesBox.y, 'the section is in view').toBeLessThan(300);
-
-    await section(page, 'sources').getByRole('link', { name: 'Back to contents' }).click();
-    await expect(contents(page)).toBeFocused();
-    expect((await contents(page).boundingBox())!.y).toBeGreaterThanOrEqual(
-      barBox.y + barBox.height - 1,
-    );
-
-    // An address that names a section, by what the contents link to or by its number.
-    await page.evaluate(() => {
-      window.location.hash = '#brief-limitations';
-    });
-    await expect(isOpen(page, 'limitations')).toHaveJSProperty('open', true);
-    await expect(section(page, 'limitations')).toBeFocused();
-    await expect(section(page, 'limitations')).toBeInViewport();
-    await page.evaluate(() => {
-      window.location.hash = '#brief-3';
-    });
-    await expect(isOpen(page, 'evidence-base')).toHaveJSProperty('open', true);
-    await expect(section(page, 'evidence-base')).toBeInViewport();
-
-    const collapse = briefDocument(page).getByRole('button', { name: 'Collapse all sections' });
-    await collapse.click();
-    await expect(briefDocument(page).locator('details.brief-collapse[open]')).toHaveCount(0);
-    await expect(
-      page.getByRole('status').filter({ hasText: 'All sections are closed' }),
-    ).toHaveCount(1);
-    await expandBrief(page);
-    await expect(page.getByRole('status').filter({ hasText: 'sections are open' })).toHaveCount(1);
-  });
-
-  test('opens the section an address names when the report is first opened', async ({ page }) => {
-    const project = await seedWithBrief(page, SEED);
-    await page.goto(`/?project=${project}#brief-sources`);
-    await openStage(page, /Report/u);
-    await expect(isOpen(page, 'sources')).toHaveJSProperty('open', true);
-    await expect(section(page, 'sources')).toBeInViewport();
-    await expect(isOpen(page, 'limitations')).toHaveJSProperty('open', false);
-  });
-});
-
-for (const size of [SIZES[0], SIZES[2]]) {
-  test.describe(`the bar that stays in view at ${size.name}`, () => {
-    test.use({ viewport: { width: size.width, height: size.height } });
-
-    test('sticks under the header however far the page is read, and leads to each part without covering it', async ({
-      page,
-    }) => {
-      const project = await seedWithBrief(page, SEED);
-      await openReport(page, project);
-      const bar = jumpBar(page);
-      await expect(bar.getByRole('link')).toHaveText([
-        /Decision brief/u,
-        /Independent review/u,
-        /Detailed report and studio/u,
-      ]);
-      await expect(bar.getByRole('link', { name: 'Independent review not run yet' })).toBeVisible();
-
-      await page.evaluate(() => window.scrollTo(0, 4_000));
-      const top = await headerBottom(page);
-      const barBox = (await bar.boundingBox())!;
-      expect(Math.abs(barBox.y - top), 'the bar sits under the header').toBeLessThanOrEqual(1);
-      await expect(bar).toBeInViewport({ ratio: 1 });
-      const clear = barBox.y + barBox.height - 1;
-
-      await bar.getByRole('link', { name: /^Independent review/u }).click();
-      await expect(reviewPanel(page)).toBeFocused();
-      expect(
-        (await reviewPanel(page).boundingBox())!.y,
-        'the review is not under the bar',
-      ).toBeGreaterThanOrEqual(clear);
+    // One headline for the page, and every chapter is a heading of the level below it.
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveCount(1);
+    const { brief } = await briefOf(api, project);
+    const titles = brief!.sections
+      .filter((section) => section.id !== 'executive-answer')
+      .map((section) => section.title);
+    for (const title of titles) {
       await expect(
-        reviewPanel(page).getByRole('heading', { name: 'Independent review', exact: true }),
-      ).toBeInViewport();
-
-      await bar.getByRole('link', { name: 'Detailed report and studio' }).click();
-      const detailed = page.getByRole('heading', { name: 'Detailed report' });
-      await expect(detailed).toBeFocused();
-      expect((await detailed.boundingBox())!.y).toBeGreaterThanOrEqual(clear);
-
-      await bar.getByRole('link', { name: 'Decision brief' }).click();
-      await expect(briefDocument(page)).toBeFocused();
-      expect((await briefDocument(page).boundingBox())!.y).toBeGreaterThanOrEqual(clear);
-      await expect(bar).toBeInViewport({ ratio: 1 });
-    });
+        page.getByRole('heading', { level: 2, name: new RegExp(`^${title}`, 'u') }),
+        title,
+      ).toHaveCount(1);
+    }
   });
-}
 
-test.describe('the independent review in the bar', () => {
-  test.use({ viewport: { width: 1440, height: 900 } });
-
-  test('says what is not yet closed, from the one read the page makes, and follows an answer to a criticism', async ({
+  test('lists every chapter in the contents, and opens a closed one before it takes the reader there', async ({
     page,
   }) => {
-    const project = await seedWithBrief(page, SEED, { review: true });
-    const reads: string[] = [];
-    page.on('request', (request) => {
-      if (
-        request.method() === 'GET' &&
-        request.url().endsWith(`/api/projects/${project}/critiques`)
-      ) {
-        reads.push(request.url());
-      }
-    });
-    await openReport(page, project);
+    await openDecide(page, project);
+    const { brief } = await briefOf(api, project);
+    const nav = contents(page);
+    // The answer, each chapter the brief holds, and the independent review that stands among them.
+    const chapters = brief!.sections.filter((section) => section.id !== 'executive-answer');
+    await expect(nav.getByRole('link', { name: 'The answer' })).toBeVisible();
+    for (const section of chapters) {
+      await expect(nav.getByRole('link', { name: section.title }), section.title).toHaveCount(1);
+    }
+    await expect(nav.getByRole('link', { name: 'Independent review' })).toHaveCount(1);
 
-    const view = await getJson<CritiquesView>(page, `/api/projects/${project}/critiques`);
-    const notClosed = (view.critiques?.critiques ?? []).filter(
-      (c) => c.status !== 'accepted',
-    ).length;
-    expect(notClosed).toBeGreaterThan(0);
-    const link = jumpBar(page).getByRole('link', { name: /^Independent review/u });
-    await expect(link).toHaveText(new RegExp(`${notClosed} not yet closed`, 'u'));
-    expect(reads.length, 'reads of the review made by the page').toBe(1);
-
-    const first = reviewPanel(page).getByRole('article').first();
-    await first.getByText('Respond to this criticism').click();
-    await first.getByLabel('Your response', { exact: true }).fill('Accepted: this applies.');
-    await first.getByRole('button', { name: 'Accept the objection' }).click();
-    await expect(link).toHaveText(
-      new RegExp(`${notClosed - 1} not yet closed|all \\d+ closed`, 'u'),
+    await nav.getByRole('link', { name: 'Sources and provenance' }).click();
+    const sources = chapter(page, 'Sources and provenance');
+    await expect(chapterToggle(page, 'Sources and provenance')).toHaveAttribute(
+      'aria-expanded',
+      'true',
     );
-    expect(reads.length, 'the answer is the page’s own, and asks for nothing more').toBe(1);
+    await expect(sources).toBeFocused();
+    await expect(sources).toBeInViewport();
+    await expect(page).toHaveURL(/#brief-sources$/u);
+    // The reader is told where they are, and the chapter is not hidden under the top bar.
+    await expect(nav.getByRole('link', { name: 'Sources and provenance' })).toHaveAttribute(
+      'aria-current',
+      'location',
+    );
+    expect(await topOf(sources), 'the chapter starts below the top bar').toBeGreaterThan(70);
+
+    await nav.getByRole('link', { name: 'The answer' }).click();
+    await expect(verdict(page)).toBeInViewport();
   });
-});
 
-test.describe('printing the report', () => {
-  test.use({ viewport: { width: 1440, height: 900 } });
-
-  test('prints the whole brief and the review, whatever is closed on the screen, and nothing of the application', async ({
+  test('opens the chapter that an address names, on the first visit and when the address changes', async ({
     page,
   }) => {
-    const project = await seedWithBrief(page, SEED, { review: true });
-    await openReport(page, project);
-    await briefDocument(page).getByRole('button', { name: 'Collapse all sections' }).click();
-    await expect(briefDocument(page).locator('details.brief-collapse[open]')).toHaveCount(0);
-
-    await page.emulateMedia({ media: 'print' });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
-    const { totalPages, text } = await extractText(await getDocumentProxy(new Uint8Array(pdf)), {
-      mergePages: true,
+    await page.goto(`/?project=${project}&scene=decide#brief-limitations`);
+    await expect(chapterToggle(page, 'Limitations')).toHaveAttribute('aria-expanded', 'true');
+    await expect(chapter(page, 'Limitations')).toBeInViewport();
+    await expect(chapterToggle(page, 'Sources and provenance')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await page.evaluate(() => {
+      window.location.hash = '#brief-technical-appendix';
     });
-    const flat = String(text).replace(/\s+/gu, '');
-    const has = (words: string) => flat.includes(words.replace(/\s+/gu, ''));
-    expect(totalPages).toBeGreaterThan(5);
-
-    // Every section is printed in full, though the screen had them all closed: every statement of it,
-    // and not only the first. The recommendations and the checks are tables, not statements on the page.
-    const brief = await briefOf(page, project);
-    const sections = brief.brief?.sections ?? [];
-    expect(sections.length).toBeGreaterThan(5);
-    let checked = 0;
-    for (const entry of sections) {
-      for (const statement of entry.statements) {
-        if (entry.id === 'recommendations' && statement.id.startsWith('rec-')) continue;
-        if (entry.id === 'validation-plan' && statement.id.startsWith('val-')) continue;
-        const start = statement.text.slice(0, 60);
-        expect(has(start), `${entry.id}/${statement.id}: ${start}`).toBe(true);
-        checked += 1;
-      }
-    }
-    expect(checked).toBeGreaterThan(50);
-    expect(has('Independent review')).toBe(true);
-    expect(has('What the review found')).toBe(true);
-    expect(has('Decision brief')).toBe(true);
-    expect(has('Executive answer')).toBe(true);
-
-    // The application around the report, and the controls that are of no use on paper, are not.
-    for (const chrome of [
-      'Swarm Lab',
-      'Skip to console',
-      'Operation log',
-      'Back to the comparison',
-      'Audit log',
-      'Jump to',
-      'Expand all sections',
-      'Back to contents',
-      'Run independent review again',
-      'Detailed report and studio',
-    ]) {
-      expect(has(chrome), chrome).toBe(false);
-    }
-    // A chart is printed once: the tables that say the same again are not, and neither is the button
-    // that opens them. The one chart with no numbers of its own keeps its table, without the button.
-    expect(has('Show this as a table')).toBe(false);
-    expect(has('Stakeholder map, as a table')).toBe(false);
-    expect(has('Sensitivity of the simulated outcome to each assumption moved')).toBe(false);
-    expect(has('Mean share of simulated members in each response')).toBe(true);
-    expect(has('Mean number of simulated members in each response')).toBe(false);
+    await expect(chapterToggle(page, 'Technical appendix')).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    await expect(chapter(page, 'Technical appendix')).toBeInViewport();
   });
 
-  test('prints the other stages as it always did', async ({ page }) => {
-    const project = await seedWithBrief(page, SEED);
-    await page.goto(`/?project=${project}`);
-    await openStage(page, /Simulation/u);
-    await page.emulateMedia({ media: 'print' });
-    await expect(page.locator('.app-header')).toBeVisible();
-    await expect(page.locator('.journey')).toBeVisible();
+  test('can open every chapter at once and close the reference again', async ({ page }) => {
+    await openDecide(page, project);
+    const closed = await page.evaluate(() => document.documentElement.scrollHeight);
+    await contents(page).getByRole('button', { name: 'Open every chapter' }).click();
+    for (const id of REFERENCE) {
+      await expect(chapterToggle(page, BRIEF_SECTION_TITLES[id])).toHaveAttribute(
+        'aria-expanded',
+        'true',
+      );
+    }
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollHeight))
+      .toBeGreaterThan(closed);
+    await contents(page).getByRole('button', { name: 'Close the reference' }).click();
+    for (const id of REFERENCE) {
+      await expect(chapterToggle(page, BRIEF_SECTION_TITLES[id])).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    }
+  });
+
+  test('keeps the tools in reach once the first screen has gone by, and says where the reader is', async ({
+    page,
+  }) => {
+    await openDecide(page, project);
+    const bar = page.getByRole('region', { name: 'Brief tools' });
+    // Not there while the tools are on the page: nothing in it can be reached.
+    await expect(bar).toHaveJSProperty('inert', true);
+    await contents(page).getByRole('link', { name: 'Behavioural drivers' }).click();
+    await expect(bar).toHaveJSProperty('inert', false);
+    await expect(bar).toContainText('Behavioural drivers');
+    await expect(bar.getByRole('button', { name: /^Review/u })).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Export' })).toBeVisible();
+    await bar.getByRole('button', { name: /^Review/u }).click();
+    await expect(page.getByRole('dialog', { name: 'Independent review' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
+
+  test('says what to do next, and leads to it', async ({ page }) => {
+    await openDecide(page, project);
+    const next = page.getByRole('region', { name: 'What to consider next' });
+    await expect(next).toContainText('Recommendation, conditional on the premises below');
+    await next.getByRole('button', { name: /See what to do/u }).click();
+    await expect(chapter(page, 'Prioritised recommendations')).toBeFocused();
+    await expect(chapter(page, 'Prioritised recommendations')).toBeInViewport();
+  });
+
+  test('ends with what it says: the page has no blank stretch after the brief', async ({
+    page,
+  }) => {
+    await openDecide(page, project);
+    expect(await blankAfterMain(page), 'pixels of blank page after the end').toBeLessThanOrEqual(1);
+    await contents(page).getByRole('button', { name: 'Open every chapter' }).click();
+    await quiet(page);
+    expect(await blankAfterMain(page), 'with every chapter open').toBeLessThanOrEqual(1);
   });
 });
 
-// One theme for each size keeps this to a few minutes; every size in every theme was audited by hand.
-for (const [size, theme] of [
-  [SIZES[0], 'light'],
-  [SIZES[1], 'dark'],
-  [SIZES[2], 'high-contrast'],
+test.describe('the brief on a phone', () => {
+  test.use(PHONE);
+
+  test('puts the answer first and the contents in a sheet, with controls a finger can press', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await openDecide(page, project);
+    await expect(verdict(page)).toBeInViewport();
+    await expect(
+      page.getByText('Counts from a simulation under stated assumptions, not a forecast.'),
+    ).toBeVisible();
+    await expectTouchTargets(page, 'the brief on a phone', 'main');
+    // The contents is one press away and does not take the width of the page.
+    await expect(contents(page)).toBeHidden();
+    await chapter(page, 'Behavioural drivers').scrollIntoViewIfNeeded();
+    await page
+      .getByRole('region', { name: 'Brief tools' })
+      .getByRole('button', { name: 'Contents' })
+      .click();
+    const sheet = page.getByRole('dialog', { name: 'Contents' });
+    await sheet.getByRole('link', { name: 'Validation plan' }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(chapter(page, 'Validation plan')).toBeFocused();
+    await expect(chapter(page, 'Validation plan')).toBeInViewport();
+    expect(problems).toEqual([]);
+  });
+
+  test('ends with what it says on a phone too, with its last line clear of the dock', async ({
+    page,
+  }) => {
+    await openDecide(page, project);
+    expect(await blankAfterMain(page)).toBeLessThanOrEqual(1);
+    const dock = page.getByRole('navigation', { name: 'Journey' }).locator('visible=true');
+    const last = page
+      .getByRole('main')
+      .getByText(/Swarm explores scenarios/u)
+      .last();
+    // The page may still be growing as what is below the first screen is drawn: scroll until it is at its end.
+    await expect(async () => {
+      await page.evaluate(() =>
+        window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }),
+      );
+      const atEnd = await page.evaluate(
+        () =>
+          Math.ceil(window.scrollY + window.innerHeight) >=
+          document.documentElement.scrollHeight - 2,
+      );
+      expect(atEnd, 'the page is at its end').toBe(true);
+      const box = (await last.boundingBox())!;
+      const bar = (await dock.boundingBox())!;
+      expect(box.y + box.height, 'the end of the brief is clear of the dock').toBeLessThanOrEqual(
+        bar.y + 1,
+      );
+    }).toPass();
+  });
+});
+
+// Every size the product is designed for, in both themes and the high-contrast one: nothing runs off the page,
+// nothing is too small to read, and axe finds nothing, with the reference closed and with all of it open.
+for (const [viewport, theme] of [
+  [viewports[0], 'light'],
+  [viewports[1], 'dark'],
+  [viewports[2], 'light'],
+  [viewports[3], 'dark'],
+  [viewports[4], 'high-contrast'],
 ] as const) {
-  test.describe(`the report in the ${theme} theme at ${size.name}`, () => {
-    test.use({ viewport: { width: size.width, height: size.height } });
+  test.describe(`the brief at ${viewport.name} in the ${theme} theme`, () => {
+    test.use({
+      viewport: { width: viewport.width, height: viewport.height },
+      hasTouch: viewport.width <= 768,
+    });
 
     test('is clean for a screen reader and for the eye, with the reference closed and open', async ({
       page,
     }) => {
       const problems = watchPage(page);
-      await page.addInitScript((value) => window.localStorage.setItem('swarm.theme', value), theme);
-      const project = await seedWithBrief(page, SEED, { review: true });
-      await openReport(page, project);
+      await openApp(page, { project, scene: 'decide', theme });
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-      await expectNoAxeViolations(page, `${theme} ${size.name}: report, reference closed`);
+      await quiet(page);
+      await expectNoAxeViolations(page, `${theme} ${viewport.name}: brief, reference closed`);
       await expectNoHorizontalOverflow(page);
-      await expandBrief(page);
-      await expectNoAxeViolations(page, `${theme} ${size.name}: report, every section open`);
+      await expectReadableText(page, `${theme} ${viewport.name}: brief`);
+
+      await tools(page).getByRole('button', { name: 'More' }).click();
+      await page.getByRole('menuitem', { name: 'Open every chapter' }).click();
+      await quiet(page);
+      await expectNoAxeViolations(page, `${theme} ${viewport.name}: brief, every chapter open`);
       await expectNoHorizontalOverflow(page);
+      await expectReadableText(page, `${theme} ${viewport.name}: brief, every chapter open`);
       expect(problems, 'what the page logged or failed at').toEqual([]);
     });
   });

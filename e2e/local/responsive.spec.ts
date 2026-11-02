@@ -312,8 +312,8 @@ test.describe('known defects of layout', () => {
   });
 });
 
-test.describe('known defects of the decision page', () => {
-  test.fixme('(13) the page ends with the brief: the document is no taller than its main region', async ({
+test.describe('the decision page', () => {
+  test('(13) the page ends with the brief: the document is no taller than its main region', async ({
     page,
   }) => {
     await page.goto(
