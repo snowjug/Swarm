@@ -104,10 +104,15 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     await expectSignedIn(page);
     await page.getByRole('button', { name: 'Online store checkout', exact: true }).click();
     await page.getByRole('button', { name: 'Explore', exact: true }).click();
-    await page.getByRole('button', { name: 'Ground it' }).click();
-    await expect(
-      page.getByRole('alert').getByText('You are not a member of this workspace.').first(),
-    ).toBeVisible();
+    // The refusal may come when the question is read or when the exploration is made; either way it is told, in words.
+    const ground = page.getByRole('button', { name: 'Ground it' });
+    const told = page
+      .getByRole('alert')
+      .getByText('You are not a member of this workspace.')
+      .first();
+    await expect(ground.or(told)).toBeVisible();
+    if (await ground.isVisible()) await ground.click();
+    await expect(told).toBeVisible();
     // Nothing was made: still the first screen, with no journey to walk.
     await expect(page).not.toHaveURL(/[?&]project=/u);
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);

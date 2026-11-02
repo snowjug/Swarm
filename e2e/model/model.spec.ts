@@ -62,7 +62,7 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       await page.keyboard.press('Escape');
       await page.getByRole('button', { name: 'Library hours', exact: true }).click();
       await page.getByRole('button', { name: 'Explore', exact: true }).click();
-      await page.getByRole('button', { name: 'Ground it' }).click();
+      await page.getByRole('button', { name: 'Ground it', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Map the stakeholders' })).toBeVisible({
         timeout: 90_000,
       });
@@ -87,7 +87,9 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
         .poll(async () => (await getProject(api, id)).rounds.length, { timeout: 60_000 })
         .toBeGreaterThanOrEqual(2);
       await page.getByRole('button', { name: 'Pause at the last saved round' }).click();
-      await expect(page.getByText('Saved rounds are kept')).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText('Saved rounds are kept', { exact: true })).toBeVisible({
+        timeout: 30_000,
+      });
 
       const paused = await getProject(api, id);
       pausedAt = paused.rounds.length;
@@ -123,7 +125,9 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
     await test.step('a resume asks only for the rounds that are left, and the event reaches the provider', async () => {
       const before = (await fake.stats()).byKind.actor ?? 0;
       await page.getByRole('button', { name: /^Resume/u }).click();
-      await expect(page.getByRole('button', { name: 'Write the detailed report' })).toBeVisible({
+      await expect(
+        page.getByRole('button', { name: 'Write the detailed report', exact: true }),
+      ).toBeVisible({
         timeout: 120_000,
       });
       const done = await getProject(api, id);
@@ -151,7 +155,7 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
     });
 
     await test.step('the report is planned by the provider, written in three chapters, and its statements are checked', async () => {
-      await page.getByRole('button', { name: 'Write the detailed report' }).click();
+      await page.getByRole('button', { name: 'Write the detailed report', exact: true }).click();
       await expect
         .poll(async () => (await getProject(api, id)).report?.title ?? '', { timeout: 120_000 })
         .not.toBe('');
@@ -221,7 +225,9 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
 
     await fake.control({ failOnRound: null });
     await page.getByRole('button', { name: /^Resume/u }).click();
-    await expect(page.getByRole('button', { name: 'Write the detailed report' })).toBeVisible({
+    await expect(
+      page.getByRole('button', { name: 'Write the detailed report', exact: true }),
+    ).toBeVisible({
       timeout: 60_000,
     });
     const recovered = await getProject(api, id);
@@ -243,7 +249,7 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
     const id = await createGuided(api, { mode: 'llm', agents: 6, rounds: 4 });
 
     await openApp(page, { project: id });
-    await page.getByRole('button', { name: 'Ground it' }).click();
+    await page.getByRole('button', { name: 'Ground it', exact: true }).click();
     await expect(
       page.getByRole('alert').filter({ hasText: 'Reading the sources failed' }),
     ).toBeVisible({

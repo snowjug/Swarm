@@ -4,7 +4,6 @@ import {
   expectNoAxeViolations,
   expectNoBrowserPaintedControls,
   expectNoHorizontalOverflow,
-  watchPage,
 } from '../support/helpers';
 import { quiet, historyDialog, openHistory, openSettings, settingsButton } from '../support/shell';
 import { COLLEAGUE, OWNER, changesAs, shortId, signedInAs } from '../support/signin';
