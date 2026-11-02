@@ -69,7 +69,7 @@ export function TopBar({
         <IconButton
           label="Search and commands"
           shortcut={paletteShortcut()}
-          className="sw-hide-sm"
+          className="sw-bar__palette"
           onClick={onPalette}
         >
           <Search size={19} aria-hidden="true" />

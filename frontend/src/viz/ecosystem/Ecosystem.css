@@ -344,6 +344,11 @@
     stroke: var(--accent);
   }
 
+  /* An empty place's name is the quietest on the picture: it is there to be read, not to compete with who was found. */
+  .sw-eco__ghost .sw-eco__label {
+    fill: var(--ink-3);
+    font-weight: 450;
+  }
   .sw-eco__label {
     font: 500 12px/1 var(--font-ui);
     fill: var(--ink-2);
@@ -351,12 +356,8 @@
     stroke: var(--eco-halo-text);
     stroke-width: 3.5px;
     stroke-linejoin: round;
-    opacity: 0;
-    transition: opacity var(--dur-base) var(--ease-out);
+    animation: sw-fade var(--dur-fast) var(--ease-out) both;
     pointer-events: none;
-  }
-  .sw-eco__label[data-visible] {
-    opacity: 1;
   }
   .sw-eco__node.is-selected .sw-eco__label {
     fill: var(--ink);
@@ -364,8 +365,16 @@
   }
   .sw-eco__node:hover .sw-eco__label,
   .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__label {
-    opacity: 1;
     fill: var(--ink);
+  }
+  /* A key actor stands out by its name as well as its size: heavier, and in the full ink. */
+  .sw-eco__node[data-kind='key']:not(.sw-eco__ghost) .sw-eco__label {
+    fill: var(--ink);
+    font-weight: 640;
+  }
+  .sw-eco__node[data-kind='key']:not(.sw-eco__ghost) .sw-eco__core {
+    stroke-opacity: 0.95;
+    stroke-width: 1.8;
   }
 
   /* ---- Tooltip and controls float over the picture ---- */
@@ -390,10 +399,14 @@
   .sw-eco__tip span {
     color: var(--ink-2);
   }
+  .sw-eco__tip .sw-eco__tip-facts {
+    color: var(--ink);
+    font-weight: 560;
+  }
   .sw-eco__controls {
     position: absolute;
-    right: calc(var(--covered, 0px) + var(--s-3));
-    bottom: var(--s-3);
+    right: max(calc(var(--covered, 0px) + var(--s-3)), var(--eco-controls-right, 0px));
+    bottom: var(--eco-controls-bottom, var(--s-3));
     transition: right var(--dur-slow) var(--ease-spring-smooth);
     z-index: 3;
     display: flex;

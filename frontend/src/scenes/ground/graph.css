@@ -82,8 +82,9 @@
   }
   .sw-ground-edge__line {
     fill: none;
-    stroke: color-mix(in oklab, var(--ink) calc(15% + var(--w, 0.3) * 42%), transparent);
-    stroke-width: 1;
+    /* The strong links carry the picture, the weak ones are a haze behind it: width and weight follow how the link ranks. */
+    stroke: color-mix(in oklab, var(--ink) calc(7% + var(--r, 0) * var(--r, 0) * 40%), transparent);
+    stroke-width: calc(0.7px + var(--r, 0) * 1.5px);
     stroke-linecap: round;
     stroke-dasharray: 1;
     animation: sw-ground-draw var(--dur-cinema) var(--ease-out) both;

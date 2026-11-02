@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
-import { Bot, UserRound, Wand2 } from 'lucide-react';
+import { Bot, Plus, UserRound, Users, Wand2 } from 'lucide-react';
 import type { Actor, TraitKey } from '../../../../shared/stakeholders';
 import { useWorkspace } from '../../app/context';
 import { useTween } from '../../design/motion';
@@ -68,12 +68,23 @@ const WORKING_WORDS: Record<StakeholderWork, string> = {
   'saving-actors': 'Saving…',
 };
 
-const INSPECTOR_SPACE = 440;
+/** The width of the panel that floats over the right of the map. */
+const PANEL_WIDTH = 424;
+/** The page's grid (tokens.css: `--gutter` and `--w-wide`): the panel keeps to the same right edge as the bar above it. */
+const gridInset = (width: number): number =>
+  Math.max(Math.min(40, Math.max(16, 6.4 + 0.026 * width)), (width - 1472) / 2);
 
 function Count({ value }: { value: number }) {
   const shown = useTween(value, { duration: 0.6 });
   return <span className="sw-numeral">{Math.round(shown)}</span>;
 }
+
+/** The engine's account, a sentence at a time, so that what it did is read as a list and not as one block. */
+const sentencesOf = (text: string): string[] =>
+  text
+    .split(/(?<=[.?!])\s+(?=[A-Z\u201c"])/u)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
 
 /** How the list was made, in a few words, with the whole account one press away. */
 function SourceChip({
@@ -96,7 +107,7 @@ function SourceChip({
     <Popover>
       <PopoverTrigger asChild>
         <ChipButton size="sm" icon={<Icon size={13} aria-hidden="true" />}>
-          {label}
+          <span className="sw-tb-label">{label}</span>
         </ChipButton>
       </PopoverTrigger>
       <PopoverContent align="start" width="23rem" className="sw-source">
@@ -108,7 +119,13 @@ function SourceChip({
               ? 'Swarm read your text for role words and quoted the sentence for each. No model was used.'
               : 'You built this list yourself.'}
         </p>
-        {note && <p>{note}</p>}
+        {note && (
+          <ul className="sw-source__facts">
+            {sentencesOf(note).map((sentence) => (
+              <li key={sentence}>{sentence}</li>
+            ))}
+          </ul>
+        )}
         <p className="sw-caption">{SYNTHETIC_NOTE}</p>
       </PopoverContent>
     </Popover>
@@ -121,7 +138,25 @@ function describeNode(node: EcoNode): string {
   return `${node.label}, ${node.categoryLabel}, ${node.kind === 'key' ? 'key actor' : 'cohort'}, ${DIRECTION_LABEL[node.direction].toLowerCase()}${reach}, ${node.confidence} confidence${review}`;
 }
 
-type DialogState = { mode: 'add'; ghost: Ghost | null } | { mode: 'edit'; id: string } | null;
+const INFLUENCE_WORD = (value: number): string =>
+  value < 0.34 ? 'Low' : value < 0.67 ? 'Medium' : 'High';
+
+/** What a bead says on hover before the panel is opened: who matters, how sure Swarm is, and where the evidence stands. */
+function tipFacts(node: EcoNode, subject: 'stakeholders' | 'actors'): string {
+  const facts: string[] = [node.kind === 'key' ? 'Key' : 'Cohort'];
+  if (subject === 'actors' && node.influence !== undefined)
+    facts.push(`${INFLUENCE_WORD(node.influence)} influence`);
+  if (node.direction !== 'unclear') facts.push(DIRECTION_LABEL[node.direction]);
+  facts.push(
+    node.evidenceCount === 0
+      ? 'assumed'
+      : `${node.evidenceCount} ${node.evidenceCount === 1 ? 'quote' : 'quotes'}`,
+  );
+  return facts.join(' · ');
+}
+
+type DialogState =
+  { mode: 'add'; ghost: Ghost | null; copyOf?: string } | { mode: 'edit'; id: string } | null;
 
 /**
  * Who is in play: the stakeholders around the change, found in the evidence, as a map to look at and a
@@ -135,6 +170,7 @@ export function MapScene() {
   const { view: stakeholdersView, actors: actorsView, working } = state;
   const toast = useToast();
   const wide = useMediaQuery('(min-width: 64rem)');
+  const narrow = useMediaQuery('(max-width: 40rem)');
   // The picture keeps clear of the heading and the controls, however tall the two have become (a notice, a line that wraps).
   const head = useElementSize<HTMLDivElement>();
   const scope = useRef<HTMLElement>(null);
@@ -198,7 +234,7 @@ export function MapScene() {
     const found = await state.discover(mode, confirm);
     setPending(null);
     if (found) {
-      focus(['inspector', 'primary']);
+      focus(['title']);
       say('Stakeholders found. They are on the map.');
     }
   };
@@ -233,7 +269,12 @@ export function MapScene() {
     }
   };
   const resetActors = async (): Promise<void> => {
-    const made = await state.makeActors({ model: false, confirm: true });
+    // Changing a stakeholder takes the approval away, and actors are made only from an approved list.
+    const made = await state.makeActors({
+      model: false,
+      confirm: true,
+      approveFirst: set !== null && !set.approvedAt,
+    });
     setResetting(false);
     if (made) {
       setDraft(null);
@@ -264,8 +305,23 @@ export function MapScene() {
     setDraft((old) =>
       (old ?? actorSet?.actors ?? []).map((actor) => (actor.id === next.id ? next : actor)),
     );
+  // The button that saves is built when the number of changed actors changes, not on every change: what it saves is read
+  // from here, when it is pressed, so that the last thing the person changed is what is saved.
+  const draftNow = useRef(draft);
+  useEffect(() => {
+    draftNow.current = draft;
+  });
   const saveActors = async (): Promise<void> => {
-    if (draft && (await state.saveActors(draft))) {
+    // A line that was added and left empty is nothing, not a want with no words.
+    const trimmed = draftNow.current?.map((actor) => ({
+      ...actor,
+      role: actor.role.trim(),
+      priorBelief: actor.priorBelief.trim(),
+      objectives: actor.objectives.map((line) => line.trim()).filter(Boolean),
+      concerns: actor.concerns.map((line) => line.trim()).filter(Boolean),
+      constraints: actor.constraints.map((line) => line.trim()).filter(Boolean),
+    }));
+    if (trimmed && (await state.saveActors(trimmed))) {
       focus(['inspector']);
       say('Saved your changes to the actors.');
     }
@@ -358,6 +414,20 @@ export function MapScene() {
     if (dialog.mode === 'edit') {
       const target = set?.stakeholders.find((item) => item.id === dialog.id);
       return target ? draftOf(target) : EMPTY_DRAFT;
+    }
+    if (dialog.copyOf) {
+      // A copy keeps what the person can say of the party (its kind, size and reasons) and leaves behind what only the
+      // sources can: its evidence cannot be added, so the copy says it is the person's own.
+      const original = set?.stakeholders.find((item) => item.id === dialog.copyOf);
+      if (original) {
+        const copy: typeof EMPTY_DRAFT = {
+          ...draftOf(original),
+          name: `${original.name} (copy)`.slice(0, 120),
+          uncertaintyLevel: 'high',
+          uncertaintyReason: 'Copied by you; no evidence has been checked for it.',
+        };
+        return copy;
+      }
     }
     return dialog.ghost
       ? { ...EMPTY_DRAFT, category: dialog.ghost.category, name: dialog.ghost.text ?? '' }
@@ -452,7 +522,7 @@ export function MapScene() {
         ? whyLine(stakeholder)
         : (actor?.role ?? '');
   };
-  const coveredRight = wide && party ? INSPECTOR_SPACE : 0;
+  const coveredRight = wide && party ? PANEL_WIDTH + Math.round(gridInset(head.width)) : 0;
   const ghosts = model?.ghosts ?? [];
   const mergedInto = party?.stakeholder
     ? (mergedIntoMap(set.stakeholders).get(party.stakeholder.id) ?? null)
@@ -465,7 +535,7 @@ export function MapScene() {
   const total = model?.nodes.length ?? 0;
   const keyCount = model?.nodes.filter((node) => node.kind === 'key').length ?? 0;
   const topInset = Math.round(head.height) + 12;
-  const stakeholderActions =
+  const stakeholderActionsOf = (compact: boolean) =>
     party?.stakeholder && subject === 'stakeholders' && may.edit ? (
       <PartyActions
         stakeholder={party.stakeholder}
@@ -474,13 +544,34 @@ export function MapScene() {
         )}
         mergedInto={mergedInto}
         busy={busy}
+        compact={compact}
         onAccept={() => void review.accept(party.id)}
         onEdit={() => setDialog({ mode: 'edit', id: party.id })}
+        onDuplicate={() => setDialog({ mode: 'add', ghost: null, copyOf: party.id })}
         onRemove={() => void review.remove(party.id)}
         onRestore={() => void review.restore(party.id)}
         onMerge={(target) => void review.merge(party.id, target)}
       />
     ) : null;
+  // An actor is made from its stakeholder, so removing, duplicating or regrouping it is done there.
+  const actorActions =
+    party?.stakeholder && subject === 'actors' && may.edit ? (
+      <div className="sw-insp__actions">
+        <Button
+          variant="glass"
+          icon={<Users size={16} aria-hidden="true" />}
+          onClick={() => {
+            setSubjectChoice('stakeholders');
+            say('Showing the stakeholders. Changing them makes the actors out of date.');
+          }}
+          data-stk-focus="action"
+        >
+          Edit as a stakeholder
+        </Button>
+      </div>
+    ) : null;
+  const stakeholderActions = stakeholderActionsOf(false) ?? actorActions;
+  const stripActions = stakeholderActionsOf(true) ?? actorActions;
 
   return (
     <section
@@ -497,7 +588,7 @@ export function MapScene() {
           <Ecosystem
             nodes={model.nodes}
             edges={model.edges}
-            ghosts={ghosts.map((ghost) => ({
+            ghosts={(narrow ? [] : ghosts).map((ghost) => ({
               id: ghost.id,
               label: ghost.label,
               cluster: ghost.cluster,
@@ -515,25 +606,58 @@ export function MapScene() {
             onSelect={select}
             focus={focusMode && party !== null}
             hiddenClusters={hidden}
-            inset={{ top: topInset, bottom: wide ? 104 : 100 }}
+            inset={{ top: topInset, bottom: narrow ? 128 : 104 }}
             covered={{ right: coveredRight, bottom: !wide && party ? 190 : 0 }}
             controls={wide || !party}
             describe={describeNode}
             zoomLabels={{ group: 'Zoom', in: 'Zoom in', out: 'Zoom out', fit: 'Fit everything' }}
-            tooltip={(node) => (
-              <>
-                <strong>{node.label}</strong>
-                <span>{whyOf(node.id).slice(0, 96) || node.categoryLabel}</span>
-              </>
-            )}
+            tooltip={(node) =>
+              node.ghost ? (
+                <>
+                  <strong>Nobody found</strong>
+                  <span>{node.label}: press to add one</span>
+                </>
+              ) : (
+                <>
+                  <strong>{node.label}</strong>
+                  <span className="sw-eco__tip-facts">{tipFacts(node, subject)}</span>
+                  <span>{whyOf(node.id).slice(0, 96) || node.categoryLabel}</span>
+                </>
+              )
+            }
           />
+        </div>
+      )}
+
+      {view === 'map' && model && model.nodes.length === 0 && (narrow || ghosts.length === 0) && (
+        <div className="sw-map__empty">
+          <p className="sw-map__empty-title">Nobody drawn yet</p>
+          <p>
+            {may.edit
+              ? 'Add the groups and roles this change touches. Two or more are needed to make actors.'
+              : 'There is nobody to show.'}
+          </p>
+          {may.edit && (
+            <Button
+              variant="glass"
+              icon={<Plus size={16} aria-hidden="true" />}
+              onClick={() => setDialog({ mode: 'add', ghost: null })}
+            >
+              Add one yourself
+            </Button>
+          )}
         </div>
       )}
 
       <div className={view === 'list' ? 'sw-map__scroll' : 'sw-map__overlay'}>
         <div className="sw-map__top" ref={head.ref}>
           <header className="sw-map__head">
-            <h1 id="map-title" className="sw-display sw-map__title">
+            <h1
+              id="map-title"
+              className="sw-display sw-map__title"
+              tabIndex={-1}
+              data-stk-focus="title"
+            >
               Who is <em>in play</em>
             </h1>
             <p className="sw-map__stats">
@@ -619,6 +743,8 @@ export function MapScene() {
             onFocus={setFocusMode}
             canAdd={canAdd && subject === 'stakeholders'}
             onAdd={() => setDialog({ mode: 'add', ghost: null })}
+            gaps={narrow && may.edit && canAdd && subject === 'stakeholders' ? ghosts : []}
+            onGap={(ghost) => setDialog({ mode: 'add', ghost })}
             canFind={may.run && subject === 'stakeholders'}
             onFindAgain={() => startFind(set.discovery.mode === 'model' ? 'model' : 'rules')}
             canMakeAgain={may.run && hasActors && set.approvedAt !== null}
@@ -645,6 +771,7 @@ export function MapScene() {
             ghosts={ghosts}
             onGhost={may.edit ? (ghost) => setDialog({ mode: 'add', ghost }) : undefined}
             label={subject === 'actors' ? 'Actors' : 'Stakeholders, key actors first'}
+            subject={subject}
           />
         )}
       </div>
@@ -675,6 +802,7 @@ export function MapScene() {
             onTrait={(key, value) => onTrait(party.id, key, value)}
             onActor={onActor}
             actions={stakeholderActions}
+            stripActions={stripActions}
             aside={
               dirtyCount > 0 && subject === 'actors' ? (
                 <p className="sw-caption">Changes are held until you save them.</p>
@@ -691,7 +819,13 @@ export function MapScene() {
       <StakeholderDialog
         open={dialog !== null}
         onOpenChange={(open) => !open && setDialog(null)}
-        title={dialog?.mode === 'edit' ? 'Edit stakeholder' : 'Add a stakeholder'}
+        title={
+          dialog?.mode === 'edit'
+            ? 'Edit stakeholder'
+            : dialog?.mode === 'add' && dialog.copyOf
+              ? 'Duplicate stakeholder'
+              : 'Add a stakeholder'
+        }
         submitLabel={dialog?.mode === 'edit' ? 'Save changes' : 'Add stakeholder'}
         initial={dialogDraft}
         busy={busy}
@@ -724,7 +858,11 @@ export function MapScene() {
         <DialogContent
           tone="danger"
           title="Reset all actors?"
-          description={`This makes every actor again from the approved stakeholders${editedActors > 0 ? ` and replaces the changes you made to ${editedActors} of them` : ''}.`}
+          description={`This makes every actor again from the approved stakeholders${editedActors > 0 ? ` and replaces the changes you made to ${editedActors} of them` : ''}.${
+            set.approvedAt
+              ? ''
+              : ` The list changed after it was approved, so it is approved again first${queue.length > 0 ? `, and the ${queue.length} not yet reviewed are accepted` : ''}.`
+          }`}
           footer={
             <>
               <Button variant="ghost" onClick={() => setResetting(false)}>

@@ -83,8 +83,21 @@
     line-clamp: 5;
     overflow: hidden;
   }
+  /* On a tablet the page has the width: the question is read in two or three lines, not five narrow ones. */
+  @media (min-width: 40.0625rem) and (max-width: 63.99rem) {
+    .sw-ground__question {
+      max-width: 46ch;
+    }
+  }
   @media (min-width: 64rem) {
     .sw-ground__question {
+      max-width: none;
+    }
+  }
+  @media (max-width: 40rem) {
+    .sw-ground__question {
+      -webkit-line-clamp: 3;
+      line-clamp: 3;
       max-width: none;
     }
   }
@@ -113,6 +126,9 @@
       gap: var(--s-3);
     }
     .sw-ground__num {
+      font-size: clamp(2rem, 1.7rem + 1.5vw, 2.6rem);
+    }
+    .sw-ground__figure[data-tone='caution'] .sw-ground__num {
       font-size: clamp(2.5rem, 2.1rem + 2vw, 3.25rem);
     }
     .sw-ground__cap {
@@ -152,12 +168,14 @@
     transition-duration: var(--dur-instant);
   }
   .sw-ground__num {
-    font-size: clamp(3.25rem, 2.4rem + 3vw, 5.25rem);
+    font-size: clamp(2.4rem, 1.9rem + 1.8vw, 3.4rem);
     line-height: 0.95;
-    color: var(--ink);
+    color: var(--ink-2);
     transition: text-shadow var(--dur-slow) var(--ease-out);
   }
+  /* The one figure that asks for a decision is the loudest on the page. */
   .sw-ground__figure[data-tone='caution'] .sw-ground__num {
+    font-size: clamp(3.25rem, 2.4rem + 3vw, 5.25rem);
     color: var(--c-caution);
   }
   .sw-ground__dash {
@@ -189,7 +207,7 @@
   }
   .sw-ground-phases {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     margin: 0;
     padding: 0;
     list-style: none;
@@ -291,6 +309,12 @@
     align-items: center;
     gap: var(--s-2) var(--s-4);
     margin-top: var(--s-1);
+  }
+  @media (max-width: 40rem) {
+    /* The one action is as wide as the screen, as it is on the first screen of the product. */
+    .sw-ground__actions > .sw-btn--lg {
+      flex: 1 1 100%;
+    }
   }
   .sw-ground__stage {
     position: relative;

@@ -54,9 +54,7 @@ const GRAPH = 'main svg[role="group"]';
  * of its own below (`test.fixme`) that says what should be true.
  */
 const KNOWN: Record<'targets' | 'text' | 'graph', ReadonlySet<string>> = {
-  // Issue 8: the buttons that open a passage in the Ground are 22px tall. A screen that is held to this is held to the
-  // finger measure too, and fails it the same way.
-  targets: new Set(['ground']),
+  targets: new Set(),
   text: new Set(),
   graph: new Set(),
 };
@@ -302,7 +300,7 @@ test.describe('between the sizes', () => {
 // What is written up in .scratch/e2e/issues-shell.md, and says what should be true.
 
 test.describe('known defects of layout', () => {
-  test.fixme('(8) a button that opens a passage is at least 24px tall', async ({ page }) => {
+  test('(8) a button that opens a passage is at least 24px tall', async ({ page }) => {
     await page.goto(
       screenPath(
         SCREENS.find((item) => item.name === 'ground')!,

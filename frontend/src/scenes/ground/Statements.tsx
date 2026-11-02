@@ -4,7 +4,6 @@ import {
   PUBLICATION_STATUSES,
   PUBLICATION_STATUS_LABELS,
   REVIEW_RESULT_LABELS,
-  STATEMENT_TYPE_LABELS,
   SUPPORT_CLASS_LABELS,
   type PublicationStatus,
 } from '../../../../shared/evidence';
@@ -35,6 +34,15 @@ import { useGroundActions, useGroundData } from './context';
 import { plural } from './model';
 import { SectionHead } from './SectionHead';
 import { CHIP_TONE, TONE_ICON } from './tones';
+import {
+  FAMILY_HELP,
+  FAMILY_ICON,
+  FAMILY_LABEL,
+  FAMILY_ORDER,
+  familyOf,
+  type StatementFamily,
+} from './families';
+import { Kind } from './Kind';
 import './statements.css';
 
 const SUFFICIENCY_SHORT = {
@@ -53,9 +61,28 @@ export function Statements() {
   const { ledger, openClaimId } = useGroundData();
   const actions = useGroundActions();
   const [filter, setFilter] = useState<LedgerFilter>(NO_FILTER);
+  const [family, setFamily] = useState<StatementFamily | 'all'>('all');
   const [limit, setLimit] = useState(PAGE);
   const data = ledger.ledger;
-  const claims = useMemo(() => (data ? filterClaims(data.claims, filter) : []), [data, filter]);
+  const claims = useMemo(
+    () =>
+      data
+        ? filterClaims(data.claims, filter).filter(
+            (claim) => family === 'all' || familyOf(claim.statementType) === family,
+          )
+        : [],
+    [data, filter, family],
+  );
+  const families = useMemo(
+    () =>
+      FAMILY_ORDER.map((id) => ({
+        id,
+        count: data
+          ? data.claims.filter((claim) => familyOf(claim.statementType) === id).length
+          : 0,
+      })).filter((entry) => entry.count > 0),
+    [data],
+  );
   const counts = useMemo(() => (data ? supportCounts(data.claims) : []), [data]);
   const publications = useMemo(() => (data ? publicationCounts(data.claims) : []), [data]);
   const dependents = useMemo(() => (data ? assumptionDependents(data) : []), [data]);
@@ -64,7 +91,7 @@ export function Statements() {
   const sufficiency = data.sufficiency;
   const tone = SUFFICIENCY_TONE[sufficiency.level];
   const ToneIcon = TONE_ICON[tone];
-  const active = isFilterActive(filter);
+  const active = isFilterActive(filter) || family !== 'all';
   const extra =
     Number(filter.publication !== 'all') +
     Number(filter.assumption !== 'all') +
@@ -232,13 +259,44 @@ export function Statements() {
         </li>
       </ul>
 
+      {families.length > 1 && (
+        <ul
+          className="sw-ground-dist__legend sw-ground-kinds"
+          role="list"
+          aria-label="Filter by kind"
+        >
+          {families.map((entry) => {
+            const Icon = FAMILY_ICON[entry.id];
+            return (
+              <li key={entry.id}>
+                <ChipButton
+                  size="sm"
+                  icon={<Icon aria-hidden="true" />}
+                  pressed={family === entry.id}
+                  title={FAMILY_HELP[entry.id]}
+                  className="sw-ground-kindchip"
+                  data-family={entry.id}
+                  onClick={() => setFamily(family === entry.id ? 'all' : entry.id)}
+                >
+                  {FAMILY_LABEL[entry.id]}
+                  <span className="num sw-ground-legend__count">{entry.count}</span>
+                </ChipButton>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       <p className="sw-ground-list-meta sw-caption" role="status">
         {active ? `${claims.length} of ${total} shown` : `${reviewed} of ${total} reviewed`}
         {active && (
           <button
             type="button"
             className="sw-ground-search__clear"
-            onClick={() => setFilter(NO_FILTER)}
+            onClick={() => {
+              setFilter(NO_FILTER);
+              setFamily('all');
+            }}
           >
             Clear filters
           </button>
@@ -266,10 +324,12 @@ export function Statements() {
                 <span className="sw-ground-claim-row__body">
                   <span className="sw-ground-claim-row__text">{claim.text}</span>
                   <span className="sw-ground-claim-row__meta">
-                    {STATEMENT_TYPE_LABELS[claim.statementType]} ·{' '}
-                    {SUPPORT_CLASS_LABELS[claim.supportClass]} ·{' '}
-                    {PUBLICATION_STATUS_LABELS[claim.publication.status]}
-                    <span className="sw-ground-claim-row__id num"> · {claim.id}</span>
+                    <Kind family={familyOf(claim.statementType)} type={claim.statementType} />
+                    <span>
+                      {SUPPORT_CLASS_LABELS[claim.supportClass]} ·{' '}
+                      {PUBLICATION_STATUS_LABELS[claim.publication.status]}
+                      <span className="sw-ground-claim-row__id num"> · {claim.id}</span>
+                    </span>
                   </span>
                 </span>
                 {claim.review.result !== 'pending' && (
@@ -321,8 +381,8 @@ export function Statements() {
   );
 }
 
-/** Where the statements will be, said once and quietly while there are none. */
-export function NoStatements({ checked }: { checked: boolean }) {
+/** A report that was checked and listed no statements says so, once and quietly. */
+export function NoStatements() {
   return (
     <section
       className="sw-ground__section sw-ground__section--quiet"
@@ -334,11 +394,7 @@ export function NoStatements({ checked }: { checked: boolean }) {
         title="Statements"
         count={0}
       />
-      <p className="sw-ground-quiet">
-        {checked
-          ? 'The check of the report listed no statements.'
-          : 'A report written by a model lists every statement it makes here, with the passages behind it.'}
-      </p>
+      <p className="sw-ground-quiet">The check of the report listed no statements.</p>
     </section>
   );
 }

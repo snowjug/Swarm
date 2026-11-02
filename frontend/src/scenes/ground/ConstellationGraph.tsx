@@ -23,6 +23,7 @@ import {
   cycleGraphNode,
   curvePath,
   keyboardOrder,
+  linkRanks,
   ringArcs,
   screenX,
   screenY,
@@ -90,6 +91,7 @@ function Canvas({ view }: { view: GraphView }) {
   );
   const order = useMemo(() => keyboardOrder(shown), [shown]);
 
+  const ranks = useMemo(() => linkRanks(view.edges.map((edge) => edge.weight)), [view.edges]);
   const typeRow = view.types.length > 1;
   const selected = selection.node ? (view.byId.get(selection.node) ?? null) : null;
   const selectedEdge =
@@ -197,8 +199,15 @@ function Canvas({ view }: { view: GraphView }) {
         rank: 1 - node.weight,
       };
     });
-    return visibleLabelIds(candidates, width);
-  }, [shown, places, width]);
+    // A few names at rest, the heaviest topics: the rest are named when they are pointed at, so that the picture reads.
+    const named = new Set(
+      [...shown]
+        .sort((a, b) => b.weight - a.weight || a.label.localeCompare(b.label))
+        .slice(0, phone ? 5 : wide ? 8 : 6)
+        .map((node) => node.id),
+    );
+    return new Set([...visibleLabelIds(candidates, width)].filter((id) => named.has(id)));
+  }, [shown, places, width, phone, wide]);
 
   const edgeFocus = selectedEdge?.index ?? null;
   const emphasised = (id: string) => lit.nodes.has(id) || lit.related.has(id);
@@ -345,7 +354,11 @@ function Canvas({ view }: { view: GraphView }) {
                   data-hidden={!on || undefined}
                   data-lit={lit.active && isLit ? '' : undefined}
                   data-dim={lit.active && !isLit ? '' : undefined}
-                  style={vars({ '--w': edge.weight, '--i': edge.index })}
+                  style={vars({
+                    '--w': edge.weight,
+                    '--r': (ranks[view.edges.indexOf(edge)] ?? 0).toFixed(2),
+                    '--i': edge.index,
+                  })}
                   onPointerEnter={(event) =>
                     event.pointerType === 'mouse' && actions.hover({ edge: edge.index })
                   }
@@ -377,7 +390,8 @@ function Canvas({ view }: { view: GraphView }) {
               const isSelected = selected?.id === node.id;
               const isLit = emphasised(node.id);
               const radius = node.radius;
-              const rings = ringArcs(node.shares, radius - 1.6);
+              // The ring of a small topic would be too thin to read: it keeps one quiet ring, and the key tells the rest.
+              const rings = radius >= 17 ? ringArcs(node.shares, radius - 1.6) : [];
               const ringsKey = node.shares.map((share) => share.documentId).join('+');
               return (
                 <g

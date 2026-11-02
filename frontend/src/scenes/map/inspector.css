@@ -5,7 +5,7 @@
     position: absolute;
     z-index: 6;
     top: 4.9rem;
-    right: var(--s-4);
+    right: var(--grid, var(--s-4));
     bottom: var(--s-4);
     width: min(26.5rem, calc(100% - var(--s-4) * 2));
     display: flex;
@@ -23,8 +23,10 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: var(--s-6) var(--s-6) var(--s-4);
+    padding: var(--s-6) var(--s-6) 1.75rem;
     scrollbar-width: thin;
+    /* What is below the edge fades into it, so that a panel that goes on does not look cut off by a mistake. */
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent);
   }
   .sw-insp__foot {
     flex: none;
@@ -179,6 +181,37 @@
   .sw-insp__fine {
     margin: 0;
   }
+  .sw-insp__edit {
+    justify-self: start;
+    margin-left: -0.8rem;
+  }
+  /* The wording of an actor, edited in place: lines, not boxes. */
+  .sw-wants {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-wants__list {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .sw-wants__list legend {
+    padding: 0;
+    margin-bottom: var(--s-1);
+  }
+  .sw-wants__line {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-wants__list > .sw-btn {
+    justify-self: start;
+    margin-left: -0.8rem;
+  }
 
   .sw-insp__discs {
     display: grid;
@@ -302,6 +335,11 @@
       background: color-mix(in oklab, var(--ink) 5%, transparent);
     }
   }
+  @media (pointer: coarse) {
+    .sw-insp__link {
+      min-height: 2.75rem;
+    }
+  }
   .sw-insp__phrase {
     color: var(--ink-3);
     font-size: var(--fs-small);
@@ -419,14 +457,17 @@
   }
   .sw-peek__row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--s-2);
   }
   .sw-peek__row .sw-insp__actions {
     flex: 1 1 auto;
     flex-wrap: nowrap;
+    min-width: 0;
   }
   .sw-peek__row > .sw-btn {
     flex: none;
+    margin-left: auto;
   }
 }

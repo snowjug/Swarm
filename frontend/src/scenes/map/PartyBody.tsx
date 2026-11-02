@@ -1,12 +1,12 @@
-import { CircleDashed, CircleDot } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { CircleDashed, CircleDot, Pencil } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
 import {
   STAKEHOLDER_CATEGORY_LABELS,
   type Actor,
   type Stakeholder,
   type TraitKey,
 } from '../../../../shared/stakeholders';
-import { Chip, Disclosure, Segmented } from '../../design/ui';
+import { Button, Chip, Disclosure, Segmented } from '../../design/ui';
 import { clusterColour, clusterGroup, stanceWord } from '../../viz/palette';
 import type { EcoNode } from '../../viz/ecosystem/model';
 import { signed } from '../../lib/format';
@@ -21,6 +21,7 @@ import { directionOfImpact } from '../../viz/ecosystem/model';
 import { EvidenceQuotes } from './Evidence';
 import { Confidence, Gauge, ImpactChip } from './parts';
 import { Traits } from './Traits';
+import { WantsEditor } from './WantsEditor';
 import { NO_EVIDENCE, type Connection, type Party, type Subject } from './model';
 
 const DIRECTION_WORD = {
@@ -42,6 +43,16 @@ const IMPACT_WORD = (value: number): string =>
           ? 'Slightly benefits'
           : 'Benefits';
 const capital = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** The one assumption an actor leans on most: where it starts. The rest of what it assumes is on its traits. */
+function keyAssumption(actor: Actor): string {
+  const prior = actor.priorBelief.trim();
+  if (prior) return prior;
+  const reason = actor.uncertainty.reason.trim();
+  return (
+    reason.split(/(?<=[.!?])\s/u)[0] ?? 'Its traits are starting assumptions, not measurements.'
+  );
+}
 
 function sizeLine(stakeholder: Stakeholder): string {
   return stakeholder.priority === 'key'
@@ -114,6 +125,7 @@ export function PartyBody({
   bare = false,
 }: PartyBodyProps) {
   const { stakeholder, actor } = party;
+  const [editing, setEditing] = useState(false);
   const asActor = (draft ?? actor) !== null && (subject === 'actors' || !stakeholder);
   const shown = asActor ? (draft ?? actor) : null;
   const category = (shown ?? stakeholder ?? actor)!.category;
@@ -255,15 +267,46 @@ export function PartyBody({
       ) : null}
 
       {shown && (
+        <p className="sw-insp__assume">
+          <CircleDashed size={15} aria-hidden="true" />
+          <span>
+            <strong>Key assumption.</strong> {keyAssumption(shown)}
+          </span>
+        </p>
+      )}
+
+      {shown && (
         <div className="sw-insp__wants">
-          <List title="Wants" items={shown.objectives} />
-          <List title="Worries" items={shown.concerns} />
-          <List title="Pressure" items={[...shown.constraints, ...shown.dependencies]} />
-          {(shown.objectives.length > 0 || shown.concerns.length > 0) && (
-            <p className="sw-caption sw-insp__fine">
-              What it wants and fears is assumed from its category, or read by a model. It is not
-              found in the sources.
-            </p>
+          {editing && stored ? (
+            <>
+              <WantsEditor actor={shown} onChange={onActor} />
+              <Button variant="glass" size="sm" onClick={() => setEditing(false)}>
+                Done
+              </Button>
+            </>
+          ) : (
+            <>
+              <List title="Wants" items={shown.objectives} />
+              <List title="Worries" items={shown.concerns} />
+              <List title="Pressure" items={[...shown.constraints, ...shown.dependencies]} />
+              {(shown.objectives.length > 0 || shown.concerns.length > 0) && (
+                <p className="sw-caption sw-insp__fine">
+                  What it wants and fears is assumed from its category, or read by a model. It is
+                  not found in the sources.
+                </p>
+              )}
+              {editable && stored && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={<Pencil size={14} aria-hidden="true" />}
+                  onClick={() => setEditing(true)}
+                  className="sw-insp__edit"
+                >
+                  Edit what {shown.name} wants and fears
+                </Button>
+              )}
+            </>
           )}
         </div>
       )}
