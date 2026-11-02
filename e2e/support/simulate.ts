@@ -604,3 +604,54 @@ export async function expectNoForecasts(page: Page, label: string): Promise<void
     `${label}: claims the product may not make`,
   ).toEqual([]);
 }
+
+// ---------------------------------------------------------------------------------------------
+// The deep dive, and the what-if it carries: branches, the assumed event, the restart
+// ---------------------------------------------------------------------------------------------
+
+export const deepAt = (project: string): string => simulateAt(project, 'deep');
+
+/** The line that says where the run stands, and holds the one thing that moves it on. */
+export const deepStrip = (page: Page): Locator =>
+  page.getByRole('group', { name: 'Where the run stands' });
+
+/** Opens a project's deep dive on one of its tabs (the run, by default), and waits for it to be there. */
+export async function openDeep(
+  page: Page,
+  project: string,
+  tab: 'Setup' | 'Run' | 'Rounds' | 'Memory' = 'Run',
+): Promise<void> {
+  await page.goto(deepAt(project));
+  await settled(page);
+  await expect(deepStrip(page)).toBeVisible();
+  const choice = page.getByRole('tab', { name: new RegExp(`^${tab}\\b`, 'u') });
+  await choice.click();
+  await expect(choice).toHaveAttribute('aria-selected', 'true');
+}
+
+export const branchSheet = (page: Page): Locator =>
+  page.getByRole('dialog', { name: 'Branch from a checkpoint' });
+
+/** The checkpoint of a branch, or any other track of rounds: a slider that answers to the keys. */
+export async function trackTo(thumb: Locator, round: number): Promise<void> {
+  await thumb.focus();
+  await thumb.press('Home');
+  const first = Number(await thumb.getAttribute('aria-valuenow'));
+  for (let press = first; press < round; press += 1) await thumb.press('ArrowRight');
+  await expect(thumb).toHaveAttribute('aria-valuenow', String(round));
+}
+
+/** Opens the sheet that branches a run, from the list of what can be done with it. */
+export async function openBranch(page: Page): Promise<Locator> {
+  await page.getByRole('button', { name: /^Branch from a round/u }).click();
+  const sheet = branchSheet(page);
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
+export const createBranch = (sheet: Locator): Locator =>
+  sheet.getByRole('button', { name: 'Create the branch and open it' });
+
+/** The id of the project the page has open, read from its address. */
+export const openProjectId = (page: Page): string =>
+  new URL(page.url()).searchParams.get('project') ?? '';
