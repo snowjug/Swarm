@@ -160,10 +160,17 @@
       animation: none;
     }
     .sw-decide .sw-decide-numerals,
-    .sw-decide .sw-decide-hero__side,
+    .sw-decide .sw-decide-block,
     .sw-decide .sw-decide-rc__item,
     .sw-decide .sw-decide-vl__step,
     .sw-decide .sw-decide-cmp__row,
+    .sw-decide .sw-decide-tn__row,
+    .sw-decide .sw-decide-sb__row,
+    .sw-decide .sw-decide-mv__item,
+    .sw-decide .sw-decide-ev__row,
+    .sw-decide .sw-decide-as__row,
+    .sw-decide .sw-decide-tr__actor,
+    .sw-decide .sw-decide-fig table tr,
     .sw-decide .sw-decide-stmt {
       break-inside: avoid;
     }
@@ -176,6 +183,43 @@
     }
     .sw-decide .sw-decide-ie {
       position: static;
+    }
+    /* Reading size for paper: a statement is set like the text of a report, not like the page of a screen. */
+    .sw-decide .sw-decide-stmt__text {
+      max-width: 74ch;
+      font-size: 0.92rem;
+      line-height: 1.55;
+    }
+    .sw-decide .sw-decide-stmt {
+      padding-block: var(--s-2);
+    }
+    /* The first page is one column of blocks, read from the top: grids that a page break cuts lose their rows. */
+    .sw-decide .sw-decide-hero,
+    .sw-decide .sw-decide-hero__main,
+    .sw-decide .sw-decide-hero__side {
+      display: block;
+    }
+    .sw-decide .sw-decide-hero > * + *,
+    .sw-decide .sw-decide-hero__main > * + *,
+    .sw-decide .sw-decide-hero__side > * + * {
+      margin-top: var(--s-5);
+    }
+    /* What opens and closes on screen is open on paper; the controls that open it are left off. */
+    .sw-decide .sw-disc__panel {
+      display: block;
+      opacity: 1;
+    }
+    .sw-decide .sw-disc__inner {
+      overflow: visible;
+    }
+    .sw-decide .sw-disc__chevron,
+    .sw-decide .sw-decide-how,
+    .sw-decide .sw-decide-reviewline__go,
+    .sw-decide .sw-decide-tablealt .sw-disc__head,
+    .sw-decide .sw-decide-hero__heading .sw-seg,
+    .sw-decide .sw-decide-sv__bar,
+    .sw-decide .sw-decide-ls__filters {
+      display: none;
     }
   }
 }

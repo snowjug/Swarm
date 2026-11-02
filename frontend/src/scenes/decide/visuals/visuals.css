@@ -204,7 +204,20 @@
   .sw-decide-table td {
     color: var(--ink-2);
   }
+  /* A row past the first few is folded until it is asked for; it is in the page all the same, and the paper has it. */
+  @media screen {
+    .sw-decide [data-folded='true'] {
+      display: none;
+    }
+  }
+
   @media print {
+    .sw-decide .sw-decide-fig {
+      display: block;
+    }
+    .sw-decide .sw-decide-fig > * + * {
+      margin-top: var(--s-4);
+    }
     .sw-decide .sw-decide-tablealt:not(.sw-decide-tablealt--printed) {
       display: none;
     }

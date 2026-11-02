@@ -186,7 +186,6 @@ function MovementView({
   const { critiques } = useDoc();
   const [all, setAll] = useState(false);
   const scale = Math.max(...rows.map((row) => Math.max(row.share, row.baselineShare)), 0.05);
-  const shown = all ? rows : rows.slice(0, SHOWN);
   return (
     <figure className="sw-decide-fig">
       <FigureHead
@@ -201,7 +200,7 @@ function MovementView({
         }
       />
       <ol className="sw-decide-mv" role="list">
-        {shown.map((row, index) => {
+        {rows.map((row, index) => {
           const info = known.get(row.stakeholderId);
           const challenged = aboutTarget(critiques, 'stakeholder', row.stakeholderId);
           const key = row.members === 1;
@@ -210,6 +209,7 @@ function MovementView({
             <li
               key={row.actorId}
               className="sw-decide-mv__item"
+              data-folded={!all && index >= SHOWN ? 'true' : undefined}
               style={{ '--i': Math.min(index, 8) } as CSSProperties}
             >
               <Popover>
@@ -411,28 +411,36 @@ function LandscapeView({
           })}
         </div>
       </LayoutGroup>
-      <TableAlt
-        caption="Stakeholders by kind, with the expected effect of the change"
-        headers={[
-          'Stakeholder',
-          'Kind',
-          'Priority',
-          'Expected effect',
-          'Cited support',
-          'Uncertainty',
-        ]}
-        rows={groups.flatMap((group) =>
-          group.stakeholders.map((row) => [
-            row.name,
-            group.label,
-            row.priority,
-            DIRECTION_LABELS[row.direction],
-            `${row.supporting} supporting, ${row.contradicting} contradicting`,
-            row.uncertainty,
-          ]),
-        )}
-      />
+      <LandscapeTable groups={groups} />
     </figure>
+  );
+}
+
+/** The groups the evidence names, as a table: it is what the page prints of the landscape, whichever view is on screen. */
+function LandscapeTable({ groups }: { groups: BriefVisuals['stakeholderMap'] }) {
+  return (
+    <TableAlt
+      printed
+      caption="Stakeholders by kind, with the expected effect of the change"
+      headers={[
+        'Stakeholder',
+        'Kind',
+        'Priority',
+        'Expected effect',
+        'Cited support',
+        'Uncertainty',
+      ]}
+      rows={groups.flatMap((group) =>
+        group.stakeholders.map((row) => [
+          row.name,
+          group.label,
+          row.priority,
+          DIRECTION_LABELS[row.direction],
+          `${row.supporting} supporting, ${row.contradicting} contradicting`,
+          row.uncertainty,
+        ]),
+      )}
+    />
   );
 }
 
@@ -553,6 +561,11 @@ export function StakeholderVisual({ visuals }: { visuals: BriefVisuals }) {
       ) : (
         <LandscapeView groups={visuals.stakeholderMap} movementBy={movementBy} />
       )}
+      {showing === 'movement' ? (
+        <div className="sw-decide-print-only">
+          <LandscapeTable groups={visuals.stakeholderMap} />
+        </div>
+      ) : null}
     </div>
   );
 }
