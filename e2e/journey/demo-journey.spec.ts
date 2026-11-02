@@ -907,12 +907,10 @@ test('the presentation, step by step, in a real browser', async ({
   await api.dispose();
 });
 
-// WAITING for the shell: `frontend/src/app/scenes.ts` opens Decide and Compare only for a project whose
-// lab analysis is complete, and the recorded demonstration is a run of the engine with a report and two
-// branches and no lab record, so "Open the detailed report" and "Compare with the parent" answer "Run a
-// simulation first" on a finished run. The test is the walk that has to work once they open: the
-// detailed report from the run, the recorded runs side by side. Take `.fixme` off when they do.
-test.fixme('the recorded run opens its detailed report, and the recorded branches their comparison', async ({
+// A run the engine made on its own has no lab record (the recorded demonstration is one): the shell opens its
+// detailed report in Decide and its recorded branches in Compare (`frontend/src/app/scenes.ts`). This is the walk
+// that has to keep working: the detailed report from the run, the recorded runs side by side.
+test('the recorded run opens its detailed report, and the recorded branches their comparison', async ({
   page,
   playwright,
 }, testInfo) => {

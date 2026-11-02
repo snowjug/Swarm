@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectDetail } from '../../../shared/types';
-import { projectFixture } from '../test/project';
+import { projectFixture, roundFixture } from '../test/project';
 import { readRoute } from './route';
 import {
   SCENE_IDS,
@@ -93,6 +93,41 @@ describe('the journey', () => {
     expect(nextScene(lab({}), 'ground')).toBeNull();
     expect(nextScene(lab({}, true), 'ground')).toBe('map');
     expect(nextScene(null, 'ask')).toBeNull();
+  });
+
+  it('lets a run the engine made on its own reach its run, its report and its run comparison, and keeps a lab record gated', () => {
+    // A guided record that the lab holds nothing for, as the server sends it: the recorded demonstration is one.
+    const engineOnly = lab({}, true);
+    engineOnly.lab = {
+      scenario: false,
+      stakeholders: 'none',
+      actors: 0,
+      analysis: 'none',
+      critiques: false,
+      brief: false,
+    };
+    expect(sceneAvailable(engineOnly, 'compare')).toBe(false);
+    expect(sceneAvailable(engineOnly, 'decide')).toBe(false);
+    expect(frontierScene(engineOnly)).toBe('map');
+
+    engineOnly.rounds = [roundFixture()];
+    expect(sceneAvailable(engineOnly, 'compare')).toBe(true);
+    expect(sceneAvailable(engineOnly, 'decide')).toBe(false);
+    expect(frontierScene(engineOnly)).toBe('simulate');
+
+    engineOnly.report = {} as NonNullable<ProjectDetail['report']>;
+    expect(sceneAvailable(engineOnly, 'decide')).toBe(true);
+
+    // Without a lab record at all it is the same.
+    delete engineOnly.lab;
+    expect(sceneAvailable(engineOnly, 'decide')).toBe(true);
+
+    // The same rounds in a record that the lab has begun do not open what the lab has not produced.
+    const guided = lab({}, true);
+    guided.rounds = [roundFixture()];
+    guided.report = {} as NonNullable<ProjectDetail['report']>;
+    expect(sceneAvailable(guided, 'compare')).toBe(false);
+    expect(sceneAvailable(guided, 'decide')).toBe(false);
   });
 
   it('treats a record that the guided flow did not make as readable but without a map or a comparison', () => {

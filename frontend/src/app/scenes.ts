@@ -57,6 +57,24 @@ function labOf(project: ProjectDetail) {
   return project.lab;
 }
 
+/**
+ * A record the engine made on its own: the lab holds nothing for it (no scenario, stakeholders, actors,
+ * comparison, review or brief). The recorded demonstration is one. Such a record is read through its own run,
+ * its detailed report and the comparison of its recorded runs, where a lab record is read through the lab.
+ */
+function engineOnly(project: ProjectDetail): boolean {
+  const lab = labOf(project);
+  return (
+    !lab ||
+    (!lab.scenario &&
+      lab.stakeholders === 'none' &&
+      lab.actors === 0 &&
+      lab.analysis === 'none' &&
+      !lab.critiques &&
+      !lab.brief)
+  );
+}
+
 /** Whether a scene can be opened for this project. Ask is always open. */
 export function sceneAvailable(project: ProjectDetail | null, scene: SceneId): boolean {
   if (scene === 'ask') return true;
@@ -73,8 +91,12 @@ export function sceneAvailable(project: ProjectDetail | null, scene: SceneId): b
     case 'simulate':
       return (lab?.actors ?? 0) > 0 || stepAvailable(project, 'simulation');
     case 'compare':
+      // The comparison of futures; or, for a run the engine made on its own (a record with no lab record, such
+      // as the recorded demonstration), the reading of two recorded runs against each other.
+      return lab?.analysis === 'completed' || (engineOnly(project) && project.rounds.length > 0);
     case 'decide':
-      return lab?.analysis === 'completed';
+      // The decision brief; or, for a run the engine made on its own, its detailed report.
+      return lab?.analysis === 'completed' || (engineOnly(project) && project.report !== null);
   }
 }
 
@@ -159,6 +181,8 @@ export function frontierScene(project: ProjectDetail): ProjectScene {
   if ((lab?.actors ?? 0) > 0) return 'simulate';
   if (!isGuided(project))
     return project.report ? 'decide' : project.rounds.length ? 'simulate' : 'ground';
+  // A run the engine made on its own: it opens on its run, where the deep dive is.
+  if (engineOnly(project) && project.rounds.length > 0) return 'simulate';
   if (sceneAvailable(project, 'map') && project.console?.steps.knowledge === 'ready') return 'map';
   return 'ground';
 }
