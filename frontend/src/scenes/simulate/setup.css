@@ -195,19 +195,29 @@
     color: var(--c-critical);
     font-size: var(--fs-small);
   }
-  /* The way to start stays on the screen however many scenarios there are: the form can be eight scenarios long. */
+  /* The way to start stays on the screen however many scenarios there are: the form can be eight scenarios long. It floats
+     over the form, so it is glass like the other floating bars (the dock, the bar of the comparison): the same edge, sheen
+     and shadow. Its fill is the solid of the panel's own, so that nothing under it can be read, with a blur or without. */
   .sw-setup__foot {
+    --glass-radius: var(--r-lg);
     position: sticky;
     bottom: var(--s-4);
     z-index: 3;
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: var(--s-3);
-    /* The band reaches the edges of the panel, so that it is the panel's own surface and not a strip laid over it. */
-    margin-inline: calc(var(--s-7) * -1);
-    padding: var(--s-4) var(--s-7) var(--s-1);
-    background: linear-gradient(to top, var(--glass-overlay) 72%, transparent);
+    gap: var(--s-2);
+    justify-self: end;
+    max-width: 100%;
+    padding: var(--s-2);
+    background:
+      linear-gradient(180deg, color-mix(in oklab, white 5%, transparent), transparent 40%),
+      var(--bg-raised);
+  }
+  /* A field that takes the focus is brought clear of the bar that floats over the foot of the form, not left under it:
+     the page's scrolling treats the room the bar takes as not there. */
+  :root:has(.sw-setup__foot) {
+    scroll-padding-bottom: calc(var(--s-4) + 4.25rem + var(--s-4));
   }
   .sw-setup__how {
     border-top: 1px solid var(--hairline);
@@ -279,11 +289,15 @@
       gap: var(--s-4);
     }
     .sw-setup__foot {
-      bottom: var(--dock-h);
-      margin-inline: calc(var(--s-4) * -1);
-      padding: var(--s-4) var(--s-4) var(--s-3);
+      bottom: calc(var(--dock-h) + 0.5rem + var(--s-3) + env(safe-area-inset-bottom));
+      justify-self: stretch;
       flex-direction: column-reverse;
       align-items: stretch;
+    }
+    :root:has(.sw-setup__foot) {
+      scroll-padding-bottom: calc(
+        var(--dock-h) + 0.5rem + var(--s-3) + env(safe-area-inset-bottom) + 7.5rem + var(--s-4)
+      );
     }
     .sw-setup__foot .sw-btn {
       width: 100%;

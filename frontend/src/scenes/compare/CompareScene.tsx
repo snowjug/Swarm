@@ -10,6 +10,7 @@ import { Fresh } from './Fresh';
 import { UNKNOWN, freshnessOf, newerThan } from './freshness';
 import { RunsScene } from './RunsScene';
 import { readsThroughTheDeepDive } from '../simulate/engineOnly';
+import { useCatchUp } from '../simulate/useCatchUp';
 import { useBriefView } from './useFreshness';
 import {
   EmptyResults,
@@ -162,7 +163,8 @@ function useCompletion(
 /** The comparison of scenarios of the open project, in whatever state it is in. */
 function Scenarios() {
   const { project, projects, go, duplicate } = useWorkspace();
-  const state = useAnalysis(project.id);
+  const catchUp = useCatchUp();
+  const state = useAnalysis(project.id, catchUp);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const said = useCompletion(state, headingRef);
   const [asked, setAsked] = useState<string | null>(null);

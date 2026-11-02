@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useWorkspace } from '../../../app/context';
+import { useAway } from '../../../app/unsaved-context';
 import {
   Button,
   Chip,
@@ -273,6 +274,7 @@ function EngineChip() {
 /** The title, and one line that says what this is and what it is not. */
 export function Header() {
   const ws = useWorkspace();
+  const away = useAway();
   // A run the engine made on its own has no comparison to go back to: the deep dive is its simulation.
   const alone = readsThroughTheDeepDive(ws.project);
   return (
@@ -283,7 +285,8 @@ export function Header() {
           size="sm"
           className="sw-deep-back"
           icon={<ArrowLeft size={15} aria-hidden="true" />}
-          onClick={() => ws.setView(null)}
+          // A change of view is not an exit the shell controls, and the setup is lost with the deep dive: it asks for itself.
+          onClick={() => away(() => ws.setView(null))}
         >
           Simulation
         </Button>

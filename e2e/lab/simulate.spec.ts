@@ -216,8 +216,11 @@ test.describe('setting the futures side by side and running them', () => {
       await expect(start).toBeInViewport({ ratio: 1 });
       await page.mouse.wheel(0, 600);
       await expect(start).toBeInViewport({ ratio: 1 });
-      // A field that takes focus is not left behind it.
+      // A field that takes focus is not left behind it, even when it is already on the screen, at its very foot.
       const last = scenarioRows(page).last().getByRole('slider');
+      await last.evaluate((node) => {
+        window.scrollBy(0, node.getBoundingClientRect().bottom - window.innerHeight + 2);
+      });
       await last.focus();
       const [field, button] = await Promise.all([last.boundingBox(), start.boundingBox()]);
       expect(field!.y + field!.height).toBeLessThanOrEqual(button!.y + 1);

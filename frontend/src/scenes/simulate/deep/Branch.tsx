@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { useWorkspace } from '../../../app/context';
 import { errorMessage } from '../../../api';
@@ -62,6 +62,23 @@ function ProxyEdits({
   const { project } = useDeep();
   const agents = project.agents;
   const unused = agents.filter((agent) => !edits.some((edit) => edit.id === agent.id));
+  // Each change keeps a key of its own for as long as it is there, so that taking one away does not hand its boxes (their
+  // typed text, and the focus on them) to the change that follows it. The proxy it is about cannot be the key: it is
+  // changed from the row itself, which must stay where it is while it is.
+  const made = useRef(edits.length);
+  const [keys, setKeys] = useState<string[]>(() => edits.map((_, at) => `change-${at}`));
+  const keyOf = (index: number): string => keys[index] ?? `change-at-${index}`;
+  const adder = useRef<HTMLButtonElement>(null);
+  const [removed, setRemoved] = useState(0);
+  // The row that had the focus is gone: it goes to the way to add one, which is always there.
+  useEffect(() => {
+    if (removed > 0) adder.current?.focus();
+  }, [removed]);
+  const remove = (index: number) => {
+    setKeys(edits.map((_, at) => keyOf(at)).filter((_, at) => at !== index));
+    setRemoved((count) => count + 1);
+    onChange(edits.filter((_, at) => at !== index));
+  };
   const update = (index: number, patch: ProxyEdit | ((edit: ProxyEdit) => ProxyEdit)) =>
     onChange(
       edits.map((edit, at) =>
@@ -83,7 +100,7 @@ function ProxyEdits({
         // Nothing set yet is a reminder, not a fault: it only becomes one when the proxy itself is wrong.
         const reminder = note?.startsWith('Change at least') === true;
         return (
-          <fieldset className="sw-deep-bp__row" key={index} disabled={disabled}>
+          <fieldset className="sw-deep-bp__row" key={keyOf(index)} disabled={disabled}>
             <legend className="sr-only">Proxy change {index + 1}</legend>
             <div className="sw-deep-bp__who">
               <Field label="Proxy" error={reminder ? undefined : note}>
@@ -105,7 +122,7 @@ function ProxyEdits({
               <IconButton
                 label={`Remove the change to ${agent?.name ?? 'this proxy'}`}
                 size="md"
-                onClick={() => onChange(edits.filter((_, at) => at !== index))}
+                onClick={() => remove(index)}
               >
                 <X size={17} aria-hidden="true" />
               </IconButton>
@@ -149,13 +166,16 @@ function ProxyEdits({
         );
       })}
       <Button
+        ref={adder}
         variant="glass"
         size="sm"
         icon={<Plus size={15} aria-hidden="true" />}
         disabled={disabled || unused.length === 0 || edits.length >= 24}
         onClick={() => {
           const next = unused[0];
-          if (next) onChange([...edits, { id: next.id }]);
+          if (!next) return;
+          setKeys([...edits.map((_, at) => keyOf(at)), `change-${made.current++}`]);
+          onChange([...edits, { id: next.id }]);
         }}
       >
         {edits.length === 0 ? 'Change a proxy' : 'Change another proxy'}

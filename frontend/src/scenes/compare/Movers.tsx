@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, LayoutGroup, m } from 'motion/react';
 import { ChevronDown } from 'lucide-react';
 import type { Analysis } from '../../../../shared/analysis';
-import { SPRING } from '../../design/motion';
+import { SPRING, useReducedMotion } from '../../design/motion';
 import { ChipButton, Segmented } from '../../design/ui';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { Ecosystem } from '../../viz/ecosystem/Ecosystem';
@@ -312,6 +312,7 @@ export function Movers({
   const a = scenarios.find((scenario) => scenario.id === pair.a) ?? null;
   const b = scenarios.find((scenario) => scenario.id === pair.b) ?? null;
   const wide = useMediaQuery('(min-width: 64rem)');
+  const reduced = useReducedMotion();
   const [group, setGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [all, setAll] = useState(false);
@@ -327,14 +328,16 @@ export function Movers({
   const shown = all || visibleGroup !== null ? filtered : filtered.slice(0, SHOWN);
   const hasMore = visibleGroup === null && filtered.length > SHOWN;
 
-  // A press on the map brings that actor's row into view.
+  // A press on the map brings that actor's row into view, once the row is there: an actor ranked past the first few has no
+  // row until the list has opened to show it.
+  const rowShown = selected !== null && shown.some((mover) => mover.id === selected);
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || !rowShown) return;
     const row = list.current?.querySelector<HTMLElement>(`[data-mover="${CSS.escape(selected)}"]`);
-    row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [selected]);
+    row?.scrollIntoView({ block: 'nearest', behavior: reduced ? 'auto' : 'smooth' });
+  }, [selected, rowShown, reduced]);
   const selectedMover = selected ? (movers.find((mover) => mover.id === selected) ?? null) : null;
-  const hiddenByLimit = selected !== null && !shown.some((mover) => mover.id === selected);
+  const hiddenByLimit = selected !== null && !rowShown;
   useEffect(() => {
     if (hiddenByLimit) setAll(true);
   }, [hiddenByLimit]);

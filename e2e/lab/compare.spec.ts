@@ -170,6 +170,8 @@ test.describe('the comparison of a finished simulation', () => {
     await expect(title).toContainText(smaller!);
     await expect(title).toContainText(reference!);
     await page.keyboard.press('Escape');
+    // The choice is gone before the next one is opened, so that only one of them can be asked for "Swap".
+    await expect(choice).toHaveCount(0);
     // The figures follow the pair: the difference is the smaller change's, set against no change.
     const futures = section(page, 'Where simulated members end up');
     await expect(futures.getByRole('listitem').nth(2)).toContainText('Set against');

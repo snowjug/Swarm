@@ -29,6 +29,7 @@ import { LiveView } from './LiveView';
 import { NetworkColour, NetworkView, RelationKinds } from './NetworkView';
 import { Fine, StoryView, TimelineView } from './Pages';
 import { readsThroughTheDeepDive } from './engineOnly';
+import { useCatchUp } from './useCatchUp';
 import { Running } from './Running';
 import { Setup, type SetupSettings } from './Setup';
 import { NETWORK_DEFAULTS, replayOf, type NetworkSettings, type Replay } from './model';
@@ -293,7 +294,8 @@ function ScreenTop({ stage }: { stage: string }) {
  */
 export function SimulateScene() {
   const ws = useWorkspace();
-  const state = useAnalysis(ws.project.id);
+  const catchUp = useCatchUp();
+  const state = useAnalysis(ws.project.id, catchUp);
   const { readiness, current, loading, error } = state;
   const [announcement, setAnnouncement] = useState('');
   const isRunning = running(current);
