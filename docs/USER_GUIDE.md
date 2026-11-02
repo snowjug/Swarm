@@ -715,7 +715,7 @@ does not predict the future.
 
 ## Report Studio
 
-![Report Studio: a section of the report as a page to edit, with its version, its statements and the review workflow](./assets/swarm-studio.png)
+![Report Studio: the chapters of the report in a list, one section as a page to edit with its version, a column of notes, and the review steps (Draft, In review, Approved) along the top](./assets/swarm-studio.png)
 
 Report Studio is where a person works on the detailed report that was generated: it makes a copy, called the
 _document_, and the generated report itself is never changed. The design and its limits are in

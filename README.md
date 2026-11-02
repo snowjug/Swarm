@@ -190,7 +190,7 @@ held across the seeded runs._
 _Decide. The brief opens on its answer. The critics' review sits beside it, and the chapters of reference
 stay closed until they are opened._
 
-![Report Studio: a section of the report as a page to edit, with its version, its statements and the review workflow](./docs/assets/swarm-studio.png)
+![Report Studio: the chapters of the report in a list, one section as a page to edit with its version, a column of notes, and the review steps (Draft, In review, Approved) along the top](./docs/assets/swarm-studio.png)
 
 _Report Studio. A person works on a copy of the generated report: every change is a version, and a
 reviewer approves the exact text._

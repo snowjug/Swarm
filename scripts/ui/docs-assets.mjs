@@ -8,11 +8,13 @@
 // The raw images are a few hundred KB each, and the README test (backend/test/readme.test.ts) allows 400 KB: run them
 // through a PNG optimiser (for example `pngquant --quality=70-90 --ext .png --force`) before they are committed.
 // DOCS_BASE and DOCS_PROJECT name a server that is already running and a project that is already complete in it.
+// DOCS_ONLY=swarm-studio,swarm-dark takes only the pictures named.
 import { mkdirSync, statSync } from 'node:fs';
 import { chromium } from '@playwright/test';
-import { makeProject, startServer } from './fixture.mjs';
+import { makeProject, openStudio, startServer } from './fixture.mjs';
 
 const OUT = process.env.DOCS_OUT ?? 'test-results/docs-assets';
+const only = process.env.DOCS_ONLY?.split(',').map((name) => name.trim());
 const CHANNEL = process.env.PW_CHANNEL || undefined;
 mkdirSync(OUT, { recursive: true });
 
@@ -75,7 +77,15 @@ const SHOTS = [
   },
   { file: 'swarm-compare', size: DESKTOP, scene: 'compare', wait: 2400 },
   { file: 'swarm-decide', size: DESKTOP, scene: 'decide', wait: 2400 },
-  { file: 'swarm-studio', size: DESKTOP, scene: 'decide', view: 'studio', wait: 1800 },
+  {
+    file: 'swarm-studio',
+    size: DESKTOP,
+    scene: 'decide',
+    view: 'studio',
+    wait: 2200,
+    // Every other picture is of the project as it stands; the studio needs a report to work on.
+    prepare: (address, id) => openStudio(address, id),
+  },
   { file: 'swarm-mobile', size: PHONE, scene: 'map', wait: 2500 },
   {
     file: 'swarm-dark',
@@ -94,6 +104,8 @@ try {
   const project = process.env.DOCS_PROJECT ?? (await makeProject(base));
   browser = await chromium.launch({ channel: CHANNEL, headless: true });
   for (const shot of SHOTS) {
+    if (only && !only.includes(shot.file)) continue;
+    await shot.prepare?.(base, project);
     const phone = shot.size.width < 500;
     const context = await browser.newContext({
       viewport: shot.size,

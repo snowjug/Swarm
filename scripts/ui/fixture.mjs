@@ -88,6 +88,17 @@ async function until(label, read, done, limit = 120_000) {
   }
 }
 
+/** Writes the detailed report (rules mode, no model) and opens it in the studio, as a person does from Decide. */
+export async function openStudio(BASE, id) {
+  await call(BASE, 'POST', `/api/projects/${id}/steps/report`);
+  await until(
+    'the detailed report',
+    () => call(BASE, 'GET', `/api/projects/${id}`),
+    (project) => project.status === 'completed' && Boolean(project.report),
+  );
+  await call(BASE, 'POST', `/api/projects/${id}/studio`, {});
+}
+
 /** Makes one complete project the way a person would, over HTTP: every scene has real engine output to show. */
 export async function makeProject(BASE) {
   const { EXAMPLE_SCENARIOS } = await import(
