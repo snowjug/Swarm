@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode } from 'react';
 import * as RadixTooltip from '@radix-ui/react-tooltip';
+import { isFocusHandedBack } from '../useReturnFocus';
 import './Tooltip.css';
 
 /** One provider near the root: the first tooltip waits a moment, the ones after it are immediate. */
@@ -30,7 +31,15 @@ export function Tooltip({
 }) {
   return (
     <RadixTooltip.Root>
-      <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>
+      <RadixTooltip.Trigger
+        asChild
+        onFocus={(event) => {
+          // A control that is given focus back (a sheet or a dialog closed) is not one a person has moved to.
+          if (isFocusHandedBack()) event.preventDefault();
+        }}
+      >
+        {children}
+      </RadixTooltip.Trigger>
       <RadixTooltip.Portal>
         <RadixTooltip.Content
           className="sw-tip sw-glass sw-glass--overlay"

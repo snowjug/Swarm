@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
-import { ClipboardList, MessageCircleQuestion, Sparkles, Users } from 'lucide-react';
+import { ArrowRight, ClipboardList, MessageCircleQuestion, Sparkles, Users } from 'lucide-react';
 import type { SurveyRecord } from '../../../shared/guided';
 import type { Agent, AppConfig, ProjectDetail } from '../../../shared/types';
-import { EmptyState, Sheet, SheetContent, TabPanel, Tabs } from '../design/ui';
+import { Button, EmptyState, Sheet, SheetContent, TabPanel, Tabs } from '../design/ui';
 import {
   ANALYST_TARGET,
+  WAIT_TITLES,
   availability,
   resolveSeed,
   splitRole,
@@ -26,6 +27,11 @@ export interface AskSheetProps {
   project: ProjectDetail;
   config: AppConfig | null;
   onSurvey: (record: SurveyRecord) => void;
+  /**
+   * Opens the deep dive, where the report that Ask reads from is written, and leaves the sheet. Null where the
+   * deep dive cannot be opened yet: the sheet then says what opens it instead of offering a way that is shut.
+   */
+  onDeepDive?: (() => void) | null;
   /** An actor or the analyst to open on, and a question to start with. */
   initialTarget?: string;
   initialMessage?: string;
@@ -85,6 +91,7 @@ export function AskSheet({
   project,
   config,
   onSurvey,
+  onDeepDive = null,
   initialTarget,
   initialMessage,
 }: AskSheetProps) {
@@ -114,7 +121,7 @@ export function AskSheet({
       <SheetContent
         eyebrow={project.name}
         title="Ask"
-        description={state.ready ? LEDES[tab] : 'Nothing to ask about yet.'}
+        description={state.ready ? LEDES[tab] : undefined}
         width="lg"
         className="sw-chat-sheet"
         onOpenAutoFocus={focusStart}
@@ -122,9 +129,22 @@ export function AskSheet({
         {!state.ready ? (
           <EmptyState
             icon={<MessageCircleQuestion size={22} aria-hidden="true" />}
-            title="Ask opens with the report"
+            title={WAIT_TITLES[state.wait ?? 'none']}
+            action={
+              onDeepDive ? (
+                <Button
+                  variant="primary"
+                  iconEnd={<ArrowRight size={16} aria-hidden="true" />}
+                  onClick={onDeepDive}
+                >
+                  {state.wait === 'running' ? 'Watch it run' : 'Open the deep dive'}
+                </Button>
+              ) : undefined
+            }
           >
-            {state.waiting}
+            {onDeepDive
+              ? state.waiting
+              : `${state.waiting} The deep dive opens once the actors are made.`}
           </EmptyState>
         ) : (
           <Tabs<AskTab>

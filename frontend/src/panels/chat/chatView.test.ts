@@ -48,17 +48,34 @@ const written = (patch: Partial<ProjectDetail> = {}): ProjectDetail => ({
 });
 
 describe('whether there is anything to ask', () => {
-  it('opens only once the report is written, and says why it has not', () => {
+  it('opens only once the report is written, and says why it has not and where it comes from', () => {
     expect(availability(projectFixture(), config()).ready).toBe(false);
-    expect(availability(projectFixture(), config()).waiting).toMatch(/none yet/u);
-    expect(availability({ ...projectFixture(), status: 'running' }, config()).waiting).toMatch(
-      /under way/u,
-    );
-    expect(availability({ ...projectFixture(), status: 'failed' }, config()).waiting).toMatch(
-      /stopped/u,
-    );
+    expect(availability(projectFixture(), config())).toMatchObject({
+      wait: 'none',
+      waiting: expect.stringMatching(/report it writes/u),
+    });
+    const stage = (
+      steps: Partial<Record<'knowledge' | 'environment' | 'simulation' | 'report', string>>,
+    ) => {
+      const base = projectFixture();
+      return {
+        ...base,
+        console: { ...base.console!, steps: { ...base.console!.steps, ...steps } },
+      } as ProjectDetail;
+    };
+    // Reading the evidence is Ground's, not the deep dive's: Ask has nothing under way while it runs.
+    expect(availability(stage({ knowledge: 'running' }), config()).wait).toBe('none');
+    expect(availability(stage({ simulation: 'running' }), config()).wait).toBe('running');
+    expect(availability(stage({ environment: 'queued' }), config()).wait).toBe('running');
+    expect(availability(stage({ simulation: 'paused' }), config()).wait).toBe('paused');
+    expect(availability(stage({ simulation: 'failed' }), config()).wait).toBe('stopped');
+    expect(availability(stage({ report: 'cancelled' }), config()).wait).toBe('stopped');
+    expect(
+      availability({ ...projectFixture(), console: null, status: 'running' }, config()).wait,
+    ).toBe('running');
     expect(availability(written(), config())).toMatchObject({
       ready: true,
+      wait: null,
       waiting: null,
       local: true,
       canReply: true,

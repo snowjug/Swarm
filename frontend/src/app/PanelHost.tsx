@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react';
 import type { SurveyRecord } from '../../../shared/guided';
 import type { AppConfig, ProjectDetail } from '../../../shared/types';
+import { useToast } from '../design/ui';
 import type { useConsole } from '../hooks/useConsole';
 import type { WorkspaceRole } from '../lib/members';
+import { PanelBoundary } from '../panels/shared/PanelBoundary';
 import type { ProjectScene } from './scenes';
 
 const HistorySheet = lazy(() =>
@@ -24,6 +26,12 @@ const PeopleDialog = lazy(() =>
 
 export type PanelName = 'history' | 'ask' | 'audit' | 'budget' | 'access' | 'people';
 
+/** The question field of the first screen, or failing that the page itself: where "Ask a question" leaves a person. */
+function focusTheQuestion(): void {
+  const field = document.querySelector<HTMLElement>('[aria-label="Your what-if question"]');
+  (field ?? document.getElementById('main-content'))?.focus();
+}
+
 /**
  * The overlays: each is mounted only while it is open, and its code is fetched when it is first wanted.
  * Closing one is the host's business; every panel is told `open` and `onOpenChange` and leaves by itself.
@@ -38,6 +46,7 @@ export function PanelHost({
   askSeed,
   onOpenProject,
   onSurvey,
+  onDeepDive,
 }: {
   panel: PanelName | null;
   onClose: () => void;
@@ -48,61 +57,89 @@ export function PanelHost({
   askSeed: { target?: string; message?: string };
   onOpenProject: (id: string, target?: { scene?: ProjectScene; view?: string | null }) => void;
   onSurvey: (record: SurveyRecord) => void;
+  /** Opens the deep dive of the open project, where Ask's report is written; null while it is shut. */
+  onDeepDive: (() => void) | null;
 }) {
+  const toast = useToast();
   const change = (open: boolean) => {
     if (!open) onClose();
   };
   return (
-    <Suspense fallback={null}>
-      {panel === 'history' && (
-        <HistorySheet
-          open
-          onOpenChange={change}
-          projects={engine.history.data?.projects ?? []}
-          total={engine.history.data?.total ?? 0}
-          loading={engine.history.loading}
-          error={engine.history.error}
-          selectedId={engine.selectedId}
-          busy={Boolean(engine.operation)}
-          onSelect={(id) => {
-            onClose();
-            onOpenProject(id);
-          }}
-          whatIf={Boolean(config?.capabilities.whatIf)}
-          onCompare={(id) => {
-            onClose();
-            onOpenProject(id, { scene: 'compare', view: 'runs' });
-          }}
-          onRefresh={() => void engine.loadHistory()}
-          onDelete={engine.remove}
-        />
-      )}
-      {panel === 'ask' && project && (
-        <AskSheet
-          open
-          onOpenChange={change}
-          project={project}
-          config={config}
-          onSurvey={onSurvey}
-          initialTarget={askSeed.target}
-          initialMessage={askSeed.message}
-        />
-      )}
-      {panel === 'audit' && project && (
-        <AuditSheet open onOpenChange={change} projectId={project.id} />
-      )}
-      {panel === 'budget' && project && (
-        <BudgetDialog
-          open
-          onOpenChange={change}
-          projectId={project.id}
-          onChanged={engine.refresh}
-        />
-      )}
-      {panel === 'access' && project && (
-        <ProjectAccess open onOpenChange={change} projectId={project.id} />
-      )}
-      {panel === 'people' && <PeopleDialog open onOpenChange={change} actor={workspaceRole} />}
-    </Suspense>
+    // A panel that cannot be drawn (its code did not arrive) is told and let go; the page behind it is unharmed.
+    <PanelBoundary
+      key={panel ?? 'none'}
+      onFail={() => {
+        onClose();
+        toast({
+          title: 'That could not be opened',
+          description: 'Check the connection and try again.',
+          tone: 'error',
+        });
+      }}
+    >
+      <Suspense fallback={null}>
+        {panel === 'history' && (
+          <HistorySheet
+            open
+            onOpenChange={change}
+            projects={engine.history.data?.projects ?? []}
+            total={engine.history.data?.total ?? 0}
+            loading={engine.history.loading}
+            error={engine.history.error}
+            selectedId={engine.selectedId}
+            busy={Boolean(engine.operation)}
+            onSelect={(id) => {
+              onClose();
+              onOpenProject(id);
+            }}
+            whatIf={Boolean(config?.capabilities.whatIf)}
+            onCompare={(id) => {
+              onClose();
+              onOpenProject(id, { scene: 'compare', view: 'runs' });
+            }}
+            onRefresh={() => void engine.loadHistory()}
+            onDelete={engine.remove}
+            onNew={() => {
+              onClose();
+              window.setTimeout(focusTheQuestion, 0);
+            }}
+          />
+        )}
+        {panel === 'ask' && project && (
+          <AskSheet
+            open
+            onOpenChange={change}
+            project={project}
+            config={config}
+            onSurvey={onSurvey}
+            onDeepDive={
+              onDeepDive
+                ? () => {
+                    onClose();
+                    onDeepDive();
+                  }
+                : null
+            }
+            initialTarget={askSeed.target}
+            initialMessage={askSeed.message}
+          />
+        )}
+        {panel === 'audit' && project && (
+          <AuditSheet open onOpenChange={change} projectId={project.id} />
+        )}
+        {panel === 'budget' && project && (
+          <BudgetDialog
+            open
+            onOpenChange={change}
+            projectId={project.id}
+            onChanged={engine.refresh}
+          />
+        )}
+        {panel === 'access' && project && (
+          <ProjectAccess open onOpenChange={change} projectId={project.id} />
+        )}
+        {panel === 'people' && <PeopleDialog open onOpenChange={change} actor={workspaceRole} />}
+      </Suspense>
+    </PanelBoundary>
   );
 }

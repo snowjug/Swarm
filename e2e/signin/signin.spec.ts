@@ -1,11 +1,25 @@
 import { expect, test, type Page } from '@playwright/test';
-import { expectNoAxeViolations, expectNoHorizontalOverflow } from '../support/helpers';
+import {
+  expectNoAxeViolations,
+  expectNoBrowserPaintedControls,
+  expectNoHorizontalOverflow,
+  expectReadableText,
+  watchPage,
+} from '../support/helpers';
 import { microsoftSignsIn, microsoftVisits } from '../support/microsoft';
+import { expectPressable, openSettings, quiet, startFromExample } from '../support/shell';
+import { expectSignedIn } from '../support/signin';
+
+// Browser sign-in with Microsoft Entra, on the real application and a test identity provider
+// (backend/test/support/signin-e2e-server.ts): who is let in and who is not, what the page says when a sign-in does not
+// produce a session, that nothing a script can reach holds a credential, and that a change needs the page's own header.
 
 const visitCount = async () => (await microsoftVisits()).length;
 
 const sessionCookie = async (page: Page) =>
   (await page.context().cookies()).find((cookie) => cookie.name === 'swarm_session');
+
+test.use({ reducedMotion: 'reduce' });
 
 test.describe('browser sign-in with Microsoft Entra', () => {
   test('sends a visitor to Microsoft, brings them back signed in, and leaves no token in the page', async ({
@@ -13,8 +27,7 @@ test.describe('browser sign-in with Microsoft Entra', () => {
   }) => {
     await microsoftSignsIn('owner');
     await page.goto('/');
-    await expect(page.getByText('SIGNED IN · MICROSOFT ENTRA')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expectSignedIn(page);
 
     // Microsoft was asked once, for identity only, with PKCE and no secret.
     const visits = await microsoftVisits();
@@ -49,11 +62,12 @@ test.describe('browser sign-in with Microsoft Entra', () => {
   test('lets the page make changes as the signed-in person, and refuses the same change without its header', async ({
     page,
   }) => {
+    const problems = watchPage(page, { refusals: true });
     await microsoftSignsIn('owner');
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
-    await page.getByRole('button', { name: 'Build Graph', exact: true }).click();
-    await expect(page.getByRole('button', { name: /Prepare environment/ })).toBeVisible();
+    // The exploration is made by the page, as a person makes it, and it is theirs: the journey opens on it.
+    const id = await startFromExample(page, 'Online store checkout');
+    expect(id).toMatch(/^[0-9a-f-]{36}$/u);
+    await expect(page.getByRole('navigation', { name: 'Journey' }).first()).toBeVisible();
 
     const forged = await page.evaluate(async () => {
       const response = await fetch('/api/projects', {
@@ -68,6 +82,8 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     });
     expect(forged.status).toBe(403);
     expect(forged.body.error.code).toBe('CSRF_REQUIRED');
+    // The one refusal in the page's log is the one the test asked for.
+    expect(problems.filter((problem) => !problem.startsWith('403 POST /api/projects'))).toEqual([]);
   });
 
   test('tells someone who is signed in but not in the workspace why they cannot create anything', async ({
@@ -78,20 +94,28 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     const first = await browser.newContext();
     const owner = await first.newPage();
     await owner.goto('/');
-    await expect(owner.getByText('SIGNED IN · MICROSOFT ENTRA')).toBeVisible();
+    await expectSignedIn(owner);
     await first.close();
 
     await microsoftSignsIn('stranger');
-    const second = await browser.newContext();
+    const second = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await second.newPage();
     await page.goto('/');
-    await expect(page.getByText('SIGNED IN · MICROSOFT ENTRA')).toBeVisible();
-    await page.getByRole('button', { name: 'Use this example: Fictional library hours' }).click();
-    await page.getByRole('button', { name: 'Build Graph', exact: true }).click();
-    await expect(
-      page.getByRole('alert').getByText('You are not a member of this workspace.').first(),
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: /Prepare environment/ })).toHaveCount(0);
+    await expectSignedIn(page);
+    await page.getByRole('button', { name: 'Online store checkout', exact: true }).click();
+    await page.getByRole('button', { name: 'Explore', exact: true }).click();
+    // The refusal may come when the question is read or when the exploration is made; either way it is told, in words.
+    const ground = page.getByRole('button', { name: 'Ground it' });
+    const told = page
+      .getByRole('alert')
+      .getByText('You are not a member of this workspace.')
+      .first();
+    await expect(ground.or(told)).toBeVisible();
+    if (await ground.isVisible()) await ground.click();
+    await expect(told).toBeVisible();
+    // Nothing was made: still the first screen, with no journey to walk.
+    await expect(page).not.toHaveURL(/[?&]project=/u);
+    await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
     await second.close();
   });
 
@@ -102,14 +126,15 @@ test.describe('browser sign-in with Microsoft Entra', () => {
   }) => {
     await microsoftSignsIn('owner');
     await page.goto('/');
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expectSignedIn(page);
     const before = (await sessionCookie(page))!.value;
     expect(await visitCount()).toBe(1);
 
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    const menu = await openSettings(page);
+    await menu.getByRole('menuitem', { name: 'Sign out' }).click();
     // The next load has no session, so the visitor is sent to Microsoft again and returns with a new one.
     await expect.poll(visitCount).toBe(2);
-    await expect(page.getByText('SIGNED IN · MICROSOFT ENTRA')).toBeVisible();
+    await expectSignedIn(page);
     expect((await sessionCookie(page))!.value).not.toBe(before);
 
     // Anyone who kept a copy of the old cookie gets nothing from it.
@@ -132,12 +157,14 @@ test.describe('browser sign-in with Microsoft Entra', () => {
       page.getByRole('heading', { level: 1, name: 'You are signed in, but have no Swarm role' }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/\?signin=norole$/u);
+    await expect(page).toHaveTitle('You are signed in, but have no Swarm role · Swarm');
     expect(await visitCount()).toBe(1);
     expect(await sessionCookie(page)).toBeUndefined();
     await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toHaveAttribute(
       'href',
       '/auth/login',
     );
+    await quiet(page);
     await expectNoAxeViolations(page, 'signed in without a role');
     await expectNoHorizontalOverflow(page);
   });
@@ -149,6 +176,7 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     await expect(heading).toBeVisible();
     expect(await visitCount()).toBe(1);
     expect(await sessionCookie(page)).toBeUndefined();
+    await quiet(page);
     await expectNoAxeViolations(page, 'sign-in did not complete');
 
     await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
@@ -163,7 +191,7 @@ test.describe('browser sign-in with Microsoft Entra', () => {
   }) => {
     await microsoftSignsIn('owner');
     await page.goto('/');
-    await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+    await expectSignedIn(page);
     const target = `${baseURL}/api/projects`;
     // What a hostile page would use, because a form needs no permission from the application.
     const postForm = (url: string) => {
@@ -214,3 +242,40 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     expect(listed.projects.map((project) => project.name)).not.toContain('planted');
   });
 });
+
+// The two pages that stand in place of the application when a sign-in does not produce a session are the first thing
+// a person refused at the door sees: they are held to the whole product's standard, in every theme and on a phone.
+const PROBLEMS = [
+  ['failed', 'Sign-in did not complete'],
+  ['norole', 'You are signed in, but have no Swarm role'],
+] as const;
+
+for (const [kind, title] of PROBLEMS) {
+  for (const theme of ['light', 'dark', 'high-contrast'] as const) {
+    test(`the "${title}" page is readable in the ${theme} theme, on a laptop and on a phone`, async ({
+      page,
+    }) => {
+      const problems = watchPage(page);
+      await page.addInitScript((value) => window.localStorage.setItem('swarm.theme', value), theme);
+      for (const viewport of [
+        { width: 1440, height: 900 },
+        { width: 390, height: 844 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await page.goto(`/?signin=${kind}`);
+        await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+        await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+        await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toBeVisible();
+        await quiet(page);
+        await expectNoHorizontalOverflow(page);
+        await expectReadableText(page, `${kind} ${theme} ${viewport.width}px`);
+        await expectPressable(page, `${kind} ${theme} ${viewport.width}px`, { min: 24 });
+        await expectNoAxeViolations(page, `${kind} ${theme} ${viewport.width}px`);
+        if (theme !== 'light') {
+          await expectNoBrowserPaintedControls(page, `${kind} ${theme}`);
+        }
+      }
+      expect(problems).toEqual([]);
+    });
+  }
+}

@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useState, type ComponentProps, type ReactNode } from 'react';
 import * as RadixPopover from '@radix-ui/react-popover';
 import { cx } from '../cx';
+import { handingBackSoon } from '../useReturnFocus';
 import './Popover.css';
 
 export const Popover = RadixPopover.Root;
@@ -18,6 +19,7 @@ export function PopoverContent({
   className,
   width,
   ref: forwarded,
+  onCloseAutoFocus,
   ...rest
 }: ComponentProps<typeof RadixPopover.Content> & { children: ReactNode; width?: string }) {
   const named = Boolean(rest['aria-label'] || rest['aria-labelledby']);
@@ -46,6 +48,11 @@ export function PopoverContent({
         collisionPadding={12}
         {...rest}
         ref={attach}
+        onCloseAutoFocus={(event) => {
+          // The popover gives focus back to its trigger next: that is not a person arriving at it, and no tooltip opens.
+          handingBackSoon();
+          onCloseAutoFocus?.(event);
+        }}
         aria-label={rest['aria-label'] ?? (named ? undefined : (opener ?? 'Details'))}
         className={cx('sw-popover sw-glass sw-glass--overlay', className)}
         style={{ ...(width ? { width } : null), ...rest.style }}

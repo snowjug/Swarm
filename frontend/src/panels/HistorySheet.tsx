@@ -68,6 +68,8 @@ export interface HistorySheetProps {
   onCompare: (id: string) => void;
   onRefresh: () => void;
   onDelete: (id: string) => Promise<void>;
+  /** Leaves the sheet for the question field: what an empty history offers instead of a dead end. */
+  onNew?: () => void;
 }
 
 /** The glyph at the start of a row: the exploration's own sphere, with its state as a badge or as the ring around it. */
@@ -259,6 +261,7 @@ export function HistoryBody({
   onCompare,
   onRefresh,
   onDelete,
+  onNew,
   now,
 }: Omit<HistorySheetProps, 'open' | 'onOpenChange' | 'onDelete'> & {
   onDelete: (project: ProjectSummary) => void;
@@ -381,8 +384,18 @@ export function HistoryBody({
       {loading && projects.length === 0 && !error && <RowsSkeleton />}
 
       {!loading && !error && projects.length === 0 && (
-        <EmptyState icon={<History size={22} aria-hidden="true" />} title="Nothing yet">
-          Ask a question and what you explore is kept here.
+        <EmptyState
+          icon={<History size={22} aria-hidden="true" />}
+          title="Nothing yet"
+          action={
+            onNew ? (
+              <Button variant="primary" onClick={onNew}>
+                Ask a question
+              </Button>
+            ) : undefined
+          }
+        >
+          What you explore is kept here.
         </EmptyState>
       )}
 
@@ -507,6 +520,7 @@ export function HistorySheet(props: HistorySheetProps) {
             onSelect={props.onSelect}
             onCompare={props.onCompare}
             onRefresh={props.onRefresh}
+            onNew={props.onNew}
             onDelete={(project) => {
               setFailure(null);
               setPending(project);

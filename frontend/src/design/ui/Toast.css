@@ -61,4 +61,11 @@
       background: var(--accent-soft);
     }
   }
+  /* A finger needs the room: the action is as tall as the dismiss button beside it. */
+  @media (pointer: coarse) {
+    .sw-toast__action {
+      min-height: 2.75rem;
+      padding-inline: 0.75rem;
+    }
+  }
 }

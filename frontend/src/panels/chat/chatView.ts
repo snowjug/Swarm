@@ -21,9 +21,14 @@ export const QUESTION_MIN = 3;
 export const QUESTION_MAX = 1_000;
 export const SURVEY_QUESTION_MIN = 5;
 
+/** Where the report that Ask reads from has got to: not begun, being written, paused, or stopped before it was. */
+export type AskWait = 'none' | 'running' | 'paused' | 'stopped';
+
 export interface Availability {
   /** The report is written, so there is something to ask about. */
   ready: boolean;
+  /** Why not, and how far the report has got. The deep dive is where it is written. */
+  wait: AskWait | null;
   /** Why not, in words, when it is not. */
   waiting: string | null;
   local: boolean;
@@ -35,23 +40,49 @@ export interface Availability {
   surveysOn: boolean;
 }
 
+export const WAIT_TITLES: Record<AskWait, string> = {
+  none: 'Ask opens after the deep dive',
+  running: 'The deep dive is running',
+  paused: 'The deep dive is paused',
+  stopped: 'The deep dive stopped',
+};
+
+const WAIT_TEXT: Record<AskWait, string> = {
+  none: 'The analyst and the actors answer from the report it writes.',
+  running: 'Ask opens when its report is written.',
+  paused: 'Resume it to write the report that Ask reads.',
+  stopped: 'It stopped before its report was written.',
+};
+
+/** The stages after the reading of the evidence are the deep dive; the reading itself is Ground's. */
+const DEEP_STEPS = ['environment', 'simulation', 'report'] as const;
+
+function waitOf(project: ProjectDetail): AskWait {
+  const steps = project.console?.steps;
+  if (!steps) {
+    return project.status === 'queued' || project.status === 'running'
+      ? 'running'
+      : project.status === 'failed' || project.status === 'cancelled'
+        ? 'stopped'
+        : 'none';
+  }
+  const states = DEEP_STEPS.map((step) => steps[step]);
+  if (states.some((state) => state === 'running' || state === 'queued')) return 'running';
+  if (states.includes('paused')) return 'paused';
+  if (states.some((state) => state === 'failed' || state === 'cancelled')) return 'stopped';
+  return 'none';
+}
+
 export function availability(project: ProjectDetail, config: AppConfig | null): Availability {
   const ready = project.status === 'completed' && Boolean(project.report);
   const local = project.mode === 'local';
   const modelReady =
     !local && Boolean(config?.provider.configured && config.capabilities.modelAssisted);
-  let waiting: string | null = null;
-  if (!ready) {
-    waiting =
-      project.status === 'queued' || project.status === 'running'
-        ? 'A run is under way. Ask opens when the report is written.'
-        : project.status === 'failed' || project.status === 'cancelled'
-          ? 'The last run stopped before the report was written.'
-          : 'The analyst and the actors answer from the written report, and this exploration has none yet.';
-  }
+  const wait = ready ? null : waitOf(project);
   return {
     ready,
-    waiting,
+    wait,
+    waiting: wait ? WAIT_TEXT[wait] : null,
     local,
     modelReady,
     canReply: local || modelReady,

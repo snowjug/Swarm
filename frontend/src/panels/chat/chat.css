@@ -12,6 +12,12 @@
     overflow: hidden;
     padding-bottom: var(--s-4);
   }
+  /* Where there is nothing to ask yet, the one thing to say sits in the middle of the sheet and not at its top. */
+  .sw-chat-sheet .sw-sheet__body > .sw-empty {
+    flex: 1;
+    align-content: center;
+    padding-bottom: var(--s-8);
+  }
   @media (max-width: 40rem) {
     .sw-chat-sheet {
       height: min(92dvh, 56rem);
@@ -342,7 +348,7 @@
   }
   @media (pointer: coarse) {
     .sw-chat__why {
-      min-height: 2.5rem;
+      min-height: 2.75rem;
     }
   }
   .sw-chat__chev {
@@ -494,6 +500,13 @@
     font-size: var(--fs-body);
     line-height: 1.5;
   }
+  /* A finger finds the field anywhere in its row: the field is as tall as a button, not just its line. */
+  @media (pointer: coarse) {
+    .sw-chat__input {
+      min-height: 2.75rem;
+      padding-block: 0.6875rem;
+    }
+  }
   .sw-chat__composer-foot {
     display: flex;
     align-items: center;
@@ -552,6 +565,12 @@
       padding: 0 0.6rem 0.25rem 0;
     }
   }
+  /* The field carries its own height for a finger (above), so the box around it does not add to it. */
+  @media (max-width: 40rem) and (pointer: coarse) {
+    .sw-chat__composer {
+      padding-block: 0.15rem;
+    }
+  }
   .sw-chat__engine {
     display: inline-flex;
     align-items: center;
@@ -577,7 +596,7 @@
   }
   @media (pointer: coarse) {
     .sw-chat__engine {
-      min-height: 2.5rem;
+      min-height: 2.75rem;
     }
   }
   .sw-chat__engine-long {
@@ -723,6 +742,11 @@
   .sw-chat__link.is-quiet {
     color: var(--ink-3);
     text-decoration: none;
+  }
+  @media (pointer: coarse) {
+    .sw-chat__link {
+      min-height: 2.75rem;
+    }
   }
   @media (hover: hover) {
     .sw-chat__link:hover {

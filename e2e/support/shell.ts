@@ -580,7 +580,7 @@ export async function expectPressable(
           'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=tab], [role=button], [role=slider]',
         );
       for (const element of controls) {
-        if (element.closest('svg, .sr-only, [hidden]')) continue;
+        if (element.closest('svg, .sr-only, [hidden], [inert]')) continue;
         const text = (element.textContent ?? '').trim();
         // A skip link is off the page until it has focus.
         if (element.matches('a[href^="#"]') && /^skip\b/iu.test(text)) continue;

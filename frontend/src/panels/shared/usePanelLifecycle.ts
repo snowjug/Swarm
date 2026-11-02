@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { handBackFocus } from '../../design/useReturnFocus';
 import { rememberedPlace } from './place';
 
 /**
@@ -79,7 +80,7 @@ export function usePanelLifecycle(
       timer.current = setTimeout(() => {
         timer.current = null;
         const back = origin.current;
-        if (back?.isConnected) back.focus({ preventScroll: true });
+        if (back?.isConnected) handBackFocus(back);
         report.current(false);
       }, wait);
     },

@@ -94,6 +94,7 @@
 
   /* Words appear as the bar has room for them; until then they are still in the name. */
   .sw-provider__label,
+  .sw-provider__kind,
   .sw-provider__model,
   .sw-provider__detail {
     position: absolute;
@@ -127,7 +128,13 @@
       letter-spacing: 0.045em;
     }
   }
-  @media (min-width: 90rem) {
+  /*
+   * The bar stops growing at its widest (92rem), at about 100rem of screen: what is shown beyond the kind of engine
+   * is what fits in the room that is left there, which is the provider's name and how it is doing, and not the
+   * deployment (that is in the popover and in the name). A label that is cut short with an ellipsis says nothing.
+   */
+  @media (min-width: 100rem) {
+    .sw-provider__kind,
     .sw-provider__detail {
       position: static;
       width: auto;
@@ -136,27 +143,12 @@
       overflow: visible;
       clip: auto;
       color: var(--ink-3);
+      font-size: var(--fs-micro);
       font-weight: 500;
     }
     .sw-provider__detail::before {
       content: '·';
       margin-right: 0.45rem;
-    }
-  }
-  @media (min-width: 110rem) {
-    .sw-provider__model {
-      position: static;
-      width: auto;
-      height: auto;
-      max-width: 12rem;
-      margin: 0;
-      overflow: hidden;
-      clip: auto;
-      text-overflow: ellipsis;
-      color: var(--ink-2);
-      font-family: var(--font-mono);
-      font-size: var(--fs-micro);
-      font-weight: 500;
     }
   }
 

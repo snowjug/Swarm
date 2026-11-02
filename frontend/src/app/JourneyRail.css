@@ -49,7 +49,7 @@
     border: 0;
     border-radius: var(--r-pill);
     background: transparent;
-    color: var(--ink-3);
+    color: var(--ink-2);
     font-size: var(--fs-small);
     font-weight: 560;
     white-space: nowrap;
@@ -60,9 +60,10 @@
       color: var(--ink);
     }
   }
+  /* A locked step reads as locked by its lock and a calmer ink, never by fading: faded text fails its contrast. */
   .sw-rail__step[aria-disabled='true'] {
     cursor: not-allowed;
-    opacity: 0.55;
+    color: var(--ink-3);
   }
   @media (pointer: coarse) {
     .sw-rail__step {
