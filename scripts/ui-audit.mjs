@@ -83,6 +83,15 @@ function collectLayout() {
     return false;
   };
   const all = [...document.querySelectorAll('body *')].filter(visible);
+  // What is hidden on purpose from the eye and kept for a screen reader (a label that gives way to an icon on a narrow screen, a
+  // skip link until it has focus): a box of a pixel or two, or clipped away. It is neither cut off nor too small to press.
+  const hiddenOnPurpose = (element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return (
+      rect.width <= 2 || rect.height <= 2 || style.clipPath !== 'none' || style.clip !== 'auto'
+    );
+  };
   const wide = all
     .filter(
       (element) =>
@@ -97,7 +106,7 @@ function collectLayout() {
     );
   const truncated = all
     .filter((element) => {
-      if (element.closest('.sr-only')) return false;
+      if (element.closest('.sr-only') || hiddenOnPurpose(element)) return false;
       const style = getComputedStyle(element);
       return (
         /(hidden|clip)/.test(style.overflowX + style.overflowY) &&
@@ -121,6 +130,7 @@ function collectLayout() {
   const interactive = all.filter(
     (element) =>
       !element.closest('.sr-only') &&
+      !hiddenOnPurpose(element) &&
       element.matches(
         'button, a[href], input:not([type=hidden]), select, textarea, [role=tab], [role=radio], [role=switch], [role=checkbox], summary',
       ),
@@ -240,6 +250,10 @@ async function scenes(browser, viewport, theme) {
       const file = `${OUT}/${state.name}__${theme}__${viewport.name}.png`;
       await page.screenshot({ path: file, fullPage: Boolean(state.full) && viewport.mobile });
       const layout = await page.evaluate(collectLayout);
+      // What enters at the foot of the window is drawn pale until it has scrolled in, so contrast is measured with the page
+      // scrolled to its end, where everything above has arrived: a check made at the top would call that pale text a failure.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForTimeout(700);
       const axe = await new AxeBuilder({ page }).analyze();
       report.states.push({
         viewport: viewport.name,
@@ -268,10 +282,64 @@ async function scenes(browser, viewport, theme) {
   await context.close();
 }
 
+/**
+ * Whether the focused element shows where it is. Its own outline or shadow is the common way, but a ring may be drawn by the box
+ * around it (the question field) or by a child (a node on the map), so what is asked is whether the pixels around it change when
+ * it loses focus. `decoder` is an empty page of the same browser, to read the two pictures in.
+ */
+async function ringShown(page, decoder) {
+  const clip = await page.evaluate(() => {
+    const element = document.activeElement;
+    if (!element || element === document.body) return null;
+    const box = element.getBoundingClientRect();
+    const x = Math.max(0, box.x - 10);
+    const y = Math.max(0, box.y - 10);
+    const width = Math.min(window.innerWidth - x, box.width + 20);
+    const height = Math.min(window.innerHeight - y, box.height + 20);
+    window.__stop = element;
+    return width > 4 && height > 4 ? { x, y, width, height } : null;
+  });
+  if (!clip) return false;
+  await page.waitForTimeout(250);
+  const focused = await page.screenshot({ clip });
+  await page.evaluate(() => window.__stop.blur());
+  await page.waitForTimeout(250);
+  const blurred = await page.screenshot({ clip });
+  await page.evaluate(() => window.__stop.focus());
+  const changed = await decoder.evaluate(
+    async ([first, second]) => {
+      const read = async (data) => {
+        const bitmap = await createImageBitmap(
+          await (await fetch(`data:image/png;base64,${data}`)).blob(),
+        );
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const context = canvas.getContext('2d');
+        context.drawImage(bitmap, 0, 0);
+        return context.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      };
+      const [a, b] = await Promise.all([read(first), read(second)]);
+      let count = 0;
+      for (let at = 0; at < a.length; at += 4)
+        if (
+          Math.abs(a[at] - b[at]) +
+            Math.abs(a[at + 1] - b[at + 1]) +
+            Math.abs(a[at + 2] - b[at + 2]) >
+          90
+        )
+          count += 1;
+      return count;
+    },
+    [focused.toString('base64'), blurred.toString('base64')],
+  );
+  return changed >= 12;
+}
+
 /** A person with only a keyboard: how many stops, and whether each one shows where it is. */
 async function keyboard(browser) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
+  const decoder = await context.newPage();
+  await decoder.goto('about:blank');
   page.setDefaultTimeout(30000);
   for (const state of [
     STATES[0],
@@ -285,21 +353,21 @@ async function keyboard(browser) {
     const stops = [];
     for (let index = 0; index < 30; index += 1) {
       await page.keyboard.press('Tab');
-      stops.push(
-        await page.evaluate(() => {
-          const element = document.activeElement;
-          if (!element || element === document.body) return null;
-          const style = getComputedStyle(element);
-          const name =
-            element.getAttribute('aria-label') ||
-            (element.textContent || '').trim().slice(0, 30) ||
-            element.tagName;
-          const ring =
-            (style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0) ||
-            style.boxShadow !== 'none';
-          return { name, ring };
-        }),
-      );
+      const stop = await page.evaluate(() => {
+        const element = document.activeElement;
+        if (!element || element === document.body) return null;
+        const style = getComputedStyle(element);
+        const name =
+          element.getAttribute('aria-label') ||
+          (element.textContent || '').trim().slice(0, 30) ||
+          element.tagName;
+        const ring =
+          (style.outlineStyle !== 'none' && Number.parseFloat(style.outlineWidth) > 0) ||
+          style.boxShadow !== 'none';
+        return { name, ring };
+      });
+      if (stop && !stop.ring) stop.ring = await ringShown(page, decoder);
+      stops.push(stop);
     }
     const reached = stops.filter(Boolean);
     const noRing = reached.filter((stop) => !stop.ring).map((stop) => stop.name);
