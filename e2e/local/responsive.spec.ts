@@ -48,17 +48,6 @@ test.use({ reducedMotion: 'reduce' });
 /** The graphs of the product: the ecosystem of a map or a replay, and the graph of the evidence. */
 const GRAPH = 'main svg[role="group"]';
 
-/**
- * What each screen fails at today, for the defects written up in .scratch/e2e/issues-shell.md. A screen listed here is
- * not judged by that measure until the defect is fixed: take the entry out, and the measure applies. Each has a test
- * of its own below (`test.fixme`) that says what should be true.
- */
-const KNOWN: Record<'targets' | 'text' | 'graph', ReadonlySet<string>> = {
-  targets: new Set(),
-  text: new Set(),
-  graph: new Set(),
-};
-
 /** The bar floats over the page: the page's first heading must start below it. */
 async function expectClearOfTheBar(page: Page, label: string): Promise<void> {
   const [bar, heading] = await Promise.all([
@@ -104,24 +93,15 @@ for (const viewport of viewports) {
         await page.goto(screenPath(screen, projects));
         await arrived(page);
         await quiet(page);
-        const heldToTargets = !(
-          KNOWN.targets.has(screen.name) || KNOWN.targets.has(`${screen.name}@${viewport.width}`)
-        );
 
         await allOf({
           'no horizontal scroll': () => expectNoHorizontalOverflow(page),
           'the bar is clear of the heading': () => expectClearOfTheBar(page, label),
-          ...(KNOWN.text.has(screen.name)
-            ? {}
-            : { 'text of 12px or more': () => expectReadableText(page, label) }),
-          ...(heldToTargets
-            ? { 'controls of 24px or more': () => expectPressable(page, label, { min: 24 }) }
-            : {}),
-          ...(KNOWN.graph.has(`${screen.name}@${viewport.width}`)
-            ? {}
-            : { 'a legible graph': () => expectLegibleGraph(page, label) }),
+          'text of 12px or more': () => expectReadableText(page, label),
+          'controls of 24px or more': () => expectPressable(page, label, { min: 24 }),
+          'a legible graph': () => expectLegibleGraph(page, label),
           // Where a finger presses, docs/UX.md asks for 44px.
-          ...(touched && heldToTargets
+          ...(touched
             ? { 'controls a finger wide': () => expectPressable(page, label, { min: 44 }) }
             : {}),
         });
