@@ -18,6 +18,7 @@ import {
   skipQuestion,
   tidyFrame,
   withContext,
+  withEvidence,
 } from './intake';
 
 const ask = (field: string, question = 'A question?'): ScenarioAmbiguity => ({
@@ -326,6 +327,38 @@ describe('answering a question', () => {
   it('can skip a question without answering it', () => {
     const start = frame({ ambiguities: [ask('a'), ask('b')] });
     expect(skipQuestion(start, 0).ambiguities.map((item) => item.field)).toEqual(['b']);
+  });
+});
+
+describe('the evidence a scenario lists as available', () => {
+  it('lists the sources as they are when the project is made, not as they were when the question was read', () => {
+    const read = frame({
+      evidenceAvailable: ['gone.md (1,000 characters)', 'old.md (500 characters)'],
+    });
+    const next = withEvidence(read, [
+      { name: 'old.md', content: 'x'.repeat(1_234) },
+      { name: 'new  notes\n.md', content: 'y'.repeat(80) },
+    ]);
+    expect(next.evidenceAvailable).toEqual([
+      'old.md (1,234 characters)',
+      'new notes .md (80 characters)',
+    ]);
+    expect(read.evidenceAvailable).toHaveLength(2);
+    expect(withEvidence(read, []).evidenceAvailable).toEqual([]);
+    expect(scenarioInputSchema.safeParse(next).success).toBe(true);
+  });
+
+  it('keeps to the room the scenario has, and to names that can be read', () => {
+    const many = Array.from({ length: 14 }, (_, n) => ({
+      name: `${n}${'n'.repeat(300)}`,
+      content: 'z',
+    }));
+    const next = withEvidence(frame(), many);
+    expect(next.evidenceAvailable).toHaveLength(LIMITS.missingEvidence);
+    expect(next.evidenceAvailable.every((entry) => entry.length <= 200)).toBe(true);
+    expect(
+      withEvidence(frame(), [{ name: '\u0000\u0007', content: 'z' }]).evidenceAvailable,
+    ).toEqual(['document (1 characters)']);
   });
 });
 

@@ -140,6 +140,34 @@ export function tidyFrame(frame: ScenarioFrame): ScenarioFrame {
   };
 }
 
+/** Words for what a source is called in a list that a person reads: printable, one line, and not too long. */
+const plain = (text: string, max: number): string =>
+  text
+    .replace(/\p{C}+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .slice(0, max);
+
+/**
+ * The scenario's list of the evidence that is available, as it is when the project is made. The reading made it from
+ * the sources that were attached then; a source taken away since, or corrected, would otherwise be listed as it was,
+ * and the brief that is written later says that this is what the person listed.
+ */
+export function withEvidence(
+  frame: ScenarioFrame,
+  documents: readonly { name: string; content: string }[],
+): ScenarioFrame {
+  return {
+    ...frame,
+    evidenceAvailable: documents
+      .slice(0, LIMITS.missingEvidence)
+      .map(
+        (document) =>
+          `${plain(document.name, 120) || 'document'} (${document.content.length.toLocaleString('en-GB')} characters)`,
+      ),
+  };
+}
+
 /** What stops a frame from being used, in words, so that the person can put it right. */
 export function frameIssues(frame: ScenarioFrame): string[] {
   const issues: string[] = [];

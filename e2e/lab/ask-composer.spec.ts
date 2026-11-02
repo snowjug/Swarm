@@ -368,6 +368,59 @@ test.describe('asking', () => {
     await expect(questionBox(page), `focus is on ${await focusedElement(page)}`).toBeFocused();
   });
 
+  test('a reading that is slow puts the keyboard on Stop, and stopping it, by the button or by Escape, returns it to the question', async ({
+    page,
+  }) => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    await page.route('**/api/scenario/parse', async (route) => {
+      await gate;
+      await route.continue().catch(() => undefined);
+    });
+    await openAsk(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+
+    for (const stop of ['the button', 'Escape'] as const) {
+      await exploreButton(page).click();
+      const reading = page.getByRole('button', { name: 'Stop', exact: true });
+      await expect(reading).toBeFocused();
+      if (stop === 'Escape') await page.keyboard.press('Escape');
+      else await page.keyboard.press('Enter');
+      await expect(questionBox(page), `stopped with ${stop}`).toBeFocused();
+      await expect(questionBox(page)).toHaveValue(HARBOUR_QUESTION);
+      await expect(page.getByRole('button', { name: /^Read harbour-notes\.md/u })).toBeVisible();
+    }
+    release();
+  });
+
+  test('a reading that fails puts the keyboard on Try again, and Enter reads the question again', async ({
+    page,
+  }) => {
+    await page.route('**/api/scenario/parse', (route) =>
+      route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'UNAVAILABLE', message: 'The reader is busy.' } }),
+      }),
+    );
+    const problems = watchPage(page, { refusals: true });
+    await openAsk(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+    await exploreButton(page).click();
+    const retry = page.getByRole('button', { name: 'Try again', exact: true });
+    await expect(retry, `focus is on ${await focusedElement(page)}`).toBeFocused();
+
+    // It fails again, and the keyboard is on the new Try again: the person is not sent back to the top of the page.
+    await page.keyboard.press('Enter');
+    await expect(retry).toBeFocused();
+    await page.unroute('**/api/scenario/parse');
+    await page.keyboard.press('Enter');
+    await expect(reviewHeading(page)).toBeVisible();
+    expect(problems.filter((problem) => !/status of 503/u.test(problem))).toEqual([]);
+  });
+
   test('a question that is read again after it changed gives a new scenario, and the old one is not used', async ({
     page,
   }) => {

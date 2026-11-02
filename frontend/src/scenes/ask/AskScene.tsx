@@ -23,6 +23,7 @@ import {
   hasContext,
   tidyFrame,
   withContext,
+  withEvidence,
   type Context,
 } from '../../lib/intake';
 import { POSITIONING_STATEMENT, urlIngestionEnabled } from '../../lib/product';
@@ -80,6 +81,12 @@ const NOTICEABLE_MS = 280;
 
 /** From here the question says how much room is left: a person who pastes a long text should see where it was cut. */
 const QUESTION_COUNT_FROM = 1700;
+
+/** The keys that explore from the question box, as the device writes them (the code takes Ctrl or ⌘ on any device). */
+const submitKeys = (): string =>
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/u.test(navigator.platform || '')
+    ? '⌘ ↵'
+    : 'Ctrl ↵';
 
 const POOL = [...OFFERED_EXAMPLES.map((example) => example.question), STARTER.question];
 
@@ -153,6 +160,15 @@ export function AskScene({
     textarea.current = node;
     if (node && wantsQuestion.current) {
       wantsQuestion.current = false;
+      node.focus({ preventScroll: true });
+    }
+  }, []);
+  // A reading that failed: the way to read it again takes focus when the notice arrives, since the button that was
+  // pressed has gone with the composer and focus would otherwise be left on the page.
+  const wantsRetry = useRef(false);
+  const retryArrived = useCallback((node: HTMLButtonElement | null) => {
+    if (node && wantsRetry.current) {
+      wantsRetry.current = false;
       node.focus({ preventScroll: true });
     }
   }, []);
@@ -260,8 +276,10 @@ export function AskScene({
       setPhase('review');
       return;
     }
+    wantsRetry.current = true;
     const result = await reading.read(question.trim(), documentSummaries(documents), useModel);
     if (!result) return;
+    wantsRetry.current = false;
     setFrame(withContext(result.frame, context));
     setRead({ key, mode: result.mode, model: result.model, notes: result.notes });
     setPhase('review');
@@ -274,7 +292,7 @@ export function AskScene({
         question,
         documents,
         settings,
-        frame: withFrame ? tidyFrame(withFrame) : null,
+        frame: withFrame ? tidyFrame(withEvidence(withFrame, documents)) : null,
       }),
     );
     if (parsed.error) {
@@ -379,7 +397,15 @@ export function AskScene({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <ReadingView question={question.trim()} model={useModel} onCancel={reading.cancel} />
+            <ReadingView
+              question={question.trim()}
+              model={useModel}
+              onCancel={() => {
+                wantsQuestion.current = true;
+                wantsRetry.current = false;
+                reading.cancel();
+              }}
+            />
           </m.div>
         ) : phase === 'compose' ? (
           <m.div
@@ -499,7 +525,11 @@ export function AskScene({
                       </>
                     ) : (
                       <span className="sw-ask__hint sw-hide-sm" aria-hidden="true">
-                        {missingSource ? 'Add a source' : <kbd className="sw-kbd">Ctrl ↵</kbd>}
+                        {missingSource ? (
+                          'Add a source'
+                        ) : (
+                          <kbd className="sw-kbd">{submitKeys()}</kbd>
+                        )}
                       </span>
                     )}
                   </>
@@ -513,7 +543,12 @@ export function AskScene({
                     action={
                       reading.error ? (
                         <span className="sw-ask__actions">
-                          <Button size="sm" variant="glass" onClick={() => void explore()}>
+                          <Button
+                            ref={retryArrived}
+                            size="sm"
+                            variant="glass"
+                            onClick={() => void explore()}
+                          >
                             Try again
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => void start(null)}>

@@ -90,8 +90,11 @@ export function SettingsPopover({
         {settings.mode === 'llm' && modelAvailable && config ? (
           <p className="sw-caption">
             Runs on {realModelLabel(config.provider.name)} ·{' '}
-            {config.provider.model ?? 'model unspecified'} · {authText(config.provider.auth)}. Your
-            question and evidence context are sent to this provider.
+            {config.provider.model ?? 'model unspecified'}
+            {config.provider.auth && config.provider.auth !== 'none'
+              ? ` · ${authText(config.provider.auth)}`
+              : ''}
+            . Your question and evidence context are sent to this provider.
           </p>
         ) : (
           <p className="sw-caption">
