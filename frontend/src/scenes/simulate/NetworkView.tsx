@@ -10,7 +10,13 @@ import { Dock, SideCard } from './Dock';
 import { ActorTrace } from './RoundCard';
 import { SegmentedColour } from './SegmentedColour';
 import { StanceKey } from './StanceLegend';
-import { useClosedHeight, useCoveredRight, useStageInset, type StageBoxes } from './useStage';
+import {
+  useClosedHeight,
+  useCoveredRight,
+  usePhone,
+  useStageInset,
+  type StageBoxes,
+} from './useStage';
 import {
   alignmentAt,
   movementOf,
@@ -150,6 +156,7 @@ export function NetworkView({
   const closedDock = useClosedHeight(boxes.dock, open);
   const inset = useStageInset(boxes, closedDock, wide);
   const coveredRight = useCoveredRight(wide, SIDE);
+  const phone = usePhone();
   const visible = useMemo(() => edges.filter((edge) => !hidden.has(edge.type)), [edges, hidden]);
   const finals = useMemo(() => stancesAt(replay, replay.lastRound), [replay]);
   const moves = useMemo(
@@ -272,6 +279,7 @@ export function NetworkView({
             valueFor={(id) => values.get(id) ?? null}
             valueScale={scale}
             focus={Boolean(selectedId)}
+            drift={!phone}
             inset={inset}
             covered={{ right: coveredRight, bottom: compact && open ? boxes.dock : 0 }}
             describe={(node) =>

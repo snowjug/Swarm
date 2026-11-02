@@ -58,11 +58,16 @@ export function useStageInset(
   };
 }
 
+/** A phone: the screen where the picture is smallest, the battery matters most, and the zoom stands at the edge. */
+export function usePhone(): boolean {
+  return useMediaQuery('(max-width: 40rem)');
+}
+
 /**
  * What floats over the right of the picture, which the picture keeps clear of: the card beside it where there is one, and
  * on a phone the column of the zoom at the edge.
  */
 export function useCoveredRight(wide: boolean, side: number): number {
-  const phone = useMediaQuery('(max-width: 40rem)');
+  const phone = usePhone();
   return wide ? side : phone ? 56 : 0;
 }

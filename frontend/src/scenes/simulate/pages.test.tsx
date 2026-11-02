@@ -11,6 +11,7 @@ describe('the story of a simulation that kept no run in detail', () => {
       onWatch={() => undefined}
       onCompare={() => undefined}
       onReview={() => undefined}
+      onDeep={() => undefined}
     />,
   );
 

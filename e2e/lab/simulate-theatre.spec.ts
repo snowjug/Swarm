@@ -262,6 +262,23 @@ test.describe('a finished simulation, looked at', () => {
     await expect(roundSlider(page)).toHaveAttribute('aria-valuenow', String(last()));
   });
 
+  test('the story points to the deep dive, where an event can be added and a run branched, and it is one press away', async ({
+    page,
+  }) => {
+    await page.goto(simulateAt(project, 'story'));
+    await arrived(page);
+    const deeper = page.getByRole('region', { name: 'Go deeper' });
+    await expect(deeper).toContainText(
+      'Pause it to add one assumed event, or branch it from a round',
+    );
+    await deeper.getByRole('button', { name: 'Open the deep dive' }).click();
+    await expect(page).toHaveURL(/view=deep/u);
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'A slower, closer look' }),
+    ).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Where the run stands' })).toBeVisible();
+  });
+
   test('each view has its own heading, its address, and says that it is not a prediction', async ({
     page,
   }) => {

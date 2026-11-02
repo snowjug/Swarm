@@ -190,7 +190,11 @@ function Theatre({
         ) : (
           <span />
         )}
-        <div className="sw-sim__bar sw-glass" role="toolbar" aria-label="Ways to look at it">
+        <div
+          className="sw-sim__bar sw-glass sw-glass--overlay"
+          role="toolbar"
+          aria-label="Ways to look at it"
+        >
           <Segmented<TheatreView>
             size="sm"
             label="View"
@@ -251,6 +255,7 @@ function Theatre({
           onWatch={(id) => (id && setSelectedId(id), ws.setView(replay ? null : 'timeline'))}
           onCompare={() => ws.go('compare')}
           onReview={() => ws.go('map')}
+          onDeep={() => ws.go('simulate', { view: 'deep' })}
         />
       )}
       {view === 'timeline' && (

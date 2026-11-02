@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { m } from 'motion/react';
-import { ArrowRight, Play } from 'lucide-react';
+import { ArrowRight, Layers, Play } from 'lucide-react';
 import { cx } from '../../design/cx';
 import { SPRING, useTween } from '../../design/motion';
 import { Button, Chip, Disclosure, Notice } from '../../design/ui';
@@ -116,6 +116,8 @@ export interface StoryViewProps {
   onCompare: () => void;
   /** To the stakeholders, where who is helped or harmed is said. */
   onReview: () => void;
+  /** To the deep dive, where an event can be added and a run branched. */
+  onDeep: () => void;
 }
 
 /**
@@ -123,7 +125,14 @@ export interface StoryViewProps {
  * or resist, who moves most, what the typical run sets off, how steady the findings are and how far to rely on them. It
  * is composed entirely from what the comparison states; where it cannot say something, it says nothing.
  */
-export function StoryView({ analysis, replay, onWatch, onCompare, onReview }: StoryViewProps) {
+export function StoryView({
+  analysis,
+  replay,
+  onWatch,
+  onCompare,
+  onReview,
+  onDeep,
+}: StoryViewProps) {
   const story = useMemo(() => storyOf(analysis), [analysis]);
   const findings = useMemo(() => topFindings(analysis, 3), [analysis]);
   const lines = comparisonSummary(analysis);
@@ -365,6 +374,25 @@ export function StoryView({ analysis, replay, onWatch, onCompare, onReview }: St
             ))}
           </ul>
         </Disclosure>
+      </section>
+
+      <section className="sw-story__section sw-story__deeper" aria-labelledby="story-deeper">
+        <h2 id="story-deeper" className="sw-title">
+          Go deeper
+        </h2>
+        <p className="sw-story__lead">
+          A slower look at the same question, one fictional proxy at a time, on two simulated
+          platforms. Pause it to add one assumed event, or branch it from a round to try another
+          assumption and set the two runs side by side.
+        </p>
+        <Button
+          variant="glass"
+          size="lg"
+          icon={<Layers size={17} aria-hidden="true" />}
+          onClick={onDeep}
+        >
+          Open the deep dive
+        </Button>
       </section>
     </div>
   );
