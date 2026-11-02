@@ -38,14 +38,14 @@ The address holds the state: `/?project=<id>&scene=<scene>&view=<view>`. `?proje
 by the engine hook (`hooks/useConsole.ts`); `scene` and `view` by `app/route.ts`, so that a link, a reload
 and the browser's Back button all land where the person was.
 
-| Scene    | Answers                        | Code              | `?view=`                                                | Opens when                                                     |
-| -------- | ------------------------------ | ----------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
-| Ask      | The change you want to explore | `scenes/ask`      | none                                                    | Always. It is the screen before there is a project             |
-| Ground   | The evidence it rests on       | `scenes/ground`   | `graph`, `sources`, `conflicts`, `statements`, `trace`  | Always, for an open project                                    |
-| Map      | Who is affected                | `scenes/map`      | `list`                                                  | The evidence has been read, or stakeholders have been found    |
-| Simulate | Watch it unfold                | `scenes/simulate` | `story`, `live`, `network`, `timeline`, `setup`, `deep` | There are actors (or the deep dive's own environment is ready) |
-| Compare  | Set the futures side by side   | `scenes/compare`  | `runs`                                                  | A simulation has finished                                      |
-| Decide   | What to do about it            | `scenes/decide`   | `review`, `studio`, `report`                            | A simulation has finished                                      |
+| Scene    | Answers                        | Code              | `?view=`                                                | Opens when                                                                  |
+| -------- | ------------------------------ | ----------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Ask      | The change you want to explore | `scenes/ask`      | none                                                    | Always. It is the screen before there is a project                          |
+| Ground   | The evidence it rests on       | `scenes/ground`   | `graph`, `sources`, `conflicts`, `statements`, `trace`  | Always, for an open project                                                 |
+| Map      | Who is affected                | `scenes/map`      | `list`                                                  | The evidence has been read, or stakeholders have been found                 |
+| Simulate | Watch it unfold                | `scenes/simulate` | `story`, `live`, `network`, `timeline`, `setup`, `deep` | There are actors (or the deep dive's own environment is ready)              |
+| Compare  | Set the futures side by side   | `scenes/compare`  | `runs`                                                  | A simulation has finished, or a run the engine made on its own has rounds   |
+| Decide   | What to do about it            | `scenes/decide`   | `review`, `studio`, `report`                            | A simulation has finished, or a run the engine made on its own has a report |
 
 - **The words in the first column** are the only names the interface gives its parts. The second column
   is the line under each name on the first screen and in the tooltip of its point on the journey
@@ -56,15 +56,23 @@ and the browser's Back button all land where the person was.
   when the scene changes. Ground accepts a few older names for its parts (`evidence` and `documents` for
   `sources`, `ledger` and `claims` for `statements`, `log` for `trace`, `topics` for `graph`).
 - **A project opens where its record has got to** (`frontierScene`): Decide once a simulation has
-  finished, Simulate while one runs or once there are actors, Map once the evidence is read, and
-  otherwise Ground. A project opened without a scene is given that one in the address, so that a reload
-  and a shared link land in the same place. A scene named in the address that is not open yet is
-  replaced by that one.
+  finished, Simulate while one runs, once there are actors or when the run is one the engine made on
+  its own, Map once the evidence is read, and otherwise Ground. A saved quick run opens on Decide when
+  it holds a report, on Simulate when it holds rounds and otherwise on Ground. A project opened without
+  a scene is given that one in the address, so that a reload and a shared link land in the same place.
+  A scene named in the address that is not open yet is replaced by that one.
 - **A scene that is locked says what opens it**: Ground it first (Map), Needs actors (Simulate), Run a
   simulation first (Compare and Decide). A record that the guided flow did not make, such as a quick
   run saved before the staged engine, locks Map and Compare ("Not in this record") and lets the other
   scenes show what it holds. Asking for a locked scene, from the journey or from a button, does not open it:
   a toast says why.
+- **A record the engine made on its own is read through its own run.** The recorded demonstration is one:
+  a guided run with its detailed report and recorded branches, for which the scenario lab holds nothing
+  (`isEngineOnly` in `app/scenes.ts`: no scenario, stakeholders, actors, comparison, review or brief).
+  Compare opens for it once it has rounds, so that two recorded runs can be read against each other
+  (`?view=runs`). Decide opens for it once the engine has written a detailed report: with no brief to
+  show it says "Nothing to decide from yet" and offers **Open Simulate** and **Detailed report**
+  (`?view=report`). A record the lab has begun stays gated by the lab, as above.
 - **The engine's own stage names are not part of this.** `console.steps` (`knowledge`, `environment`,
   `simulation`, `report`, `interaction`) still exists in the API and the engine, and the interface reads
   it to know what is ready. It names the stages only where the engine's record is the subject: the deep
@@ -227,21 +235,56 @@ are in the [user guide](./USER_GUIDE.md).
 ### Ask
 
 The first screen, and the only one before there is a project. Its heading is "Explore what could
-_happen_ next." under "What change do you want to explore?", and while a scenario is being reviewed the
-heading is "Your scenario".
+_happen_ next.", with "What change do you want to explore?" beneath it, and while a scenario is being
+reviewed the heading is "Your scenario". The first view holds the whole composition on a laptop and on a
+phone: the heading grows with the width and the height of the window, and the six steps of the journey
+under the examples (a promise of their order, not a control) keep to their names where the screen is short
+or a phone, with their purposes still said to a screen reader, and stand aside for the composer on a
+laptop once something is written.
 
-- **One composer** takes the question in the serif, on glass that lights at its edge while it is written in
-  (`Ctrl`/`⌘` + Enter explores). **Evidence** is a popover to bring files, pasted text, or a public web page
-  that the server fetches (offered only when the server reports URL ingestion); everything attached sits
-  in a tray of pills that open the text Swarm will work from. **Options** is a popover: the engine
-  (**Local rules** or **Model assisted**), a name, and the deep dive's Proxies, Rounds and Seed. The
-  example chips fill the question and its evidence and nothing else.
+- **One composer** takes the question in the serif, on glass that lights at its edge while it is written
+  in. `Ctrl` or `⌘` with Enter explores (Enter alone adds a line), and beside **Explore** stands the
+  shortcut of the device (`⌘ ↵` on an Apple device, `Ctrl ↵` elsewhere), or "Add a source" once there is a
+  question and no source; neither is shown on a phone. The question holds at most 2,000 characters, so a
+  longer text pasted into it is cut, and from 1,700 a counter ("1,750 / 2,000") says how much room is left.
+  A "Model assisted" marker stands beside the button when that engine is chosen. While the field is empty it
+  suggests the questions of the examples in turn, never one that would be cut off in the middle of its
+  sentence, and holds still for a person who asked for less motion.
+- **Four tools sit under the field.** On a phone each opens from the foot of the screen as a sheet; there
+  **Time frame**, **Assumptions** and **Options** show only an icon, their words kept in their accessible
+  names (with the time frame or the number of assumptions once there is one), and **Evidence** keeps its
+  word and the number of sources attached.
+  - **Evidence** brings files (TXT, Markdown, CSV and JSON, and PDF only where the server reports that it
+    reads PDFs), pasted text, or a public web page that the server fetches (offered only when the server
+    reports URL ingestion). A page is fetched on a press of **Fetch**, shown as a preview that says where it
+    is from, and added only on **Add as evidence**. Everything attached sits in a tray of pills (one row to
+    swipe on a phone) that open the text Swarm will work from, to be read and corrected there. When the
+    question names a web address, the page is offered under the field ("Read example.org as evidence"),
+    fetched only when that is pressed, and the offer goes once it is a source. A fetched page that the
+    person then edits becomes pasted text, as it does on the server (which keeps a page's provenance only
+    for the text it fetched): the sheet says so at once, and says it is the page again if the words are
+    put back.
+  - **Time frame** (a few common spans, or the person's own words) and **Assumptions** (up to six) are said
+    before the question is read. They are applied after the reading, as the person's own: the time frame
+    answers the question about the period, and each assumption is marked as theirs and stands ahead of those
+    the reading made. Neither is in the request that reads the question, so that reading, by rules or by a
+    model, never sees them; once applied they are lines of the scenario like any other. They are part of
+    what a reading is made from, so changing one reads the question again, and a reading that fails and is
+    gone past with **Continue without reading** keeps neither (the notice says so).
+  - **Options** is a popover: the engine (**Local rules**, or **Model assisted** once the server has a
+    provider), a name, and a **Deep dive** disclosure with Proxies, Rounds and Seed.
+- **The examples** are chips under the field, ordered so that no company leads: Launch pricing, Cloud price
+  change, Online store checkout, AI-first support and Copilot in Teams, then the quiet fictional starter,
+  Library hours. On a phone they are one row to swipe. They fill the question and its evidence and nothing
+  else, and a note names what they brought ("5 documents · sample evidence"; its accessible name begins with
+  its visible words, and pressing it brings the chips back).
 - **Explore** reads the question into a scenario that the person reviews and corrects in place: the
   decision, what it affects, where and over what time, what changes, what is expected if nothing changes,
   ways to do it, who is affected, what is assumed (each marked as the person's or the system's), the
   questions Swarm asks, and the evidence. **Ground it** creates the project and starts reading the
-  evidence; nothing runs before that. A reading that fails offers **Try again** and **Continue without
-  reading**.
+  evidence; nothing runs before that. A reading that takes long enough to notice is a page of its own: the
+  question stays, focus is on **Stop**, and Stop or Escape gives focus back to the question with all that was
+  written. A reading that fails offers **Try again**, which has focus, and **Continue without reading**.
 - **Continue** lists the newest explorations and, when the workspace has them, the recorded
   demonstration.
 - **It must keep** the positioning statement in its exact words, the line in Options that says whether the
@@ -251,40 +294,95 @@ heading is "Your scenario".
 ### Ground
 
 What the evidence says, before anything is simulated. The question is the heading, with a status (Not
-started, Queued, Reading, Ready, Failed, Stopped, or Saved record), four figures that are also the way into
-the rest of the page (Sources, Passages, Topics or Entities, Conflicts), the one primary action and a
-constellation graph of what the sources talk about.
+started, Queued, Reading, Extracting, Checking, Ready, Failed, Stopped, or Saved record: Reading and
+Extracting are the two things the engine does, as its own records say, and Checking is the time the
+conflicts are being looked for), four figures that are also the way into the rest of the page (Sources,
+Passages, Topics or Entities, Conflicts), the one primary action and a constellation graph of what the
+sources talk about. Until there is a graph, the sources themselves fill its place.
 
 - **The primary action** is **Ground it** until reading has started, **Stop** while it runs, **Try again** or
   **Start again** after a failure, and **Map the stakeholders** once the evidence is read. The same action
-  waits at the bottom edge once the first one has scrolled away.
-- **Sources** are drawn as threads, each as long as its document with its numbered passages (S1, S2, …) along
-  it. **Conflicts** puts two sources that give different figures or say opposite things side by side, each to be
-  settled by a person (**Confirm**, **Not a conflict**, **Mark resolved**, with an optional note, and **Change
-  decision**). **Statements** lists what a model-written report says and how well the sources back each, with a
-  filter by verdict; a statement opens in a sheet with its passages and **Accept**, **Needs revision** or
-  **Reject**. **Operations** (the engine's recorded operations and events) is Advanced only.
+  waits at the bottom edge once the first one has scrolled away. The figures lead on: Sources to the tray,
+  Passages to a search of the numbered passages, Topics or Entities to the graph, Conflicts to the conflicts.
+- **Sources** are a tray, one row for each document: where it came from (Upload, Pasted, Synthetic sample, or
+  the site of a page the server fetched), its size, and its numbered passages (S1, S2, …) laid along a thread
+  as long as the document. In the list under the Sources heading a row also names the topics (or entities)
+  that came from the source, the heaviest first. Each row says where its source stands: Queued, Reading,
+  Extracting or Checking while the engine works, Ready when it is done, and **Needs attention** when a
+  conflict that nobody has settled is between it and another source, with a flag for each, named by the
+  conflict's id, that leads to it. A step that failed or was stopped says so once, above, with its reason, and
+  not on every row. Pointing at a source or a passage lights what it is tied to in the graph and in the
+  conflicts; a source opens in a sheet with its whole text and its passages marked, and a passage opens in a
+  sheet of its own.
+- **Conflicts come first** while any is unsettled, ahead of the sources they are between. Each puts two
+  sources that give different figures or say opposite things side by side, with the figures and the words
+  they stand in, quoted plain (without the list marker the source's line began with), to be settled by a
+  person (**Confirm**, **Not a conflict**, **Mark resolved**, with an optional note, and **Change
+  decision**); settled ones stay under **Reviewed**.
+- **Statements** appear only when a checked, model-written report lists some, and say how well the sources
+  back each, with a bar of verdicts that filters the list. Each carries a tag for its kind (Fact, Assumption,
+  Simulation observation or Interpretation, from the ten types the ledger keeps), and where there is more
+  than one kind a filter by kind. A statement opens in a sheet with its passages and **Accept**, **Needs
+  revision** or **Reject**. A project whose report was checked and lists none says so in one quiet line; where
+  nothing has been checked there is no Statements section, not an empty one.
+- **The graph is calm.** Under it a caption says what a line means ("Shared passages, not meaning", or
+  "Extracted by a model · may be incomplete"). A few of the heaviest topics are named at rest and the rest
+  when pointed at, a line is named only on request, and **Graph options** narrows the links to the stronger
+  ones. **Method** says how the sources were read. **Operations** (the engine's recorded operations and
+  events, the Advanced log) is shown in Advanced detail only.
 - **It must keep** the figures honest (a dash until the engine has said), the line "Found from wording alone.
   Neither side is declared true." beside the conflicts, and "How well the sources back each statement, not
-  whether they are true." beside the statements. Where a report lists no statements, the page says so quietly.
+  whether they are true." beside the statements.
 
 ### Map
 
 Who is in play. Before anything is found, one invitation: **Find who is affected** (by a model when the
 project has one, otherwise by reading the text), **Read the text instead**, and **Add one yourself**.
 
-- **The map** (see below) draws the stakeholders as an ecosystem. A floating **inspector** shows the party in
-  view (below 64rem, a strip with **Details**, which opens a sheet): where it stands, its evidence word for
-  word, why it is here, how it is connected, and, for an actor, every trait on a slider with where its value
-  came from. A
-  toolbar offers Map or List, Stakeholders or Actors, Groups, focus on what is connected (`F`), **Add a
-  stakeholder** and, under More, **Find stakeholders again…** and **Reset all actors…**.
-- **One pill says the one thing to do next:** "N to review" (it opens the next), **Create actors** (the button
-  is named "Approve & create actors" while the list still has to be approved, and reads **Approve** when actors
-  the person changed are kept), then "N actors ready" with **Simulate**. Changes to an actor are held, with
-  **Save** and **Discard**, until saved.
-- **List** (`?view=list`) is the same parties as text, in groups, with the ones removed under "Removed" and
-  the places where nobody was found under "Nobody found for".
+- **The map** (see below) draws the stakeholders as an ecosystem, under a heading that counts the parties,
+  the key ones and those still to review, with a chip that says how they were found. A floating
+  **inspector** shows the party in view (below 64rem, a strip with **Details**, which opens a sheet): where
+  it stands, its evidence word for word, why it is here, how it is connected and, for an actor, its key
+  assumption, what it wants and worries about, and every trait on a slider with where its value came from.
+  A toolbar offers Map or List, Stakeholders or Actors, Groups, focus on what is connected (`F`), **Add a
+  stakeholder** and, under More, **Find stakeholders again…** and **Reset all actors…**. Pointing at a party
+  names it and says whether it is key or a cohort, its influence (for an actor), its effect, how many quotes
+  stand behind it (or that it is assumed) and why it is here.
+- **One pill says the one thing to do next:** "N to review" (it opens the next) beside **Create actors**.
+  That button reads **Create actors** while the list still has to be approved, and its accessible name is
+  "Approve & create actors", because it also accepts what nobody looked at; it reads **Approve** when actors
+  the person changed are kept, which approving then leaves as they are. It waits, with the hint "Keep or add
+  two or more", until at least two stakeholders are kept. With a model on offer it first asks whether the
+  model may read the key actors. Then "N actors ready" with **Simulate**. Changes to an actor are held,
+  with **Save** and **Discard**, until saved. When the stakeholders change after the actors were made, a
+  notice says "The actors are out of date" and offers **Make them again**, which asks before it replaces
+  what the person changed ("Reset all actors?").
+- **A stakeholder is accepted, edited, duplicated, merged or removed** from the inspector. **Duplicate**
+  opens the form with "<name> (copy)", the same kind, size and reasons; the copy is the person's own and
+  cites no evidence, and says so. Nothing is deleted: a removed or merged party stays in the record, under
+  Removed, with **Restore** or **Undo the merge**.
+- **An actor's wording is editable in place.** **Edit what <name> wants and fears** opens its role, its
+  starting belief and its wants, worries and pressures as lines to change, add or take away; a cohort's size
+  and number of simulated members are fields, and each of the eleven traits is a slider with an origin chip
+  (assumption, evidence, model or you) and the reason for its value. Everything is held until **Save**, and a
+  saved actor is marked "Edited by you".
+- **The actors themselves are fixed.** The API refuses to add or remove an actor (`ACTORS_CHANGED`) and to
+  rename, regroup or re-kind one (`ACTOR_LOCKED`): an actor is made from its stakeholder. So an actor offers
+  **Edit as a stakeholder**, which shows the stakeholders; there a party is duplicated, removed, renamed or
+  regrouped, the actors become out of date, and **Make them again** makes them from the list as it now stands.
+- **List** (`?view=list`) is the same parties as text, in groups, the weightiest first. A line that every
+  row of a group would say alike is said once under the group's name, and each row says what is its own: its
+  facts (direct or indirect, how many quotes or "Assumed", and for an actor whether it is one actor or a
+  cohort and where it stands), an influence cue with its word, its effect and its review state, as words.
+  The ones removed are under "Removed", and the places where nobody was found under "Nobody found for", each
+  with **Add**.
+- **Nobody drawn yet** is what the stage says when no party is left and there is no empty place on the picture to
+  press (a phone draws none): two or more are needed to make actors, and **Add one yourself** adds one. The
+  pill then says "0 to review", never that everyone was reviewed.
+- **It sits on the page's grid.** The heading, the toolbar, the inspector and the zoom controls keep to the
+  same edges as the bar above them, while the picture itself runs to the edges of the window (at 1920 wide it
+  goes past them). What scrolls in the inspector fades at its lower edge, so that a panel that goes on does not
+  look cut off by mistake.
 - **It must keep** the line that says actors are synthetic stand-ins and every number an assumption, the
   rule that approving needs at least two stakeholders, and the model's privacy line before the source text
   is sent.
@@ -337,37 +435,85 @@ appears when no stakeholder has an expected direction of impact.
 
 The decision brief as a document, with the independent review beside it and in its place.
 
-- **The answer first**, then the story in four parts (What happened, Why, What to do, On what ground), each made
-  of chapters. A chapter of reference (the assumptions, the evidence base, the sources, the limitations and the
-  technical appendix) is closed until it is wanted, and stays in the page; the contents, the address
-  (`#brief-<chapter>`) and the tools open a chapter before they take the reader to it.
-- **Tools for the brief**: **Review** (the critics' objections, `?view=review`, with **Run the independent
-  review**), **Edit report** (Report Studio, `?view=studio`), **Detailed report** (the deep dive's report,
-  `?view=report`, when one exists), **Export** (Markdown, JSON with the data behind the charts, a printable
-  page, or print this page) and, under More, **Write the brief again**.
+- **The answer comes first.** The first screen says what happened, why, what matters and what to consider
+  next, in that order, with a line under the verdict that the figures are counts from a simulation under
+  stated assumptions, not a forecast. **What happened** is the verdict written from the numbers and the
+  figures it rests on (the share of simulated members under the change and under no change, their paired
+  difference with its standard error, and in how many paired seeded runs it was higher). **Why** is who
+  moved most and how steadily it held. **What matters** is the biggest open caveat and where the review
+  stands. **What to consider next** is the first recommendation, with the way to the chapter that says what
+  to do. Everything below is the same answer in more depth: the story in four parts (What happened, Why,
+  What to do, On what ground), each made of chapters. A chapter of reference (the assumptions, the evidence
+  base, the sources, the limitations and the technical appendix) is closed until it is wanted, and stays in
+  the page. Once the first screen has gone by, a bar keeps the contents, the review and the export in reach.
+- **Every part has an address.** `#brief-answer` is the answer and `#brief-<chapter>` a chapter, by the id the
+  brief gives its section (`#brief-recommendations`, `#brief-assumptions`, `#brief-limitations`, and
+  `#brief-review` for the independent review). The contents, the address and the tools open a closed chapter
+  before they take the reader to it. `?view=review`, `?view=studio` and `?view=report` open the review, Report
+  Studio and the detailed report.
+- **Tools for the brief**: **Review** (the critics' objections, with **Run the independent review**),
+  **Edit report** (Report Studio), **Detailed report** (the deep dive's report, when one exists), **Export**
+  and, under More, **Write the brief again** and **Open every chapter**. **Export** is one menu: **Markdown**,
+  **JSON, with the data behind the charts** and **Printable page** (a page the server makes for paper, opened in
+  a tab of its own, which loads and runs nothing), and **Print this page** (`Ctrl P`). A role that may read the
+  brief but not export it has the three files disabled, with the reason, and can still print.
+- **Print and PDF are held.** The brief puts the whole of itself and the review on paper, whatever is closed on
+  the screen, in ink on white from whichever theme the screen was in, and none of the application around it
+  (the bars, the tools, the contents, the buttons that only move about the screen); no text is drawn over other
+  text and every block fits the width of the paper (the `@media print` rules in the scene's stylesheets).
+  `e2e/lab/report-export.spec.ts` makes a PDF of the page in print media, reads its text back and checks all
+  of that, for every statement, from each theme and from a phone as from a desktop.
+- **The review sheet** (`?view=review`, "Independent review: critics challenge the analysis and never change
+  it") is opened from the tools, the contents or the note beside the statement a criticism is about. A
+  criticism that says the comparison cannot say anything about the change leads it. The others can be
+  filtered (Open, Answered, by severity), are grouped by critic, and each can be responded to, accepted or
+  disputed, with what still stands; what a person typed is never lost. A review of an earlier comparison says
+  so.
 - **Before there is a brief** the scene offers one action, **Write the brief**; while it is written it says
-  so. A brief that no longer matches what it was made from says what changed.
+  so. A brief that no longer matches what it was made from says what changed. With no comparison to write
+  from, and for a record the engine made on its own, it says "Nothing to decide from yet" and offers
+  **Open Simulate**, and **Detailed report** where there is one.
 - **Report Studio** is where a person works on a copy of the generated report: sections, versions, notes, a
   review workflow (**Submit for review**, **Approve…**, **Request changes…**) and export. The generated
   report is never changed ([ADR 0011](./adr/0011-report-studio.md)). It works on the deep dive's detailed
   report, so until one is written it says "There is no report to work on yet" and points to it. A save
   made over a section that someone else has saved keeps the person's words and says so, and makes a new
-  version on top of the other, which stays in the history.
+  version on top of the other, which stays in the history. It has a level-one heading in each state once
+  loaded; a dialog or a sheet gives focus back to the button that opened it; and a way back that would drop
+  words that were not saved asks first ("Leave with unsaved changes?", with **Keep editing** and **Leave
+  anyway**), whether it is the studio's own **Back to the brief** or the **Decision brief** link at the head
+  of the page, and the browser asks before the tab is closed. **Ctrl+P** prints the whole working copy,
+  with where it stands in its review and the fingerprint of an approved text, and not the editor; the
+  printable memo is still the record. The **Record** sheet ("Review record") opens on **Decisions** every
+  time, before Conflicts, Assumptions and any earlier copies.
+- **The detailed report** says what a citation rests on. A citation that points at no passage the project
+  stored says "Not among this project's sources" and that a citation that points at nothing is not evidence
+  for the statement, instead of showing a blank.
+- **A very long word** that a source or a person wrote, an address or a pasted string, wraps wherever it must,
+  so that it never widens the brief, the review sheet or the detailed report.
 - **It must keep** the positioning statement at the foot, the origin of every statement, the criticisms
   that stay visible beside a finding, and the rule that a critic never edits.
 
 ## The ecosystem map
 
-`frontend/src/viz/ecosystem/` is one component, `Ecosystem`, used by the Map scene and by the live and
-network views of Simulate. It is SVG, not canvas (see [ADR 0015](./adr/0015-premium-interface.md)).
+`frontend/src/viz/ecosystem/` is one component, `Ecosystem`, used by the Map scene, by the live and
+network views of Simulate and by the movers of Compare, so that a party looks the same wherever it
+appears. It is SVG, not canvas (see [ADR 0015](./adr/0015-premium-interface.md)).
 
 - **What it draws.** Parties gather in clusters by kind (eight groups, from the stakeholder categories: Decide,
   Use & benefit, Bear cost & risk, Influence & reach, Rivals, Partners & operations, Regulators, Others). A
   party's size is how much it weighs, its colour what it is expected to suffer (or, in a run, where it stands:
   against to in favour), a dashed ring marks an indirect effect, paler means less sure, dots around it mean a
-  cohort of many, and lines are the relations between parties, an arrow where they run one way. Places where
-  nobody was found are drawn as empty slots that a person can fill. The legend in the Map scene says all
-  this ("How to read this map").
+  cohort of many, and lines are the relations between parties, an arrow where they run one way. A key party
+  is larger than a cohort and stands out by more than its size: a firmer edge, and its name in a heavier
+  weight in the full ink. Places where nobody was found are drawn as empty slots that a person can fill. The
+  legend in the Map scene says all this ("How to read this map"), the key party included.
+- **Names are placed, not piled.** Each group is named once, above or below it, where no party, no other name
+  and nothing floating over the picture is in the way (and, where it can, no relation runs through it); a group
+  name with no clear place is left out rather than written over a party, and on a narrow picture the names
+  are the short ones. A party's own name is drawn where it fits (at most eight at rest on a narrow picture),
+  and the rest when the party is pointed at, focused or chosen. A name is the same size at any zoom, so what
+  fits is worked out where the camera has put the picture.
 - **Meaning is never colour alone.** A party's accessible name says its kind, whether it is a key actor or a
   cohort, its effect, whether it is reached directly and how sure Swarm is; a dashed ring marks an indirect
   effect; and the stance scale follows the data (stance values are small, so the colour range is fitted to
@@ -382,8 +528,9 @@ network views of Simulate. It is SVG, not canvas (see [ADR 0015](./adr/0015-prem
   "Fit everything") or with `Ctrl`/`⌘` and the wheel (a plain wheel scrolls the page, which a map must never take);
   a mouse or pen drags the background to pan, and a finger scrolls the page. A tooltip opens only on keyboard
   focus or a hover that is not touch.
-- **The same parties are a list.** The Map scene offers them as text (`?view=list`) beside the map, and the
-  live view's information is in the round card and the story.
+- **The same parties are a list.** The Map scene offers them as text (`?view=list`) in place of the map: a
+  region of groups with the facts of each row as words, which a keyboard walks one row at a time and a screen
+  reader reads without the picture. The live view's information is in the round card and the story.
 
 ## The design system
 
@@ -514,13 +661,20 @@ theme, the scene's tint and the motion setting, in development; no build include
 
 - **Every interactive thing is a real button, link or input with a name.** Every chart has a text alternative
   (`role="img"` with a label that summarises it) or is a list or a table, and the map has its list.
+- **A name holds the words that are seen**, for a person who speaks to the screen (WCAG 2.5.3). Where a control
+  says more to assistive technology than it shows, the seen words come first or stay inside the name: the note
+  of a loaded example is named by its title and summary and then what pressing it does, the Review button by
+  "Review" and then how many criticisms are open, the Evidence button by "Evidence" and then how many sources
+  are attached, and the Map's approving button shows **Create actors** and is named "Approve & create actors",
+  because it also accepts the stakeholders that nobody looked at.
 - **Meaning is never colour alone.** `--c-against`, `--c-favor`, `--c-neutral`, `--c-caution` and `--c-critical`
   are paired with a word, an icon or a shape: a done step has a check, a stance has its words, an effect on the
   map has its name, and an assumption is called one in words.
 - **Focus is visible** (`--focus-ring`, a two-pixel outline, three in high contrast, the system's highlight under
   forced colours) and is moved on purpose: to the main area when the scene changes, to a sheet when it opens,
-  back to what opened it when it closes, to the row, its neighbour or the next step after a review action. A
-  control that moves the person on is never left as the place focus was lost to.
+  back to what opened it when it closes, to the row, its neighbour or the next step after a review action, to
+  **Stop** while a question is being read slowly (Escape presses it) and to **Try again** after a reading that
+  failed. A control that moves the person on is never left as the place focus was lost to.
 - **Keyboard.** `Ctrl`/`⌘` + K opens the command palette from anywhere, and `/` asks about what is on the screen
   (never while typing, or over something that is already open). The composer explores on `Ctrl`/`⌘` + Enter. The
   map: arrows, Enter or Space, Escape, and `F` for
@@ -538,8 +692,9 @@ theme, the scene's tint and the motion setting, in development; no build include
 - **Contrast** is held in every theme (see Guards); the high-contrast theme is opaque and outlined, and glass,
   blur and the ambient light go under `prefers-reduced-transparency` and under forced colours.
 - **Print.** Ctrl+P on the decision brief or on the detailed report prints the content and leaves the
-  application's own chrome (the bars, the tools, the ambient light) out, with every chapter open. The brief's
-  printable page and the studio's memo are pages of their own that the server serves for printing.
+  application's own chrome (the bars, the tools, the ambient light) out, with every chapter open, in ink on
+  white. On the report studio it prints the whole working copy and not the editor. The brief's printable page
+  and the studio's memo are pages of their own that the server serves for printing.
 
 ## Responsive
 
@@ -555,7 +710,8 @@ dark.
   line that opens in place.
 - **40rem (640px) and below is a phone.** The journey moves from the top bar to the dock, the bar names the
   scene, sheets come from the bottom, the page leaves room for the dock, and the first screen's composer, tray
-  and tools share the width.
+  and tools share the width: the four tools open as sheets, the sources and the examples are each one row to
+  swipe, and the question and **Explore** stay in the first view.
 - **78rem (1248px) and below**: the journey in the top bar shows only the name of the scene in view; the
   other points are icons, with their names in a tooltip and in their accessible names.
 - **On a coarse pointer** (a finger) controls are at least 2.75rem, whatever the width. `(hover: hover)`
@@ -676,7 +832,5 @@ and that the names still fit.
 - **The database-location warning is not shown.** The server detects a database in a synchronised folder and
   reports it as `storage.warning` in `GET /api/config`; this interface does not show it. It is logged at
   start-up.
-- **Two tooltips name a `/` key that nothing handles**: "Ask about this" in the top bar and "Find a topic" in the
-  graph of Ground. Use the buttons. The keys listed under Accessibility are all of the shortcuts.
 - **No figure on this page is a measurement.** How many tests there are, how long a run takes and what a
   browser audit found are in the [testing guide](./TESTING.md), not here.
