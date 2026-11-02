@@ -98,6 +98,7 @@
   }
   .sw-rep__doc {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--s-8);
     min-width: 0;
     max-width: 62rem;
