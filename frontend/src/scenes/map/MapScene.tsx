@@ -96,7 +96,7 @@ function SourceChip({
     <Popover>
       <PopoverTrigger asChild>
         <ChipButton size="sm" icon={<Icon size={13} aria-hidden="true" />}>
-          {label}
+          <span className="sw-tb-label">{label}</span>
         </ChipButton>
       </PopoverTrigger>
       <PopoverContent align="start" width="23rem" className="sw-source">
@@ -135,6 +135,7 @@ export function MapScene() {
   const { view: stakeholdersView, actors: actorsView, working } = state;
   const toast = useToast();
   const wide = useMediaQuery('(min-width: 64rem)');
+  const narrow = useMediaQuery('(max-width: 40rem)');
   // The picture keeps clear of the heading and the controls, however tall the two have become (a notice, a line that wraps).
   const head = useElementSize<HTMLDivElement>();
   const scope = useRef<HTMLElement>(null);
@@ -505,7 +506,7 @@ export function MapScene() {
           <Ecosystem
             nodes={model.nodes}
             edges={model.edges}
-            ghosts={ghosts.map((ghost) => ({
+            ghosts={(narrow ? [] : ghosts).map((ghost) => ({
               id: ghost.id,
               label: ghost.label,
               cluster: ghost.cluster,
@@ -523,17 +524,24 @@ export function MapScene() {
             onSelect={select}
             focus={focusMode && party !== null}
             hiddenClusters={hidden}
-            inset={{ top: topInset, bottom: wide ? 104 : 100 }}
+            inset={{ top: topInset, bottom: narrow ? 128 : 104 }}
             covered={{ right: coveredRight, bottom: !wide && party ? 190 : 0 }}
             controls={wide || !party}
             describe={describeNode}
             zoomLabels={{ group: 'Zoom', in: 'Zoom in', out: 'Zoom out', fit: 'Fit everything' }}
-            tooltip={(node) => (
-              <>
-                <strong>{node.label}</strong>
-                <span>{whyOf(node.id).slice(0, 96) || node.categoryLabel}</span>
-              </>
-            )}
+            tooltip={(node) =>
+              node.ghost ? (
+                <>
+                  <strong>Nobody found</strong>
+                  <span>{node.label}: press to add one</span>
+                </>
+              ) : (
+                <>
+                  <strong>{node.label}</strong>
+                  <span>{whyOf(node.id).slice(0, 96) || node.categoryLabel}</span>
+                </>
+              )
+            }
           />
         </div>
       )}
@@ -632,6 +640,8 @@ export function MapScene() {
             onFocus={setFocusMode}
             canAdd={canAdd && subject === 'stakeholders'}
             onAdd={() => setDialog({ mode: 'add', ghost: null })}
+            gaps={narrow && may.edit && canAdd && subject === 'stakeholders' ? ghosts : []}
+            onGap={(ghost) => setDialog({ mode: 'add', ghost })}
             canFind={may.run && subject === 'stakeholders'}
             onFindAgain={() => startFind(set.discovery.mode === 'model' ? 'model' : 'rules')}
             canMakeAgain={may.run && hasActors && set.approvedAt !== null}

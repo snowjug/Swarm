@@ -229,7 +229,7 @@ export function Pill({ model }: { model: PillModel | null }) {
       {model && (
         <m.div
           key={model.kind}
-          className="sw-pill sw-glass sw-glass--raised"
+          className="sw-pill sw-glass sw-glass--overlay"
           role="group"
           aria-label="Next"
           initial={{ opacity: 0, y: 24, scale: 0.97 }}

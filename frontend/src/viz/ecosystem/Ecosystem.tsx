@@ -326,16 +326,15 @@ export const Ecosystem = forwardRef<EcosystemHandle, EcosystemProps>(
       if (labels === 'all')
         return new Map<string, LabelSide>(all.map((node) => [node.id, 'below']));
       return visibleLabels(
-        all.filter((node) => !node.ghost),
+        all,
         layout,
         showClusters ? [...clusterSpots.values()].map((spot) => spot.box) : [],
         { left: 6, right: size.width - 6, top: free.top, bottom: free.bottom },
         settledView,
-        { limit: compact ? 8 : undefined, solid: ghostNodes },
+        { limit: compact ? 8 : undefined },
       );
     }, [
       all,
-      ghostNodes,
       layout,
       labels,
       clusterSpots,

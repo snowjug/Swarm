@@ -50,7 +50,7 @@ export function Inspector(props: InspectorProps) {
       <>
         <m.div
           key={body.party.id}
-          className="sw-peek sw-glass sw-glass--raised"
+          className="sw-peek sw-glass sw-glass--overlay"
           role="region"
           aria-label={kicker.name}
           initial={{ opacity: 0, y: 28 }}

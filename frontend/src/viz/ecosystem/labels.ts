@@ -247,8 +247,6 @@ export function placeClusterLabels(
 export interface VisibleLabelOptions {
   /** At most this many names are drawn: on a small canvas the heaviest nodes are named and the rest are left to be pointed at. */
   limit?: number;
-  /** Nodes that are not named but are in the way all the same (the empty places where nobody was found). */
-  solid?: readonly { id: string }[];
 }
 
 /**
@@ -269,7 +267,7 @@ export function visibleLabels(
   view: View = IDENTITY,
   options: VisibleLabelOptions = {},
 ): Map<string, LabelSide> {
-  const circles = circlesOnScreen([...nodes, ...(options.solid ?? [])], layout, view);
+  const circles = circlesOnScreen(nodes, layout, view);
   const where = new Map(circles.map((circle) => [circle.id, circle]));
   const placed: Box[] = [...obstacles];
   const shown = new Map<string, LabelSide>();

@@ -1,6 +1,6 @@
 import { AnimatePresence, m } from 'motion/react';
 import { ArrowRight, CircleCheck, CircleX, PauseCircle, Sparkles, Square } from 'lucide-react';
-import { useMemo, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button, Chip, Notice, Popover, PopoverContent, PopoverTrigger } from '../../design/ui';
 import { SPRING, useReducedMotion } from '../../design/motion';
 import type { Tone } from '../../design/ui';
@@ -18,41 +18,48 @@ import {
   entityNoun,
   failureReason,
   isWorking,
-  knowledgePhases,
   latestEvent,
   mayRun,
+  MOMENT_LABEL,
   nextStep,
+  plural,
   type GroundStage,
+  type Moment,
 } from './model';
+import { useMoment } from './useMoment';
 import { useNow } from './useNow';
 import { ConstellationGraph } from './ConstellationGraph';
 
-const STATUS: Record<GroundStage, { label: string; tone: Tone; dot?: boolean }> = {
-  idle: { label: 'Not started', tone: 'neutral' },
-  queued: { label: 'Queued', tone: 'accent', dot: true },
-  running: { label: 'Reading', tone: 'accent', dot: true },
-  ready: { label: 'Ready', tone: 'favor' },
-  failed: { label: 'Failed', tone: 'critical' },
-  stopped: { label: 'Stopped', tone: 'caution' },
-  record: { label: 'Saved record', tone: 'neutral' },
+const STATUS: Record<Moment, { tone: Tone; dot?: boolean }> = {
+  idle: { tone: 'neutral' },
+  queued: { tone: 'accent', dot: true },
+  reading: { tone: 'accent', dot: true },
+  extracting: { tone: 'accent', dot: true },
+  checking: { tone: 'accent', dot: true },
+  ready: { tone: 'favor' },
+  failed: { tone: 'critical' },
+  stopped: { tone: 'caution' },
+  record: { tone: 'neutral' },
 };
 
 function StatusChip({
   stage,
+  moment,
   advanced,
   step,
 }: {
   stage: GroundStage;
+  moment: Moment;
   advanced: boolean;
   step: string | undefined;
 }) {
-  const status = STATUS[stage];
+  const status = STATUS[moment];
   const icon =
-    stage === 'ready' ? (
+    moment === 'ready' ? (
       <CircleCheck aria-hidden="true" />
-    ) : stage === 'failed' ? (
+    ) : moment === 'failed' ? (
       <CircleX aria-hidden="true" />
-    ) : stage === 'stopped' ? (
+    ) : moment === 'stopped' ? (
       <PauseCircle aria-hidden="true" />
     ) : undefined;
   return (
@@ -63,8 +70,9 @@ function StatusChip({
       size="sm"
       className="sw-ground__status"
       data-stage={stage}
+      data-moment={moment}
     >
-      {status.label}
+      {MOMENT_LABEL[moment]}
       {advanced && step ? <span className="sw-ground__engine">· Graph Build: {step}</span> : null}
     </Chip>
   );
@@ -101,10 +109,10 @@ export function Hero() {
   const reduced = useReducedMotion();
   const { stage, documents, passages, graph, ledger, conflictsKnown } = data;
   const working = isWorking(stage);
+  const { moment, checking, phases } = useMoment();
   const now = useNow(working);
   const next = nextStep(journey);
   const noun = entityNoun(project.graph);
-  const phases = useMemo(() => knowledgePhases(project), [project]);
   const reason = failureReason(project);
   const event = latestEvent(project);
 
@@ -208,9 +216,11 @@ export function Hero() {
 
   const status =
     stage === 'ready'
-      ? `Ready. ${documents.length} sources${passages.index ? `, ${passages.index.all.length} passages` : ''}${graph ? `, ${graph.nodes.length} ${noun.many.toLowerCase()}` : ''}.`
+      ? `Ready. ${plural(documents.length, 'source')}${passages.index ? `, ${plural(passages.index.all.length, 'passage')}` : ''}${graph ? `, ${plural(graph.nodes.length, noun.one.toLowerCase(), noun.many.toLowerCase())}` : ''}.`
       : stage === 'running'
-        ? 'Reading the sources.'
+        ? moment === 'extracting'
+          ? 'Extracting topics from the sources.'
+          : 'Reading the sources.'
         : stage === 'queued'
           ? 'Waiting to start.'
           : stage === 'failed'
@@ -226,6 +236,7 @@ export function Hero() {
           <span className="sw-eyebrow">Ground</span>
           <StatusChip
             stage={stage}
+            moment={moment}
             advanced={mode === 'advanced'}
             step={project.console?.steps.knowledge}
           />
@@ -236,9 +247,16 @@ export function Hero() {
 
         <Figures items={figures} />
 
-        {working && (
+        {(working || checking) && (
           <div className="sw-ground__progress">
-            <Phases phases={phases} stage={stage} mode={mode} now={now} startedAt={startedAt} />
+            <Phases
+              phases={phases}
+              stage={stage}
+              mode={mode}
+              now={now}
+              startedAt={startedAt}
+              checking={checking}
+            />
             {mode === 'advanced' && event && (
               <p className="sw-ground__event sw-caption">
                 {event.message}
@@ -273,6 +291,11 @@ export function Hero() {
             graph={project.graph}
             ontology={project.console?.ontology ?? null}
             sampleEvidence={documents.some((doc) => doc.synthetic)}
+            awaitingStatements={
+              ledger.ledger !== null &&
+              ledger.ledger.claims.length === 0 &&
+              ledger.ledger.reviewedAt === null
+            }
           />
         </div>
         <p className="sr-only" role="status">

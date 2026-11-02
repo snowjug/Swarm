@@ -18,14 +18,18 @@
   .sw-ground-src__list {
     display: grid;
     margin: 0;
-    padding: 0 var(--arc-w, 0px) 0 0;
+    padding: 0;
     list-style: none;
-    transition: padding var(--dur-slow) var(--ease-spring-smooth);
   }
   .sw-ground-src__row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--s-3);
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'head head'
+      'signals signals'
+      'thread state';
+    align-items: center;
+    gap: var(--s-2) var(--s-4);
     padding: var(--s-4) 0;
     border-top: 1px solid var(--hairline);
     transition: opacity var(--dur-base) var(--ease-out);
@@ -34,6 +38,18 @@
   }
   .sw-ground-src__row:last-child {
     border-bottom: 1px solid var(--hairline);
+  }
+  .sw-ground-src__head {
+    grid-area: head;
+  }
+  .sw-ground-src__signals {
+    grid-area: signals;
+  }
+  .sw-ground-src__thread {
+    grid-area: thread;
+  }
+  .sw-ground-src__state {
+    grid-area: state;
   }
   /* What is not in the light recedes, but its words stay at full strength: dimmed text is unreadable text. */
   .sw-ground-src__row[data-dim] .sw-ground-src__thread {
@@ -44,14 +60,26 @@
   }
   @container (min-width: 38rem) {
     .sw-ground-src__row {
-      grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
-      align-items: center;
-      gap: var(--s-6);
+      grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 16rem) auto;
+      grid-template-areas:
+        'head thread state'
+        'signals thread state';
+      gap: var(--s-1) var(--s-6);
+    }
+    .sw-ground-src[data-variant='field'] .sw-ground-src__row {
+      grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr) auto;
+      grid-template-areas: 'head thread state';
     }
   }
   @container (min-width: 60rem) {
     .sw-ground-src__row {
-      grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr);
+      grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr) minmax(10rem, 17rem) 10.5rem;
+      grid-template-areas: 'head signals thread state';
+      gap: var(--s-6);
+    }
+    .sw-ground-src[data-variant='field'] .sw-ground-src__row {
+      grid-template-columns: minmax(14rem, 22rem) minmax(0, 1fr) auto;
+      grid-template-areas: 'head thread state';
     }
   }
   .sw-ground-src__head {
@@ -124,6 +152,99 @@
   }
   .sw-ground-src__facts {
     color: var(--ink-3);
+  }
+  /* What the engine took out of the source, as words in a line: no boxes, only a dot between them. */
+  .sw-ground-src__signals {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.4rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-ground-src__signals li + li::before {
+    content: '·';
+    margin-right: 0.4rem;
+    color: var(--ink-3);
+  }
+  .sw-ground-src__more {
+    color: var(--ink-3);
+  }
+
+  /* Where the source is: a word and a mark, never a colour alone. */
+  .sw-ground-src__state {
+    display: grid;
+    justify-items: start;
+    gap: 0.35rem;
+    min-width: 0;
+  }
+  .sw-ground-src__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    white-space: nowrap;
+  }
+  .sw-ground-src__state[data-state='ready'] .sw-ground-src__badge {
+    color: var(--c-favor);
+  }
+  .sw-ground-src__state[data-state='attention'] .sw-ground-src__badge {
+    color: var(--c-caution);
+  }
+  .sw-ground-src__state[data-state='stopped'] .sw-ground-src__badge {
+    color: var(--c-critical);
+  }
+  .sw-ground-src__state[data-state='working'] .sw-ground-src__badge {
+    color: var(--accent);
+  }
+  .sw-ground-src__state[data-state='working'] .sw-orbit {
+    flex: none;
+  }
+  .sw-ground-src__flags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+  .sw-ground-src__flag {
+    min-width: 2.75rem;
+    min-height: 1.75rem;
+    padding: 0 0.6rem;
+    border: 1px solid color-mix(in oklab, var(--c-caution) 45%, transparent);
+    border-radius: var(--r-pill);
+    background: var(--c-caution-soft);
+    color: var(--ink);
+    font-size: var(--fs-micro);
+    font-weight: 650;
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      border-color var(--dur-fast) var(--ease-out);
+  }
+  .sw-ground-src__flag[data-status='confirmed'] {
+    border-color: color-mix(in oklab, var(--c-critical) 50%, transparent);
+    background: var(--c-critical-soft);
+  }
+  @media (hover: hover) {
+    .sw-ground-src__flag:hover {
+      border-color: var(--c-caution);
+      transform: translateY(-1px);
+    }
+  }
+  .sw-ground-src__flag:active {
+    transform: scale(0.95);
+    transition-duration: var(--dur-instant);
+  }
+  @media (pointer: coarse) {
+    .sw-ground-src__flag {
+      min-height: 2.75rem;
+      min-width: 2.75rem;
+    }
   }
   .sw-ground-src__legend {
     margin: 0;
@@ -284,92 +405,30 @@
   .sw-ground-src[data-variant='field'] .sw-ground-src__row {
     padding: var(--s-4) 0;
   }
-  .sw-ground-src[data-variant='field'] .sw-ground-src__list {
-    padding-right: var(--arc-w, 0px);
-  }
 
-  /* ---- Conflicts as arcs ------------------------------------------------------------------------- */
-  .sw-ground-src__arcs {
-    position: absolute;
-    top: 0;
-    right: 0;
-    overflow: visible;
-    pointer-events: none;
-  }
-  .sw-ground-arc {
-    cursor: pointer;
-    pointer-events: all;
-    outline: none;
-    animation: sw-fade var(--dur-slow) var(--ease-out) both;
-    animation-delay: calc(var(--dur-slow) + var(--i, 0) * var(--dur-fast));
-    transition: opacity var(--dur-base) var(--ease-out);
-  }
-  .sw-ground-arc__hit {
-    fill: none;
-    stroke: transparent;
-    stroke-width: 0.875rem;
-  }
-  .sw-ground-arc__line {
-    fill: none;
-    stroke: var(--arc, var(--c-caution));
-    stroke-width: 1.6;
-    stroke-linecap: round;
-    transition:
-      stroke-width var(--dur-fast) var(--ease-out),
-      opacity var(--dur-base) var(--ease-out);
-  }
-  .sw-ground-arc__dot {
-    fill: var(--arc, var(--c-caution));
-    stroke: var(--bg);
-    stroke-width: 1.5;
-  }
-  .sw-ground-arc__id {
-    fill: var(--ink-2);
-    font-size: var(--fs-micro);
-    font-weight: 650;
-    paint-order: stroke;
-    stroke: var(--bg);
-    stroke-width: 0.25rem;
-    stroke-linejoin: round;
-    opacity: 0;
-    transition: opacity var(--dur-fast) var(--ease-out);
-  }
-  .sw-ground-arc:hover .sw-ground-arc__id,
-  .sw-ground-arc:focus-visible .sw-ground-arc__id,
-  .sw-ground-arc[data-lit] .sw-ground-arc__id {
-    opacity: 1;
-  }
-  .sw-ground-arc[data-status='detected'] {
-    --arc: var(--c-caution);
-  }
-  .sw-ground-arc[data-status='detected'] .sw-ground-arc__line {
-    stroke-dasharray: 5 4;
-  }
-  .sw-ground-arc[data-status='confirmed'] {
-    --arc: var(--c-critical);
-  }
-  .sw-ground-arc[data-status='dismissed'] {
-    --arc: var(--ink-3);
-  }
-  .sw-ground-arc[data-status='dismissed'] .sw-ground-arc__line {
-    stroke-dasharray: 1.5 4;
-    opacity: 0.7;
-  }
-  .sw-ground-arc[data-status='resolved'] {
-    --arc: var(--c-favor);
-  }
-  .sw-ground-arc[data-status='resolved'] .sw-ground-arc__line {
-    stroke-width: 1.2;
-    opacity: 0.85;
-  }
-  .sw-ground-arc[data-lit] .sw-ground-arc__line,
-  .sw-ground-arc:hover .sw-ground-arc__line {
-    stroke-width: 2.6;
-  }
-  .sw-ground-arc[data-dim] {
-    opacity: 0.3;
-  }
-  .sw-ground-arc:focus-visible .sw-ground-arc__line {
-    stroke: var(--focus-ring);
+  /* On a narrow screen a thread is too short to lay passages along: they are a row of buttons, as wide as a finger. */
+  @container (max-width: 37.99rem) {
+    .sw-ground-src__thread {
+      height: auto;
+    }
+    .sw-ground-src__body {
+      position: static;
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--s-2);
+      width: auto;
+    }
+    .sw-ground-src__body::before,
+    .sw-ground-src__scan {
+      display: none;
+    }
+    .sw-ground-src__passage {
+      position: relative;
+      top: auto;
+      left: auto;
+      width: auto;
+      min-width: 3.25rem;
+      justify-content: center;
+    }
   }
 }

@@ -1,94 +1,146 @@
-import { FileText } from 'lucide-react';
-import { useMemo, useRef } from 'react';
-import { EmptyState, Notice, Button, Skeleton } from '../../design/ui';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
-import { CONFLICT_STATUS_SHORT, arcGeometry, conflictLabel } from './conflicts';
+import { Check, FileText, TriangleAlert, X } from 'lucide-react';
+import { useMemo } from 'react';
+import { isOpenConflict, type ContradictionRecord } from '../../../../shared/evidence';
+import { EmptyState, Notice, Button, Orbit, Skeleton } from '../../design/ui';
+import { conflictLabel } from './conflicts';
 import { useGroundActions, useGroundData, useGroundLit } from './context';
 import { vars } from './css';
-import { documentColour, figure, plural } from './model';
+import { documentColour, entityNoun, plural, type DocumentFacts, type Moment } from './model';
 import { placePassages, rangeText } from './passages';
 import { SourceTag } from './SourceTag';
-import { useCentres } from './useCentres';
+import { useMoment } from './useMoment';
 import './sources.css';
 
 export type Reading = 'idle' | 'active' | 'done';
 
+/** The topics a source gives rise to, the heaviest first: what the engine took out of it. */
+function signalsOf(
+  documentId: string,
+  nodes: readonly { label: string; weight: number; documentIds: readonly string[] }[],
+): string[] {
+  return nodes
+    .filter((node) => node.documentIds.includes(documentId))
+    .sort((a, b) => b.weight - a.weight || a.label.localeCompare(b.label))
+    .map((node) => node.label);
+}
+
+const WORKING_LABEL: Partial<Record<Moment, string>> = {
+  queued: 'Queued',
+  reading: 'Reading',
+  extracting: 'Extracting',
+  checking: 'Checking',
+};
+
+/** Where one source is: working, ready, or needing a look (a conflict that is not settled involves it). */
+function SourceState({
+  moment,
+  conflicts,
+  onShow,
+}: {
+  moment: Moment;
+  conflicts: readonly ContradictionRecord[];
+  onShow: (id: string) => void;
+}) {
+  const settled = moment === 'ready' || moment === 'record';
+  if (settled && conflicts.length > 0) {
+    return (
+      <div className="sw-ground-src__state" data-state="attention">
+        <span className="sw-ground-src__badge">
+          <TriangleAlert size={14} aria-hidden="true" />
+          Needs attention
+        </span>
+        <span
+          className="sw-ground-src__flags"
+          role="group"
+          aria-label="Conflicts between documents"
+        >
+          {conflicts.map((conflict) => (
+            <button
+              key={conflict.id}
+              type="button"
+              className="sw-ground-src__flag num"
+              data-status={conflict.status}
+              aria-label={`${conflictLabel(conflict)}. Show conflict.`}
+              onClick={() => onShow(conflict.id)}
+            >
+              {conflict.id}
+            </button>
+          ))}
+        </span>
+      </div>
+    );
+  }
+  const working = WORKING_LABEL[moment];
+  if (working) {
+    return (
+      <div className="sw-ground-src__state" data-state="working">
+        <span className="sw-ground-src__badge">
+          <Orbit size={16} label={working} />
+          {working}
+        </span>
+      </div>
+    );
+  }
+  if (moment === 'ready') {
+    return (
+      <div className="sw-ground-src__state" data-state="ready">
+        <span className="sw-ground-src__badge">
+          <Check size={14} strokeWidth={2.5} aria-hidden="true" />
+          Ready
+        </span>
+      </div>
+    );
+  }
+  if (moment === 'failed' || moment === 'stopped') {
+    return (
+      <div className="sw-ground-src__state" data-state="stopped">
+        <span className="sw-ground-src__badge">
+          <X size={14} aria-hidden="true" />
+          {moment === 'failed' ? 'Failed' : 'Stopped'}
+        </span>
+      </div>
+    );
+  }
+  return null;
+}
+
 /**
- * The sources as threads: each document is a line as long as it is (against the longest), its passages are
- * laid along it where they sit in the text, and the conflicts between documents are arcs on the right. It is
- * the same drawing whether it is the whole of the first screen (before there is a graph) or a part of the page.
- * Pointing at a document, a passage or an arc lights what it is tied to in the graph and the conflicts.
+ * The sources as a tray: one line for each, with where it came from, what the engine took out of it, how it was
+ * cut into passages (laid along a thread as long as the document is) and where it stands: working, ready, or
+ * needing a look. It is the same drawing whether it is the whole of the first screen (before there is a graph) or
+ * a part of the page. Pointing at a document or a passage lights what it is tied to in the graph and the conflicts.
  */
 export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; reading: Reading }) {
-  const { documents, passages, ledger, conflictsKnown, mode } = useGroundData();
+  const { project, documents, passages, ledger, conflictsKnown, mode, graph } = useGroundData();
   const actions = useGroundActions();
   const { lit } = useGroundLit();
-  const wrap = useRef<HTMLDivElement>(null);
-  const narrow = useMediaQuery('(max-width: 40rem)');
+  const { moment } = useMoment();
+  const noun = entityNoun(project.graph);
 
   const conflicts = useMemo(
     () => (conflictsKnown ? (ledger.ledger?.contradictions ?? []) : []),
     [conflictsKnown, ledger.ledger],
   );
-  const longest = Math.max(1, ...documents.map((doc) => doc.characters));
-  // Each arc ends at the passage it is about, so that the line and the thing it is about are tied by height;
-  // where the passages are not known yet it ends at the document.
-  const anchors = useMemo(() => {
-    const keys: string[] = [];
-    const indexOf = new Map<string, number>();
-    const at = (key: string) => {
-      const known = indexOf.get(key);
-      if (known !== undefined) return known;
-      keys.push(key);
-      indexOf.set(key, keys.length - 1);
-      return keys.length - 1;
-    };
-    const ends = conflicts.map((conflict) => {
-      const side = (ref: typeof conflict.left) => {
-        const passageKey = `passage:${ref.passageId}`;
-        return passages.index?.byId.has(ref.passageId)
-          ? at(passageKey)
-          : at(`doc:${ref.documentId}`);
-      };
-      return {
-        id: conflict.id,
-        status: conflict.status,
-        from: side(conflict.left),
-        to: side(conflict.right),
-      };
-    });
-    return { keys, ends };
-  }, [conflicts, passages.index]);
-  const gutter = anchors.ends.length === 0 ? 0 : narrow ? 44 : 72;
-  const { centres, height } = useCentres(
-    wrap,
-    `${documents.length}:${passages.index?.all.length ?? 0}:${gutter}:${anchors.keys.length}`,
-  );
-  const arcs = useMemo(
-    () =>
-      arcGeometry(
-        anchors.ends,
-        anchors.keys.map((key) => centres.get(key) ?? Number.NaN),
-        Math.max(gutter, 1),
-        0,
-      ),
-    [anchors, centres, gutter],
-  );
-  const conflictById = useMemo(
-    () => new Map(conflicts.map((conflict) => [conflict.id, conflict])),
+  const open = useMemo(
+    () => conflicts.filter((conflict) => isOpenConflict(conflict.status)),
     [conflicts],
   );
-  // A passage that sits in an open conflict carries a mark, so the arc and the thread it ends on are tied.
+  const longest = Math.max(1, ...documents.map((doc) => doc.characters));
+  // A passage that sits in an open conflict carries a mark, so the conflict and the thread it touches are tied.
   const openStatus = useMemo(() => {
     const marks = new Map<string, 'detected' | 'confirmed'>();
-    for (const conflict of conflicts) {
+    for (const conflict of open) {
       if (conflict.status !== 'detected' && conflict.status !== 'confirmed') continue;
       for (const id of [conflict.left.passageId, conflict.right.passageId]) {
         if (marks.get(id) !== 'confirmed') marks.set(id, conflict.status);
       }
     }
     return marks;
-  }, [conflicts]);
+  }, [open]);
+  const openOf = (doc: DocumentFacts): ContradictionRecord[] =>
+    open.filter(
+      (conflict) => conflict.left.documentId === doc.id || conflict.right.documentId === doc.id,
+    );
 
   if (documents.length === 0) {
     return (
@@ -99,19 +151,13 @@ export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; re
   }
 
   return (
-    <div
-      ref={wrap}
-      className="sw-ground-src"
-      data-variant={variant}
-      data-reading={reading}
-      data-arcs={anchors.ends.length > 0}
-      style={vars({ '--arc-w': `${gutter}px` })}
-    >
+    <div className="sw-ground-src" data-variant={variant} data-reading={reading}>
       <ol className="sw-ground-src__list" role="list" aria-label="Sources">
         {documents.map((doc, index) => {
           const own = passages.index?.byDocument.get(doc.id) ?? [];
           const placed = placePassages(own, doc.characters);
           const litRow = lit.documents.has(doc.id);
+          const signals = variant === 'list' && graph ? signalsOf(doc.id, graph.nodes) : [];
           return (
             <li
               key={doc.id}
@@ -152,7 +198,21 @@ export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; re
                   </span>
                 </span>
               </div>
-              <div className="sw-ground-src__thread" data-key={`doc:${doc.id}`}>
+              {variant === 'list' && signals.length > 0 && (
+                <ul
+                  className="sw-ground-src__signals"
+                  role="list"
+                  aria-label={`${noun.many} from ${doc.name}`}
+                >
+                  {signals.slice(0, 4).map((label) => (
+                    <li key={label}>{label}</li>
+                  ))}
+                  {signals.length > 4 && (
+                    <li className="sw-ground-src__more num">+{signals.length - 4}</li>
+                  )}
+                </ul>
+              )}
+              <div className="sw-ground-src__thread">
                 <span className="sw-ground-src__scan" aria-hidden="true" />
                 <div className="sw-ground-src__body">
                   {passages.loading && !passages.index && (
@@ -166,7 +226,6 @@ export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; re
                         key={id}
                         type="button"
                         className="sw-ground-src__passage"
-                        data-key={`passage:${id}`}
                         data-lit={lit.active && isLit ? '' : undefined}
                         data-dim={lit.active && !isLit && lit.passages.size > 0 ? '' : undefined}
                         data-conflict={openStatus.get(id)}
@@ -196,60 +255,11 @@ export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; re
                   })}
                 </div>
               </div>
+              <SourceState moment={moment} conflicts={openOf(doc)} onShow={actions.showConflict} />
             </li>
           );
         })}
       </ol>
-
-      {arcs.length > 0 && height > 0 && (
-        <svg
-          className="sw-ground-src__arcs"
-          width={gutter}
-          height={height}
-          role="group"
-          aria-label="Conflicts between documents"
-        >
-          {arcs.map((arc, index) => {
-            const conflict = conflictById.get(arc.id);
-            if (!conflict) return null;
-            const isLit = lit.conflicts.has(arc.id);
-            return (
-              <g
-                key={arc.id}
-                className="sw-ground-arc"
-                data-status={arc.status}
-                data-lit={lit.active && isLit ? '' : undefined}
-                data-dim={lit.active && !isLit ? '' : undefined}
-                style={vars({ '--i': index })}
-                role="button"
-                tabIndex={0}
-                aria-label={`${conflictLabel(conflict)}. Show conflict.`}
-                onClick={() => actions.showConflict(arc.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    actions.showConflict(arc.id);
-                  }
-                }}
-                onPointerEnter={(event) =>
-                  event.pointerType === 'mouse' && actions.hover({ conflict: arc.id })
-                }
-                onPointerLeave={(event) => event.pointerType === 'mouse' && actions.hover(null)}
-                onFocus={() => actions.hover({ conflict: arc.id })}
-                onBlur={() => actions.hover(null)}
-              >
-                <path className="sw-ground-arc__hit" d={arc.d} />
-                <path className="sw-ground-arc__line" d={arc.d} />
-                <circle className="sw-ground-arc__dot" cx={arc.a.x} cy={arc.a.y} r={3} />
-                <circle className="sw-ground-arc__dot" cx={arc.b.x} cy={arc.b.y} r={3} />
-                <text className="sw-ground-arc__id" x={arc.apex.x + 7} y={arc.apex.y + 4}>
-                  {arc.id}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-      )}
 
       {passages.error && (
         <Notice
@@ -264,12 +274,10 @@ export function SourceRows({ variant, reading }: { variant: 'field' | 'list'; re
           {passages.error}
         </Notice>
       )}
-      {mode === 'advanced' && variant === 'list' && arcs.length > 0 && (
+      {mode === 'advanced' && variant === 'list' && open.length > 0 && (
         <p className="sw-ground-src__legend sw-caption">
-          {arcs.length === 1 ? 'One arc' : `${figure(arcs.length)} arcs`}:{' '}
-          {arcs
-            .map((arc) => `${arc.id} ${CONFLICT_STATUS_SHORT[arc.status].toLowerCase()}`)
-            .join(' · ')}
+          {open.length === 1 ? 'One conflict' : `${open.length} conflicts`} not settled:{' '}
+          {open.map((conflict) => conflict.id).join(' · ')}
         </p>
       )}
     </div>

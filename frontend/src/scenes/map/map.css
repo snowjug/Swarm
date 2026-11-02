@@ -95,7 +95,7 @@
     display: none;
   }
 
-  /* The toolbar: one quiet floating bar. */
+  /* The toolbar: one quiet floating bar. What sits on it has no box of its own: a hairline between the groups is enough. */
   .sw-map__toolbar {
     --glass-radius: var(--r-pill);
     position: relative;
@@ -108,6 +108,28 @@
   }
   .sw-map__toolbar > * {
     flex: none;
+  }
+  .sw-map__toolbar .sw-seg {
+    padding: 0;
+    border-color: transparent;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .sw-map__toolbar .sw-chip--button:not(.is-on) {
+    --chip-bg: transparent;
+    --chip-line: transparent;
+  }
+  /* On a bar that is already the glass, the chosen option is a soft tint of the ink and not a second glass. */
+  :root:not([data-theme='high-contrast']) .sw-map__toolbar .sw-seg__pill {
+    border-color: transparent;
+    background: color-mix(in oklab, var(--ink) 8%, transparent);
+    box-shadow: none;
+  }
+  .sw-tb-sep {
+    width: 1px;
+    height: 1.2rem;
+    background: var(--hairline-strong);
   }
   .sw-tb-badge {
     display: inline-grid;
@@ -293,10 +315,24 @@
       height: calc(100dvh - var(--topbar-h) - 0.75rem - var(--dock-h) - 1.5rem);
       min-height: 30rem;
     }
+    /* The head is as short as it can be: the picture is the point. */
     .sw-map__top {
       flex-direction: column;
-      gap: var(--s-3);
-      padding-top: var(--s-3);
+      gap: var(--s-2);
+      padding-top: var(--s-2);
+    }
+    .sw-map__head {
+      gap: 2px;
+    }
+    .sw-map__title {
+      font-size: 1.95rem;
+    }
+    .sw-map__stats {
+      gap: 0 0.4rem;
+      font-size: var(--fs-small);
+    }
+    .sw-map__stats .sw-numeral {
+      font-size: 1.2rem;
     }
     .sw-map__toolbar {
       max-width: 100%;
@@ -322,6 +358,10 @@
       bottom: calc(var(--s-3) + 4.6rem);
       left: var(--s-3);
     }
+    /* The zoom keeps to the same row as the key, above the pill that spans the screen. */
+    .sw-map {
+      --eco-controls-bottom: calc(var(--s-3) + 4.6rem);
+    }
     .sw-map[data-view='list'] .sw-pill,
     .sw-map[data-view='list'] .sw-peek {
       bottom: calc(var(--dock-h) + var(--s-5));
@@ -330,6 +370,14 @@
   @media (min-width: 40.0625rem) and (max-width: 63.99rem) {
     .sw-map__legend {
       bottom: var(--s-5);
+    }
+    /* Beside the controls the head would be a column of a few words: it has the width, the controls go under it. */
+    .sw-map__top {
+      flex-direction: column;
+      gap: var(--s-3);
+    }
+    .sw-map__head {
+      max-width: min(40rem, 100%);
     }
   }
 }

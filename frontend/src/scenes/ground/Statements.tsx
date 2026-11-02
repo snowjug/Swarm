@@ -321,8 +321,8 @@ export function Statements() {
   );
 }
 
-/** Where the statements will be, said once and quietly while there are none. */
-export function NoStatements({ checked }: { checked: boolean }) {
+/** A report that was checked and listed no statements says so, once and quietly. */
+export function NoStatements() {
   return (
     <section
       className="sw-ground__section sw-ground__section--quiet"
@@ -334,11 +334,7 @@ export function NoStatements({ checked }: { checked: boolean }) {
         title="Statements"
         count={0}
       />
-      <p className="sw-ground-quiet">
-        {checked
-          ? 'The check of the report listed no statements.'
-          : 'A report written by a model lists every statement it makes here, with the passages behind it.'}
-      </p>
+      <p className="sw-ground-quiet">The check of the report listed no statements.</p>
     </section>
   );
 }

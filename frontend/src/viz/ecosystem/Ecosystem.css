@@ -344,6 +344,11 @@
     stroke: var(--accent);
   }
 
+  /* An empty place's name is the quietest on the picture: it is there to be read, not to compete with who was found. */
+  .sw-eco__ghost .sw-eco__label {
+    fill: var(--ink-3);
+    font-weight: 450;
+  }
   .sw-eco__label {
     font: 500 12px/1 var(--font-ui);
     fill: var(--ink-2);
@@ -397,7 +402,7 @@
   .sw-eco__controls {
     position: absolute;
     right: calc(var(--covered, 0px) + var(--s-3));
-    bottom: var(--s-3);
+    bottom: var(--eco-controls-bottom, var(--s-3));
     transition: right var(--dur-slow) var(--ease-spring-smooth);
     z-index: 3;
     display: flex;

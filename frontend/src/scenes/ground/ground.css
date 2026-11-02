@@ -113,6 +113,9 @@
       gap: var(--s-3);
     }
     .sw-ground__num {
+      font-size: clamp(2rem, 1.7rem + 1.5vw, 2.6rem);
+    }
+    .sw-ground__figure[data-tone='caution'] .sw-ground__num {
       font-size: clamp(2.5rem, 2.1rem + 2vw, 3.25rem);
     }
     .sw-ground__cap {
@@ -152,12 +155,14 @@
     transition-duration: var(--dur-instant);
   }
   .sw-ground__num {
-    font-size: clamp(3.25rem, 2.4rem + 3vw, 5.25rem);
+    font-size: clamp(2.4rem, 1.9rem + 1.8vw, 3.4rem);
     line-height: 0.95;
-    color: var(--ink);
+    color: var(--ink-2);
     transition: text-shadow var(--dur-slow) var(--ease-out);
   }
+  /* The one figure that asks for a decision is the loudest on the page. */
   .sw-ground__figure[data-tone='caution'] .sw-ground__num {
+    font-size: clamp(3.25rem, 2.4rem + 3vw, 5.25rem);
     color: var(--c-caution);
   }
   .sw-ground__dash {
@@ -189,7 +194,7 @@
   }
   .sw-ground-phases {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     margin: 0;
     padding: 0;
     list-style: none;
@@ -298,6 +303,13 @@
   }
   .sw-ground__stage-in {
     width: 100%;
+  }
+  .sw-ground-closing {
+    display: flex;
+    justify-content: center;
+    margin-top: var(--s-8);
+    padding-top: var(--s-7);
+    border-top: 1px solid var(--hairline);
   }
   .sw-ground-next {
     --glass-radius: var(--r-pill);
