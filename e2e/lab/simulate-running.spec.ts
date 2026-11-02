@@ -216,10 +216,11 @@ test.describe('a simulation that is running', () => {
     await expect(estimate).toContainText(`${await rows.count()} scenarios × 10`);
     await expect(estimate).toContainText('for sensitivity');
     // The sensitivity runs are the larger part of the work, and turning them off says so in the estimate.
-    await setup(page).getByText('Test which assumptions it leans on', { exact: true }).click();
-    await expect(
-      setup(page).getByRole('switch', { name: /Test which assumptions it leans on/u }),
-    ).not.toBeChecked();
+    const sensitivity = setup(page).getByRole('switch', {
+      name: /Test which assumptions it leans on/u,
+    });
+    await sensitivity.uncheck();
+    await expect(sensitivity).not.toBeChecked();
     await expect(estimate).not.toContainText('for sensitivity');
     await setup(page).getByRole('button', { name: 'Add an alternative' }).click();
     await expect(estimate).toContainText(`${await rows.count()} scenarios × 10`);
