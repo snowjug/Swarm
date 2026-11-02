@@ -268,6 +268,26 @@ describe('the first screen', () => {
   });
 });
 
+describe('the head of the page says what the sources are', () => {
+  it('says synthetic samples beside the status when every source is one, and when only some are', () => {
+    const all = words(render(<Hero />, project()));
+    expect(all).toContain('Synthetic samples');
+    expect(all).not.toContain('Includes synthetic samples');
+    const mixed = project();
+    mixed.documents[1]!.provenance = { kind: 'paste' };
+    expect(words(render(<Hero />, mixed))).toContain('Includes synthetic samples');
+  });
+
+  it('says nothing of it for sources that are not samples, nor for a project that has none', () => {
+    const real = project();
+    for (const document of real.documents) document.provenance = { kind: 'upload' };
+    expect(words(render(<Hero />, real))).not.toMatch(/synthetic sample/iu);
+    const bare = project();
+    bare.documents = [];
+    expect(words(render(<Hero />, bare))).not.toMatch(/synthetic sample/iu);
+  });
+});
+
 describe('the sources', () => {
   it('lists each document with where it came from, and each passage as a button that says where it is', () => {
     const html = render(<SourceRows variant="list" reading="done" />, project());

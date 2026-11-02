@@ -14,6 +14,7 @@ import {
   momentOf,
   nextStep,
   parseView,
+  sampleNote,
 } from './model';
 
 const trace = (overrides: Partial<OperationTrace>): OperationTrace => ({
@@ -223,6 +224,22 @@ describe('documentFacts', () => {
       3,
     );
     expect(odd.host).toBeNull();
+  });
+});
+
+describe('sampleNote', () => {
+  const sample = { synthetic: true };
+  const real = { synthetic: false };
+
+  it('says the sources are synthetic samples when every one is, and that some are when some are', () => {
+    expect(sampleNote([sample, sample])).toBe('Synthetic samples');
+    expect(sampleNote([sample, real])).toBe('Includes synthetic samples');
+    expect(sampleNote([real, sample, real])).toBe('Includes synthetic samples');
+  });
+
+  it('says nothing for real sources, or for none', () => {
+    expect(sampleNote([real, real])).toBeNull();
+    expect(sampleNote([])).toBeNull();
   });
 });
 

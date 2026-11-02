@@ -455,6 +455,44 @@
   .sw-peek__name:focus-visible {
     outline: none;
   }
+  /* The changes that are not saved, said and saved where they were made, in the strip and in its sheet. */
+  .sw-held {
+    flex: 1 1 100%;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-3);
+  }
+  .sw-held__text {
+    display: grid;
+    gap: 1px;
+    margin: 0;
+    font-weight: 560;
+  }
+  .sw-held__main {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+  }
+  .sw-held__main strong {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    font-weight: 400;
+    line-height: 1;
+  }
+  .sw-held__sub {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 450;
+    letter-spacing: 0.02em;
+  }
+  .sw-held__buttons {
+    display: flex;
+    flex: none;
+    gap: var(--s-1);
+    margin-left: auto;
+  }
   .sw-peek__row {
     display: flex;
     flex-wrap: wrap;
