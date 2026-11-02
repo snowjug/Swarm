@@ -64,7 +64,8 @@ Notes on the table:
   before; then **Submit for review**. Point at the line that says every change is kept as a version and
   the generated report is never changed, and at **Statements** after the edit: "These statements describe
   an earlier text", because the words were changed after they were checked. Without a detailed report the
-  studio says so and offers **Go to the detailed report**.
+  studio says so and offers **Write the detailed report** itself (or, where the deep dive has not been run,
+  **Go to the deep dive**).
 
 ## What to say, and not to say
 
