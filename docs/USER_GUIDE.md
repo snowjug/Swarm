@@ -50,9 +50,15 @@ results are made the same way as for a question of your own.
   failed, and for a brief that has been written, and shows them within a few seconds. A comparison that was
   stopped or failed leaves Compare and Decide locked, unless an earlier one finished: a finished comparison is not
   forgotten because a later one was cancelled.
+- **A run the engine made on its own**, such as the recorded Larkholm demonstration, has nothing from the scenario
+  lab: no scenario, stakeholders, actors, comparison or brief. It is read through its own run, so with saved
+  rounds and a written report nothing is locked for it. It opens on Simulate, in the deep dive; Compare opens on
+  its recorded runs, side by side; and Decide says "Nothing to decide from yet" and offers **Open Simulate** and
+  **Detailed report**, the recorded report, which has **Edit in the studio**. With rounds and no report, Compare
+  is open and Decide stays locked.
 - **A project opens where the work has got to**: on Decide once a comparison has finished, on Simulate while
-  one runs or once there are actors, on Map once the evidence has been read, and otherwise on Ground. Each
-  scene's main button leads to the next.
+  one runs or once there are actors (or, for a run the engine made on its own, once it has saved rounds), on
+  Map once the evidence has been read, and otherwise on Ground. Each scene's main button leads to the next.
 - **The address holds where you are**: `?project=<id>&scene=<scene>`, and for a part of a scene `&view=<name>`
   (for example `view=deep` for the deep dive). Copy it to come back to the same place, or to give it to
   someone who has access.

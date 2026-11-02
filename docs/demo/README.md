@@ -295,15 +295,23 @@ the target must be named: `--tenant <id> --owner <id>`. On the first screen the 
 says nothing of them when they are not, so restore them first.
 
 What they open to is decided by what they hold. They were made by the engine's own stages, not by the
-scenario lab, so they hold no stakeholder list and no scenario comparison. The interface opens them on
-**Map**, which has nothing found yet ("Who is in play?"; do not press **Find who is affected** on a
-recording, because it adds a list to it until the next reset); **Simulate** says "No actors to simulate
-yet" unless the address asks for the deep dive (`&scene=simulate&view=deep`); and **Compare** and **Decide**
-stay locked ("Run a simulation first"), so the recorded detailed report, the report studio and the
-comparison of two recorded runs cannot be opened from them. What does open: **Ground** (the sources, the
-entities and relations, the conflicts and the statements of the recorded report), the deep dive, **Ask
-about this** (the analyst, the fictional proxies and surveys, with the recorded conversation), **Audit log**
-and **Export snapshot** under **Settings and tools**.
+scenario lab, so the lab holds no scenario, stakeholders, actors, comparison, review or brief for them, and the
+interface reads such a record through its own run.
+It opens them on **Simulate**, which shows their deep dive whatever view the address names and never says
+"No actors to simulate yet". Nothing in the journey is locked for them:
+
+- **Compare** opens on their **recorded runs** (`&scene=compare&view=runs`): a run and its branch side by side,
+  round by round, where they part, with a button back to **The deep dive**. **Compare with the parent**, on a
+  branch's lineage in its deep dive, leads there too.
+- **Decide** says "Nothing to decide from yet", because no decision brief was written for a recording, and
+  offers **Open Simulate** and **Detailed report** (`&scene=decide&view=report`): the recorded report, with its
+  contents, its statement checks and **Export**. The deep dive's **Open the detailed report** leads there as well,
+  and **Edit in the studio** on that page opens the report studio.
+- **Map** has nothing found yet ("Who is in play?"). Do not press **Find who is affected** on a recording,
+  because it adds a list to it until the next reset.
+- **Ground** (the sources, the entities and relations, the conflicts and the statements of the recorded
+  report), **Ask about this** (the analyst, the fictional proxies and surveys, with the recorded
+  conversation), **Audit log** and **Export snapshot** under **Settings and tools** work as on any project.
 
 | Command                | What it does                                                                                                                                                                                                                                                                                           |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
