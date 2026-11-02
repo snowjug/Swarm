@@ -222,6 +222,13 @@
     .sw-sim[data-stage] .sw-eco__cluster text {
       display: none;
     }
+    /* A name that is not shown is not drawn at all here, where the actors stand too close for any to overlap another. */
+    .sw-sim[data-stage] .sw-eco__label:not([data-visible]) {
+      display: none;
+    }
+    .sw-sim[data-stage] .sw-eco__node:has(.sw-eco__hit:focus-visible) .sw-eco__label {
+      display: initial;
+    }
     .sw-sim__top {
       flex-direction: column;
       gap: var(--s-3);

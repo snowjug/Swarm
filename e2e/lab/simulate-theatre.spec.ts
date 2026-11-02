@@ -224,6 +224,44 @@ test.describe('a finished simulation, looked at', () => {
     await expect(trace).toHaveCount(0);
   });
 
+  test('the picture can be zoomed in and out and fitted again, from its buttons, and the view is not lost', async ({
+    page,
+  }) => {
+    await page.goto(simulateAt(project));
+    await expect(roundSlider(page)).toHaveAttribute('aria-valuenow', String(last()), {
+      timeout: 60_000,
+    });
+    // The picture is one group that moves and scales as a whole: its scale is the zoom.
+    const scale = (): Promise<number> =>
+      page.evaluate(() => {
+        const group = document.querySelector(
+          'main svg[role="group"] .sw-eco__nodes',
+        )?.parentElement;
+        return Number(/scale\(([\d.]+)\)/u.exec(group?.getAttribute('transform') ?? '')?.[1]);
+      });
+    const view = page.getByRole('group', { name: 'View' });
+    await expect.poll(scale).toBeGreaterThan(0);
+    await page.waitForTimeout(800);
+    const start = await scale();
+
+    await view.getByRole('button', { name: 'Zoom in' }).click();
+    await view.getByRole('button', { name: 'Zoom in' }).click();
+    await expect.poll(scale).toBeGreaterThan(start * 1.4);
+    await view.getByRole('button', { name: 'Zoom out' }).click();
+    await view.getByRole('button', { name: 'Zoom out' }).click();
+    await view.getByRole('button', { name: 'Zoom out' }).click();
+    await view.getByRole('button', { name: 'Zoom out' }).click();
+    await expect.poll(scale).toBeLessThan(start * 0.8);
+    await view.getByRole('button', { name: 'Fit everything' }).click();
+    await expect.poll(scale).toBeCloseTo(start, 1);
+
+    // The actors are still all there, and the round has not moved.
+    await expect(page.getByRole('button', { name: /, stance .*, in round \d+$/u })).toHaveCount(
+      analysis.actors.length,
+    );
+    await expect(roundSlider(page)).toHaveAttribute('aria-valuenow', String(last()));
+  });
+
   test('each view has its own heading, its address, and says that it is not a prediction', async ({
     page,
   }) => {
