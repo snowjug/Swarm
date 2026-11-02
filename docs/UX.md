@@ -90,8 +90,10 @@ The top bar floats over the page as one piece of glass, a pill. From the left:
 - **The mark** (named "Swarm: start a new question"), which goes to the first screen. It is disabled while
   an engine operation is in flight, so that a running request is never walked away from.
 - **The journey** (`JourneyRail`, a navigation named "Journey"), once a project is open: six points
-  joined by a line that fills as the work does. Each point says its state with an icon and in words to a
-  screen reader: done (a check), current, ready, working (a ring turns while the engine is doing something
+  joined by a line that fills as the work does. Each point is its step's own glyph (the one the dock and
+  the palette use), so that a finished journey is six different shapes and not six ticks when the names
+  go, and says its state with a mark and in words to a screen reader: done (a filled point with a small
+  tick), current (the point that carries its name), ready, working (a ring turns while the engine is doing something
   for it), needs attention (a mark on a step that stopped) and locked (a lock; "Simulate, locked: Needs
   actors"). Below 78rem the names go, except the one in view; a point's tooltip says what the part is for
   or what opens it. A point that is locked is `aria-disabled` and answers a press with a toast.
@@ -145,7 +147,14 @@ Scenes take no props. A scene is a default export that calls `useWorkspace()` an
   `setView(view)`, `openProject(id, { scene, view })`, `duplicate()`, the `journey` as the rail shows it and
   the list of `projects`;
 - **`panels`**: `history()`, `ask({ target, message })`, `audit()`, `budget()`, `access()`, `provider()` and
-  `snapshot()`, so that a scene opens an overlay without owning one.
+  `snapshot()`, so that a scene opens an overlay without owning one;
+- **unsaved work**, which is not on the workspace but beside it (`useUnsavedWork(sentence | null)` from
+  `app/unsaved-context.ts`): while a scene holds words or edits that are not saved (the Map's changes to actors, the
+  report studio's drafts) it says what they are, and the shell, which owns every exit (`go`, `openProject`, a new
+  question from the mark or the palette), asks "Leave with unsaved changes?" before it leaves: **Keep editing**, which
+  has focus, or **Leave anyway**. The browser warns as well when the tab is closed or the page reloaded. `setView` is
+  not asked about: a change of view inside a scene is the scene's own business, and the scenes that hold work ask for
+  their own routes back (the studio's back button, the brief's bar, the detailed report).
 
 The shell owns the rest: the polling, the operations, the address, the focus and the page title. **Ask is
 the one scene that is not like this**: it exists before there is a project, so the shell mounts it
@@ -209,8 +218,9 @@ The field is a combobox over a listbox: focus stays where the person types, the 
 move a mark that glides from row to row, Enter does the marked one and Escape gives focus back to what had it.
 The list is itself focusable, because it scrolls, and answers the same keys. Typing needs every word, in any
 order, ignoring accents; a name that starts with what was typed comes first. Rows are 44px on a touch screen,
-the sheet is opaque in high contrast and under reduced transparency, and `e2e/local/palette.spec.ts` holds all of
-this in a real browser, including axe in three themes and a phone.
+and there a **Close** button (44px, last in the tab order) stands in the field's corner in place of the Esc hint,
+which a touch screen has no key for. The sheet is opaque in high contrast and under reduced transparency, and
+`e2e/local/palette.spec.ts` holds all of this in a real browser, including axe in three themes and a phone.
 
 ### The overlays
 
@@ -455,8 +465,11 @@ The decision brief as a document, with the independent review beside it and in i
   **Edit report** (Report Studio), **Detailed report** (the deep dive's report, when one exists), **Export**
   and, under More, **Write the brief again** and **Open every chapter**. **Export** is one menu: **Markdown**,
   **JSON, with the data behind the charts** and **Printable page** (a page the server makes for paper, opened in
-  a tab of its own, which loads and runs nothing), and **Print this page** (`Ctrl P`). A role that may read the
-  brief but not export it has the three files disabled, with the reason, and can still print.
+  a tab of its own, which loads and runs nothing, so it uses the paper's own typefaces: it is set as a document,
+  the question as its lede with the record's dates and identifiers in a small line, then the answer, each
+  statement as its origin and reliance in words, then its text, with its identifier at the margin and what it rests on
+  beside a hairline, and tables without grid lines; the caveat is its one box), and **Print this page** (`Ctrl P`). A
+  role that may read the brief but not export it has the three files disabled, with the reason, and can still print.
 - **Print and PDF are held.** The brief puts the whole of itself and the review on paper, whatever is closed on
   the screen, in ink on white from whichever theme the screen was in, and none of the application around it
   (the bars, the tools, the contents, the buttons that only move about the screen); no text is drawn over other
