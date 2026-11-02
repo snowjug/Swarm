@@ -348,7 +348,7 @@
   }
   @media (pointer: coarse) {
     .sw-chat__why {
-      min-height: 2.5rem;
+      min-height: 2.75rem;
     }
   }
   .sw-chat__chev {
@@ -500,6 +500,13 @@
     font-size: var(--fs-body);
     line-height: 1.5;
   }
+  /* A finger finds the field anywhere in its row: the field is as tall as a button, not just its line. */
+  @media (pointer: coarse) {
+    .sw-chat__input {
+      min-height: 2.75rem;
+      padding-block: 0.6875rem;
+    }
+  }
   .sw-chat__composer-foot {
     display: flex;
     align-items: center;
@@ -558,6 +565,12 @@
       padding: 0 0.6rem 0.25rem 0;
     }
   }
+  /* The field carries its own height for a finger (above), so the box around it does not add to it. */
+  @media (max-width: 40rem) and (pointer: coarse) {
+    .sw-chat__composer {
+      padding-block: 0.15rem;
+    }
+  }
   .sw-chat__engine {
     display: inline-flex;
     align-items: center;
@@ -583,7 +596,7 @@
   }
   @media (pointer: coarse) {
     .sw-chat__engine {
-      min-height: 2.5rem;
+      min-height: 2.75rem;
     }
   }
   .sw-chat__engine-long {
