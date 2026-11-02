@@ -449,6 +449,15 @@
   }
 }
 
+/* A browser that cannot blur what lies behind a surface gets a solid one: text on glass stays legible without the blur. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --glass: var(--bg-raised);
+    --glass-raised: var(--bg-raised);
+    --glass-overlay: var(--bg-raised);
+  }
+}
+
 /* On paper every theme is the light one: ink on white, the colours of meaning as the light theme has them, and no glass. */
 @media print {
   :root,
