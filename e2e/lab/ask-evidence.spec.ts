@@ -970,6 +970,32 @@ test.describe('a public web page', () => {
     expect(problems).toEqual([]);
   });
 
+  test('a page that does not fit with the sources already there stays in the menu with the reason, and is not attached', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await questionBox(page).fill(CITY_QUESTION);
+    // Five files that leave no room for a sixth text of any size.
+    await uploadFiles(
+      page,
+      Array.from({ length: 5 }, (_, index) => textFile(`part-${index + 1}.txt`, filler(39_990))),
+    );
+    await expect(evidenceDialog(page)).toContainText('5/10');
+
+    const answer = await fetchPage(page, PILOT);
+    expect(answer.status()).toBe(200);
+    await expect(fetchedPreview(page)).toBeVisible();
+    await evidenceDialog(page).getByRole('button', { name: 'Add as evidence' }).click();
+
+    await expect(menuProblem(page)).toHaveText(
+      'Use at most 10 documents and 200,000 total characters.',
+    );
+    await expect(fetchedPreview(page)).toBeVisible();
+    await expect(evidenceDialog(page)).toContainText('5/10');
+    await closeEvidence(page);
+    await expect(tray(page).getByRole('listitem')).toHaveCount(5);
+  });
+
   test('a page that the person then changes is no longer called a retrieved page', async ({
     page,
   }) => {

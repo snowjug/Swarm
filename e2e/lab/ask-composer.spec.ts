@@ -19,6 +19,7 @@ import {
   apiCalls,
   asked,
   assumptionsButton,
+  atRest,
   bar,
   chipName,
   chooseExample,
@@ -631,6 +632,8 @@ test.describe('beside the question', () => {
     expect(reads, 'the same source, so nothing is asked again').toHaveLength(1);
 
     await bar(page).getByRole('button', { name: 'Question' }).click();
+    // The review's own "Add evidence" is on the page until the question is back: it is not the one to press.
+    await expect(questionBox(page)).toBeVisible();
     await pasteSource(
       page,
       'skippers.md',
@@ -1018,6 +1021,7 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await openAsk(page, { theme });
       for (const way of ['Files', 'Paste', 'Web page'] as const) {
         await openEvidence(page, way);
+        await atRest(page);
         await expectNoAxeViolations(page, `${theme}: the evidence menu, ${way}`);
       }
     });
