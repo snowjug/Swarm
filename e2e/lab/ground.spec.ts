@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { expectLocked, expectScene, openApp, step, type ThemeName } from '../support/app';
 import { expectTouchTargets, openDisclosure, viewports, watchPage } from '../support/helpers';
 import { claimsAgainst, squash } from '../support/lab-api';
@@ -17,10 +17,13 @@ import {
   expectSound,
   figure,
   figureValue,
+  firstScreenBoxes,
   graph,
   groundStatus,
   hero,
+  holdLedger,
   inAdvancedMode,
+  layoutShifted,
   makeLegacy,
   makeProject,
   openConflicts,
@@ -39,7 +42,9 @@ import {
   toast,
   topic,
   topicDetails,
+  watchLayoutShifts,
   GROUND_VIEWS,
+  type Seed,
 } from '../support/ground-map';
 
 // The Ground scene, on the rules-mode server and through the real page: the evidence the exploration rests on. What
@@ -197,6 +202,70 @@ test.describe('the states of the scene', () => {
     await expectLocked(page, 'map');
     await expect(step(page, 'map')).toHaveAccessibleName(/Not in this record/u);
     expect(problems).toEqual([]);
+  });
+});
+
+/**
+ * Opens Ground with the answer to the ledger held back, looks at the first screen, lets the ledger through and looks
+ * again. Before it, nothing that follows the first screen is drawn (where it goes depends on the ledger: a conflict
+ * that is open goes before the sources); after it, nothing that was on the screen has moved, and the page as a whole
+ * has shifted by less than a fifth of what is called good.
+ */
+async function expectArrivalStill(
+  page: Page,
+  request: APIRequestContext,
+  seed: Seed,
+  openConflicts: number,
+): Promise<void> {
+  const problems = watchPage(page);
+  await watchLayoutShifts(page);
+  const id = await makeProject(request, seed, 'ground');
+  const passages = (await passagesOf(request, id)).length;
+  const release = await holdLedger(page, id);
+  await page.goto(`/?project=${id}&scene=ground`);
+
+  await expect(groundStatus(page, /^Ready$/u)).toBeVisible();
+  await expect(graph(page)).toBeVisible();
+  await expect.poll(() => figureValue(page, 'Passages')).toBe(passages);
+  await page.evaluate(() => document.fonts.ready);
+  // The first screen is there; the rest, whose order the ledger decides, is not, and the page says it is still arriving.
+  for (const part of [sourcesSection(page), conflictsSection(page), statementsSection(page)]) {
+    await expect(part).toHaveCount(0);
+  }
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(1);
+  const before = await firstScreenBoxes(page);
+  for (const [name, box] of Object.entries(before)) expect(box, `${name} is drawn`).not.toBeNull();
+
+  release();
+  await expect(sourcesSection(page)).toBeVisible();
+  await expect(conflictsSection(page)).toBeVisible();
+  await expect.poll(() => figureValue(page, 'Conflicts')).toBe(openConflicts);
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+  expect(await firstScreenBoxes(page)).toEqual(before);
+  // What is open is read before the sources it is between; with nothing to settle, after them.
+  const [conflicts, sources] = [
+    (await conflictsSection(page).boundingBox())!,
+    (await sourcesSection(page).boundingBox())!,
+  ];
+  expect(conflicts.y < sources.y).toBe(openConflicts > 0);
+  await page.waitForTimeout(400);
+  expect(await layoutShifted(page)).toBeLessThan(0.02);
+  expect(problems).toEqual([]);
+}
+
+test.describe('the page as it arrives', () => {
+  test('a conflict that is open: the first screen stays where it is when the ledger is read, and what follows it comes after', async ({
+    page,
+    request,
+  }) => {
+    await expectArrivalStill(page, request, FERRY, 1);
+  });
+
+  test('sources that agree: the figure that counts conflicts keeps its room, and nothing moves either', async ({
+    page,
+    request,
+  }) => {
+    await expectArrivalStill(page, request, AGREE, 0);
   });
 });
 
@@ -1214,6 +1283,14 @@ test.describe('on every screen', () => {
       }
       expect(tops.samples).toBeCloseTo(tops.supplied!, 0);
       expect(tops.mixed).toBeCloseTo(tops.supplied!, 0);
+    });
+
+    test('the first screen stays where it is when the ledger is read, with a conflict that is open and without', async ({
+      page,
+      request,
+    }) => {
+      await expectArrivalStill(page, request, FERRY, 1);
+      await expectArrivalStill(page, request, AGREE, 0);
     });
 
     test('every control is large enough for a finger: on the page and in the sheet', async ({
