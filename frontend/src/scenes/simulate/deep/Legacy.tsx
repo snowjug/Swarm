@@ -51,7 +51,7 @@ export function Legacy() {
             <Button
               variant="glass"
               icon={<RefreshCw size={16} aria-hidden="true" />}
-              onClick={ws.refresh}
+              onClick={() => ws.refresh()}
             >
               Read it again
             </Button>

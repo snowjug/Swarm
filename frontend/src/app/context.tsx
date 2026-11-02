@@ -34,8 +34,8 @@ export interface Workspace {
   busy: boolean;
   /** The project is being read again. */
   refreshing: boolean;
-  /** Reads the project again, with the person's request for it. */
-  refresh: () => void;
+  /** Reads the project again, with the person's request for it; `quiet` for one the person did not ask for (nothing spins). */
+  refresh: (options?: { quiet?: boolean }) => void;
   /** Starts an engine stage. Resolves when the server has accepted it; progress is read by polling. */
   run: (step: ExecutionStep) => Promise<unknown>;
   cancel: () => Promise<unknown>;

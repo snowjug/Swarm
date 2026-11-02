@@ -127,7 +127,7 @@ export function AskScene({
   const [horizon, setHorizon] = useState('');
   const [assumed, setAssumed] = useState<string[]>([]);
   const [read, setRead] = useState<{
-    /** What the reading was made from: a different question, engine or context is a different reading. */
+    /** What the reading was made from: a different question, engine, source or context is a different reading. */
     key: string;
     mode: 'rules' | 'model';
     model: string | null;
@@ -271,13 +271,17 @@ export function AskScene({
       return;
     }
     const context: Context = { horizon, assumptions: assumed };
-    const key = JSON.stringify([question.trim(), useModel, horizon.trim(), assumed]);
+    // What a reading is made from: the question, who reads it, what each source tells the reader of itself, and what
+    // the person said. A reading whose sources have changed since is a different reading, and is made again; one
+    // whose inputs are all as they were stays, with the person's own corrections of it.
+    const sources = documentSummaries(documents);
+    const key = JSON.stringify([question.trim(), useModel, sources, horizon.trim(), assumed]);
     if (frame && read && read.key === key) {
       setPhase('review');
       return;
     }
     wantsRetry.current = true;
-    const result = await reading.read(question.trim(), documentSummaries(documents), useModel);
+    const result = await reading.read(question.trim(), sources, useModel);
     if (!result) return;
     wantsRetry.current = false;
     setFrame(withContext(result.frame, context));

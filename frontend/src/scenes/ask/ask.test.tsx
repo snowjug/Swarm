@@ -15,6 +15,7 @@ import {
   keyOf,
   limitsOf,
   nextPasteName,
+  roomProblem,
   samePage,
   siteOf,
   sizeText,
@@ -76,6 +77,17 @@ describe('what a file may be', () => {
     expect(nextPasteName([doc('notes.txt')])).toBe('notes-2.txt');
     expect(nextPasteName([doc('notes.txt'), doc('notes-2.txt')])).toBe('notes-3.txt');
     expect(totalOf([doc('a', 'abc'), doc('b', 'de')])).toBe(5);
+  });
+
+  it('says in one sentence why a source has no room, whatever the source is, and says nothing when it has', () => {
+    const doc = (content: string) => ({ name: 'a.txt', content });
+    const small = { ...limits, maxDocuments: 2, maxTotal: 10 };
+    expect(roomProblem([], 10, small)).toBeNull();
+    expect(roomProblem([doc('abcde')], 5, small)).toBeNull();
+    const words = 'Use at most 2 documents and 10 total characters.';
+    // Too many sources, or too much text between them.
+    expect(roomProblem([doc('a'), doc('b')], 1, small)).toBe(words);
+    expect(roomProblem([doc('abcde')], 6, small)).toBe(words);
   });
 
   it('encodes bytes in chunks a call can take', () => {

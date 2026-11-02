@@ -284,8 +284,8 @@ function EvidencePanel({
                   disabled={disabled || full}
                   onClick={() => {
                     if (!url.result) return;
-                    evidence.addDocument(url.result.document);
-                    url.discard();
+                    // A page that does not fit stays here, with the reason beneath it, to be added once there is room.
+                    if (evidence.addDocument(url.result.document)) url.discard();
                   }}
                 >
                   Add as evidence
