@@ -133,32 +133,7 @@ function Theatre({
         } as React.CSSProperties
       }
     >
-      {view === 'live' && replay && (
-        <LiveView
-          analysis={analysis}
-          cast={cast}
-          replay={replay}
-          playback={playback}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          wide={wide}
-          boxes={boxes}
-        />
-      )}
-      {view === 'network' && replay && (
-        <NetworkView
-          analysis={analysis}
-          cast={cast}
-          settings={network}
-          onSettings={setNetwork}
-          replay={replay}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          wide={wide}
-          boxes={boxes}
-        />
-      )}
-
+      {/* The heading and the ways to look come first, in the page and for the keyboard; the picture is laid under them. */}
       <div className="sw-sim__top" ref={boxes.topRef}>
         {stage && replay ? (
           <m.header
@@ -252,6 +227,32 @@ function Theatre({
           </Menu>
         </div>
       </div>
+
+      {view === 'live' && replay && (
+        <LiveView
+          analysis={analysis}
+          cast={cast}
+          replay={replay}
+          playback={playback}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          wide={wide}
+          boxes={boxes}
+        />
+      )}
+      {view === 'network' && replay && (
+        <NetworkView
+          analysis={analysis}
+          cast={cast}
+          settings={network}
+          onSettings={setNetwork}
+          replay={replay}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          wide={wide}
+          boxes={boxes}
+        />
+      )}
 
       {view === 'story' && (
         <StoryView
