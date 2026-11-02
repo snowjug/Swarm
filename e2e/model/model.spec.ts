@@ -13,7 +13,7 @@ import { forget, openSettings } from '../support/shell';
 const providerUrl = `http://127.0.0.1:${process.env.E2E_PROVIDER_PORT || 11999}`;
 // Fictional proxies in the first journey; each platform asks the model once per proxy per round.
 const PROXIES = 6;
-const ROUNDS = 8;
+const ROUNDS = 7;
 
 async function provider(playwright: PlaywrightWorkerArgs['playwright']) {
   const request: APIRequestContext = await playwright.request.newContext({ baseURL: providerUrl });
@@ -57,6 +57,8 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       await expect(options).toContainText(
         'Your question and evidence context are sent to this provider.',
       );
+      // The sizes of the deep dive are behind its own disclosure: they are not there to be typed into until it is opened.
+      await options.getByRole('button', { name: 'Deep dive' }).click();
       await options.getByRole('spinbutton', { name: 'Proxies' }).fill(String(PROXIES));
       await options.getByRole('spinbutton', { name: 'Rounds' }).fill(String(ROUNDS));
       await page.keyboard.press('Escape');
@@ -72,7 +74,8 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
 
     const id = new URL(page.url()).searchParams.get('project')!;
     const made = await getProject(api, id);
-    expect(made).toMatchObject({ mode: 'llm' });
+    // The sizes that were typed in the options are the sizes of the project the server holds.
+    expect(made).toMatchObject({ mode: 'llm', settings: { agentCount: PROXIES, rounds: ROUNDS } });
 
     await test.step('the cast is written by the model', async () => {
       await advance(api, id, 'environment');
@@ -140,7 +143,12 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       expect(applied.map((round) => round.round)).toEqual([ROUNDS]);
       const stats = await fake.stats();
       // Only the remaining rounds are asked for again: one call per proxy on each of two platforms.
-      expect((stats.byKind.actor ?? 0) - before).toBe(2 * PROXIES * (ROUNDS - pausedAt));
+      const asked = Object.entries(stats.actors)
+        .map(([key, count]) => `${key}x${count}`)
+        .join(' ');
+      expect((stats.byKind.actor ?? 0) - before, `asked: ${asked}`).toBe(
+        2 * PROXIES * (ROUNDS - pausedAt),
+      );
       // Every (platform, round, proxy) was decided by its own call...
       expect(Object.keys(stats.actors)).toHaveLength(2 * ROUNDS * PROXIES);
       for (const platform of ['plaza', 'community']) {
