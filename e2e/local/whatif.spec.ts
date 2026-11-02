@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import { expect, test } from '@playwright/test';
+import { expect, test, type APIRequestContext } from '@playwright/test';
 import {
   advance,
   apiContext,
@@ -8,15 +8,18 @@ import {
   seed,
   watchPage,
 } from '../support/helpers';
-import { audit, makeProject, openSettings } from '../support/shell';
+import { audit, openSettings } from '../support/shell';
+import { addressOf } from '../support/app';
 import {
   branchSheet,
   compareAt,
+  compared,
   createBranch,
   deepStrip,
   openBranch,
   openDeep,
   openProjectId,
+  seedExample,
   trackTo,
 } from '../support/simulate';
 
@@ -29,6 +32,19 @@ interface Comparison {
   identicalThroughRound: number;
   declaredChanges: { kind: string; field?: string; agentId?: string }[];
   rounds: { delta: { meanOpinion: number } | null }[];
+}
+
+/** A project the lab holds a scenario, stakeholders and actors for, with the run the engine made on its actors saved. */
+async function labRun(
+  api: APIRequestContext,
+  name: string,
+  options: { compared: boolean },
+): Promise<string> {
+  const id = await seedExample(api, 'ecommerce-experience', name);
+  if (options.compared) await compared(api, id, { runsPerVariant: 10, sensitivity: false });
+  for (const step of ['knowledge', 'environment', 'simulation'] as const)
+    await advance(api, id, step);
+  return id;
 }
 
 interface Detail {
@@ -216,10 +232,8 @@ test.describe('what-if in the deep dive of a run', () => {
     playwright,
   }) => {
     const api = await apiContext(playwright);
-    // The comparison of two runs opens with the comparison of scenarios, so the run that is branched has one.
-    const { id: parentId } = await makeProject(api, 'compared', { name: 'Compared parent' });
-    await advance(api, parentId, 'environment');
-    await advance(api, parentId, 'simulation');
+    // A project the lab holds a scenario for, whose scenarios were compared, and whose run the engine made as well.
+    const parentId = await labRun(api, 'Compared parent', { compared: true });
     const parent = (await (await api.get(`/api/projects/${parentId}`)).json()) as Detail;
     const made = await api.post(`/api/projects/${parentId}/branches`, {
       data: {
@@ -271,12 +285,13 @@ test.describe('what-if in the deep dive of a run', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Compared branch');
   });
 
-  test('where the scenarios have not been compared, the comparison of two runs says it is not open yet and does nothing', async ({
+  test('where a project the lab holds has not compared its scenarios, the comparison of two runs says it is not open yet and does nothing', async ({
     page,
     playwright,
   }) => {
     const api = await apiContext(playwright);
-    const parentId = await seed(api, 'simulation', { name: 'Not compared parent', rounds: 4 });
+    // A project the lab holds a scenario for has its comparison of scenarios to make first.
+    const parentId = await labRun(api, 'Not compared parent', { compared: false });
     const made = await api.post(`/api/projects/${parentId}/branches`, { data: { fromRound: 2 } });
     const childId = ((await made.json()) as { id: string }).id;
     await openDeep(page, childId);
@@ -293,6 +308,52 @@ test.describe('what-if in the deep dive of a run', () => {
     await row.click({ force: true });
     await expect(page).toHaveURL(/view=deep/u);
     await expect(deepStrip(page)).toBeVisible();
+  });
+
+  test('a run the engine made on its own opens in its deep dive and its comparison in its recorded runs, and offers no comparison of scenarios', async ({
+    page,
+    playwright,
+  }) => {
+    const problems = watchPage(page);
+    const api = await apiContext(playwright);
+    // Nothing of the lab is in it: no scenario, stakeholders, actors or comparison. It has its run, and that is all.
+    const parentId = await seed(api, 'simulation', { name: 'Engine only parent', rounds: 4 });
+    const made = await api.post(`/api/projects/${parentId}/branches`, { data: { fromRound: 2 } });
+    const childId = ((await made.json()) as { id: string }).id;
+
+    // The simulation opens in the deep dive, whether a view is named or not, and never says that there are no actors.
+    for (const view of [undefined, 'story', 'live', 'network', 'timeline', 'setup']) {
+      await page.goto(
+        addressOf({ project: parentId, scene: 'simulate', ...(view ? { view } : {}) }),
+      );
+      await expect(
+        page.getByRole('heading', { level: 1, name: /A slower, closer look/u }),
+        view ?? 'no view',
+      ).toBeVisible();
+      await expect(page.getByText('No actors to simulate yet')).toHaveCount(0);
+      await expect(page.getByRole('radiogroup', { name: 'View' })).toHaveCount(0);
+    }
+    // Nothing leads back to a comparison it does not have, and the page does not say that one waits for it.
+    await expect(page.getByRole('button', { name: 'Simulation', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('main')).not.toContainText('The comparison and the decision brief');
+
+    // From its run, the way to the comparison is open: its recorded runs, laid side by side.
+    await page.getByRole('tab', { name: /^Run\b/u }).click();
+    await page.getByRole('button', { name: /^Compare two recorded runs/u }).click();
+    await expect(page).toHaveURL(/scene=compare/u);
+    await expect(page).toHaveURL(/view=runs/u);
+    await expect(page.getByRole('button', { name: 'The deep dive' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'The comparison of scenarios' })).toHaveCount(0);
+
+    // And its comparison opens on them without being asked, the branch beside the run it came from.
+    await page.goto(addressOf({ project: childId, scene: 'compare' }));
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('is the parent run of');
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('Engine only parent');
+    await audit(page, 'the comparison of the recorded runs of a run the engine made on its own');
+    await page.getByRole('button', { name: 'The deep dive' }).first().click();
+    await expect(page).toHaveURL(/view=deep/u);
+    await expect(deepStrip(page)).toBeVisible();
+    expect(problems, 'what the page logged or failed at').toEqual([]);
   });
 
   test('a restart from a paused checkpoint asks first, names what it discards, and can be declined', async ({

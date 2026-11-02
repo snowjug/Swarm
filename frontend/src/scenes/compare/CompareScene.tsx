@@ -9,6 +9,7 @@ import { CompareDocument } from './Document';
 import { Fresh } from './Fresh';
 import { UNKNOWN, freshnessOf, newerThan } from './freshness';
 import { RunsScene } from './RunsScene';
+import { readsThroughTheDeepDive } from '../simulate/engineOnly';
 import { useBriefView } from './useFreshness';
 import {
   EmptyResults,
@@ -225,11 +226,13 @@ function Scenarios() {
 }
 
 export function CompareScene() {
-  const { view, mode } = useWorkspace();
+  const { view, mode, project } = useWorkspace();
   const scope = useMemo(() => ({ advanced: mode === 'advanced' }), [mode]);
+  // A run the engine made on its own has no scenarios to set side by side: what it can be compared is its recorded runs.
+  const runs = view === 'runs' || readsThroughTheDeepDive(project);
   return (
     <CompareScope.Provider value={scope}>
-      {view === 'runs' ? <RunsScene /> : <Scenarios />}
+      {runs ? <RunsScene /> : <Scenarios />}
     </CompareScope.Provider>
   );
 }

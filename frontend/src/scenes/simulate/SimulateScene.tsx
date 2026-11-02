@@ -28,6 +28,7 @@ import type { Analysis } from '../../../../shared/analysis';
 import { LiveView } from './LiveView';
 import { NetworkColour, NetworkView, RelationKinds } from './NetworkView';
 import { Fine, StoryView, TimelineView } from './Pages';
+import { readsThroughTheDeepDive } from './engineOnly';
 import { Running } from './Running';
 import { Setup, type SetupSettings } from './Setup';
 import { NETWORK_DEFAULTS, replayOf, type NetworkSettings, type Replay } from './model';
@@ -313,7 +314,9 @@ export function SimulateScene() {
 
   let stage: string;
   let body: React.ReactNode;
-  if (ws.view === 'deep') {
+  // A run the engine made on its own has no comparison to watch: its simulation is its deep dive, whatever the address
+  // says, and the states of a comparison (no actors yet, the setup, the views of a finished one) are not its states.
+  if (ws.view === 'deep' || readsThroughTheDeepDive(ws.project)) {
     stage = 'deep';
     body = (
       <Suspense
