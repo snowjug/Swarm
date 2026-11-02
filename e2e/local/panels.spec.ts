@@ -35,7 +35,11 @@ const tag = Date.now().toString(36);
 test.beforeAll(async ({ playwright }) => {
   api = await apiContext(playwright);
   engine = await seed(api, 'report', { name: `Panels ${tag}: engine run` });
-  lab = (await makeProject(api, 'compared', { name: `Panels ${tag}: lab` })).id;
+  lab = (
+    await makeProject(api, 'compared', {
+      name: `Panels ${tag}: Copilot in Teams, a phased opt-in with an admin-only first month`,
+    })
+  ).id;
 });
 
 test.afterAll(async () => {
@@ -507,4 +511,67 @@ test.describe('the history', () => {
     await quiet(page);
     await expectNoAxeViolations(page, 'the history, a long list');
   });
+
+  // WCAG 1.4.10 asks for the page to be read at 320px without scrolling or being squeezed out of shape: an exploration's
+  // name has at least 10rem there, the badge of the open one sits under it, and the actions do not take its width.
+  for (const [width, height] of [
+    [320, 568],
+    [360, 740],
+    [390, 844],
+  ] as const) {
+    test(`at ${width}px the open exploration keeps room for its name, and its actions are under finger`, async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        viewport: { width, height },
+        hasTouch: true,
+        reducedMotion: 'reduce',
+      });
+      const page = await context.newPage();
+      const problems = watchPage(page);
+      await openApp(page, { project: lab, scene: 'decide' });
+      const dialog = await openHistory(page);
+      const row = dialog.locator('[aria-current="true"]');
+      await expect(row).toBeVisible();
+      const name = row.locator('.sw-hist__name');
+      await expect(name).toContainText('Copilot in Teams');
+      const nameBox = (await name.boundingBox())!;
+      expect(
+        nameBox.width,
+        `the name has the width of the row at ${width}px`,
+      ).toBeGreaterThanOrEqual(160);
+      const lines = await name.evaluate((element) =>
+        Math.round(
+          element.getBoundingClientRect().height /
+            Number.parseFloat(getComputedStyle(element).lineHeight),
+        ),
+      );
+      expect(lines, 'the name is at most two lines').toBeLessThanOrEqual(2);
+      // The badge of the open exploration is under its name, not beside it.
+      const badge = (await row.getByText('Open now').boundingBox())!;
+      expect(badge.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+      // The actions have room of their own: none of them lies on the words of the row.
+      const text = (await row.locator('.sw-hist__text').boundingBox())!;
+      const actions = dialog
+        .getByRole('listitem')
+        .filter({ has: page.locator('[aria-current="true"]') })
+        .getByRole('button', { name: /^(Compare|Delete) / });
+      expect(await actions.count()).toBeGreaterThan(0);
+      for (const action of await actions.all()) {
+        const box = (await action.boundingBox())!;
+        const across = Math.min(text.x + text.width, box.x + box.width) - Math.max(text.x, box.x);
+        const down = Math.min(text.y + text.height, box.y + box.height) - Math.max(text.y, box.y);
+        expect(across > 1 && down > 1, 'an action lies on the words of its row').toBe(false);
+      }
+      await expectNoHorizontalOverflow(page);
+      await expectPressable(page, `phone ${width}px: the history`, {
+        min: 44,
+        scope: '[role="dialog"]',
+      });
+      await quiet(page);
+      await expectNoAxeViolations(page, `phone ${width}px: the history`);
+      expect(problems).toEqual([]);
+      await context.close();
+    });
+  }
 });

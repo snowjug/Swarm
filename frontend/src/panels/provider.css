@@ -153,12 +153,24 @@
   }
 
   /* ---- the popover ---- */
+  /*
+   * The popover is glass, and glass does not scroll: its edge is drawn once, on a frame that stays where it is. What is
+   * too long for the screen scrolls inside the frame, in the body, as it does in a sheet.
+   */
   .sw-provider-popover {
-    padding: var(--s-5);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
   }
   .sw-provider-pop {
     display: grid;
+    flex: 1 1 auto;
     gap: var(--s-4);
+    min-height: 0;
+    padding: var(--s-5);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
   .sw-provider-pop__head {
     --lamp: var(--ink-3);
