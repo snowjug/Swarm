@@ -54,5 +54,5 @@ A model that writes the statement must not also decide how much to trust it.
 ## Evidence
 
 `backend/test/ledger.test.ts`, `ledger-service.test.ts`, `contradictions.test.ts`,
-`grounding-verify.test.ts`; `e2e/local/ledger.spec.ts`, `e2e/model/ledger-ui.spec.ts`; the
+`grounding-verify.test.ts`; `e2e/lab/ground.spec.ts`, `e2e/model/grounding.spec.ts`; the
 evaluation in `evaluation/results/latest.md`.

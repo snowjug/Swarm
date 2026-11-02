@@ -89,7 +89,7 @@ source. Ground compares the sources and shows where they disagree."
 **1:40 Map: stakeholders and actors (60 s).** **Map the stakeholders**, **Find who is affected**. Point
 at the parties on the map, "N to review", the chip that says how they were found, one party opened to
 its cited quotes and confidence, and the **Nobody found for** prompts. Say: "Roles, with the passage
-shown. They are not real people." Then **Approve & create actors**, open an actor's **Traits**, and
+shown. They are not real people." Then **Create actors**, open an actor's **Traits**, and
 point at one trait and its origin chip.
 
 **2:40 Simulate and Compare (60 s).** **Simulate**, **Run the simulation**. Watch the replay in **Live**,
@@ -131,7 +131,7 @@ covered only access cases on standard plans. The case study does not say what it
 **3:30 to 5:00 Map: stakeholders and actors.** **Map the stakeholders**, **Find who is affected**. Open
 three parties and read their cited quotes under **Evidence**. Edit one (**Edit** on the party, or
 **Modelled as** for its priority) and **Merge** or **Remove** one. Read the prompts about roles nobody
-was found for and say what you would do. **Approve & create actors**, open an actor, then change one
+was found for and say what you would do. **Create actors**, open an actor, then change one
 trait with its slider and show the chip change to "you"; **Save** keeps it.
 
 **5:00 to 6:30 Simulate and Compare.** **Run the simulation** and watch **Live**. Then **Compare**: show

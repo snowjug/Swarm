@@ -94,7 +94,7 @@ routes themselves (a lead cannot reach another project's members, an admin canno
 owner, the last owner and last lead stay), revocation on the next request, bootstrap, the audit
 entries, the sharing bound, and the unchanged local mode. `auth.test.ts` keeps the token, tenant and
 comparison tests, and proves that migration 4 gives an upgraded database its leads and members.
-`frontend/src/lib/members.test.ts` holds the page's role lists to `roles.ts`, `AccessDialog.test.tsx`
+`frontend/src/lib/members.test.ts` holds the page's role lists to `roles.ts`, `frontend/src/panels/panels.test.tsx`
 renders what each kind of person is offered, and `e2e/signin/access.spec.ts` drives both screens in a
 browser: an owner adding, changing and removing a person, a colleague who sees one project and no
 other and is offered no control, and an administrator who is offered no way to touch an owner.
