@@ -1,4 +1,12 @@
-import { cloneElement, forwardRef, useEffect, useId, useLayoutEffect, useRef } from 'react';
+import {
+  cloneElement,
+  forwardRef,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+} from 'react';
 import type {
   InputHTMLAttributes,
   ReactElement,
@@ -68,7 +76,7 @@ export const Textarea = forwardRef<
   TextareaHTMLAttributes<HTMLTextAreaElement> & { maxRows?: number; bare?: boolean }
 >(function Textarea({ className, maxRows = 12, bare, value, onChange, ...rest }, forwarded) {
   const local = useRef<HTMLTextAreaElement | null>(null);
-  const fit = () => {
+  const fit = useCallback(() => {
     const node = local.current;
     if (!node) return;
     node.style.height = 'auto';
@@ -76,12 +84,16 @@ export const Textarea = forwardRef<
     const max = line * maxRows + 2;
     node.style.height = `${Math.min(node.scrollHeight, max)}px`;
     node.style.overflowY = node.scrollHeight > max ? 'auto' : 'hidden';
-  };
-  useLayoutEffect(fit);
+  }, [maxRows]);
+  // When what is written changes; and when the window or the fonts change how much a line holds.
+  useLayoutEffect(() => {
+    fit();
+  }, [fit, value]);
   useEffect(() => {
     window.addEventListener('resize', fit);
+    void document.fonts?.ready.then(fit);
     return () => window.removeEventListener('resize', fit);
-  });
+  }, [fit]);
   return (
     <textarea
       {...rest}
