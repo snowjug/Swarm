@@ -167,13 +167,14 @@ Scenes take no props. A scene is a default export that calls `useWorkspace()` an
   `app/unsaved-context.ts`): while a scene holds words or edits that are not saved it says what they are, and the
   shell, which owns every exit (`go`, `openProject`, a new question from the mark or the palette), asks "Leave with
   unsaved changes?" before it leaves, with the sentence and "They are lost if you leave.": **Keep editing**, which
-  has focus, or **Leave anyway**. Two scenes say it. The Map holds a change to an actor until it is saved and says
+  has focus, or **Leave anyway**. Three scenes say it. The Map holds a change to an actor until it is saved and says
   "1 actor has changes that have not been saved." (`scenes/map/MapScene.tsx`); the report studio says how many
-  sections hold words that have not been saved (`scenes/studio/Workbench.tsx`). The browser warns as well when the
-  tab is closed or the page reloaded, while either holds something. `setView` is not asked about: a change of view
+  sections hold words that have not been saved (`scenes/studio/Workbench.tsx`); the deep dive says how many
+  changes to its environment are not saved (`scenes/simulate/deep/DeepDive.tsx`). The browser warns as well when the
+  tab is closed or the page reloaded, while any of them holds something. `setView` is not asked about: a change of view
   inside a scene is the scene's own business, and the scenes that hold work ask for their own routes back (the
-  studio's back button, the brief's bar, the detailed report). The deep dive and the Simulate setup do not call it
-  (see Not done).
+  studio's back button, the brief's bar, the detailed report, the deep dive's back to the simulation). The Simulate
+  setup does not call it (see Not done).
 
 The shell owns the rest: the polling, the operations, the address, the focus and the page title. **Ask is
 the one scene that is not like this**: it exists before there is a project, so the shell mounts it
@@ -1195,12 +1196,13 @@ it is done.
 - **The browser's Back button is not asked about.** The shell asks "Leave with unsaved changes?" before the
   exits it controls (`go`, `openProject` and a new question from the mark or the palette), and the browser
   asks before a tab is closed or reloaded. Back and Forward go by the address (`popstate`) and go on without
-  asking, even where the Map or the studio holds work.
+  asking, even where the Map, the studio or the deep dive holds work.
 - **Not everything a person has typed is held.** The shell asks only about what a scene has told it it holds
-  (`useUnsavedWork`), and two scenes do: the Map (changes to actors) and the report studio (words in a section).
-  The question being typed on the first screen, the alternatives edited on the Simulate setup and the deep
-  dive's unsaved setup do not (nothing under `scenes/ask` or `scenes/simulate` calls it), so leaving them by
-  the mark, the journey or the palette does not ask.
+  (`useUnsavedWork`), and three scenes do: the Map (changes to actors), the report studio (words in a section)
+  and the deep dive (changes to its environment).
+  The question being typed on the first screen and the alternatives edited on the Simulate setup do not (nothing
+  under `scenes/ask` calls it, and the Simulate setup is a form that is applied by running it, with nothing to save
+  or discard), so leaving them by the mark, the journey or the palette does not ask.
 - **The People and Who has access dialogs have no close mark.** They close with **Done** or with Escape. The
   sheets have a **Close** button, and a dialog is not given one (`design/ui/Dialog.tsx`).
 - **Export snapshot is the engine's record, not the decision brief.** In Settings and tools, and as **Snapshot,
