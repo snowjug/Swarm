@@ -5,6 +5,7 @@ import {
   Network,
   Plus,
   RotateCcw,
+  ShieldAlert,
   SlidersHorizontal,
   Wand2,
 } from 'lucide-react';
@@ -29,7 +30,7 @@ import {
 import { clusterColour } from '../../viz/palette';
 import type { ClusterOption, Ghost, Subject } from './model';
 
-export type MapView = 'map' | 'list';
+export type MapView = 'map' | 'list' | 'constraints';
 
 export interface ToolbarProps {
   view: MapView;
@@ -81,6 +82,11 @@ export function Toolbar(props: ToolbarProps) {
           value: 'list',
           label: <span className="sw-tb-label">List</span>,
           icon: <List size={15} aria-hidden="true" />,
+        },
+        {
+          value: 'constraints',
+          label: <span className="sw-tb-label">Constraints</span>,
+          icon: <ShieldAlert size={15} aria-hidden="true" />,
         },
       ]}
     />

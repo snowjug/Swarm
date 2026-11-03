@@ -82,6 +82,12 @@ const VIEWS: { scene: SceneId; view: string; label: string; keywords: string }[]
   { scene: 'simulate', view: 'network', label: 'Simulate: Network', keywords: 'relationships' },
   { scene: 'simulate', view: 'timeline', label: 'Simulate: Timeline', keywords: 'rounds chart' },
   { scene: 'map', view: 'list', label: 'Map: List', keywords: 'table stakeholders actors' },
+  {
+    scene: 'map',
+    view: 'constraints',
+    label: 'Map: Constraints',
+    keywords: 'limits gate budget regulation rules',
+  },
   { scene: 'decide', view: 'report', label: 'Decide: Detailed report', keywords: 'print' },
   {
     scene: 'decide',

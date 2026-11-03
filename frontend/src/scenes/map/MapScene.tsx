@@ -732,7 +732,7 @@ export function MapScene() {
           </header>
           <Toolbar
             view={view}
-            onView={(next) => ws.setView(next === 'list' ? 'list' : null)}
+            onView={(next) => ws.setView(next === 'map' ? null : next)}
             subject={subject}
             hasActors={hasActors}
             onSubject={(next) => {
