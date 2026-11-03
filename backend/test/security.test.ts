@@ -300,18 +300,20 @@ describe('browser and network boundaries', () => {
 // may be called is a route that nobody has looked at. This holds all three to the routes the server
 // really registers, so that adding one fails here until each has been decided in the open.
 describe('every route has been decided', () => {
-  /** Mutating routes that have only the general per-address limit (120 a minute), and why that is enough. */
-  const GENERAL_LIMIT_ONLY: Readonly<Record<string, string>> = {
-    'POST /api/projects/:id/cancel':
-      'Stops work the caller may start, which costs more than this request does; repeating it changes nothing.',
-    'DELETE /api/projects/:id':
-      'Removes one project the caller leads; each request needs a project that exists, and one is removed once.',
-    'PUT /api/projects/:id/intervention':
-      'Replaces one small record on a stopped run, bounded by its schema; it accumulates nothing.',
-    'PATCH /api/projects/:id/environment':
-      'Replaces the environment of an idle project; bounded by the body limit and so by the general limit. A candidate for a limit of its own.',
-    'POST /api/projects/:id/surveys/:surveyId/cancel':
-      'Stops a survey the caller may start; repeating it changes nothing.',
+  /**
+   * Mutating routes that have only the general per-address limit (120 a minute), and why that is enough.
+   * It is empty: a route that changes something and is added without a limit of its own has to be listed
+   * here with its reason, or given a limit.
+   */
+  const GENERAL_LIMIT_ONLY: Readonly<Record<string, string>> = {};
+
+  /** The routes that had only the general limit, and the limit each has now: what a person needs in a minute. */
+  const OWN_LIMITS: Readonly<Record<string, number>> = {
+    'POST /api/projects/:id/cancel': 30,
+    'DELETE /api/projects/:id': 30,
+    'PUT /api/projects/:id/intervention': 30,
+    'PATCH /api/projects/:id/environment': 20,
+    'POST /api/projects/:id/surveys/:surveyId/cancel': 30,
   };
 
   /** Routes outside /api: they do their own checking and are limited on their own. */
@@ -384,21 +386,42 @@ describe('every route has been decided', () => {
     }
   });
 
-  it.each(Object.keys(GENERAL_LIMIT_ONLY))(
-    'still holds %s to the general limit, which is what the exemption relies on',
-    async (key) => {
-      const [method, url] = key.split(' ') as ['POST', string];
-      const harness = await buildApp({ config: testConfig() });
-      applications.push(harness);
-      const path = url
-        .replace(':id', '00000000-0000-4000-8000-000000000000')
-        .replace(':surveyId', '00000000-0000-4000-8000-000000000001');
-      const statuses: number[] = [];
-      for (let attempt = 0; attempt < 121; attempt += 1) {
-        statuses.push((await harness.app.inject({ method, url: path, payload: {} })).statusCode);
-      }
-      expect(statuses.slice(0, 120).includes(429)).toBe(false);
-      expect(statuses[120]).toBe(429);
+  /** `count` requests to a route, one after the other, from one address, to a project that is not there. */
+  async function callTimes(key: string, count: number, environment: Record<string, string> = {}) {
+    const [method, url] = key.split(' ') as ['POST', string];
+    const harness = await buildApp({ config: testConfig(environment) });
+    applications.push(harness);
+    const path = url
+      .replace(':id', '00000000-0000-4000-8000-000000000000')
+      .replace(':surveyId', '00000000-0000-4000-8000-000000000001');
+    const answers = [];
+    for (let attempt = 0; attempt < count; attempt += 1) {
+      answers.push(await harness.app.inject({ method, url: path, payload: {} }));
+    }
+    return answers;
+  }
+
+  it.each(Object.entries(OWN_LIMITS))(
+    'limits %s to %i a minute, and refuses the next in the shape every refusal has',
+    async (key, max) => {
+      const answers = await callTimes(key, max + 1);
+      // Each of the first `max` reaches the route, which has no such project to answer for.
+      expect(answers.slice(0, max).map((answer) => answer.statusCode)).not.toContain(429);
+      const refused = answers[max]!;
+      expect(refused.statusCode).toBe(429);
+      expect(refused.json().error).toMatchObject({
+        code: 'RATE_LIMITED',
+        requestId: expect.any(String),
+      });
+      expect(Number(refused.headers['retry-after'])).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(Object.entries(OWN_LIMITS))(
+    'lets a configured scale raise the limit of %s, as it does every other, so that load and browser tests are not refused',
+    async (key, max) => {
+      const answers = await callTimes(key, max + 1, { RATE_LIMIT_SCALE: '2' });
+      expect(answers.map((answer) => answer.statusCode)).not.toContain(429);
     },
   );
 });

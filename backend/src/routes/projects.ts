@@ -70,11 +70,11 @@ export function projectRoutes(
     return reply.code(202).send(jobs.enqueue(id, idempotencyOptions(request)));
   });
 
-  app.post('/api/projects/:id/cancel', async (request, reply) => {
+  app.post('/api/projects/:id/cancel', { config: limit(30) }, async (request, reply) => {
     return reply.code(202).send(jobs.cancel(projectParams.parse(request.params).id));
   });
 
-  app.delete('/api/projects/:id', async (request, reply) => {
+  app.delete('/api/projects/:id', { config: limit(30) }, async (request, reply) => {
     const { id } = projectParams.parse(request.params);
     const project = repository.get(id);
     if (

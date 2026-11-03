@@ -362,6 +362,7 @@ Not done, in the order they would pay:
 3. **Timeouts the operator can set:** `statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout`
    from the environment, and a connect timeout and keep-alive on the driver.
 4. **Two database identities** (section 10), and migrations run as a release step.
-5. **A request limit of its own** on the routes that carry the most (see the exemptions in
-   [the identity review](./identity.md)), since the ceiling is shared by everyone.
+5. **A request limit of its own** on the reads that cost the most: opening a project is 12 round trips and
+   has only the general limit of 120 a minute per address (the routes that change something have their own, see
+   [the identity review](./identity.md#rate-limits)), and the ceiling is shared by everyone.
 6. Reviewing the query plans (`EXPLAIN`) on a database with real rows. The tables here were small.
