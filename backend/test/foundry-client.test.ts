@@ -3,8 +3,14 @@ import { z } from 'zod';
 import { AppError } from '../src/errors.js';
 import { CapabilityMemory } from '../src/models/capabilities.js';
 import { ModelClient, type ModelUsageSink } from '../src/models/client.js';
+import { createModelFactory } from '../src/models/factory.js';
 import { ModelRefusedError } from '../src/models/safety.js';
-import type { ModelCallEvent, ModelObserver, ModelRejectEvent } from '../src/models/telemetry.js';
+import {
+  ProviderTelemetry,
+  type ModelCallEvent,
+  type ModelObserver,
+  type ModelRejectEvent,
+} from '../src/models/telemetry.js';
 import { testConfig } from './fixtures.js';
 import { FAKE_FOUNDRY_KEY, startFakeFoundry, type FakeFoundry } from './support/fake-foundry.js';
 
@@ -279,6 +285,23 @@ describe('a deployment that refuses a parameter', () => {
       signal(),
     );
     expect(format().type).toBe('json_schema');
+  });
+
+  it('is found out once per process: the clients of one factory share what a deployment refused', async () => {
+    const config = testConfig(fake.environment({ AI_MODEL: 'plain-dep' }));
+    const factory = createModelFactory(config, new ProviderTelemetry(config.provider));
+    await factory(() => undefined).json(answer, 'Return JSON.', {}, signal());
+    expect(fake.requests).toHaveLength(2);
+    fake.reset();
+    await factory(() => undefined).json(answer, 'Return JSON.', {}, signal());
+    expect(fake.requests.map((request) => request.body?.response_format?.type)).toEqual([
+      'json_object',
+    ]);
+    // Another process, another factory: nothing is assumed from this one.
+    fake.reset();
+    const other = createModelFactory(config, new ProviderTelemetry(config.provider));
+    await other(() => undefined).json(answer, 'Return JSON.', {}, signal());
+    expect(fake.requests).toHaveLength(2);
   });
 
   it('counts the second round trip as a call, asks the budget again, and does not use up a repair', async () => {

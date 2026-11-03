@@ -236,6 +236,13 @@ const outcome = await runner.run({
 what the runner calls; use it directly when no routing or allowance is wanted. A refusal or a cancellation
 is thrown, never answered from rules. The runner emits the task metrics itself.
 
+The runner works with any provider: the allowances, the cache, the failover and the accounting do not
+depend on Foundry. Strict structured output, `temperature` and `reasoning_effort` are sent only to a Foundry
+deployment, and a task that names a data zone is only ever sent to a deployment that declares it, which
+only a Foundry profile can do. A gateway that does not ask the call gate (a test double, another provider
+client) is charged to the allowance at an estimate. Which deployment answered, and what it used, is on the
+outcome; `ModelRefusedError.findings` says what a refusal was.
+
 ## Testing without Azure
 
 `startFakeFoundry()` in `backend/test/support/fake-foundry.ts` is an HTTP server on a loopback port that
