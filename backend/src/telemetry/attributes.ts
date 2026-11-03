@@ -30,6 +30,24 @@ export const ALLOWED_ATTRIBUTES: ReadonlySet<string> = new Set([
   'swarm.auth.reason',
   'swarm.audit.action',
   'swarm.grounding.class',
+  // Product telemetry (`product-signals.ts`): enumerations and short labels only, never an address,
+  // a host name, a question, a passage or a person.
+  'swarm.research.mode',
+  'swarm.research.outcome',
+  'swarm.research.stop_reason',
+  'swarm.fetch.error_class',
+  'swarm.safety.reason',
+  'swarm.quarantine.reason',
+  'swarm.source.category',
+  'swarm.proposal.origin',
+  'swarm.issue.code',
+  'swarm.gate.status',
+  'swarm.sim.outcome',
+  'swarm.report.outcome',
+  'swarm.cancel.scope',
+  'swarm.deployment.mode',
+  'swarm.build.version',
+  'swarm.build.sha',
 ]);
 
 const MAX_VALUE = 120;
