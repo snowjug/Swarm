@@ -11,8 +11,15 @@ import {
 import type { EvidenceChunk, KnowledgeGraph } from '../../../shared/types.js';
 import { suspiciousPassageIds } from '../models/injection.js';
 import { uniqueEvidence, verifiedEvidence } from './evidence.js';
-import { GENERIC_ROLES, type ContextCue } from './lexicon.js';
-import { categoryOfName, findMentions, keyOf, occurrencesOf, type Occurrence } from './mentions.js';
+import { GENERIC_ROLES, KIND_PREPOSITIONS, type ContextCue } from './lexicon.js';
+import {
+  categoryOfName,
+  findMentions,
+  keyOf,
+  occurrencesOf,
+  type Mention,
+  type Occurrence,
+} from './mentions.js';
 import { capitalise, plural, slugify, truncate, uniqueId } from './names.js';
 import { CATEGORY_DIRECTNESS, CATEGORY_IMPACT, CATEGORY_RELEVANCE } from './priors.js';
 import {
@@ -32,6 +39,8 @@ export const MAX_KEY = 8;
 const MAX_QUOTES = 4;
 /** The most excerpts kept for one group while the cited few are chosen from them. */
 const MAX_KEPT = 200;
+/** Words that join a name without saying which group it is: "city of Harrowgate". */
+const SEED_FILLER: ReadonlySet<string> = new Set('of the and for in at on'.split(' '));
 /** What a cohort's size is before anyone says otherwise: a placeholder, not a count. */
 export const PLACEHOLDER_SIZE = { key: 1, standard: 100, background: 25 } as const;
 
@@ -41,6 +50,12 @@ export interface DiscoveryContext {
   scenario: ScenarioFrame | null;
   graph: KnowledgeGraph | null;
   passages: readonly EvidenceChunk[];
+  /** Where the groups in the passages are found; the role nouns of `mentions.ts` unless a caller brings a broader reader. */
+  mentions?: (passages: readonly EvidenceChunk[]) => Mention[];
+  /** Which name a group named two ways keeps: the one written in more sentences (the default), or the longer one. */
+  names?: 'frequent' | 'specific';
+  /** The most groups kept before the person is shown a list; `MAX_DISCOVERED` unless a caller ranks them itself. */
+  limit?: number;
 }
 
 interface Candidate {
@@ -50,6 +65,12 @@ interface Candidate {
   origin: 'rules' | 'scenario';
   /** Sentences of the evidence that name this group. */
   sentences: number;
+  /** Of those, the sentences that say what the group asks, says or does. */
+  voices: number;
+  /** Of those, the sentences that say the group starts the change: "the Council proposes". */
+  decides: number;
+  /** Of those, the sentences that write it as a name: a body with a name of its own. */
+  named: number;
   passageIds: Set<string>;
   /** Every excerpt that names the group, in reading order; the cited few are chosen from these. */
   quotes: Occurrence[];
@@ -72,6 +93,9 @@ const newCandidate = (
   category,
   origin,
   sentences: 0,
+  voices: 0,
+  decides: 0,
+  named: 0,
   passageIds: new Set(),
   quotes: [],
   marks: new Set(),
@@ -97,17 +121,20 @@ function addOccurrences(candidate: Candidate, found: Occurrence[], sentences: nu
 }
 
 /** Groups named in the passages by a role noun, each under one key whatever the plural or case. */
-function fromMentions(passages: readonly EvidenceChunk[]): Map<string, Candidate> {
+function fromMentions(mentions: readonly Mention[]): Map<string, Candidate> {
   const candidates = new Map<string, Candidate>();
   const surfaces = new Map<string, Map<string, string>>();
   const tallies = new Map<string, Map<string, number>>();
-  for (const mention of findMentions(passages)) {
+  for (const mention of mentions) {
     let candidate = candidates.get(mention.key);
     if (!candidate) {
       candidate = newCandidate(mention.key, '', mention.category, 'rules');
       candidates.set(mention.key, candidate);
     }
     candidate.sentences += 1;
+    if (mention.voiced) candidate.voices += 1;
+    if (mention.decides) candidate.decides += 1;
+    if (mention.named) candidate.named += 1;
     candidate.passageIds.add(mention.passageId);
     if (candidate.quotes.length < MAX_KEPT) {
       candidate.quotes.push({ passageId: mention.passageId, quote: mention.quote });
@@ -147,6 +174,7 @@ function addSeeds(
   candidates: Map<string, Candidate>,
   scenario: ScenarioFrame | null,
   passages: readonly EvidenceChunk[],
+  specific: boolean,
 ): void {
   for (const seed of scenario?.likelyStakeholders ?? []) {
     const name = cleanName(seed);
@@ -158,15 +186,22 @@ function addSeeds(
       continue;
     }
     const { found, sentences } = occurrencesOf(passages, name, MAX_KEPT);
-    // The question says "regulator" and the text says "regional regulator": one group, named by both.
-    const specific =
-      sentences === 0
-        ? [...candidates.values()]
-            .filter((candidate) => candidate.key.endsWith(` ${key}`))
-            .sort((a, b) => b.sentences - a.sentences)[0]
+    // The question says "regulator" and the text says "regional regulator": one group, named by both. A
+    // caller that reads names in full (`specific`) also takes a body whose name holds every word of the
+    // question's: "the city of Harrowgate" is the "Harrowgate City Council".
+    const words = key.split(' ').filter((word) => !SEED_FILLER.has(word));
+    const wider = (candidate: Candidate): boolean =>
+      specific
+        ? candidate.origin === 'rules' &&
+          words.length > 0 &&
+          words.every((word) => candidate.key.split(' ').includes(word))
+        : candidate.key.endsWith(` ${key}`);
+    const longer =
+      specific || sentences === 0
+        ? [...candidates.values()].filter(wider).sort((a, b) => b.sentences - a.sentences)[0]
         : undefined;
-    if (specific) {
-      specific.origin = 'scenario';
+    if (longer) {
+      longer.origin = 'scenario';
       continue;
     }
     const candidate = newCandidate(key, name, categoryOfName(name), 'scenario');
@@ -295,6 +330,8 @@ export interface RulesResult {
   merges: { from: string; into: string }[];
   /** Plain notices, such as passages that speak to an AI system. */
   notices: string[];
+  /** The ids of the groups the passages say start the change ("the Council proposes"), most often said first. */
+  deciders: string[];
 }
 
 /** A notice for the person when sources contain text addressed to an AI system, which is ignored. */
@@ -359,31 +396,40 @@ function chooseQuotes(candidate: Candidate, read: (sentence: string) => Tone): O
 
 /**
  * Folds a group named two ways into one, but only when it is certain they are the same: one name is
- * the other with describing words in front ("Analyst" and "Independent analyst"), both are in the
- * same category, and there is no other longer name it could belong to. Different words for one idea
- * ("Staff", "Workers", "Employees") stay apart: only a person can say they are one group. The name
- * that is written in more sentences is kept, and on a tie the more specific one.
+ * the other with describing words in front ("Analyst" and "Independent analyst"), or with words after it
+ * that say which ones ("Administrators" and "Administrators at larger customers"), both are in the same
+ * category, and there is no other longer name it could belong to. Different words for one idea ("Staff",
+ * "Workers", "Employees") stay apart: only a person can say they are one group. The name that is written
+ * in more sentences is kept, and on a tie the more specific one. A caller that wants every group by the
+ * name that says most (`specific`) also folds the bare noun of a group into its longer name whatever
+ * their counts, since a noun alone ("the Association") refers back to the fuller name.
  */
 function mergeNames(
   candidates: Map<string, Candidate>,
   categoryOf: (candidate: Candidate) => StakeholderCategory,
+  specific: boolean,
 ): void {
   const pool = [...candidates.values()].filter(
     (candidate) =>
-      candidate.origin === 'rules' && candidate.graphKind === null && candidate.marks.size > 0,
+      (candidate.origin === 'rules' || specific) &&
+      candidate.graphKind === null &&
+      candidate.marks.size > 0,
   );
   const wordCount = new Map(pool.map((candidate) => [candidate, candidate.key.split(' ').length]));
   // The longer names a name could be the tail of, found by the tail they would have, so that a
-  // thousand different names that end in the same word are not compared with one another.
+  // thousand different names that end in the same word are not compared with one another. A name with
+  // words after it that say which ones (`specific` only) is also found by what comes before them.
   const endingWith = new Map<string, Candidate[]>();
+  const add = (key: string, candidate: Candidate): void => {
+    const group = endingWith.get(key);
+    if (group) group.push(candidate);
+    else endingWith.set(key, [candidate]);
+  };
   for (const candidate of pool) {
     const words = candidate.key.split(' ');
-    for (let from = 1; from < words.length; from += 1) {
-      const tail = words.slice(from).join(' ');
-      const group = endingWith.get(tail);
-      if (group) group.push(candidate);
-      else endingWith.set(tail, [candidate]);
-    }
+    for (let from = 1; from < words.length; from += 1) add(words.slice(from).join(' '), candidate);
+    const kind = words.findIndex((word, at) => at > 0 && KIND_PREPOSITIONS.has(word));
+    if (specific && kind > 0) add(words.slice(0, kind).join(' '), candidate);
   }
   // A category can change as names are folded, since the words around a name count for it.
   const categories = new Map<Candidate, StakeholderCategory>();
@@ -406,10 +452,18 @@ function mergeNames(
     );
     const only = longer.length === 1 ? longer[0] : undefined;
     if (!only) continue;
-    const keep = short.sentences > only.sentences ? short : only;
+    const keep =
+      (specific && short.key.split(' ').length === 1) || short.sentences <= only.sentences
+        ? only
+        : short;
     const drop = keep === short ? only : short;
+    // A name the question gave is the person's own: whatever it is folded into is still that group.
+    if (drop.origin === 'scenario') keep.origin = 'scenario';
     for (const mark of drop.marks) keep.marks.add(mark);
     keep.sentences = keep.marks.size;
+    keep.voices += drop.voices;
+    keep.decides += drop.decides;
+    keep.named += drop.named;
     for (const id of drop.passageIds) keep.passageIds.add(id);
     const known = new Set(keep.quotes.map((item) => `${item.passageId}|${item.quote}`));
     for (const item of drop.quotes) {
@@ -435,10 +489,11 @@ function mergeNames(
  */
 export function discoverByRules(context: DiscoveryContext): RulesResult {
   const { passages } = context;
-  const candidates = fromMentions(passages);
-  addSeeds(candidates, context.scenario, passages);
+  const specific = context.names === 'specific';
+  const candidates = fromMentions((context.mentions ?? findMentions)(passages));
+  addSeeds(candidates, context.scenario, passages, specific);
   addGraphEntities(candidates, context.graph, passages);
-  mergeNames(candidates, categoryFrom);
+  mergeNames(candidates, categoryFrom, specific);
   const read = remembered();
 
   /** A role that names a position in any organisation, mentioned with nothing at stake for it. */
@@ -459,9 +514,11 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
       (a, b) =>
         Number(b.origin === 'scenario') - Number(a.origin === 'scenario') ||
         b.sentences - a.sentences ||
+        b.voices - a.voices ||
+        b.named - a.named ||
         a.name.localeCompare(b.name),
     )
-    .slice(0, MAX_DISCOVERED);
+    .slice(0, context.limit ?? MAX_DISCOVERED);
 
   const final = new Map(ordered.map((candidate) => [candidate, categoryFrom(candidate)]));
   const topMentioned = new Set(
@@ -491,7 +548,10 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
       ? 'key'
       : genericAlone(candidate)
         ? 'background'
-        : candidate.sentences >= 2 || candidate.origin === 'scenario'
+        : candidate.sentences >= 2 ||
+            candidate.voices > 0 ||
+            candidate.named > 0 ||
+            candidate.origin === 'scenario'
           ? 'standard'
           : 'background';
 
@@ -569,18 +629,21 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
 
   const stakeholders: Stakeholder[] = [];
   const folded: Stakeholder[] = [];
+  const deciding: { id: string; decides: number; sentences: number }[] = [];
   for (const candidate of ordered) {
     // Names folded into this one are kept as removed, so that the merge can be seen and undone.
     const gone = candidate.absorbed.map((other) => build(other, 'removed', [], []));
     folded.push(...gone);
-    stakeholders.push(
-      build(
-        candidate,
-        'proposed',
-        candidate.absorbed,
-        gone.map((item) => item.id),
-      ),
+    const made = build(
+      candidate,
+      'proposed',
+      candidate.absorbed,
+      gone.map((item) => item.id),
     );
+    stakeholders.push(made);
+    if (candidate.decides > 0) {
+      deciding.push({ id: made.id, decides: candidate.decides, sentences: candidate.sentences });
+    }
   }
 
   const order = (stakeholder: Stakeholder): number =>
@@ -599,5 +662,10 @@ export function discoverByRules(context: DiscoveryContext): RulesResult {
       candidate.absorbed.map((other) => ({ from: other.name, into: candidate.name })),
     ),
     notices: injectionNotice(passages),
+    deciders: deciding
+      .sort(
+        (a, b) => b.decides - a.decides || b.sentences - a.sentences || a.id.localeCompare(b.id),
+      )
+      .map((item) => item.id),
   };
 }
