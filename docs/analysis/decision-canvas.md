@@ -60,7 +60,9 @@ Exactly one of six. The rules are tried in this order and the first that applies
 - on some computed lens it cannot be told apart from another option; some lens could not be computed; fewer than two
   lenses could be computed;
 - the independent review has not been run, belongs to another comparison, or has a blocking objection that stands;
-- no counterfactual view that still describes the project was run, or sensitivity was not run.
+- no counterfactual view that still describes the project was run (said as “no change to the situation was tried”,
+  never as “nothing was tried”, since the sensitivity step may have moved assumptions all the same), or sensitivity was
+  not run.
 
 `needs-human-decision` is deliberately not “the lenses are close”: it is two lenses each **clearly** ahead for a
 different option, which is a trade-off between what each lens values, or constraints that contradict each other.
@@ -207,19 +209,22 @@ button in the canvas’s own header takes the reader to; its headline and the he
 and its chapters stay level-two headings, so nothing about the brief changes but where it starts.
 
 **The first viewport** holds nine things, in the order a decision is read: the question; the current best answer (the
-status as a word and an icon, with why, never a colour alone); the most plausible futures (scenario possibilities, never
-forecasts, with the four groups the simulated members ended up in as a bar and in words); what drives them; the
-material constraints (where the gate stands, hard and soft, which nobody has confirmed, which the simulation only
-read); who moves (simulated roles, never people); what could change the result (the counterfactual views, the ones
-that could reverse the answer first, and the assumption that could); the recommended next move (with how many of its
-parts are stated and which are missing, and that reversibility is unknown); and what to validate before acting (the
-checks, with the ones that come before acting first). Every figure is simulated members in 100, or seeded runs.
+status as a word and an icon, with why and the conditions it holds under, never a colour alone); the most plausible
+futures (scenario possibilities, never forecasts, with the four groups the simulated members ended up in as a bar and in
+words); what drives them; the material constraints (where the gate stands, hard and soft, which nobody has confirmed,
+which the simulation only read); who moves (simulated roles, never people); what could change the result (the
+counterfactual views, the ones that could reverse the answer first, the assumption that could, and what the sensitivity
+step moved and found, so that “no view was run” is never read as “nothing was tried”); the recommended next move (what
+it rests on, with how many of its parts are stated and which are missing, and that reversibility is unknown); and what
+to validate before acting (the checks, with the ones that come before acting first). Every figure is simulated members
+in 100, or seeded runs.
 
 At 1440 × 900 all nine are in the viewport, whatever the project holds: each part has a budget (two futures, two
 drivers, two constraints, three roles, two views and one assumption, three checks), what does not fit is counted and one
 press away (“4 views and 2 assumptions in full”), and what a person wrote is clamped to a few lines (the whole of it is
 under “What this rests on”). On a narrow screen the question and the answer keep their place and the other seven fold
-to one line each, in the same order.
+to one line each, in the same order; a line says what was tried, and never that nothing reverses the answer when
+nothing was tried.
 
 **Beneath the nine** are the detail, each in a disclosure: why this status (the rules, the first that applied, the
 conditions), how the options compare on each lens, the recommendation in full, everything that could change the
