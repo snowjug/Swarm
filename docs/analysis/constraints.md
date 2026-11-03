@@ -91,12 +91,15 @@ to read ("must not be assumed", "cannot say"); and a finding about a group or a 
 visitors said", "rose by at most 3%"). "Should", "ideally", "prefer" and "would like" never make a limit hard.
 
 A model's `hardness` is a suggestion. It can raise a source's limit to hard only if the quote has a word of
-limits (a limit, a notice, a deadline, a capacity, a term of an agreement) and nothing in it asks, hedges,
-denies or says it is not known; the basis then says "a model read it as a firm limit, and the source's words
-(…) bear that out". It never lowers a limit the words state, and it can never make a wish, a bare fact or a
-guess a limit that blocks a run. The reason it is not simply trusted: a hard legal, regulatory or safety
-constraint that nobody has validated blocks a run at the gate, so a wrongly hard one costs more than a
-wrongly soft one, and a reply that called everything hard ("inflated hardness") must not be able to do that.
+limits (a limit, a notice, a deadline, a capacity, a commitment, a term of an agreement, a rule) and nothing in
+it asks, hedges, denies, reports what was measured, or says what a source does not say or is not known; the
+basis then says "a model read it as a firm limit, and the source's words (…) bear that out". It never lowers
+a limit the words state, and a bare number, a wish or a guess is not made a limit by it. The reason it is not
+simply trusted: a hard legal, regulatory or safety constraint that nobody has validated blocks a run at the
+gate, so a wrongly hard one costs more than a wrongly soft one, and a reply that called everything hard
+("inflated hardness") must not be able to do that. It is a guard and not a wall: a soft statement that
+carries a limit word (a customer's right to leave on notice, say) can still be raised by such a reply, and
+the evaluation's "hardness a model claimed too high that the product accepted" measures how often.
 
 Nothing proposed is reviewed, validated or applied by being proposed. Reading again adds only what is new
 and never undoes what a person decided; an edited constraint is not proposed again under its old words.
