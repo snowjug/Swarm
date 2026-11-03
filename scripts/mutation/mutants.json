@@ -1360,8 +1360,8 @@
       "area": "lab",
       "claim": "The robots.txt of a site read over https may redirect to plain http, so the check can be answered over an unprotected connection",
       "file": "backend/src/ingest/url/fetcher.ts",
-      "find": "          current = redirectTarget(current, reply.location, policy);",
-      "replace": "          current = validateUrl(new URL(reply.location, current.href).href, policy);",
+      "find": "          const next = redirectTarget(current, reply.location, policy);",
+      "replace": "          const next = validateUrl(new URL(reply.location, current.href).href, policy);",
       "tests": ["backend/test/url-fetcher.test.ts"]
     },
     {
