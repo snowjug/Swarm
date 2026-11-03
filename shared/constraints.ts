@@ -134,14 +134,12 @@ export type ConstraintReview = (typeof CONSTRAINT_REVIEWS)[number];
 export const CONSTRAINT_ENFORCEMENTS = ['enforced', 'interpretive'] as const;
 export type ConstraintEnforcement = (typeof CONSTRAINT_ENFORCEMENTS)[number];
 
-/** Where an interpretive constraint was taken into account, since the simulation did not apply it. */
-export const CONSIDERED_IN = [
-  'gate',
-  'critic',
-  'counterfactual',
-  'analysis-record',
-  'validation-plan',
-] as const;
+/**
+ * Where a constraint the simulation does not apply was taken into account instead. Each is set by the
+ * server, from what actually happened, and never typed: the gate lists it, the independent review reads
+ * the comparison's record of it, the comparison records it, and a counterfactual view names it.
+ */
+export const CONSIDERED_IN = ['gate', 'critic', 'counterfactual', 'analysis-record'] as const;
 export type ConsideredIn = (typeof CONSIDERED_IN)[number];
 
 /** What a constraint was read from, for the person who has to decide whether to believe it. */
@@ -610,6 +608,7 @@ export const putConstraintsSchema = z
   })
   .strict();
 export type PutConstraintsInput = z.input<typeof putConstraintsSchema>;
+export type PutConstraintsBody = z.output<typeof putConstraintsSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // What the routes answer
@@ -641,6 +640,12 @@ export interface ConstraintsView {
   assumptions: { id: string; text: string }[];
   model: ModelAvailability;
   may: { edit: boolean; run: boolean };
+}
+
+/** `GET /api/projects/:id/constraints/gate`: the gate worked out now, with the constraint whose removal moves the result most. */
+export interface GateView {
+  gate: ConstraintCoverage | null;
+  revision: number | null;
 }
 
 /** `GET /api/projects/:id/constraints/counterfactuals`. `current` is false when what they were made from has changed. */

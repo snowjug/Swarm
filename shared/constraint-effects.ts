@@ -185,7 +185,7 @@ export const appliedConstraintSchema = z
   );
 export type AppliedConstraint = z.infer<typeof appliedConstraintSchema>;
 
-export const MAX_APPLIED_CONSTRAINTS = 40;
+export const MAX_APPLIED_CONSTRAINTS = 100;
 
 /** What a run says it did because of a constraint: simulation events, never findings about the world. */
 export const CONSTRAINT_EVENT_KINDS = [
@@ -242,6 +242,8 @@ export const recordedConstraintSchema = z.object({
   alternativeIds: z.array(idSchema).max(8).default([]),
   fromRound: rounds.nullable().default(null),
   toRound: rounds.nullable().default(null),
+  /** Said where the simulation applies it differently from how it is written, such as a window it does not read. */
+  note: line(240).optional(),
 });
 export type RecordedConstraint = z.infer<typeof recordedConstraintSchema>;
 
@@ -252,6 +254,7 @@ export const NOT_APPLIED_REASONS = [
   'excluded',
   'dangling',
   'soft-block',
+  'over-limit',
 ] as const;
 export type NotAppliedReason = (typeof NOT_APPLIED_REASONS)[number];
 
@@ -261,6 +264,7 @@ export const NOT_APPLIED_WORDS: Record<NotAppliedReason, string> = {
   excluded: 'Not applied: you left it out of the model.',
   dangling: 'Not applied: it names an actor or a scenario that is not in this comparison.',
   'soft-block': 'Not applied: a soft constraint is not run as a ban on the change.',
+  'over-limit': `Not applied: a comparison applies at most ${MAX_APPLIED_CONSTRAINTS} effects, and this one came after them.`,
 };
 
 export const unappliedConstraintSchema = z.object({
