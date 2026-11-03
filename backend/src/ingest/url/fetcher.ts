@@ -102,10 +102,17 @@ export interface FetchHooks {
     signal: AbortSignal,
   ) => Promise<(() => void) | void>;
   /**
-   * Called for each redirect that passed the address policy, before it is followed. A string refuses
-   * the redirect, and is kept as the reason.
+   * Called for each redirect that passed the address policy, before it is followed: for a page, and for
+   * the robots.txt that is read before it, which may be sent on as well. A string refuses the redirect, and
+   * is kept as the reason; a robots.txt that is sent somewhere that is refused is a robots.txt that could
+   * not be read, which forbids the origin.
    */
-  onRedirect?: (hop: { from: string; to: string; status: number }) => string | null | void;
+  onRedirect?: (hop: {
+    from: string;
+    to: string;
+    status: number;
+    purpose: 'robots' | 'page';
+  }) => string | null | void;
   /** Called with what robots.txt decided, each time a page is judged by it. */
   onRobots?: (decision: RobotsDecision) => void;
 }
@@ -485,6 +492,7 @@ export class PublicFetcher {
             from: target.href,
             to: next.href,
             status: reply.status,
+            purpose: 'page',
           });
           if (typeof turnedDown === 'string') {
             throw new UrlFailure('blocked', 'A redirect was turned down.', {
@@ -515,7 +523,12 @@ export class PublicFetcher {
         };
       } catch (error) {
         if (error instanceof UrlFailure && redirects > 0 && !error.detail.redirected) {
-          throw new UrlFailure(error.code, error.message, { ...error.detail, redirected: true });
+          throw new UrlFailure(
+            error.code,
+            error.message,
+            { ...error.detail, redirected: true },
+            error,
+          );
         }
         throw error;
       }
@@ -582,6 +595,7 @@ export class PublicFetcher {
       throw new UrlFailure('blocked', `${target.hostname} leads to a ${verdict.reason} address.`, {
         resolved: !target.ipLiteral,
         address: verdict.reason,
+        ...(target.ipLiteral ? {} : { host: target.hostname }),
       });
     }
     return usable;
@@ -670,7 +684,17 @@ export class PublicFetcher {
           ),
         );
         if (reply.kind === 'redirect') {
-          current = redirectTarget(current, reply.location, policy);
+          const next = redirectTarget(current, reply.location, policy);
+          // Where robots.txt is sent is judged by the caller as where a page is sent: a robots.txt that
+          // is sent somewhere that is refused is one that cannot be read, and that forbids the origin.
+          const turnedDown = limits.hooks?.onRedirect?.({
+            from: current.href,
+            to: next.href,
+            status: reply.status,
+            purpose: 'robots',
+          });
+          if (typeof turnedDown === 'string') break;
+          current = next;
           continue;
         }
         if (reply.kind === 'status') {
@@ -683,9 +707,16 @@ export class PublicFetcher {
         );
       } catch (error) {
         // Running out of the whole fetch's time is a timeout, and a site that cannot be reached at all
-        // is reported as that. What is left is a robots.txt that was found but cannot be used.
+        // is reported as that. So is a name that leads inside a network, which is passed on as the
+        // refusal it was (not as a robots.txt that could not be read, which would tell it from a name
+        // that was not found). What is left is a robots.txt that was found but cannot be used.
         if (signal.aborted) throw error;
-        if (error instanceof UrlFailure && (error.code === 'network' || error.code === 'timeout')) {
+        if (
+          error instanceof UrlFailure &&
+          (error.code === 'network' ||
+            error.code === 'timeout' ||
+            (error.code === 'blocked' && error.detail.resolved === true))
+        ) {
           throw new UrlFailure(
             error.code,
             error.message,

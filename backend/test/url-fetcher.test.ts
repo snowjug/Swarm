@@ -916,6 +916,38 @@ describe('a redirect met while reading robots.txt is judged as strictly as one m
     expect(elsewhere.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
   });
 
+  it('asks the caller about each place robots.txt is sent to, and follows it when the caller lets it', async () => {
+    const elsewhere = await serve(site(ROBOTS_OPEN));
+    const first = await serve(redirectingRobots(() => elsewhere.url('/robots.txt')));
+    const hops: string[] = [];
+    const page = await robotsOf(first, '/page', {
+      allowedPorts: [first.port, elsewhere.port],
+      hooks: {
+        onRedirect: ({ purpose, status, from, to }) => {
+          hops.push(`${purpose} ${status} ${from} -> ${to}`);
+        },
+      },
+    });
+    expect(page.robots).toBe('allowed');
+    expect(hops).toEqual([
+      `robots 302 ${first.url('/robots.txt')} -> ${elsewhere.url('/robots.txt')}`,
+    ]);
+  });
+
+  it('lets the caller turn down where robots.txt is sent, as it can for a page: the origin is forbidden, and nothing is asked of that place', async () => {
+    const elsewhere = await serve(site(ROBOTS_OPEN));
+    const first = await serve(redirectingRobots(() => elsewhere.url('/robots.txt')));
+    const failure = await failureOf(
+      robotsOf(first, '/page', {
+        allowedPorts: [first.port, elsewhere.port],
+        hooks: { onRedirect: () => 'another site' },
+      }),
+    );
+    expect(failure).toMatchObject({ code: 'robots-unavailable', detail: { stage: 'robots' } });
+    expect(first.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
+    expect(elsewhere.seen).toEqual([]);
+  });
+
   it('refuses the page when robots.txt leads to a host that is not on the list, without looking it up', async () => {
     const calls: string[] = [];
     const lookup = resolver(
@@ -977,7 +1009,11 @@ describe('a redirect met while reading robots.txt is judged as strictly as one m
 
     for (const name of ['private', 'mixed', 'v6']) {
       const { server, outcome } = await fetchVia(name);
-      expect((await failureOf(outcome)).code, name).toBe('robots-unavailable');
+      // The refusal is passed on as what it was, and a caller tells it as it tells a name that was not found.
+      expect(await failureOf(outcome), name).toMatchObject({
+        code: 'blocked',
+        detail: { resolved: true, stage: 'robots', host: `${name}.example.com` },
+      });
       expect(
         server.seen.map(({ url }) => url),
         name,

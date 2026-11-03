@@ -25,7 +25,6 @@ const askedNotToBeUsed = (): Verdict => ({
   safety: true,
   transient: false,
   reason: 'noai',
-  resolved: false,
   robots: 'disallowed',
   quarantine: null,
   message: 'The page asks that AI systems do not use it, so it was set aside.',
@@ -186,7 +185,6 @@ export async function settle(
       url: candidate.url,
       errorClass: 'robots-disallowed',
       reason: 'noai',
-      resolved: false,
     });
     return;
   }

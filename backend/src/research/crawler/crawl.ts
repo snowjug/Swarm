@@ -82,7 +82,6 @@ function refuseForRobots(
     safety: true,
     transient: false,
     reason: decision === 'unavailable' ? 'robots-unavailable' : 'robots',
-    resolved: false,
     robots: 'disallowed',
     quarantine: null,
     message:

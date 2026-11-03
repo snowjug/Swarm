@@ -301,6 +301,7 @@ export class FakeNetwork implements PageFetcher {
           from: target.href,
           to: next.href,
           status: reply.status ?? 302,
+          purpose: 'page',
         });
         if (typeof turnedDown === 'string') {
           throw new UrlFailure('blocked', 'A redirect was turned down.', {

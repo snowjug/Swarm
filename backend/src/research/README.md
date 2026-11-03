@@ -41,6 +41,8 @@ const result = await crawl(
 - `systemDeps()` is the one place that chooses the real clock, real waiting, real randomness and the real
   fetcher (`PublicPageFetcher`). Everything the crawl needs from the outside is in `CrawlDeps`, so a test
   can give it a virtual clock and a fake network (`backend/test/support/research-world.ts`).
+- `onEvent` is the audit log; `onLookupRefused` is **for the server's own security log only** and must never
+  be forwarded to a person, a client or telemetry (see "Names that lead inside a network" below).
 - `pdf` is the project's isolated `PdfService`. Without it a PDF is not fetched. It is read one file at a
   time, because the service takes one at a time.
 - `shouldStop(state)` is asked before every fetch and after every page. It returns a stop reason or null.
@@ -57,18 +59,18 @@ const result = await crawl(
 
 The budget is `ResearchBudget`. Every limit is checked in code, before each fetch and after each page.
 
-| Stop                 | Who decides  | Meaning                                                                                                                                  |
-| -------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `page-limit`         | crawler      | pages are reserved when a fetch starts, so the limit is never passed                                                                     |
-| `byte-limit`         | crawler      | the total size is reserved the same way; a page that is larger than what is left stops the crawl, and so does less than 1,000 bytes left |
-| `time-limit`         | crawler      | time paused is not counted; what is being read is let go of                                                                              |
-| `failure-limit`      | crawler      | more failed requests (each try counts) than `maxFailedRequests`                                                                          |
-| `duplicate-limit`    | crawler      | after four pages, more than `maxDuplicateRatio` of fetched pages repeated earlier ones                                                   |
-| `domain-limit`       | crawler      | a site (registrable domain, so `a.github.io` and `b.github.io` are two) would pass `maxDomains`                                          |
-| `frontier-exhausted` | crawler      | nothing relevant is left to read                                                                                                         |
-| `safety-block`       | crawler      | every address that was tried was refused by a safety rule                                                                                |
-| `cancelled`          | caller       | the signal was aborted; what is being read is let go of                                                                                  |
-| anything else        | `shouldStop` | `evidence-sufficient`, `no-new-signal`, `cost-limit`                                                                                     |
+| Stop                 | Who decides  | Meaning                                                                                                                                     |
+| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `page-limit`         | crawler      | pages are reserved when a fetch starts, so the limit is never passed                                                                        |
+| `byte-limit`         | crawler      | the total size is reserved the same way; a page that is larger than what is left stops the crawl, and so does less than 1,000 bytes left    |
+| `time-limit`         | crawler      | time paused is not counted; what is being read is let go of                                                                                 |
+| `failure-limit`      | crawler      | more failed requests (each try counts) than `maxFailedRequests`                                                                             |
+| `duplicate-limit`    | crawler      | after four pages, more than `maxDuplicateRatio` of fetched pages repeated earlier ones                                                      |
+| `domain-limit`       | crawler      | a site (registrable domain, so `a.github.io` and `b.github.io` are two) would pass `maxDomains`                                             |
+| `frontier-exhausted` | crawler      | nothing relevant is left to read                                                                                                            |
+| `safety-block`       | crawler      | every address that was tried was refused by a rule about the address itself: its scheme, a user name, a port, an IP written out, robots.txt |
+| `cancelled`          | caller       | the signal was aborted; what is being read is let go of                                                                                     |
+| anything else        | `shouldStop` | `evidence-sufficient`, `no-new-signal`, `cost-limit`                                                                                        |
 
 At a stop other than `cancelled` and `time-limit`, reads that have begun are finished (no new retry is
 started). `maxDepth` and `maxRedirects` are applied as they are, and `perDomainDelayMs` is the least time
@@ -119,15 +121,14 @@ guesses from the page's text and structure (`quarantine.ts`).
 | What happened                                                                                                       | Outcome and class                                                                | Tried again | Counts as a failure |
 | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------- | ------------------- |
 | refused by a rule of the address (scheme, user name, port, IP written in an odd form, internal name, non-public IP) | `blocked`, `invalid-url` / `blocked-scheme` / `blocked-port` / `blocked-address` | no          | no                  |
-| a name that leads to a non-public address                                                                           | `failed`, `dns` ("could not be found")                                           | no          | no                  |
-| robots.txt disallows it, or could not be read                                                                       | `blocked`, `robots-disallowed`                                                   | no          | no                  |
-| a redirect led somewhere that is refused                                                                            | `blocked`, `redirect-refused`                                                    | no          | no                  |
+| robots.txt disallows it, or could not be read (also when it is sent to a site this crawl may not read)              | `blocked`, `robots-disallowed`                                                   | no          | no                  |
+| a redirect led somewhere that its address, written out, refuses                                                     | `blocked`, `redirect-refused`                                                    | no          | no                  |
 | asks that AI systems do not use it (`noai`, `noml` in markup or `X-Robots-Tag`)                                     | `blocked`, `robots-disallowed`                                                   | no          | no                  |
 | too many redirects                                                                                                  | `failed`, `redirect-refused`                                                     | no          | yes                 |
 | 4xx                                                                                                                 | `failed`, `http-status`                                                          | no          | yes                 |
 | 408, 425, 429, 500, 502, 503, 504                                                                                   | `failed`, `http-status`                                                          | yes         | yes                 |
 | timeout, closed connection                                                                                          | `failed`, `timeout` / `connect`                                                  | yes         | yes                 |
-| connection refused, name not found, TLS error                                                                       | `failed`, `connect` / `dns` / `tls`                                              | no          | yes                 |
+| connection refused, TLS error, a name that is not found **or that leads to a non-public address (told alike)**      | `failed`, `connect` / `tls` / `dns`                                              | no          | yes                 |
 | larger than the limit, or grew past it when unpacked                                                                | `quarantined`, `too-large` / `decompression-limit`                               | no          | yes                 |
 | a type that is not read                                                                                             | `quarantined`, `unsupported-type`                                                | no          | yes                 |
 | host left alone after failures                                                                                      | `skipped`, `circuit-open`                                                        | no          | no                  |
@@ -145,9 +146,26 @@ request is let through, and its answer closes or reopens the breaker.
 `redirect`, `quarantine`, `duplicate`, `circuit-open`, `skipped` and `budget-stop`, each with the trace id and
 a time from the injected clock. The fields of each kind are a fixed list (`research-events.test.ts` fails on
 any other), addresses have credentials, fragments and secret-looking query values taken out, and **no event
-carries any text a site wrote**: no title, no link text, no message. `fetch-blocked.resolved` says that a name
-was refused because of where it leads; a person is told only that the name was not found, so the answer
-cannot be used to learn about a network. A listener that throws, or rejects, does not affect the crawl.
+carries any text a site wrote**: no title, no link text, no message. A listener that throws, or rejects, does
+not affect the crawl. Events are the same for every kind of address that is not found: they say nothing of
+where a name leads (see the next section).
+
+### Names that lead inside a network: for the server's log only
+
+A person who could tell a name that leads to a private address (`<account>.vault.azure.net` from inside the
+virtual network, an internal database server) from a name that does not exist could ask the crawler about
+names and learn what the network holds. So the crawler does not tell them apart. A name that leads to an
+address that is not public gets exactly what a name that was not found gets (the class, sentence, record,
+event, count of failures, retries, effect on the host's breaker and reason for stopping) wherever it is met:
+as an address (`dns`), as the target of a redirect (`dns`), and as the place robots.txt is sent to (robots.txt
+could not be reached, and the origin is forbidden). `research-safety.test.ts` compares the two as text for
+each way, and fails on any difference.
+
+What it was is kept apart, in `deps.onLookupRefused(refusal)`, for the **server's own security log**:
+`{ traceId, at, url, host, via: 'page' | 'redirect' | 'robots', reason }`, where `reason` is a fixed word
+(`private-network`, `link-local`, `loopback`...). **The orchestrator must never forward it to a person, a
+client, a response, or telemetry, and must never put it in anything a user can read.** It is not in `result`,
+and not in any event. Leave the hook unset and nothing of it is kept.
 
 ## The network, and who does what
 
@@ -162,23 +180,24 @@ so an address that is refused costs no place and no request.
 
 ### Threat model
 
-| Threat                                                                                                                       | Control                                                                                                                                | Tested in                                                   |
-| ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| SSRF: private, loopback, link-local, CGNAT, multicast, reserved, unspecified; IPv6, IPv4-mapped, NAT64, 6to4; cloud metadata | address classes checked at name lookup and for IP literals, before connecting                                                          | `research-safety` (a table of addresses), `research-events` |
-| odd ways of writing an address: decimal/hex/octal IPs, `127.1`, credentials, backslashes, control characters, very long      | refused by the address policy                                                                                                          | `research-safety`, `research-fetch`                         |
-| DNS rebinding                                                                                                                | every request resolves again; any non-public answer refuses the name; connection pinned to the checked address                         | `research-safety`                                           |
-| redirects to internal addresses, downgrade to http, loops, chains                                                            | each hop vetted again; `httpsOnly`; hop limit from the budget; robots.txt applies to each hop                                          | `research-safety`, `research-fetch`                         |
-| non-web schemes, ports                                                                                                       | refused; only 80/443 unless the deployment allows more                                                                                 | `research-safety`                                           |
-| decompression bombs, huge or endless bodies, huge headers                                                                    | limits on the wire and after unpacking, 16 KiB of header                                                                               | `research-limits`                                           |
-| slow sites, trickling bodies, hung requests                                                                                  | total and idle time per request; per-crawl time limit; a fetcher that ignores a stop is not waited for                                 | `research-limits`, `research-budget`                        |
-| bytes that are not text labelled as text                                                                                     | first bytes sniffed before reading                                                                                                     | `research-quarantine`                                       |
-| robots.txt: disallow, allow, own-name group, crawl-delay, 4xx, 5xx, huge                                                     | RFC 9309 behaviour; unreadable forbids the origin; read to 512,000 bytes                                                               | `research-safety`, `research-pacing`, `research-fetch`      |
-| link traps, endless sites, calendars, sessions                                                                               | trap rules, dedupe keys, page/depth/domain limits                                                                                      | `research-classify`, `research-limits`                      |
-| prompt injection in text, titles, link text, hidden text                                                                     | labelled, never obeyed; mostly-injection pages set aside; links of such pages not followed; no model is involved in any fetch decision | `research-quarantine`, `research-extract`                   |
-| a page claiming another as canonical, or copying another                                                                     | canonical claims do not suppress; near copies on other sites are not repeats                                                           | `research-crawl`                                            |
-| leaking secrets or page text through logs                                                                                    | field allow-list, redaction, fixed messages                                                                                            | `research-events`                                           |
-| a page that is expensive to parse                                                                                            | chunked parsing with depth, node, attribute and time limits (see below)                                                                | `research-extract`                                          |
-| misleading words in what a person is shown                                                                                   | every fixed sentence passes the project's wording guard                                                                                | `research-wording`                                          |
+| Threat                                                                                                                       | Control                                                                                                                                                                               | Tested in                                                   |
+| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| SSRF: private, loopback, link-local, CGNAT, multicast, reserved, unspecified; IPv6, IPv4-mapped, NAT64, 6to4; cloud metadata | address classes checked at name lookup and for IP literals, before connecting                                                                                                         | `research-safety` (a table of addresses), `research-events` |
+| odd ways of writing an address: decimal/hex/octal IPs, `127.1`, credentials, backslashes, control characters, very long      | refused by the address policy                                                                                                                                                         | `research-safety`, `research-fetch`                         |
+| DNS rebinding                                                                                                                | every request resolves again; any non-public answer refuses the name; connection pinned to the checked address                                                                        | `research-safety`                                           |
+| redirects to internal addresses, downgrade to http, loops, chains                                                            | each hop vetted again; `httpsOnly`; hop limit from the budget; robots.txt applies to each hop; where a robots.txt is sent is judged as where a page is (`sameSiteOnly`, `maxDomains`) | `research-safety`, `research-fetch`                         |
+| learning what a network holds from how a name is refused                                                                     | a name that leads to a non-public address is judged exactly as a name that was not found, on every path; the difference is for the server's log only                                  | `research-safety`, `url-route`                              |
+| non-web schemes, ports                                                                                                       | refused; only 80/443 unless the deployment allows more                                                                                                                                | `research-safety`                                           |
+| decompression bombs, huge or endless bodies, huge headers                                                                    | limits on the wire and after unpacking, 16 KiB of header                                                                                                                              | `research-limits`                                           |
+| slow sites, trickling bodies, hung requests                                                                                  | total and idle time per request; per-crawl time limit; a fetcher that ignores a stop is not waited for                                                                                | `research-limits`, `research-budget`                        |
+| bytes that are not text labelled as text                                                                                     | first bytes sniffed before reading                                                                                                                                                    | `research-quarantine`                                       |
+| robots.txt: disallow, allow, own-name group, crawl-delay, 4xx, 5xx, huge                                                     | RFC 9309 behaviour; unreadable forbids the origin; read to 512,000 bytes                                                                                                              | `research-safety`, `research-pacing`, `research-fetch`      |
+| link traps, endless sites, calendars, sessions                                                                               | trap rules, dedupe keys, page/depth/domain limits                                                                                                                                     | `research-classify`, `research-limits`                      |
+| prompt injection in text, titles, link text, hidden text                                                                     | labelled, never obeyed; mostly-injection pages set aside; links of such pages not followed; no model is involved in any fetch decision                                                | `research-quarantine`, `research-extract`                   |
+| a page claiming another as canonical, or copying another                                                                     | canonical claims do not suppress; near copies on other sites are not repeats                                                                                                          | `research-crawl`                                            |
+| leaking secrets or page text through logs                                                                                    | field allow-list, redaction, fixed messages                                                                                                                                           | `research-events`                                           |
+| a page that is expensive to parse                                                                                            | chunked parsing with depth, node, attribute and time limits (see below)                                                                                                               | `research-extract`                                          |
+| misleading words in what a person is shown                                                                                   | every fixed sentence passes the project's wording guard                                                                                                                               | `research-wording`                                          |
 
 ## Measured limits and known limits
 
