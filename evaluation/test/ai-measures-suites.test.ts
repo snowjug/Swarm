@@ -572,6 +572,8 @@ describe('the decision measures', () => {
         'Revenue grows in 2028.',
         'Over 12,000 members left.',
         '2026-03-01T09:00:00.000Z',
+        'None is a forecast, and none is a probability.',
+        'This is a forecast.',
       ],
     });
     const found = wordingProblems(canvas, inputs).map(
@@ -582,6 +584,7 @@ describe('the decision measures', () => {
       'notes.2: a percentage that nothing attributes to the simulation (12%)',
       'notes.5: a year that nothing attributes to the simulation (2028)',
       'notes.6: a large count that nothing attributes to the simulation (12,000)',
+      'notes.9: prediction: predict or forecast (forecast)',
     ]);
   });
 });

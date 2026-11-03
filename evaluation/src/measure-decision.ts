@@ -133,7 +133,7 @@ export interface WordingProblem {
 }
 
 const NEGATION =
-  /\b(?:not|never|nothing|nobody|cannot|can['’]t|without|no|neither|nor)\b|n['’]t\b/iu;
+  /\b(?:not|never|none|nothing|nobody|cannot|can['’]t|without|no|neither|nor)\b|n['’]t\b/iu;
 
 /** Words that forecast, or claim a measure no simulation took. A match that a denial just before it excuses is a disclaimer. */
 const WORDING: readonly { why: string; pattern: RegExp }[] = [
