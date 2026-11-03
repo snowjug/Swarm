@@ -16,17 +16,17 @@ stated, and none of it is a measurement of real people.
 
 The work is six **scenes** along one journey: **Ask → Ground → Map → Simulate → Compare → Decide**. It is
 not a one-click replay. Nothing runs until you say so, and no example results, actors or counters are
-preloaded: an example only fills in a question and its evidence, and the scenario, the stakeholders and the
-results are made the same way as for a question of your own.
+preloaded: a sample case only fills in a question and its invented evidence, and the scenario, the
+participants and the results are made the same way as for a question of your own.
 
-| Scene        | What you do there                                                                         | Opens when                                                           |
-| ------------ | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| **Ask**      | Write the question, add the evidence and review the scenario that Swarm reads from it     | Always                                                               |
-| **Ground**   | Read what the evidence says and settle where sources disagree                             | There is a project                                                   |
-| **Map**      | Find who is affected, correct the list, approve it and read the actors made from it       | The evidence has been read, or stakeholders already exist            |
-| **Simulate** | Set the futures side by side, run them and watch one typical run                          | There are simulated actors (or the deep dive's environment is ready) |
-| **Compare**  | Read the answer, who moves, what held across the runs and what it depends on              | A comparison has finished                                            |
-| **Decide**   | Write the decision brief, review it and export it; edit the detailed report in the studio | A comparison has finished                                            |
+| Scene        | What you do there                                                                                                                  | Opens when                                                           |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Ask**      | Write the question, say whether Swarm researches for it or the evidence is yours, and review the scenario that Swarm reads from it | Always                                                               |
+| **Ground**   | Read what the evidence says and settle where sources disagree                                                                      | There is a project                                                   |
+| **Map**      | Find who is affected, check the participants and approve them, read the actors made from them, and review what limits the decision | The evidence has been read, or stakeholders already exist            |
+| **Simulate** | Set the futures side by side, run them and watch one typical run                                                                   | There are simulated actors (or the deep dive's environment is ready) |
+| **Compare**  | Read the answer, who moves, what held across the runs and what it depends on                                                       | A comparison has finished                                            |
+| **Decide**   | Read the decision view, then the decision brief; review it and export it; edit the detailed report in the studio                   | A comparison has finished                                            |
 
 ### Finding your way
 
@@ -73,16 +73,32 @@ results are made the same way as for a question of your own.
 
 ## Ask: the question and the evidence
 
-The first screen, and the only one before there is a project. It asks "What change do you want to explore?".
+The first screen, and the only one before there is a project. Its heading is "See how a decision could
+unfold.", and what it asks of you is one question.
 
-1. **Write the question.** Type a what-if question, one or two sentences, into **Your what-if question**, or
-   choose an example from the row under it: **Launch pricing**, **Cloud price change**, **Online store
-   checkout**, **AI-first support**, **Copilot in Teams**, or the fictional starter **Library hours**, which
-   is there to learn the workflow (on a phone the row is one line to swipe). An example fills in the question
-   and its evidence and nothing else. A note then names it and says how many documents it brought, and
-   pressing the note brings the row back. The question holds up to 2,000 characters: a longer text pasted
-   into it is cut, and from 1,700 characters a counter ("1,750 / 2,000") says how much room is left.
-2. **Add evidence.** **Evidence** opens a panel with three ways to add it: **Files** (drop them, or choose
+1. **Write the question.** Type a what-if question, one or two sentences, into **Your what-if question**. While
+   the box is empty a line above it shows, in turn, what a question could be (a bus route, a subscription
+   price, support moved to an AI-first model, video check-ups, a second site, a shorter school week); none of
+   them is filled in. Or choose **Start from a template**: **AI adoption**, **Pricing change**, **Product
+   launch**, **Policy change**, **Market entry** or **Operating-model change** puts a sentence with blanks in
+   square brackets into the box and selects the first blank, so that your next words replace it, and **Custom**
+   starts from nothing. A question that still has a blank in it is not read ("Replace [a team] with your own
+   words."). The question holds up to 2,000 characters: a longer text pasted into it is cut, and from 1,700
+   characters a counter ("1,750 / 2,000") says how much room is left.
+2. **Say where research starts and over what time, if you want to.** Under the question, **Website or domain**
+   takes a site (`example.org`) or the address of one page, and a tag says which it read it as, **Site** or
+   **Page**; an entry that does not look like either is said not to ("That does not look like a website yet.
+   Try example.org, or the address of one page."). It is optional, and it is where automatic research
+   starts. **Time horizon** asks over what time the effects should be judged: **Not sure**, **Next quarter**,
+   **6 months**, **1 year**, **3 years** or **Custom**, which takes your own words ("For example, the next two
+   quarters").
+3. **Choose whether Swarm researches.** **Research automatically** is on by default where the server does
+   research: "Swarm finds and reads public sources for you." With it on, the project needs no source of your
+   own, and after you continue Swarm looks for public sources itself ([what that does and does not
+   do](../README.md#automatic-research)). Turned off it says "Manual sources only: Swarm reads what you add.",
+   and the website field is greyed out and says it is used by automatic research. Where the server does not
+   research, the switch is off and cannot be turned on ("Off on this server. Attach your own sources.").
+4. **Add evidence, if you want to.** **Evidence** opens a panel with three ways to add it: **Files** (drop them, or choose
    them: TXT, MD, CSV, JSON or a text-based PDF, where the server reads PDFs), **Paste** (a name and the
    text, then **Attach**) and **Web page**, which is offered only when the server allows it. For a page,
    type an address, choose **Fetch**, read the title, site, size and time of retrieval, then choose **Add as
@@ -95,36 +111,64 @@ The first screen, and the only one before there is a project. It asks "What chan
    Everything attached sits in a row of pills, and a pill opens the text that Swarm will work from, to read
    and correct. If you change the text of a page that was fetched, it is kept as pasted text and no longer
    called a retrieved page (put the words back and it is the page again). Every document keeps where it came
-   from.
-3. **Say what to take as given, if you want to.** **Time frame** asks over what time the effects should be
-   judged (a few common spans, or your own words), and **Assumptions** what Swarm should take as given (up to
-   six lines). They are applied after your question is read, as yours: the time frame answers the question
-   about the period, and each assumption is marked **Yours**. They are not part of what is read, so nothing
-   that reads the question, a model included, sees them. If you change either, the question is read again.
-4. **Choose the engine, if you want to.** **Options** holds the engine (**Local rules**, or **Model
-   assisted**, which stays off until the server has a provider), an optional name, and the settings of the
-   deep dive (proxies, rounds and seed), under **Deep dive**. A line there says whether the question goes
+   from. Your own sources and automatic research can be used together: research adds sources up to the
+   project's limit of ten, and never reads, ranks or changes what you attach.
+5. **Say what to take as given, if you want to.** **Advanced** opens three more fields, and a number on the
+   button says how many of them hold something. **Geography** is where it applies, if that matters (a country,
+   region or city). **Research guidance** is used to rank what research reads and never as an instruction to it
+   ("For example, official sources only"). **Assumptions** is what Swarm should take as given, up to six lines.
+   The time horizon, the geography and the assumptions are applied after your question is read, as yours: the
+   horizon and the place answer the questions about the period and the place, and each assumption is marked
+   **Yours**. They are not part of what is read, so nothing that reads the question, a model included, sees
+   them. If you change any of them, the question is read again.
+6. **Choose the engine, if you want to.** **Options** (the sliders button) holds the engine (**Local rules**,
+   or **Model assisted**, which stays off until the server has a provider), an optional name, and the settings
+   of the deep dive (proxies, rounds and seed), under **Deep dive**. A line there says whether the question goes
    anywhere: "Rules run on this machine. Nothing is sent anywhere.", or which provider a model would send it
-   to. On a phone **Evidence**, **Time frame**, **Assumptions** and **Options** open from the foot of the
-   screen.
-5. **Explore.** Choose **Explore** (or press Ctrl or ⌘ with Enter, which the button's hint shows for your
-   device). It needs a sentence and at least one source, and says which is missing. Swarm reads the question
-   into a scenario: rules on the server read it and it goes nowhere else, unless you chose **Model
-   assisted**. Then it is sent to the model provider, and if that fails or takes more than 170 seconds the
-   rules read it and a note says so. A reading that takes a moment shows the question while it is read, with
-   focus on **Stop** (Escape does the same), which puts you back at the question with everything you wrote.
-6. **Review the scenario.** The heading becomes "Your scenario", and what Swarm read is laid out to read and
+   to.
+7. **Explore.** Choose **Explore** (or press Ctrl or ⌘ with Enter, which the button's hint shows for your
+   device). It needs a sentence, and says so if it is missing. With **Research automatically** off it also needs
+   a source ("Add a source to ground it: a file, pasted notes or a public page."); with it on it does not.
+   Swarm reads the question into a scenario: rules on the server read it and it goes nowhere else, unless you
+   chose **Model assisted**. Then it is sent to the model provider, and if that fails or takes more than 170
+   seconds the rules read it and a note says so. A reading that takes a moment shows the question while it is
+   read, with focus on **Stop** (Escape does the same), which puts you back at the question with everything you
+   wrote.
+8. **Review the scenario.** The heading becomes "Your scenario", and what Swarm read is laid out to read and
    correct, not as a form to fill. Everything is editable where it stands: the decision, what it affects,
    where and over what time, **What changes** (each with a from and a to), **If nothing changes**, **Ways to
    do it** (the alternatives to compare; **Add a way**), **Who is affected** and **Assumed**. Each assumption
    is marked **Yours** or **System assumption**, and you can add or remove them. **Swarm asks** lists at most
    three questions that it needs answered: **Answer** or **Skip** each. **Evidence** lists what was
-   attached, and **How it was read** says how the question was read. A chip says whether it was read by
-   rules, by a model, or edited by you. **Question** goes back to the first screen with everything you wrote.
-7. **Ground it.** **Ground it** creates the project and starts reading the evidence. Nothing ran before
-   this: "Nothing runs until you continue." sits beside the button. If the reading of the question fails,
-   the page says so and offers **Try again** (focus is already on it) or **Continue without reading**, which
-   starts without a scenario, and so without the time frame and assumptions you gave.
+   attached, and where research is on, says so: "Automatic research is on. After you continue, Swarm looks
+   for public sources, starting from example.org, and lists every page it reads." **Add evidence** adds your
+   own. **How it was read** says how the question was read. A chip says whether it was read by rules, by a
+   model, or edited by you. **Question** goes back to the first screen with everything you wrote.
+9. **Ground it.** **Ground it** creates the project and starts reading the evidence, or researching for it.
+   Nothing ran before this: "Nothing runs until you continue." sits beside the button. If the reading of the
+   question fails, the page says so and offers **Try again** (focus is already on it) or **Continue without
+   reading**, which starts without a scenario, and so without the time frame, place and assumptions you gave.
+
+**Under the composer** there is more to read before you write. **Start from a template** is the row of
+templates above. **How Swarm works** is a row of five steps that you can open (press one, or rest the pointer
+on it), saying what Swarm does and what you decide at each: **Question**,
+**Research**, **People** (**People and constraints** on a server that keeps constraints), **Possible futures**
+and **Decision**; where research is off the second step says that Swarm reads the files and pages you add and
+nothing else. A line of short words says what every exploration includes: **Evidence linked**, **Assumptions
+visible**, **Alternatives compared**, **Constraints considered** (only where the server has them) and **Human
+approval before simulation**, and **What this means** says what each is. These describe what Swarm does, not
+how good a result is.
+
+At the foot of the screen, **Try a sample case** (it reads **Try a recorded demonstration** where the workspace
+holds the recorded ferry run, which then has its own **Open the recording**) opens the sample cases: **Launch
+pricing**, **Cloud price change**, **Online store checkout**, **AI-first support**, **Copilot in Teams**, and
+the fictional starter **Library hours**, which is there to learn the workflow. A sample case is a question
+with invented evidence, and none of it describes a real case. Choosing one fills in the question and its
+evidence, clears whatever you had said beside the question and turns **Research automatically** off, since
+the sources it brings are the point of it. A note then names it and says how many documents it brought
+("5 documents · sample evidence"), and pressing the note brings the templates back. Beside the link stand
+"Explore scenarios, not predictions." and, below it, the sentence "Swarm explores scenarios. It does not
+guarantee or precisely predict real-world behavior."
 
 Under the question, **Continue** lists your newest explorations (and the recorded demonstration, when the
 workspace has it), and **All explorations** opens History. **Duplicate as a new question**, under Settings
@@ -193,9 +237,11 @@ the sources fill the first screen.
 ![Map: stakeholders drawn as clusters on a map, the details of the party in view in a floating panel, and the next action in a pill at the foot](./assets/swarm-map.png)
 
 Map opens once the evidence has been read. Swarm proposes who is affected by the change, with the sources it
-found for each; you review the list and approve it, and Swarm makes **simulated actors** from it. Every
-trait of an actor says where it came from (an assumption of the category, the evidence, a model, or you) and
-can be changed. The method is in [stakeholders](./stakeholders.md). This is what you meet, in order:
+found for each; you review the list and approve it, and Swarm makes **simulated actors** from it. The same
+list is called the participants of the decision in the **Review** view below, and every one of them is a
+synthetic role, not a person. Every trait of an actor says where it came from (an assumption of the category,
+the evidence, a model, or you) and can be changed. The method is in [stakeholders](./stakeholders.md). This is
+what you meet, in order:
 
 1. **Before anything is found** the page asks "Who is in play?", says that actors are synthetic stand-ins,
    not real people, and offers **Find who is affected** and **Add one yourself**. With no model,
@@ -213,8 +259,9 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    many have a direction of impact read from the wording. Point at a party to see, before you open it,
    whether it is key or a cohort, its influence (for an actor), its effect and how many quotes it rests on.
    In the toolbar, **Map** and **List** switch between the map and the same parties as text (in groups, the
-   weightiest first, each row saying its own facts in words), **Stakeholders** and **Actors** switch what is
-   drawn, **Groups** shows or hides a kind, and the focus control (`F`) dims all but what is connected to the
+   weightiest first, each row saying its own facts in words), **Review** and **Constraints** open the two
+   views described below, **Stakeholders** and **Actors** switch what is drawn, **Groups** shows or hides a
+   kind, and the focus control (`F`) dims all but what is connected to the
    party you have open. With the keyboard, the arrow keys move to the nearest party in that direction,
    Enter or Space opens it, Esc lets go, Ctrl or ⌘ with the wheel zooms, a drag pans, and **Zoom in**, **Zoom
    out** and **Fit everything** sit beside the map.
@@ -235,8 +282,8 @@ can be changed. The method is in [stakeholders](./stakeholders.md). This is what
    most 40. If nobody is left, the page says "Nobody drawn yet" and offers **Add one yourself**.
 4. **Approving.** One pill at the foot of the map says the one thing to do next. While some stakeholders
    need review it says "N to review" (press it to open the next one) beside **Create actors**, which stays
-   disabled, with the hint "Keep or add two or more", until at least two stakeholders are kept. (A screen
-   reader names that button "Approve & create actors", because it also accepts the stakeholders you did not
+   disabled, with the hint "Keep or add two or more", until at least two stakeholders are kept, and with the hint
+   "Fix N things first" while a blocking check stands against the list (see **Review**, below). (A screen reader names that button "Approve & create actors", because it also accepts the stakeholders you did not
    look at; where you have changed actors it reads **Approve** and leaves your changes as they are.)
    Approving accepts the ones you did not look at and makes the actors: a key actor for each key stakeholder
    and a cohort of simulated members for each of the others. When a model is available, pressing the button
@@ -269,6 +316,48 @@ The rules read the groups that the text names with a role word, and read a direc
 cited sentence has a word of concern or welcome. The others stay unclear until you say who is helped or
 harmed, which is what the warning before a simulation means when it says that nobody has an expected
 direction of impact.
+
+### Review: the participants
+
+When Swarm has proposed the list, the Map says so ("Swarm proposed these participants") and offers **Review
+participants**; where a check stands in the way it says how many ("2 checks stand in the way of using these
+participants"). The toolbar's **Review** view is the same list laid out to be checked before it is used, and a
+number on the button says how many checks are left to fix. Its heading is "Review the proposed participants",
+under "Synthetic roles, not real people", with counts: how many participants, how many are key, how many are
+**quoted** and how many **assumed**, and how many are to review.
+
+- **The checks come first.** Each participant is held to a catalogue of checks, and some of them block. While
+  one stands the page says "Fix N things before these can be used" and lists each as **Fix first**, with a
+  button that fixes it or takes you to the participant. "Simulation starts only from a list that passes these
+  checks, so that no actor is generic, unsupported or about a real person." The checks that only suggest are
+  under **Suggestions**. When none stands, the page says "Nothing blocks these participants", and when the
+  actors have been made it says "Approved".
+- **Who holds which role.** The list shows the roles in the decision that somebody holds, and the roles that
+  nobody holds yet, each with **Add one** to add a participant for it. The roles that a decision like this does
+  not need are folded under **Other roles nobody holds**.
+- **A participant** is a card in the group of its role, with why it is here, its priority, its authority,
+  influence and how directly the change reaches it. Chips say that it is a **Synthetic role, not a person**,
+  what it rests on (a quotation, or "Assumed: …" where no passage is cited), how sure Swarm is, and whether it
+  is proposed, accepted, edited or added. **Details and evidence** opens what is held for it and the passages it
+  cites, word for word, or says that it is held as an assumption to test; a participant you added cites none.
+  **Accept** keeps it, **Edit** opens its fields (its name, its role, why it matters, what it is trying to
+  achieve, what drives and limits it, what it can see and could do, what is never asserted about it, its
+  influence and priority, how the change lands on it, how sure you are and how many it stands for); **Ask
+  why** says why it is on the list, and the icon buttons merge it into another, **propose it
+  again** (from the text, or with the model where there is one) and remove it. A participant you removed or
+  merged is under **Removed**, with **Restore** or **Undo the merge**.
+- **The bar** above the list holds **Accept all**, **Accept selected**, **Merge duplicates**, **Add a missing
+  participant** and **Propose the list again…**, which replaces the list only after you confirm. A role that
+  may read the project but not change it is told so ("You can read this list but not change it").
+- **What was left out, and how it was checked.** **Left out** lists what Swarm did not keep, each with the
+  reason, so that nothing disappears without a trace. **How this list was checked** says whether a model
+  proposed it and Swarm then compared every quotation with its passage, or the text was read for roles and no
+  model was used; how many passages it read; whether research sources and your known constraints were part of
+  what it read; and any name that was folded into another. If some of your sources carry text addressed to an
+  AI system, a notice says that Swarm read it as text and did not follow it, and which passages.
+- **Using it.** The pill at the foot of the Review says how many checks stand and how many are to review, and
+  **Use these actors** is the way on: it approves the list and makes the actors. It is shut while a blocking
+  check stands ("Fix N things first").
 
 ### Constraints: what limits the decision
 
@@ -437,15 +526,60 @@ deep dive side by side, round by round: how they are related, the round in which
 across the rounds, what was declared changed and what each run is. It needs two runs with a saved round.
 For a run the engine made on its own, Compare opens on this.
 
-## Decide: the brief and the independent review
+## Decide: the decision view, the brief and the independent review
 
 ![Decide: the decision brief as a document, with the answer first and a contents list beside the chapters](./assets/swarm-decide.png)
 
-Decide is the decision brief as a document, with the independent review beside it. Before there is a brief
-it says so and offers one action, **Write the brief**: it writes the answer-first document from the
-comparison, by rules, with no model, and says "Writing the brief" while it does. With no comparison to write
-it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
-[the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
+Decide opens on the **Decision view**, the answer-first picture of the decision, and the decision brief is the
+**Full report** beneath it (a **Full report** button in the view's header takes you there), with the
+independent review beside the brief. The view is worked out from the newest finished comparison, the
+constraints, the independent review and the evidence every time the page is read, by rules: no model writes any
+of it and nothing in it is kept, so it is never older than what it describes. Its heading carries "Explore
+scenarios, not predictions.", and every figure in it is a count or a share of simulated members or of seeded
+runs. The method is in [the Decision Canvas](./analysis/decision-canvas.md).
+
+- **A status, in words and an icon, never colour alone.** One of six: **Robust option**, **Conditional
+  option**, **More than one plausible option**, **Needs a human decision**, **Blocked by a hard constraint**
+  and **Insufficient evidence**. **Why this status** lists the rules in the order they are tried, and which one
+  applied. A leading option is called robust only when nothing that Swarm tried could reverse it, its
+  constraints are confirmed and the evidence is adequate; otherwise it is conditional, and the conditions are
+  listed.
+- **The first screen holds nine things, in the order a decision is read:** **Question**, **Current best
+  answer**, **Most plausible futures**, **What drives them**, **Material constraints**, **Who moves**, **What
+  could change the result**, **Recommended next move** and **What to validate before acting**. What does not
+  fit is counted and one press away. On a narrow screen the question and the answer keep their place and the
+  other seven fold to a line each.
+- **Named lenses, and no score.** Swarm has no objective of its own, so it compares the options on four named
+  readings of what the simulation measured (overall resistance, support among the key actors, resistance among
+  the people who decide or approve, and the downside for the worst-affected group). They can disagree, and when
+  they do the page shows it and does not average them. An option is called ahead on a lens only when the
+  difference is clearly larger than the run-to-run noise, and the option that changes nothing is always one of
+  the options.
+- **What could change the result** names the counterfactual views and the assumptions that could reverse the
+  answer, and says "could", never "would": the other options were not run again under them. A line says what was
+  tried, and never that nothing reverses the answer when nothing was tried.
+- **Every statement carries its kind**, as text: **Fact**, **Source claim**, **Assumption**, **Model
+  inference**, **Simulation event**, **Scenario possibility**, **Recommendation** or **Validation
+  requirement**. **Labels**, in the header, says what each means. Nothing inferred, assumed or simulated is
+  ever called a fact.
+- **A recommendation says what is missing from it.** Whenever one is shown it states what is recommended, for
+  whom, under which assumptions and constraints, the evidence that supports it and the evidence that weakens
+  it, what would invalidate it, what to test next, whether it can be undone (which Swarm says it does not know)
+  and what human approval is needed; a part with nothing to say is listed as missing. **What to validate before
+  acting** is a list of checks to do in the real world, which Swarm does not track. Swarm recommends and
+  explains: it contacts no one, executes nothing and decides nothing.
+- **Beneath the nine** are the details, each in a disclosure: why this status, how the options compare on each
+  lens, the recommendation in full, everything that could change the result, the constraints and who moves in
+  full, the validation plan and when to stop, what the answer rests on, what the independent review challenged,
+  human approval, and what the labels mean. They are open on paper.
+- **When there is nothing to show.** With no finished comparison the page says "Nothing to decide from yet",
+  what is missing and which step supplies it ("Not ready yet" while one runs). A picture of a comparison that
+  was run before the scenario, the participants, the actors or the constraints changed says "This picture
+  describes the project as it was" and can never be a robust option; a newer comparison on its way is said too.
+
+Below the Decision view, before there is a brief, Decide offers one action, **Write the brief**: it writes
+the answer-first document from the comparison, by rules, with no model, and says "Writing the brief" while it
+does. See [the brief](./analysis/brief.md) and [the critics](./analysis/critics.md).
 
 - **The brief opens on its answer**: what happened (the verdict, in the simulation's own numbers), why (who
   moved most, and how steadily it held), what matters (the biggest open caveat, and how the review stands) and
@@ -488,11 +622,12 @@ it from, it says "Nothing to decide from yet" and offers **Open Simulate**. See
   sources were not checked, **Open the conflicts in Ground** takes you there: opening them in Ground makes
   the check, and then you run the review again.
 - **When it is out of date.** "This brief may be out of date" says what changed since it was made. If the
-  scenario, the stakeholders or the actors changed after the comparison ran, choose **Re-run the comparison**
-  and then write the brief again; if only the review changed, or a newer comparison exists, choose **Write
-  the brief again**. "This review may be out of date" appears when the comparison the review reads was run
-  before the scenario, the stakeholders or the actors changed: run the comparison again, then the review
-  again. Someone whose role may read the brief but not rewrite it is told to ask someone who can.
+  scenario, the stakeholders, the actors or the constraints changed after the comparison ran, choose **Re-run
+  the comparison** and then write the brief again; if only the review changed, or a newer comparison exists,
+  choose **Write the brief again**. "This review may be out of date" appears when the comparison the review
+  reads was run before the scenario, the stakeholders, the actors or the constraints changed: run the
+  comparison again, then the review again. Someone whose role may read the brief but not rewrite it is told to
+  ask someone who can.
 
 ## Reading the results
 
