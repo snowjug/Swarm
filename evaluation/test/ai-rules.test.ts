@@ -17,7 +17,12 @@ beforeAll(async () => {
 }, 120_000);
 
 describe('rules mode against the registered thresholds', () => {
-  it.each(Object.keys(registered.specs))('%s', (id) => {
+  // The planner, run and decision suites are registered (thresholds.json, `suites`) and wired in their own changes.
+  it.each(
+    Object.values(registered.specs)
+      .filter((spec) => spec.kind !== 'suite')
+      .map((spec) => spec.id),
+  )('%s', (id) => {
     const row = report.rows.find((item) => item.mode === 'rules' && item.id === id);
     expect(row, `${id} has no row`).toBeDefined();
     if (!row) return;
