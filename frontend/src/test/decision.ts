@@ -2,12 +2,16 @@ import type { z } from 'zod';
 import {
   DECISION_STATUS_INFO,
   LENS_INFO,
+  SCOPE_DOMAIN_WORDS,
+  SCOPE_NOTICE,
   decisionCanvasSchema,
   type DecisionCanvas,
   type DecisionReadiness,
+  type DecisionScope,
   type DecisionStatus,
   type DecisionView,
   type EpistemicLabel,
+  type HighStakesDomain,
   type LensId,
 } from '../../../shared/decision';
 
@@ -525,10 +529,12 @@ const base = (): Raw => ({
       state: 'open',
     },
   ],
-  highStakes: {
-    flagged: false,
+  scope: {
+    notice: null,
     domains: [],
-    note: 'Nothing in the question or the constraints points to employment, credit, legal, medical or safety matters. Swarm still does not decide anything.',
+    aboutIndividual: false,
+    basis: [],
+    exploration: null,
   },
   freshness: {
     analysisId: 'analysis-1',
@@ -1003,13 +1009,171 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
 
 export const viewFixture = (canvas: DecisionCanvas = canvasFixture()): DecisionView => ({
   canvas,
-  readiness: { state: 'ready', missing: [], next: null, status: canvas.status },
+  readiness: {
+    state: 'ready',
+    missing: [],
+    next: null,
+    status: canvas.status,
+    scope: canvas.scope,
+  },
   may: { run: true, export: true },
 });
+
+/** One cue for each matter, as the scope check words it in the basis. */
+const CUE: Record<HighStakesDomain, string> = {
+  employment: 'fire',
+  credit: 'loan',
+  legal: 'sue',
+  medical: 'prescribe',
+  safety: 'evacuation',
+};
+
+const listedWords = (words: string[]): string =>
+  words.length < 3
+    ? words.join(' and ')
+    : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+
+/** What the scope check finds in a question that touches a matter Swarm does not decide, and in one about a person. */
+export function scopeFixture(
+  kind: 'domain' | 'individual',
+  domains: HighStakesDomain[] = ['employment'],
+): DecisionScope {
+  const basis = [
+    ...domains.map((domain) => `${domain}: “${CUE[domain]}”`),
+    ...(kind === 'individual' ? ['about one person: “this employee”'] : []),
+  ];
+  return {
+    notice: SCOPE_NOTICE,
+    domains,
+    aboutIndividual: kind === 'individual',
+    basis,
+    exploration:
+      kind === 'individual'
+        ? {
+            canTell: [
+              say(
+                'How the simulated roles responded in each option, under the assumptions the project states.',
+                'simulation-event',
+                'scope:can-tell',
+              ),
+              say(
+                'Which of the stated assumptions and constraints the simulated result is most sensitive to.',
+                'simulation-event',
+                'scope:can-tell',
+              ),
+            ],
+            cannotTell: [
+              say(
+                'What is right, fair or lawful for this person: the exploration knows nothing of their circumstances beyond the question.',
+                'validation-requirement',
+                'scope:cannot-tell',
+              ),
+              say(
+                'How this person responds or what happens to them: a simulated role stands for a group and not for one person.',
+                'validation-requirement',
+                'scope:cannot-tell',
+              ),
+              say(
+                'Whether a decision follows the rules and the process that apply: that is for the person who decides.',
+                'validation-requirement',
+                'scope:cannot-tell',
+              ),
+            ],
+          }
+        : null,
+  };
+}
+
+/**
+ * A canvas whose question touches a matter that Swarm does not decide. For a decision about one person the status is a
+ * human decision by the first rule, no option is named, the options are shown and not ranked, and the next move is a
+ * qualified person's; for a matter in general the canvas is whatever it was, with the notice and a stronger approval.
+ */
+export function scopedFixture(
+  kind: 'domain' | 'individual',
+  from: DecisionCanvas = canvasFixture(),
+  domains: HighStakesDomain[] = ['employment'],
+): DecisionCanvas {
+  const scope = scopeFixture(kind, domains);
+  const matters = listedWords(
+    domains.map((domain) => SCOPE_DOMAIN_WORDS[domain].label.toLowerCase()),
+  );
+  const reviewers = listedWords(domains.map((domain) => SCOPE_DOMAIN_WORDS[domain].reviewer));
+  const approval = {
+    id: 'approve-qualified',
+    stage: 'before-acting' as const,
+    text:
+      kind === 'individual'
+        ? `A qualified person decides: ${reviewers}. Swarm does not make or recommend a decision about one person’s ${matters} situation, and a named approver agrees to act on it.`
+        : `A qualified person reviews anything that touches ${matters} matters before it is acted on: ${reviewers}. Swarm does not make or recommend such decisions.`,
+    state: 'open' as const,
+  };
+  const approvals = [...from.approvals.filter((point) => point.id !== 'approve-named'), approval];
+  if (kind === 'domain') return decisionCanvasSchema.parse({ ...from, scope, approvals });
+
+  const info = DECISION_STATUS_INFO['needs-human-decision'];
+  const headline = `The question reads as a decision about one person’s ${matters} situation, so Swarm does not make or recommend it: a qualified person decides.`;
+  return decisionCanvasSchema.parse({
+    ...from,
+    status: {
+      ...from.status,
+      status: 'needs-human-decision',
+      rule: 'individual-decision',
+      label: info.label,
+      meaning: info.meaning,
+      headline,
+      why: [
+        `Cues found in the question and its framing: ${scope.basis.join('; ')}.`,
+        'What the simulation shows is still shown, as exploration and not as a recommendation.',
+        'This is read from the words of the question by rules, so it can be mistaken in either direction.',
+      ],
+      conditions: [],
+    },
+    answer: {
+      ...from.answer,
+      headline: say(headline, 'recommendation', 'status:needs-human-decision'),
+      preferredAlternativeId: null,
+      recommendation: {
+        ...from.answer.recommendation,
+        kind: 'qualified-person',
+        what: say(
+          'A qualified person decides this; here is what the exploration can and cannot tell them.',
+          'recommendation',
+          'status:needs-human-decision',
+        ),
+      },
+    },
+    alternatives: from.alternatives.map((option) =>
+      option.verdict === 'blocked'
+        ? option
+        : {
+            ...option,
+            verdict: 'not-ranked',
+            why: 'Shown as explored and not ranked: a decision about one person is for a qualified person.',
+          },
+    ),
+    // With no answer named, no view, assumption or driver could reverse one.
+    drivers: from.drivers.map((driver) => ({ ...driver, flipsAnswer: false })),
+    changes: {
+      ...from.changes,
+      counterfactuals: {
+        ...from.changes.counterfactuals,
+        views: from.changes.counterfactuals.views.map((view) => ({
+          ...view,
+          couldChangeAnswer: null,
+        })),
+      },
+      assumptions: from.changes.assumptions.map((row) => ({ ...row, flipsAnswer: false })),
+    },
+    approvals,
+    scope,
+  });
+}
 
 export function emptyFixture(
   state: DecisionReadiness['state'] = 'no-analysis',
   next: DecisionReadiness['next'] = 'simulate',
+  scope: DecisionScope | null = null,
 ): DecisionView {
   const missing =
     state === 'running'
@@ -1017,13 +1181,16 @@ export function emptyFixture(
       : state === 'failed'
         ? 'The last comparison did not finish, so there is no result to read.'
         : 'No comparison has been run yet.';
+  const individual = scope?.aboutIndividual
+    ? scopedFixture('individual', canvasFixture(), scope.domains).status
+    : null;
   return {
     canvas: null,
     readiness: {
       state,
       missing: [missing],
       next,
-      status: {
+      status: individual ?? {
         ...canvasFixture().status,
         status: 'insufficient-evidence',
         rule: 'no-analysis',
@@ -1034,6 +1201,7 @@ export function emptyFixture(
         why: [missing],
         conditions: [],
       },
+      scope,
     },
     may: { run: true, export: true },
   };

@@ -1,7 +1,9 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
+import { SCOPE_NOTICE } from '../../../../../shared/decision';
 import { TooltipProvider } from '../../../design/ui';
-import { canvasFixture } from '../../../test/decision';
+import { canvasFixture, scopedFixture, viewFixture } from '../../../test/decision';
+import { DecisionCanvasView } from './Canvas';
 import { ITEMS, ITEM_TITLES, gistOf } from './model';
 import { Viewport } from './Viewport';
 
@@ -12,6 +14,25 @@ const render = () =>
   renderToStaticMarkup(
     <TooltipProvider>
       <Viewport canvas={canvasFixture()} openDetail={() => undefined} />
+    </TooltipProvider>,
+  );
+
+const noop = () => undefined;
+const page = (canvas: ReturnType<typeof canvasFixture>) =>
+  renderToStaticMarkup(
+    <TooltipProvider>
+      <DecisionCanvasView
+        handle={{
+          view: viewFixture(canvas),
+          loading: false,
+          refreshing: false,
+          error: null,
+          reload: noop,
+        }}
+        go={{ ask: noop, ground: noop, map: noop, simulate: noop }}
+        below
+        onDetailed={null}
+      />
     </TooltipProvider>,
   );
 
@@ -41,5 +62,32 @@ describe('the decision canvas on a narrow screen', () => {
   it('keeps each folded item’s heading a level-two heading, with the button inside it', () => {
     const markup = render();
     expect(markup.match(/<h2 class="sw-disc__heading">/gu)).toHaveLength(ITEMS.length - 2);
+  });
+});
+
+describe('what Swarm does not decide, on a narrow screen', () => {
+  it.each([
+    ['a matter in general', scopedFixture('domain')],
+    ['a decision about one person', scopedFixture('individual')],
+  ])('keeps the notice open above the question, never folded, for %s', (_name, canvas) => {
+    const markup = page(canvas);
+    const at = markup.indexOf(SCOPE_NOTICE);
+    expect(at).toBeGreaterThan(-1);
+    expect(at).toBeLessThan(markup.indexOf('data-canvas-item="question"'));
+    expect(at).toBeLessThan(markup.indexOf('sw-disc__head'));
+  });
+
+  it('folds the other seven for one person too, with a line each that says what a person decides', () => {
+    const canvas = scopedFixture('individual');
+    const markup = page(canvas);
+    for (const item of ITEMS.slice(2)) {
+      expect(markup, item).toContain(ITEM_TITLES[item]);
+      expect(markup, item).toContain(gistOf(item, canvas).replaceAll('&', '&amp;'));
+    }
+    const viewport = markup.slice(
+      markup.indexOf('sw-canvas-grid'),
+      markup.indexOf('class="sw-canvas-detail"'),
+    );
+    expect(viewport.match(/aria-expanded="false"/gu)).toHaveLength(ITEMS.length - 2);
   });
 });

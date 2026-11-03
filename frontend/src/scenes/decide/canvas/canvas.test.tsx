@@ -7,6 +7,8 @@ import {
   DECISION_STATUS_INFO,
   EPISTEMIC_LABELS,
   EPISTEMIC_LABEL_INFO,
+  SCOPE_DOMAIN_WORDS,
+  SCOPE_NOTICE,
   type DecisionView,
 } from '../../../../../shared/decision';
 import { TooltipProvider } from '../../../design/ui';
@@ -16,9 +18,12 @@ import {
   constraintRow,
   emptyFixture,
   richFixture,
+  scopeFixture,
+  scopedFixture,
   statusFixture,
   viewFixture,
 } from '../../../test/decision';
+import { ReportBridge } from './Bridge';
 import { DecisionCanvasView } from './Canvas';
 import {
   COPY,
@@ -29,6 +34,7 @@ import {
   checksOf,
   completenessOf,
   constraintGlance,
+  explorationOf,
   futureItems,
   gateWords,
   gistOf,
@@ -225,6 +231,166 @@ describe('the decision canvas when there is nothing to show', () => {
   });
 });
 
+describe('what the page says of what Swarm does not decide', () => {
+  const domain = (status: (typeof DECISION_STATUSES)[number]) =>
+    viewFixture(scopedFixture('domain', statusFixture(status), ['employment', 'legal']));
+
+  it.each(DECISION_STATUSES)('shows the notice and the matters it matched, for %s', (status) => {
+    const markup = render(handleOf(domain(status)));
+    const said = text(markup);
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain(`${COPY.scopeMatched} ${SCOPE_DOMAIN_WORDS.employment.label}`);
+    expect(said).toContain(SCOPE_DOMAIN_WORDS.legal.label);
+    expect(markup).toContain('role="note"');
+    expect(markup).toContain(`aria-label="${COPY.scopeLabel}"`);
+    expect(markup).toContain('data-scope="domain"');
+    // A matter in general changes nothing else: the status is the one the simulation gave.
+    expect(said).toContain(DECISION_STATUS_INFO[status].label);
+  });
+
+  it('puts the notice in the header, before the tools and above the nine things', () => {
+    const markup = render(handleOf(domain('robust-option')));
+    const at = (needle: string) => markup.indexOf(needle);
+    expect(at('sw-canvas-top__lead')).toBeLessThan(at('sw-canvas-scope'));
+    expect(at('sw-canvas-scope')).toBeLessThan(at('sw-canvas-top__tools'));
+    expect(at('sw-canvas-top__tools')).toBeLessThan(at('data-canvas-item'));
+  });
+
+  it('says nothing of it where the question touches none of the five matters', () => {
+    const markup = render(handleOf(viewFixture(statusFixture('robust-option'))));
+    expect(markup).not.toContain('sw-canvas-scope');
+    expect(markup).not.toContain('data-scope');
+    expect(text(markup)).not.toContain(SCOPE_NOTICE);
+    // The approvals detail still says that Swarm decides nothing.
+    expect(text(markup)).toContain(COPY.noScope);
+  });
+
+  it('says in words, not in colour, that a decision about one person is for a person to decide', () => {
+    const canvas = scopedFixture('individual', statusFixture('robust-option'));
+    const markup = render(handleOf(viewFixture(canvas)));
+    const said = text(markup);
+    expect(markup).toContain('data-scope="individual"');
+    expect(markup).toContain('data-status="needs-human-decision"');
+    expect(said).toContain(DECISION_STATUS_INFO['needs-human-decision'].label);
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain(
+      'A qualified person decides this; here is what the exploration can and cannot tell them.',
+    );
+    expect(said).toContain(canvas.status.headline);
+    expect(canvas.answer.preferredAlternativeId).toBeNull();
+  });
+
+  it('names no option as preferred, and shows the options as explored and not ranked', () => {
+    const canvas = scopedFixture('individual', richFixture());
+    const said = text(render(handleOf(viewFixture(canvas))));
+    expect(said).toContain('Not ranked');
+    expect(said).not.toContain('Preferred');
+    expect(said).not.toContain('Take “');
+    for (const option of canvas.alternatives) {
+      expect(['not-ranked', 'blocked']).toContain(option.verdict);
+    }
+  });
+
+  it('says what the exploration can and cannot tell the person who decides, one of each at a glance', () => {
+    const canvas = scopedFixture('individual');
+    const glance = explorationOf(canvas);
+    expect(glance).not.toBeNull();
+    expect(glance!.canTell).toHaveLength(GLANCE.canTell);
+    expect(glance!.cannotTell).toHaveLength(GLANCE.cannotTell);
+    expect(glance!.more).toBe(
+      canvas.scope.exploration!.canTell.length -
+        GLANCE.canTell +
+        (canvas.scope.exploration!.cannotTell.length - GLANCE.cannotTell),
+    );
+    const markup = render(handleOf(viewFixture(canvas)));
+    expect(text(markup)).toContain(COPY.canTell);
+    expect(text(markup)).toContain(COPY.cannotTell);
+    // Each carries its kind of statement.
+    expect(markup).toContain('Kind of statement: </span>Simulation event');
+    expect(markup).toContain('Kind of statement: </span>Validation requirement');
+    // In full, all of them, under the recommendation.
+    for (const line of [
+      ...canvas.scope.exploration!.canTell,
+      ...canvas.scope.exploration!.cannotTell,
+    ]) {
+      expect(text(markup)).toContain(line.text);
+    }
+    expect(text(markup)).toContain(COPY.canTellDetail);
+    expect(text(markup)).toContain(COPY.cannotTellDetail);
+  });
+
+  it('shows no can or cannot tell list for a matter in general, or for none', () => {
+    expect(explorationOf(canvasFixture())).toBeNull();
+    expect(explorationOf(scopedFixture('domain'))).toBeNull();
+    const markup = render(handleOf(domain('conditional-option')));
+    expect(markup).not.toContain('sw-canvas-tell');
+  });
+
+  it('says no view could reverse a choice that is not made', () => {
+    const base = richFixture();
+    const answered = text(render(handleOf(viewFixture(base))));
+    expect(answered).toContain(COPY.couldReverse);
+    const said = text(render(handleOf(viewFixture(scopedFixture('individual', base)))));
+    expect(said).not.toContain(COPY.couldReverse);
+    expect(said).not.toContain(COPY.notTold);
+  });
+
+  it('shows the matters, who reviews each and the cues the reading rests on, in the approvals', () => {
+    const canvas = scopedFixture('individual', canvasFixture(), ['medical', 'legal']);
+    const said = text(render(handleOf(viewFixture(canvas))));
+    expect(said).toContain(COPY.reviewTitle);
+    expect(said).toContain(SCOPE_DOMAIN_WORDS.medical.reviewer);
+    expect(said).toContain(SCOPE_DOMAIN_WORDS.legal.reviewer);
+    expect(said).toContain(canvas.scope.basis[0]);
+    expect(said).toContain(COPY.scopeLimits);
+    // The approval that stands for a qualified person is one of the points, and is open.
+    expect(canvas.approvals.at(-1)).toMatchObject({ id: 'approve-qualified', state: 'open' });
+  });
+
+  it('is there without a canvas: for a question about one person with nothing yet run', () => {
+    const view = emptyFixture('no-analysis', 'simulate', scopeFixture('individual', ['medical']));
+    const markup = render(handleOf(view), { below: false });
+    const said = text(markup);
+    expect(markup).toContain('data-scope="individual"');
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain(`${COPY.scopeMatched} ${SCOPE_DOMAIN_WORDS.medical.label}`);
+    expect(said).toContain('a qualified person decides');
+    expect(markup).not.toContain('data-canvas-item');
+    // Nothing is blocked: what is missing and the step that supplies it are still there.
+    expect(said).toContain('No comparison has been run yet.');
+    expect(said).toContain('Open Simulate');
+    // Without a matter, nothing is said.
+    const none = render(handleOf(emptyFixture('no-analysis')), { below: false });
+    expect(none).not.toContain('sw-canvas-scope');
+  });
+
+  it('is there while an old picture is kept after the page could not be read again', () => {
+    const view = viewFixture(scopedFixture('individual'));
+    const said = text(render(handleOf(view, { error: 'The server did not answer.' })));
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain('What is shown is the last version that could be read.');
+  });
+
+  it('puts the note into the bridge to the full report only where a matter was found', () => {
+    expect(text(renderToStaticMarkup(<ReportBridge scoped />))).toContain(COPY.scopeBridge);
+    expect(text(renderToStaticMarkup(<ReportBridge />))).not.toContain(COPY.scopeBridge);
+  });
+
+  it('writes the cues as text, never as markup', () => {
+    const hostile = scopedFixture('individual');
+    hostile.scope.basis = ['employment: “<img src=x onerror=alert(1)>”'];
+    const markup = render(handleOf(viewFixture(hostile)));
+    expect(markup).not.toContain('<img');
+    expect(markup).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  it('has a gist for the narrow page that says a person decides', () => {
+    const canvas = scopedFixture('individual');
+    expect(gistOf('answer', canvas)).toBe(DECISION_STATUS_INFO['needs-human-decision'].label);
+    expect(gistOf('next', canvas)).toContain('A qualified person decides this');
+  });
+});
+
 describe('what the page says about itself', () => {
   it('makes no claim the product may not make, in any state or status', () => {
     const pages = [
@@ -247,6 +413,16 @@ describe('what the page says about itself', () => {
       render(handleOf(emptyFixture('no-analysis'))),
       render(handleOf(emptyFixture('running'))),
       render(handleOf(emptyFixture('failed'))),
+      ...DECISION_STATUSES.map((status) =>
+        render(handleOf(viewFixture(scopedFixture('domain', statusFixture(status), ['medical'])))),
+      ),
+      render(handleOf(viewFixture(scopedFixture('individual')))),
+      render(
+        handleOf(viewFixture(scopedFixture('individual', richFixture(), ['employment', 'legal']))),
+      ),
+      render(
+        handleOf(emptyFixture('no-analysis', 'simulate', scopeFixture('individual', ['credit']))),
+      ),
       render(handleOf(null, { loading: true })),
       render(handleOf(null, { error: 'It failed.' })),
     ];

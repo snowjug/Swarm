@@ -61,12 +61,14 @@ function Brief() {
       onDetailed={toReport}
     />
   );
+  const scoped =
+    (decision.view?.canvas?.scope ?? decision.view?.readiness.scope ?? null)?.notice != null;
 
   if (!loaded) {
     return (
       <Page>
         {canvas(true)}
-        <ReportBridge />
+        <ReportBridge scoped={scoped} />
         {handle.loading ? (
           <BriefLoading />
         ) : (
@@ -93,6 +95,7 @@ function Brief() {
         onReviewOpenChange={(open) => setView(open ? 'review' : null)}
         justWritten={written}
         before={canvas(true)}
+        scoped={scoped}
         go={{
           simulate: () => go('simulate'),
           studio: () => go('decide', { view: 'studio' }),
@@ -106,7 +109,7 @@ function Brief() {
     return (
       <Page>
         {canvas(true)}
-        <ReportBridge />
+        <ReportBridge scoped={scoped} />
         <Writing level={2} />
       </Page>
     );
@@ -115,7 +118,7 @@ function Brief() {
   return (
     <Page>
       {canvas(true)}
-      <ReportBridge />
+      <ReportBridge scoped={scoped} />
       <WriteBrief
         level={2}
         completedAt={loaded.latestAnalysis.completedAt}

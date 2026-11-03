@@ -141,6 +141,7 @@ describe('the states before there is a brief', () => {
       missing: ['No comparison has been run yet.'],
       next: 'simulate' as const,
       status: null,
+      scope: null,
     };
     const markup = page(<CanvasEmpty readiness={readiness} go={go} onReport={null} />);
     expect(text(markup)).toContain('Nothing to decide from yet');

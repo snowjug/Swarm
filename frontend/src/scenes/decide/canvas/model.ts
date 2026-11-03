@@ -20,6 +20,7 @@ import {
   type DriverReading,
   type EpistemicLabel,
   type FutureReading,
+  type Labelled,
   type StatusTone,
   type ValidationItem,
 } from '../../../../../shared/decision';
@@ -71,6 +72,9 @@ export const GLANCE = {
   checks: 3,
   conditions: 2,
   reasons: 2,
+  /** What a decision about one person says of what the exploration can and cannot tell, before “more” is said. */
+  canTell: 1,
+  cannotTell: 1,
 } as const;
 
 /** What a change in a share is a change in: said wherever a figure of one stands, so that no figure is read as the world’s. */
@@ -100,6 +104,18 @@ export const COPY = {
   checklistLead:
     'Checks to do in the real world. Swarm does not track them: someone confirms them outside Swarm.',
   simulatedRole: 'Simulated role',
+  scopeLabel: 'What Swarm does not decide',
+  scopeMatched: 'Matched',
+  canTell: 'Can tell them',
+  cannotTell: 'Cannot tell them',
+  canTellDetail: 'What the exploration can tell them',
+  cannotTellDetail: 'What it cannot tell them',
+  scopeBridge: 'The note on what Swarm does not decide, above, applies to everything below.',
+  reviewTitle: 'Who reviews it, by matter',
+  scopeLimits:
+    'The rules read words and are not complete: a matter they miss is still a matter for a person.',
+  noScope:
+    'Nothing in the question or its framing points to a matter of employment, credit, legal, medical or safety. Swarm still does not make the decision.',
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -269,6 +285,24 @@ export function reasonsOf(canvas: DecisionCanvas): { label: string; lines: strin
   return conditions.length > 0
     ? { label: 'Conditions it holds under', lines: conditions.slice(0, GLANCE.conditions) }
     : { label: 'Why this status', lines: status.why.slice(0, GLANCE.reasons) };
+}
+
+/**
+ * What a decision about one person says, at a glance, of what the exploration can and cannot tell the person who
+ * decides: the first of each, and how many more the recommendation in full holds. Null for any other question.
+ */
+export function explorationOf(
+  canvas: DecisionCanvas,
+): { canTell: Labelled[]; cannotTell: Labelled[]; more: number } | null {
+  const { exploration } = canvas.scope;
+  if (!exploration) return null;
+  return {
+    canTell: exploration.canTell.slice(0, GLANCE.canTell),
+    cannotTell: exploration.cannotTell.slice(0, GLANCE.cannotTell),
+    more:
+      Math.max(0, exploration.canTell.length - GLANCE.canTell) +
+      Math.max(0, exploration.cannotTell.length - GLANCE.cannotTell),
+  };
 }
 
 /**

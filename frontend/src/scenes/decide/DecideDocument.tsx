@@ -63,6 +63,8 @@ export interface DocumentProps {
   go: { simulate: () => void; studio: () => void; report: () => void; ground: () => void };
   /** The decision view, which stands above the brief and has the page's title: the brief is then the full report beneath it. */
   before?: ReactNode;
+  /** The question is one that Swarm does not decide: the report beneath the decision view is read with that note. */
+  scoped?: boolean;
 }
 
 /**
@@ -82,6 +84,7 @@ export function DecideDocument({
   justWritten = false,
   go,
   before,
+  scoped = false,
 }: DocumentProps) {
   const { brief, visuals } = view;
   const toast = useToast();
@@ -339,7 +342,7 @@ export function DecideDocument({
         data-busy={generating || undefined}
       >
         {before}
-        {before ? <ReportBridge /> : null}
+        {before ? <ReportBridge scoped={scoped} /> : null}
         <DocBar
           shown={barShown}
           where={where}

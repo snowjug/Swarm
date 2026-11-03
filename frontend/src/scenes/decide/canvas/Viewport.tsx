@@ -19,6 +19,7 @@ import {
   checksOf,
   completenessOf,
   basisOf,
+  explorationOf,
   reasonsOf,
   constraintGlance,
   driverItems,
@@ -347,9 +348,11 @@ function Changes({ canvas, openDetail }: Props) {
                 <li key={view.id} data-reverses={view.couldChangeAnswer === true || undefined}>
                   <span className="sw-canvas-row__name">
                     {view.label}
-                    {view.couldChangeAnswer !== false && view.deltaVsBase !== null && (
-                      <span className="sw-canvas-row__sub">{words.flag}</span>
-                    )}
+                    {view.couldChangeAnswer !== false &&
+                      view.deltaVsBase !== null &&
+                      !canvas.scope.aboutIndividual && (
+                        <span className="sw-canvas-row__sub">{words.flag}</span>
+                      )}
                   </span>
                   <span className="sw-canvas-fig num">
                     {words.effect}
@@ -393,28 +396,54 @@ function Next({ canvas, openDetail }: Props) {
   const card = canvas.answer.recommendation;
   const done = completenessOf(card);
   const basis = basisOf(canvas);
+  const exploration = explorationOf(canvas);
   return (
     <>
       <p className="sw-canvas-next">
         {card.what.text} <LabelChip label={card.what.label} />
       </p>
-      <p className="sw-canvas-basis">
-        <strong>Rests on</strong> {basis.counts} <LabelChip label="fact" />
-        {basis.level && (
-          <>
-            {' '}
-            <span className="sw-canvas-flag">{basis.level}</span>
-          </>
-        )}
-      </p>
-      <p className="sw-canvas-complete" data-gaps={done.missing.length > 0 || undefined}>
-        <strong>
-          {done.stated} of {done.total} parts stated
-        </strong>
-        {done.missing.length > 0 ? ` · Missing: ${done.missing.join(', ')}` : ''}
-      </p>
+      {exploration ? (
+        <dl className="sw-canvas-tell">
+          <div>
+            <dt>{COPY.canTell}</dt>
+            {exploration.canTell.map((line) => (
+              <dd key={line.text}>
+                {line.text} <LabelChip label={line.label} />
+              </dd>
+            ))}
+          </div>
+          <div>
+            <dt>{COPY.cannotTell}</dt>
+            {exploration.cannotTell.map((line) => (
+              <dd key={line.text}>
+                {line.text} <LabelChip label={line.label} />
+              </dd>
+            ))}
+          </div>
+        </dl>
+      ) : (
+        <>
+          <p className="sw-canvas-basis">
+            <strong>Rests on</strong> {basis.counts} <LabelChip label="fact" />
+            {basis.level && (
+              <>
+                {' '}
+                <span className="sw-canvas-flag">{basis.level}</span>
+              </>
+            )}
+          </p>
+          <p className="sw-canvas-complete" data-gaps={done.missing.length > 0 || undefined}>
+            <strong>
+              {done.stated} of {done.total} parts stated
+            </strong>
+            {done.missing.length > 0 ? ` · Missing: ${done.missing.join(', ')}` : ''}
+          </p>
+        </>
+      )}
       <button type="button" className="sw-canvas-more" onClick={() => openDetail('recommendation')}>
-        The recommendation in full
+        {exploration && exploration.more > 0
+          ? `${plural(exploration.more, 'more thing')} in the recommendation in full`
+          : 'The recommendation in full'}
       </button>
     </>
   );

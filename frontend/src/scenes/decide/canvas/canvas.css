@@ -47,6 +47,51 @@
     font-size: var(--fs-small);
     line-height: 1.45;
   }
+  /* What Swarm does not decide: a calm note beside the title, in the free space of the line, or a line of its own when narrow. */
+  .sw-canvas-scope {
+    display: flex;
+    flex: 1 1 24rem;
+    align-items: flex-start;
+    gap: var(--s-2);
+    min-width: 0;
+    padding: 0.2rem 0 0.2rem var(--s-3);
+    border-left: 2px solid var(--accent);
+  }
+  .sw-canvas-scope__icon {
+    flex: none;
+    margin-top: 0.1rem;
+    color: var(--accent);
+  }
+  .sw-canvas-scope__text {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-small);
+    line-height: 1.4;
+  }
+  .sw-canvas-scope__domains {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem var(--s-1);
+    margin-left: var(--s-1);
+  }
+  .sw-canvas-scope__what {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sw-canvas-scope__domain {
+    padding: 0 0.45rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    color: var(--ink);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
   .sw-canvas-top__tools {
     display: flex;
     flex-wrap: wrap;
@@ -602,6 +647,34 @@
   .sw-canvas-complete strong {
     color: var(--ink);
   }
+  /* A decision about one person: what the exploration can and cannot tell the person who decides, one of each. */
+  .sw-canvas-tell {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+  }
+  .sw-canvas-tell > div {
+    display: grid;
+    gap: 0.1rem;
+    padding-left: var(--s-2);
+    border-left: 2px solid var(--hairline-strong);
+  }
+  .sw-canvas-tell > div:last-child {
+    border-left-color: var(--c-caution);
+  }
+  .sw-canvas-tell dt {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .sw-canvas-tell dd {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.4;
+  }
 
   /* ---- What to validate: a checklist --------------------------------------------------------------- */
   .sw-canvas-checks > li {
@@ -888,6 +961,18 @@
     .sw-canvas-missing,
     .sw-canvas-flagline {
       border-left-color: Highlight;
+    }
+    .sw-canvas-scope,
+    .sw-canvas-tell > div {
+      border-left-color: Highlight;
+    }
+    .sw-canvas-scope__icon {
+      color: CanvasText;
+    }
+    .sw-canvas-scope__domain {
+      border-color: CanvasText;
+      background: Canvas;
+      color: CanvasText;
     }
   }
 
