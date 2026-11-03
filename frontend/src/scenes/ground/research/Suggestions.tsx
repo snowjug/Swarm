@@ -17,6 +17,8 @@ export function Suggestions({ run }: { run: ResearchRun }) {
   const items = suggestionsOf(run);
   if (items.length === 0 || !research) return null;
   const { state, controls } = research;
+  const live = isLive(run.status);
+  const naming = items.some((item) => item.address);
 
   const add = async (key: string, address: string) => {
     setPending(key);
@@ -31,8 +33,17 @@ export function Suggestions({ run }: { run: ResearchRun }) {
         Suggestions
       </h3>
       <p className="sw-research-quiet sw-caption">
-        From the plan. Swarm reads a suggested site only when you add it
-        {isLive(run.status) ? ', which you can do once the research has stopped.' : '.'}
+        {naming ? (
+          <>
+            From the plan. Swarm reads a suggested site only when you add it
+            {live ? ', which you can do once the research has stopped.' : '.'}
+          </>
+        ) : (
+          <>
+            From the plan: the kinds of source worth looking for. Swarm reads a site or a page only
+            when one is named{live ? ', which you can do once the research has stopped.' : '.'}
+          </>
+        )}
       </p>
       <ul
         className="sw-research-suggest__list"

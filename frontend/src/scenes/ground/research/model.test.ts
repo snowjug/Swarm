@@ -172,6 +172,39 @@ describe('what the first screen is about', () => {
     expect(word('completed')).toBe('Researched');
     expect(statusWords({ kind: 'off' })).toBeNull();
   });
+
+  it('says that a search with nowhere to look needs a source, in no colour of trouble, and a refusal is blocked', () => {
+    const words = (stoppedBecause: 'discovery-unconfigured' | 'safety-block') =>
+      statusWords(
+        presenceOf({
+          enabled: true,
+          documents: 0,
+          view: view(
+            runningAt('finding-sources', { status: 'blocked', stoppedBecause, sources: [] }),
+          ),
+          loading: false,
+          error: null,
+        }),
+      );
+    expect(words('discovery-unconfigured')).toMatchObject({
+      label: 'Needs a source',
+      tone: 'neutral',
+      icon: null,
+    });
+    expect(words('safety-block')).toMatchObject({ label: 'Blocked', tone: 'caution' });
+    const held = stageItems(
+      runningAt('finding-sources', {
+        status: 'blocked',
+        stoppedBecause: 'discovery-unconfigured',
+      }),
+    );
+    expect(held[1]).toMatchObject({ state: 'blocked', calm: true });
+    expect(
+      stageItems(
+        runningAt('finding-sources', { status: 'blocked', stoppedBecause: 'safety-block' }),
+      )[1]!.calm,
+    ).toBeUndefined();
+  });
 });
 
 describe('what a person may do', () => {
@@ -361,6 +394,8 @@ describe('notices', () => {
       discovery,
     );
     expect(notice?.id).toBe('discovery-unconfigured');
+    // Something a person can put right, said calmly: it is information, not a warning.
+    expect(notice?.tone).toBe('info');
     expect(notice?.offers).toEqual(['add', 'manual']);
     expect(notice?.quoted).toBe(discovery.message);
     expect(notice?.body.join(' ')).toMatch(/does not search the web on its own/u);

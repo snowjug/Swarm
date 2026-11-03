@@ -33,6 +33,8 @@ export interface StageItem {
   state: StageState;
   /** What the run holds for this stage, or null where it holds nothing yet. */
   detail: string | null;
+  /** The stage is held for want of something a person can give, which is not a refusal: it is drawn calmly. */
+  calm?: true;
 }
 
 const HELD_AT: Partial<Record<ResearchStatus, StageState>> = {
@@ -127,6 +129,9 @@ export function stageItems(run: ResearchRun | null): StageItem[] {
       label: RESEARCH_STAGE_LABELS[id],
       state,
       detail: run ? detailOf(run, id, state) : null,
+      ...(state === 'blocked' && run?.stoppedBecause === 'discovery-unconfigured'
+        ? { calm: true as const }
+        : {}),
     };
   });
 }
@@ -250,7 +255,16 @@ export function statusWords(presence: Presence): StatusWords | null {
         case 'paused':
           return { key: 'paused', label: 'Paused', tone: 'caution', dot: false, icon: 'pause' };
         case 'blocked':
-          return { key: 'blocked', label: 'Blocked', tone: 'caution', dot: false, icon: 'alert' };
+          // A question with nowhere to look is waiting for a source, which a person can give: it is not a refusal.
+          return run.stoppedBecause === 'discovery-unconfigured'
+            ? {
+                key: 'needs-source',
+                label: 'Needs a source',
+                tone: 'neutral',
+                dot: false,
+                icon: null,
+              }
+            : { key: 'blocked', label: 'Blocked', tone: 'caution', dot: false, icon: 'alert' };
         case 'cancelled':
           return { key: 'cancelled', label: 'Stopped', tone: 'caution', dot: false, icon: 'stop' };
         case 'failed':
@@ -634,7 +648,7 @@ export function runNotice(run: ResearchRun, discovery: DiscoveryStatus): NoticeS
       if (run.stoppedBecause === 'discovery-unconfigured') {
         return {
           id: 'discovery-unconfigured',
-          tone: 'caution',
+          tone: 'info',
           title: 'Swarm cannot find sources from a question alone',
           body: [
             RESEARCH_STOP_LABELS['discovery-unconfigured'],

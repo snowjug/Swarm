@@ -25,10 +25,14 @@ const config = loadConfig({
   LOG_LEVEL: 'warn',
   RATE_LIMIT_SCALE: '100',
   AI_PROVIDER: 'none',
+  // For a page that is served by another server (the development server of the page) and reaches this one by a proxy.
+  ...(process.env.RESEARCH_E2E_ORIGINS
+    ? { ALLOWED_ORIGINS: process.env.RESEARCH_E2E_ORIGINS }
+    : {}),
 });
 // How research reaches the web is the application's test hook, `research.fetcher`: the crawler's own fetcher, with the
-// name lookup of this lab. Passed as a value, so that this file builds before the hook exists in the application.
-const options = {
+// name lookup of this lab.
+const options: Parameters<typeof buildApp>[0] = {
   config,
   repository: new Repository(':memory:'),
   urlFetcher: new PublicFetcher({ lookup: resolver }),

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CreateProjectInput } from '../../../shared/types';
 import { ApiError, api } from '../api';
 import { researchApi } from '../api/research';
+import { recalledIntake } from '../lib/research';
 import { run, view } from '../scenes/ground/research/fixtures';
 import { projectFixture } from '../test/project';
 import { useConsole } from './useConsole';
@@ -152,6 +153,11 @@ describe('a question that brings none', () => {
       message: expect.stringMatching(
         /could not start researching\. Research is switched off on this server\..*“Start research”/u,
       ),
+    });
+    // The server keeps nothing of what was asked, so the page does, for the start that follows.
+    expect(recalledIntake('new-project')).toEqual({
+      auto: true,
+      guidance: 'Harbour office rules only',
     });
   });
 

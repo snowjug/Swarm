@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ResearchView } from '../../../shared/research';
 import { ApiError, request } from '../api';
 import { researchApi } from '../api/research';
+import { rememberIntake } from '../lib/research';
 import { completed, run, runningAt, view } from '../scenes/ground/research/fixtures';
 import { RESEARCH_BACKOFF_MS, RESEARCH_POLL_MS, nextReadIn, useResearch } from './useResearch';
 
@@ -78,6 +79,44 @@ describe('reading', () => {
     await tick(30_000);
     expect(get).toHaveBeenCalledTimes(3);
     expect(onSettled).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads a run that has just ended a few times more, until the server lets another be started, and then stops', async () => {
+    const ended = (start: boolean) =>
+      view(
+        run({
+          status: 'cancelled',
+          stoppedBecause: 'cancelled',
+          finishedAt: new Date().toISOString(),
+        }),
+        { may: { start, pause: false, cancel: false } },
+      );
+    const get = vi
+      .spyOn(researchApi, 'get')
+      .mockResolvedValueOnce(ended(false))
+      .mockResolvedValueOnce(ended(false))
+      .mockResolvedValue(ended(true));
+    const { result } = renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    expect(result.current.view?.may.start).toBe(false);
+    await tick(RESEARCH_POLL_MS.live);
+    await tick(RESEARCH_POLL_MS.live);
+    expect(result.current.view?.may.start).toBe(true);
+    expect(get).toHaveBeenCalledTimes(3);
+    await tick(30_000);
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not keep reading an old run that the server lets nothing be done to', async () => {
+    const get = vi.spyOn(researchApi, 'get').mockResolvedValue(
+      view(run({ status: 'completed', finishedAt: '2026-01-01T10:00:00.000Z' }), {
+        may: { start: false, pause: false, cancel: false },
+      }),
+    );
+    renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    await tick(30_000);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the view it has when a read fails, says so, tries again more slowly, and is whole again when one succeeds', async () => {
@@ -237,6 +276,90 @@ describe('what a person asks of it', () => {
       kind: 'add-source',
       message: 'Research is already running for this project.',
     });
+  });
+
+  it('adds text a person pasted, tells the page that the project changed, and reads the run again', async () => {
+    const get = vi.spyOn(researchApi, 'get').mockResolvedValue(done());
+    const add = vi.spyOn(researchApi, 'addDocuments').mockResolvedValue(undefined);
+    const onChanged = vi.fn();
+    const { result } = renderHook(() => useResearch('p1', { enabled: true, onChanged }));
+    await tick();
+    let ok = false;
+    await act(async () => {
+      ok = await result.current.addDocuments([{ name: 'note.txt', content: 'x'.repeat(100) }]);
+    });
+    expect(ok).toBe(true);
+    expect(add).toHaveBeenCalledWith(
+      'p1',
+      [{ name: 'note.txt', content: 'x'.repeat(100) }],
+      expect.any(AbortSignal),
+    );
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    await tick();
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(result.current.working).toBeNull();
+  });
+
+  it('says why text was refused, in the server’s words, and keeps asking nothing more of it', async () => {
+    vi.spyOn(researchApi, 'get').mockResolvedValue(done());
+    vi.spyOn(researchApi, 'addDocuments').mockRejectedValue(
+      new ApiError('This project already holds 10 sources.', 'DOCUMENT_LIMIT'),
+    );
+    const { result } = renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.addDocuments([{ name: 'note.txt', content: 'x'.repeat(100) }]);
+    });
+    expect(ok).toBe(false);
+    expect(result.current.problem).toMatchObject({
+      kind: 'add-documents',
+      message: 'This project already holds 10 sources.',
+    });
+  });
+
+  it('repeats what was asked of the run before, since the server keeps none of it, when a run is started again', async () => {
+    const intake = { auto: true, domain: 'harbour.example.org', guidance: 'Winter only' };
+    vi.spyOn(researchApi, 'get').mockResolvedValue(view(run({ status: 'failed', intake })));
+    const start = vi.spyOn(researchApi, 'start').mockResolvedValue(live());
+    const { result } = renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(start).toHaveBeenCalledWith('p1', { intake }, expect.any(AbortSignal));
+    // What is said in the call is what is sent.
+    await act(async () => {
+      await result.current.start({ intake: { auto: true } });
+    });
+    expect(start).toHaveBeenLastCalledWith(
+      'p1',
+      { intake: { auto: true } },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('repeats what the page that made the project asked, for a start that follows one that did not get through', async () => {
+    rememberIntake('p-made', { auto: true, url: 'https://harbour.example.org/fees' });
+    vi.spyOn(researchApi, 'get').mockResolvedValue(view(null));
+    const start = vi.spyOn(researchApi, 'start').mockResolvedValue(live());
+    const { result } = renderHook(() => useResearch('p-made', { enabled: true }));
+    await tick();
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(start).toHaveBeenCalledWith(
+      'p-made',
+      { intake: { auto: true, url: 'https://harbour.example.org/fees' } },
+      expect.any(AbortSignal),
+    );
+    // A project that was not made on this page has nothing to repeat, and asks for nothing.
+    const other = renderHook(() => useResearch('p-other', { enabled: true }));
+    await tick();
+    await act(async () => {
+      await other.result.current.start();
+    });
+    expect(start).toHaveBeenLastCalledWith('p-other', {}, expect.any(AbortSignal));
   });
 
   it('says why a request was refused, and reads again so that the page shows what is true', async () => {

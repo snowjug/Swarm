@@ -15,6 +15,7 @@ import type {
 import { api, ApiError, errorMessage } from '../api';
 import { researchApi } from '../api/research';
 import { keepLab, needsPolling } from '../lib/console';
+import { rememberIntake } from '../lib/research';
 
 interface Resource<T> {
   data: T | null;
@@ -240,6 +241,7 @@ export function useConsole() {
       const project = await api.create({ ...input, workflow: 'guided' }, signal);
       if (signal.aborted) return;
       put(project);
+      rememberIntake(project.id, input.research);
       // A question with no source of its own is made from what research finds: its research is what starts, and the
       // run exists by the time the page that shows it opens.
       if (input.documents.length === 0 && input.research?.auto === true) {

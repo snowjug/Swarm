@@ -1,4 +1,4 @@
-import { ClipboardPaste, RotateCw } from 'lucide-react';
+import { RotateCw } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ResearchRun } from '../../../../../shared/research';
 import { useWorkspace } from '../../../app/context';
@@ -9,6 +9,7 @@ import { plural } from '../model';
 import { SectionHead } from '../SectionHead';
 import { AddSource } from './AddSource';
 import { Limits } from './Limits';
+import { Manual } from './Manual';
 import { Pages, type PageActions } from './Pages';
 import { Plan } from './Plan';
 import { Stages } from './Stages';
@@ -25,29 +26,6 @@ import {
   type Age,
 } from './model';
 import './research.css';
-
-/** Where a person who has no source but the ones they could bring is sent: the question, with room to add them. */
-function Manual() {
-  const { duplicate, busy } = useWorkspace();
-  return (
-    <div className="sw-research-manual">
-      <h3 className="sw-research-sub">Use sources of your own</h3>
-      <p className="sw-research-quiet sw-caption">
-        Open the question again to paste text, attach files or add pages. Swarm reads what you give
-        it, and your question comes with you.
-      </p>
-      <Button
-        variant="glass"
-        size="sm"
-        icon={<ClipboardPaste size={15} aria-hidden="true" />}
-        disabled={busy}
-        onClick={duplicate}
-      >
-        Open the question to add sources
-      </Button>
-    </div>
-  );
-}
 
 /** What the run is doing now, in the words it last said, or when it ended and why. */
 function RunLine({ run }: { run: ResearchRun }) {
@@ -257,7 +235,11 @@ export function ResearchSection() {
   const run = presence.kind === 'run' ? presence.run : null;
   const aged = run ? agedBy(run, now) : null;
   const words = statusWords(presence);
-  const failed = state.problem && state.problem.kind !== 'add-source' ? state.problem : null;
+  // What was refused beside a field (a site named, text added) is said there, and not a second time here.
+  const failed =
+    state.problem && state.problem.kind !== 'add-source' && state.problem.kind !== 'add-documents'
+      ? state.problem
+      : null;
   return (
     <section
       className="sw-ground__section sw-research"

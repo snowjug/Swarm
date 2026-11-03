@@ -26,6 +26,7 @@ import {
 
 const CONFIG = {
   research: { enabled: true, discovery: NO_PROVIDER, budget: DEFAULT_RESEARCH_BUDGET },
+  capabilities: { pdf: false },
 } as unknown as AppConfig;
 
 /** A project that was made from a question alone: no sources, no graph, and the engine's step at `step`. */
@@ -314,15 +315,20 @@ describe('a search from a question alone that cannot go on', () => {
       }),
     );
 
-  it('says so plainly, with the server’s own words, and gives the manual ways on', async () => {
-    const { user, workspace } = open(blocked(), { project: questionOnly('cancelled') });
+  it('says so plainly and calmly, with the server’s own words, and gives the manual ways on', async () => {
+    const { user } = open(blocked(), { project: questionOnly('cancelled') });
     await screen.findByRole('list', { name: 'Research progress' });
-    expect(chip()?.textContent).toBe('Blocked');
+    // Waiting for a source that a person can give is not a refusal, and is not drawn as one.
+    expect(chip()?.textContent).toBe('Needs a source');
+    expect(document.querySelector('.sw-notice--info')?.textContent).toContain(
+      'Swarm cannot find sources from a question alone',
+    );
     const text = document.body.textContent ?? '';
     expect(text).toContain('Swarm cannot find sources from a question alone');
     expect(text).toContain('does not search the web on its own');
     expect(text).toContain(NO_PROVIDER.message);
     expect(stageNamed('Finding sources').getAttribute('data-state')).toBe('blocked');
+    expect(stageNamed('Finding sources').getAttribute('data-calm')).toBe('true');
     expect(stageNamed('Finding sources').textContent).toContain('Needs a search provider');
     // Nothing was read, and the page does not pretend a list of pages.
     expect(screen.queryByRole('list', { name: 'Pages' })).toBeNull();
@@ -336,7 +342,70 @@ describe('a search from a question alone that cannot go on', () => {
     expect(document.activeElement).toBe(
       screen.getByRole('textbox', { name: 'Site or page to add' }),
     );
-    // Sources of one's own: the question again, with room for them.
+    // Sources of one's own are pasted or attached here.
+    expect(screen.getByRole('button', { name: 'Paste or attach' })).toBeTruthy();
+  });
+
+  const TEXT =
+    'Illustrative note written for a test. The ferry operator says that evening crossings are the least used, and that a cut in fares might fill them.';
+
+  async function paste(user: ReturnType<typeof open>['user'], name = 'operator-note.txt') {
+    await user.click(screen.getByRole('button', { name: 'Paste or attach' }));
+    await user.click(await screen.findByRole('radio', { name: 'Paste' }));
+    const filename = await screen.findByRole('textbox', { name: 'Source filename' });
+    await user.clear(filename);
+    await user.type(filename, name);
+    await user.click(screen.getByRole('textbox', { name: 'Source text, not your question' }));
+    await user.paste(TEXT);
+    await user.click(screen.getByRole('button', { name: 'Attach' }));
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+  }
+
+  it('adds text a person pastes as a source of the project, as it was written, and reads the project again', async () => {
+    const add = vi.spyOn(researchApi, 'addDocuments').mockResolvedValue(undefined);
+    const { user, workspace } = open(blocked(), { project: questionOnly('cancelled') });
+    await screen.findByRole('list', { name: 'Research progress' });
+    await paste(user);
+    const listed = screen.getByRole('list', { name: 'Sources to add' });
+    expect(listed.textContent).toContain('operator-note.txt');
+    expect(add).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Use this source' }));
+    // The text goes as it is, with a name: no address, no time, nothing that says it was read from the web.
+    expect(add).toHaveBeenCalledWith(
+      expect.any(String),
+      [expect.objectContaining({ name: 'operator-note.txt', content: TEXT })],
+      expect.any(AbortSignal),
+    );
+    expect(Object.keys(add.mock.calls[0]![1][0]!).sort()).toEqual(['content', 'name']);
+    await waitFor(() => expect(workspace.refresh).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole('list', { name: 'Sources to add' })).toBeNull());
+  });
+
+  it('keeps what was pasted, and says why, when the server will not take it', async () => {
+    vi.spyOn(researchApi, 'addDocuments').mockRejectedValue(
+      new ApiError(
+        'This project already holds 10 sources, the most it can. Remove one first.',
+        'DOCUMENT_LIMIT',
+      ),
+    );
+    const { user } = open(blocked(), { project: questionOnly('cancelled') });
+    await screen.findByRole('list', { name: 'Research progress' });
+    await paste(user);
+    await user.click(screen.getByRole('button', { name: 'Use this source' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('already holds 10 sources');
+    expect(screen.getByRole('list', { name: 'Sources to add' }).textContent).toContain(
+      'operator-note.txt',
+    );
+  });
+
+  it('sends a person who cannot add here to the question again, with room for sources', async () => {
+    const { user, workspace } = open(
+      { ...blocked(), may: { start: false, pause: false, cancel: false } },
+      { project: questionOnly('running') },
+    );
+    await screen.findByRole('list', { name: 'Research progress' });
+    expect(screen.queryByRole('button', { name: 'Paste or attach' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Open the question to add sources' }));
     expect(workspace.duplicate).toHaveBeenCalledTimes(1);
   });

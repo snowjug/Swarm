@@ -1,10 +1,10 @@
-import { Ban, Check, Pause, Square, X } from 'lucide-react';
+import { Ban, Check, Pause, Search, Square, X } from 'lucide-react';
 import type { ResearchRun } from '../../../../../shared/research';
 import { Orbit } from '../../../design/ui';
 import { vars } from '../css';
 import { STAGE_STATE_WORDS, stageItems, type StageState } from './model';
 
-function Mark({ state }: { state: StageState }) {
+function Mark({ state, calm }: { state: StageState; calm: boolean }) {
   switch (state) {
     case 'done':
       return <Check size={14} strokeWidth={2.5} />;
@@ -13,7 +13,7 @@ function Mark({ state }: { state: StageState }) {
     case 'paused':
       return <Pause size={13} strokeWidth={2.5} />;
     case 'blocked':
-      return <Ban size={14} strokeWidth={2.25} />;
+      return calm ? <Search size={13} strokeWidth={2.25} /> : <Ban size={14} strokeWidth={2.25} />;
     case 'stopped':
       return <Square size={11} strokeWidth={2.5} />;
     case 'failed':
@@ -38,17 +38,20 @@ export function Stages({ run }: { run: ResearchRun | null }) {
           className="sw-research-stage"
           data-state={item.state}
           data-stage={item.id}
+          data-calm={item.calm}
           style={vars({ '--i': index })}
           aria-current={item.state === 'active' ? 'step' : undefined}
         >
           <span className="sw-research-stage__mark" aria-hidden="true">
-            <Mark state={item.state} />
+            <Mark state={item.state} calm={item.calm === true} />
           </span>
           <span className="sw-research-stage__line" aria-hidden="true" />
           <span className="sw-research-stage__text">
             <span className="sw-research-stage__label">
               {item.label}
-              <span className="sr-only">, {STAGE_STATE_WORDS[item.state]}</span>
+              <span className="sr-only">
+                , {item.calm ? 'needs a source' : STAGE_STATE_WORDS[item.state]}
+              </span>
             </span>
             <span className="sw-research-stage__detail num">{item.detail ?? ' '}</span>
           </span>
