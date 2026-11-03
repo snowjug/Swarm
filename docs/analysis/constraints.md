@@ -19,11 +19,12 @@ gate result (`coverage`), the open and answered `clarifications`, how it was mad
 user, and a `note` that says so in words), and the scenario and actors revisions it was read against.
 Artifact `constraint-counterfactuals` holds the last run of the seven views.
 
-A constraint has: `id`, `category` (one of 28), `statement`, `source`, `evidenceRefs`, `hardness`,
-`scope`, `affectedActorIds`, `affectedAlternativeIds`, `window` (rounds and the person's own words),
-`severity`, `confidenceBasis` and `uncertainty`, `validation`, `conflict`, `impactIfViolated`,
-`assumptionId` (a scenario assumption it holds only while that assumption holds), `mitigations`,
-`enforcement`, `effects`, `consideredIn`, `review` and a `note`.
+A constraint has: `id`, `category` (one of 28), `statement`, `source`, `evidenceRefs`, `hardness` and
+`hardnessBasis` (why it is held hard or soft, in words checkable against the source), `scope`,
+`affectedActorIds`, `affectedAlternativeIds`, `window` (rounds and the person's own words), `severity`,
+`confidenceBasis` and `uncertainty`, `validation`, `conflict`, `impactIfViolated`, `assumptionId` (a scenario
+assumption it holds only while that assumption holds), `mitigations`, `enforcement`, `effects`,
+`consideredIn`, `review` and a `note`.
 
 | Field          | Values                                                           | Who sets it                                                                                                      |
 | -------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -34,8 +35,8 @@ A constraint has: `id`, `category` (one of 28), `statement`, `source`, `evidence
 | `consideredIn` | `gate`, `critic`, `counterfactual`, `analysis-record`            | The server, from what happened to an interpretive constraint. Never typed.                                       |
 | `review`       | `proposed`, `accepted`, `edited`, `added`, `removed`, `excluded` | A person. `removed` and `excluded` stay in the set so that the review can be audited.                            |
 
-At most 60 constraints, 20 clarifications (three are put to a person at a time) and three effects on one
-constraint.
+At most 60 constraints, 20 clarifications (never more than three open at once in the whole set) and three
+effects on one constraint.
 
 ## Where a constraint comes from
 
@@ -44,9 +45,14 @@ cast and who is involved. A model reads the sources as well when the person choo
 
 - **Rules.** A sentence is read as a limit where words that name what is limited (money, time, capacity,
   law, privacy, a dependence, an order of work, and so on) and words that limit it (an obligation, a
-  ceiling, a condition, a shortage) stand in one clause. The quote is the sentence as written. A sentence
-  that gives a share of people is a count, not a limit, unless it states an obligation. A sentence that
-  says a limit is not settled ("has not been defined") becomes a question, not a constraint.
+  ceiling, a condition, a shortage) stand in one clause. A clause that names what is limited and says no
+  limit is read with the clause that goes on from it ("…, so staff cannot…", "…, and some require notice").
+  A sentence that states an obligation, a ban, a right or a restricted use and names nothing at all is still
+  a limit, on something its words do not say: it is kept, filed under a category guessed from what it is about
+  (and told so on the constraint), never from a floor, an exception or a date alone. A heading states no limit.
+  The quote is the sentence as written. A sentence that gives a share of people is a count, not a limit,
+  unless it states an obligation. A sentence that says a limit is not settled ("has not been defined")
+  becomes a question, not a constraint.
 - **A model.** `runStructuredTask` with role `scenario`, a strict `ProposedConstraints` v1 schema and the
   server's own checks, one correction round, then the rules' answer. The schema has no field for source,
   validation or effects: none of that is for a model to say. A quote it cites is kept only if the server
@@ -59,12 +65,38 @@ cast and who is involved. A model reads the sources as well when the person choo
 
 How a constraint is labelled follows from where its words are:
 
-| Words came from                                                  | `source`    | `hardness`                                                          |
-| ---------------------------------------------------------------- | ----------- | ------------------------------------------------------------------- |
-| The question, the scenario, a scenario assumption a person wrote | `user`      | Hard only where the words say so (a requirement, a ban, a ceiling). |
-| A source passage, with the quote found in it                     | `extracted` | Hard only where the quoted words are hard words.                    |
-| Who is involved (a regulator, a partner, an owner of operations) | `inferred`  | Always soft. No source or person has said it holds.                 |
-| A model, with a quote the server could not find                  | `inferred`  | Always soft.                                                        |
+| Words came from                                                  | `source`    | `hardness`                                                                               |
+| ---------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------- |
+| The question, the scenario, a scenario assumption a person wrote | `user`      | Hard only where the words state a limit that holds (a requirement, a ban, a ceiling).    |
+| A source passage, with the quote found in it                     | `extracted` | Hard where the quoted clause states a limit that holds; a model may raise it, see below. |
+| Who is involved (a regulator, a partner, an owner of operations) | `inferred`  | Always soft. No source or person has said it holds.                                      |
+| A model, with a quote the server could not find                  | `inferred`  | Always soft.                                                                             |
+
+### Hardness is a proposal, with a basis
+
+Hardness is the server's reading of the quoted words, and a person can change it (a change replaces the
+basis with "you set it to …"). The basis is stored in `hardnessBasis` and shown in the "Where from" popover:
+"Hard because the source says ‘must’", "Soft: the source says ‘at least’, but as something someone asks for,
+which is not a rule".
+
+A cue word makes a limit hard only if its clause asserts it. The cues are families (`backend/src/constraints/cues.ts`):
+an obligation (must, have to, needs … approval, needs X before Y), a prohibition (must not, may not, cannot,
+no one may), a ceiling or a floor (at most, capped, will not … above $N, at capacity), a condition (only when,
+unless, used only for), a binding source (by law, a right to, contractually), and a fixed date (a deadline or a
+contract end that names its day). Not read as limits that hold (`deontic.ts`): what is asked for, proposed,
+hoped or feared (a clause that explains it is read under it); what a party says it feels or supposes ("families
+say they cannot always arrive", "assumed it applied only to"); a possibility ("may need to"), a usual case
+("typically") or a condition ("if it cannot"); a denial ("not required", "does not have to"); a warning on how
+to read ("must not be assumed", "cannot say"); and a finding about a group or a past measure ("at least 40% of
+visitors said", "rose by at most 3%"). "Should", "ideally", "prefer" and "would like" never make a limit hard.
+
+A model's `hardness` is a suggestion. It can raise a source's limit to hard only if the quote has a word of
+limits (a limit, a notice, a deadline, a capacity, a term of an agreement) and nothing in it asks, hedges,
+denies or says it is not known; the basis then says "a model read it as a firm limit, and the source's words
+(…) bear that out". It never lowers a limit the words state, and it can never make a wish, a bare fact or a
+guess a limit that blocks a run. The reason it is not simply trusted: a hard legal, regulatory or safety
+constraint that nobody has validated blocks a run at the gate, so a wrongly hard one costs more than a
+wrongly soft one, and a reply that called everything hard ("inflated hardness") must not be able to do that.
 
 Nothing proposed is reviewed, validated or applied by being proposed. Reading again adds only what is new
 and never undoes what a person decided; an edited constraint is not proposed again under its old words.
@@ -192,10 +224,15 @@ statement or a quote.
   constraint that cites a passage which passes verification is `extracted` and `unvalidated`: a person still
   has to confirm it, and a source can say something false.
 - **That nothing is missing.** The rules read the common ways a limit is put; a limit they have no word for is
-  not found, and a clear gate says only that what was found is confirmed. The questions are a table of what
-  can limit a decision, asked where something in the question, scenario or cast gives a reason to. Which
-  limits "materially change the outcome" is judged from the kind of limit and whether the cast can express it,
-  not measured; the measured version is the leave-one-out above.
+  not found, and a clear gate says only that what was found is confirmed. A question follows what the
+  situation points to (`situation.ts`): the cast, the roles and settings the question and the sources name,
+  and what a section of the sources is headed, where nothing in the project holds or asks that kind of
+  limit; what a source says is unsettled comes first, then what a model asked, then the kinds every decision
+  has (money, time, undoing it) where the situation points to nothing more. Each says what pointed to it.
+  Never more than three are open in the whole set: what was left out waits for the next reading, when an
+  answer has made room. A lexical reading of who is involved and what is headed finds some of what is
+  missing and misses the rest. Which limits "materially change the outcome" is judged from the kind of limit
+  and whether the cast can express it, not measured; the measured version is the leave-one-out above.
 - **Everything a limit does.** Only the effects above are applied. Hard constraints without one are read and
   said so on the comparison, and a violation is found only for an explicit hard `block`: a limit stated in
   words is not tested against the outcome.
