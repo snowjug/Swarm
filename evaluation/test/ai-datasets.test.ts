@@ -178,6 +178,7 @@ describe('the site fixtures', () => {
   const context = {
     fragments: sites.fragments,
     urlOf: (id: string) => `http://example.test:1/${id}`,
+    port: 1,
   };
   const html = (page: SitePage, hops = 0): string | null => {
     const response = page.response;
@@ -279,7 +280,8 @@ describe('the site fixtures', () => {
       expect(failure !== null, `${page.id} failure`).toBe(
         outcome === 'failed' || outcome === 'blocked',
       );
-      if (outcome === 'used' && page.group !== 'G6')
+      // Duplicates (G6) and injected pages (G4) are not there to test classification.
+      if (outcome === 'used' && page.group !== 'G6' && page.group !== 'G4')
         expect(page.gold.category, page.id).not.toBeNull();
     }
   });

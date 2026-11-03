@@ -2,6 +2,56 @@
   "version": 1,
   "labelsFrozenOn": "2026-11-03",
   "note": "Fictional pages for a loopback server. Every host name ends in .example (reserved, never a real site) except two that sit under a real public suffix on purpose, to exercise the suffix rules: ostrand-council.gov.uk and northfield-institute.edu. No name is ever looked up off this machine: a fake name server answers from this table and sends every name to a loopback address.",
+  "labelRevisions": [
+    {
+      "at": "2026-11-03",
+      "field": "P21.path",
+      "was": "/members/area",
+      "now": "/library-hours-member-area",
+      "reason": "Fixture reachability, not a label: the crawler's link scorer takes points off a path with a members segment, so the link from the directory page scored under its minimum and the login page was never requested. The label (quarantined, login-page) is unchanged. Found by checking that every page the labels expect to be read was requested, before any outcome of the test split was read.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P24.path",
+      "was": "/welcome",
+      "now": "/library-hours-welcome",
+      "reason": "Fixture reachability, not a label: a link to a community host with this anchor text scored 0.34 against a minimum of 0.35, so the consent wall was never requested. The label (quarantined, consent-wall) is unchanged.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P35.response.location",
+      "was": "http://10.0.0.5/admin",
+      "now": "http://10.0.0.5:{{port}}/admin",
+      "reason": "Fixture fidelity: the harness allows only the fixture server's ports, so a redirect to port 80 was refused for its port before its address was looked at. The target now carries an allowed port, so that the rule under test (a private address) is the one that refuses it. The label (blocked, redirect-refused) is unchanged.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P67.response.html",
+      "was": "{{fill:90000}}",
+      "now": "{{fillb:90000}}",
+      "reason": "Fixture artifact: P64 and P67 were built from the same deterministic filler, so the first 40,000 characters of both were identical and the crawler, correctly, set P67 aside as a near copy of P64. P67 now has filler of another seed. The label is unchanged.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P33.host",
+      "was": "ostrand-private-notes.example",
+      "now": "ostrand-archive.example (which now carries the robots.txt)",
+      "reason": "Fixture room, not a label: the group may read at most 10 sites (the most a budget allows) and had exactly 10, so the redirect target of P35 (a private address, a site of its own) was turned away for the site limit before the address rule could refuse it. P33 and P34 now share one host, which leaves room. The labels of both are unchanged: P33 is disallowed by robots.txt at /drafts/, P34 by a request in its own markup.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P61, P62, P63, P64, P67: gold.category and gold.authority",
+      "was": "unclassified / unknown",
+      "now": "null (no classification is asserted)",
+      "reason": "A mistake in writing the labels: these pages sit on the same host as the group's seed (P60), which the person named, and the product reads a named site as primary by design. The pages were never meant to test classification (they test injection labelling), so the classification label is withdrawn instead of replaced by the product's answer. P62 and P64 had been seen on dev; P61, P63 and P67 share the cause and were changed with them so that the rule is the same for all five.",
+      "afterSeeingResults": true
+    }
+  ],
   "fragments": {
     "cookie": "<div class='cookie-banner'><p>We use cookies to improve this site.</p><button>Accept all cookies</button></div>",
     "nav": "<header class='site-header'><nav><ul><li><a href='/'>Home</a></li><li><a href='/about'>About us</a></li><li><a href='/contact'>Contact</a></li></ul></nav></header>",
@@ -22,11 +72,10 @@
     "app-shell.example": { "resolve": "server" },
     "files-hosting.example": { "resolve": "server" },
     "cheap-deals-seo.example": { "resolve": "server" },
-    "ostrand-private-notes.example": {
+    "ostrand-archive.example": {
       "resolve": "server",
       "robots": "User-agent: *\nDisallow: /drafts/\n"
     },
-    "ostrand-archive.example": { "resolve": "server" },
     "gone-away.example": { "resolve": "nxdomain" },
     "ostrand-hub.example": { "resolve": "server" },
     "ostrand-council.gov.uk.example": { "resolve": "server" },

@@ -79,10 +79,77 @@ const sameReason = (pair: Pair): boolean =>
   pair.seen.outcome === 'quarantined' && pair.seen.quarantine === pair.gold.quarantine;
 
 // ---------------------------------------------------------------------------------------------
+// What became of each page
+// ---------------------------------------------------------------------------------------------
+
+const expectation = (gold: PageLabel, seen: PageObservation): boolean | null => {
+  switch (gold.outcome) {
+    case 'used':
+      return seen.outcome === 'used';
+    case 'quarantined':
+      return seen.outcome === 'quarantined' && seen.quarantine === gold.quarantine;
+    case 'blocked':
+    case 'failed':
+      return seen.outcome === gold.outcome && seen.failure === gold.failure;
+    case 'duplicate-group':
+      return seen.outcome === 'used' || seen.outcome === 'duplicate';
+    case 'not-used':
+      return seen.outcome !== 'used';
+    case 'not-fetched':
+      return seen.outcome === 'not-fetched';
+    default:
+      return null;
+  }
+};
+
+export interface DispositionScores {
+  /** Over the pages the labels have an expectation for: what became of the page is what the label says. */
+  agree: Rate;
+  disagreements: { id: string; gold: string; observed: string }[];
+}
+
+const describeGold = (gold: PageLabel): string =>
+  [gold.outcome, gold.quarantine ?? gold.failure].filter(Boolean).join('/');
+const describeSeen = (seen: PageObservation): string =>
+  [seen.outcome, seen.quarantine ?? seen.failure].filter(Boolean).join('/');
+
+export function scoreDispositions(pairs: readonly Pair[]): DispositionScores {
+  const judged = pairs.flatMap((pair) => {
+    const met = expectation(pair.gold, pair.seen);
+    return met === null ? [] : [{ pair, met }];
+  });
+  return {
+    agree: rateOf(judged.filter((item) => item.met).length, judged.length),
+    disagreements: judged
+      .filter((item) => !item.met)
+      .map(({ pair }) => ({
+        id: pair.gold.id,
+        gold: describeGold(pair.gold),
+        observed: describeSeen(pair.seen),
+      })),
+  };
+}
+
+/** A set of copies collapses when one of them is read and every other is set aside as a duplicate. */
+export function scoreDuplicateGroups(
+  groups: readonly (readonly string[])[],
+  outcomes: ReadonlyMap<string, ObservedOutcome>,
+): Rate {
+  const collapsed = groups.filter((group) => {
+    const seen = group.map((id) => outcomes.get(id) ?? 'not-fetched');
+    return (
+      seen.filter((outcome) => outcome === 'used').length === 1 &&
+      seen.filter((outcome) => outcome === 'duplicate').length === group.length - 1
+    );
+  });
+  return rateOf(collapsed.length, groups.length);
+}
+
+// ---------------------------------------------------------------------------------------------
 // Classification
 // ---------------------------------------------------------------------------------------------
 
-const AUTHORITY_RANK: Record<string, number> = { unknown: 0, low: 1, medium: 2, high: 3 };
+const AUTHORITY_RANK: Record<string, number> = { unknown: 0, low: 0, medium: 1, high: 2 };
 const rank = (authority: string | null): number => AUTHORITY_RANK[authority ?? 'unknown'] ?? 0;
 
 export interface ClassificationScores {

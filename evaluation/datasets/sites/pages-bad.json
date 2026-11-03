@@ -30,7 +30,7 @@
       "split": "test",
       "group": "G2",
       "host": "ostrand-ledger.example",
-      "path": "/members/area",
+      "path": "/library-hours-member-area",
       "via": "link",
       "response": {
         "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Members area | The Ostrand Ledger</title></head><body><main><h1>Members area</h1><p>Enter your details to continue to the library hours archive.</p><form action='/session' method='post'><label>Email <input type='email' name='email'></label><label>Password <input type='password' name='password'></label><button>Sign in</button></form><p><a href='/forgot'>Forgot your password?</a></p></main></body></html>"
@@ -102,7 +102,7 @@
       "split": "dev",
       "group": "G2",
       "host": "forum.ostrand-talk.example",
-      "path": "/welcome",
+      "path": "/library-hours-welcome",
       "via": "link",
       "response": {
         "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Ostrand Talk</title></head><body><div class='cookie-consent' role='dialog'><h2>We value your privacy</h2><p>We and our partners use cookies and similar technologies to store and access information on your device. Accept all cookies to continue, or manage your preferences.</p><button>Accept all</button><button>Manage preferences</button><button>Reject all</button></div></body></html>"
@@ -320,7 +320,7 @@
       "id": "P33",
       "split": "test",
       "group": "G2",
-      "host": "ostrand-private-notes.example",
+      "host": "ostrand-archive.example",
       "path": "/drafts/library-hours",
       "via": "link",
       "response": {
@@ -371,7 +371,7 @@
       "host": "ostrand-ledger.example",
       "path": "/go/library-hours-partner",
       "via": "link",
-      "response": { "status": 302, "location": "http://10.0.0.5/admin", "html": "" },
+      "response": { "status": 302, "location": "http://10.0.0.5:{{port}}/admin", "html": "" },
       "gold": {
         "outcome": "blocked",
         "quarantine": null,

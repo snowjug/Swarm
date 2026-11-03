@@ -38,6 +38,8 @@ import {
   lineState,
   scoreClassification,
   scoreDiversity,
+  scoreDispositions,
+  scoreDuplicateGroups,
   scoreExtraction,
   scoreInjectionLabelling,
   scoreQuarantine,
@@ -439,13 +441,73 @@ describe('sources', () => {
         label('C5', { category: 'primary', authority: 'high' }),
         seen('C5', { outcome: 'failed' }),
       ),
+      // An estimate of low is not more authority than none.
+      pair(
+        label('C6', { category: 'unclassified', authority: 'unknown' }),
+        seen('C6', { category: 'research-publication', authority: 'low' }),
+      ),
     ]);
-    expect(scores.exact).toMatchObject({ successes: 1, total: 4 });
-    expect(scores.category).toMatchObject({ successes: 2, total: 4 });
-    expect(scores.notOverclaimed).toMatchObject({ successes: 2, total: 4 });
+    expect(scores.exact).toMatchObject({ successes: 1, total: 5 });
+    expect(scores.category).toMatchObject({ successes: 2, total: 5 });
+    expect(scores.notOverclaimed).toMatchObject({ successes: 3, total: 5 });
     expect(scores.overclaims.map((item) => item.id)).toEqual(['C3', 'C4']);
     expect(scores.hostileGovernmentHigh).toEqual({ count: 1, of: 2, ids: ['C4'] });
     expect(scores.hostileOverclaimed).toMatchObject({ successes: 2, total: 2 });
+  });
+
+  it('scores what became of each page, leaving out hubs and targets', () => {
+    const outcome = (id: string, gold: Partial<PageLabel>, observed: Partial<PageObservation>) =>
+      pair(label(id, gold), seen(id, observed));
+    const scores = scoreDispositions([
+      outcome('D1', {}, {}),
+      outcome('D2', {}, { outcome: 'duplicate' }),
+      outcome(
+        'D3',
+        { outcome: 'quarantined', quarantine: 'paywall' },
+        { outcome: 'quarantined', quarantine: 'paywall' },
+      ),
+      outcome(
+        'D4',
+        { outcome: 'failed', failure: 'dns' },
+        { outcome: 'failed', failure: 'connect' },
+      ),
+      outcome(
+        'D5',
+        { outcome: 'blocked', failure: 'robots-disallowed' },
+        { outcome: 'blocked', failure: 'robots-disallowed' },
+      ),
+      outcome('D6', { outcome: 'hub' }, {}),
+      outcome('D7', { outcome: 'not-fetched' }, { outcome: 'not-fetched' }),
+      outcome('D8', { outcome: 'not-used' }, {}),
+      outcome('D9', { outcome: 'duplicate-group' }, { outcome: 'duplicate' }),
+    ]);
+    // Eight are judged (the hub is not); D1, D3, D5, D7 and D9 are as labelled.
+    expect(scores.agree).toMatchObject({ successes: 5, total: 8 });
+    expect(scores.disagreements).toEqual([
+      { id: 'D2', gold: 'used', observed: 'duplicate' },
+      { id: 'D4', gold: 'failed/dns', observed: 'failed/connect' },
+      { id: 'D8', gold: 'not-used', observed: 'used' },
+    ]);
+  });
+
+  it('calls a set of copies collapsed when one is read and the others are duplicates', () => {
+    const outcomes = new Map<string, PageObservation['outcome']>([
+      ['A', 'used'],
+      ['B', 'duplicate'],
+      ['C', 'duplicate'],
+      ['D', 'used'],
+      ['E', 'used'],
+      ['F', 'used'],
+    ]);
+    const rate = scoreDuplicateGroups(
+      [
+        ['A', 'B', 'C'],
+        ['D', 'E'],
+        ['F', 'G'],
+      ],
+      outcomes,
+    );
+    expect(rate).toMatchObject({ successes: 1, total: 3 });
   });
 
   it('scores main text kept and furniture kept, folding case and white space', () => {

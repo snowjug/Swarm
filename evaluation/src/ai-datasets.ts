@@ -92,6 +92,7 @@ const revisionSchema = z
     afterSeeingResults: z.boolean(),
   })
   .strict();
+export type LabelRevision = z.infer<typeof revisionSchema>;
 
 const sourceSchema = z.discriminatedUnion('kind', [
   z
@@ -221,6 +222,7 @@ const hostsFileSchema = z
     version: z.literal(1),
     labelsFrozenOn: text,
     note: text,
+    labelRevisions: z.array(revisionSchema),
     fragments: z.record(z.string(), z.string()),
     hosts: z.record(z.string(), hostSchema),
     groups: z.array(groupSchema).min(1),
@@ -298,6 +300,7 @@ export interface SiteSet {
   hosts: Record<string, HostEntry>;
   groups: CrawlGroup[];
   pages: SitePage[];
+  labelRevisions: LabelRevision[];
 }
 
 const pagesFileSchema = z
@@ -433,7 +436,13 @@ export function loadSites(): SiteSet {
     .filter((name) => name.startsWith('pages-') && name.endsWith('.json'))
     .sort();
   const pages = files.flatMap((name) => pagesFileSchema.parse(readJson('sites', name)).pages);
-  return { fragments: hosts.fragments, hosts: hosts.hosts, groups: hosts.groups, pages };
+  return {
+    fragments: hosts.fragments,
+    hosts: hosts.hosts,
+    groups: hosts.groups,
+    pages,
+    labelRevisions: hosts.labelRevisions,
+  };
 }
 
 export const loadSafety = () => safetyFileSchema.parse(readJson('ai-safety.json'));
@@ -505,8 +514,8 @@ const WORDS = {
 };
 
 /** Deterministic filler prose, in paragraphs, of about the given number of characters. */
-export function fillerHtml(chars: number): string {
-  let state = 0x9e3779b9;
+export function fillerHtml(chars: number, seed = 0x9e3779b9): string {
+  let state = seed;
   const next = (): number => {
     state = Math.imul(state ^ (state >>> 15), 2246822519) >>> 0;
     state = Math.imul(state ^ (state >>> 13), 3266489917) >>> 0;
@@ -525,15 +534,22 @@ export interface ExpandContext {
   fragments: Readonly<Record<string, string>>;
   /** The address of a page of the set, by id. */
   urlOf(pageId: string): string;
+  /** The port the fixture server listens on. */
+  readonly port: number;
 }
 
-/** Fills in `{{fragment}}`, `{{url:P01}}`, `{{fill:N}}` and `{{script:N}}`. */
+/**
+ * Fills in `{{fragment}}`, `{{url:P01}}`, `{{port}}`, `{{fill:N}}`, `{{fillb:N}}` (filler of another
+ * seed, so that two long pages are not near copies of each other) and `{{script:N}}`.
+ */
 export function expandHtml(template: string, context: ExpandContext): string {
   return template.replace(
     /\{\{([a-z]+)(?::([A-Za-z0-9]+))?\}\}/gu,
     (whole, name: string, argument?: string) => {
       if (name === 'url' && argument) return context.urlOf(argument);
+      if (name === 'port' && argument === undefined) return String(context.port);
       if (name === 'fill' && argument) return fillerHtml(Number(argument));
+      if (name === 'fillb' && argument) return fillerHtml(Number(argument), 0x85ebca6b);
       if (name === 'script' && argument)
         return 'var a=function(b){return b+1};'.repeat(Number(argument));
       const fragment = context.fragments[name];
