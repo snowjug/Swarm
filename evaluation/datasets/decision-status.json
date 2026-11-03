@@ -1,7 +1,7 @@
 {
   "version": 1,
   "labelsFrozenOn": "2026-11-03",
-  "note": "Gold for the decision status, derived by hand from docs/analysis/decision-canvas.md (the ten status rules in their order, the lens definitions, 'what clear means', the conditions, the recommendation table) and from shared/decision.ts, before the canvas builder was run on any fixture. Each fixture is a hand-set comparison: for every option, the share of simulated members ending in switch or resist ('adverse') and in go-along or accept-with-conditions ('favourable'), the same for every actor unless a map names them, with the same small noise on every option for a seed so that a paired difference between options is exact. Lens values are therefore the numbers given: overall-resistance is the mean adverse share of all actors; key-actor-support the mean favourable share of the actors that are key; decision-maker-resistance the mean adverse share of the actors whose category carries authority (decision maker decides, governance approves, regulator can block); worst-affected-downside the highest adverse share of any actor. An option is told apart from another on a lens by a difference of at least 0.05 of the scale over at least 10 paired runs. 'scenario' casts are made from the named participants of a scenario of the scenario dataset (role to category: decision-owner decision-maker, approvers governance, regulators-governance regulator, directly-affected cost-bearer, beneficiaries beneficiary, customers-users end-user, implementers operations, partners-suppliers partner, competitors-alternatives competitor, observers-influencers influencer, the rest other; the decision owner, approvers, regulators and opponents are key). The 'lab' cast is the five-actor cast of shared/lab-fixtures.ts: provider (decision maker, key), subscribers (cost bearer), rival-provider (competitor, key), regulator (regulator, key), resellers (partner). Everything not named in a fixture is in its clear state: sources attached and cited by every actor, no ledger finding, one soft confirmed constraint in a reviewed set that the comparison ran under, three counterfactual views that moved nothing, one assumption that moved nothing, an independent review of this comparison with no objection, inputs recorded and current.",
+  "note": "Gold for the decision status, derived by hand from docs/analysis/decision-canvas.md (the ten status rules in their order, the lens definitions, 'what clear means', the conditions, the recommendation table) and from shared/decision.ts, before the canvas builder was run on any fixture. Each fixture is a hand-set comparison: for every option, the share of simulated members ending in switch or resist ('adverse') and in go-along or accept-with-conditions ('favourable'), the same for every actor unless a map names them, with the same small noise on every option for a seed so that a paired difference between options is exact. Lens values are therefore the numbers given: overall-resistance is the mean adverse share of all actors; key-actor-support the mean favourable share of the actors that are key; decision-maker-resistance the mean adverse share of the actors whose category carries authority (decision maker decides, governance approves, regulator can block); worst-affected-downside the highest adverse share of any actor. An option is told apart from another on a lens by a difference of at least 0.05 of the scale over at least 10 paired runs. 'scenario' casts are made from the named participants of a scenario of the scenario dataset (role to category: decision-owner decision-maker, approvers governance, regulators-governance regulator, directly-affected cost-bearer, beneficiaries beneficiary, customers-users end-user, implementers operations, partners-suppliers partner, competitors-alternatives competitor, observers-influencers influencer, the rest other; the decision owner, approvers, regulators and opponents are key). The 'lab' cast is the five-actor cast of shared/lab-fixtures.ts: provider (decision maker, key), subscribers (cost bearer), rival-provider (competitor, key), regulator (regulator, key), resellers (partner). Everything not named in a fixture is in its clear state: sources attached and cited by every actor, no ledger finding, one soft confirmed constraint in a reviewed set that the comparison ran under, three counterfactual views that moved nothing, one assumption that moved nothing, an independent review of this comparison with no objection, inputs recorded and current. Fixtures D43 to D59 were added later, after the product had gained its first rule, `individual-decision` (a deterministic scope check that reads a question about one person's employment, credit, legal, medical or safety situation and forces needs-human-decision before every other rule); that rule had no pre-registered gold, so they are written afterwards, from the document's own words (docs/analysis/decision-canvas.md: rule 1, the table of questions, 'What Swarm does not decide', the validation plan, the recommendation table) and from the product statement that Swarm does not make employment, credit, legal, medical, safety or similarly consequential decisions about a person, with each question and its expected status written before the canvas builder was run on any of them. They name the question the scope check reads ('question', which is also the frame's decision) and what the document says of it ('gold.scope'). Ten are questions about one person, two in each matter, four of them with something else true that the document says rule 1 comes before (a comparison of one option, a blocked gate, no source, a value trade-off); seven are look-alikes that name a matter at the level of a policy, a process, a programme, a launch, a group or an act with no person, where rule 1 must not apply and the status is the one the ordinary rules give (the clear comparison of D01, so robust-option). The rule numbers in the `why` texts of D01 to D42 are those of the table as it stood when they were written (ten rules): each is one higher now, and the rule ids in `gold.rules` are the reference.",
   "defaults": {
     "runs": 20,
     "direction": "has",
@@ -1402,6 +1402,387 @@
         "agreement": null,
         "conditions": 0,
         "why": "The runs of the two options are identical, but the stakeholders do have a direction of impact (the cast has people who bear a cost): rule 4 is about a cast with none. The change cannot be told from no change, which is a way for the headline lens to have no clear leader (rule 8)."
+      }
+    },
+    {
+      "id": "D43",
+      "split": "test",
+      "cast": "lab",
+      "question": "Which of our two engineers should we make redundant?",
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["employment"] },
+        "why": "From the document: rule 1 (individual-decision) applies when the scope check reads the question as a decision about one person in a matter of employment, credit, legal, medical or safety. “Make redundant” is an act of employment the document lists, and “which of our two engineers” is a reference to one person it lists (“Which of our two engineers should we let go?” is its own example), in one clause, with no comma, “if”, “because” or “but” between them. Rule 1 comes before every other rule and forces needs-human-decision, names no preferred option and ranks none (the options are shown as explored and not ranked), keeps the kind of the status (decide) and replaces the next move with “A qualified person decides this; here is what the exploration can and cannot tell them.” The comparison is the clear one of D01 (the proposed change leads every lens by 0.2), so the ordinary rules would give robust-option and a preferred option: the gold says that they must not be reached. Swarm does not make employment decisions about a person."
+      }
+    },
+    {
+      "id": "D44",
+      "split": "dev",
+      "cast": "lab",
+      "question": "Should we promote Priya Raman to head of finance?",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        }
+      ],
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["employment"], "names": ["Priya Raman"] },
+        "why": "From the document: “promote Dana to head of sales” is its own example of a name after an act and before a post, read as one person, and promoting a person is an act of employment. The cues must show a named person as “a named person” and never the name. The comparison holds only one option, which the ordinary rules read as insufficient evidence (no-analysis, kind gather-evidence); the document says rule 1 comes before a missing comparison, so the status is needs-human-decision by individual-decision and the kind is decide. As in D32, a lens over one option is not settled by the document, so no lens is scored."
+      }
+    },
+    {
+      "id": "D45",
+      "split": "test",
+      "cast": "lab",
+      "question": "Should I take out a loan against my pension to clear my overdraft?",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0001",
+            "category": "budget",
+            "hardness": "soft",
+            "validation": "confirmed",
+            "statement": "Spending on the change is capped."
+          },
+          {
+            "id": "c-0003",
+            "category": "legal",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The change needs a licence."
+          }
+        ]
+      },
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["credit"] },
+        "why": "From the document: “should I sue” and “should she take it” are its own patterns for one person (“should I” and an act), here with acts of credit it lists (“loan”, “overdraft”) and a matter of one's own (“my pension”, “my overdraft”). A hard legal constraint that nobody has validated blocks the gate, which the ordinary rules read as blocked-by-hard-constraint (gate-blocked, kind resolve-constraint); the document says rule 1 comes before a blocked gate, so the status is needs-human-decision by individual-decision and the kind is decide. Swarm does not make credit decisions about a person."
+      }
+    },
+    {
+      "id": "D46",
+      "split": "dev",
+      "cast": "lab",
+      "question": "Should we approve a mortgage for Daniel Okafor?",
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["credit"], "names": ["Daniel Okafor"] },
+        "why": "From the document: its own example “Should we approve the loan for Maria Gomez?” is read as credit and one person; this is the same form with “approve” and “mortgage”, both of which it lists, and a name beside them. The cues must show a named person as “a named person” and never the name. The comparison is the clear one of D01, so the ordinary rules would give robust-option and a preferred option; rule 1 comes first, so they must not be reached."
+      }
+    },
+    {
+      "id": "D47",
+      "split": "test",
+      "cast": "lab",
+      "question": "Should I sue my landlord for keeping the deposit?",
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["legal"] },
+        "why": "From the document: “should I sue” is its own pattern for one person, and “sue” an act of legal matters it lists. Rule 1 forces needs-human-decision over the clear comparison of D01 (the ordinary rules would give robust-option and a preferred option), names no preferred option, and the kind is decide. Swarm does not make legal decisions about a person."
+      }
+    },
+    {
+      "id": "D48",
+      "split": "dev",
+      "cast": "lab",
+      "question": "Should we press charges against this contractor for the damage to the van?",
+      "evidence": { "documents": "none", "cited": "none", "ledger": null },
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["legal"] },
+        "why": "From the document: “press charges” is an act of legal matters it lists, and “this” with a role (“this employee” is its example) is one person, in one clause. No source document is attached and no actor cites one, which the ordinary rules read as insufficient-evidence (evidence-insufficient, kind gather-evidence); the document says rule 1 comes before insufficient evidence, so the status is needs-human-decision by individual-decision and the kind is decide."
+      }
+    },
+    {
+      "id": "D49",
+      "split": "test",
+      "cast": "lab",
+      "question": "Should I stop taking my medication before the surgery?",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": {
+            "provider": 0.2,
+            "rival-provider": 0.2,
+            "regulator": 0.2,
+            "subscribers": 0.5,
+            "resellers": 0.5
+          },
+          "favourable": { "provider": 0.6, "rival-provider": 0.6, "regulator": 0.6 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": {
+            "provider": 0.3,
+            "rival-provider": 0.3,
+            "regulator": 0.3,
+            "subscribers": 0.1,
+            "resellers": 0.1
+          },
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        }
+      ],
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["medical"] },
+        "why": "From the document: “should I” with “my medication” (its own example of his, her or my and a matter of one's own) is one person, and medication and surgery are matters of medical it lists. The comparison is the trade-off of D13: two lenses each have a different clear leader, which the ordinary rules give as needs-human-decision by value-tradeoff. The status is therefore the same either way, and what is tested is the rule that is named: rule 1 is tried first, so it must be individual-decision, with no preferred option."
+      }
+    },
+    {
+      "id": "D50",
+      "split": "dev",
+      "cast": "lab",
+      "question": "Should we start this patient on a course of antibiotics?",
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["medical"] },
+        "why": "From the document: “this” with a role is one person, “patient” is a role that is a matter of its domain by itself and so counts as an act of medical, and a class of drug is a medical cue it lists. Rule 1 forces needs-human-decision over the clear comparison of D01, as in D43, with no preferred option and the kind decide. Swarm does not make medical decisions about a person."
+      }
+    },
+    {
+      "id": "D51",
+      "split": "test",
+      "cast": "lab",
+      "question": "Is this technician fit for duty after the injury?",
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["safety"] },
+        "why": "From the document: “fit for duty” is a safety cue it lists (as is “injury”), and “this” with a role (“this technician”) is one person, in one clause. Rule 1 forces needs-human-decision over the clear comparison of D01, as in D43, with no preferred option and the kind decide. Swarm does not make safety decisions about a person."
+      }
+    },
+    {
+      "id": "D52",
+      "split": "dev",
+      "cast": "lab",
+      "question": "Is it safe to let this driver back on the road tomorrow?",
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["individual-decision"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "scope": { "individual": true, "domains": ["safety"] },
+        "why": "From the document: “safe to” do something is a safety cue it lists, and “this” with a role (“this driver”) is one person, in one clause. Rule 1 forces needs-human-decision over the clear comparison of D01, as in D43, with no preferred option and the kind decide. Swarm does not make safety decisions about a person."
+      }
+    },
+    {
+      "id": "D53",
+      "split": "test",
+      "cast": "lab",
+      "question": "What would change if we adopted a stricter hiring policy?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false, "domains": ["employment"] },
+        "why": "A look-alike. From the document: its own table reads “What happens if we change our hiring policy?” as employment and not one person, “a policy, so a notice only”: a cue followed by a word for a rule calls for the notice and never pairs with a person. Rule 1 must not apply. The status is whatever the simulation gives, here the clear comparison of D01: robust-option by robust. The notice is a matter of the page and not of the status."
+      }
+    },
+    {
+      "id": "D54",
+      "split": "dev",
+      "cast": "lab",
+      "question": "How would our lending criteria need to change if interest rates rose?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false, "domains": ["credit"] },
+        "why": "A look-alike. From the document: its table reads “What happens to our lending criteria if rates rise?” as credit and not one person. Criteria are a rule, not a person. Rule 1 must not apply; the status is the one the clear comparison of D01 gives, robust-option by robust."
+      }
+    },
+    {
+      "id": "D55",
+      "split": "test",
+      "cast": "lab",
+      "question": "What would change if we outsourced our contract dispute process?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false },
+        "why": "A look-alike. “Contract dispute” is a legal cue the document lists, followed by a word for a process, which the document says never pairs with a person; no person is referred to at all. Rule 1 must not apply; the status is the one the clear comparison of D01 gives, robust-option by robust. Whether the matter is listed for a cue that a process word follows is not settled by the document's table, so no matter is asserted here."
+      }
+    },
+    {
+      "id": "D56",
+      "split": "dev",
+      "cast": "lab",
+      "question": "What would a medical device launch mean for our support team's workload?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false },
+        "why": "A look-alike. “Medical device launch” is the document's own example of a cue followed by a word for a rule, a process or a market, which calls for the notice and never pairs with a person; no act of medical care is said of one person. Rule 1 must not apply; the status is the one the clear comparison of D01 gives, robust-option by robust. Whether the notice names a matter here is not settled by the document, so none is asserted."
+      }
+    },
+    {
+      "id": "D57",
+      "split": "test",
+      "cast": "lab",
+      "question": "What would a safety culture programme change on the factory floor?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false, "domains": [] },
+        "why": "A look-alike. From the document: its table reads “What would a safety culture programme change?” as no matter at all and not one person, and a bare “safety” names nothing. There is no notice, and rule 1 must not apply; the status is the one the clear comparison of D01 gives, robust-option by robust."
+      }
+    },
+    {
+      "id": "D58",
+      "split": "dev",
+      "cast": "lab",
+      "question": "Should we evacuate the warehouse when the alarm sounds?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false, "domains": ["safety"] },
+        "why": "A look-alike. From the document: its table reads “Should we evacuate the building when the alarm sounds?” as safety and false: no person. An act of a matter without a reference to one person is a notice and never rule 1. The status is the one the clear comparison of D01 gives, robust-option by robust."
+      }
+    },
+    {
+      "id": "D59",
+      "split": "test",
+      "cast": "lab",
+      "question": "Should we lay off our employees at the second depot?",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "scope": { "individual": false, "domains": ["employment"] },
+        "why": "A look-alike. “Lay off” is an act of employment the document lists; “our employees” is a group, and the document says a group (“our employees”, “applicants”), a policy and a process are not one person. The notice stands and rule 1 must not apply; the status is the one the clear comparison of D01 gives, robust-option by robust."
       }
     }
   ]

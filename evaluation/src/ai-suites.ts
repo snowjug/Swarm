@@ -356,7 +356,7 @@ export function suiteRows(m: SuiteMeasures, mode: Mode, reg: Registered): Metric
         mode,
         d.status,
         cap,
-        `${d.fixtures} fixtures set by hand reach ${Object.keys(d.reached.statuses).length === 6 ? 'all six statuses' : `${Object.keys(d.reached.statuses).length} of the six statuses`} and ${Object.keys(d.reached.rules).length} of the ten rules${never.length > 0 ? `; ${never.join(', ')} is never the rule the canvas names (see the extras)` : ''}.`,
+        `${d.fixtures} fixtures set by hand reach ${Object.keys(d.reached.statuses).length === 6 ? 'all six statuses' : `${Object.keys(d.reached.statuses).length} of the six statuses`} and ${Object.keys(d.reached.rules).length} of the ${STATUS_RULES.length} rules${never.length > 0 ? `; ${never.join(', ')} is never the rule the canvas names (see the extras)` : ''}. ${d.scope.total} of them are about the scope check (a question about one person, and look-alikes of it) and were written after that rule existed: see the extras.`,
       );
     }),
     decisionRow('decisionLensLeader', (d) =>
@@ -374,7 +374,7 @@ export function suiteRows(m: SuiteMeasures, mode: Mode, reg: Registered): Metric
         mode,
         d.recommendation,
         cap,
-        `The ${d.fixtures} gold fixtures and ${d.examples} canvases of the five worked examples. Read without asking the card’s list of missing parts to hold reversibility, the same canvases are ${describeRatePercent(d.recommendationOtherwise)}: see the defects.`,
+        `The ${d.fixtures} gold fixtures and ${d.examples} canvases of the five worked examples, each read for its own status: every part stated or said to be missing, the card’s list of missing parts exactly those (reversibility among them while it is unknown), and the kind that the status table gives. The kind against the gold’s own: ${describeRatePercent(d.kind)}.`,
       ),
     ),
     decisionRow('decisionWording', (d) =>
@@ -513,8 +513,24 @@ export function suiteExtras(
         .join(', ')}`,
       rateLine('Decision canvas: lenses that agree or disagree as labelled', decision.agreement),
       rateLine(
-        'Decision canvas: recommendations complete and right, without asking the card’s list of missing parts to hold reversibility (not registered: it says what the one gap is)',
-        decision.recommendationOtherwise,
+        'Decision canvas: the kind of the recommendation card as the gold names it (not registered: the registered metric reads the kind that the canvas’s own status gives)',
+        decision.kind,
+      ),
+      rateLine(
+        'Decision canvas: questions about one person that the first rule names, where the gold says it should (recall; not registered)',
+        decision.individual.found,
+      ),
+      rateLine(
+        'Decision canvas: canvases that name the first rule, where the gold says the rule applies (precision; not registered; over every fixture)',
+        decision.individual.named,
+      ),
+      rateLine(
+        'Decision canvas: look-alikes (a domain named at the level of a policy or an organisation) that the first rule read as a question about one person (not registered)',
+        decision.lookAlikes.overFired,
+      ),
+      rateLine(
+        'Decision canvas: fixtures about the scope check whose canvas does what the document says of it (the options not ranked, the next move, the first check, a stop, an approval, the exploration, no name in a cue; not registered)',
+        decision.scope,
       ),
       `Decision canvas: ${decision.wording.of.toLocaleString('en-GB')} strings read for wording in ${decision.fixtures + decision.examples} canvases; ${decision.wording.count} flagged`,
       `Decision canvas: the ${decision.examples} canvases of the five worked examples (each in nine states) came out as ${Object.entries(
@@ -530,7 +546,7 @@ export function suiteExtras(
     );
     if (never.length > 0)
       rules.push(
-        `Decision canvas: ${never.join(', ')} is never the rule the canvas names on these fixtures${never.includes('all-violate') ? ': when every alternative is ruled out the constraint gate has already blocked (rule 2 comes first), and the document gives both rules for that one situation, so the gold allows either (D11)' : ''}`,
+        `Decision canvas: ${never.join(', ')} is never the rule the canvas names on these fixtures${never.includes('all-violate') ? ': when every alternative is ruled out the constraint gate has already blocked (gate-blocked comes first), and the document gives both rules for that one situation, so the gold allows either (D11)' : ''}`,
       );
     if (decision.errors.length > 0)
       rules.push(
@@ -539,6 +555,22 @@ export function suiteExtras(
     if (decision.statusMisses.length > 0)
       rules.push(
         `Decision canvas: fixtures whose status or rule differs from the gold: ${list(decision.statusMisses.map((item) => `${item.id} (${item.problems.join(', ')})`))}`,
+      );
+    if (decision.individual.missed.length > 0)
+      rules.push(
+        `Decision canvas: questions about one person that the first rule did not name: ${list(decision.individual.missed.map((item) => `${item.id} (the rule named is ${item.got ?? 'none'})`))}`,
+      );
+    if (decision.individual.spurious.length > 0)
+      rules.push(
+        `Decision canvas: canvases that name the first rule where the gold does not: ${list(decision.individual.spurious.map((item) => item.id))}`,
+      );
+    if (decision.scopeMisses.length > 0)
+      rules.push(
+        `Decision canvas: where a canvas does not do what the document says of the scope check: ${list(decision.scopeMisses.map((item) => `${item.id} (${item.problems.join('; ')})`))}`,
+      );
+    if (decision.kindMisses.length > 0)
+      rules.push(
+        `Decision canvas: recommendation kinds that differ from the gold: ${list(decision.kindMisses.map((item) => `${item.id} (${item.got ?? 'none'}, gold ${item.gold})`))}`,
       );
   }
   return { rules, fake };
@@ -593,20 +625,29 @@ export function suiteFindings(m: SuiteMeasures): Finding[] {
     });
   }
   const decision = m.decision;
-  if (
-    decision &&
-    decision.recommendation.rate !== null &&
-    decision.recommendation.rate < 1 &&
-    decision.recommendationOtherwise.rate === 1
-  ) {
+  const makeRedundant = decision?.individual.missed.find((item) => item.id === 'D43');
+  if (decision && makeRedundant) {
     found.push({
-      id: 'reversibility-not-in-missing',
-      severity: 'limit',
+      id: 'scope-misses-make-redundant',
+      severity: 'defect',
       title:
-        'The recommendation card does not list reversibility among its missing parts while it is unknown',
-      evidence: `Every one of ${decision.recommendation.total} canvases (${decision.fixtures} fixtures and ${decision.examples} worked examples) states reversibility as “unknown” and leaves it out of recommendation.missing, which lists the eight other parts that have nothing in them. Read without that one entry the same canvases are all complete and of the right kind (${describeRatePercent(decision.recommendationOtherwise)}). The schema allows the entry (missing may hold “reversibility”) and its comment says missing is “every part above that has nothing in it, so that a gap is a finding and not an omission”; the page adds “Reversibility (unknown)” itself (frontend/src/scenes/decide/canvas/model.ts, completenessOf), and the product’s own test asserts that the list is the eight parts. A consumer that reads recommendation.missing to find the gaps is not told, while the page and the export say “Unknown”. The metric was registered with the card’s list holding it, so it is breached as registered; whether the card or only the page should say it is a decision for the product.`,
+        'A question about which person to make redundant is not read as a question about one person, and the canvas recommends going ahead',
+      evidence: `${decision.individual.missed.length} of ${decision.individual.found.total} questions about one person that were written from the document were not read as one (${list(decision.individual.missed.map((item) => item.id))}). “Which of our two engineers should we make redundant?” (D43) is built as a robust option with a preferred option and a recommendation to proceed, with scope.domains empty and no notice, where the document lists “make redundant” among the employment cues, lists “which of our two engineers” among the references to one person, and reads “Which of our two engineers should we let go?” as a decision about one person (its table). The same question with “let go”, “lay off”, “we fire” or “be made redundant” is read. What the code reads for “make redundant” is the phrase with its object between the two words (“make this employee redundant”, “make our engineer redundant”), and no form with the object fronted or after: “Who should we make redundant?”, “Which sales manager should we make redundant?”, “Which of the three analysts should we make redundant?” and “We must make redundant the engineer who was late.” name no matter at all (backend/src/decision/scope-cues.ts: the “let go” cue has a form with a fronted object, the “make … redundant” cue has none). Tried beside it, with no gold of their own and not counted: “Who should we let go?” is not read either (no matter, no person), and “one of our two engineers” (a number between “our” and the role) is not read as one person where “one of our engineers” is, so “Should we fire one of our two engineers?” gets a notice and no more. The status is the one the registered metric measures, so this is a breach (decisionStatus), and a decision about a person, which Swarm does not make, is answered with a recommendation.`,
       reproduce:
-        'Build any canvas (buildCanvas in backend/src/decision/build.ts) and read answer.recommendation: reversibility.value is “unknown” and missing does not hold “reversibility”. `npm run eval:ai -- --mode rules`, the line “Recommendations that are complete and of the right kind”. Changing backend/src/decision/recommendation.ts:261 to add “reversibility” to missing while its value is “unknown” would make the registered number 100%.',
+        'consequentialScope(“Which of our two engineers should we make redundant?”) in backend/src/decision/scope.ts returns domains [] and aboutIndividual false, where the same question with “let go” returns employment and true. Fixture D43 of evaluation/datasets/decision-status.json (built by inputsFor in evaluation/src/ai-decision.ts) comes out robust-option, kind proceed. `npm run eval:ai -- --mode rules`: the line “questions about one person that the first rule did not name”. A cue for “make … redundant” with its object fronted or after (as “let go” has) would make decisionStatus 100%.',
+    });
+  }
+  const nameInCue = decision?.scopeMisses.find((item) =>
+    item.problems.some((problem) => problem.startsWith('a cue repeats a name')),
+  );
+  if (decision && nameInCue) {
+    found.push({
+      id: 'scope-basis-repeats-a-name',
+      severity: 'defect',
+      title: 'A cue of the scope check repeats the name of the person it is about',
+      evidence: `The document says the basis of the scope check is “the cues found, a few words each … and never a name (a named person is “a named person”)”. For “Should we promote Priya Raman to head of finance?” (${nameInCue.id}) the cue of the matter is “promote priya raman to head”, in scope.basis and again in the first line of status.why, which the page and every export show; the cue for one person is right (“a named person”). The employment patterns that take the name as their object (promote NAME to a post, make NAME redundant) put the name in the cue text: “Should we make Tom Becker redundant?” gives “make tom becker redundant”. The name is also in the question itself, which is the person’s own text; the document’s statement is about what the product adds. ${nameInCue.id} is the only fixture with it: the one other fixture that names a person (D46, “mortgage”) has a cue without the name. This is not a registered metric, so it is no breach; it is a departure from a stated rule.`,
+      reproduce:
+        'consequentialScope(“Should we promote Priya Raman to head of finance?”).basis in backend/src/decision/scope.ts holds “employment: “promote priya raman to head””; status.why[0] of the canvas for fixture D44 repeats it. `npm run eval:ai -- --mode rules`: the line “where a canvas does not do what the document says of the scope check”. Giving the cue a generic text where the name is part of it (as the cue for one person has) would clear it.',
     });
   }
   return found;
@@ -645,9 +686,19 @@ export const SUITE_REVISIONS: readonly { what: string; reason: string }[] = [
       'runInjectionKept is registered for fake-foundry, and no run planned by the scripted model carried an injection, so the metric had no case there. RR28 (RR23 with a model that suggests the bait site) was added after RR01 to RR27 had been run once and before RR28 was run, with RR23’s gold, written from the README.',
   },
   {
-    what: 'The recommendation metric read two ways (the metric itself was not edited)',
+    what: 'The recommendation metric, first read two ways and then once (evaluation/src/ai-measure-decision.ts)',
     reason:
-      'The registered definition of decisionRecommendation asks the card’s list of missing parts to hold reversibility while it is unknown. The product’s card does not (the page adds it), so every canvas fails as registered. That number stays the registered one and is reported as breached; the same canvases read without that one requirement are printed beside it as a number with no threshold, to show it is the only gap.',
+      'The first run of decisionRecommendation read 0 of 86 as registered, because the product’s card did not list reversibility among its missing parts while it was unknown (the page added it). The registered number was kept and a second reading without that one requirement was printed beside it, to show that it was the only gap. The product then changed (the card lists reversibility while it is unknown, CARD_PARTS in shared/decision.ts), the registered number is met, and the second reading, its extra and its finding were taken out. The metric, its threshold and its definition were never edited.',
+  },
+  {
+    what: 'The kind of the card in the registered recommendation metric (observeFixtures in evaluation/src/ai-decision.ts)',
+    reason:
+      'The observer first held each card to the kind that its fixture’s gold names as well as to the kind its own status gives. The registered definition asks only the second (“its kind is the one the status table gives”). With D43 (see below) the first reading counted one canvas twice, once as a status that differs from the gold and once as a recommendation of the wrong kind, though its card is complete and of the kind its own status gives: 102 of 103 canvases, where the registered reading is 103 of 103. Seen on the first run of the new fixtures, before a report was written with them. The registered metric reads the canvas’s own status now, and the agreement of the card’s kind with the gold’s is a number of its own (57 of 58: the same fixture).',
+  },
+  {
+    what: 'Seventeen fixtures about the scope check added to the decision dataset, D43 to D59, with a field for the question (evaluation/datasets/decision-status.json, evaluation/src/ai-suite-data.ts, evaluation/src/ai-decision.ts)',
+    reason:
+      'The product gained a first status rule (individual-decision) after the gold of D01 to D42 was registered, so the registered suite had no case for it. The new gold was written from docs/analysis/decision-canvas.md (rule 1, its tables of cues and its table of questions) and from the product statement that Swarm does not make decisions about a person, the question and the expected status first, and committed before the canvas was run on any of them (1d8de8c); but it was written after the rule existed, by the person who had read the rule’s families of cues, so it has no pre-registered gold and is a weaker test than D01 to D42. The first run on it found one question about one person that is not read (D43) and one stated rule that is broken (a name in a cue, D44); no gold was moved for either. Nothing registered was edited: the threshold and definition of decisionStatus are the same, and it counts the 17 as it counts the 41.',
   },
   {
     what: 'The scripted plan of the runs that a model plans (evaluation/src/ai-research.ts)',

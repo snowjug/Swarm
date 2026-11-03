@@ -37,6 +37,7 @@ import type { Split } from './datasets.js';
 import {
   canvasStrings,
   recommendationProblems,
+  scopeProblems,
   scoreLenses,
   scoreStatus,
   wordingProblems,
@@ -217,7 +218,9 @@ export function inputsFor(
             system: scenario.title.slice(0, 300),
           }),
         }
-      : {}),
+      : item.question
+        ? { scenario: scenarioFixture({ decision: item.question.slice(0, 400) }) }
+        : {}),
   };
   if (item.constraints === null) config.constraints = null;
   else config.constraints = item.constraints.items.map(constraintFrom);
@@ -263,9 +266,14 @@ export function inputsFor(
       },
     };
   const inputs = controlledInputs(optionsOf(item), config);
-  return scenario
-    ? { ...inputs, project: { id: 'project-1', name: scenario.title, question: scenario.question } }
-    : inputs;
+  // The canvas builder reads the question and the frame itself (consequentialScope): the fixture's own words go in as they are.
+  if (scenario)
+    return {
+      ...inputs,
+      project: { id: 'project-1', name: scenario.title, question: scenario.question },
+    };
+  if (item.question) return { ...inputs, project: { ...inputs.project, question: item.question } };
+  return inputs;
 }
 
 export interface FixtureRun {
@@ -274,9 +282,13 @@ export interface FixtureRun {
   fixture: ResolvedDecisionCase;
   status: string | null;
   rule: string | null;
+  /** The kind of the recommendation card: compared with the gold's own kind apart from the registered metric. */
+  kind: string | null;
   statusScore: StatusScore | null;
   lensScore: LensScore | null;
   recommendation: string[];
+  /** Where the canvas does not do what the document says of the scope of the question, for a fixture whose gold says it. */
+  scope: string[];
   wording: WordingProblem[];
   strings: number;
   /** Set when the fixture could not be built or the canvas could not be made from it. */
@@ -312,9 +324,11 @@ export function observeFixtures(): FixtureRun[] {
       fixture,
       status: null,
       rule: null,
+      kind: null,
       statusScore: null,
       lensScore: null,
       recommendation: [] as string[],
+      scope: [] as string[],
       wording: [] as WordingProblem[],
       strings: 0,
     };
@@ -325,9 +339,11 @@ export function observeFixtures(): FixtureRun[] {
         ...empty,
         status: canvas.status.status,
         rule: canvas.status.rule,
+        kind: canvas.answer.recommendation.kind,
         statusScore: scoreStatus(fixture.gold, canvas),
         lensScore: scoreLenses(fixture.gold, canvas),
-        recommendation: recommendationProblems(canvas, fixture.gold.recommendation),
+        recommendation: recommendationProblems(canvas),
+        scope: scopeProblems(fixture.gold, canvas),
         wording: wordingProblems(canvas, inputs),
         strings: canvasStrings(canvas).length,
         error: null,

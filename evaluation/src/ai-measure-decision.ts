@@ -20,11 +20,26 @@ export interface DecisionMeasures {
   lensMisses: { id: string; what: string; gold: string | null; got: string | null }[];
   /** The agreement or disagreement of the lenses, where the gold names it. */
   agreement: Rate;
-  /** Complete and right, as registered: every part stated or missing, the card's list exactly those with reversibility while unknown, the kind of the status. */
+  /** Complete and right, as registered: every part stated or missing, the card's list exactly those that are missing (reversibility among them while it is unknown), and the kind the status table gives for the canvas's own status. */
   recommendation: Rate;
   recommendationMisses: { id: string; problems: string[] }[];
-  /** The same, without asking the card's list to hold reversibility. Not registered: it says what the one gap is. */
-  recommendationOtherwise: Rate;
+  /** The kind of the card against the kind the gold names. Not registered: the registered metric reads the kind the canvas's own status gives. */
+  kind: Rate;
+  kindMisses: { id: string; gold: string; got: string | null }[];
+  /** The rule of a question about one person, over every fixture: found where the gold names it, and named only where it does. Not registered. */
+  individual: {
+    /** Of the fixtures whose gold names the rule, the share whose canvas names it (recall). */
+    found: Rate;
+    /** Of the canvases that name the rule, the share whose gold names it (precision). */
+    named: Rate;
+    missed: { id: string; got: string | null }[];
+    spurious: { id: string; got: string | null }[];
+  };
+  /** The look-alikes (a domain named at the level of a policy or an organisation): those the check read as about one person. Not registered. */
+  lookAlikes: { overFired: Rate; ids: string[] };
+  /** What the document says follows from the scope check, for the fixtures that name a scope. Not registered. */
+  scope: Rate;
+  scopeMisses: { id: string; problems: string[] }[];
   wording: {
     count: number;
     of: number;
@@ -41,9 +56,7 @@ export interface DecisionMeasures {
 const inFilter = (run: FixtureRun, filter: SplitFilter): boolean =>
   filter === 'all' || run.split === filter;
 
-const reversibilityOnly = (problems: readonly string[]): boolean =>
-  problems.length > 0 &&
-  problems.every((problem) => problem === 'reversibility is missing and not listed');
+const INDIVIDUAL = 'individual-decision';
 
 const tally = (names: readonly string[]): Record<string, number> => {
   const out: Record<string, number> = {};
@@ -97,6 +110,24 @@ export function measureDecisions(
     .filter((item) => item.problems.length > 0)
     .map((item) => ({ id: item.id, problems: item.problems }));
 
+  const kindChecked = fixtures.filter((run) => run.error === null);
+  const kindMisses = kindChecked
+    .filter((run) => run.kind !== run.fixture.gold.recommendation)
+    .map((run) => ({ id: run.id, gold: run.fixture.gold.recommendation, got: run.kind }));
+
+  const wantsIndividual = (run: FixtureRun): boolean => run.fixture.gold.rules.includes(INDIVIDUAL);
+  const expectedIndividual = fixtures.filter(wantsIndividual);
+  const namedIndividual = fixtures.filter((run) => run.rule === INDIVIDUAL);
+  const lookAlikes = fixtures.filter((run) => run.fixture.gold.scope?.individual === false);
+  const overFired = lookAlikes.filter((run) => run.rule === INDIVIDUAL);
+
+  const scoped = fixtures.filter(
+    (run) => run.fixture.gold.scope !== undefined && run.error === null,
+  );
+  const scopeMisses = scoped
+    .filter((run) => run.scope.length > 0)
+    .map((run) => ({ id: run.id, problems: run.scope }));
+
   const wordingWhere: DecisionMeasures['wording']['where'] = [];
   let strings = 0;
   for (const run of fixtures) {
@@ -129,10 +160,27 @@ export function measureDecisions(
     agreement: rateOf(agreementAgreed, agreementChecked),
     recommendation: rateOf(built.length - recommendationMisses.length, canvases.length),
     recommendationMisses,
-    recommendationOtherwise: rateOf(
-      built.filter((item) => item.problems.length === 0 || reversibilityOnly(item.problems)).length,
-      canvases.length,
-    ),
+    kind: rateOf(kindChecked.length - kindMisses.length, kindChecked.length),
+    kindMisses,
+    individual: {
+      found: rateOf(
+        expectedIndividual.filter((run) => run.rule === INDIVIDUAL).length,
+        expectedIndividual.length,
+      ),
+      named: rateOf(namedIndividual.filter(wantsIndividual).length, namedIndividual.length),
+      missed: expectedIndividual
+        .filter((run) => run.rule !== INDIVIDUAL)
+        .map((run) => ({ id: run.id, got: run.rule })),
+      spurious: namedIndividual
+        .filter((run) => !wantsIndividual(run))
+        .map((run) => ({ id: run.id, got: run.rule })),
+    },
+    lookAlikes: {
+      overFired: rateOf(overFired.length, lookAlikes.length),
+      ids: overFired.map((run) => run.id),
+    },
+    scope: rateOf(scoped.length - scopeMisses.length, scoped.length),
+    scopeMisses,
     wording: { count: wordingWhere.length, of: strings, where: wordingWhere },
     errors,
     reached: {

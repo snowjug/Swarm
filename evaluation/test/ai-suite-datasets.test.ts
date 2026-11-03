@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   DECISION_STATUSES,
+  HIGH_STAKES_DOMAINS,
   STATUS_RULES,
   STATUS_RULE_IDS,
   type DecisionStatus,
@@ -14,6 +17,7 @@ import {
   worldPageIds,
   type PlanCase,
 } from '../src/ai-suite-data.js';
+import { REPOSITORY_ROOT } from '../src/paths.js';
 
 // The labels of the planner, run and decision suites were written before any of them was run. What
 // is tested here is that they are what they claim to be: written from the text (every content word
@@ -173,6 +177,100 @@ describe('the decision labels', () => {
     const level = cases.filter((item) => Object.values(item.gold.leaders).includes(null));
     expect(level.length).toBeGreaterThanOrEqual(5);
     expect(file.defaults.runs).toBe(20);
+  });
+});
+
+// The fixtures about the scope check were written after the rule existed, so they have no
+// pre-registered gold. What is held here is that they are what they claim to be: questions from the
+// document's own forms, balanced across the five matters and both splits, with look-alikes that the
+// rule must not fire on, and gold that says what the document says and no more.
+describe('the labels of the scope check', () => {
+  const { cases } = loadDecisionCases();
+  const asked = cases.filter((item) => item.question !== null);
+  const aboutOne = asked.filter((item) => item.gold.rules.includes('individual-decision'));
+  const lookalikes = asked.filter((item) => item.gold.scope?.individual === false);
+
+  it('has at least six questions about one person, two in each of the five matters, and at least four look-alikes', () => {
+    expect(aboutOne.length).toBeGreaterThanOrEqual(6);
+    for (const domain of HIGH_STAKES_DOMAINS) {
+      expect(
+        aboutOne.filter((item) => item.gold.scope?.domains?.includes(domain)).length,
+        domain,
+      ).toBeGreaterThanOrEqual(2);
+    }
+    expect(lookalikes.length).toBeGreaterThanOrEqual(4);
+    expect(aboutOne.length + lookalikes.length).toBe(asked.length);
+  });
+
+  it('puts both splits in every matter and among the look-alikes', () => {
+    for (const domain of HIGH_STAKES_DOMAINS) {
+      const splits = new Set(
+        aboutOne
+          .filter((item) => item.gold.scope?.domains?.includes(domain))
+          .map((item) => item.split),
+      );
+      expect([...splits].sort(), domain).toEqual(['dev', 'test']);
+    }
+    expect(new Set(lookalikes.map((item) => item.split)).size).toBe(2);
+  });
+
+  it('gives a question about one person the human decision, the kind decide and no preferred option, whatever else is true of its comparison', () => {
+    for (const item of aboutOne) {
+      const { gold } = item;
+      expect(gold.rules, item.id).toEqual(['individual-decision']);
+      expect(gold.status, item.id).toBe('needs-human-decision');
+      expect(gold.recommendation, item.id).toBe('decide');
+      expect(gold.preferred, item.id).toBeNull();
+      expect(gold.scope?.individual, item.id).toBe(true);
+      expect(gold.scope?.domains?.length, item.id).toBeGreaterThan(0);
+    }
+    // Rule 1 comes before a missing comparison, a blocked gate, no source and a value trade-off: each is put to it.
+    const shapes = new Set(
+      aboutOne.flatMap((item) => [
+        item.options.length === 1 ? 'one option' : '',
+        item.constraints?.items.some((entry) => entry.category === 'legal') ? 'blocked gate' : '',
+        item.evidence.documents === 'none' ? 'no source' : '',
+        item.options.some(
+          (option) => typeof option.adverse === 'object' && Object.keys(option.adverse).length > 1,
+        )
+          ? 'trade-off'
+          : '',
+      ]),
+    );
+    for (const shape of ['one option', 'blocked gate', 'no source', 'trade-off'])
+      expect(shapes.has(shape), shape).toBe(true);
+  });
+
+  it('gives a look-alike an ordinary rule and the status the clear comparison gives, and a scope that is not about one person', () => {
+    for (const item of lookalikes) {
+      expect(item.gold.rules, item.id).not.toContain('individual-decision');
+      expect(item.gold.status, item.id).toBe('robust-option');
+      expect(item.gold.preferred, item.id).toBe('proposed-change');
+      expect(item.gold.scope?.individual, item.id).toBe(false);
+      expect(item.gold.scope?.names, item.id).toBeUndefined();
+    }
+  });
+
+  it('names a person only where the question holds the name, and keeps every question its own', () => {
+    for (const item of asked) {
+      const question = item.question ?? '';
+      for (const name of item.gold.scope?.names ?? []) {
+        expect(question, `${item.id} ${name}`).toContain(name);
+      }
+    }
+    const questions = asked.map((item) => item.question);
+    expect(new Set(questions).size).toBe(questions.length);
+    // None is one of the rows of the document's table word for word: the fixtures are new evidence, not its examples.
+    const document = readFileSync(
+      join(REPOSITORY_ROOT, 'docs', 'analysis', 'decision-canvas.md'),
+      'utf8',
+    );
+    const rows = [...document.matchAll(/^\| ([A-Z][^|]*\?) +\|/gmu)].map((match) =>
+      (match[1] ?? '').trim().toLowerCase(),
+    );
+    expect(rows.length).toBeGreaterThanOrEqual(9);
+    for (const question of questions)
+      expect(rows, question ?? '').not.toContain(question?.toLowerCase());
   });
 });
 
