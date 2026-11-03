@@ -44,6 +44,11 @@ What the product does:
 - **It keeps a person in charge.** Conflicts are candidates until someone decides; reviewers can
   reject and withhold; a review cannot raise an unsupported statement into a finding.
 - **It declines.** The analyst abstains in fixed words when the evidence cannot answer.
+- **It does not decide about one person's situation.** On the Decision view a scope check reads the question and
+  the scenario by rules. Where it finds a person's employment, credit, legal, medical or safety situation it puts
+  a notice there, names a qualified reviewer for each matter and keeps that approval open; where such an act is said
+  of one person it gives the status "needs a human decision" and names no option. It refuses nothing, and it
+  reads words, so it is not complete ([the canvas](../analysis/decision-canvas.md#what-swarm-does-not-decide)).
 - **It records what happened,** by identifier and never by content.
 - **It states its own limits** next to its numbers ([evaluation results](./evaluation-results.md)).
 
@@ -53,6 +58,9 @@ What has **not** been done, and needs a reviewer:
 - Fairness and bias testing of generated personas.
 - Red-teaming beyond one planted-instruction probe.
 - Content-safety measures beyond the model provider's own filter.
+- An independent test of the scope check: its cue lists were written against tables of questions by their own
+  author, other phrasings and other languages are missed, nothing at the first screen reads it, and the full
+  report under the Decision view is not changed by it. A reviewer should try it on the pilot's own questions.
 - A data-handling agreement for the documents a pilot would use: with the model provider's
   endpoint, documents leave the machine and go to the Azure OpenAI deployment of the operator's tenant.
 

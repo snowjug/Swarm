@@ -209,7 +209,10 @@ fewer than two stakeholders. **Create actors** stays disabled until there
 are two ("Keep or add two or more"), so add the missing group yourself with **Add a stakeholder…** and
 label it as your assumption. If the setup warns that nobody has a direction of impact, say what that means:
 no group is set as helped or harmed yet, so any difference it shows comes from how widely the members of a
-group are assumed to differ.
+group are assumed to differ. If the question is about a person's employment, credit, legal, medical or safety
+situation, the Decision view carries a note that Swarm does not make or recommend such a decision, and, for a
+decision about one person, the status "Needs a human decision" with no option named: say that this is the product
+being honest about its limit, and that it reads words, so a differently worded question may not be noticed.
 
 **9:30, the close.** "Invented evidence, a repeatable method, assumptions on the table, independent
 challenge, and a plan to check it in the real world. Swarm supports a person's analysis. A person
@@ -242,6 +245,9 @@ decides."
   held across simulated runs under stated assumptions.
 - That the pages research read are right, or that the rating of a page's kind of site says so: it is an
   estimate from the kind of site, and no page is called right.
+- That Swarm will always notice a question about a person's employment, credit, legal, medical or safety
+  situation. It reads words by rules, misses other phrasings and other languages, and runs only when the Decision
+  view is read; it refuses nothing, and a person decides such matters whether or not it speaks.
 - That a critic's silence means the analysis is right, that a "supported" label means a statement is
   true, or that Swarm is production ready or secure. It is not claimed, and it has not been reviewed.
 

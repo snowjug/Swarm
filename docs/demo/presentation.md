@@ -180,7 +180,13 @@ supports a person's analysis. It does not make the decision."
 Everything above, slower, plus the parts that show how it works.
 
 **0:00 to 1:00 Home and positioning.** As above. Add the responsible-use line: "It supports human
-analysis. It must not make a high-impact decision on its own."
+analysis. It must not make a high-impact decision on its own." If you are asked what enforces that: Swarm contacts
+no one and executes nothing, a person approves the actors (and the constraints, where there are some) before the
+simulation, and the
+Decision view lists the approvals that stay open before anyone acts, because Swarm cannot know that they happened.
+It also carries a scope check that puts a note on a question about a person's employment, credit, legal, medical or
+safety situation and makes a decision about one person a human decision with no option named. That check reads
+words, so it is not complete, and it refuses nothing.
 
 **1:00 to 2:30 Sources and the graph.** In **Ground**, open each source briefly under **Sources**: the
 council note, the operator memo, the residents' survey, the stakeholder statements, the analyst's
