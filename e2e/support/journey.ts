@@ -98,6 +98,39 @@ export const harness = {
     call<{ ok: boolean; checked: number }>('GET', `/audit/verify?instance=${instance}`),
 };
 
+/** A number out of a captured metric point: a counter's total, or a histogram's count. */
+export const amountOf = (point: { value: unknown }): number =>
+  typeof point.value === 'number'
+    ? point.value
+    : Number((point.value as { count?: number } | null)?.count ?? 0);
+
+/** How much a metric gained between two readings (metrics are cumulative), optionally of the points that carry attributes. */
+export function gained(
+  before: TelemetryReading,
+  after: TelemetryReading,
+  name: string,
+  attributes: Record<string, unknown> = {},
+): number {
+  const total = (reading: TelemetryReading): number =>
+    reading.metrics
+      .filter(
+        (point) =>
+          point.name === name &&
+          Object.entries(attributes).every(([key, value]) => point.attributes[key] === value),
+      )
+      .reduce((sum, point) => sum + amountOf(point), 0);
+  return total(after) - total(before);
+}
+
+/** Which of these strings are anywhere that was captured: a log line, a span, a metric, or a row of the audit log. */
+export async function foundInCapture(
+  needles: readonly string[],
+  instance: InstanceName,
+): Promise<string[]> {
+  const everything = JSON.stringify([await harness.telemetry(), await harness.audit(instance)]);
+  return needles.filter((needle) => everything.includes(needle));
+}
+
 // ---------------------------------------------------------------------------------------------
 // Screenshots, and what a page says it is
 // ---------------------------------------------------------------------------------------------

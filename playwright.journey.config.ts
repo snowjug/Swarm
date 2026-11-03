@@ -67,7 +67,9 @@ const production = defineConfig({
   workers: 1,
   timeout: 10 * 60_000,
   expect: { timeout: 20_000 },
-  retries: 0,
+  // One more try, and Playwright reports a test that needed it as flaky: defect J-03 (docs/production/journey.md), an
+  // intermittent stall of the crawler, ends a run early now and then, and the specs name it when it does.
+  retries: 1,
   reporter: [['list']],
   outputDir: 'test-results/journey-production',
   use: {

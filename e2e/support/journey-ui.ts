@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { ResearchStage } from '../../shared/research';
-import { openApp, settled } from './app';
+import { goTo, openApp, settled } from './app';
 import {
   exploreButton,
   goOn,
@@ -11,7 +11,7 @@ import {
   readScenario,
   siteBox,
 } from './ask';
-import { pill } from './ground-map';
+import { expectSound, pill } from './ground-map';
 import { expectNoHorizontalOverflow, expectReadableText } from './helpers';
 import { deployed, harness } from './journey';
 import { projectIdOf } from './journey-api';
@@ -182,6 +182,11 @@ export const reviewSheet = (page: Page): Locator =>
  * and this function is taken away for `expectSound`.
  */
 export async function expectSoundExceptDimmedRows(page: Page, label: string): Promise<void> {
+  if ((await page.locator('[data-unread]').count()) === 0) {
+    // Nothing is dimmed (a stakeholder has a direction of impact): the page is held to everything.
+    await expectSound(page, label);
+    return;
+  }
   await expectNoHorizontalOverflow(page);
   await expectReadableText(page, label);
   const rest = await new AxeBuilder({ page }).exclude('[data-unread]').analyze();
@@ -192,10 +197,6 @@ export async function expectSoundExceptDimmedRows(page: Page, label: string): Pr
     ),
     `axe violations: ${label}`,
   ).toEqual([]);
-  expect(
-    await page.locator('[data-unread]').count(),
-    'J-01: there are dimmed rows to judge',
-  ).toBeGreaterThan(0);
   const dimmed = await new AxeBuilder({ page })
     .include('[data-unread]')
     .withRules(['color-contrast'])
@@ -204,4 +205,85 @@ export async function expectSoundExceptDimmedRows(page: Page, label: string): Pr
     dimmed.violations.length,
     'J-01 (dimmed rows below 4.5:1) is no longer found: use expectSound here',
   ).toBeGreaterThan(0);
+}
+
+// ---------------------------------------------------------------------------------------------
+// The long way, for the tests that need a project that is further along than the question
+// ---------------------------------------------------------------------------------------------
+
+/** Waits for the research to be where it stays until a person acts: ready, stopped, blocked, failed or waiting for a source. */
+export async function untilResearchStops(page: Page, timeout = 120_000): Promise<string> {
+  await expect(chip(page)).toHaveText(/^(?:Ready|Needs a source|Failed|Stopped|Blocked)$/u, {
+    timeout,
+  });
+  return (await chip(page).innerText()).trim();
+}
+
+/** Names a site or a page to research that has stopped, and waits for what the run of its own comes to. */
+export async function addAndWait(page: Page, address: string, timeout = 120_000): Promise<string> {
+  const field = page.getByRole('textbox', { name: 'Site or page to add' });
+  if ((await field.count()) === 0) await press(page, 'Add a site or page').click();
+  await field.fill(address);
+  const accepted = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'POST' && /\/research\/sources$/u.test(response.url()),
+  );
+  await press(page, 'Add').click();
+  await accepted;
+  await expect(chip(page)).not.toHaveText('Needs a source');
+  return untilResearchStops(page, timeout);
+}
+
+/** From Ground, with sources, to the actors made: the participants accepted as they were proposed, and used. */
+export async function useTheActors(page: Page): Promise<void> {
+  await press(page, 'Map the stakeholders').first().click();
+  await page.getByRole('button', { name: 'Find who is affected' }).click();
+  const notice = page.getByRole('status').filter({ hasText: 'Swarm proposed these participants' });
+  await expect(notice).toBeVisible({ timeout: 60_000 });
+  await notice.getByRole('button', { name: 'Review participants' }).click();
+  await page.getByRole('button', { name: /^Accept all/u }).click();
+  await expect(page.getByRole('button', { name: 'Accept all (0)' })).toBeDisabled();
+  await useActors(page).click();
+  await expect(pill(page).getByText('Synthetic stand-ins')).toBeVisible();
+}
+
+/** The constraints read and reviewed, as a careful person does, so that nothing holds a simulation. */
+export async function settleConstraints(page: Page): Promise<void> {
+  await page
+    .getByRole('radiogroup', { name: 'Show as' })
+    .getByRole('radio', { name: 'Constraints' })
+    .click();
+  await page.getByRole('button', { name: 'Read my sources for constraints' }).click();
+  await expect(gateRegion(page)).toBeVisible({ timeout: 60_000 });
+  const confirmations = page.getByRole('button', { name: /^Confirm: / });
+  for (let guard = 0; guard < 12 && (await confirmations.count()) > 0; guard += 1) {
+    const before = await confirmations.count();
+    await confirmations.first().click();
+    await expect(confirmations).toHaveCount(before - 1);
+  }
+  const accept = page.getByRole('button', { name: /^Accept the \d+ that waits?$/u });
+  if ((await accept.count()) > 0) await accept.click();
+  const confirm = page.getByRole('button', { name: 'Confirm the review' });
+  if ((await confirm.count()) > 0 && (await confirm.isEnabled())) await confirm.click();
+  await expect(page.getByRole('button', { name: 'Review confirmed' })).toBeVisible();
+}
+
+/** Starts the simulation from the Map, and returns once the page says it is running. */
+export async function startSimulation(page: Page): Promise<void> {
+  await press(page, 'Go to the simulation').click();
+  await press(page, 'Run the simulation').click();
+}
+
+/** Waits for the simulation to have run: the theatre, which says it is not a prediction. */
+export async function untilSimulated(page: Page): Promise<void> {
+  await expect(page.getByRole('heading', { level: 1, name: 'Watch it unfold' })).toBeVisible({
+    timeout: 180_000,
+  });
+}
+
+/** From the comparison to the brief written under the decision view. */
+export async function writeTheBrief(page: Page): Promise<void> {
+  await goTo(page, 'decide');
+  await press(page, 'Write the brief').click();
+  await expect(briefTools(page)).toBeVisible();
 }
