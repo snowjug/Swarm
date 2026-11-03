@@ -1,12 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { emptyConsole } from '../../../shared/guided.js';
+import type { SourceProvenance } from '../../../shared/scenario.js';
 import {
+  MAX_DOCUMENTS,
   MAX_PROJECTS,
+  MAX_TOTAL_CHARS,
+  documentInputSchema,
   type ChatMessage,
   type EvidenceChunk,
   type ProjectDetail,
   type ProjectSummary,
+  type SourceDocument,
   type Stage,
   type ValidatedProjectInput,
 } from '../../../shared/types.js';
@@ -66,6 +71,16 @@ const leaseLost = (): AppError =>
     'LEASE_LOST',
     'This job was handed to another worker, so this one must stop and write nothing more.',
   );
+
+/** A source to add to a project that already exists. */
+export interface AddedDocument {
+  name: string;
+  content: string;
+  provenance?: SourceProvenance;
+}
+
+/** The number in an id such as `D3` or `S12`, or 0. */
+const numberOfId = (id: string): number => Number(/^\D*(\d+)$/u.exec(id)?.[1] ?? 0);
 
 export class Repository {
   private readonly database: SqlDatabase;
@@ -361,7 +376,9 @@ export class Repository {
       this.addEvent(
         project.id,
         'intake',
-        `${project.documents.length} source document(s) validated and indexed locally.`,
+        project.documents.length === 0
+          ? 'The question was saved. Sources are added by research, or by you.'
+          : `${project.documents.length} source document(s) validated and indexed locally.`,
       );
       this.audit.record({
         actor: owner.ownerId,
@@ -380,6 +397,104 @@ export class Repository {
       });
     });
     return this.get(project.id);
+  }
+
+  /**
+   * Adds sources to a project that already exists, and the passages cut from them. The passages carry on
+   * the numbering of the project's own (`S11`, `S12`, ...) and nothing already written is touched: a
+   * passage id, its hash and its review stay what they were, so everything that cites one still does.
+   * The documents, the passages, the event and the audit entry (counts only) are one transaction, so
+   * that a failure leaves the project as it was; a caller that holds a transaction takes part in it, and
+   * one that is a job's holds the job's lease, as every write does. The limits of a project hold: at
+   * most ten documents and 200,000 characters. The claim ledger is not touched here: a caller that adds
+   * sources checks them for conflicts with what was already there (`LedgerService.addFoundConflicts`).
+   */
+  appendDocuments(
+    projectId: string,
+    additions: readonly AddedDocument[],
+    options: { actor?: string; origin?: string } = {},
+  ): { documents: SourceDocument[]; chunks: EvidenceChunk[] } {
+    let added: { documents: SourceDocument[]; chunks: EvidenceChunk[] } = {
+      documents: [],
+      chunks: [],
+    };
+    if (additions.length === 0) return added;
+    const write = (): void => {
+      const current = this.readStored(projectId);
+      if (!current) throw new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');
+      if (current.documents.length + additions.length > MAX_DOCUMENTS) {
+        throw new AppError(
+          409,
+          'DOCUMENT_LIMIT',
+          `A project holds at most ${MAX_DOCUMENTS} sources.`,
+        );
+      }
+      const chars = [...current.documents, ...additions].reduce(
+        (sum, document) => sum + document.content.length,
+        0,
+      );
+      if (chars > MAX_TOTAL_CHARS) {
+        throw new AppError(
+          409,
+          'SOURCE_SIZE_LIMIT',
+          `The sources of a project may hold at most ${MAX_TOTAL_CHARS.toLocaleString('en-GB')} characters.`,
+        );
+      }
+      const lastDocument = current.documents.reduce(
+        (most, document) => Math.max(most, numberOfId(document.id)),
+        0,
+      );
+      const documents: SourceDocument[] = additions.map((addition, index) => {
+        const valid = documentInputSchema.safeParse(addition);
+        if (!valid.success) {
+          throw new AppError(
+            422,
+            'DOCUMENT_INVALID',
+            'A source to add is not a valid document: check its name and that its text is 80 to 40,000 characters without control characters.',
+          );
+        }
+        return { ...valid.data, id: `D${lastDocument + index + 1}` };
+      });
+      const lastChunk = this.database
+        .prepare('SELECT id FROM chunks WHERE project_id = ?')
+        .all(projectId)
+        .reduce((most: number, row) => Math.max(most, numberOfId(idRow.parse(row).id)), 0);
+      const now = new Date().toISOString();
+      const chunks: EvidenceChunk[] = chunkDocuments(documents).map((chunk, index) => ({
+        ...chunk,
+        id: `S${lastChunk + index + 1}`,
+        contentHash: hashText(chunk.text),
+        extractedAt: now,
+        parserVersion: PARSER_VERSION,
+        reviewStatus: 'unreviewed',
+      }));
+      const insert = this.database.prepare(
+        'INSERT INTO chunks (project_id, id, payload) VALUES (?, ?, ?)',
+      );
+      for (const chunk of chunks) insert.run(projectId, chunk.id, JSON.stringify(chunk));
+      this.update(projectId, { documents: [...current.documents, ...documents] });
+      this.addEvent(
+        projectId,
+        'knowledge',
+        `${additions.length} source${additions.length === 1 ? '' : 's'} added from ${options.origin ?? 'research'} and indexed as ${chunks.length} passage${chunks.length === 1 ? '' : 's'}.`,
+      );
+      this.audit.record({
+        actor: options.actor ?? 'system',
+        action: `${options.origin ?? 'research'}.documents.added`,
+        targetType: 'project',
+        targetId: projectId,
+        projectId,
+        detail: {
+          documents: documents.length,
+          passages: chunks.length,
+          characters: documents.reduce((sum, document) => sum + document.content.length, 0),
+        },
+      });
+      added = { documents, chunks };
+    };
+    if (this.database.inTransaction) write();
+    else this.transaction(write);
+    return added;
   }
 
   /**
