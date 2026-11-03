@@ -962,6 +962,7 @@ describe('a hosted application', () => {
       config,
       repository: new Repository(':memory:'),
       tokenVerifier: new TokenVerifier(config.auth, idp.keys),
+      logStream: { write: () => undefined },
     });
     expect(
       (await telemetry.measurements()).filter((point) => point.name === 'swarm.deployment.info'),
