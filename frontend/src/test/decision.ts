@@ -1165,6 +1165,34 @@ export function scopedFixture(
       },
       assumptions: from.changes.assumptions.map((row) => ({ ...row, flipsAnswer: false })),
     },
+    // A decision about one person is a qualified person's: the check that comes before every other, and the stop.
+    validation: {
+      ...from.validation,
+      items: [
+        {
+          id: 'val-scope-qualified-person',
+          kind: 'stakeholder',
+          priority: 'high',
+          source: 'scope',
+          what: `Have ${reviewers} decide this, with this view as one input.`,
+          why: `The question reads as a decision about one person’s ${matters} situation. Swarm explores scenarios and does not make or recommend such decisions.`,
+          how: 'Take the question to the person who is qualified and accountable for it, and tell them what the exploration can and cannot show. Swarm does not contact anyone.',
+          label: 'validation-requirement',
+          refs: [],
+        },
+        ...from.validation.items,
+      ].slice(0, 12),
+      stopConditions: [
+        {
+          id: 'stop-qualified-person',
+          when: 'This view is used in place of the decision of a qualified person.',
+          then: 'Stop and take the decision to the qualified person.',
+          basis: 'Swarm does not make or recommend decisions about one person’s situation.',
+          label: 'validation-requirement',
+        },
+        ...from.validation.stopConditions,
+      ],
+    },
     approvals,
     scope,
   });

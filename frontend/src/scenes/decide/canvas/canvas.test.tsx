@@ -418,6 +418,21 @@ describe('what the page says of what Swarm does not decide', () => {
     expect(gistOf('answer', canvas)).toBe(DECISION_STATUS_INFO['needs-human-decision'].label);
     expect(gistOf('next', canvas)).toContain('A qualified person decides this');
   });
+
+  it('puts the check that a qualified person decides before every other, for a decision about one person', () => {
+    const canvas = scopedFixture('individual');
+    const [first] = checksOf(canvas).items;
+    expect(first).toMatchObject({ source: 'scope', priority: 'high' });
+    expect(first?.what).toMatch(
+      /^Have a qualified human resources or employment-law professional decide this/u,
+    );
+    expect(text(render(handleOf(viewFixture(canvas))))).toContain(first!.what);
+    expect(canvas.validation.stopConditions[0]?.id).toBe('stop-qualified-person');
+    // For a matter in general the plan is the simulation's own.
+    expect(checksOf(scopedFixture('domain')).items.every((item) => item.source !== 'scope')).toBe(
+      true,
+    );
+  });
 });
 
 describe('what the page says about itself', () => {
