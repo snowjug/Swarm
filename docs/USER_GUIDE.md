@@ -592,16 +592,48 @@ runs. The method is in [the Decision Canvas](./analysis/decision-canvas.md).
   ever called a fact.
 - **A recommendation says what is missing from it.** Whenever one is shown it states what is recommended, for
   whom, under which assumptions and constraints, the evidence that supports it and the evidence that weakens
-  it, what would invalidate it, what to test next, whether it can be undone (which Swarm says it does not know)
-  and what human approval is needed; a part with nothing to say is listed as missing. **What to validate before
+  it, what would invalidate it, what to test next, whether it can be undone (which Swarm says it does not know,
+  and lists as missing) and what human approval is needed; a part with nothing to say is listed as missing, and
+  the count ("7 of 9 parts stated") follows that list. **What to validate before
   acting** is a list of checks to do in the real world, which Swarm does not track. Swarm recommends and
   explains: it contacts no one, executes nothing and decides nothing.
+- **What Swarm does not decide.** If the question, or what Swarm read from it, speaks of a person's employment,
+  credit, legal, medical or safety situation, a note at the head of the view says so: "Swarm explores scenarios. It
+  does not make or recommend decisions about a person's employment, credit, legal, medical or safety situation; a
+  qualified person must decide.", with the matters it matched (**Employment**, **Credit**, **Legal**, **Medical**,
+  **Safety**). It is a note and not a refusal: nothing is blocked, the picture is still there, and the note is
+  there whatever the status is and before any comparison has been run. **Human approval**, under the nine, then
+  says which kind of person reviews each matter (a qualified clinician, a qualified lawyer and so on) and the few
+  words that the reading rested on, and that point stays open, since Swarm cannot know that anyone has done it. The
+  same note is at the top of an export's Decision view (Markdown, the printable page and JSON) and appears again,
+  with those words, just before the brief.
+- **A decision about one person.** When such a matter is said of one person ("Should we fire this employee?",
+  "Should the bank approve John Smith's mortgage application?"), the status is **Needs a human decision**, whether
+  or not a comparison has been run, and whatever the simulation shows. No option is called preferred: the options
+  read **Not ranked**, no view or assumption is said to reverse a choice that is not made, and the recommended next
+  move is "A qualified person decides this; here is what the exploration can and cannot tell them.", with one thing
+  it can tell them (how the simulated roles responded under the stated assumptions) and one it cannot (what is
+  right, fair or lawful for this person) on the first screen, and the rest under **The recommendation in full**.
+  The first check under **What to validate before acting** is to have the qualified person decide, and the first
+  stop condition is that this view is being used in place of them. A question about a policy, a process or a group
+  ("What happens if we change our hiring policy?") gets the note and nothing more, and one that only shares a word
+  with such a matter ("the credit card market") gets nothing.
+- **It reads words, and it is not complete.** The page says so ("The rules read words and are not complete: a
+  matter they miss is still a matter for a person.") and the status says that it can be mistaken in either
+  direction. A question put in other words ("Is he well enough to be discharged?", "Should I report my manager to
+  HR?") or in another language is not noticed, and a single capitalised company after "hire" or "sue" may be read
+  as a person. Nothing is said when you ask the question, because the check runs when the Decision view is read. The
+  **Full report** under the view is the brief as it was written and may still carry its own conditional
+  recommendation: the line under the **Full report** heading says that the note applies to everything below. Whether the note
+  appears or not, treat a question about a person's situation as one for a qualified person.
 - **Beneath the nine** are the details, each in a disclosure: why this status, how the options compare on each
   lens, the recommendation in full, everything that could change the result, the constraints and who moves in
   full, the validation plan and when to stop, what the answer rests on, what the independent review challenged,
   human approval, and what the labels mean. They are open on paper.
 - **When there is nothing to show.** With no finished comparison the page says "Nothing to decide from yet",
-  what is missing and which step supplies it ("Not ready yet" while one runs). A picture of a comparison that
+  what is missing and which step supplies it ("Not ready yet" while one runs); for a question about one person
+  it also says that a qualified person decides, in place of the lack of evidence. The note on what Swarm does not
+  decide is there in these states too. A picture of a comparison that
   was run before the scenario, the participants, the actors or the constraints changed says "This picture
   describes the project as it was" and can never be a robust option; a newer comparison on its way is said too.
 

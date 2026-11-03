@@ -448,18 +448,34 @@ stores nothing, so it is never older than what it describes, and, since it chang
 audit log. No model writes any of it. The status rules, the four lenses and the epistemic labels are in
 [analysis/decision-canvas.md](./analysis/decision-canvas.md).
 
-- **Answer.** `{ "canvas": DecisionCanvas | null, "readiness": { "state", "missing", "next", "status" },
+- **Answer.** `{ "canvas": DecisionCanvas | null, "readiness": { "state", "missing", "next", "status", "scope" },
 "may": { "run", "export" } }` (`DecisionView` in [shared/decision.ts](../shared/decision.ts)). `canvas` is `null` while
   there is no finished comparison; `readiness.state` is `ready`, `no-analysis`, `running` or `failed`, `missing` says what
-  is lacking in words, `next` names the step that supplies it (`ask`, `ground`, `map` or `simulate`) and `status` is where
-  the status rules land without a canvas: always `insufficient-evidence`, with the reason.
+  is lacking in words, `next` names the step that supplies it (`ask`, `ground`, `map` or `simulate`), `status` is where
+  the status rules land without a canvas (`insufficient-evidence`, with the reason, or `needs-human-decision` by the
+  rule `individual-decision` for a question about one person) and `scope` is what the question touches that Swarm does
+  not decide, read also without a canvas (see below).
 - **The canvas.** It holds exactly one of six `status` values (`robust-option`, `conditional-option`,
   `multiple-plausible-options`, `needs-human-decision`, `blocked-by-hard-constraint`, `insufficient-evidence`), the
   options with their lenses, the recommendation with the parts it must state (for whom, under which assumptions and
   constraints, what supports it, what weakens it, what would invalidate it, what to test next) or a sentence for each
   part that is missing, the evidence reading, the constraints and counterfactual views it rests on, the independent
-  review, the validation plan and `freshness` (the comparison it was made from and whether anything has changed
-  since). Every generated statement carries one epistemic label.
+  review, the validation plan, `scope` and `freshness` (the comparison it was made from and whether anything has
+  changed since). Every generated statement carries one epistemic label. The recommendation's `missing` lists every
+  part with nothing in it, `reversibility` included for as long as it is `unknown`, and nine parts in all are
+  counted (`CARD_PARTS`).
+- **What Swarm does not decide (`scope`).** `{ "notice", "domains", "aboutIndividual", "basis", "exploration" }`
+  (`DecisionScope`). `notice` is one fixed sentence when the question or the scenario speaks of employment, credit,
+  legal, medical or safety matters, and `null` otherwise; `domains` lists the matters; `aboutIndividual` is `true`
+  when an act of one of them is said of one person, and then the status is `needs-human-decision` by the first rule,
+  `individual-decision`, whatever else is true, no option is preferred (the verdict of an option that a confirmed
+  hard constraint does not rule out is `not-ranked`) and the recommendation is that a qualified person decides;
+  `basis` is the few words the reading rests on, never a name; `exploration` is what the exploration can and cannot
+  tell the person who decides (`null` unless `aboutIndividual`, and `null` in the `readiness` of a project with no
+  canvas yet). It is worked out at every read, by rules and with no model, from the question and the scenario's
+  decision, system and alternatives (`backend/src/decision/scope.ts`). It refuses nothing. Creating a project and
+  reading a question into a scenario do not run it; the brief's exports do, since they carry the canvas. It reads
+  words, so it is not complete ([the Decision Canvas](./analysis/decision-canvas.md#what-swarm-does-not-decide)).
 
 ### Decision brief
 
@@ -496,7 +512,10 @@ needs `export`.
   `default-src 'none'`, so it can load and run nothing). All three say that the brief explores scenarios and
   does not predict, and all three carry the freshness: when `changedSince` is not empty each leads with a
   warning that names it and the revisions the brief was made from beside the ones the project holds now, and
-  the JSON has `changedSince`, `warning`, `provenance.currentRevisions` and `provenance.dataFrom`. The tables
+  the JSON has `changedSince`, `warning`, `provenance.currentRevisions` and `provenance.dataFrom`. Each starts with
+  the Decision view of the comparison the brief is of, worked out at the export (the JSON holds the whole canvas
+  under `canvas`, `scope` included, or `null` when none could be made), and where the scope check found a matter it
+  carries the notice that Swarm does not make or recommend such a decision. The tables
   and `data` are the snapshot kept with the brief, not the project as it is at the export (a brief stored
   before the snapshot was kept says so). Another format is `400`, and exporting before one is written is
   `409 BRIEF_NOT_GENERATED`.

@@ -861,9 +861,11 @@ review beside the brief and in its place.
 - **The Decision view is the page's first thing**, in every state of the brief beneath it
   (`scenes/decide/canvas/`; [the Decision Canvas](./analysis/decision-canvas.md) has the method and the page
   in full). It holds the page's one level-one heading, "Decision view", with "Explore scenarios, not
-  predictions." beside it. The page adds no number, no label and no sentence of its own about the decision:
-  everything is a plain function of the view the server answered with, and the words that name the parts of the
-  page are held to the brief's wording guard by a test. Its header says what it rests on ("Worked out from the
+  predictions." beside it. The page adds no number, no label and no claim of its own about the decision: its own
+  copy is fixed words (what a part is called, what a control does and, for what Swarm does not decide, the note on
+  the bridge and two short lines), and everything else is a plain function of the view the server answered with.
+  Every word of that copy is held by a test to the guard on browser-visible text (`e2e/support/claims.ts`). Its
+  header says what it rests on ("Worked out from the
   newest finished comparison, every time this page is read."), and has **Labels**, for what the eight kinds of
   statement mean, and **Full report**, which takes the reader to where the brief begins.
 - **The first viewport holds nine things**, in the order a decision is read: **Question**, **Current best
@@ -881,6 +883,24 @@ review beside the brief and in its place.
   independent review challenged, human approval and what the labels mean. Every statement carries its kind as
   text, with a sentence for a screen reader ("Kind of statement: assumption"); the meaning is in a popover for
   the pointer and in the page for everyone, since a tooltip holds the only copy of nothing.
+- **What Swarm does not decide has its place in every state** (`canvas/Scope.tsx`; the page in full is in [the
+  Decision Canvas](./analysis/decision-canvas.md#the-page)). When the question, or what Swarm read from it, speaks
+  of employment, credit, legal, medical or safety matters, a note (a `note` named "What Swarm does not decide")
+  stands in the header: the server's sentence, an icon, and the matters it matched as small labels after the word
+  "Matched". Where there is room it is beside the title, which then stands over its line so that the nine still end
+  inside a 1440 × 900 window; on a narrow screen it is a line of its own above the question, whole and in words. It
+  is there with no comparison, while one runs and over an old picture kept after a failed read. It is a note and
+  not an alert: nothing on the page is disabled. A decision about one person changes what the parts say and not
+  where they are. The answer says "Needs a human decision" with the cues behind it; the options read "Not ranked";
+  the recommended next move is the sentence "A qualified person decides this; here is what the exploration can and
+  cannot tell them.", followed, in place of "Rests on" and the count of parts stated, by one thing it can tell them
+  and one it cannot ("Can tell them.", "Cannot tell them."), with the rest counted on the button to the
+  recommendation in full; a view that could change the result carries no "could reverse" flag, since no choice is
+  made; and the folded lines of a narrow screen say "Needs a human decision" and the same sentence. The approvals
+  detail lists the matters, the kind of person who reviews each, and the cues, with the line that the rules read
+  words and are not complete. The bridge to the full report says that the note applies to everything below it.
+  Text of the server's is only put in the page as text, the cues included. `canvas.test.tsx` and `fold.test.tsx`
+  check what is said, and `e2e/lab/decide-canvas.spec.ts` checks it at both sizes.
 - **Its states** are loading (the shape of the page), "The decision view could not be read" (with **Try
   again**, and what had been read kept), "Nothing to decide from yet" (what is missing, the step that supplies
   it, and the detailed report where there is one) or "Not ready yet" while a comparison runs, "This picture
@@ -1332,6 +1352,10 @@ it is done.
   The question being typed on the first screen and the alternatives edited on the Simulate setup do not (nothing
   under `scenes/ask` calls it, and the Simulate setup is a form that is applied by running it, with nothing to save
   or discard), so leaving them by the mark, the journey or the palette does not ask.
+- **The first screen says nothing of what Swarm does not decide.** The scope check runs on the server when the
+  Decision view is read, and nothing under `scenes/ask` reads it, so a question about one person's employment,
+  credit, legal, medical or safety situation is neither noticed nor refused when it is asked, and the first note
+  stands on the Decide page (`scenes/decide/canvas/Scope.tsx`).
 - **The People and Who has access dialogs have no close mark.** They close with **Done** or with Escape. The
   sheets have a **Close** button, and a dialog is not given one (`design/ui/Dialog.tsx`).
 - **Export snapshot is the engine's record, not the decision brief.** In Settings and tools, and as **Snapshot,
