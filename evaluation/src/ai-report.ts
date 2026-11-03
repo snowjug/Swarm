@@ -214,7 +214,7 @@ export function fakeRows(m: FakeMeasures, reg: Registered): MetricRow[] {
       mode,
       m.constraints.hardRecall,
       cap,
-      'On the clean arm. The product sets hardness itself from the words of the quote, whatever the model says.',
+      'On the clean arm: a reply that proposes every labelled constraint with its labelled hardness. The product reads hardness from what the quote asserts and shows the basis; a model’s reading can raise a limit to hard only where the quote holds a word of a limit and nothing in it asks, hedges or denies, so a correct “hard” is not believed when the quote states no limit.',
     ),
     countRow(
       spec('extractedWithoutQuote'),
@@ -273,7 +273,9 @@ export function liveRows(
       reg.specs[id]!,
       mode,
       decision.run
-        ? 'Not measured in this live run.'
+        ? reg.specs[id]!.kind === 'suite'
+          ? 'Not measured in this live run: the planner, research-run and decision suites have no live observation yet and are measured in rules and fake-foundry.'
+          : 'Not measured in this live run.'
         : `${decision.message}${'reasons' in decision ? ` (${decision.reasons.join(' ')})` : ''}`,
       cap,
     );

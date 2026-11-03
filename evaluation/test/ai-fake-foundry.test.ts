@@ -26,7 +26,6 @@ beforeAll(async () => {
 }, 120_000);
 
 describe('fake-foundry mode against the registered thresholds', () => {
-  // The planner, run and decision suites are registered (thresholds.json, `suites`) and wired in their own changes.
   it.each(
     Object.values(registered.specs)
       .filter((spec) => spec.kind !== 'suite')

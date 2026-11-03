@@ -1,23 +1,23 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { describeRow, expectedStatus, isStrict, loadLedger } from '../src/ai-expectations.js';
-import { buildReport, PENDING_SUITES, type AiReport } from '../src/ai-run.js';
+import { buildReport, type AiReport } from '../src/ai-run.js';
 import { loadRegistered } from '../src/ai-thresholds.js';
 
 // The rules mode: the product's rules paths, offline, over the labelled sets. Each registered metric
 // is one test. A metric registered for this mode that breaches its threshold fails, unless
 // known-breaches.json lists it (EVAL_STRICT=1 excuses nothing); a metric that is not registered for
-// this mode must come out NOT MEASURED, and is never a pass.
+// this mode must come out NOT MEASURED, and is never a pass. The planner, research-run and decision
+// suites have a test file each (ai-plan, ai-research, ai-decision), which keeps this one fast.
 
 const registered = loadRegistered();
 const ledger = loadLedger();
 let report: AiReport;
 
 beforeAll(async () => {
-  report = await buildReport({ modes: ['rules'] });
+  report = await buildReport({ modes: ['rules'], suites: false });
 }, 120_000);
 
 describe('rules mode against the registered thresholds', () => {
-  // The planner, run and decision suites are registered (thresholds.json, `suites`) and wired in their own changes.
   it.each(
     Object.values(registered.specs)
       .filter((spec) => spec.kind !== 'suite')
@@ -44,9 +44,17 @@ describe('rules mode against the registered thresholds', () => {
     expect(row?.test).toMatch(/\d/u);
   });
 
-  it('lists what other workstreams are still building as not measured', () => {
-    expect(report.pending.map((item) => item.id)).toEqual(PENDING_SUITES.map((item) => item.id));
-    for (const item of report.pending) expect(item.status).toBe('NOT MEASURED (pending)');
+  it('leaves out the planner, research-run and decision suites when it is asked to, and says nothing is pending', () => {
+    const suiteIds = new Set(
+      Object.values(registered.specs)
+        .filter((spec) => spec.kind === 'suite')
+        .map((spec) => spec.id),
+    );
+    expect(report.rows.filter((item) => item.mode === 'rules' && suiteIds.has(item.id))).toEqual(
+      [],
+    );
+    expect(report.suiteRevisions).toEqual([]);
+    expect(JSON.stringify(report)).not.toContain('NOT MEASURED (pending)');
   });
 
   it('reports the long-page injection defect exactly when the metric breaches, and says how to see it', () => {

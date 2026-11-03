@@ -362,6 +362,7 @@ describe('the run measures', () => {
       { page: 'B', gold: 'quarantined:login-page', got: 'quarantined:paywall', ok: false },
     ]);
     expect(result.notReached).toEqual(['D']);
+    expect(result.skipped).toEqual([]);
     expect(result.fetchedForbidden).toEqual(['E']);
     expect(result.opposing).toEqual([{ pair: ['A', 'C'], read: true, kept: true }]);
     // Three passages on a.example and one on c.example: two domains, the larger holds 3 of 4.
@@ -406,6 +407,7 @@ describe('the run measures', () => {
     );
     expect(result.outcomes).toEqual([]);
     expect(result.notReached).toEqual(['S']);
+    expect(result.skipped).toEqual(['S']);
   });
 
   it('judges a question-only run on its status, its reason, its requests and its documents together', () => {

@@ -5,10 +5,21 @@ import type { LiveDecision, LiveObservation } from './ai-live.js';
 import { decideLive, liveHarness, NOT_MEASURED_LIVE, observeLive } from './ai-live.js';
 import { loadFlaws, loadSafety, loadScenarios, loadSites, type Scenario } from './ai-datasets.js';
 import { observeFake, type FakeObservation } from './ai-fake.js';
+import { loadDecisionCases, loadPlans, loadRunsFile } from './ai-suite-data.js';
 import { measureFake, type FakeMeasures } from './ai-measure-fake.js';
 import { measureRules, type RulesMeasures, type SplitFilter } from './ai-measure-rules.js';
 import { observeCrawl, observeCritics, observeScenarios } from './ai-rules.js';
 import { fakeRows, liveRows, rulesRows } from './ai-report.js';
+import {
+  measureSuites,
+  observeSuites,
+  suiteExtras,
+  suiteFindings,
+  suiteRows,
+  SUITE_REVISIONS,
+  type SuiteMeasures,
+  type SuiteOptions,
+} from './ai-suites.js';
 import {
   loadRegistered,
   MODES,
@@ -20,35 +31,6 @@ import { scoreCatches, scoreFalseAlarms } from './measure-critics.js';
 import { scoreGaps } from './measure-constraints.js';
 import { describeRate, percentOf, type Rate } from './measure-stats.js';
 import { RESULTS_DIRECTORY } from './paths.js';
-
-export interface PendingSuite {
-  id: string;
-  label: string;
-  status: 'NOT MEASURED (pending)';
-  why: string;
-}
-
-/** Suites that other workstreams are still building. They plug into this harness when they merge. */
-export const PENDING_SUITES: readonly PendingSuite[] = [
-  {
-    id: 'research-planner',
-    label: 'Research planning (the plan a question is turned into)',
-    status: 'NOT MEASURED (pending)',
-    why: 'The research planner is being built by another workstream; it is not on this base.',
-  },
-  {
-    id: 'research-orchestration',
-    label: 'Research run end to end (plan, crawl, read, ground, stop)',
-    status: 'NOT MEASURED (pending)',
-    why: 'The orchestration of a whole research run is being built by another workstream. The crawler and the extraction are measured here on their own.',
-  },
-  {
-    id: 'decision-canvas',
-    label: 'Decision Canvas status matrix',
-    status: 'NOT MEASURED (pending)',
-    why: 'The canvas is being built by another workstream; there is nothing on this base to measure.',
-  },
-];
 
 export interface Finding {
   id: string;
@@ -70,12 +52,13 @@ export interface AiReport {
   modes: Record<string, string>;
   datasets: Record<string, unknown>;
   rows: ReportRow[];
-  pending: readonly PendingSuite[];
   breached: { mode: Mode; id: string; value: string; threshold: string }[];
   findings: Finding[];
   extras: { rules: string[]; fake: string[]; live: string[] };
   live: { ran: boolean; message: string; reasons: string[] };
   labelRevisions: { field: string; reason: string; afterSeeingResults: boolean }[];
+  /** What was changed in the planner, run and decision suites after a result had been seen. */
+  suiteRevisions: readonly { what: string; reason: string }[];
   elapsedMs: number;
 }
 
@@ -83,6 +66,8 @@ export interface RunOptions {
   modes?: readonly Mode[];
   /** In fake-foundry mode: corrupt every scenario (the CLI default) or only these (the test). */
   corruptScenarios?: readonly string[];
+  /** The planner, research-run and decision suites: all of them by default; `false` leaves them out (the first-phase tests). */
+  suites?: SuiteOptions | false;
   live?: boolean;
   environment?: Record<string, string | undefined>;
 }
@@ -93,6 +78,9 @@ function datasetCounts(scenarios: readonly Scenario[]): Record<string, unknown> 
   const sites = loadSites();
   const safety = loadSafety();
   const flaws = loadFlaws();
+  const plans = loadPlans();
+  const runs = loadRunsFile();
+  const decisions = loadDecisionCases();
   const by = <T>(items: readonly T[], key: (item: T) => string): Record<string, number> => {
     const out: Record<string, number> = {};
     for (const item of items) out[key(item)] = (out[key(item)] ?? 0) + 1;
@@ -137,6 +125,41 @@ function datasetCounts(scenarios: readonly Scenario[]): Record<string, unknown> 
       split: by(flaws.flaws, (item) => item.split),
       controls: flaws.controls.length,
     },
+    plans: {
+      questions: plans.cases.length,
+      fromScenarios: plans.cases.filter((item) => item.scenario).length,
+      split: by(plans.cases, (item) => item.split),
+      namedEntities: plans.cases.flatMap((item) => item.entities).filter((item) => item.named)
+        .length,
+      otherEntities: plans.cases.flatMap((item) => item.entities).filter((item) => !item.named)
+        .length,
+      topics: plans.cases.reduce((sum, item) => sum + item.topics.length, 0),
+      claims: plans.cases.reduce((sum, item) => sum + item.claims.length, 0),
+      seededInstructions: plans.injections.length,
+      corruptionClasses: plans.corruptions.filter((item) => item.expect !== 'accepted').length,
+    },
+    researchRuns: {
+      total: runs.cases.length,
+      split: by(runs.cases, (item) => item.split),
+      mode: by(runs.cases, (item) => item.mode),
+      syntheticWorlds: runs.worlds.length,
+      syntheticHosts: Object.keys(runs.hosts).length,
+      stopsNamed: by(
+        runs.cases.filter((item) => item.gold.stop),
+        (item) => item.gold.stop as string,
+      ),
+    },
+    decisionFixtures: {
+      total: decisions.cases.length,
+      split: by(decisions.cases, (item) => item.split),
+      cast: by(decisions.cases, (item) => item.cast),
+      status: by(decisions.cases, (item) => item.gold.status),
+      rule: by(
+        decisions.cases.flatMap((item) => item.gold.rules.slice(0, 1)),
+        (item) => item,
+      ),
+      workedExamples: 5,
+    },
   };
 }
 
@@ -144,7 +167,11 @@ const rowFor = (rows: readonly MetricRow[], id: string): MetricRow | undefined =
   rows.find((row) => row.id === id);
 
 /** Defects and limits the measurements show, each with the numbers it rests on and a way to see it again. */
-export function findingsOf(rules: RulesMeasures, fake: FakeMeasures | null): Finding[] {
+export function findingsOf(
+  rules: RulesMeasures,
+  fake: FakeMeasures | null,
+  scenarios: readonly Scenario[] = [],
+): Finding[] {
   const found: Finding[] = [];
   const unlabelled = rules.crawl.injection.unlabelled;
   if (unlabelled.count > 0) {
@@ -217,18 +244,18 @@ export function findingsOf(rules: RulesMeasures, fake: FakeMeasures | null): Fin
           'The safety arms of `npm run eval:ai -- --mode fake-foundry` (open arm: unscreenedAnswered).',
       });
     }
+    const inflated = fake.hardnessInflation;
     if (
-      fake.constraints.hardRecall.rate !== null &&
-      fake.constraints.recall.rate !== null &&
-      fake.constraints.hardRecall.rate < fake.constraints.recall.rate - 0.2
+      (fake.constraints.hardRecall.rate !== null && fake.constraints.hardRecall.rate < 1) ||
+      (inflated.rate !== null && inflated.rate > 0)
     ) {
       found.push({
-        id: 'hardness-from-words',
+        id: 'model-hardness-needs-a-limit-word',
         severity: 'limit',
-        title: 'Hardness is taken from a word list, whatever a model says',
-        evidence: `A reply that proposed every labelled constraint with the labelled hardness came out with ${describeRate(fake.constraints.recall)} of the constraints found and ${describeRate(fake.constraints.hardRecall)} of the hard ones held as hard: constraints/build.ts sets an extracted constraint hard only when its quote matches HARD_CUE (“must”, “at least”, “cannot”…), so an agreement that makes work voluntary, or a deadline, is soft.`,
+        title: 'A model’s reading of hardness counts only where the quote holds a word of a limit',
+        evidence: `A reply that proposed every labelled constraint with its labelled hardness had ${describeRate(fake.constraints.hardRecall)} of the labelled hard constraints held as hard. hardnessOf (constraints/build.ts) believes a model’s “hard” only where the quote it cites holds a word of a limit and nothing in it asks, hedges or denies, and never lowers a limit the words state; for the others it says “Soft: a model called it hard, but nothing in the quoted words states a limit.” The same rule held back ${inflated.total - inflated.successes} of ${inflated.total} soft constraints that a scripted model called hard; ${describeRate(inflated)} became hard, because their quotes hold such a word. Hardness is read from what the clause asserts and its basis is shown to the person, who can overrule it: this is the rule working, and these are its misses in both directions.`,
         reproduce:
-          'The clean arm of `npm run eval:ai -- --mode fake-foundry`: recall against hardConstraintRecall.',
+          'The clean arm and the (constraints, inflated-hardness) arms of `npm run eval:ai -- --mode fake-foundry`: hardConstraintRecall, and “Hardness a model claimed too high that the product accepted”.',
       });
     }
     if (fake.fakeProblems.length > 0) {
@@ -240,6 +267,27 @@ export function findingsOf(rules: RulesMeasures, fake: FakeMeasures | null): Fin
         reproduce: 'Run `npm run eval:ai -- --mode fake-foundry` and read problems.',
       });
     }
+  }
+  const missedHard = rules.constraints.missedHard.flatMap((item) =>
+    item.ids.map((id) => ({ scenario: item.scenario, id })),
+  );
+  if (missedHard.length > 0) {
+    const quoteOf = (scenario: string, id: string): string => {
+      const quote = scenarios
+        .find((item) => item.id === scenario)
+        ?.constraints.find((item) => item.id === id)?.quote;
+      const flat = (quote ?? '').replaceAll(/\s+/gu, ' ').trim();
+      return flat.length > 90 ? `${flat.slice(0, 90)}…` : flat;
+    };
+    found.push({
+      id: 'hard-limits-not-asserted',
+      severity: 'limit',
+      title:
+        'A limit that a sentence reports, implies or states as a bare quantity is not held as hard',
+      evidence: `${missedHard.length} of ${rules.constraints.hardRecall.total} labelled hard constraints are not held as hard by the rules (${describeRate(rules.constraints.hardRecall)} held). The rules read hardness from what a clause asserts (a requirement, a ban, a ceiling or a condition that holds) and show the basis; a wish, a possibility, a denial or a caution is not read as a limit whatever word it carries. Read when this was written, the sentences below state their limit as a bare quantity or a lead time, as what something would need, or as a rule or a commitment that someone else holds and the sentence reports, and none asserts an obligation, ban or ceiling of its own: ${missedHard.map((item) => `${item.scenario} ${item.id} “${quoteOf(item.scenario, item.id)}”`).join('; ')}. Of the constraints the rules did find, ${describeRate(rules.constraints.hardnessAgreement)} have the labelled hardness.`,
+      reproduce:
+        'The hard-constraint recall row of `npm run eval:ai -- --mode rules`; the scenario and constraint ids are in evaluation/datasets/scenarios/. The row is recorded in known-breaches.json.',
+    });
   }
   const missedCopies = rules.groups?.uncollapsed ?? [];
   if (missedCopies.length > 0) {
@@ -449,6 +497,14 @@ export async function buildReport(options: RunOptions = {}): Promise<AiReport> {
     fakeAll = fakeBy.get('all') ?? null;
   }
 
+  // The planner, the research run and the decision canvas: observed once, measured on each split.
+  let suiteObserved: Awaited<ReturnType<typeof observeSuites>> | null = null;
+  const suiteBy = new Map<SplitFilter, SuiteMeasures>();
+  if (options.suites !== false && (modes.includes('rules') || modes.includes('fake-foundry'))) {
+    suiteObserved = await observeSuites({ ...options.suites, modes });
+    for (const filter of filters) suiteBy.set(filter, measureSuites(suiteObserved, filter));
+  }
+
   const decision: LiveDecision = decideLive({
     live: options.live === true,
     environment: options.environment ?? process.env,
@@ -483,16 +539,24 @@ export async function buildReport(options: RunOptions = {}): Promise<AiReport> {
   }
 
   const rows: ReportRow[] = [];
-  const build = (mode: Mode, filter: SplitFilter): MetricRow[] =>
-    mode === 'rules'
+  const build = (mode: Mode, filter: SplitFilter): MetricRow[] => {
+    const suites = suiteBy.get(filter);
+    return mode === 'rules'
       ? rulesBy.has(filter)
-        ? rulesRows(rulesBy.get(filter) as RulesMeasures, registered)
+        ? [
+            ...rulesRows(rulesBy.get(filter) as RulesMeasures, registered),
+            ...(suites ? suiteRows(suites, mode, registered) : []),
+          ]
         : []
       : mode === 'fake-foundry'
         ? fakeBy.has(filter)
-          ? fakeRows(fakeBy.get(filter) as FakeMeasures, registered)
+          ? [
+              ...fakeRows(fakeBy.get(filter) as FakeMeasures, registered),
+              ...(suites ? suiteRows(suites, mode, registered) : []),
+            ]
           : []
         : liveRows(decision, registered, liveMeasures, liveExtra);
+  };
   for (const mode of MODES) {
     const all = build(mode, 'all');
     const dev = build(mode, 'dev');
@@ -511,18 +575,22 @@ export async function buildReport(options: RunOptions = {}): Promise<AiReport> {
     .map((row) => ({ mode: row.mode, id: row.id, value: row.value, threshold: row.threshold }));
 
   const sites = loadSites();
+  const suiteAll = suiteBy.get('all');
+  const suiteLines = suiteAll && suiteObserved ? suiteExtras(suiteAll, suiteObserved) : null;
   return {
     generated: new Date().toISOString().slice(0, 10),
     registered: { on: registered.registered, rule: registered.rule },
     modes: registered.modes,
     datasets: datasetCounts(scenarios),
     rows,
-    pending: PENDING_SUITES,
     breached,
-    findings: rulesAll ? findingsOf(rulesAll, fakeAll) : [],
+    findings: [
+      ...(rulesAll ? findingsOf(rulesAll, fakeAll, scenarios) : []),
+      ...(suiteAll ? suiteFindings(suiteAll) : []),
+    ],
     extras: {
-      rules: rulesAll ? rulesExtras(rulesAll) : [],
-      fake: fakeAll ? fakeExtras(fakeAll) : [],
+      rules: [...(rulesAll ? rulesExtras(rulesAll) : []), ...(suiteLines?.rules ?? [])],
+      fake: [...(fakeAll ? fakeExtras(fakeAll) : []), ...(suiteLines?.fake ?? [])],
       live: liveLines,
     },
     live: decision.run
@@ -533,6 +601,7 @@ export async function buildReport(options: RunOptions = {}): Promise<AiReport> {
       reason: item.reason,
       afterSeeingResults: item.afterSeeingResults,
     })),
+    suiteRevisions: suiteAll ? SUITE_REVISIONS : [],
     elapsedMs: performance.now() - started,
   };
 }
@@ -601,10 +670,6 @@ export function renderMarkdown(report: AiReport, registered: Registered): string
       out.push('');
     }
   }
-  out.push('## Suites that are still being built');
-  out.push('');
-  for (const item of report.pending) out.push(`- ${item.label}: ${item.status}. ${item.why}`);
-  out.push('');
   out.push('## Breached thresholds');
   out.push('');
   if (report.breached.length === 0) out.push('None in the modes that were measured.');
@@ -646,6 +711,16 @@ export function renderMarkdown(report: AiReport, registered: Registered): string
       `- ${item.field}${item.afterSeeingResults ? ' (after seeing a result)' : ''}: ${item.reason}`,
     );
   out.push('');
+  if (report.suiteRevisions.length > 0) {
+    out.push('## Changes to the planner, research-run and decision suites after a result was seen');
+    out.push('');
+    out.push(
+      'The gold labels of these suites were written, and their thresholds registered, before any of them ran. Everything below was changed, or added, after a first run showed a fault in the harness or a case it did not cover; none was changed to make a number pass.',
+    );
+    out.push('');
+    for (const item of report.suiteRevisions) out.push(`- ${item.what}: ${item.reason}`);
+    out.push('');
+  }
   out.push('## Datasets');
   out.push('');
   out.push('```json');

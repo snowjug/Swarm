@@ -19,6 +19,7 @@ import { costUsd, type Prices } from './measure-usage.js';
 import {
   checkArm,
   checkRun,
+  diversityOf,
   sourceFor,
   type DocumentView,
   type RunChecks,
@@ -68,6 +69,8 @@ export interface RunObservation {
   view: RunView;
   checks: RunChecks;
   injected: InjectionScores | null;
+  /** The sites the documents of the run come from and the largest share of its passages that one holds, for every run. */
+  spread: { domains: number; maxShare: number };
   model: ModelUse | null;
   budget: ResearchBudget;
   elapsedMs: number;
@@ -85,8 +88,12 @@ export interface ResearchObservation {
 const PATIENCE_MS = 120_000;
 
 export interface ResearchOptions {
-  /** Run only these cases, by id (the test runs a quick set; `npm run eval:ai` runs all). */
+  /** Run only these cases, by id. */
   cases?: readonly string[];
+  /** Leave out the runs of a project that did not choose a model (default: they are run). */
+  rules?: boolean;
+  /** Leave out the runs planned by the scripted model, and the fake that serves it (default: they are run). */
+  models?: boolean;
   /** Time moves this many times faster than the wall clock whenever a run waits. */
   warp?: number;
 }
@@ -128,24 +135,32 @@ export async function observeRuns(options: ResearchOptions = {}): Promise<Resear
     hosts: { ...sites.hosts, ...file.hosts },
     pages: [...sites.pages, ...expandWorlds(file)],
   };
+  const wanted = file.cases.filter(
+    (item) =>
+      (options.cases === undefined || options.cases.includes(item.id)) &&
+      (item.mode === 'rules' ? options.rules !== false : options.models !== false),
+  );
   const world = await startSiteWorld(siteSet);
-  const fake = await startFakeWorld({
-    prices: true,
-    environment: { RESEARCH_DOMAIN_DELAY_MS: '250' },
-  });
+  const fake = wanted.some((item) => item.mode === 'model')
+    ? await startFakeWorld({
+        prices: true,
+        environment: { RESEARCH_DOMAIN_DELAY_MS: '250' },
+      })
+    : null;
   try {
-    return await carryOut(file, siteSet, world, fake, options);
+    return await carryOut(file, wanted, siteSet, world, fake, options);
   } finally {
     await world.close();
-    await fake.close();
+    await fake?.close();
   }
 }
 
 async function carryOut(
   file: RunsFile,
+  wanted: readonly RunCase[],
   sites: SiteSet,
   world: SiteWorld,
-  fake: FakeWorld,
+  fake: FakeWorld | null,
   options: ResearchOptions,
 ): Promise<ResearchObservation> {
   const repository = new Repository(':memory:');
@@ -154,7 +169,6 @@ async function carryOut(
   const plans = loadPlans();
   const prices: Prices = { inputPerMillionUsd: 0.4, outputPerMillionUsd: 1.6 };
   const port = new URL(world.urlOf(sites.pages[0]!.id)).port;
-  const fakeFactory: ModelFactory = fake.factory;
   const idleFactory: ModelFactory = createModelFactory(
     rulesConfig,
     new ProviderTelemetry(rulesConfig.provider),
@@ -195,15 +209,20 @@ async function carryOut(
     start.startsWith('http') ? start : world.urlOf(start);
   const observations: RunObservation[] = [];
 
+  const modelWorld = (): FakeWorld => {
+    if (!fake) throw new Error('A run planned by a model needs the fake Foundry.');
+    return fake;
+  };
+
   const one = async (
     item: RunCase,
     arm: NonNullable<RunCase['budgetArms']>[number] | null,
   ): Promise<RunObservation> => {
     const model = item.mode === 'model';
-    const config = model ? fake.config : rulesConfig;
+    const config = model ? modelWorld().config : rulesConfig;
     const service = serviceFor(
       config,
-      model ? fakeFactory : idleFactory,
+      model ? modelWorld().factory : idleFactory,
       item.tuning,
       `${model ? 'model' : 'rules'}:${JSON.stringify(item.tuning ?? {})}`,
     );
@@ -231,12 +250,12 @@ async function carryOut(
         likelySources: { suggestedDomain?: string }[];
       };
       if (item.model.suggest) base.likelySources[0]!.suggestedDomain = item.model.suggest;
-      fake.fake.reset();
+      modelWorld().fake.reset();
       if (item.model.corrupt) {
         const planted = corrupt(item.model.corrupt, base, { markers: [], bait: null });
-        fake.fake.respond(() => planted.step);
+        modelWorld().fake.respond(() => planted.step);
       } else {
-        fake.fake.script({ kind: 'reply', value: base });
+        modelWorld().fake.script({ kind: 'reply', value: base });
       }
     }
     const before = world.requests.length;
@@ -339,7 +358,7 @@ async function carryOut(
         budgetUsd: last?.budget.maxEstimatedCostUsd ?? 0,
         estimatedUsd: last?.used.estimatedCostUsd ?? 0,
       };
-      fake.problems.push(...fake.fake.problems);
+      modelWorld().problems.push(...modelWorld().fake.problems);
       if (arm) checks.checks.push(...checkArm(arm.gold, view, used));
     }
     return {
@@ -350,6 +369,7 @@ async function carryOut(
       case: item,
       view,
       checks,
+      spread: diversityOf(view),
       injected,
       model: used,
       budget: last?.budget as ResearchBudget,
@@ -358,13 +378,12 @@ async function carryOut(
     };
   };
 
-  for (const item of file.cases) {
-    if (options.cases && !options.cases.includes(item.id)) continue;
+  for (const item of wanted) {
     if (item.budgetArms) {
       for (const arm of item.budgetArms) observations.push(await one(item, arm));
     } else {
       observations.push(await one(item, null));
     }
   }
-  return { runs: observations, fakeProblems: [...fake.problems] };
+  return { runs: observations, fakeProblems: fake ? [...fake.problems] : [] };
 }

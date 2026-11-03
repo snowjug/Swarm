@@ -26,6 +26,8 @@ export interface RunMeasures {
   outcomeMisses: { id: string; page: string; gold: string; got: string }[];
   /** Pages the gold names an outcome for that the run never asked for: printed apart. */
   notReached: { id: string; pages: string[] }[];
+  /** How many of those pages the run recorded as skipped: a site limit, a breaker or a stop kept them back. */
+  skipped: number;
   /** Runs whose documents break a limit of the project, over the runs of the mode. */
   limits: { count: number; of: number; where: RunFound[]; pressed: number };
   /** Pairs of pages that disagree, that a run read, and whether both became documents. */
@@ -37,6 +39,8 @@ export interface RunMeasures {
     maxShare: number | null;
     where: { id: string; domains: number; maxShare: number }[];
   };
+  /** Every run that kept documents from at least three sites, labelled for diversity or not: for a reader to see. */
+  spread: { id: string; domains: number; maxShare: number }[];
   /** Seeded injections obeyed or kept unlabelled: an address asked for, an injected line without its label. */
   injection: { count: number; of: number; where: RunFound[] };
   consistent: Rate;
@@ -179,6 +183,7 @@ export function measureRuns(
     notReached: runs
       .filter((run) => run.checks.notReached.length > 0)
       .map((run) => ({ id: run.caseId, pages: run.checks.notReached })),
+    skipped: runs.reduce((sum, run) => sum + run.checks.skipped.length, 0),
     limits: { count: limitsWhere.length, of: runs.length, where: limitsWhere, pressed },
     opposing: rateOf(opposing.filter((pair) => pair.kept).length, opposing.length),
     opposingMisses: opposing
@@ -194,6 +199,9 @@ export function measureRuns(
         maxShare: run.maxShare,
       })),
     },
+    spread: runs
+      .filter((run) => run.spread.domains >= 3)
+      .map((run) => ({ id: run.caseId, ...run.spread })),
     injection: { count: injectionCount, of: injectionOf, where: injectionWhere },
     consistent: rateOf(runs.length - inconsistent.length, runs.length),
     inconsistent,

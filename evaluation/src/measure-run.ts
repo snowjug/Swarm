@@ -151,6 +151,8 @@ export interface RunChecks {
   outcomes: { page: string; gold: string; got: string; ok: boolean }[];
   /** Pages the gold names an outcome for that the run never asked for. */
   notReached: string[];
+  /** Of those, the pages the run recorded as skipped: a limit or a stop kept them back. */
+  skipped: string[];
   opposing: { pair: [string, string]; read: boolean; kept: boolean }[];
   diversity: { domains: number; maxShare: number } | null;
   limits: string[];
@@ -160,6 +162,22 @@ export interface RunChecks {
   /** Pages the gold says were never to be fetched, that were. */
   fetchedForbidden: string[];
   consistency: string[];
+}
+
+/** How many registrable domains the documents a run added come from, and the largest share of its passages that one domain holds. */
+export function diversityOf(view: Pick<RunView, 'sources' | 'documents' | 'heldBefore'>): {
+  domains: number;
+  maxShare: number;
+} {
+  const byDocument = new Map(view.documents.slice(view.heldBefore).map((item) => [item.id, item]));
+  const pages = view.sources
+    .filter((source) => source.outcome === 'used' && source.documentId !== null)
+    .map((source) => ({
+      url: source.finalUrl ?? source.requestedUrl,
+      passages: byDocument.get(source.documentId as string)?.passages ?? 0,
+    }));
+  const scores = scoreDiversity(pages);
+  return { domains: scores.domains, maxShare: scores.maxShare };
 }
 
 const hostsRequested = (view: RunView): Set<string> =>
@@ -244,11 +262,17 @@ export function checkRun(
 
   const outcomes: RunChecks['outcomes'] = [];
   const notReached: string[] = [];
+  const skipped: string[] = [];
   for (const [page, wanted] of Object.entries(gold.outcomes ?? {})) {
     const source = sourceOf(page);
-    // A skipped source was recorded and never asked for: a site limit, a breaker or a stop kept it back.
-    if (!source || source.outcome === 'skipped') {
+    if (!source) {
       notReached.push(page);
+      continue;
+    }
+    // A skipped source was recorded and never asked for: a site limit, a breaker or a stop kept it back.
+    if (source.outcome === 'skipped') {
+      notReached.push(page);
+      skipped.push(page);
       continue;
     }
     const got = outcomeLabel(source);
@@ -288,18 +312,7 @@ export function checkRun(
     return { pair, read, kept };
   });
 
-  let diversity: RunChecks['diversity'] = null;
-  if (gold.diversity) {
-    const byDocument = new Map(added.map((document) => [document.id, document]));
-    const pages = view.sources
-      .filter((source) => source.outcome === 'used' && source.documentId !== null)
-      .map((source) => ({
-        url: source.finalUrl ?? source.requestedUrl,
-        passages: byDocument.get(source.documentId as string)?.passages ?? 0,
-      }));
-    const scores = scoreDiversity(pages);
-    diversity = { domains: scores.domains, maxShare: scores.maxShare };
-  }
+  const diversity: RunChecks['diversity'] = gold.diversity ? diversityOf(view) : null;
 
   const hostile = (gold.hostileNeverGovernmentHigh ?? []).flatMap((page) => {
     const source = sourceOf(page);
@@ -333,6 +346,7 @@ export function checkRun(
     discovery,
     outcomes,
     notReached,
+    skipped,
     opposing,
     diversity,
     limits: limitProblems(added, view.heldBefore),
