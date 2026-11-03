@@ -374,6 +374,32 @@ drawn from a shared sequence, so:
   rare cases move a member across a threshold. Re-running an analysis on another build can therefore
   differ slightly; it was not tested across builds.
 
+## Constraints
+
+A spec may carry `constraints`: the effects of limits a person has reviewed, each with the actors it is about
+and the rounds it is active in. With none, the engine takes the arithmetic path it always did, and every
+output is bit-identical to before (the digests in `backend/test/constraints-golden.json` pin whole runs of the
+worked examples). With some, a per-round state ([`constraints.ts`](../../backend/src/simulation/constraints.ts))
+changes what the rounds above do for the actors in scope and nothing else:
+
+- `block` holds the change back from them while it is active; `delay` and `force-sequencing` move the round
+  it lands (a delay that names actors also adds to the lag of a responder among them); `require-approval`
+  holds it back until the approver's mean stance reaches a threshold, read once the change has reached the
+  approver, and from the round after.
+- `reduce-influence` scales their influence down and `add-cost` raises their cost of switching or lowers
+  their readiness to take something up, before the members are drawn; `add-risk` adds scrutiny while it is
+  active, so that members who accept little risk settle lower.
+- `limit-actions` changes how a final stance is read (adopt as accept with conditions, switch as resist, resist as
+  adapt defensively), not the stance.
+
+Draws are addressed as before, so a constraint changes a run only through what it does and never through a
+shifted random stream. What a run did because of a constraint is recorded as `constraintEvents`, which exist
+only when there are constraints. Measured against the engine before the change (same cast, same seeds, in
+process, interleaved), a run without constraints took the same time within the noise of the machine
+([engine-benchmark.md](engine-benchmark.md)). Which effects exist, what each does, which window it reads, how a
+constraint is proposed and reviewed and what the engine cannot express are in
+[constraints.md](constraints.md).
+
 ## Weights
 
 - Every overall figure (mean stance, response shares, signals) gives each **actor** the same weight,
@@ -506,3 +532,7 @@ Focused tests under `backend/test/` (run with `npx vitest run backend/test/simul
   seeds that do not), and what replaying costs.
 - `simulation-neutrality.test.ts`: the engine source contains no scenario words and no clock, network
   or `Math.random`.
+- `constraints-engine.test.ts`: each effect changes the outcome in the direction it says for a fixed seed and
+  is reproducible, windows, scope, gating events, and that a spec with no constraints gives the same
+  outcome with or without the field. `constraints-golden.test.ts` pins whole runs by SHA-256 over every worked
+  example, scenario and several seeds, so that the engine with no constraints is shown unchanged.
