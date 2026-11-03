@@ -19,8 +19,11 @@ import {
   type Variant,
   type VariantResult,
 } from '../../../shared/analysis.js';
+import type { AnalysisConstraints, ConstraintImpact } from '../../../shared/constraint-effects.js';
 import type { Actor, ActorRelation } from '../../../shared/stakeholders.js';
+import { appliedFor } from '../constraints/enforce.js';
 import { AppError } from '../errors.js';
+import { measureImpacts, planImpacts } from './constraint-impact.js';
 import { generateFindings, type RunRecord } from './findings.js';
 import { headlineShare, planPerturbations, runSensitivity } from './sensitivity.js';
 import { mean, quantile, round4 } from './stats.js';
@@ -44,6 +47,11 @@ export interface AnalysisInputs {
   sensitivity: boolean;
   /** The share in switch or resist that a threshold finding tests for. */
   adverseThreshold?: number;
+  /**
+   * The limits the comparison is run under, from a reviewed set of constraints: those applied to the
+   * runs and those only read, with the gate's word. A comparison without them is run as it always was.
+   */
+  constraints?: Omit<AnalysisConstraints, 'impacts'>;
 }
 
 export interface AnalysisHooks {
@@ -128,6 +136,17 @@ export function validateInputs(inputs: AnalysisInputs): { plan: RunPlan; perturb
       throw invalid(`“${variant.label}” refers to an actor that is not in the cast.`);
     }
   }
+  const applied = inputs.constraints?.applied ?? [];
+  for (const item of applied) {
+    const named = [
+      ...item.actorIds,
+      ...(item.effect.kind === 'require-approval' ? [item.effect.approverActorId] : []),
+      ...(item.effect.kind === 'force-sequencing' ? item.effect.beforeActorIds : []),
+    ];
+    if (named.some((id) => !known.has(id))) {
+      throw invalid('A constraint refers to an actor that is not in the cast.');
+    }
+  }
   if (inputs.baseSeed + inputs.runsPerVariant - 1 > 2_147_483_647) {
     throw invalid('The seeds would run past 2,147,483,647. Choose a smaller first seed.');
   }
@@ -138,6 +157,7 @@ export function validateInputs(inputs: AnalysisInputs): { plan: RunPlan; perturb
     runsPerVariant: inputs.runsPerVariant,
     sensitivity: inputs.sensitivity,
     perturbations,
+    constraintPairs: planImpacts(applied, variants).length,
   });
   if (plan.totalRuns > MAX_TOTAL_RUNS) {
     throw invalid(
@@ -304,11 +324,22 @@ export async function runAnalysis(
   const startedAt = now();
   const { variants } = inputs;
   const proposed = variants.find((variant) => variant.kind === 'alternative');
+  const recorded = inputs.constraints?.applied ?? [];
   const specs = new Map<string, SimulationSpec>(
-    variants.map((variant) => [
-      variant.id,
-      { actors: inputs.actors, relations: inputs.relations, rounds: inputs.rounds, variant },
-    ]),
+    variants.map((variant) => {
+      const constraints = appliedFor(recorded, variant.id);
+      return [
+        variant.id,
+        {
+          actors: inputs.actors,
+          relations: inputs.relations,
+          rounds: inputs.rounds,
+          variant,
+          // A scenario with none is the spec it always was, with no field for them.
+          ...(constraints.length > 0 ? { constraints } : {}),
+        },
+      ];
+    }),
   );
   const seeds = Array.from(
     { length: inputs.runsPerVariant },
@@ -336,6 +367,15 @@ export async function runAnalysis(
       `Only ${inputs.runsPerVariant} seeded runs for each scenario: with fewer than 10 runs no finding is called repeatable, however many of them agree.`,
     );
   }
+  if (inputs.constraints) {
+    const { applied, notApplied } = inputs.constraints;
+    const effects = new Set(applied.map((item) => item.constraintId)).size;
+    caveats.push(
+      `The simulation applied ${effects} ${effects === 1 ? 'constraint' : 'constraints'} and only read ${notApplied.length}: a constraint that is read and not modelled changes nothing in a run.`,
+    );
+    if (inputs.constraints.status === 'provisional') caveats.push(inputs.constraints.label);
+  }
+  let impacts: ConstraintImpact[] = [];
 
   const assemble = (
     status: 'completed' | 'cancelled',
@@ -369,6 +409,7 @@ export async function runAnalysis(
     sensitivity: [],
     representativeRun: null,
     crossCheck: null,
+    ...(inputs.constraints ? { constraints: { ...inputs.constraints, impacts } } : {}),
     cost: {
       modelCalls: 0,
       inputTokens: 0,
@@ -424,6 +465,40 @@ export async function runAnalysis(
         'Sensitivity was not run because there was no assumption of the proposed change to move.',
       );
     }
+  }
+
+  if (recorded.length > 0 && plan.constraintSeeds) {
+    const pairs = planImpacts(recorded, variants);
+    const used = seeds.slice(0, plan.constraintSeeds);
+    const measured = await measureImpacts({
+      actors: inputs.actors,
+      relations: inputs.relations,
+      rounds: inputs.rounds,
+      applied: recorded,
+      pairs,
+      seeds: used,
+      simulator,
+      baseValues: new Map(
+        variants.map((variant) => [
+          variant.id,
+          records
+            .get(variant.id)!
+            .slice(0, used.length)
+            .map((record) => headlineShare(record.summary.responseShares)),
+        ]),
+      ),
+      ...(hooks.shouldCancel ? { shouldCancel: hooks.shouldCancel } : {}),
+      onRun: (members) => {
+        counted(members);
+        advance();
+      },
+      yieldNow,
+    });
+    if (!measured) return assemble('cancelled');
+    impacts = measured;
+    caveats.push(
+      `Each applied constraint was taken away in turn, on the first ${used.length} seeds, and each run compared with the run of that seed that had it (${pairs.length} pairs of a constraint and a scenario). The difference is the simulation’s, not a finding about the world.`,
+    );
   }
 
   let representativeRun: RunOutcome | null = null;

@@ -4,6 +4,7 @@ import { changeCanMoveAnyone } from '../../../shared/signal.js';
 import { adversarialCritic } from './adversarial.js';
 import { assumptionCritic } from './assumption.js';
 import { biasCritic } from './bias.js';
+import { constraintCritic } from './constraints.js';
 import { coverageCritic } from './coverage.js';
 import { evidenceCritic } from './evidence.js';
 import { methodologyCritic } from './methodology.js';
@@ -11,7 +12,7 @@ import { recommendationCritic } from './recommendation.js';
 import { byText, severityRank } from './text.js';
 import type { CriticInput, Facts, Resolved, RoleCritic } from './types.js';
 
-/** In the order the roles are listed in `CRITIC_ROLES`. */
+/** In the order the roles are listed in `CRITIC_ROLES`; the constraint critic raises under the assumption and methodology roles. */
 const CRITICS: readonly RoleCritic[] = [
   evidenceCritic,
   assumptionCritic,
@@ -20,6 +21,7 @@ const CRITICS: readonly RoleCritic[] = [
   biasCritic,
   recommendationCritic,
   adversarialCritic,
+  constraintCritic,
 ];
 
 function gather(input: CriticInput): Facts {

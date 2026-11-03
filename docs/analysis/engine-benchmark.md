@@ -126,6 +126,34 @@ sensitivity), and `GET /api/health` was asked every 20 ms from another process u
   while a comparison runs; it was met in every row above, and in the browser test of the stage, which
   asks twenty times while a 7,800-member comparison runs.
 
+## With constraints
+
+The engine takes the arithmetic path it always did when a spec carries no constraints, and a per-round state
+([`constraints.ts`](../../backend/src/simulation/constraints.ts)) when it does. Two measurements, each run
+alternately in one process on a machine that other work shared (load average 12 to 14 on 4 logical
+processors, so a wall-clock time moved by 20% between two copies of the same code):
+
+- **The engine as it was, against the engine as it is, with no constraints.** The baseline engine was
+  extracted from the commit before the change and run on the same specs and seeds; the script first
+  checks that every outcome is identical (it is, on seeds 1 to 5), then measures the CPU time of the
+  process, which a shared machine moves far less than the clock. The cast of the table above (20 actors
+  of 30 members, 24 rounds, 60 runs a batch, 30 alternating pairs): 76.8 ms against 77.2 ms at the
+  median, 74.6 ms against 74.0 ms at the lower quartile, 70.6 ms against 69.4 ms at the fastest (+0.6%,
+  -0.8%, -1.8%). A cast of 60 actors of 200 members, 36 rounds (6 runs a batch, 16 pairs): 169.5 ms
+  against 167.9 ms at the median, 164.7 ms against 166.4 ms at the lower quartile (-0.9%, +1.0%). Both are
+  inside the noise of the machine.
+- **Seven effects applied, against none** (`delay`, `block` in a window, `add-cost`, `reduce-influence`,
+  `add-risk` in a window, `limit-actions` and `require-approval`, on a part of the cast each): +10% of CPU at
+  the median on the small cast (79.7 ms to 88.0 ms for 60 runs, 24 pairs), +1.7% on the large one (174.3 ms to
+  177.3 ms for 6 runs, 12 pairs). The cost is a fixed set-up of each run, so it is a larger share of a small
+  run.
+
+The wall-clock times of earlier attempts (which showed the engine as it is 20% faster at the median and
+13% to 18% slower at the fastest batch, with the same code on both sides) are not used: they measured the
+load. A comparison with constraints adds one run per applied constraint, scenario and seed of the
+leave-one-out (8 seeds, at most 24 pairs), which is planned and counted before it starts
+(`RunPlan.constraintRuns`).
+
 ## What these numbers do not show
 
 - Speed on other hardware, under load from a server, or with many runs in parallel. The simulator is

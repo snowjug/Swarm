@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { MAX_ROUNDS, type Analysis, type Simulator } from '../../../shared/analysis.js';
 import {
   DEFAULT_ROUNDS,
+  DEFAULT_RUNS_PER_VARIANT,
   MAX_RUNS_PER_VARIANT,
   MAX_STORED_ANALYSES,
   MAX_VARIANTS,
@@ -13,6 +14,7 @@ import {
   type AnalysisSummary,
 } from '../../../shared/analysis-plan.js';
 import { directionNotice } from '../../../shared/signal.js';
+import { planConstraints, readinessOf } from '../constraints/plan.js';
 import { AppError } from '../errors.js';
 import type { Revisions } from '../lab/lineage.js';
 import { simulateEachSpecOnce, SimulationInputError } from '../simulation/simulate.js';
@@ -116,6 +118,15 @@ export function summarise(analysis: Analysis): AnalysisSummary {
     cost: analysis.cost,
     fidelityLabel: analysis.fidelity.label,
     error: analysis.error,
+    ...(analysis.constraints
+      ? {
+          constraints: {
+            status: analysis.constraints.status,
+            applied: new Set(analysis.constraints.applied.map((item) => item.constraintId)).size,
+            notApplied: analysis.constraints.notApplied.length,
+          },
+        }
+      : {}),
   };
 }
 
@@ -190,6 +201,16 @@ export class AnalysisService {
     const scenario = this.repository.artifacts.get(projectId, 'scenario')?.data ?? null;
     const suggestedVariants = autoVariants(scenario);
     const notice = directionNotice(cast.actors, suggestedVariants);
+    const constraints = readinessOf(
+      this.repository.artifacts.get(projectId, 'constraints'),
+      {
+        scenario: this.repository.artifacts.get(projectId, 'scenario'),
+        actors: this.repository.artifacts.get(projectId, 'actors'),
+      },
+      suggestedVariants,
+      new Date(this.now()),
+      DEFAULT_RUNS_PER_VARIANT,
+    );
     return {
       actors: {
         count: cast.actors.length,
@@ -205,7 +226,11 @@ export class AnalysisService {
       ).length,
       rounds: DEFAULT_ROUNDS,
       // A warning, not a refusal: with nobody given a direction, a comparison shows how the assumptions play out, not who gains or loses.
-      warnings: notice === null ? [] : [notice],
+      warnings: [
+        ...(notice === null ? [] : [notice]),
+        ...(constraints && constraints.status !== 'clear' ? [constraints.message] : []),
+      ],
+      ...(constraints ? { constraints } : {}),
       may: { run: mayRun },
     };
   }
@@ -264,15 +289,25 @@ export class AnalysisService {
         );
       }
       const scenario = artifacts.get(projectId, 'scenario');
+      const variants =
+        input.variants === 'auto'
+          ? autoVariants(scenario?.data ?? null)
+          : attributeSettings(input.variants, scenario?.data ?? null);
+      // With constraints, a blocked gate or a set nobody has reviewed refuses the start, in words that say what to do.
+      const constraints = artifacts.get(projectId, 'constraints');
+      const constrained = planConstraints(
+        constraints,
+        { scenario, actors },
+        variants,
+        new Date(this.now()),
+      );
       const planned: AnalysisInputs = {
         id: randomUUID(),
         createdAt: new Date(this.now()).toISOString(),
         actors: actors.data.actors,
         relations: actors.data.relations,
-        variants:
-          input.variants === 'auto'
-            ? autoVariants(scenario?.data ?? null)
-            : attributeSettings(input.variants, scenario?.data ?? null),
+        variants,
+        ...(constrained ? { constraints: constrained.recorded } : {}),
         runsPerVariant: input.runsPerVariant,
         baseSeed: input.baseSeed ?? this.repository.get(projectId).settings.seed,
         rounds: input.rounds ?? DEFAULT_ROUNDS,
@@ -287,6 +322,8 @@ export class AnalysisService {
           scenario: scenario?.revision ?? 0,
           stakeholders: stakeholders?.revision ?? 0,
           actors: actors.revision,
+          // Recorded only where there are constraints, so that a comparison without them is the record it always was.
+          ...(constraints ? { constraints: constraints.revision } : {}),
         }),
       );
       this.repository.audit.record({
@@ -301,6 +338,13 @@ export class AnalysisService {
           runsPerVariant: planned.runsPerVariant,
           plannedRuns: plan.totalRuns,
           sensitivity: planned.sensitivity,
+          ...(constrained
+            ? {
+                constraints: new Set(constrained.recorded.applied.map((item) => item.constraintId))
+                  .size,
+                provisional: constrained.recorded.status === 'provisional',
+              }
+            : {}),
         },
       });
       return { saved: record, inputs: planned };
@@ -395,6 +439,7 @@ export class AnalysisService {
       actors: inputs.actors,
       relations: inputs.relations,
       inputRevisions,
+      ...(inputs.constraints ? { constraints: { ...inputs.constraints, impacts: [] } } : {}),
       fidelity: {
         engine: 'rules',
         keyActors: 'rules',

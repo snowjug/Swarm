@@ -63,6 +63,11 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors, or from stakeholders that are no longer approved); see Comparing scenarios                                                                                                                                                                                       |
 | GET          | `/api/projects/:id/analysis/:aid`                                               | One comparison in full, with its progress while it runs                                                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/analysis/:aid/cancel`                                        | Ask a running comparison to stop at its next run                                                                                                                                                                                                                                                                                                                  |
+| GET / PUT    | `/api/projects/:id/constraints`                                                 | What limits the decision: the set, its revision, the gate worked out now and the questions to put now / replace the whole set (`expectedRevision`); see Constraints                                                                                                                                                                                               |
+| POST         | `/api/projects/:id/constraints/propose`                                         | Read the sources for constraints (`{ "mode": "rules" \| "model" }`, 201; 10 a minute)                                                                                                                                                                                                                                                                             |
+| POST         | `/api/projects/:id/constraints/review`                                          | One thing a person does with the constraints or the questions, with `expectedRevision`                                                                                                                                                                                                                                                                            |
+| GET          | `/api/projects/:id/constraints/gate`                                            | The coverage gate, with the constraint whose removal moves the simulated result most                                                                                                                                                                                                                                                                              |
+| GET / POST   | `/api/projects/:id/constraints/counterfactuals`                                 | The stored views of the proposed change and whether they are current / run them (201; 6 a minute)                                                                                                                                                                                                                                                                 |
 | POST         | `/api/scenario/parse`                                                           | Read a "What could happen if…?" question into an editable scenario frame, `{ frame, notes, mode, model }`; the rules on the server read it, and a model only when the request says `useModel: true` and the server has a provider; stores nothing. See Scenario intake                                                                                            |
 | GET / PUT    | `/api/projects/:id/scenario`                                                    | The project's scenario frame and its revision (`scenario` is `null` until there is one) / replace it (`{ scenario, expectedRevision? }`)                                                                                                                                                                                                                          |
 | GET          | `/api/projects/:id/stakeholders`                                                | The stakeholder set, its revision, whether a model may be used, and what the caller may do (`{ stakeholders, revision, model, may }`). `stakeholders` is `null` until someone looks for them                                                                                                                                                                      |
@@ -165,9 +170,12 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   (a request that is allowed but cannot be run, with the reason: more than 2,400 simulated runs, a change
   that starts after the last round, and so on), `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`,
   `503 ANALYSIS_NOT_STARTED` (it was saved but could not be launched, and is ended as `failed`), and
-  `429 RATE_LIMITED` (6 starts a minute).
+  `429 RATE_LIMITED` (6 starts a minute). For a project that has constraints: `409 CONSTRAINTS_BLOCKED` (a hard
+  legal, regulatory or safety constraint is not settled, or a hard constraint rules out every alternative) and
+  `409 CONSTRAINTS_UNREVIEWED` (a person has not yet been through them); each says in a sentence what to do.
+  A project with no constraints is not gated.
 - **What a comparison was made from.** It records `inputRevisions`: the revision of the scenario, the
-  stakeholders and the actors it ran on (0 when there was none), kept when it finishes. The review and the
+  stakeholders and the actors it ran on (0 when there was none), and the constraints where there are some, kept when it finishes. The review and the
   brief are judged against it. A comparison saved before this was recorded has none, and whether the
   documents it used are the current ones cannot be told: `changedSince` then carries
   `what the comparison was made from was not recorded` for the review and the brief that rest on it, however
@@ -182,6 +190,35 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
 - **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only. Both are recorded
   before the thing they describe takes effect, so a start or a stop that cannot be recorded is refused with
   `503 STORAGE_UNAVAILABLE` and leaves the comparison as it was.
+
+### Constraints
+
+What limits the decision, as a document a person reviews before a simulation uses it. Its schema, how each
+constraint is labelled, the gate, what the simulation applies and what it only reads are in
+[analysis/constraints.md](./analysis/constraints.md). Reading needs `read`; changing and reviewing need
+`edit`; reading the sources and running the views need `run`.
+
+- **Reading.** `GET /api/projects/:id/constraints` answers `{ constraints, revision, gate, open, stale,
+alternatives, actors, assumptions, model, may }`. `constraints` is `null` for a project that has none.
+  `gate` is the coverage gate worked out now (`status` `clear`, `provisional` or `blocked`, with what is known,
+  assumed, conflicting, missing, ruled out and affected); `open` is the questions to put now, at most three;
+  `stale` says whether the scenario or the actors changed after the constraints were read against them.
+- **Proposing.** `POST .../constraints/propose` takes `{ "mode"?: "rules" | "model" }` (10 a minute). A model is
+  used only when the person asks for one, and `409 MODEL_NOT_AVAILABLE` says why when the project has none. A
+  second reading adds only what is new and never undoes a decision. Nothing proposed is validated, reviewed or
+  applied.
+- **Reviewing.** `POST .../constraints/review` takes one action (`accept`, `confirm`, `edit`, `add`, `remove`,
+  `restore`, `answer`, `exclude`, `mark-unknown`, `use-assumption`, `confirm-set`) and `expectedRevision`.
+  `PUT .../constraints` takes every constraint as the person now wants it; one left out is refused
+  (`400 CONSTRAINTS_OMITTED`). A request that names an actor, a scenario or an assumption the project does not
+  have is `400`, and one that says where a constraint came from, that it is enforced, or its evidence is not
+  understood. A change to a version that is no longer the latest is `409 ARTIFACT_CONFLICT` and changes nothing.
+- **The gate and the views.** `GET .../constraints/gate` also measures which applied constraint, taken away,
+  moves the simulated headline share the most. `POST .../constraints/counterfactuals` runs seven views of the
+  proposed change on the same seeds (`409 COUNTERFACTUALS_NOT_READY` without actors and constraints).
+- **Audit.** `constraints.proposed`, `constraints.reviewed`, `constraints.edited` and
+  `constraints.counterfactuals.run`, written in the same transaction as the change, with counts and a status and
+  never a statement or a quote.
 
 ### Scenario intake and the stored scenario
 

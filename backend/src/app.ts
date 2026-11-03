@@ -49,6 +49,9 @@ import { stakeholderRoutes } from './routes/stakeholders.js';
 // [analysis imports]
 import { analysisRoutes, type AnalysisServiceOptions } from './routes/analysis.js';
 
+// [constraints imports]
+import { constraintRoutes } from './routes/constraints.js';
+
 // [critics imports]
 import { critiqueRoutes } from './routes/critiques.js';
 
@@ -372,6 +375,16 @@ export async function buildApp(options: AppOptions) {
 
   // [analysis routes]
   analysisRoutes(app, repository, options.analysis ?? {}, config.rateLimitScale);
+
+  // [constraints routes]
+  constraintRoutes(
+    app,
+    repository,
+    modelFactory,
+    config.provider,
+    config.rateLimitScale,
+    options.analysis?.simulator,
+  );
 
   // [critics routes]
   critiqueRoutes(app, repository, modelFactory, {

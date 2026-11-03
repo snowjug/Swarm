@@ -37,6 +37,7 @@ import {
   stepRound,
   type RoundStats,
 } from './dynamics.js';
+import { compileConstraints } from './constraints.js';
 import { explainEvents } from './explain.js';
 import { CHANGE_GAIN, DEFAULT_SAMPLE_CAP } from './parameters.js';
 import { buildPopulation, SimulationInputError } from './population.js';
@@ -110,7 +111,15 @@ export function simulateValidated(
   const index = new Map(ids.map((id, at) => [id, at]));
   if (index.size !== ids.length) throw new SimulationInputError('Two actors share an id.');
 
-  const population = buildPopulation(actors, variant, seed, cap);
+  // Only a spec that has constraints goes through constraints.ts; one that has none is run as it always was.
+  const constrained =
+    spec.constraints && spec.constraints.length > 0
+      ? compileConstraints(
+          { actors, rounds: spec.rounds, variant, constraints: spec.constraints },
+          index,
+        )
+      : null;
+  const population = buildPopulation(actors, variant, seed, cap, constrained?.adjust ?? null);
   const ties = buildTies(actors, population, spec.relations, index);
   const stats = createStats(actors.length);
   initialiseHeard(population, stats);
@@ -124,14 +133,17 @@ export function simulateValidated(
       )
     : null;
   const responders = withSignals
-    ? createResponders(buildResponders(actors, population, spec.relations, index))
+    ? createResponders(
+        buildResponders(actors, population, spec.relations, index, constrained?.lagExtra ?? null),
+      )
     : null;
 
   const rounds: RoundAggregate[] = [];
   for (let round = 1; round <= spec.rounds; round += 1) {
     const push = round < variant.round ? 0 : CHANGE_GAIN * variant.intensity;
     listenTargets(ties, stats, listening);
-    stepRound(population, effects, stats, listening, round, push);
+    constrained?.begin(round, stats);
+    stepRound(population, effects, stats, listening, round, push, constrained?.round ?? null);
     const aggregate = sumUp(round, ids, population.start, stats);
     rounds.push(aggregate);
     if (history && responders) {
@@ -140,6 +152,7 @@ export function simulateValidated(
       runResponders(responders, actors, history, effects, round);
     }
   }
+  constrained?.end(spec.rounds);
 
   const last = rounds[rounds.length - 1] as RoundAggregate;
   const byActor: ActorOutcome[] = ids.map((actorId, actor) => {
@@ -157,6 +170,7 @@ export function simulateValidated(
     rounds,
     final: { stanceMean: last.stanceMean, responseShares: { ...last.responseShares }, byActor },
     events: responders ? responders.emitted.map((emitted) => emitted.event) : [],
+    ...(constrained ? { constraintEvents: constrained.events } : {}),
     work: { members: population.memberCount, updates: population.memberCount * spec.rounds },
   };
   return options.explain

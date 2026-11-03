@@ -152,6 +152,27 @@ with the numbers, and, if the effect is linear, how big a change would close it.
 from a quarter of the gap, `major` from a half, and from the whole gap `blocking` when the assumption
 is not backed by evidence (`major` when it is).
 
+### Constraints: what does the comparison lean on that nobody has confirmed, and what could it not test?
+
+Not a role of its own: the constraint critic ([`constraints.ts`](../../backend/src/critics/constraints.ts)) raises
+under the assumption and methodology roles, from what the comparison recorded of its constraints
+(`analysis.constraints`), and says nothing for a comparison that was run without a reviewed set. Every id starts
+with `constraints-`.
+
+- **`constraints-provisional`** (assumption): the comparison ran while constraints were not all confirmed, so what
+  it shows holds only if they do. Major when a hard constraint was unvalidated or assumed, minor otherwise.
+- **`constraints-driver-<id>`** (assumption): the simulated result moves when this constraint is taken away, and
+  nobody has confirmed it (major when it was inferred or is an assumption, minor when a source says so and no
+  person has checked it). At most the five that move it most.
+- **`constraints-hard-not-modelled`** (methodology): hard constraints that were read and not tested, so the result
+  says nothing about whether an alternative meets them. Major for a legal, regulatory or safety limit.
+- **`constraints-unknown-left-out`** (assumption): constraints marked unknown were left out of the runs, which
+  treats them as absent, not as false.
+- **`constraints-not-applied-names`** (methodology): constraints that name an actor or a scenario that is not in the
+  comparison, or came after the most effects a comparison applies.
+- **`constraints-effect-sizes`** (methodology, a note): where a source states a limit in words, the size of its
+  effect is a modelling choice, not a measurement.
+
 ## When a comparison cannot say anything about the change
 
 Three rules guard against reading a result that the assumptions could not have produced.

@@ -27,7 +27,11 @@ export function changedInputs(
   now: Revisions,
 ): AnalysisInput[] {
   return ANALYSIS_INPUTS.filter((kind) => {
-    const was = recorded?.[kind] ?? fallback?.[kind];
-    return was !== undefined && was !== now[kind];
+    // A comparison that recorded its inputs but no constraints was made when the project had none.
+    const was =
+      recorded?.[kind] ?? fallback?.[kind] ?? (kind === 'constraints' && recorded ? 0 : undefined);
+    const is = now[kind];
+    // A document the caller names no revision for cannot be said to have changed.
+    return was !== undefined && is !== undefined && was !== is;
   });
 }
