@@ -421,6 +421,19 @@ describe('what the provider says about safety', () => {
     });
   });
 
+  it('is a block, not a protocol error, when the blocked reply has no content at all', async () => {
+    const { client } = made();
+    fake.respond(() => ({ kind: 'filter-output', categories: ['hate'], partial: null }));
+    const failure = await client
+      .json(answer, 'Return JSON.', {}, signal())
+      .catch((error: unknown) => error);
+    expect(fake.requests[0]?.status).toBe(200);
+    expect(failure).toBeInstanceOf(ModelRefusedError);
+    expect((failure as ModelRefusedError).findings).toEqual([
+      { class: 'blocked_output', action: 'blocked', category: 'hate' },
+    ]);
+  });
+
   it('hands a detection that did not block to the caller as a signal, and judges the reply as any other', async () => {
     const { client, seen } = made();
     fake.script({ kind: 'detected', category: 'indirect_attack', value: { answer: 'fine' } });
@@ -498,6 +511,25 @@ describe('everything else a provider can do', () => {
     controller.abort(new AppError(409, 'RUN_CANCELLED', 'Cancelled for testing.'));
     await expect(pending).rejects.toMatchObject({ code: 'RUN_CANCELLED' });
     expect(fake.requests).toHaveLength(1);
+  });
+
+  it('stops waiting out a throttle when it is cancelled, ends its ticket, and says so', async () => {
+    const { client } = made();
+    const controller = new AbortController();
+    const ended: boolean[] = [];
+    fake.respond(() => ({ kind: 'status', status: 429, retryAfterSeconds: 8 }));
+    const pending = client.json(answer, 'Return JSON.', {}, controller.signal, 500, {
+      gate: {
+        begin: () => ({ end: (event) => void ended.push(event.ok) }),
+      },
+    });
+    await vi.waitFor(() => expect(fake.requests).toHaveLength(1));
+    const asked = performance.now();
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ code: 'RUN_CANCELLED' });
+    expect(performance.now() - asked).toBeLessThan(2_000);
+    expect(fake.requests).toHaveLength(1);
+    expect(ended).toEqual([false]);
   });
 
   it('reports usage as the provider gave it, and says when it gave none', async () => {

@@ -74,7 +74,8 @@ export function providerRoutes(
         );
       }
       const router = createRouter(config.routing);
-      const model = createModel(() => undefined, { maxCalls: checks.length * 2 });
+      // Room for what a deployment may need before it answers: up to three refused parameters and a repair.
+      const model = createModel(() => undefined, { maxCalls: checks.length * 5 });
       for (const { role, deployment } of checks) {
         const route = router.route({
           role,

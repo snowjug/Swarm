@@ -302,6 +302,17 @@ describe('prices, allowances, cache and tracing', () => {
     expect(() => loadConfig({ ...base, MODEL_OPERATION_TOKEN_LIMIT: '-1' })).toThrow(
       'MODEL_OPERATION_TOKEN_LIMIT',
     );
+    for (const bad of ['0x10', '1e3', '-1', 'free', '5,5', '99999999']) {
+      expect(
+        () =>
+          loadConfig({
+            ...base,
+            MODEL_PRICES: JSON.stringify(prices),
+            MODEL_OPERATION_COST_LIMIT_USD: bad,
+          }),
+        bad,
+      ).toThrow('MODEL_OPERATION_COST_LIMIT_USD');
+    }
   });
 
   it('is off for the cache and for content in traces unless chosen', () => {

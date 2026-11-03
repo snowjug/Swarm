@@ -172,8 +172,11 @@ export function loadRouting(
 
   const tokens = integer(environment, 'MODEL_OPERATION_TOKEN_LIMIT', 0, MAX_BUDGET_LIMIT);
   const usdText = text(environment, 'MODEL_OPERATION_COST_LIMIT_USD');
+  if (usdText !== null && !/^\d{1,5}(?:\.\d{1,6})?$/u.test(usdText)) {
+    invalid('MODEL_OPERATION_COST_LIMIT_USD');
+  }
   const usd = usdText === null ? 0 : Number(usdText);
-  if (!Number.isFinite(usd) || usd < 0 || usd > 10_000) invalid('MODEL_OPERATION_COST_LIMIT_USD');
+  if (usd > 10_000) invalid('MODEL_OPERATION_COST_LIMIT_USD');
   if (usd > 0 && prices.length === 0) {
     throw new Error(
       'MODEL_OPERATION_COST_LIMIT_USD needs MODEL_PRICES: a cost limit is never enforced from a guessed price.',

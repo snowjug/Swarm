@@ -17,7 +17,7 @@
  * `response_format: json_schema`, that the schema obeys the documented strict-mode rules
  * (`strictSchemaProblems`: closed objects, every property required, no lengths or ranges, `anyOf` only).
  * A reply it is scripted to give under a strict schema must also conform to that schema, as a real
- * constrained model's would: otherwise the answer is a 500 and the mismatch is listed in `problems`.
+ * constrained model's would: otherwise the answer is a 501 and the mismatch is listed in `problems`.
  *
  * Every request is kept in `requests` with its parsed body, so a test can prove what was sent, and
  * where: which deployment, which parameters, and that no secret or untrusted text went anywhere else.
@@ -28,6 +28,7 @@
  *   refusal        a 200 with `message.refusal`
  *   filter-prompt  a 400 `content_filter` error naming the categories that were filtered
  *   filter-output  a 200 with `finish_reason: content_filter` and filtered output categories
+ *                  (`partial` is the content that came with it; `null` leaves `content` out)
  *   detected       a 200 reply whose prompt annotation says jailbreak / indirect_attack was detected
  *   truncated      a 200 with `finish_reason: length` and partial content
  *   status         an error status (429 with Retry-After, 5xx, ...) with a provider-shaped body
@@ -65,7 +66,7 @@ export type FakeStep =
   | { kind: 'text'; text: string; usage?: Usage | null }
   | { kind: 'refusal'; text?: string }
   | { kind: 'filter-prompt'; categories?: string[] }
-  | { kind: 'filter-output'; categories?: string[]; partial?: string }
+  | { kind: 'filter-output'; categories?: string[]; partial?: string | null }
   | { kind: 'detected'; category: 'jailbreak' | 'indirect_attack'; value: unknown }
   | { kind: 'truncated'; partial?: string }
   | { kind: 'status'; status: number; retryAfterSeconds?: number; code?: string; param?: string }
@@ -361,7 +362,7 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
   });
 
   function completion(
-    content: string | null,
+    content: string | null | undefined,
     extra: {
       finish?: string;
       refusal?: string;
@@ -399,7 +400,7 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
           finish_reason: extra.finish ?? 'stop',
           message: {
             role: 'assistant',
-            content,
+            ...(content === undefined ? {} : { content }),
             ...(extra.refusal !== undefined ? { refusal: extra.refusal } : {}),
           },
           ...(annotations ? { content_filter_results: extra.output ?? clean() } : {}),
@@ -478,7 +479,12 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
         );
         return respond(
           200,
-          completion(step.partial ?? null, { finish: 'content_filter', output }, request),
+          completion(
+            // `partial: null` leaves `content` out of the message, as a blocked reply may.
+            step.partial === null ? undefined : (step.partial ?? null),
+            { finish: 'content_filter', output },
+            request,
+          ),
         );
       }
       case 'detected': {

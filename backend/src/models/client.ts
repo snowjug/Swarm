@@ -154,7 +154,7 @@ const openAiResponse = z.object({
     .array(
       z.object({
         message: z.object({
-          content: z.string().nullable(),
+          content: z.string().nullable().optional(),
           refusal: z.string().nullable().optional(),
         }),
         finish_reason: z.string().nullable().optional(),
@@ -214,6 +214,16 @@ async function readBounded(response: Response): Promise<string> {
     reader.releaseLock();
   }
   return new TextDecoder().decode(Buffer.concat(parts));
+}
+
+/** Waits between attempts. A cancellation that comes during the wait is the run's own, not an error of the wait. */
+async function pause(ms: number, signal: AbortSignal): Promise<void> {
+  try {
+    await delay(ms, undefined, { signal });
+  } catch (error) {
+    throwIfAborted(signal);
+    throw error;
+  }
 }
 
 export function retryDelay(header: string | null, attempt: number): number {
@@ -308,7 +318,7 @@ export class ModelClient implements ModelGateway {
             { cause: error },
           );
         }
-        await delay(retryDelay(null, transient), undefined, { signal });
+        await pause(retryDelay(null, transient), signal);
         transient += 1;
         continue;
       }
@@ -316,17 +326,13 @@ export class ModelClient implements ModelGateway {
       // more often than a batched design would be; throttling gets its own, larger retry allowance.
       if (response.status === 429 && throttled < plan.retry.throttle) {
         await response.body?.cancel();
-        await delay(retryDelay(response.headers.get('retry-after'), throttled), undefined, {
-          signal,
-        });
+        await pause(retryDelay(response.headers.get('retry-after'), throttled), signal);
         throttled += 1;
         continue;
       }
       if ([408, 500, 502, 503, 504].includes(response.status) && transient < plan.retry.transient) {
         await response.body?.cancel();
-        await delay(retryDelay(response.headers.get('retry-after'), transient), undefined, {
-          signal,
-        });
+        await pause(retryDelay(response.headers.get('retry-after'), transient), signal);
         transient += 1;
         continue;
       }
@@ -640,12 +646,17 @@ export class ModelClient implements ModelGateway {
       answer = parsed.data.message.content;
     } else {
       const parsed = openAiResponse.safeParse(raw);
-      if (!parsed.success)
+      if (!parsed.success) {
+        // A reply the provider blocked may not be shaped like an answer. A block is what it is, not a protocol error.
+        const blocked = readSafety(raw);
+        meter.safety = blocked.findings;
+        if (blocked.blocked) throw refusalFor(blocked.findings);
         throw new AppError(
           502,
           'MODEL_PROTOCOL',
           'The endpoint did not return an OpenAI-compatible Chat Completions response.',
         );
+      }
       inputTokens = parsed.data.usage?.prompt_tokens || 0;
       outputTokens = parsed.data.usage?.completion_tokens || 0;
       tokensReported = parsed.data.usage !== undefined;

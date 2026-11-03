@@ -377,11 +377,11 @@ describe('every role, size, ceiling and zone', () => {
     ]),
   });
   const router = createRouter(settings);
-  const price = new Map([
+  const price = new Map<string, readonly [number, number]>([
     ['general-dep', [1, 4]],
     ['critic-dep', [30, 120]],
     ['spare-dep', [0.5, 2]],
-  ] as const);
+  ]);
   const zone = new Map([
     ['general-dep', 'eu'],
     ['extract-dep', 'eu'],
