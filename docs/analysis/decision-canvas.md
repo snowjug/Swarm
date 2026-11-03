@@ -240,7 +240,7 @@ The nine are `CARD_PARTS`; `RECOMMENDATION_PARTS` is the eight that hold stateme
 Human approval points: before the simulation (the actors and the constraints reviewed — shown `done` only where Swarm
 holds the record) and before acting (the validation plan done; a named approver — always `open`, because Swarm cannot
 know). Where the scope check finds employment, credit, legal, medical or safety matters, or a legal, regulatory or
-safety constraint says so, a third point is added and stays open: a person qualified in the matter reviews before
+safety constraint says so, a further point is added and stays open: a person qualified in the matter reviews before
 anything is acted on, named by matter (a clinician for a medical one, a lawyer for a legal one). For a decision about
 one person it reads “A qualified person decides”, and the named approver agrees to act on that. Swarm recommends and
 explains; it contacts no one, executes nothing and decides nothing.
@@ -307,8 +307,9 @@ Not in this version: a model-written synthesis (none is attempted, so there is n
 reversibility other than `unknown`; the other options re-run under a counterfactual view; a note at the Ask step (the
 scope check runs on the server and the Ask scene reads nothing from it, so the notice first stands on the Decide page);
 a scope-aware **brief**: the full report beneath the canvas is the brief as it was written, and for a question about one
-person it may still carry its own conditional recommendation. The notice above it, the note on the bridge and, in an
-export, the notice paragraph before it say that what Swarm does not decide applies to everything below.
+person it may still carry its own conditional recommendation. The notice above it and the note on the bridge say
+that what Swarm does not decide applies to everything below; an export carries the notice before the picture and
+again, with the cues, just before the brief, and says nothing more of the brief.
 
 ## The page
 

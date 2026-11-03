@@ -19,11 +19,13 @@ project that has since changed. A picture written by a model would be unauditabl
    views, the independent review and the evidence, and call a pure builder (`backend/src/decision/`). The
    constraint gate is worked out again at every read. When the comparison was run before something it is made from
    changed (compared by revision, as the brief is), the canvas says so, and it cannot be `robust-option`.
-2. **One of six statuses, by rules written as data.** `STATUS_RULES` in `shared/decision.ts` is an ordered table,
-   the first rule that applies wins, and a test holds the table to the code: `robust-option`,
+2. **One of six statuses, by rules written as data.** `STATUS_RULES` in `shared/decision.ts` is an ordered table of
+   eleven rules, the first rule that applies wins, and a test holds the table to the code: `robust-option`,
    `conditional-option`, `multiple-plausible-options`, `needs-human-decision`, `blocked-by-hard-constraint` and
    `insufficient-evidence`. `needs-human-decision` is not "the lenses are close": it is two lenses each clearly
-   ahead for a different option, or two hard constraints that cannot hold together.
+   ahead for a different option, two hard constraints that cannot hold together or, by the first rule, a question
+   about one person's employment, credit, legal, medical or safety situation, which a qualified person decides
+   ([ADR 0024](./0024-a-deterministic-scope-check-says-what-swarm-does-not-decide.md)).
 3. **No objective function, and four named lenses.** Overall resistance (the headline), broadest support among
    key actors, least resistance among decision makers and approvers, and the smallest downside for the worst-affected
    group. Each is a transparent reading of what the analysis measured, computed only from the stored runs. They can
@@ -52,8 +54,9 @@ project that has since changed. A picture written by a model would be unauditabl
    under which assumptions and constraints, the evidence that supports and weakens it, what would invalidate it,
    what to test next, whether it is reversible and what human approval is needed. A part with nothing to say is
    marked missing with a sentence. Reversibility is `unknown`: nothing in a project says whether a choice can be
-   undone, and the canvas does not guess. Swarm recommends and explains; it contacts no one, executes nothing and
-   decides nothing.
+   undone, and the canvas does not guess, so the card lists it among its missing parts for as long as it is unknown
+   and "N of 9 parts stated" is nine less the length of that one list, on the page and in the exports. Swarm
+   recommends and explains; it contacts no one, executes nothing and decides nothing.
 10. **It comes first.** It is the first thing the Decide scene shows, in every state of the brief beneath it, and
     when a brief is exported the canvas is placed before the brief's own answer.
 
@@ -71,16 +74,20 @@ project that has since changed. A picture written by a model would be unauditabl
 - The canvas cannot say what will happen. It never reports a probability, a confidence level, a return or a
   measured rate, never treats a simulated actor as a person, and never treats a model inference as a source. Every
   figure is a count or a share of simulated members or of seeded runs.
-- No evaluation suite measures whether the status chosen is the right one for a real decision; the status matrix
-  is listed as not measured ([docs/production/evaluation.md](../production/evaluation.md)), and
-  `decision-status.test.ts` checks the rules against their own table.
+- No evaluation measures whether the status chosen is the right one for a real decision. The evaluation's decision
+  suite holds the rules to the document's own rules on hand-set fixtures, in rules mode
+  ([docs/production/evaluation.md](../production/evaluation.md)), and `decision-status.test.ts` checks them against
+  their own table.
+- What the canvas does for a question about a person's employment, credit, legal, medical or safety situation is
+  a decision of its own, with its limits: [ADR 0024](./0024-a-deterministic-scope-check-says-what-swarm-does-not-decide.md).
 
 ## Evidence
 
 `backend/test/decision-status.test.ts` (every status, every boundary, precedence), `decision-lenses.test.ts`,
 `decision-build.test.ts` (the five worked examples through the real pipeline, the labels, the wording, the
 completeness of a recommendation, the validation plan, defensive reads of participants),
-`decision-labels.test.ts` (the label table, row by row, against the document), `decision-routes.test.ts` and
-`decision-export.test.ts`; on the page, `frontend/src/scenes/decide/canvas/*.test.tsx`; and in a browser,
-`e2e/lab/decide-canvas.spec.ts`. The specification is
+`decision-labels.test.ts` (the label table, row by row, against the document), `decision-scope.test.ts` (the
+scope check, [ADR 0024](./0024-a-deterministic-scope-check-says-what-swarm-does-not-decide.md)),
+`decision-routes.test.ts` and `decision-export.test.ts`; on the page, `frontend/src/scenes/decide/canvas/*.test.tsx`;
+and in a browser, `e2e/lab/decide-canvas.spec.ts`. The specification is
 [docs/analysis/decision-canvas.md](../analysis/decision-canvas.md).
