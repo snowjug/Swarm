@@ -26,7 +26,11 @@ beforeAll(async () => {
 }, 120_000);
 
 describe('fake-foundry mode against the registered thresholds', () => {
-  it.each(Object.keys(registered.specs))('%s', (id) => {
+  it.each(
+    Object.values(registered.specs)
+      .filter((spec) => spec.kind !== 'suite')
+      .map((spec) => spec.id),
+  )('%s', (id) => {
     const row = rows.find((item) => item.id === id);
     expect(row, `${id} has no row`).toBeDefined();
     if (!row) return;

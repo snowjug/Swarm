@@ -32,6 +32,30 @@ const claimSchema = z
   })
   .strict();
 
+/** A metric of the planner, run and decision suites: the plan table has no row for these stages, so each says where it comes from and why its number is what it is. */
+const suiteMetricSchema = z
+  .object({
+    label: z.string(),
+    from: z.string(),
+    why: z.string(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    minDomains: z.number().optional(),
+    maxDomainShare: z.number().optional(),
+    appliesIn: z.array(mode),
+    definition: z.string(),
+  })
+  .strict();
+
+const suiteSchema = z
+  .object({
+    registered: z.string(),
+    rule: z.string(),
+    source: z.string(),
+    metrics: z.record(z.string(), suiteMetricSchema),
+  })
+  .strict();
+
 const productionSchema = z
   .object({
     registered: z.string(),
@@ -49,10 +73,17 @@ const productionSchema = z
       .strict(),
     metrics: z.record(z.string(), metricSchema),
     claims: z.record(z.string(), claimSchema),
+    suites: suiteSchema,
+    decisionSuite: suiteSchema,
   })
   .strict();
 
-export type MetricSpec = z.infer<typeof metricSchema> & { id: string; kind: 'plan' | 'claim' };
+export type MetricSpec = z.infer<typeof metricSchema> & {
+  id: string;
+  kind: 'plan' | 'claim' | 'suite';
+  from?: string;
+  why?: string;
+};
 
 /** What the two claims of the workstream brief and the README are called in a table. */
 const CLAIM_LABELS: Record<string, string> = {
@@ -67,6 +98,8 @@ export interface Registered {
   tokenCap: number;
   prices: Prices & { deployment: string };
   specs: Record<string, MetricSpec>;
+  /** The suites that were registered later than the first table, each with the date and the rule it was registered under. */
+  suites: { name: string; registered: string; rule: string; ids: string[] }[];
 }
 
 export function loadRegistered(): Registered {
@@ -87,6 +120,22 @@ export function loadRegistered(): Registered {
       definition: spec.definition,
     };
   }
+  const suites: Registered['suites'] = [];
+  for (const [name, suite] of [
+    ['planner and research run', parsed.suites],
+    ['decision status', parsed.decisionSuite],
+  ] as const) {
+    for (const [id, spec] of Object.entries(suite.metrics)) {
+      const { label, ...rest } = spec;
+      specs[id] = { ...rest, plan: label, id, kind: 'suite' };
+    }
+    suites.push({
+      name,
+      registered: suite.registered,
+      rule: suite.rule,
+      ids: Object.keys(suite.metrics),
+    });
+  }
   return {
     registered: parsed.registered,
     rule: parsed.rule,
@@ -98,6 +147,7 @@ export function loadRegistered(): Registered {
       outputPerMillionUsd: parsed.listPrices.outputPerMillionUsd,
     },
     specs,
+    suites,
   };
 }
 
