@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   researchIntakeSchema,
   researchModeOf,
@@ -14,8 +15,9 @@ import { researchEnabled, clampBudget } from './config.js';
 import type { ServerConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import { LedgerService } from '../grounding/service.js';
+import { validateStep } from '../guided/state.js';
 import type { ModelFactory } from '../models/factory.js';
-import type { Repository } from '../storage/repository.js';
+import type { AddedDocument, Repository } from '../storage/repository.js';
 import { productSignals } from '../telemetry/product-signals.js';
 import type { CrawlDeps, PageFetcher } from './crawler/types.js';
 import { PublicPageFetcher } from './crawler/fetch.js';
@@ -97,6 +99,26 @@ const phases = new WeakMap<Repository, ResearchService>();
 /** The research service of the application that owns this repository, if there is one. */
 export function researchServiceFor(repository: Repository): ResearchService | null {
   return phases.get(repository) ?? null;
+}
+
+/**
+ * What a request that carries no key is known by: the same documents sent for the same project are one
+ * request, so that a double click, or a retry after a reply that was lost, adds them once.
+ */
+function handKey(documents: readonly AddedDocument[]): string {
+  const digest = createHash('sha256')
+    .update(
+      JSON.stringify(
+        documents.map((document) => [
+          document.name,
+          document.content,
+          document.pageCount ?? null,
+          document.provenance ?? null,
+        ]),
+      ),
+    )
+    .digest('hex');
+  return `by-hand:${digest.slice(0, 40)}`;
 }
 
 const startable = (project: ProjectDetail): boolean => {
@@ -357,6 +379,44 @@ export class ResearchService {
       },
     });
     return this.view(project.id);
+  }
+
+  // -- the person's own sources ------------------------------------------------------------------
+
+  /**
+   * Adds text that a person pasted or took from a file to a project that has not been grounded, and goes on to
+   * ground the project with the sources it now holds. It is the person's own evidence: research does not read
+   * it, plan from it or change it, and it works when research is off. The sources and the queued stage are one
+   * unit, so a stage that cannot be queued (the queue is full, a model that is not set up) leaves the project as
+   * it was and the same request can be sent again; and a request sent twice is one request, by the key it
+   * carries or, without one, by what it holds.
+   */
+  addDocuments(
+    projectId: string,
+    documents: readonly AddedDocument[],
+    request: Pick<StartRequest, 'idempotencyKey'>,
+    actor: string,
+  ): ProjectDetail {
+    const project = this.repository.get(projectId);
+    const key = request.idempotencyKey ?? handKey(documents);
+    const repeated = (): boolean => this.repository.jobs.byIdempotencyKey(projectId, key) !== null;
+    if (repeated()) return project;
+    this.reconcile(projectId);
+    this.requireIdle(projectId);
+    validateStep(project, 'knowledge');
+    this.repository.atomic(() => {
+      // Asked again inside the unit: a request that raced this one has queued the stage by now.
+      if (repeated()) return;
+      this.repository.appendDocuments(projectId, documents, {
+        actor,
+        origin: 'evidence',
+        how: 'by a person',
+      });
+      // A ledger that was built before these sources were added learns of the conflicts they bring.
+      this.ledger.addFoundConflicts(projectId);
+      this.jobs.enqueueStep(projectId, 'knowledge', false, { idempotencyKey: key });
+    });
+    return this.repository.get(projectId);
   }
 
   // -- controlling a run in progress -------------------------------------------------------------

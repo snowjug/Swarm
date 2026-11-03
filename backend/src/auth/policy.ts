@@ -178,6 +178,9 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'POST /api/projects/:id/research/resume': project('run'),
   'POST /api/projects/:id/research/finish': project('run'),
   'POST /api/projects/:id/research/cancel': project('run'),
+  // The person's own text, added to a project that has not been grounded: for whoever may edit the project.
+  // The route also queues the stage that grounds it, so it asks for the right to run it as well.
+  'POST /api/projects/:id/evidence/documents': project('edit'),
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */
