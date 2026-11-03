@@ -193,6 +193,11 @@ function viewsOf(input: CounterfactualInput): View[] {
         };
       case 'delay':
         return { ...item, effect: { ...effect, rounds: Math.min(36, effect.rounds + 1) } };
+      case 'require-approval':
+        return {
+          ...item,
+          effect: { ...effect, threshold: Math.min(1, round4(effect.threshold + REGULATION_STEP)) },
+        };
       default:
         return item;
     }
@@ -201,7 +206,7 @@ function viewsOf(input: CounterfactualInput): View[] {
   views.push({
     id: 'stronger-regulation',
     change:
-      'Regulators hold more authority and accept less risk, and the regulatory limits that are applied are one half stronger.',
+      'Regulators hold more authority and accept less risk, and the regulatory limits that are applied are stronger: amounts up by half, delays a round longer, the approval line higher.',
     driver: [
       regulators.length > 0
         ? `Regulators: authority up by ${REGULATION_STEP}, risk tolerance down by ${REGULATION_STEP}`
@@ -295,7 +300,9 @@ function viewsOf(input: CounterfactualInput): View[] {
   views.push({
     id: 'dependency-fails',
     change:
-      'What the change depends on fails: from the round it lands, it does not reach the actors that depend on it.',
+      stopped.length > 0
+        ? 'What the change depends on fails: from the round it lands, it does not reach the actors named as depending on it.'
+        : 'What the change depends on fails: from the round it lands, it reaches no one, because no constraint names who depends on it.',
     driver:
       dependencies.length > 0
         ? `Dependency: ${clip(dependencies.map((constraint) => constraint.statement).join(' · '), 200)}`
