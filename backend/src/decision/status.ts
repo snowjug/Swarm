@@ -335,7 +335,7 @@ export function deriveStatus(input: StatusInput, guard: Guard): StatusResult {
       guard,
       'conditional',
       'conditional-option',
-      `${label(options, leaderId)} is ahead on the headline lens, on conditions. ${clip(conditions[0] ?? '', 260)}`,
+      `${label(options, leaderId)} is ahead on ${embed(LENS_INFO[PRIMARY_LENS].name, 70)}, on conditions. ${clip(conditions[0] ?? '', 260)}`,
       lensWhy,
       conditions,
     ),

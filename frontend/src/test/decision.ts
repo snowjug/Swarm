@@ -111,7 +111,7 @@ const base = (): Raw => ({
     label: DECISION_STATUS_INFO['conditional-option'].label,
     meaning: DECISION_STATUS_INFO['conditional-option'].meaning,
     headline:
-      '“No change” is ahead on the headline lens, on conditions. No constraints were reviewed for this decision, so the answer does not say what limits it.',
+      '“No change” is ahead on “Least resistance overall”, on conditions. No constraints were reviewed for this decision, so the answer does not say what limits it.',
     why: [
       'On “Least resistance overall”: clearly ahead.',
       'On “Broadest support among key actors”: level with the best.',
@@ -123,7 +123,7 @@ const base = (): Raw => ({
   },
   answer: {
     headline: say(
-      '“No change” is ahead on the headline lens, on conditions. No constraints were reviewed for this decision, so the answer does not say what limits it.',
+      '“No change” is ahead on “Least resistance overall”, on conditions. No constraints were reviewed for this decision, so the answer does not say what limits it.',
       'recommendation',
       'status:conditional-option',
     ),
@@ -645,10 +645,11 @@ export function richFixture(): DecisionCanvas {
   });
   return canvasFixture((raw) => {
     raw.status.headline =
-      '“Proposed change” is ahead on the headline lens, on conditions. One hard constraint is not confirmed, so the answer is provisional.';
+      '“Proposed change” is ahead on “Least resistance overall”, on conditions. It could stop leading if the budget constraint is taken away.';
     raw.status.conditions = [
       'It could stop leading if the budget constraint is taken away.',
-      'The constraints are provisional: one hard constraint is not confirmed.',
+      'The constraints are provisional: some are not confirmed.',
+      'On “Broadest support among key actors” it cannot be told apart from another option.',
     ];
     raw.answer.headline = say(raw.status.headline, 'recommendation', 'status:conditional-option');
     raw.constraints = {
@@ -834,7 +835,7 @@ export function richFixture(): DecisionCanvas {
       },
     ];
     raw.answer.recommendation.what = say(
-      'Take “Proposed change” only after the budget is confirmed: it is ahead on the headline lens, and the one thing that could reverse it is the budget constraint.',
+      'Take “Proposed change” forward, only on the conditions listed, in steps that can be checked, once the high-priority checks below are done and a named approver agrees.',
       'recommendation',
       'status:conditional-option',
     );
@@ -854,7 +855,7 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
       case 'robust-option':
         canvas.status.rule = 'robust';
         canvas.status.headline =
-          '“Proposed change” is ahead on every lens that could be computed, and nothing tried reverses it.';
+          '“Proposed change” is ahead on every lens Swarm computed, and nothing it tried reverses that. It is a result of the simulation under stated assumptions.';
         canvas.status.conditions = [];
         canvas.status.why = [
           'On “Least resistance overall”: clearly ahead.',
@@ -906,7 +907,7 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.answer.preferredAlternativeId = 'proposed-change';
         canvas.answer.recommendation.kind = 'proceed';
         canvas.answer.recommendation.what = say(
-          'Take “Proposed change”: it is ahead on every lens that could be computed and nothing tried reverses it. Check the items below before acting.',
+          'Take “Proposed change” forward in steps that can be checked, once the high-priority checks below are done and a named approver agrees.',
           'recommendation',
           'status:robust-option',
         );
@@ -914,16 +915,15 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
       case 'multiple-plausible-options':
         canvas.status.rule = 'no-clear-leader';
         canvas.status.headline =
-          'No option is clearly ahead: “No change” and “Proposed change” cannot be told apart on the headline lens.';
+          'The simulation cannot tell “No change” and “Proposed change” apart, so Swarm does not pick one.';
         canvas.status.conditions = [];
         canvas.status.why = [
-          'On “Least resistance overall”: level with the best.',
-          'On “Broadest support among key actors”: level with the best.',
+          'On “Least resistance overall”, “No change” and “Proposed change” cannot be told apart within run-to-run variation.',
         ];
         canvas.answer.preferredAlternativeId = null;
-        canvas.answer.recommendation.kind = 'decide';
+        canvas.answer.recommendation.kind = 'hold';
         canvas.answer.recommendation.what = say(
-          'Choose between the options on grounds the simulation does not cover: it cannot tell them apart.',
+          'Do not choose between “No change” and “Proposed change” on this result. Test what separates them first, in a small and reversible way.',
           'recommendation',
           'status:multiple-plausible-options',
         );
@@ -931,7 +931,7 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
       case 'insufficient-evidence':
         canvas.status.rule = 'evidence-insufficient';
         canvas.status.headline =
-          'The evidence is not enough for the simulation to carry a recommendation.';
+          'There is not enough evidence behind the comparison to recommend an option. No actor has a cited supporting passage.';
         canvas.status.conditions = [];
         canvas.status.why = ['No actor has a cited supporting passage.'];
         canvas.answer.preferredAlternativeId = null;
@@ -944,7 +944,7 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
           unsupported: ['Employees', 'Delivery partners', 'Regulators'],
         };
         canvas.answer.recommendation.what = say(
-          'Gather evidence first: nothing cited supports any simulated actor.',
+          'Do not act on this result. Gather the evidence listed below, then run the comparison again.',
           'recommendation',
           'status:insufficient-evidence',
         );
@@ -952,10 +952,10 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
       case 'blocked-by-hard-constraint':
         canvas.status.rule = 'all-violate';
         canvas.status.headline =
-          'Every option breaks a hard constraint that is confirmed, so none can be recommended.';
+          'Every alternative is ruled out by a confirmed hard constraint, so Swarm does not recommend one.';
         canvas.status.conditions = [];
         canvas.status.why = [
-          '“No change” and “Proposed change” each break a hard constraint that is confirmed.',
+          '“Proposed change” is ruled out by “The spend stays inside the budget the board approved”.',
         ];
         canvas.answer.preferredAlternativeId = null;
         canvas.answer.recommendation.kind = 'resolve-constraint';
@@ -971,7 +971,7 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
           }),
         ];
         canvas.answer.recommendation.what = say(
-          'Settle the hard constraint first: every option breaks it.',
+          'Do not go past the hard constraint. Settle it first with its owner: confirm it, correct it or set it aside, then run the comparison again.',
           'recommendation',
           'status:blocked-by-hard-constraint',
         );
@@ -979,15 +979,16 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
       case 'needs-human-decision':
         canvas.status.rule = 'value-tradeoff';
         canvas.status.headline =
-          'Two lenses each name a different leader, so the choice turns on which of them matters more.';
+          'The choice turns on a trade-off between lenses: “No change” and “Proposed change” each lead on a different one. A person has to weigh which matters more.';
         canvas.status.conditions = [];
         canvas.status.why = [
-          '“No change” leads on “Least resistance overall”; “Proposed change” leads on “Broadest support among key actors”.',
+          '“No change” is clearly ahead on “Least resistance overall”.',
+          '“Proposed change” is clearly ahead on “Broadest support among key actors”.',
         ];
         canvas.answer.preferredAlternativeId = null;
         canvas.answer.recommendation.kind = 'decide';
         canvas.answer.recommendation.what = say(
-          'A person decides which lens matters more: the simulation does not choose between them.',
+          'Take the choice to the decision owner with the trade-off in front of them: “No change” and “Proposed change” lead on different lenses.',
           'recommendation',
           'status:needs-human-decision',
         );

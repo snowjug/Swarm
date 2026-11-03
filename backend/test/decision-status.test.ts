@@ -72,6 +72,10 @@ describe('the decision status: every one of the six, reached on purpose and expl
     expect(canvas.constraints.gate).toBe('provisional');
     expect(canvas.status.conditions.join(' ')).toMatch(/Provisional/u);
     expect(canvas.constraints.hard[0]).toMatchObject({ id: 'c-0002', provisional: true });
+    // The sentence at the top of the page says which measure the option leads on, not "the headline lens".
+    expect(canvas.status.headline).toMatch(
+      /^“Proposed change” is ahead on “Least resistance overall”, on conditions\./u,
+    );
   });
 
   it('is conditional when a counterfactual view larger than the lead could reverse it, and says so', () => {
