@@ -8,7 +8,10 @@ import { getJson } from './lab-api';
 // press that makes the project. Everything is found the way a person finds it, by role and name.
 
 export const QUESTION_NAME = 'Your what-if question';
-export const HEADING = 'Explore what could happen next.';
+export const HEADING = 'See how a decision could unfold.';
+export const SUPPORT_LINE =
+  'Swarm researches the context, maps who matters, simulates reactions, and shows possible paths forward.';
+export const TAGLINE = 'Explore scenarios, not predictions.';
 export const POSITIONING =
   'Swarm explores scenarios. It does not guarantee or precisely predict real-world behavior.';
 
@@ -17,6 +20,16 @@ export const READS_AT_OPEN = [
   'GET /api/config',
   'GET /api/projects',
   'GET /api/provider/status',
+] as const;
+
+/** The questions the empty box suggests in turn (frontend/src/scenes/ask/templates.ts). */
+export const PROMPTS = [
+  'What if our city replaces a bus route with an on-demand shuttle?',
+  'What if we raise our subscription price and drop the free trial?',
+  'What if our team moves customer support to an AI-first model?',
+  'What if a clinic moves routine check-ups to video visits?',
+  'What if we open a second site in a new region?',
+  'What if a school district shortens the school week?',
 ] as const;
 
 /** A question that is long enough to read, and that no example knows. */
@@ -77,11 +90,39 @@ export const exploreButton = (page: Page): Locator =>
   page.getByRole('button', { name: 'Explore', exact: true });
 export const optionsButton = (page: Page): Locator =>
   page.getByRole('button', { name: 'Options', exact: true });
-/** The time frame and the assumptions of the question: each says what it holds once it holds something. */
-export const timeFrameButton = (page: Page): Locator =>
-  page.getByRole('button', { name: /^Time frame\b/u });
+/** The website or domain field, which is for automatic research: it is out of reach where research is not on. */
+export const siteBox = (page: Page): Locator =>
+  page.getByRole('textbox', { name: /^Website or domain/u });
+/** The switch for automatic research, and the line under it that says what it does or why it is not available. */
+export const researchSwitch = (page: Page): Locator =>
+  page.getByRole('switch', { name: /^Research automatically/u });
+/** The advanced fields (the place, the guidance for research, what is assumed) open under this button. */
+export const advancedButton = (page: Page): Locator =>
+  page.getByRole('button', { name: /^Advanced\b/u });
 export const assumptionsButton = (page: Page): Locator =>
   page.getByRole('button', { name: /^Assumptions\b/u });
+
+/** Opens the advanced fields, if they are not open. */
+export async function openAdvanced(page: Page): Promise<void> {
+  if ((await advancedButton(page).getAttribute('aria-expanded')) !== 'true') {
+    await advancedButton(page).click();
+  }
+  await expect(advancedButton(page)).toHaveAttribute('aria-expanded', 'true');
+}
+
+/** How far ahead the effects are judged: a row of choices on a wide screen, a list on a phone. */
+export async function chooseHorizon(page: Page, label: string): Promise<void> {
+  const list = page.getByRole('combobox', { name: 'Time horizon' });
+  if (await list.count()) await list.selectOption({ label });
+  else await page.getByRole('radio', { name: label, exact: true }).click();
+}
+
+/** The time horizon that is chosen, whichever way it is drawn. */
+export async function expectHorizon(page: Page, label: string): Promise<void> {
+  const list = page.getByRole('combobox', { name: 'Time horizon' });
+  if (await list.count()) await expect(list.locator('option:checked')).toHaveText(label);
+  else await expect(page.getByRole('radio', { name: label, exact: true })).toBeChecked();
+}
 /** The button that opens the evidence menu: on the first screen it says how many sources are attached. */
 export const evidenceButton = (page: Page): Locator =>
   page.getByRole('button', { name: /^Evidence\b|^Add evidence$/u });
@@ -93,18 +134,34 @@ export const expectAttached = (page: Page, count: number): Promise<void> =>
       ? /^Evidence(?:,? 0 attached)?$/u
       : new RegExp(`^Evidence,? ${count} attached$`, 'u'),
   );
-export const examplesList = (page: Page): Locator =>
-  page.getByRole('list', { name: 'Start from an example' });
+/** The templates under the composer: sentences with blanks, and "Custom". */
+export const templatesList = (page: Page): Locator =>
+  page.getByRole('list', { name: 'Start from a template' });
 export const tray = (page: Page): Locator => page.getByRole('list', { name: 'Attached evidence' });
 /** What the first screen says went wrong with the question or the evidence: a notice in the page, not a toast. */
 export const asked = (page: Page): Locator =>
   page.getByRole('main').getByRole('status').or(page.getByRole('main').getByRole('alert'));
 
-/** Picks an example chip and waits until its question and every document are in the composer, and have arrived. */
+/** The one way into a demonstration: it is named for what it holds, a recorded demonstration or the sample cases. */
+const DEMONSTRATION = /^Try a (?:recorded demonstration|sample case)$/u;
+export const demonstrationLink = (page: Page): Locator =>
+  page.getByRole('button', { name: DEMONSTRATION });
+export const demonstrationDialog = (page: Page): Locator =>
+  page.getByRole('dialog', { name: DEMONSTRATION });
+
+/** Opens the list of sample cases (it may be open already). */
+export async function openSamples(page: Page): Promise<Locator> {
+  const dialog = demonstrationDialog(page);
+  if (!(await dialog.isVisible())) await demonstrationLink(page).click();
+  await expect(dialog).toBeVisible();
+  return dialog;
+}
+
+/** Picks a sample case and waits until its question and every document are in the composer, and have arrived. */
 export async function chooseExample(page: Page, example: ExampleScenario): Promise<void> {
-  await examplesList(page)
-    .getByRole('button', { name: chipName(example), exact: true })
-    .click();
+  const dialog = await openSamples(page);
+  await dialog.getByRole('button', { name: chipName(example), exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expect(questionBox(page)).toHaveValue(example.question);
   await expect(tray(page).getByRole('listitem')).toHaveCount(example.documents.length);
   // A source arrives from a little smaller than it is: it is measured, and pressed, once it has.
@@ -112,7 +169,9 @@ export async function chooseExample(page: Page, example: ExampleScenario): Promi
 }
 
 export async function chooseStarter(page: Page): Promise<void> {
-  await examplesList(page).getByRole('button', { name: STARTER.chip, exact: true }).click();
+  const dialog = await openSamples(page);
+  await dialog.getByRole('button', { name: STARTER.chip, exact: true }).click();
+  await expect(dialog).toBeHidden();
   await expect(questionBox(page)).toHaveValue(STARTER.question);
   await expect(tray(page).getByRole('listitem')).toHaveCount(1);
   await stays(tray(page).getByRole('button').first());
@@ -310,12 +369,24 @@ export async function settledCount(items: Locator): Promise<number> {
 /** Every transition and animation that ends has ended: a colour is measured where it will stay, not on its way. */
 export async function atRest(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    await Promise.all(
+    const running = (): Animation[] =>
       document
         .getAnimations()
-        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity)
-        .map((animation) => animation.finished.catch(() => undefined)),
-    );
+        .filter((animation) => animation.effect?.getComputedTiming().iterations !== Infinity);
+    const frame = (): Promise<void> =>
+      new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    // An inherited colour reaches each level of nesting that has a transition of its own one frame after the last,
+    // so the page is at rest once a couple of frames have passed with nothing left to wait for.
+    for (let quiet = 0, rounds = 0; quiet < 2 && rounds < 200; rounds += 1) {
+      const pending = running();
+      if (pending.length === 0) {
+        quiet += 1;
+        await frame();
+      } else {
+        quiet = 0;
+        await Promise.all(pending.map((animation) => animation.finished.catch(() => undefined)));
+      }
+    }
   });
 }
 
