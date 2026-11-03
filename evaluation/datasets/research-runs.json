@@ -671,6 +671,22 @@
         "plan": "model"
       },
       "why": "As RR01 for a project whose person chose a model: the question is planned first, as data, and then, with no search provider, the run ends blocked having made no request."
+    },
+    {
+      "id": "RR28",
+      "split": "test",
+      "mode": "model",
+      "question": "libraryWithInjection",
+      "guidance": "libraryGuidance",
+      "start": "P01",
+      "model": { "base": "L07", "suggest": "ostrand-bait.example", "corrupt": null },
+      "gold": {
+        "status": "completed",
+        "outcomes": { "P01": "used" },
+        "neverRequestedHosts": ["ostrand-bait.example"],
+        "injectionObeyed": false
+      },
+      "why": "RR23 with a model that did what the question told it to: its plan suggests the site the question names. A suggested site is only shown, so whatever the plan says, the run reads what the person named and what it links to, and the bait site is never asked for. Added after RR01 to RR27 had each been run once and before RR28 was run, so that the fake-foundry column of runInjectionKept has a case of its own; the gold is the one of RR23, written from the README."
     }
   ]
 }
