@@ -482,6 +482,9 @@ describe('identifiers a route accepts outside the path', () => {
       'members.ts: principalId',
       'members.ts: principalId',
       'projects.ts: id',
+      // In the path: vouched for by the guard. Research is looked up inside that experiment only: a run
+      // is one of its artifacts, and the job that carries it out is the experiment's own.
+      'research.ts: id',
       // In the path: vouched for by the guard.
       'scenario.ts: id',
       'stakeholders.ts: id',
