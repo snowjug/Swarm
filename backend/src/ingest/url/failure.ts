@@ -47,10 +47,14 @@ export interface UrlFailureDetail {
   redirected?: boolean;
   /**
    * A `blocked` refusal that came from the addresses a name resolved to, not from the address as it was
-   * written. A person cannot judge that from the text, and saying it would tell them which names exist
-   * inside a network, so it is reported like a name that was not found.
+   * written, on any path: the page, a redirect, or robots.txt. A person cannot judge that from the text,
+   * and saying it would tell them which names exist inside a network, so a caller reports it exactly as it
+   * reports a name that was not found (`network`, `reason: 'dns'`): the same sentence, the same count.
+   * The refusal itself is for the server's own log.
    */
   resolved?: boolean;
+  /** The name that was refused, when `resolved` is set. For the server's own log, never for a person. */
+  host?: string;
   /** Narrows `network`. */
   reason?: 'dns' | 'refused' | 'tls' | 'closed' | 'encoding' | 'other';
   /** Narrows `invalid` and `blocked` when the address policy is what refused. */

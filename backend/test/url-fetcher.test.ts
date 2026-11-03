@@ -183,6 +183,8 @@ describe('redirects', () => {
   it('judges every redirect target again, and never connects to a refused one', async () => {
     const targets: [string, UrlFailureCode][] = [
       ['http://169.254.169.254/latest/meta-data/', 'blocked'],
+      ['http://168.63.129.16/', 'blocked'],
+      ['http://[::ffff:a83f:8110]/', 'blocked'],
       ['http://10.0.0.1/', 'blocked'],
       ['http://192.168.1.1/admin', 'blocked'],
       ['http://100.64.0.1/', 'blocked'],
@@ -797,16 +799,39 @@ describe('robots.txt (RFC 9309)', () => {
     expect(failure).toMatchObject({ code: 'robots', detail: { redirected: true } });
   });
 
-  it('reads no more than the first 500 KiB, and ignores a robots.txt that is garbage', async () => {
-    const big = `${'# padding\n'.repeat(60_000)}User-agent: *\nDisallow: /\n`;
-    const server = await serve(site(robotsText(big)));
-    expect((await withRobots(server, '/page')).robots).toBe('allowed');
+  it('reads the first 500 KiB of robots.txt in full, forbids the origin when there is more, and ignores a robots.txt that is garbage', async () => {
+    const rules = 'User-agent: *\nDisallow: /secret\n';
+    const full = `${'#'.repeat(512_000 - rules.length - 1)}\n${rules}`;
+    expect(Buffer.byteLength(full)).toBe(512_000);
+    const exact = await serve(site(robotsText(full)));
+    expect((await failureOf(withRobots(exact, '/secret/x'))).code).toBe('robots');
+    expect((await withRobots(exact, '/open')).robots).toBe('allowed');
+    // One byte more, and what is past the limit cannot be read, so it cannot be obeyed: nothing is fetched.
+    const tooBig = await serve(site(robotsText(`#${full}`)));
+    expect(await failureOf(withRobots(tooBig, '/open'))).toMatchObject({
+      code: 'robots-unavailable',
+      detail: { stage: 'robots' },
+    });
+    expect(tooBig.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
+    const late = `${'# padding\n'.repeat(60_000)}User-agent: *\nDisallow: /\n`;
+    const padded = await serve(site(robotsText(late)));
+    expect((await failureOf(withRobots(padded, '/page'))).code).toBe('robots-unavailable');
     const junk = await serve(
       site((response) =>
         text(response, '<html><body>Not found, really</body></html>', 'text/html'),
       ),
     );
     expect((await withRobots(junk, '/page')).robots).toBe('allowed');
+  });
+
+  it('obeys the 2,501st rule and a pattern of 1,001 characters, which were once left out', async () => {
+    const lines = ['User-agent: *'];
+    for (let index = 0; index < 2_500; index += 1) lines.push(`Allow: /open${index}`);
+    lines.push('Disallow: /private/', `Disallow: /${'a'.repeat(1_000)}`);
+    const server = await serve(site(robotsText(lines.join('\n'))));
+    expect((await failureOf(withRobots(server, '/private/report'))).code).toBe('robots');
+    expect((await failureOf(withRobots(server, `/${'a'.repeat(1_000)}/x`))).code).toBe('robots');
+    expect((await withRobots(server, '/public')).robots).toBe('allowed');
   });
 });
 
@@ -916,6 +941,38 @@ describe('a redirect met while reading robots.txt is judged as strictly as one m
     expect(elsewhere.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
   });
 
+  it('asks the caller about each place robots.txt is sent to, and follows it when the caller lets it', async () => {
+    const elsewhere = await serve(site(ROBOTS_OPEN));
+    const first = await serve(redirectingRobots(() => elsewhere.url('/robots.txt')));
+    const hops: string[] = [];
+    const page = await robotsOf(first, '/page', {
+      allowedPorts: [first.port, elsewhere.port],
+      hooks: {
+        onRedirect: ({ purpose, status, from, to }) => {
+          hops.push(`${purpose} ${status} ${from} -> ${to}`);
+        },
+      },
+    });
+    expect(page.robots).toBe('allowed');
+    expect(hops).toEqual([
+      `robots 302 ${first.url('/robots.txt')} -> ${elsewhere.url('/robots.txt')}`,
+    ]);
+  });
+
+  it('lets the caller turn down where robots.txt is sent, as it can for a page: the origin is forbidden, and nothing is asked of that place', async () => {
+    const elsewhere = await serve(site(ROBOTS_OPEN));
+    const first = await serve(redirectingRobots(() => elsewhere.url('/robots.txt')));
+    const failure = await failureOf(
+      robotsOf(first, '/page', {
+        allowedPorts: [first.port, elsewhere.port],
+        hooks: { onRedirect: () => 'another site' },
+      }),
+    );
+    expect(failure).toMatchObject({ code: 'robots-unavailable', detail: { stage: 'robots' } });
+    expect(first.seen.map(({ url }) => url)).toEqual(['/robots.txt']);
+    expect(elsewhere.seen).toEqual([]);
+  });
+
   it('refuses the page when robots.txt leads to a host that is not on the list, without looking it up', async () => {
     const calls: string[] = [];
     const lookup = resolver(
@@ -977,7 +1034,11 @@ describe('a redirect met while reading robots.txt is judged as strictly as one m
 
     for (const name of ['private', 'mixed', 'v6']) {
       const { server, outcome } = await fetchVia(name);
-      expect((await failureOf(outcome)).code, name).toBe('robots-unavailable');
+      // The refusal is passed on as what it was, and a caller tells it as it tells a name that was not found.
+      expect(await failureOf(outcome), name).toMatchObject({
+        code: 'blocked',
+        detail: { resolved: true, stage: 'robots', host: `${name}.example.com` },
+      });
       expect(
         server.seen.map(({ url }) => url),
         name,

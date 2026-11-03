@@ -44,6 +44,8 @@ export interface Reading {
   hiddenText: boolean;
   leftOutSample: string;
   cutShort: boolean;
+  /** The work that reading took, in the units of `BlockBuilder.spend`. */
+  work: number;
   scriptChars: number;
   embeds: boolean;
   passwordField: boolean;
@@ -61,6 +63,8 @@ export interface ReaderOptions {
   collect: boolean;
   maxDepth: number;
   maxLinks: number;
+  /** The most work reading may do (see `BlockBuilder.spend`); the rest of the page is not read. */
+  maxWork: number;
 }
 
 const HTML = 'http://www.w3.org/1999/xhtml';
@@ -86,7 +90,7 @@ const textInside = (element: Element): string =>
  * and the depth of the page is capped, so a page cannot make it deeper than its limit.
  */
 export class Reader implements Walker {
-  private readonly builder = new BlockBuilder(this);
+  private readonly builder: BlockBuilder;
   private readonly regions: Region[] = [];
   private sections = 0;
   private quoting = 0;
@@ -111,7 +115,9 @@ export class Reader implements Walker {
     times: [],
   };
 
-  constructor(private readonly options: ReaderOptions) {}
+  constructor(private readonly options: ReaderOptions) {
+    this.builder = new BlockBuilder(this, options.maxWork);
+  }
 
   get maxDepth(): number {
     return this.options.maxDepth;
@@ -127,7 +133,9 @@ export class Reader implements Walker {
       leftOut: this.leftOut,
       hiddenText: this.hiddenText,
       leftOutSample: this.leftOutSample,
-      cutShort: this.cutShort,
+      // A page that asked for more work than is done for one was read as far as that went.
+      cutShort: this.cutShort || this.builder.exhausted,
+      work: this.builder.work,
       scriptChars: this.scriptChars,
       embeds: this.embeds,
       passwordField: this.passwordField,
@@ -149,10 +157,13 @@ export class Reader implements Walker {
 
   private visit(node: ChildNode, depth: number): void {
     if (node.nodeName === '#text') {
-      this.builder.text((node as TextNode).value);
+      const value = (node as TextNode).value;
+      this.builder.spend(1 + (value.length >> 8));
+      this.builder.text(value);
       return;
     }
     if (!isElement(node)) return;
+    this.builder.spend(3 + (node.attrs.length >> 2));
     if (depth > this.options.maxDepth) {
       this.cutShort = true;
       return;
@@ -256,6 +267,7 @@ export class Reader implements Walker {
 
   /** Leaves a part of the page out of its text, noting what kind of text it held and where it led. */
   private leaveOut(element: Element, hidden: boolean): void {
+    this.builder.spend(20);
     const room = Math.max(0, this.options.maxLinks - this.links.length);
     const sample = sampleOf(element, 400, hidden || !this.options.collect ? 0 : room);
     if (sample.text) {
@@ -340,6 +352,7 @@ export class Reader implements Walker {
   private anchor(element: Element, attributes: Attributes): void {
     if (!this.options.collect) return;
     if (this.links.length < this.options.maxLinks) {
+      this.builder.spend(10);
       const link = linkOf(element, true, this.builder.region);
       if (link) this.links.push(link);
     }

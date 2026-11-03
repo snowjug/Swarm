@@ -1,8 +1,11 @@
 import { parse } from 'tldts';
 import type { AuthorityEstimate, SourceCategory } from '../../../../shared/research.js';
 import {
+  ACADEMIC_SUFFIXES,
   COMMUNITY_DOMAINS,
   DISCUSSION_TYPES,
+  DOCUMENTATION_DOMAINS,
+  GOVERNMENT_SUFFIXES,
   INTERGOVERNMENTAL_DOMAINS,
   onList,
   PREPRINT_DOMAINS,
@@ -20,8 +23,8 @@ export type ClassificationBasis =
   | 'preprint-server'
   | 'government-domain'
   | 'intergovernmental-body'
-  | 'regulator-name'
   | 'university-domain'
+  | 'documentation-list'
   | 'documentation-host'
   | 'documentation-path'
   | 'official-statement'
@@ -35,7 +38,8 @@ export interface Classification {
   /**
    * An estimate from the kind of site, never a verdict on whether a page is right: a government page
    * can be out of date, and a forum post can be correct. It is the least a reader should know about
-   * where a page came from.
+   * where a page came from. A name that anyone could have registered, and that no list recognises and no
+   * person named, is `unclassified` and `unknown`, whatever words are in it.
    */
   authority: AuthorityEstimate;
   basis: ClassificationBasis;
@@ -52,27 +56,8 @@ export interface PageMarkup {
   citationMeta: boolean;
 }
 
-const GOVERNMENT_SUFFIX_LABELS: ReadonlySet<string> = new Set([
-  'gov',
-  'gouv',
-  'gob',
-  'go',
-  'govt',
-  'gc',
-  'gv',
-  'mil',
-]);
-const GOVERNMENT_SUFFIXES: ReadonlySet<string> = new Set(['gov', 'mil', 'int']);
-const REGULATOR_WORDS: ReadonlySet<string> = new Set([
-  'regulator',
-  'regulatory',
-  'authority',
-  'commission',
-  'ministry',
-  'ombudsman',
-  'parliament',
-  'legislature',
-]);
+const GOVERNMENT: ReadonlySet<string> = new Set(GOVERNMENT_SUFFIXES);
+const ACADEMIC: ReadonlySet<string> = new Set(ACADEMIC_SUFFIXES);
 const FORUM_SUBDOMAINS: ReadonlySet<string> = new Set([
   'forum',
   'forums',
@@ -186,6 +171,11 @@ const NONE = answer('unclassified', 'unknown', 'none');
  * segments) and, once the page has been read, from what its markup says about itself. It is
  * deterministic and an ESTIMATE: it is for ranking what to read and for telling a reader what kind of
  * source they are looking at, and says nothing about whether the page is right.
+ *
+ * Nothing in a name that anyone could have registered raises a page above `unclassified`: not a first
+ * label such as `gov` or `go`, not `authority` or `docs` or `support` in a name, not what a page says
+ * about itself. A page is raised by a list a person can read (`reputable-domains.ts`), by a suffix that only
+ * a government or a university can register under, or by a person having named its site.
  */
 export function classifySource(
   address: string,
@@ -202,10 +192,12 @@ export function classifySource(
   const found = parse(host, { allowPrivateDomains: true });
   const domain = found.domain ?? host;
   const subdomain = (found.subdomain ?? '').split('.')[0] ?? '';
-  const suffix = found.publicSuffix ?? '';
+  // What a registry vouches for is a suffix of its own. A suffix that a service sells names under
+  // (`go.dyndns.org`) or that anyone may register under is a private or open one, and vouches for nothing,
+  // whatever it looks like: the public part of the list is the ICANN part.
+  const registry = found.isIcann === true ? (found.publicSuffix ?? '') : '';
   const segments = url.pathname.toLowerCase().split('/').filter(Boolean).slice(0, 2);
   const named = context.namedDomains.has(domain);
-  const labels = host.split(/[.-]/u);
 
   // Where the words are anyone's comes first, whatever the site: a forum on a university's server is still a forum.
   if (markup?.schemaTypes.some((type) => DISCUSSION_TYPES.includes(type))) {
@@ -220,32 +212,22 @@ export function classifySource(
     return answer('research-publication', 'high', 'research-publisher');
   if (onList(host, PREPRINT_DOMAINS))
     return answer('research-publication', 'medium', 'preprint-server');
-  const lead = suffix.split('.');
-  if (
-    GOVERNMENT_SUFFIXES.has(suffix) ||
-    (lead.length > 1 && GOVERNMENT_SUFFIX_LABELS.has(lead[0] ?? ''))
-  ) {
-    return answer('government-regulatory', 'high', 'government-domain');
-  }
+  if (GOVERNMENT.has(registry)) return answer('government-regulatory', 'high', 'government-domain');
   if (onList(host, INTERGOVERNMENTAL_DOMAINS)) {
     return answer('government-regulatory', 'high', 'intergovernmental-body');
   }
-  if (labels.some((label) => REGULATOR_WORDS.has(label))) {
-    // A name anyone can register is not a verdict: it is a hint, so the estimate is lower than for a domain only a government can hold.
-    return answer('government-regulatory', 'medium', 'regulator-name');
-  }
-  if (suffix === 'edu' || (lead.length > 1 && (lead[0] === 'ac' || lead[0] === 'edu'))) {
-    return answer('research-publication', 'medium', 'university-domain');
+  if (ACADEMIC.has(registry)) return answer('research-publication', 'medium', 'university-domain');
+  if (onList(host, DOCUMENTATION_DOMAINS)) {
+    return answer('official-documentation', named ? 'high' : 'medium', 'documentation-list');
   }
 
-  if (DOCUMENTATION_SUBDOMAINS.has(subdomain)) {
-    return answer('official-documentation', named ? 'high' : 'medium', 'documentation-host');
-  }
-  if (segments.some((segment) => DOCUMENTATION_SEGMENTS.has(segment))) {
-    // Anyone's site can have a folder called docs: it says what the page looks like, and little about whose it is.
-    return answer('official-documentation', named ? 'high' : 'low', 'documentation-path');
-  }
   if (named) {
+    if (DOCUMENTATION_SUBDOMAINS.has(subdomain)) {
+      return answer('official-documentation', 'high', 'documentation-host');
+    }
+    if (segments.some((segment) => DOCUMENTATION_SEGMENTS.has(segment))) {
+      return answer('official-documentation', 'high', 'documentation-path');
+    }
     const statement =
       STATEMENT_SUBDOMAINS.has(subdomain) ||
       segments.some((segment) => STATEMENT_SEGMENTS.has(segment));
@@ -258,12 +240,13 @@ export function classifySource(
   }
   if (onList(host, REPORTING_DOMAINS))
     return answer('credible-reporting', 'medium', 'reporting-list');
-  // A page can say it is scholarly, and so can anyone: it is the kind of page, and not a reason to trust it.
+  // A page can say it is scholarly, and so can anyone: it is the kind of page, and not a reason to trust it,
+  // so nothing is known of its authority.
   if (
     markup &&
     (markup.citationMeta || markup.schemaTypes.some((type) => SCHOLARLY_TYPES.includes(type)))
   ) {
-    return answer('research-publication', 'low', 'scholarly-markup');
+    return answer('research-publication', 'unknown', 'scholarly-markup');
   }
   return NONE;
 }

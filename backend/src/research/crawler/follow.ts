@@ -57,7 +57,6 @@ export function refuse(run: CrawlRun, origin: Origin, key: string, verdict: Verd
     url: origin.url,
     errorClass: verdict.errorClass,
     reason: verdict.reason,
-    resolved: verdict.resolved,
   });
 }
 

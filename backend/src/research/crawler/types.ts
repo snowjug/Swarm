@@ -29,7 +29,12 @@ export interface CrawlHints {
   terms: string[];
   /** Kinds of source worth reading first. */
   categories?: SourceCategory[];
-  /** Sites worth reading first, by name (`example.org`). They are not fetched because they are named. */
+  /**
+   * Sites worth reading first, by name (`example.org`). They are not fetched because they are named. Each
+   * is treated as a site the person named: its pages are the primary source, and a `docs.` or `support.`
+   * address on it is its documentation. Put only sites the person supplied here, never a name taken from
+   * a page, a search result or a model's guess: a name that is here is rated high without any other check.
+   */
   domains?: string[];
 }
 
@@ -97,13 +102,8 @@ export type CrawlEventBody =
       type: 'fetch-blocked';
       url: string;
       errorClass: FetchErrorClass;
-      /** Which rule refused it, as a fixed word: `private-network`, `credentials`, `robots`... */
+      /** Which rule refused it, as a fixed word: `credentials`, `robots`, `private-network` for an address written as one... */
       reason: string;
-      /**
-       * The address was refused because of where its name leads. A person is told such a name was not
-       * found, so that the answer cannot be used to learn what a network holds; this is for the log.
-       */
-      resolved: boolean;
     }
   | {
       type: 'fetch-failed';
@@ -146,6 +146,25 @@ export type CrawlEventBody =
  * carries the text of a page, a title, or anything else a site wrote.
  */
 export type CrawlEvent = CrawlEventBody & { traceId: string; at: number };
+
+/**
+ * A name that was refused because of the address it leads to (a private, internal or otherwise
+ * non-public address). It is for the server's own security log and for nothing else: **never show it to a
+ * person, send it to a client, or put it in telemetry.** The crawl itself treats such a name exactly as a
+ * name that was not found (the same record, the same events, the same counts, the same stop), because a
+ * person who could tell the two apart could learn which names exist inside the network the server runs in.
+ */
+export interface LookupRefusal {
+  traceId: string;
+  at: number;
+  /** The address that was being read, cleaned like the addresses in events. */
+  url: string;
+  /** The name that was refused: the address's own, the one a redirect led to, or the one robots.txt led to. */
+  host: string | null;
+  via: 'page' | 'redirect' | 'robots';
+  /** The kind of address the name leads to, as a fixed word: `private-network`, `link-local`... */
+  reason: string;
+}
 
 // -- the fetcher ---------------------------------------------------------------------------------
 
@@ -237,6 +256,11 @@ export interface CrawlDeps {
   /** A number in [0, 1), for the jitter of a retry. */
   random(): number;
   onEvent(event: CrawlEvent): void;
+  /**
+   * For the server's own security log only: see `LookupRefusal`. What it is given must never reach a
+   * person, a client or telemetry. Without it, nothing of this is kept.
+   */
+  onLookupRefused?: (refusal: LookupRefusal) => void;
   traceId: string;
   /** The project's isolated PDF reader. Without one, a PDF is not fetched. */
   pdf?: PdfReader;

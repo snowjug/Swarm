@@ -15,6 +15,9 @@ const BLOCKED_V4: readonly (readonly [string, number, string])[] = [
   ['10.0.0.0', 8, 'private-network'],
   ['100.64.0.0', 10, 'shared-address-space'],
   ['127.0.0.0', 8, 'loopback'],
+  // The platform address of Azure (its virtual public IP): the host's DNS, health probes and the
+  // WireServer answer on it from inside a network, and it is not in a range that is blocked otherwise.
+  ['168.63.129.16', 32, 'cloud-platform'],
   // Includes the cloud metadata address 169.254.169.254.
   ['169.254.0.0', 16, 'link-local'],
   ['172.16.0.0', 12, 'private-network'],

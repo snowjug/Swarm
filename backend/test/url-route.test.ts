@@ -631,6 +631,56 @@ describe('POST /api/evidence/url: what a refusal gives away, and what it leaves 
     expect(errorOf(inside).message).not.toMatch(/private|network address|leads to/iu);
   });
 
+  it('answers a robots.txt that is sent to a name inside a network exactly as one sent to a name that does not exist', async () => {
+    const server = await startServer((request, response) => {
+      if (request.url !== '/robots.txt') {
+        response.writeHead(200, { 'content-type': 'text/plain' });
+        return response.end('A plain page with enough words in it to be read as evidence.');
+      }
+      const inside = (request.headers.host ?? '').startsWith('a-inside.');
+      response.writeHead(302, {
+        location: `http://${inside ? 'exists-inside' : 'missing-everywhere'}.example.com:${server.port}/robots.txt`,
+      });
+      response.end();
+    });
+    servers.push(server);
+    const instance = await buildApp({
+      config: testConfig({ URL_INGEST_ALLOWED_PORTS: String(server.port) }),
+      urlFetcher: new PublicFetcher({
+        allowPrivateForTests: true,
+        lookup: async (hostname) => {
+          if (hostname.startsWith('a-')) return [{ address: '127.0.0.1', family: 4 }];
+          if (hostname === 'exists-inside.example.com') return [{ address: '10.0.0.5', family: 4 }];
+          throw Object.assign(new Error('not found'), { code: 'ENOTFOUND' });
+        },
+      }),
+    });
+    applications.push(instance);
+    const ask = (name: string) =>
+      instance.app.inject({
+        method: 'POST',
+        url: '/api/evidence/url',
+        payload: { url: `http://${name}.example.com:${server.port}/page` },
+      });
+    const inside = await ask('a-inside');
+    const missing = await ask('a-missing');
+    expect(inside.statusCode).toBe(422);
+    expect(missing.statusCode).toBe(inside.statusCode);
+    expect(errorOf(inside).code).toBe('URL_FETCH_FAILED');
+    expect(errorOf(missing).code).toBe(errorOf(inside).code);
+    expect(errorOf(inside).message.replaceAll('a-inside.example.com', 'SITE')).toBe(
+      errorOf(missing).message.replaceAll('a-missing.example.com', 'SITE'),
+    );
+    expect(inside.body).not.toMatch(/private|leads to|URL_BLOCKED|robots/iu);
+    // Only the record that is kept for the server knows which it was.
+    const refused = instance.repository.audit
+      .list({ limit: 50 })
+      .filter(({ action }) => action === 'evidence.url.refused');
+    expect(refused.map(({ detail }) => detail)).toEqual([
+      { host: 'a-inside.example.com', code: 'URL_BLOCKED' },
+    ]);
+  });
+
   it('still says plainly that an address written as a private one is not read', async () => {
     const { ask } = await withResolver();
     const response = await ask('http://10.0.0.5/');

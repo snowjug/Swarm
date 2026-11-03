@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { parse } from 'tldts';
 import { classifySource } from '../src/research/crawler/classify.js';
+import {
+  ACADEMIC_SUFFIXES,
+  GOVERNMENT_SUFFIXES,
+} from '../src/research/crawler/reputable-domains.js';
 import {
   cleanAddress,
   dedupeKey,
@@ -20,21 +25,29 @@ describe('what kind of source a page is, judged from its address', () => {
     ['https://www.who.int/', 'government-regulatory', 'high', 'government-domain'],
     ['https://commission.europa.eu/', 'government-regulatory', 'high', 'intergovernmental-body'],
     ['https://www.oecd.org/economy', 'government-regulatory', 'high', 'intergovernmental-body'],
-    ['https://harbour-authority.example.org/', 'government-regulatory', 'medium', 'regulator-name'],
+    ['https://www.mod.go.jp/', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.gov.au/', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.irs.gov/', 'government-regulatory', 'high', 'government-domain'],
+    ['https://harbour-authority.example.org/', 'unclassified', 'unknown', 'none'],
     ['https://www.ox.ac.uk/research', 'research-publication', 'medium', 'university-domain'],
     ['https://web.mit.edu/', 'research-publication', 'medium', 'university-domain'],
+    ['https://www.unimelb.edu.au/', 'research-publication', 'medium', 'university-domain'],
+    ['https://www.u-tokyo.ac.jp/', 'research-publication', 'medium', 'university-domain'],
     ['https://www.nature.com/articles/x', 'research-publication', 'high', 'research-publisher'],
     ['https://pubmed.ncbi.nlm.nih.gov/123/', 'research-publication', 'high', 'research-publisher'],
     ['https://arxiv.org/abs/2401.00001', 'research-publication', 'medium', 'preprint-server'],
-    ['https://docs.python.org/3/', 'official-documentation', 'medium', 'documentation-host'],
+    ['https://docs.python.org/3/', 'official-documentation', 'medium', 'documentation-list'],
     [
       'https://developer.mozilla.org/en-US/',
       'official-documentation',
       'medium',
-      'documentation-host',
+      'documentation-list',
     ],
-    ['https://example.com/docs/intro', 'official-documentation', 'low', 'documentation-path'],
+    ['https://example.com/docs/intro', 'unclassified', 'unknown', 'none'],
+    ['https://docs.example.org/', 'unclassified', 'unknown', 'none'],
     ['https://example-ferry.com/', 'primary', 'high', 'named-site'],
+    ['https://docs.example-ferry.com/', 'official-documentation', 'high', 'documentation-host'],
+    ['https://support.example-ferry.com/', 'official-documentation', 'high', 'documentation-host'],
     ['https://www.example-ferry.com/fares', 'primary', 'high', 'named-site'],
     [
       'https://example-ferry.com/docs/booking',
@@ -102,6 +115,99 @@ describe('what kind of source a page is, judged from its address', () => {
   });
 });
 
+describe('names that anyone can get', () => {
+  const nothing = { category: 'unclassified', authority: 'unknown', basis: 'none' };
+
+  it.each([
+    // a service or an open registry sells names under what looks like a government or a university
+    'https://evil.go.dyndns.org/',
+    'https://evil.gv.vc/',
+    'https://evil.go.biz.ng/',
+    'https://evil.gv.uy/',
+    'https://shop.go.it/',
+    'https://evil.edu.eu.org/',
+    'https://evil.gov.edu.eu.org/',
+    // words that vouch for nothing in a name that is not on a list and that nobody named
+    'https://authority.evil.com/',
+    'https://port-authority.evil.com/',
+    'https://regulator.evil.com/',
+    'https://ministry-of-ferries.evil.com/',
+    'https://docs.evil.com/',
+    'https://support.evil.com/',
+    'https://developer.evil.com/guide',
+    'https://evil.com/docs/guide',
+    'https://evil.com/support/guide',
+    'https://gov.evil.com/',
+    'https://evil.com/gov/official',
+    'https://evil-gov.com/',
+    'https://gov-uk.com/',
+    'https://edu.evil.com/',
+    'https://university.evil.com/',
+    // a list entry or a suffix, further left than where a registry puts it
+    'https://gov.uk.evil.com/',
+    'https://ac.uk.evil.com/',
+    'https://docs.python.org.evil.com/',
+    'https://evil.com/docs.python.org/',
+    'https://nodejs.org.evil.com/',
+    'https://evil.com/?next=https://www.sec.gov/',
+  ])('%s is unclassified and unknown', (address) => {
+    expect(classifySource(address, context)).toEqual(nothing);
+  });
+
+  it('is unclassified and unknown, however an address is spelled, when a person has not named the site', () => {
+    for (const address of [
+      'https://EVIL.GO.DYNDNS.ORG/',
+      'https://evil.go.dyndns.org./',
+      'https://evil.go.dyndns.org:8443/x',
+      'https://user@evil.gv.vc/',
+      'https://xn--evil-9ra.gv.uy/',
+    ]) {
+      expect(classifySource(address, context), address).toEqual(nothing);
+    }
+  });
+
+  it('is a site a person named only when they named it: the words in a name never make it one, and naming it makes it theirs and no more', () => {
+    const named = { namedDomains: new Set(['evil.com', 'evil.go.dyndns.org']) };
+    expect(classifySource('https://docs.evil.com/', named)).toEqual({
+      category: 'official-documentation',
+      authority: 'high',
+      basis: 'documentation-host',
+    });
+    expect(classifySource('https://evil.go.dyndns.org/', named)).toEqual({
+      category: 'primary',
+      authority: 'high',
+      basis: 'named-site',
+    });
+    expect(classifySource('https://other.go.dyndns.org/', named)).toEqual(nothing);
+    expect(classifySource('https://docs.other.com/', named)).toEqual(nothing);
+  });
+
+  it.each([
+    ['https://www.sec.gov/x', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.gov.uk/x', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.ons.gov.uk/x', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.service-public.gouv.fr/x', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.meti.go.jp/x', 'government-regulatory', 'high', 'government-domain'],
+    ['https://www.europarl.europa.eu/x', 'government-regulatory', 'high', 'intergovernmental-body'],
+    ['https://www.ox.ac.uk/x', 'research-publication', 'medium', 'university-domain'],
+    ['https://www.stanford.edu/x', 'research-publication', 'medium', 'university-domain'],
+    ['https://docs.python.org/x', 'official-documentation', 'medium', 'documentation-list'],
+  ])('%s is still %s, %s, by %s', (address, category, authority, basis) => {
+    expect(classifySource(address, context)).toEqual({ category, authority, basis });
+  });
+
+  it('lists only suffixes that a registry puts in the public part of the list, so that a suffix a service sells names under cannot be on it', () => {
+    for (const suffix of [...GOVERNMENT_SUFFIXES, ...ACADEMIC_SUFFIXES]) {
+      const found = parse(`example.${suffix}`, { allowPrivateDomains: true });
+      expect({ suffix, publicSuffix: found.publicSuffix, icann: found.isIcann }, suffix).toEqual({
+        suffix,
+        publicSuffix: suffix,
+        icann: true,
+      });
+    }
+  });
+});
+
 describe('what the page says about itself', () => {
   it('can mark a page as discussion, which no site makes it, and as scholarly when nothing else is known', () => {
     expect(
@@ -115,7 +221,11 @@ describe('what the page says about itself', () => {
         schemaTypes: [],
         citationMeta: true,
       }),
-    ).toEqual({ category: 'research-publication', authority: 'low', basis: 'scholarly-markup' });
+    ).toEqual({
+      category: 'research-publication',
+      authority: 'unknown',
+      basis: 'scholarly-markup',
+    });
   });
 
   it('cannot raise a page above what its site is, and cannot make a named or government site anything else', () => {

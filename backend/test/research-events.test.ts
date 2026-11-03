@@ -24,7 +24,7 @@ const KEY = 'SUPERSECRET123456';
 const FIELDS: Record<CrawlEvent['type'], readonly string[]> = {
   'fetch-start': ['url', 'host', 'depth', 'attempt'],
   'fetch-ok': ['url', 'finalUrl', 'status', 'contentType', 'bytes', 'redirects'],
-  'fetch-blocked': ['url', 'errorClass', 'reason', 'resolved'],
+  'fetch-blocked': ['url', 'errorClass', 'reason'],
   'fetch-failed': ['url', 'errorClass', 'status', 'attempt'],
   retry: ['url', 'attempt', 'delayMs', 'errorClass'],
   'robots-decision': ['origin', 'url', 'decision', 'cached', 'crawlDelayMs'],

@@ -10,12 +10,12 @@ import { inline } from '../../ingest/url/text.js';
 import { Breakers } from './breaker.js';
 import { classifySource, type ClassifyContext } from './classify.js';
 import { ContentIndex } from './dedupe.js';
-import type { Verdict } from './errors.js';
+import type { RefusedLookup, Verdict } from './errors.js';
 import { Reporter } from './events.js';
 import { Frontier, type Candidate } from './frontier.js';
 import { HostGate } from './limiter.js';
 import { makeScorer, type Scorer } from './score.js';
-import { buildSource, type SourceDraft } from './source.js';
+import { buildSource, safeAddress, type SourceDraft } from './source.js';
 import {
   DEFAULT_TUNING,
   type CrawlDeps,
@@ -161,6 +161,27 @@ export class CrawlRun {
 
   emit(body: CrawlEventBody): void {
     if (!this.closed) this.reporter.emit(body);
+  }
+
+  /**
+   * Tells the server's own log that a name was refused for the address it leads to. It is a channel of
+   * its own, apart from the events and the records, which say exactly what they say of a name that was
+   * not found; nothing else is given what it carries.
+   */
+  noteLookupRefusal(origin: Origin, refusal: RefusedLookup): void {
+    const { onLookupRefused } = this.deps;
+    if (!onLookupRefused || this.closed) return;
+    try {
+      const result: unknown = onLookupRefused({
+        traceId: this.deps.traceId,
+        at: this.deps.now(),
+        url: safeAddress(origin.url),
+        ...refusal,
+      });
+      if (result instanceof Promise) result.catch(() => undefined);
+    } catch {
+      // A listener that fails must not stop the crawl it is listening to.
+    }
   }
 
   /** Ends the crawl for good: nothing that is still running reports or records anything after it, and it is told to stop. */

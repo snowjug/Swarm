@@ -189,7 +189,10 @@ function declarations(style: string): Map<string, string> {
 }
 
 const lengthOf = (value: string | undefined): { amount: number; unit: string } | null => {
-  const match = /^(-?\d*\.?\d+)([a-z%]*)$/u.exec(value ?? '');
+  // A length is a few characters. What is longer is not one, and no pattern is run over it: a long run of
+  // digits with the wrong end made the pattern below take time with the square of its length.
+  if (!value || value.length > 24) return null;
+  const match = /^(-?(?:\d+(?:\.\d*)?|\.\d+))([a-z%]*)$/u.exec(value);
   return match ? { amount: Number(match[1]), unit: match[2] ?? '' } : null;
 };
 

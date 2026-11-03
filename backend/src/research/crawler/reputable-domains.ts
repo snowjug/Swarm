@@ -112,6 +112,149 @@ export const INTERGOVERNMENTAL_DOMAINS: readonly string[] = [
   'bis.org',
 ];
 
+/**
+ * Public suffixes under which, by the rules of the registry that runs them, only governments (or, for `int`,
+ * treaty organisations) may register a name. A name under one of them is a government's, and nothing
+ * else is read as one: not a first label that is `gov` or `go`, not a name with `authority` in it, and not
+ * a suffix that a service sells names under (`go.dyndns.org`) or that is open to anyone (`go.it` is Gorizia).
+ * The list is not complete. A government that is not on it is not recognised, which is the safe answer.
+ * Every entry must be a suffix from the ICANN part of the Public Suffix List (a test checks it).
+ */
+export const GOVERNMENT_SUFFIXES: readonly string[] = [
+  'gov',
+  'mil',
+  'int',
+  'gov.uk',
+  'nhs.uk',
+  'police.uk',
+  'gov.au',
+  'gov.ie',
+  'govt.nz',
+  'gc.ca',
+  'gouv.fr',
+  'gob.es',
+  'gob.mx',
+  'gob.ar',
+  'gob.cl',
+  'gob.pe',
+  'gob.ec',
+  'gov.br',
+  'gov.co',
+  'go.jp',
+  'lg.jp',
+  'go.kr',
+  'go.th',
+  'go.id',
+  'go.tz',
+  'go.ke',
+  'go.ug',
+  'go.cr',
+  'gov.cn',
+  'gov.hk',
+  'gov.sg',
+  'gov.my',
+  'gov.in',
+  'nic.in',
+  'gov.il',
+  'gov.tr',
+  'gov.pl',
+  'gov.it',
+  'gov.ua',
+  'gov.za',
+  'gov.ng',
+  'gov.pk',
+  'gov.bd',
+  'gov.lk',
+  'gov.ph',
+  'gov.vn',
+  'gov.tw',
+  'gov.eg',
+  'gov.sa',
+  'gov.ae',
+  'gov.qa',
+  'gov.gr',
+  'gov.pt',
+  'gov.cz',
+  'gov.lv',
+  'gov.lt',
+  'gov.ee',
+  'gov.rs',
+  'gov.cy',
+];
+
+/**
+ * Public suffixes under which, by the rules of their registries, only universities and colleges may
+ * register a name. As for the government suffixes: a suffix that anyone may buy names under is not here,
+ * the list is not complete, and every entry must be from the ICANN part of the Public Suffix List.
+ */
+export const ACADEMIC_SUFFIXES: readonly string[] = [
+  'edu',
+  'ac.uk',
+  'ac.jp',
+  'ac.kr',
+  'ac.nz',
+  'ac.za',
+  'ac.in',
+  'ac.il',
+  'ac.cn',
+  'ac.th',
+  'ac.id',
+  'ac.ke',
+  'ac.at',
+  'ac.be',
+  'ac.cy',
+  'ac.ir',
+  'ac.lk',
+  'ac.tz',
+  'ac.ug',
+  'ac.zw',
+  'ac.ae',
+  'edu.au',
+  'edu.cn',
+  'edu.hk',
+  'edu.sg',
+  'edu.my',
+  'edu.br',
+  'edu.mx',
+  'edu.ar',
+  'edu.co',
+  'edu.tr',
+  'edu.eg',
+  'edu.sa',
+  'edu.pk',
+  'edu.ph',
+  'edu.vn',
+  'edu.tw',
+  'edu.in',
+  'edu.ng',
+  'edu.gh',
+];
+
+/**
+ * Sites that publish the documentation of their own products, and are widely known for it. A name that has
+ * `docs` or `support` in it is not on this list for that: anyone can register one, so it says nothing, and
+ * documentation is recognised from a name only where the person named the site. Each entry matches the name
+ * and its subdomains.
+ */
+export const DOCUMENTATION_DOMAINS: readonly string[] = [
+  'developer.mozilla.org',
+  'docs.python.org',
+  'learn.microsoft.com',
+  'docs.microsoft.com',
+  'developer.apple.com',
+  'developer.android.com',
+  'docs.aws.amazon.com',
+  'docs.docker.com',
+  'docs.github.com',
+  'kubernetes.io',
+  'react.dev',
+  'go.dev',
+  'doc.rust-lang.org',
+  'php.net',
+  'postgresql.org',
+  'nodejs.org',
+];
+
 /** Places where the words are anyone's: forums, question sites, social networks and blog platforms. */
 export const COMMUNITY_DOMAINS: readonly string[] = [
   'reddit.com',
