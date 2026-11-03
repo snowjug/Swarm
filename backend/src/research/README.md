@@ -217,7 +217,7 @@ so an address that is refused costs no place and no request.
   shapes of up to 10 MB (nested quotations, lists, tables and `div`s of 400 to 480 levels with up to 100,000
   paragraphs inside, floods of attributes, 100,000-row tables, character references, links, comments,
   spans, 20 blocks of structured data of 300 KB, 3.7 MB of inline styles): **the longest stretch the event loop
-  was held was 236 ms** (all but two were under 200 ms), and no page took more than 1.7 s in all. The two pages that
+  was held was 0.29 s** (0.24 s and 0.29 s in two runs; nearly every shape held it for less than 0.2 s), and no page took more than 1.7 s in all. The two pages that
   held it for 9.6 s and 8.0 s before the work budget (480 nested quotations with 20,000 paragraphs, and with
   one paragraph of 20,000 line breaks) now hold it for 73 ms and 75 ms. `research-extract.test.ts` builds
   these pages and fails if the event loop is held for more than 3 s, or if the work done passes its budget.
@@ -252,7 +252,9 @@ so an address that is refused costs no place and no request.
 - The first copy of a text that is read is the one used; the crawler does not weigh which copy is the more
   authoritative.
 - A page's text is untrusted data. The orchestrator must treat `document.text` that way too: not as an
-  instruction, and not as something to put into a prompt without its labels.
+  instruction, and not as something to put into a prompt without its labels. So is everything else in an
+  `ExtractedDocument` that a page wrote (`structured`, `openGraph`, `title`, `description`, `links`): only
+  `document.text` carries the labels, so use it, or check `document.injection` before using the rest.
 
 ## Tests
 
