@@ -505,6 +505,47 @@ describe('the gate, and starting a comparison', () => {
     expect(changedInputs(done.inputRevisions, undefined, now())).toEqual(['constraints']);
   });
 
+  it('is challenged by the independent review for what it leaned on, and says where each constraint was taken into account', async () => {
+    const { propose, settle, act, idOf, compare, post, view } = await world();
+    await propose();
+    await settle();
+    await act({
+      action: 'edit',
+      id: await idOf((statement) => statement.includes('absorb')),
+      patch: { effects: [{ kind: 'add-cost', target: 'adoption', amount: 0.2 }] },
+    });
+    const { done } = await compare();
+    const before = (await view()).constraints!.constraints;
+    // Before the review is run, the comparison's record is where an interpretive constraint was taken into account.
+    expect(before.find((item) => item.statement.includes('capped'))?.consideredIn).toEqual([
+      'gate',
+      'analysis-record',
+    ]);
+    const reviewed = await post('/critiques/run');
+    expect(reviewed.statusCode, reviewed.body).toBe(200);
+    const raised = (reviewed.json().critiques.critiques as { id: string; role: string }[]).filter(
+      (item) => item.id.startsWith('constraints-'),
+    );
+    expect(raised.map((item) => item.id)).toEqual(
+      expect.arrayContaining(['constraints-provisional', 'constraints-hard-not-modelled']),
+    );
+    for (const item of raised) expect(['assumption', 'methodology']).toContain(item.role);
+    const after = (await view()).constraints!.constraints;
+    expect(after.find((item) => item.statement.includes('capped'))?.consideredIn).toEqual([
+      'gate',
+      'analysis-record',
+      'critic',
+    ]);
+    // What the simulation applied did not need to be said to be taken into account: it was run.
+    expect(after.find((item) => item.statement.includes('absorb'))).toMatchObject({
+      enforcement: 'enforced',
+      consideredIn: [],
+    });
+    expect(done.constraints?.notApplied.some((item) => item.statement.includes('capped'))).toBe(
+      true,
+    );
+  });
+
   it('works the gate out on request, with the constraint whose removal moves the headline share the most', async () => {
     const { propose, settle, act, idOf, get } = await world();
     expect(((await get('/constraints/gate')).json() as GateView).gate).toBeNull();
