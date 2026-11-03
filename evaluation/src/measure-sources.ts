@@ -145,6 +145,19 @@ export function scoreDuplicateGroups(
   return rateOf(collapsed.length, groups.length);
 }
 
+/** Of the copies in each set (every member but one), the share that was set aside as a duplicate. */
+export function scoreDuplicateCopies(
+  groups: readonly (readonly string[])[],
+  outcomes: ReadonlyMap<string, ObservedOutcome>,
+): Rate {
+  const copies = groups.reduce((sum, group) => sum + group.length - 1, 0);
+  const caught = groups.reduce(
+    (sum, group) => sum + group.filter((id) => outcomes.get(id) === 'duplicate').length,
+    0,
+  );
+  return rateOf(Math.min(caught, copies), copies);
+}
+
 // ---------------------------------------------------------------------------------------------
 // Classification
 // ---------------------------------------------------------------------------------------------
@@ -302,9 +315,14 @@ export function scoreDiversity(
 
 export type LineState = 'absent' | 'labelled' | 'unlabelled';
 
+const MARKS = /[\s\-*>|#]+$/u;
+/** The key a structured-data line starts with (`Article.description: `): part of the line the label stands before. */
+const KEY = /[a-z][a-z0-9_.[\]-]*:\s*$/u;
+
 /**
  * Whether a line is in the text, and if it is, whether the flag label stands directly before it
- * (only white space and a list or quote marker between them). One unlabelled occurrence decides.
+ * (only white space, a list or quote marker, and the key of a structured-data line between them).
+ * One unlabelled occurrence decides.
  */
 export function lineState(line: string, text: string, label: string): LineState {
   const haystack = normaliseText(text);
@@ -316,8 +334,9 @@ export function lineState(line: string, text: string, label: string): LineState 
   for (;;) {
     const at = haystack.indexOf(needle, from);
     if (at < 0) return state;
-    const before = haystack.slice(0, at).replace(/[\s\-*>|#]+$/u, '');
-    if (before.endsWith(tag)) state = 'labelled';
+    const before = haystack.slice(0, at).replace(MARKS, '');
+    if (before.endsWith(tag) || before.replace(KEY, '').replace(MARKS, '').endsWith(tag))
+      state = 'labelled';
     else return 'unlabelled';
     from = at + needle.length;
   }

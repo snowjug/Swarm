@@ -44,6 +44,7 @@ import {
   scoreClassification,
   scoreDispositions,
   scoreDiversity,
+  scoreDuplicateCopies,
   scoreDuplicateGroups,
   scoreExtraction,
   scoreInjectionLabelling,
@@ -178,7 +179,11 @@ export interface RulesMeasures {
   groups: {
     diversity: ReturnType<typeof scoreDiversity>;
     duplicates: Rate;
+    duplicateCopies: Rate;
+    uncollapsed: { original: string; copy: string; bits: number }[];
     baitFetched: { group: string; page: string }[];
+    /** Addresses that only an injected page names, which the labels say must not be fetched. */
+    baitOf: number;
     payloadEchoes: { count: number; of: number; where: string[] };
     conflicts: { recall: Rate; detections: number; unmatched: string[] };
     derivedAnswers: Rate;
@@ -359,7 +364,16 @@ export function measureRules(
             outcomeMap(crawl.pages.filter((record) => record.group === 'G6')),
           )
         : rateOf(0, 0),
+      duplicateCopies: duplicateRuns
+        ? scoreDuplicateCopies(
+            duplicateRuns.group.expect.duplicateGroups,
+            outcomeMap(crawl.pages.filter((record) => record.group === 'G6')),
+          )
+        : rateOf(0, 0),
+      uncollapsed: crawl.uncollapsed,
       baitFetched: crawl.fetchedAgainstExpectation.filter((item) => item.group === 'G4'),
+      baitOf:
+        crawl.runs.find((run) => run.group.id === 'G4')?.group.expect.neverFetched.length ?? 0,
       payloadEchoes: { count: echoes.length, of: payloads.length, where: echoes },
       conflicts: {
         recall: rateOf(crawl.contradictions.found, crawl.contradictions.expected),

@@ -39,6 +39,7 @@ import {
   scoreClassification,
   scoreDiversity,
   scoreDispositions,
+  scoreDuplicateCopies,
   scoreDuplicateGroups,
   scoreExtraction,
   scoreInjectionLabelling,
@@ -510,6 +511,22 @@ describe('sources', () => {
     expect(rate).toMatchObject({ successes: 1, total: 3 });
   });
 
+  it('counts the copies in each set that were set aside as duplicates', () => {
+    const outcomes = new Map<string, PageObservation['outcome']>([
+      ['A', 'used'],
+      ['B', 'duplicate'],
+      ['C', 'used'],
+      ['D', 'used'],
+      ['E', 'duplicate'],
+    ]);
+    // Copies: B and C of the first set, E of the second; B and E were set aside.
+    const groups = [
+      ['A', 'B', 'C'],
+      ['D', 'E'],
+    ];
+    expect(scoreDuplicateCopies(groups, outcomes)).toMatchObject({ successes: 2, total: 3 });
+  });
+
   it('scores main text kept and furniture kept, folding case and white space', () => {
     const scores = scoreExtraction([
       pair(
@@ -560,6 +577,12 @@ describe('sources', () => {
     expect(lineState(line, `Hours are 9 to 5.\n${line}\nTail.`, flag)).toBe('unlabelled');
     expect(lineState(line, 'Hours are 9 to 5.', flag)).toBe('absent');
     expect(lineState(line, `${flag} ${line}\nlater\n${line}`, flag)).toBe('unlabelled');
+    // The label stands before a structured-data line, whose key comes first.
+    const structured = `Structured data:\nArticle.headline: Hours\n${flag} Article.description: ${line}`;
+    expect(lineState(line, structured, flag)).toBe('labelled');
+    expect(lineState(line, `Structured data:\nArticle.description: ${line}`, flag)).toBe(
+      'unlabelled',
+    );
   });
 
   it('counts unlabelled injected lines and lines that should have been left out', () => {

@@ -238,8 +238,10 @@ export function measureFake(
     });
 
   const asked = [...clean, ...corrupted].filter((run) => run.stage !== 'critics');
+  // Answered: the provider produced a reply, good or bad. A refusal or an outage produced none.
   const outcomes: TaskOutcome[] = asked.map((run) => ({
-    answered: true,
+    answered:
+      run.result === 'model' || (run.result === 'rules' && run.code === 'MODEL_OUTPUT_INVALID'),
     accepted: run.result === 'model',
     corrected: run.result === 'model' && run.requests >= 2,
     fellBack: run.result === 'rules',

@@ -54,6 +54,12 @@ const productionSchema = z
 
 export type MetricSpec = z.infer<typeof metricSchema> & { id: string; kind: 'plan' | 'claim' };
 
+/** What the two claims of the workstream brief and the README are called in a table. */
+const CLAIM_LABELS: Record<string, string> = {
+  hostileHostGovernmentHigh: 'Hostile hosts classified as government with high authority',
+  injectionLinesUnlabelled: 'Injected lines kept in a document without the flag label before them',
+};
+
 export interface Registered {
   registered: string;
   rule: string;
@@ -75,7 +81,7 @@ export function loadRegistered(): Registered {
     specs[id] = {
       id,
       kind: 'claim',
-      plan: spec.from,
+      plan: CLAIM_LABELS[id] ?? id,
       max: spec.max,
       appliesIn: spec.appliesIn,
       definition: spec.definition,
@@ -174,11 +180,14 @@ export function rateRow(
       : spec.max !== undefined
         ? rate.rate <= spec.max
         : true;
+  // A threshold of exactly 0 or 100% is met or not; an interval that touches it says nothing more.
+  const inside = (value: number | undefined): value is number =>
+    value !== undefined && value > 0 && value < 1;
   const straddles =
     rate.low !== null &&
     rate.high !== null &&
-    ((spec.min !== undefined && rate.low < spec.min && rate.high >= spec.min) ||
-      (spec.max !== undefined && rate.high > spec.max && rate.low <= spec.max));
+    ((inside(spec.min) && rate.low < spec.min && rate.high >= spec.min) ||
+      (inside(spec.max) && rate.high > spec.max && rate.low <= spec.max));
   return {
     ...blank(spec, mode, tokenCap),
     value: describeRatePercent(rate),

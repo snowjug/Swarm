@@ -1,4 +1,5 @@
 import { proposeConstraints } from '../../backend/src/constraints/propose.js';
+import { distance, fingerprint } from '../../backend/src/research/crawler/dedupe.js';
 import { detectContradictions } from '../../backend/src/grounding/contradictions.js';
 import { FLAG_LABEL } from '../../backend/src/research/extract/index.js';
 import { proposeParticipants } from '../../backend/src/stakeholders/participants/propose.js';
@@ -254,6 +255,8 @@ export interface CrawlObservation {
   contradictions: ContradictionReading;
   /** Pages of a group's `neverFetched` the fixture server was asked for. */
   fetchedAgainstExpectation: { group: string; page: string }[];
+  /** Copies the labels name that were read as separate sources, and how far their fingerprint is from the original's. */
+  uncollapsed: { original: string; copy: string; bits: number }[];
   elapsedMs: number;
 }
 
@@ -342,11 +345,26 @@ export async function observeCrawl(sites: SiteSet = loadSites()): Promise<CrawlO
           ),
       };
     })();
+    const copies: CrawlObservation['uncollapsed'] = [];
+    const duplicateRun = runs.find((run) => run.group.id === 'G6');
+    for (const group of duplicateRun?.group.expect.duplicateGroups ?? []) {
+      const seen = group.map((id) => ({ id, seen: duplicateRun?.observations.get(id) }));
+      const original = seen.find((item) => item.seen?.outcome === 'used');
+      const base = original?.seen?.text ? fingerprint(original.seen.text) : null;
+      for (const item of seen) {
+        if (item === original || item.seen?.outcome !== 'used' || !item.seen.text || !base)
+          continue;
+        const print = fingerprint(item.seen.text);
+        if (print)
+          copies.push({ original: original?.id ?? '', copy: item.id, bits: distance(base, print) });
+      }
+    }
     return {
       runs,
       pages,
       derived,
       contradictions,
+      uncollapsed: copies,
       fetchedAgainstExpectation: runs.flatMap((run) =>
         run.fetchedAgainstExpectation.map((page) => ({ group: run.group.id, page })),
       ),

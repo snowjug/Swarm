@@ -69,11 +69,20 @@ export interface SafetyRecord {
   product: ProductResponse;
 }
 
-export interface FakeWorld {
-  fake: FakeFoundry;
+/** What a run needs of a model endpoint: a factory of gateways, and, for the fake, a way to script and count. */
+export interface Harness {
   factory: ModelFactory;
+  fake?: FakeFoundry;
   /** What the fake found wrong in anything it was scripted to say or sent, over every call. */
   problems: string[];
+  /** Stops a run before it spends more tokens than this; the sink is asked before every call. */
+  tokenBudget?: number;
+  /** Tokens spent so far, over every call. */
+  spent?: number;
+}
+
+export interface FakeWorld extends Harness {
+  fake: FakeFoundry;
   close(): Promise<void>;
 }
 
@@ -94,7 +103,7 @@ const errorCode = (error: unknown): string =>
     ? String((error as { code: unknown }).code)
     : 'THROWN';
 
-interface Measured<T> {
+export interface Measured<T> {
   value: T | null;
   error: string | null;
   requests: number;
@@ -103,25 +112,47 @@ interface Measured<T> {
   ms: number;
 }
 
-/** One call of the product against the fake, counted: requests, the tokens the fake reported, and the time it took. */
-async function measured<T>(
-  world: FakeWorld,
+/**
+ * One call of the product against a model endpoint, counted: the requests it made, the tokens the
+ * endpoint reported, and the time it took. Against the fake the requests are the fake's own count;
+ * against anything else they are the calls that reported usage.
+ */
+export async function measured<T>(
+  world: Harness,
   setup: { steps?: FakeStep[]; answerAll?: FakeStep; maxCalls?: number },
   call: (gateway: ModelGateway) => Promise<T>,
 ): Promise<Measured<T>> {
-  world.fake.reset();
-  if (setup.answerAll) {
-    const step = setup.answerAll;
-    world.fake.respond(() => step);
-  } else if (setup.steps) {
-    world.fake.script(...setup.steps);
+  const { fake } = world;
+  if (fake) {
+    fake.reset();
+    if (setup.answerAll) {
+      const step = setup.answerAll;
+      fake.respond(() => step);
+    } else if (setup.steps) {
+      fake.script(...setup.steps);
+    }
   }
   let inputTokens = 0;
   let outputTokens = 0;
-  const onUsage: ModelUsageSink = (usage) => {
-    inputTokens += usage.inputTokens;
-    outputTokens += usage.outputTokens;
-  };
+  let calls = 0;
+  const onUsage: ModelUsageSink = Object.assign(
+    (usage: { inputTokens: number; outputTokens: number }) => {
+      calls += 1;
+      inputTokens += usage.inputTokens;
+      outputTokens += usage.outputTokens;
+    },
+    {
+      admit: () => {
+        if (
+          world.tokenBudget !== undefined &&
+          (world.spent ?? 0) + inputTokens + outputTokens >= world.tokenBudget
+        )
+          throw Object.assign(new Error('The token budget of the evaluation is used.'), {
+            code: 'EVAL_TOKEN_BUDGET',
+          });
+      },
+    },
+  ) as ModelUsageSink;
   const gateway = world.factory(onUsage, { maxCalls: setup.maxCalls ?? 2 });
   const started = performance.now();
   let value: T | null = null;
@@ -132,18 +163,19 @@ async function measured<T>(
     error = errorCode(caught);
   }
   const ms = performance.now() - started;
-  world.problems.push(...world.fake.problems);
+  if (fake) world.problems.push(...fake.problems);
+  world.spent = (world.spent ?? 0) + inputTokens + outputTokens;
   return {
     value,
     error,
-    requests: world.fake.requests.length,
+    requests: fake ? fake.requests.length : calls,
     inputTokens,
     outputTokens,
     ms,
   };
 }
 
-const askParticipants = (prepared: Prepared) => (gateway: ModelGateway) =>
+export const askParticipants = (prepared: Prepared) => (gateway: ModelGateway) =>
   proposeParticipants({
     context: prepared.context,
     model: gateway,
@@ -152,7 +184,7 @@ const askParticipants = (prepared: Prepared) => (gateway: ModelGateway) =>
     now: () => NOW,
   });
 
-const askConstraints = (prepared: Prepared) => (gateway: ModelGateway) =>
+export const askConstraints = (prepared: Prepared) => (gateway: ModelGateway) =>
   proposeConstraints({
     existing: null,
     context: prepared.discovery,
@@ -165,7 +197,7 @@ const askConstraints = (prepared: Prepared) => (gateway: ModelGateway) =>
     now: NOW,
   });
 
-function runOf(
+export function runOf(
   base: Pick<FakeRun, 'scenario' | 'split' | 'stage' | 'arm' | 'case' | 'records'>,
   outcome: Measured<{
     set: StakeholderSet | ConstraintSet;
@@ -202,7 +234,7 @@ function runOf(
   };
 }
 
-const participantsOutcome = (
+export const participantsOutcome = (
   outcome: Measured<Awaited<ReturnType<ReturnType<typeof askParticipants>>>>,
 ): Measured<{ set: StakeholderSet; used: boolean; failure: { code: string } | null }> => ({
   ...outcome,
@@ -215,7 +247,7 @@ const participantsOutcome = (
     : null,
 });
 
-const constraintsOutcome = (
+export const constraintsOutcome = (
   outcome: Measured<Awaited<ReturnType<ReturnType<typeof askConstraints>>>>,
 ): Measured<{ set: ConstraintSet; used: boolean; failure: { code: string } | null }> => ({
   ...outcome,
@@ -371,7 +403,7 @@ export async function observeFake(options: FakeOptions = {}): Promise<FakeObserv
 // ---------------------------------------------------------------------------------------------
 
 /** What the crawl of the injected group would hand the project: every page of it, as text, with the instruction lines in. */
-function injectedProject(): ProjectUnderTest {
+export function injectedProject(): ProjectUnderTest {
   const sites = loadSites();
   const pages = sites.pages.filter((page) => page.group === 'G4' && page.gold.injection);
   const texts = pages.map((page) => ({
@@ -680,7 +712,7 @@ const MECHANISMS: { id: string; step: FakeStep }[] = [
   { id: 'filter-output', step: { kind: 'filter-output', categories: ['hate'], partial: null } },
 ];
 
-const productResponse = (outcome: Measured<unknown>): ProductResponse =>
+export const productResponse = (outcome: Measured<unknown>): ProductResponse =>
   outcome.value ? 'answered' : outcome.error === 'MODEL_REFUSED' ? 'refused' : 'failed';
 
 async function observeSafety(
