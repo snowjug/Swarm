@@ -8,7 +8,10 @@ import type { CrawlTuning } from './types.js';
  */
 export function backoffMs(attempt: number, tuning: CrawlTuning, random: () => number): number {
   const ceiling = Math.min(tuning.backoffMaxMs, tuning.backoffBaseMs * 2 ** attempt);
-  return Math.round(ceiling * (0.5 + 0.5 * Math.min(0.999999, Math.max(0, random()))));
+  // A number that is not one of [0, 1) cannot make the wait longer than the ceiling, or negative, or not a number.
+  const draw = random();
+  const share = Number.isFinite(draw) ? Math.min(0.999999, Math.max(0, draw)) : 0.5;
+  return Math.round(ceiling * (0.5 + 0.5 * share));
 }
 
 /**

@@ -242,7 +242,8 @@ export function classifySource(
     return answer('official-documentation', named ? 'high' : 'medium', 'documentation-host');
   }
   if (segments.some((segment) => DOCUMENTATION_SEGMENTS.has(segment))) {
-    return answer('official-documentation', named ? 'high' : 'medium', 'documentation-path');
+    // Anyone's site can have a folder called docs: it says what the page looks like, and little about whose it is.
+    return answer('official-documentation', named ? 'high' : 'low', 'documentation-path');
   }
   if (named) {
     const statement =

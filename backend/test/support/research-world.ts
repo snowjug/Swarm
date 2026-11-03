@@ -27,12 +27,17 @@ export const htmlPage = (title: string, seed: number, links: Link[] = [], head =
   body: sitePage({ title, paragraphs: prose(seed), links, head }),
 });
 
+/** A number that is the same for a host and different from every other host's, to give its pages prose of their own. */
+const hostNumber = (host: string): number =>
+  [...host].reduce((number, character) => (number * 31 + character.charCodeAt(0)) % 90_000, 7);
+
 /** A start page that links to `count` pages, `/p0` to `/p{count - 1}`, each with prose of its own. */
 export function fan(count: number, host = A, paragraphs = 3): Record<string, Route> {
+  const base = host === A ? 0 : 1_000 * (hostNumber(host) + 1);
   const routes: Record<string, Route> = {
     [`${host}/`]: htmlPage(
       'Home',
-      1,
+      base + 1,
       Array.from({ length: count }, (_, index): Link => [`/p${index}`, `Page ${index}`]),
     ),
   };
@@ -41,7 +46,7 @@ export function fan(count: number, host = A, paragraphs = 3): Record<string, Rou
       type: 'text/html',
       body: sitePage({
         title: `P${index}`,
-        paragraphs: prose(100 + index, paragraphs),
+        paragraphs: prose(base + 100 + index, paragraphs),
       }),
     };
   }
