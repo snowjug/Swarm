@@ -226,6 +226,19 @@ export class OperationBudget {
       cost: this.unpriced ? UNKNOWN_COST : { basis: 'estimate', usd: this.spentUsd },
     };
   }
+
+  /**
+   * Counts a call that was made without asking: nothing is refused, because it has been made, but
+   * what it used is spent from the allowance all the same.
+   */
+  charge(deployment: string, used: TokenCounts): void {
+    this.calls += 1;
+    this.inputTokens += used.inputTokens;
+    this.outputTokens += used.outputTokens;
+    const cost = estimateCostUsd(used, deployment, this.prices);
+    if (cost.basis === 'estimate') this.spentUsd += cost.usd;
+    else this.unpriced = true;
+  }
 }
 
 /** The codes that mean an allowance, not a failure, ended the work: callers stop instead of retrying. */
