@@ -2,9 +2,13 @@ const MAX_LINES = 10_000;
 const MAX_RULES = 2_000;
 const MAX_PATTERN_LENGTH = 1_000;
 
+const MAX_CRAWL_DELAY_SECONDS = 86_400;
+
 export interface Robots {
   /** Whether the path and query (`/a/b?c=1`) may be fetched. */
   allows(pathAndQuery: string): boolean;
+  /** Seconds the site asks to be left between requests (`Crawl-delay`, which RFC 9309 does not define), when it says. */
+  readonly crawlDelaySeconds?: number | null;
 }
 
 interface Rule {
@@ -15,6 +19,7 @@ interface Rule {
 interface Group {
   agents: string[];
   rules: Rule[];
+  crawlDelay?: number;
 }
 
 /** So that %7e and ~ are the same, and a pattern written in UTF-8 matches the escaped path. */
@@ -86,6 +91,12 @@ function parseGroups(text: string): Group[] {
         current.rules.push({ allow: key === 'allow', pattern: normalize(value) });
         rules += 1;
       }
+    } else if (key === 'crawl-delay') {
+      collectingAgents = false;
+      const seconds = /^\d{1,6}(?:\.\d{1,3})?$/u.test(value) ? Number(value) : Number.NaN;
+      if (current && current.crawlDelay === undefined && seconds <= MAX_CRAWL_DELAY_SECONDS) {
+        current.crawlDelay = seconds;
+      }
     }
   }
   return groups;
@@ -94,7 +105,8 @@ function parseGroups(text: string): Group[] {
 /**
  * Reads a robots.txt as RFC 9309 describes it, for the crawler named by `productToken`: the groups
  * that name it are used, otherwise the `*` groups, otherwise anything is allowed. Of the rules that
- * match, the longest pattern decides, and Allow wins a tie.
+ * match, the longest pattern decides, and Allow wins a tie. A `Crawl-delay`, which the RFC leaves out
+ * but many sites send, is read from the first of those groups that has one.
  */
 export function parseRobots(text: string, productToken: string): Robots {
   const groups = parseGroups(text);
@@ -102,7 +114,11 @@ export function parseRobots(text: string, productToken: string): Robots {
   const named = groups.filter((group) => group.agents.includes(token));
   const chosen = named.length ? named : groups.filter((group) => group.agents.includes('*'));
   const rules = chosen.flatMap((group) => group.rules);
+  const delays = chosen.flatMap((group) =>
+    group.crawlDelay === undefined ? [] : [group.crawlDelay],
+  );
   return {
+    crawlDelaySeconds: delays[0] ?? null,
     allows(pathAndQuery: string): boolean {
       const path = normalize(pathAndQuery);
       let best: Rule | null = null;

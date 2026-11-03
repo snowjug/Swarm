@@ -21,6 +21,24 @@ export type UrlFailureCode =
   /** The name did not resolve, the connection failed, or the data was not what it claimed to be. */
   | 'network';
 
+/** Which rule of the address policy refused an address, so that refusals can be counted by kind. */
+export type UrlRefusal =
+  | 'empty'
+  | 'too-long'
+  | 'control-characters'
+  | 'scheme'
+  | 'credentials'
+  | 'unparsable'
+  | 'no-host'
+  | 'ip-form'
+  | 'single-label'
+  | 'internal-name'
+  | 'allow-list'
+  /** The caller reads https only, and the address is http. */
+  | 'http-not-allowed'
+  /** The caller that follows redirects turned this one down. */
+  | 'caller';
+
 export interface UrlFailureDetail {
   status?: number;
   /** The media type the site sent, when it is not one that is read. Already restricted to a safe shape. */
@@ -35,6 +53,18 @@ export interface UrlFailureDetail {
   resolved?: boolean;
   /** Narrows `network`. */
   reason?: 'dns' | 'refused' | 'tls' | 'closed' | 'encoding' | 'other';
+  /** Narrows `invalid` and `blocked` when the address policy is what refused. */
+  refusal?: UrlRefusal;
+  /** Why an address a name resolved to was refused (`classifyAddress`), such as `private-network`. */
+  address?: string;
+  /** What a decompressor produced, not what was sent, passed the size limit. */
+  decompressed?: boolean;
+  /** The caller stopped the read; it did not run out of time. */
+  cancelled?: boolean;
+  /** The failure came from reading robots.txt, not from the page. */
+  stage?: 'robots';
+  /** The site's `Retry-After` header as it was sent (cut short), on an HTTP error. It is for a caller to parse, never to show. */
+  retryAfter?: string;
 }
 
 export class UrlFailure extends Error {

@@ -132,6 +132,8 @@ export interface UrlPolicy {
   allowedPorts?: ReadonlySet<number> | readonly number[];
   /** When not empty, only these hosts: `example.com` exactly, or `*.example.com` for its subdomains. */
   allowedHosts?: readonly string[];
+  /** Only https addresses are read: an http address, written or reached by a redirect, is refused. */
+  httpsOnly?: boolean;
 }
 
 export interface ValidatedUrl {
@@ -181,30 +183,43 @@ function hasSpaceOrControl(text: string): boolean {
  */
 export function validateUrl(input: string, policy: UrlPolicy = {}): ValidatedUrl {
   const text = typeof input === 'string' ? input.trim() : '';
-  if (!text) throw new UrlFailure('invalid', 'The address is empty.');
+  if (!text) throw new UrlFailure('invalid', 'The address is empty.', { refusal: 'empty' });
   if (text.length > MAX_URL_LENGTH) {
-    throw new UrlFailure('invalid', `The address is longer than ${MAX_URL_LENGTH} characters.`);
+    throw new UrlFailure('invalid', `The address is longer than ${MAX_URL_LENGTH} characters.`, {
+      refusal: 'too-long',
+    });
   }
   if (hasSpaceOrControl(text)) {
-    throw new UrlFailure('invalid', 'The address contains a space or a control character.');
+    throw new UrlFailure('invalid', 'The address contains a space or a control character.', {
+      refusal: 'control-characters',
+    });
   }
   const authority = /^https?:\/\/([^/?#\\]*)/iu.exec(text)?.[1];
   if (authority === undefined) {
-    throw new UrlFailure('invalid', 'Only http and https addresses are read.');
+    throw new UrlFailure('invalid', 'Only http and https addresses are read.', {
+      refusal: 'scheme',
+    });
   }
   if (authority.includes('@')) {
-    throw new UrlFailure('invalid', 'An address with a user name or password is not read.');
+    throw new UrlFailure('invalid', 'An address with a user name or password is not read.', {
+      refusal: 'credentials',
+    });
   }
   let url: URL;
   try {
     url = new URL(text);
   } catch {
-    throw new UrlFailure('invalid', 'The address is not valid.');
+    throw new UrlFailure('invalid', 'The address is not valid.', { refusal: 'unparsable' });
   }
   if (url.username || url.password || (url.protocol !== 'http:' && url.protocol !== 'https:')) {
-    throw new UrlFailure('invalid', 'The address is not valid.');
+    throw new UrlFailure('invalid', 'The address is not valid.', { refusal: 'unparsable' });
   }
   const protocol = url.protocol;
+  if (policy.httpsOnly && protocol !== 'https:') {
+    throw new UrlFailure('blocked', 'Only https addresses are read here.', {
+      refusal: 'http-not-allowed',
+    });
+  }
 
   const written = (
     authority.startsWith('[') ? authority.replace(/\]:\d*$/u, ']') : authority.replace(/:\d*$/u, '')
@@ -212,27 +227,37 @@ export function validateUrl(input: string, policy: UrlPolicy = {}): ValidatedUrl
   const bracketed = url.hostname.startsWith('[');
   const host = bracketed ? url.hostname.slice(1, -1) : url.hostname.replace(/\.$/u, '');
   const ipLiteral = bracketed || isIPv4(url.hostname);
-  if (!host) throw new UrlFailure('invalid', 'The address has no host.');
+  if (!host) throw new UrlFailure('invalid', 'The address has no host.', { refusal: 'no-host' });
 
   if (ipLiteral) {
     // The URL parser turns 2130706433, 0x7f.1 and 0177.0.0.1 into 127.0.0.1; only that spelling is accepted.
     if (!bracketed && written !== url.hostname) {
-      throw new UrlFailure('blocked', 'An IP address written in an unusual form is not read.');
+      throw new UrlFailure('blocked', 'An IP address written in an unusual form is not read.', {
+        refusal: 'ip-form',
+      });
     }
-    if (bracketed && !isIPv6(host)) throw new UrlFailure('invalid', 'The address is not valid.');
+    if (bracketed && !isIPv6(host)) {
+      throw new UrlFailure('invalid', 'The address is not valid.', { refusal: 'unparsable' });
+    }
   } else {
     if (host.length > 253 || host.split('.').some((label) => label.length > 63)) {
-      throw new UrlFailure('invalid', 'The host name is too long.');
+      throw new UrlFailure('invalid', 'The host name is too long.', { refusal: 'too-long' });
     }
     if (!host.includes('.')) {
-      throw new UrlFailure('blocked', 'A name with a single label is a local name.');
+      throw new UrlFailure('blocked', 'A name with a single label is a local name.', {
+        refusal: 'single-label',
+      });
     }
     if (internalName(host)) {
-      throw new UrlFailure('blocked', 'A local or internal name is not read.');
+      throw new UrlFailure('blocked', 'A local or internal name is not read.', {
+        refusal: 'internal-name',
+      });
     }
   }
   if (policy.allowedHosts?.length && !onAllowedList(host, policy.allowedHosts)) {
-    throw new UrlFailure('blocked', 'This host is not on the list of hosts that may be read.');
+    throw new UrlFailure('blocked', 'This host is not on the list of hosts that may be read.', {
+      refusal: 'allow-list',
+    });
   }
 
   const port = url.port ? Number(url.port) : protocol === 'https:' ? 443 : 80;
@@ -241,7 +266,9 @@ export function validateUrl(input: string, policy: UrlPolicy = {}): ValidatedUrl
 
   url.hash = '';
   if (url.href.length > MAX_URL_LENGTH) {
-    throw new UrlFailure('invalid', `The address is longer than ${MAX_URL_LENGTH} characters.`);
+    throw new UrlFailure('invalid', `The address is longer than ${MAX_URL_LENGTH} characters.`, {
+      refusal: 'too-long',
+    });
   }
   return {
     href: url.href,

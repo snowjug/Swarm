@@ -1,5 +1,5 @@
 import { lookup as dnsLookup } from 'node:dns/promises';
-import http from 'node:http';
+import http, { type IncomingHttpHeaders } from 'node:http';
 import https from 'node:https';
 import { isIP, type LookupFunction } from 'node:net';
 import type { Readable, Transform } from 'node:stream';
@@ -20,18 +20,35 @@ export const ALLOWED_CONTENT_TYPES: ReadonlySet<string> = new Set([
   'application/json',
 ]);
 
+/** How a fetcher introduces itself, and the name robots.txt groups are matched against. */
+export interface FetchIdentity {
+  userAgent: string;
+  robotsToken: string;
+}
+const EVIDENCE_IDENTITY: FetchIdentity = {
+  userAgent: USER_AGENT,
+  robotsToken: ROBOTS_PRODUCT_TOKEN,
+};
+
 const DEFAULTS = { maxBytes: 1_500_000, timeoutMs: 12_000, idleMs: 5_000, maxRedirects: 5 };
 // RFC 9309 asks a crawler to read at least 500 KiB of robots.txt, and to ignore the rest.
 const ROBOTS_MAX_BYTES = 512_000;
 const MAX_ADDRESSES = 16;
+// A real response head is a few kilobytes. This is node's default, stated so that it stays so.
+const MAX_HEADER_BYTES = 16_384;
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
+const ACCEPT =
+  'text/html,application/xhtml+xml,text/plain;q=0.9,text/markdown;q=0.9,text/csv;q=0.8,application/json;q=0.8';
+// The response headers a caller may read: what a page says about its language, age and indexing.
+const KEPT_HEADERS = ['content-language', 'last-modified', 'x-robots-tag', 'link'] as const;
+const MAX_KEPT_HEADER_CHARS = 2_000;
+const MAX_RETRY_AFTER_CHARS = 80;
 // Nothing here identifies the person, the project or a session: no cookies, no credentials, no referrer.
-const REQUEST_HEADERS = {
-  'user-agent': USER_AGENT,
-  accept:
-    'text/html,application/xhtml+xml,text/plain;q=0.9,text/markdown;q=0.9,text/csv;q=0.8,application/json;q=0.8',
+const requestHeaders = (userAgent: string, accept: string): Record<string, string> => ({
+  'user-agent': userAgent,
+  accept,
   'accept-encoding': 'identity',
-};
+});
 
 export interface ResolvedAddress {
   address: string;
@@ -52,6 +69,47 @@ export interface FetcherSeam {
   allowPrivateForTests?: boolean;
 }
 
+/** What robots.txt said for an origin: its rules, that it is not there, or that it could not be read (which forbids). */
+export type RobotsAnswer = Robots | 'absent' | 'unavailable';
+
+/** The answers a caller keeps between fetches, so that robots.txt is read once for each origin. */
+export type RobotsCache = Map<string, RobotsAnswer>;
+
+/** The key of an origin in a `RobotsCache`. */
+export const robotsOrigin = (
+  target: Pick<ValidatedUrl, 'protocol' | 'hostname' | 'port'>,
+): string => `${target.protocol}//${target.hostname}:${target.port}`;
+
+export interface RobotsDecision {
+  origin: string;
+  /** The address the decision was for. */
+  url: string;
+  decision: 'allowed' | 'absent' | 'disallowed' | 'unavailable';
+  /** Answered from what was read for an earlier fetch. */
+  cached: boolean;
+}
+
+/** Ways for a caller to take part in a fetch without being able to change what is checked. */
+export interface FetchHooks {
+  /**
+   * Called before each request that goes to a site (its robots.txt, then the page, then each page a
+   * redirect leads to). It may wait, to space requests out, and returns a function that is called when
+   * the request has ended. The wait does not count against the time of the fetch. The signal ends with
+   * the fetch, and a wait that is still going then must end too.
+   */
+  beforeRequest?: (
+    request: { host: string; purpose: 'robots' | 'page' },
+    signal: AbortSignal,
+  ) => Promise<(() => void) | void>;
+  /**
+   * Called for each redirect that passed the address policy, before it is followed. A string refuses
+   * the redirect, and is kept as the reason.
+   */
+  onRedirect?: (hop: { from: string; to: string; status: number }) => string | null | void;
+  /** Called with what robots.txt decided, each time a page is judged by it. */
+  onRobots?: (decision: RobotsDecision) => void;
+}
+
 export interface FetchOptions extends UrlPolicy {
   /** The most that is read, before and after decompression. */
   maxBytes?: number;
@@ -62,6 +120,15 @@ export interface FetchOptions extends UrlPolicy {
   maxRedirects?: number;
   /** Always true outside tests. */
   respectRobots?: boolean;
+  /** Who is asking, to the site and in robots.txt. The evidence fetcher by default. */
+  identity?: FetchIdentity;
+  /** Ends the fetch, wherever it is. */
+  signal?: AbortSignal;
+  /** The media types that are read. A page of any other type is refused before its body is read. */
+  allowedContentTypes?: ReadonlySet<string>;
+  /** Shared by the fetches of one crawl; a fetch that is not given one reads robots.txt for itself. */
+  robotsCache?: RobotsCache;
+  hooks?: FetchHooks;
 }
 
 export interface FetchedPage {
@@ -72,33 +139,82 @@ export interface FetchedPage {
   /** The media type, lower case, without parameters. */
   contentType: string;
   text: string;
+  /** The bytes the text was decoded from, after decompression. */
+  body: Buffer;
+  /** A few of the response's headers, lower case, each cut short: see `KEPT_HEADERS`. */
+  headers: Readonly<Record<string, string>>;
   bytes: number;
   redirects: number;
   robots: 'allowed' | 'absent' | 'skipped';
 }
 
 type Reply =
-  | { kind: 'redirect'; location: string }
-  | { kind: 'status'; status: number }
-  | { kind: 'body'; status: number; mediaType: string; charset: string | null; body: Buffer };
+  | { kind: 'redirect'; location: string; status: number }
+  | { kind: 'status'; status: number; retryAfter: string | null }
+  | {
+      kind: 'body';
+      status: number;
+      mediaType: string;
+      charset: string | null;
+      body: Buffer;
+      headers: Record<string, string>;
+    };
 
 interface ReadPlan {
   idleMs: number;
   maxBytes: number;
+  userAgent: string;
+  accept: string;
   /** Keep what fits instead of failing, as robots.txt allows. */
   truncate: boolean;
   /** Called with the media type before any of the body is read. */
   vet: ((mediaType: string) => void) | null;
 }
 
-type RobotsAnswer = Robots | 'absent';
-
 interface Limits {
   maxBytes: number;
-  timeoutMs: number;
   idleMs: number;
   maxRedirects: number;
   respectRobots: boolean;
+  identity: FetchIdentity;
+  allowedTypes: ReadonlySet<string>;
+  accept: string;
+  robots: RobotsCache;
+  hooks: FetchHooks | undefined;
+  deadline: Deadline;
+}
+
+/** The time a fetch may take, which stops running while the fetch waits to be allowed to ask. */
+class Deadline {
+  private timer: NodeJS.Timeout | undefined;
+  private left: number;
+  private since = 0;
+
+  constructor(
+    ms: number,
+    private readonly expire: () => void,
+  ) {
+    this.left = ms;
+    this.resume();
+  }
+
+  pause(): void {
+    if (!this.timer) return;
+    clearTimeout(this.timer);
+    this.timer = undefined;
+    this.left = Math.max(0, this.left - (performance.now() - this.since));
+  }
+
+  resume(): void {
+    if (this.timer) return;
+    this.since = performance.now();
+    this.timer = setTimeout(this.expire, this.left);
+  }
+
+  stop(): void {
+    clearTimeout(this.timer);
+    this.timer = undefined;
+  }
 }
 
 function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -148,6 +264,23 @@ const safeType = (type: string): string =>
   /^[a-z0-9][a-z0-9!#$&^_.+-]{0,60}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,60}$/u.test(type)
     ? type
     : 'unknown';
+
+function headerText(value: string | string[] | undefined, limit: number): string | null {
+  const text = (Array.isArray(value) ? value.join(', ') : (value ?? '')).trim();
+  return text ? text.slice(0, limit) : null;
+}
+
+function keptHeaders(headers: IncomingHttpHeaders): Record<string, string> {
+  const kept: Record<string, string> = {};
+  for (const name of KEPT_HEADERS) {
+    const text = headerText(headers[name], MAX_KEPT_HEADER_CHARS);
+    if (text) kept[name] = text;
+  }
+  return kept;
+}
+
+const retryAfterOf = (headers: IncomingHttpHeaders): string | null =>
+  headerText(headers['retry-after'], MAX_RETRY_AFTER_CHARS);
 
 function decoderFor(encoding: string): Transform | null {
   switch (encoding) {
@@ -266,29 +399,42 @@ export class PublicFetcher {
   }
 
   async fetchPublicPage(input: string, options: FetchOptions = {}): Promise<FetchedPage> {
+    const allowedTypes = options.allowedContentTypes ?? ALLOWED_CONTENT_TYPES;
+    const controller = new AbortController();
+    const deadline = new Deadline(options.timeoutMs ?? DEFAULTS.timeoutMs, () =>
+      controller.abort(new UrlFailure('timeout', 'Reading the page took too long.')),
+    );
     const limits: Limits = {
       maxBytes: options.maxBytes ?? DEFAULTS.maxBytes,
-      timeoutMs: options.timeoutMs ?? DEFAULTS.timeoutMs,
       idleMs: options.idleMs ?? DEFAULTS.idleMs,
       maxRedirects: options.maxRedirects ?? DEFAULTS.maxRedirects,
       respectRobots: options.respectRobots ?? true,
+      identity: options.identity ?? EVIDENCE_IDENTITY,
+      allowedTypes,
+      accept: allowedTypes.has('application/pdf') ? `${ACCEPT},application/pdf;q=0.7` : ACCEPT,
+      robots: options.robotsCache ?? new Map(),
+      hooks: options.hooks,
+      deadline,
     };
     const policy: UrlPolicy = {
       ...(options.allowedPorts ? { allowedPorts: options.allowedPorts } : {}),
       ...(options.allowedHosts ? { allowedHosts: options.allowedHosts } : {}),
+      ...(options.httpsOnly ? { httpsOnly: true } : {}),
     };
-    const controller = new AbortController();
-    const timer = setTimeout(
-      () => controller.abort(new UrlFailure('timeout', 'Reading the page took too long.')),
-      limits.timeoutMs,
-    );
+    const stop = (): void =>
+      controller.abort(
+        new UrlFailure('timeout', 'Reading the page was stopped.', { cancelled: true }),
+      );
+    options.signal?.addEventListener('abort', stop, { once: true });
+    if (options.signal?.aborted) stop();
     try {
       return await this.follow(input, limits, policy, controller.signal);
     } catch (error) {
       if (error instanceof UrlFailure) throw error;
       throw new UrlFailure('network', 'The page could not be read.', { reason: 'other' }, error);
     } finally {
-      clearTimeout(timer);
+      deadline.stop();
+      options.signal?.removeEventListener('abort', stop);
     }
   }
 
@@ -300,7 +446,6 @@ export class PublicFetcher {
   ): Promise<FetchedPage> {
     let target = validateUrl(input, policy);
     const requested = target.href;
-    const robotsByOrigin = new Map<string, RobotsAnswer>();
     for (let redirects = 0; ; redirects += 1) {
       try {
         // The host is judged before anything is asked of it, so a private address is reported as one
@@ -308,35 +453,52 @@ export class PublicFetcher {
         const addresses = await this.resolve(target, signal);
         let robots: FetchedPage['robots'] = 'skipped';
         if (limits.respectRobots) {
-          robots = await this.checkRobots(target, limits, policy, signal, robotsByOrigin);
+          robots = await this.checkRobots(target, limits, policy, signal);
         }
-        const reply = await this.get(
-          target,
-          addresses,
-          {
-            idleMs: limits.idleMs,
-            maxBytes: limits.maxBytes,
-            truncate: false,
-            vet: (mediaType) => {
-              if (!ALLOWED_CONTENT_TYPES.has(mediaType)) {
-                throw new UrlFailure('type', 'The site sent a type of file that is not read.', {
-                  contentType: safeType(mediaType),
-                });
-              }
+        const reply = await this.gated(limits, 'page', target, signal, () =>
+          this.get(
+            target,
+            addresses,
+            {
+              idleMs: limits.idleMs,
+              maxBytes: limits.maxBytes,
+              userAgent: limits.identity.userAgent,
+              accept: limits.accept,
+              truncate: false,
+              vet: (mediaType) => {
+                if (!limits.allowedTypes.has(mediaType)) {
+                  throw new UrlFailure('type', 'The site sent a type of file that is not read.', {
+                    contentType: safeType(mediaType),
+                  });
+                }
+              },
             },
-          },
-          signal,
+            signal,
+          ),
         );
         if (reply.kind === 'redirect') {
           if (redirects >= limits.maxRedirects) {
             throw new UrlFailure('redirects', `More than ${limits.maxRedirects} redirects.`);
           }
-          target = redirectTarget(target, reply.location, policy);
+          const next = redirectTarget(target, reply.location, policy);
+          const turnedDown = limits.hooks?.onRedirect?.({
+            from: target.href,
+            to: next.href,
+            status: reply.status,
+          });
+          if (typeof turnedDown === 'string') {
+            throw new UrlFailure('blocked', 'A redirect was turned down.', {
+              refusal: 'caller',
+              redirected: true,
+            });
+          }
+          target = next;
           continue;
         }
         if (reply.kind === 'status') {
           throw new UrlFailure('status', `The site answered ${reply.status}.`, {
             status: reply.status,
+            ...(reply.retryAfter ? { retryAfter: reply.retryAfter } : {}),
           });
         }
         return {
@@ -345,6 +507,8 @@ export class PublicFetcher {
           status: reply.status,
           contentType: reply.mediaType,
           text: decodeBody(reply.body, reply.charset, reply.mediaType),
+          body: reply.body,
+          headers: reply.headers,
           bytes: reply.body.length,
           redirects,
           robots,
@@ -355,6 +519,40 @@ export class PublicFetcher {
         }
         throw error;
       }
+    }
+  }
+
+  /**
+   * Runs one request after the caller's `beforeRequest` has let it go. The wait is not part of the
+   * fetch's time, and a request that is let go of after the fetch has ended is given back at once.
+   */
+  private async gated<T>(
+    limits: Limits,
+    purpose: 'robots' | 'page',
+    target: ValidatedUrl,
+    signal: AbortSignal,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const gate = limits.hooks?.beforeRequest;
+    if (!gate) return run();
+    let release: (() => void) | void;
+    limits.deadline.pause();
+    const pending = gate({ host: target.hostname, purpose }, signal);
+    try {
+      release = await raceAbort(pending, signal);
+    } catch (error) {
+      void pending.then(
+        (late) => late?.(),
+        () => undefined,
+      );
+      throw error;
+    } finally {
+      limits.deadline.resume();
+    }
+    try {
+      return await run();
+    } finally {
+      release?.();
     }
   }
 
@@ -383,29 +581,57 @@ export class PublicFetcher {
       if (verdict.allowed || (this.allowLoopback && verdict.reason === 'loopback')) continue;
       throw new UrlFailure('blocked', `${target.hostname} leads to a ${verdict.reason} address.`, {
         resolved: !target.ipLiteral,
+        address: verdict.reason,
       });
     }
     return usable;
   }
 
-  /** RFC 9309: a robots.txt that answers is obeyed, a missing one (4xx) allows, and one that cannot be read forbids. */
+  /**
+   * RFC 9309: a robots.txt that answers is obeyed, a missing one (4xx) allows, and one that cannot be
+   * read forbids. What was found is kept for the origin, so that a crawl asks once, and a site whose
+   * robots.txt could not be read is not asked again.
+   */
   private async checkRobots(
     target: ValidatedUrl,
     limits: Limits,
     policy: UrlPolicy,
     signal: AbortSignal,
-    known: Map<string, RobotsAnswer>,
   ): Promise<'allowed' | 'absent'> {
-    const origin = `${target.protocol}//${target.hostname}:${target.port}`;
-    let answer = known.get(origin);
-    if (!answer) {
-      answer = await this.readRobots(target, limits, policy, signal);
-      known.set(origin, answer);
+    const origin = robotsOrigin(target);
+    const report = (decision: RobotsDecision['decision'], cached: boolean): void =>
+      limits.hooks?.onRobots?.({ origin, url: target.href, decision, cached });
+    let answer = limits.robots.get(origin);
+    const cached = answer !== undefined;
+    if (answer === undefined) {
+      try {
+        answer = await this.readRobots(target, limits, policy, signal);
+      } catch (error) {
+        // A robots.txt that cannot be read forbids the origin, for as long as the cache is kept. A fetch
+        // that ran out of time, or was stopped, says nothing about the site.
+        if (!signal.aborted && error instanceof UrlFailure && error.detail.stage === 'robots') {
+          limits.robots.set(origin, 'unavailable');
+          report('unavailable', false);
+        }
+        throw error;
+      }
+      limits.robots.set(origin, answer);
     }
-    if (answer === 'absent') return 'absent';
+    if (answer === 'unavailable') {
+      report('unavailable', cached);
+      throw new UrlFailure('robots-unavailable', 'The site\u2019s robots.txt could not be read.', {
+        stage: 'robots',
+      });
+    }
+    if (answer === 'absent') {
+      report('absent', cached);
+      return 'absent';
+    }
     if (!answer.allows(target.path)) {
+      report('disallowed', cached);
       throw new UrlFailure('robots', 'The site asks that this page is not fetched.');
     }
+    report('allowed', cached);
     return 'allowed';
   }
 
@@ -414,9 +640,11 @@ export class PublicFetcher {
     limits: Limits,
     policy: UrlPolicy,
     signal: AbortSignal,
-  ): Promise<RobotsAnswer> {
+  ): Promise<Exclude<RobotsAnswer, 'unavailable'>> {
     const unreadable = (): UrlFailure =>
-      new UrlFailure('robots-unavailable', 'The site\u2019s robots.txt could not be read.');
+      new UrlFailure('robots-unavailable', 'The site\u2019s robots.txt could not be read.', {
+        stage: 'robots',
+      });
     let current: ValidatedUrl;
     try {
       current = validateUrl(new URL('/robots.txt', target.href).href, policy);
@@ -426,11 +654,20 @@ export class PublicFetcher {
     for (let redirects = 0; redirects <= limits.maxRedirects; redirects += 1) {
       try {
         const addresses = await this.resolve(current, signal);
-        const reply = await this.get(
-          current,
-          addresses,
-          { idleMs: limits.idleMs, maxBytes: ROBOTS_MAX_BYTES, truncate: true, vet: null },
-          signal,
+        const reply = await this.gated(limits, 'robots', current, signal, () =>
+          this.get(
+            current,
+            addresses,
+            {
+              idleMs: limits.idleMs,
+              maxBytes: ROBOTS_MAX_BYTES,
+              userAgent: limits.identity.userAgent,
+              accept: limits.accept,
+              truncate: true,
+              vet: null,
+            },
+            signal,
+          ),
         );
         if (reply.kind === 'redirect') {
           current = redirectTarget(current, reply.location, policy);
@@ -442,14 +679,19 @@ export class PublicFetcher {
         }
         return parseRobots(
           decodeBody(reply.body, reply.charset, reply.mediaType),
-          ROBOTS_PRODUCT_TOKEN,
+          limits.identity.robotsToken,
         );
       } catch (error) {
         // Running out of the whole fetch's time is a timeout, and a site that cannot be reached at all
         // is reported as that. What is left is a robots.txt that was found but cannot be used.
         if (signal.aborted) throw error;
         if (error instanceof UrlFailure && (error.code === 'network' || error.code === 'timeout')) {
-          throw error;
+          throw new UrlFailure(
+            error.code,
+            error.message,
+            { ...error.detail, stage: 'robots' },
+            error,
+          );
         }
         break;
       }
@@ -472,11 +714,12 @@ export class PublicFetcher {
         port: target.port,
         path: target.path,
         method: 'GET',
-        headers: REQUEST_HEADERS,
+        headers: requestHeaders(plan.userAgent, plan.accept),
         // A new connection for each request: nothing is reused for another address.
         agent: false,
         lookup: pinTo(addresses),
         timeout: plan.idleMs,
+        maxHeaderSize: MAX_HEADER_BYTES,
       });
       const onAbort = (): void =>
         fail(
@@ -509,9 +752,11 @@ export class PublicFetcher {
                 new UrlFailure('network', 'A redirect did not say where to.', { reason: 'other' }),
               );
             }
-            return succeed({ kind: 'redirect', location });
+            return succeed({ kind: 'redirect', location, status });
           }
-          if (status < 200 || status > 299) return succeed({ kind: 'status', status });
+          if (status < 200 || status > 299) {
+            return succeed({ kind: 'status', status, retryAfter: retryAfterOf(response.headers) });
+          }
 
           const { mediaType, charset } = parseContentType(response.headers['content-type']);
           plan.vet?.(mediaType);
@@ -540,11 +785,24 @@ export class PublicFetcher {
           const chunks: Buffer[] = [];
           let total = 0;
           const finish = (): void =>
-            succeed({ kind: 'body', status, mediaType, charset, body: Buffer.concat(chunks) });
-          const tooLarge = (): void =>
+            succeed({
+              kind: 'body',
+              status,
+              mediaType,
+              charset,
+              body: Buffer.concat(chunks),
+              headers: keptHeaders(response.headers),
+            });
+          const tooLarge = (decompressed: boolean): void =>
             plan.truncate
               ? finish()
-              : fail(new UrlFailure('size', 'The page is larger than the limit.'));
+              : fail(
+                  new UrlFailure(
+                    'size',
+                    'The page is larger than the limit.',
+                    decompressed ? { decompressed: true } : {},
+                  ),
+                );
           const source: Readable = decoder ?? response;
           if (decoder) {
             let compressedBytes = 0;
@@ -557,7 +815,7 @@ export class PublicFetcher {
             );
             response.on('data', (chunk: Buffer) => {
               compressedBytes += chunk.length;
-              if (compressedBytes > plan.maxBytes + 65_536) tooLarge();
+              if (compressedBytes > plan.maxBytes + 65_536) tooLarge(false);
             });
             response.pipe(decoder);
           }
@@ -565,7 +823,7 @@ export class PublicFetcher {
             const room = plan.maxBytes - total;
             if (chunk.length > room) {
               if (plan.truncate) chunks.push(chunk.subarray(0, room));
-              tooLarge();
+              tooLarge(decoder !== null);
               return;
             }
             chunks.push(chunk);
