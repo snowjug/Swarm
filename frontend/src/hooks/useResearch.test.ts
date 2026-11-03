@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { act, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ResearchView } from '../../../shared/research';
-import { ApiError } from '../api';
+import { ApiError, request } from '../api';
 import { researchApi } from '../api/research';
 import { completed, run, runningAt, view } from '../scenes/ground/research/fixtures';
 import { RESEARCH_BACKOFF_MS, RESEARCH_POLL_MS, nextReadIn, useResearch } from './useResearch';
@@ -17,6 +17,7 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
 });
 
@@ -262,5 +263,69 @@ describe('what a person asks of it', () => {
     expect(result.current.view?.run?.status).toBe('queued');
     await tick(RESEARCH_POLL_MS.live);
     expect(get).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('what is done elsewhere on the page', () => {
+  /** A change the server accepted, as the application's own client reports it to whoever listens. */
+  async function accepted(path: string, method = 'POST') {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response('{}', { status: 202, headers: { 'content-type': 'application/json' } }),
+      ),
+    );
+    await act(async () => {
+      await request(path, { method });
+    });
+    vi.unstubAllGlobals();
+  }
+
+  it('is read soon after: a question’s research that was started, a step, a run that was stopped', async () => {
+    const get = vi
+      .spyOn(researchApi, 'get')
+      .mockResolvedValueOnce(view(null))
+      .mockResolvedValue(live());
+    const { result } = renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    expect(result.current.view?.run).toBeNull();
+
+    await accepted('/api/projects/p1/research');
+    await tick(399);
+    expect(get).toHaveBeenCalledTimes(1);
+    await tick(1);
+    expect(get).toHaveBeenCalledTimes(2);
+    expect(result.current.view?.run?.status).toBe('running');
+
+    await accepted('/api/projects/p1/cancel');
+    await tick(400);
+    expect(get).toHaveBeenCalledTimes(3);
+  });
+
+  it('is not read for what has nothing to do with it, or for another project’s', async () => {
+    const get = vi.spyOn(researchApi, 'get').mockResolvedValue(done());
+    renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    await accepted('/api/projects/p1/claims/c1/review');
+    await accepted('/api/projects/p2/research');
+    await accepted('/api/projects/p2/steps/knowledge');
+    await tick(1_000);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not read for what the hook asked itself, which the server answers in the same breath', async () => {
+    const get = vi.spyOn(researchApi, 'get').mockResolvedValue(live());
+    vi.spyOn(researchApi, 'pause').mockImplementation(async () => {
+      await accepted('/api/projects/p1/research/pause');
+      return view(run({ status: 'paused' }));
+    });
+    const { result } = renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    await act(async () => {
+      await result.current.pause();
+    });
+    await tick(450);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 });

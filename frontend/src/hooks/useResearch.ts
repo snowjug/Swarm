@@ -39,8 +39,8 @@ export function nextReadIn(view: ResearchView | null, failures: number): number 
   return view?.run?.status === 'paused' ? RESEARCH_POLL_MS.paused : RESEARCH_POLL_MS.live;
 }
 
-/** The changes to a project that can change its research: a step started, a run cancelled or paused. */
-const AFFECTS_RESEARCH = /\/(?:steps\/[a-z]+|cancel|pause|run)$/u;
+/** The changes to a project that can change its research: a step started, a run cancelled or paused, or a run's own. */
+const AFFECTS_RESEARCH = /\/(?:steps\/[a-z]+|cancel|pause|run|research(?:\/[a-z]+)?)$/u;
 
 /**
  * The research of one project: read when the page opens, and again while a run is under way (not while the page
@@ -133,15 +133,15 @@ export function useResearch(
     return () => clearTimeout(timer);
   }, [enabled, live, view, error, answered]);
 
-  // What is done to the project elsewhere on the page (the head of the page stops a run, or starts a step) changes the
-  // run too: it is read soon, not at the next turn of the clock.
+  // What is done to the project elsewhere on the page (the head of the page stops a run, or starts a step; a question
+  // that was just asked starts its research) changes the run too: it is read soon, not at the next turn of the clock.
+  // What this hook asks of the server itself is answered by the server's own reply.
   useEffect(() => {
     if (!enabled) return undefined;
     const base = `/api/projects/${encodeURIComponent(projectId)}/`;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const stop = onAcceptedChange((path) => {
-      if (!path.startsWith(base) || path.startsWith(`${base}research`)) return;
-      if (!AFFECTS_RESEARCH.test(path)) return;
+      if (busy.current || !path.startsWith(base) || !AFFECTS_RESEARCH.test(path)) return;
       clearTimeout(timer);
       timer = setTimeout(reload, 400);
     });
