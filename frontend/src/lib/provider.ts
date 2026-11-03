@@ -19,6 +19,8 @@ export function realModelLabel(provider: ProviderName): string {
   switch (provider) {
     case 'azure':
       return 'REAL AZURE AI';
+    case 'foundry':
+      return 'REAL MODEL · Microsoft Foundry';
     case 'openai':
       return 'REAL MODEL · OpenAI';
     case 'ollama':
@@ -36,6 +38,8 @@ export function providerName(provider: ProviderName): string {
   switch (provider) {
     case 'azure':
       return 'Azure AI';
+    case 'foundry':
+      return 'Microsoft Foundry';
     case 'openai':
       return 'OpenAI';
     case 'ollama':

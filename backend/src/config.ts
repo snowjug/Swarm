@@ -2,6 +2,8 @@ import { resolve } from 'node:path';
 import { z } from 'zod';
 import { MAX_BUDGET_LIMIT } from '../../shared/budget.js';
 import { MAX_PDF_BYTES, MAX_PDF_PAGES, MAX_SURVEY_TARGETS } from '../../shared/guided.js';
+import { buildFoundryProvider } from './models/foundry.js';
+import { loadRouting, type RoutingConfig } from './models/routing-config.js';
 import {
   MAX_DOCUMENTS,
   APP_VERSION,
@@ -110,6 +112,8 @@ export interface ServerConfig {
    * it a limit of its own. 0 is no limit. Calls are those that completed; tokens are input and output.
    */
   modelBudget: { callLimit: number; tokenLimit: number };
+  /** How a model is chosen, budgeted, cached and observed. See `docs/models/foundry.md`. */
+  routing: RoutingConfig;
   /** Reading a public web page as evidence. See `docs/security/url-ingestion.md`. */
   urlIngestion: UrlIngestionConfig;
 }
@@ -191,7 +195,7 @@ const environmentSchema = z.object({
   ALLOWED_ORIGINS: z.string().optional(),
   ALLOWED_HOSTS: z.string().default('localhost,127.0.0.1,[::1]'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'silent']).default('info'),
-  AI_PROVIDER: z.enum(['none', 'ollama', 'openai', 'azure']).default('none'),
+  AI_PROVIDER: z.enum(['none', 'ollama', 'openai', 'azure', 'foundry']).default('none'),
   AI_MODEL: z.string().trim().max(150).default(''),
   AI_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(120_000),
   AZURE_OPENAI_AUTH: z.enum(['entra', 'key']).default('entra'),
@@ -410,6 +414,7 @@ function buildProvider(
     timeoutMs,
   };
   if (name === 'none') return base;
+  if (name === 'foundry') return buildFoundryProvider(base, environment, managedIdentityClientId);
   if (!model) return { ...base, reason: 'Set AI_MODEL in the backend environment.' };
   const auth: ProviderAuth =
     name === 'ollama' ? 'none' : name === 'azure' && azureAuth === 'entra' ? 'entra' : 'api-key';
@@ -519,6 +524,11 @@ export function loadConfig(
       callLimit: input.PROJECT_MODEL_CALL_LIMIT,
       tokenLimit: input.PROJECT_MODEL_TOKEN_LIMIT,
     },
+    routing: loadRouting(environment, {
+      name: input.AI_PROVIDER,
+      model: input.AI_MODEL,
+      timeoutMs: input.AI_TIMEOUT_MS,
+    }),
     urlIngestion: buildUrlIngestion(input),
   };
 }

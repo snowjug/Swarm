@@ -146,7 +146,7 @@ export const storedProjectSchema: z.ZodType<StoredProject> = z.object({
   report: reportSchema.nullable(),
   execution: z
     .object({
-      provider: z.enum(['none', 'ollama', 'openai', 'azure']),
+      provider: z.enum(['none', 'ollama', 'openai', 'azure', 'foundry']),
       model: z.string().nullable(),
       modelCalls: z.int().nonnegative(),
       inputTokens: z.int().nonnegative(),

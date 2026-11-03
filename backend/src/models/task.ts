@@ -83,6 +83,15 @@ const DETAIL: Record<string, string> = {
   MODEL_AUTH: 'The model rejected the server’s credentials, so rules were used.',
   MODEL_NOT_FOUND: 'The model deployment was not found, so rules were used.',
   MODEL_CALL_BUDGET: 'The model budget for this step was reached, so rules were used.',
+  MODEL_TOKEN_BUDGET: 'The model token budget for this operation was reached, so rules were used.',
+  MODEL_COST_BUDGET:
+    'The estimated model cost limit for this operation was reached, so rules were used.',
+  PROJECT_BUDGET: 'The project’s model budget was used, so rules were used.',
+  MODEL_ROUTE_UNAVAILABLE:
+    'No configured model deployment could serve this step, so rules were used.',
+  MODEL_PARAMETER_UNSUPPORTED:
+    'The model deployment refused a request setting, so rules were used.',
+  MODEL_HTTP_ERROR: 'The model service returned an error, so rules were used.',
   MODEL_TRUNCATED: 'The model’s answer was cut short, so rules were used.',
   MODEL_CONTEXT_LIMIT: 'The request was too large for the model, so rules were used.',
 };
