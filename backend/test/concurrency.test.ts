@@ -12,14 +12,17 @@ import { around } from './support/concurrent-database.js';
 import { newId, runScenario, scenarioDocument, type Scenario } from './support/race-worker.js';
 
 // Rules that hold "when two instances share a database" are claims about writers that run at once. Each
-// is made here about the same three things, on every engine this machine can run: a document that
-// several writers edit from the same revision, a limit that several writers try to pass together, and a
-// job that several workers try to take together. SQLite is raced for real: each writer is a thread
-// with a connection of its own to one file. PGlite has one connection in a process, so its writers
-// take turns (the outcomes asserted are the same). A real PostgreSQL server is raced the same way as
-// SQLite when SWARM_TEST_POSTGRES_URL names an empty database that this test may fill.
+// is made here about the same four things, on every engine this machine can run: a document that
+// several writers edit from the same revision, a limit that several writers try to pass together, a
+// job that several workers try to take together, and a hash chain that several writers extend. SQLite
+// is raced for real: each writer is a thread with a connection of its own to one file. PGlite has one
+// connection in a process, so its writers take turns (the outcomes asserted are the same). A real
+// PostgreSQL server is raced the same way as SQLite when SWARM_TEST_POSTGRES_URL names an empty
+// database that this test may fill (`node scripts/db/with-postgres.mjs -- npx vitest run
+// backend/test/concurrency.test.ts` starts one in Docker and removes it afterwards).
 const WRITERS = 4;
 const ROUNDS = 5;
+const ENTRIES = 6;
 const JOBS = 12;
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -255,6 +258,25 @@ describe.each(engines)('$name: writers that run at once', (engine) => {
           expect(job, id).toMatchObject({ state: 'running', attempt: 1, leaseOwner: worker });
         }
       }
+    });
+  });
+
+  describe('an audit log that several of them append to', () => {
+    it('stays one chain: every entry once, each committing to the one before it', async () => {
+      const before = parent.audit.verify();
+      expect(before.ok).toBe(true);
+      const outcomes = await compete('audit', (index) => ({ writer: index, entries: ENTRIES }));
+      expect(outcomes).toEqual(Array.from({ length: WRITERS }, () => 'appended'));
+      expect(parent.audit.verify()).toEqual({
+        ok: true,
+        checked: before.checked + WRITERS * ENTRIES,
+        brokenAt: null,
+      });
+      const appended = parent.audit
+        .list({ limit: 500 })
+        .filter((event) => event.action === 'race.append')
+        .map((event) => event.targetId);
+      expect(new Set(appended).size).toBe(WRITERS * ENTRIES);
     });
   });
 });

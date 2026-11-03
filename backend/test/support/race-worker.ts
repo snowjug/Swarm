@@ -11,7 +11,7 @@ import { fixtureInput } from '../fixtures.js';
  * `runScenario` is also called directly, in turn, for a database that has only one connection in a
  * process (PGlite), where the same outcomes must hold.
  */
-export type Scenario = 'artifact' | 'create' | 'claim';
+export type Scenario = 'artifact' | 'create' | 'claim' | 'audit';
 
 export interface ArtifactParams {
   projectId: string;
@@ -26,6 +26,10 @@ export interface CreateParams {
 }
 export interface ClaimParams {
   owner: string;
+}
+export interface AuditParams {
+  writer: number;
+  entries: number;
 }
 
 /** The result of one writer: what it won, or the code it was refused with, or what it should not have met. */
@@ -79,6 +83,18 @@ export function runScenario(
           job = repository.jobs.claim(owner, 30_000);
         }
         return { claimed };
+      }
+      case 'audit': {
+        const { writer, entries } = params as AuditParams;
+        for (let index = 0; index < entries; index += 1) {
+          repository.audit.record({
+            actor: `racer-${writer}`,
+            action: 'race.append',
+            targetType: 'race',
+            targetId: `${writer}-${index}`,
+          });
+        }
+        return 'appended';
       }
     }
   } catch (error) {
