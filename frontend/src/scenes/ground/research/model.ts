@@ -315,7 +315,9 @@ export function controlsOf(view: ResearchView | null): Controls {
   return {
     pause: may.pause && status === 'running',
     resume: control && status === 'paused',
-    finish: may.cancel && (status === 'running' || status === 'paused'),
+    // Finishing early is allowed where pausing is (while the run is still reading, or about to), and for a run that is
+    // paused; in the stages after reading there is nothing to cut short, and only stopping is offered.
+    finish: (status === 'running' && may.pause) || (status === 'paused' && may.cancel),
     cancel: may.cancel && isLive(status),
     start,
     // A site or a page that is named is a run of its own, so it is offered where a run may start.
@@ -733,3 +735,21 @@ export const stoppedWords = (run: ResearchRun): string | null =>
   run.status === 'completed' && run.stoppedBecause
     ? RESEARCH_STOP_LABELS[run.stoppedBecause]
     : null;
+
+/**
+ * What is said, once the project has sources, of a run that found nothing to use: that the sources are the person's
+ * own. The run is a record then, and what it could not do is no longer a thing to be put right.
+ */
+export function recordWords(run: ResearchRun): string | null {
+  if (used(run).length > 0) return null;
+  if (run.status === 'blocked' && run.stoppedBecause === 'discovery-unconfigured') {
+    return 'Swarm could not look for sources from the question alone, and no site or page was named. The sources above were supplied by you.';
+  }
+  if (run.status === 'blocked') {
+    return `No page could be read${run.sources.length > 0 ? ', and the reason for each is listed below' : ''}. The sources above were supplied by you.`;
+  }
+  if (run.status === 'completed') {
+    return 'No page was used as a source. The sources above were supplied by you.';
+  }
+  return null;
+}

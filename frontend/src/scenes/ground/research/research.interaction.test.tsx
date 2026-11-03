@@ -399,6 +399,20 @@ describe('a search from a question alone that cannot go on', () => {
     );
   });
 
+  it('says in a line that the sources are the person’s own once the project has them, and asks for nothing more', async () => {
+    open(blocked(), { project: groundProject('ready') });
+    const record = await screen.findByRole('region', { name: /^Research/u });
+    expect(record.textContent).toContain('The sources above were supplied by you.');
+    // What the run could not do is a record now, and is not asked to be put right.
+    expect(
+      within(record).queryByText('Swarm cannot find sources from a question alone'),
+    ).toBeNull();
+    expect(within(record).queryByRole('button', { name: 'Paste or attach' })).toBeNull();
+    expect(within(record).queryByRole('textbox', { name: 'Site or page to add' })).toBeNull();
+    expect(within(record).queryByRole('list', { name: 'Research progress' })).toBeNull();
+    expect(within(record).queryByRole('button', { name: 'Research again' })).toBeNull();
+  });
+
   it('sends a person who cannot add here to the question again, with room for sources', async () => {
     const { user, workspace } = open(
       { ...blocked(), may: { start: false, pause: false, cancel: false } },

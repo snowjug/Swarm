@@ -20,6 +20,7 @@ import {
   linkOf,
   presenceOf,
   reasonOf,
+  recordWords,
   runNotice,
   shortAddress,
   sourceTitle,
@@ -258,11 +259,15 @@ describe('what a person may do', () => {
     expect(Object.values(at('running', none)).every((on) => !on)).toBe(true);
     expect(at('running', { start: false, pause: false, cancel: true })).toMatchObject({
       pause: false,
-      finish: true,
+      // A run that is past reading cannot be cut short: it can only be stopped.
+      finish: false,
       cancel: true,
     });
-    // Whoever may cancel may let a paused run go on, however the server counts pausing.
-    expect(at('paused', { start: false, pause: false, cancel: true }).resume).toBe(true);
+    // Whoever may cancel may let a paused run go on, or finish it, however the server counts pausing.
+    expect(at('paused', { start: false, pause: false, cancel: true })).toMatchObject({
+      resume: true,
+      finish: true,
+    });
     expect(controlsOf(null).add).toBe(false);
   });
 });
@@ -382,6 +387,33 @@ describe('suggestions', () => {
       problem: expect.stringContaining('web address'),
     });
     expect(addressFromInput('javascript:alert(1)')).toHaveProperty('problem');
+  });
+});
+
+describe('a run that found nothing, in a project that has sources', () => {
+  it('is a record that says the sources are the person’s own, in words that claim nothing', () => {
+    const blocked = recordWords(
+      runningAt('finding-sources', { status: 'blocked', stoppedBecause: 'discovery-unconfigured' }),
+    );
+    expect(blocked).toMatch(/could not look for sources from the question alone/u);
+    expect(blocked).toMatch(/supplied by you/u);
+    expect(
+      recordWords(
+        runningAt('reading', {
+          status: 'blocked',
+          stoppedBecause: 'safety-block',
+          sources: pages().filter((page) => page.outcome === 'blocked'),
+        }),
+      ),
+    ).toMatch(/the reason for each is listed below/u);
+    expect(
+      recordWords(completed({ sources: pages().filter((page) => page.outcome !== 'used') })),
+    ).toBe('No page was used as a source. The sources above were supplied by you.');
+    // A run that found sources, or that is not over, or that was stopped or failed, is not made a record of this kind.
+    expect(recordWords(completed())).toBeNull();
+    expect(recordWords(runningAt('reading'))).toBeNull();
+    expect(recordWords(runningAt('reading', { status: 'cancelled' }))).toBeNull();
+    for (const text of [blocked ?? '']) expect(claimsAgainst(text)).toEqual([]);
   });
 });
 

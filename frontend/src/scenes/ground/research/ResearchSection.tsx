@@ -20,6 +20,7 @@ import {
   conflictsKnown,
   formatMoment,
   formatSeconds,
+  recordWords,
   runNotice,
   statusWords,
   stoppedWords,
@@ -137,6 +138,22 @@ function Body({ research, aged }: { research: GroundResearch; aged: Age | null }
 
   if (presence.kind === 'off') return null;
   const { run, view } = presence;
+  // The project has sources, and the run found none to use: the sources are the person's own, and what the run could not
+  // do is not asked to be put right. It is a record, and says so in a line.
+  const record = takesOver ? null : recordWords(run);
+  if (record !== null) {
+    return (
+      <>
+        <RunLine run={run} />
+        <p className="sw-research__lede">{record}</p>
+        <Pages sources={run.sources} actions={pageActions} status={run.status} />
+        <div className="sw-research-more">
+          <Plan run={run} />
+          <Limits run={run} />
+        </div>
+      </>
+    );
+  }
   const notice = runNotice(run, view.discovery);
   const manual = notice?.offers.includes('manual') ?? false;
   return (
@@ -234,6 +251,8 @@ export function ResearchSection() {
   const { state, presence, controls, takesOver } = research;
   const run = presence.kind === 'run' ? presence.run : null;
   const aged = run ? agedBy(run, now) : null;
+  // A run that found nothing, in a project that has sources, is a record: there is nothing in it to do again.
+  const recorded = run !== null && !takesOver && recordWords(run) !== null;
   const words = statusWords(presence);
   // What was refused beside a field (a site named, text added) is said there, and not a second time here.
   const failed =
@@ -253,7 +272,7 @@ export function ResearchSection() {
         title="Research"
         count={run && run.sources.length > 0 ? run.sources.length : null}
         aside={
-          run && !takesOver && !aged && !isLive(run.status) && controls.start ? (
+          run && !takesOver && !aged && !recorded && !isLive(run.status) && controls.start ? (
             <Button
               variant="ghost"
               size="sm"

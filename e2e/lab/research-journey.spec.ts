@@ -189,6 +189,10 @@ test('a question alone goes on with text that a person pastes, which is read as 
   await expect(page.getByRole('region', { name: /^Sources \d+$/u })).toContainText(
     'operator-note.txt',
   );
+  // The run that could not look is a record now: it says in a line that the sources are the person's own.
+  await expect(researchSection(page)).toContainText('The sources above were supplied by you.');
+  await expect(researchSection(page)).not.toContainText('Swarm cannot find sources');
+  await expect(press(page, 'Paste or attach')).toHaveCount(0);
   // The text is the person's own: nothing was fetched for it.
   expect((await fixtureLog(request)).served).toEqual([]);
   expect(problems).toEqual([]);

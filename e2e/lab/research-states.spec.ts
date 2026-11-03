@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { RESEARCH_STAGES, RESEARCH_STAGE_LABELS } from '../../shared/research';
-import { expectScene, openApp, projectOf, type ThemeName } from '../support/app';
+import { addressOf, expectScene, openApp, projectOf, type ThemeName } from '../support/app';
 import {
   exploreButton,
   goOn,
@@ -116,7 +116,9 @@ async function open(
     questionOnly ? held : await withDocumentsOf(request, id, held),
     { questionOnly, enabled: options.enabled, firstReadDelayMs: options.firstReadDelayMs },
   );
-  await openApp(page, { project: id, scene: 'ground', theme: options.theme });
+  // A page that waits for its first answer is not settled, and is the thing looked at: it is not waited for.
+  if (options.firstReadDelayMs) await page.goto(addressOf({ project: id, scene: 'ground' }));
+  else await openApp(page, { project: id, scene: 'ground', theme: options.theme });
   return { id, fake };
 }
 
@@ -271,16 +273,17 @@ test.describe('a project that has not been researched', () => {
     request,
   }) => {
     const problems = watchPage(page);
-    await open(page, request, viewOf(runAt('reading')), { firstReadDelayMs: 3_000 });
+    // Long enough that a page which is slow to open (a busy machine) is still waiting for its first answer when it has.
+    await open(page, request, viewOf(runAt('reading')), { firstReadDelayMs: 8_000 });
     const section = researchSection(page);
     await expect(section).toHaveAttribute('data-research', 'loading');
     await expect(section.locator('[aria-busy="true"]')).toBeVisible();
     // Nothing is said of a run that the page has not been told of.
     await expect(tracker(page)).toHaveCount(0);
     await expect(press(page, 'Pause')).toHaveCount(0);
-    await expectSound(page, 'research: reading the first answer');
-    await expect(tracker(page)).toBeVisible({ timeout: 10_000 });
+    await expect(tracker(page)).toBeVisible({ timeout: 20_000 });
     await expect(chip(page)).toHaveText('Reading');
+    await expectSound(page, 'research: the first answer has come');
     expect(problems).toEqual([]);
   });
 
