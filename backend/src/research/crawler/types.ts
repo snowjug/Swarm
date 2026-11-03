@@ -29,7 +29,12 @@ export interface CrawlHints {
   terms: string[];
   /** Kinds of source worth reading first. */
   categories?: SourceCategory[];
-  /** Sites worth reading first, by name (`example.org`). They are not fetched because they are named. */
+  /**
+   * Sites worth reading first, by name (`example.org`). They are not fetched because they are named. Each
+   * is treated as a site the person named: its pages are the primary source, and a `docs.` or `support.`
+   * address on it is its documentation. Put only sites the person supplied here, never a name taken from
+   * a page, a search result or a model's guess: a name that is here is rated high without any other check.
+   */
   domains?: string[];
 }
 

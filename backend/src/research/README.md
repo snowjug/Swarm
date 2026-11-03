@@ -196,10 +196,18 @@ so an address that is refused costs no place and no request.
 - Text hidden by a stylesheet class cannot be told from text that is shown; it is kept, and labelled if it
   reads like an instruction. Text hidden by attributes or inline styles is left out.
 - Pages behind a login or a paywall are not read (the crawler has no credentials and keeps no cookies).
-- **Classification is an estimate** (`classify.ts`, `reputable-domains.ts`): a government domain, a
-  university, a publisher, a news site, a forum, documentation and a named site are recognised from the address
-  and, once a page is read, from what its markup says; markup can only lower a page. It says what kind of
-  source a page looks like, not that it is right. An address that only has a `docs` folder is `low`.
+- **Classification is an estimate** (`classify.ts`, `reputable-domains.ts`): it says what kind of source a
+  page looks like, not that it is right. A page is rated above `unclassified` only by something a person can
+  read and check: a suffix that a registry sells to governments or to universities only (listed by hand, and
+  only from the ICANN part of the Public Suffix List, so a name sold under `go.dyndns.org`, `gv.vc`, `gv.uy`,
+  `go.it` or `edu.eu.org` is nothing), a list of publishers, preprint servers, news sites and documentation
+  sites, or a site that a person named. Words in a name (`gov.`, `authority`, `regulator`, `docs.`,
+  `support.`) and a `docs` folder never raise a page, so a name that nobody vouched for is `unclassified` with
+  `unknown` authority. A government or a university whose suffix is not on the list is `unclassified` too:
+  the list is a limit, and it is extended by hand. **`hints.domains` must hold only sites a person
+  supplied**: each is treated as named, so it is the primary source and its `docs.` and `support.` addresses
+  are documentation, rated high. Markup can mark a page as discussion (lower) or as scholarly (authority
+  `unknown`); it never raises a page.
 - `robots.txt` beyond 512,000 bytes is not read (RFC 9309 asks for at least 500 KiB).
 - A read that is larger than what is left of the size limit ends the crawl, even when a smaller page could
   still fit.
