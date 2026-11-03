@@ -58,7 +58,7 @@ deployment a task could be routed to, once each.
 | `MODEL_CACHE_MAX_ENTRIES`             | `256`      | Entries kept (the cache is also bounded to 16 MiB in all and 256 KiB per entry).                                                                                                                                                                         |
 | `MODEL_CACHE_TTL_SECONDS`             | `900`      | How long an entry is served.                                                                                                                                                                                                                             |
 | `TELEMETRY_TRACE_CONTENT`             | `off`      | `off` or `redacted`. See [Telemetry](#telemetry).                                                                                                                                                                                                        |
-| `DEPLOYMENT_MODE`                     | none       | `production` tightens what may be configured (a key is refused). Another setting owns the rest of this guard.                                                                                                                                            |
+| `DEPLOYMENT_MODE`                     | none       | `production` tightens what may be configured (a key is refused). Mode enforcement is delegated to the deployment guard.                                                                                                                                  |
 | `FOUNDRY_TEST_ALLOW_LOOPBACK`         | none       | **Test seam.** `1` lets `FOUNDRY_ENDPOINT` be `http(s)://localhost`, `127.0.0.1` or `[::1]`, so that a test can use the fake server. Refused when `DEPLOYMENT_MODE=production`. Never set it for a real resource.                                        |
 
 A name that is not a deployment name (letters, digits, dots, hyphens, underscores), a malformed JSON value,
@@ -80,7 +80,9 @@ A task names its **role**, never a model. A deployment may serve several roles, 
 | `synthesis`        | writing a conclusion from recorded results   | 0.3                 | medium                           | 4,000                  |
 
 A reasoning deployment is sent `reasoning_effort` and no temperature, and is given room for its thinking on
-top of the answer (500 to 4,000 tokens by effort, never more than 16,000 in all). These are defaults in
+top of the answer (500 to 4,000 tokens by effort, never more than 16,000 in all); a cost ceiling is held to
+what is sent, that room included. A task may ask for another answer budget (`maxTokens`, at most 16,000):
+anything that is not a number of one or more gets the role's own. These are defaults in
 `backend/src/models/router.ts`; no model name is built into the code.
 
 ## How a deployment is chosen
@@ -92,17 +94,19 @@ no learning. The same request and settings always give the same route.
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Task type           | The role's deployment, else `AI_MODEL`. Candidates, in order: the role's, the default, the reasoning one, the fallback.                                                                         |
 | Availability        | A deployment the caller says is not available is skipped. Within an operation, the runner passes over a deployment that was not found, or throttled, for 30 seconds.                            |
-| Privacy / data zone | With a zone (the task's own, else `FOUNDRY_DATA_ZONE`) only a deployment declared in it may serve the task. No such deployment: no route, and the task is answered by rules, nothing is sent.   |
+| Privacy / data zone | Only a deployment declared in the zone may serve the task. `FOUNDRY_DATA_ZONE` pins every task to its zone: a task may name it, never another. None: no route, rules answer, nothing is sent.   |
 | Context size        | A deployment with a smaller `maxContextChars` than the request is skipped.                                                                                                                      |
-| Cost ceiling        | With a ceiling, a deployment must have a price and the worst case of the call (every input token and a full answer) must fit under it. An unpriced deployment is refused, not guessed.          |
+| Cost ceiling        | With a ceiling, a deployment needs a price and the worst case of the call as sent (input, a full answer, a reasoning deployment's thinking room) must fit under it. Unpriced: refused.          |
 | Reasoning need      | A task that needs reasoning prefers a reasoning deployment. It is a preference: with none configured the task still runs.                                                                       |
 | Latency budget      | The time limit becomes the budget. Under 20 s: prefer a `fast` deployment, cap the effort at `low`, one transient and one throttle retry. Under 60 s: one transient and three throttle retries. |
 | Schema needs        | Strict structured output is asked for unless the deployment's profile says `structuredOutputs: false`.                                                                                          |
 
 The route also carries `fallbackDeployment`: the next eligible candidate, tried once if the first fails with
 `MODEL_NOT_FOUND`, `MODEL_RATE_LIMIT`, `MODEL_TIMEOUT` or `MODEL_HTTP_ERROR`. The runner never changes
-deployment for a refusal, an authentication failure or a cancellation. There is **no dependence on a
-preview model router**: every deployment the router can return is one the operator named.
+deployment for a refusal, an authentication failure or a cancellation. A cost ceiling is checked when a
+deployment is chosen, against the first call; the calls that may follow (a correction, a larger budget after
+truncation) are each held to the operation's allowance. There is **no dependence on a preview model
+router**: every deployment the router can return is one the operator named.
 
 ## Structured outputs
 
@@ -113,8 +117,9 @@ from the task's own zod schema (`z.toJSONSchema`) and adapted for strict mode
 
 - every object is closed (`additionalProperties: false`) and lists every property as `required`;
 - an **optional** or defaulted property becomes one that may be `null`, and a reply's `null` for it is turned
-  back into an absence before zod judges it (only when the reply was not valid as it came, and only where
-  strict mode put the null; a `null` the schema allows itself stays);
+  back into an absence before zod judges it, so that a coercing schema (`z.coerce.number().optional()`)
+  never reads it as `0` (only where strict mode put the null; a `null` the schema allows itself stays; a
+  reply that passes only as it came is accepted as it came);
 - unions are `anyOf`; a literal is a one-value `enum`;
 - lengths, ranges, patterns, counts and defaults, which strict mode does not take, are left out and said in
   the property's description ("2 to 80 characters"). _The list of refused keywords is from the public
@@ -132,7 +137,8 @@ out. That round trip is admitted, counted and gated like any other and does not 
 round. The refusal is remembered **per deployment**, only after a reply shows the call went through, and
 expires after an hour. An explicit "not supported" for `response_format` is remembered for the deployment;
 anything vaguer, for that one schema alone. A refused parameter is therefore found out once per process, not
-once per operation.
+once per operation, and everything a deployment refused is kept together: one that takes neither strict
+output nor a temperature is found out in a single operation, and the next sends one request.
 
 ## Safety signals
 
@@ -164,7 +170,8 @@ the provider did not report is charged at an estimate, and so is a gateway that 
 is never enforced from a price that is not there: a deployment without a price is refused under one, and
 the server does not start with a dollar limit and no price table. Beyond the allowance, the project's own
 budget (`ModelUsageSink.admit`) is asked before every call, and the per-operation call cap (`maxCalls`, 16
-by default) still applies.
+by default) still applies. A limit is zero (none) or a number above it: one that is negative or not a number
+is an error (`MODEL_BUDGET_INVALID`) when the allowance is made, never read as no limit.
 
 A budget stop is not a failure: the task is answered by rules, with `failure.code` one of
 `MODEL_TOKEN_BUDGET`, `MODEL_COST_BUDGET`, `MODEL_CALL_BUDGET` or `PROJECT_BUDGET` (`BUDGET_CODES` in
