@@ -7,6 +7,7 @@ import {
   leakageReportSchema,
 } from './backtest.js';
 import { decisionBriefSchema } from './brief.js';
+import { constraintSetSchema, counterfactualSetSchema } from './constraints.js';
 import { critiqueSetSchema } from './critique.js';
 import { researchRunSchema } from './research.js';
 import { scenarioFrameSchema } from './scenario.js';
@@ -25,6 +26,10 @@ export const artifactSchemas = {
   actors: actorSetSchema,
   analysis: analysisSchema,
   critiques: critiqueSetSchema,
+  /** The limits on the decision, with the gate's last word; reviewed by a person before a simulation. */
+  constraints: constraintSetSchema,
+  /** What the proposed change does when a constraint is taken away or a limit is moved, on the same seeds. */
+  'constraint-counterfactuals': counterfactualSetSchema,
   brief: decisionBriefSchema,
   'backtest-case': historicalCaseSchema,
   'backtest-outcome': actualOutcomeSchema,

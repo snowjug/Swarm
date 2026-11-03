@@ -1,4 +1,11 @@
 import { z } from 'zod';
+import {
+  MAX_APPLIED_CONSTRAINTS,
+  MAX_CONSTRAINT_EVENTS,
+  analysisConstraintsSchema,
+  appliedConstraintSchema,
+  constraintEventSchema,
+} from './constraint-effects.js';
 import { actorRelationSchema, actorSchema, idSchema } from './stakeholders.js';
 
 /**
@@ -85,12 +92,16 @@ export type Variant = z.infer<typeof variantSchema>;
 
 export const MAX_ROUNDS = 36;
 
-/** Everything the simulator needs for one seeded run. */
+/**
+ * Everything the simulator needs for one seeded run. `constraints` are the effects of the limits that
+ * hold in this scenario (see constraint-effects.ts); a spec without any is run exactly as it always was.
+ */
 export const simulationSpecSchema = z.object({
   actors: z.array(actorSchema).min(1).max(60),
   relations: z.array(actorRelationSchema).max(240).default([]),
   rounds: z.int().min(3).max(MAX_ROUNDS),
   variant: variantSchema,
+  constraints: z.array(appliedConstraintSchema).max(MAX_APPLIED_CONSTRAINTS).optional(),
 });
 export type SimulationSpec = z.infer<typeof simulationSpecSchema>;
 
@@ -154,6 +165,12 @@ export const runOutcomeSchema = z.object({
     byActor: z.array(actorOutcomeSchema).max(60),
   }),
   events: z.array(simEventSchema).max(200).default([]),
+  /**
+   * What the run did because of a constraint, in the order it happened: a change held back, an approval
+   * granted, a response taken away. Absent in a run that had no constraint. These are events of the
+   * simulation, apart from `events`, which are what its responders did.
+   */
+  constraintEvents: z.array(constraintEventSchema).max(MAX_CONSTRAINT_EVENTS).optional(),
   /**
    * Set when the run was replayed once for each earlier event that could have mattered to a later one,
    * with that event's responder switched off, so that an event id in `causedBy` was tested. Absent in
@@ -350,13 +367,14 @@ export type AnalysisStatus = (typeof ANALYSIS_STATUSES)[number];
  * comparison, and the review and the brief made from it, describe the project as it was: only
  * running the comparison again brings them up to date.
  */
-export const ANALYSIS_INPUTS = ['scenario', 'stakeholders', 'actors'] as const;
+export const ANALYSIS_INPUTS = ['scenario', 'stakeholders', 'actors', 'constraints'] as const;
 export type AnalysisInput = (typeof ANALYSIS_INPUTS)[number];
 
 export const ANALYSIS_INPUT_NAMES: Record<AnalysisInput, string> = {
   scenario: 'the scenario',
   stakeholders: 'the stakeholders',
   actors: 'the simulated actors',
+  constraints: 'the constraints',
 };
 
 /** What a list of changes (`changedSince`) says when a comparison has finished after the one the brief or review rests on. */
@@ -418,6 +436,12 @@ export const analysisSchema = z.object({
    * this was recorded, whose freshness cannot be told.
    */
   inputRevisions: z.record(z.string().max(40), z.int().min(0)).optional(),
+  /**
+   * The constraints the comparison was run under: which were applied to the runs and how, which were
+   * read but not applied, what taking each away did, and whether the result is provisional. Absent for
+   * a comparison that was run without a reviewed set of constraints.
+   */
+  constraints: analysisConstraintsSchema.optional(),
   fidelity: fidelitySchema,
   progress: z.object({ completedRuns: z.int().min(0), totalRuns: z.int().min(0) }),
   variants: z.array(variantResultSchema).max(8).default([]),
