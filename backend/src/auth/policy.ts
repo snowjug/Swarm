@@ -157,6 +157,10 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/projects/:id/brief': project('read'),
   'POST /api/projects/:id/brief': project('edit'),
   'GET /api/projects/:id/brief/export': project('export'),
+
+  // [decision policy]
+  // The decision canvas is worked out at every read from what the project holds: anyone who may read the project may read it.
+  'GET /api/projects/:id/decision': project('read'),
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */
