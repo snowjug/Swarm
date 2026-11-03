@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FLAG_LABEL } from '../src/research/extract/index.js';
+import { productSignals } from '../src/telemetry/product-signals.js';
 import { researchApp, type ResearchApp } from './support/research-app.js';
 import { INJECTION_HEAVY_PAGE, LOGIN_PAGE, sitePage } from './support/research-pages.js';
 import type { Route } from './support/research-world.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 const NOTES = 'https://notes.example.org';
 const page = (body: string): Route => ({ type: 'text/html', body });
@@ -164,6 +169,71 @@ describe('a site that is hostile to whatever reads it', () => {
     ]) {
       expect(said, text).not.toContain(text);
     }
+  });
+
+  it('is told to the metrics as counts of closed words, and never as an address, a title or a word a page wrote', async () => {
+    const signals = {
+      researchRun: vi.spyOn(productSignals, 'researchRun'),
+      researchPages: vi.spyOn(productSignals, 'researchPages'),
+      crawlDuration: vi.spyOn(productSignals, 'crawlDuration'),
+      fetchFailure: vi.spyOn(productSignals, 'fetchFailure'),
+      safetyBlock: vi.spyOn(productSignals, 'safetyBlock'),
+      quarantine: vi.spyOn(productSignals, 'quarantine'),
+      sourcesUsed: vi.spyOn(productSignals, 'sourcesUsed'),
+      evidencePassages: vi.spyOn(productSignals, 'evidencePassages'),
+    };
+    const app = await researchApp({ web: hostileWeb() });
+    const id = await app.create();
+    await app.post(id, '', { intake: { url: `${NOTES}/` } });
+    await app.settle();
+
+    expect(
+      signals.researchRun.mock.calls.map(([call]) => [
+        call.outcome,
+        call.mode,
+        call.stopReason ?? null,
+      ]),
+    ).toEqual([
+      ['started', 'url', null],
+      ['completed', 'url', 'frontier-exhausted'],
+    ]);
+    expect(signals.researchPages).toHaveBeenCalledWith({
+      count: app.run(id)?.used.pages,
+      mode: 'url',
+    });
+    expect(signals.quarantine.mock.calls.map(([reason]) => reason).sort()).toEqual([
+      'login-page',
+      'prompt-injection',
+    ]);
+    expect(signals.safetyBlock.mock.calls.map(([reason]) => reason)).toEqual(
+      expect.arrayContaining(['prompt-injection', 'robots-disallowed']),
+    );
+    expect(signals.sourcesUsed).toHaveBeenCalled();
+    expect(signals.evidencePassages).toHaveBeenCalledWith(
+      Object.keys(app.run(id)?.passages ?? {}).length,
+      'url',
+    );
+    const told = JSON.stringify(Object.values(signals).flatMap((spy) => spy.mock.calls));
+    for (const text of [
+      'example.org',
+      'https:',
+      TOKEN,
+      'hunter2',
+      'Berthing',
+      'Ignore',
+      INSTRUCTION,
+    ]) {
+      expect(told, text).not.toContain(text);
+    }
+  });
+
+  it('is told, when a person cancels, as a cancellation of research and nothing more', async () => {
+    const cancellation = vi.spyOn(productSignals, 'cancellation');
+    const app = await researchApp();
+    const id = await app.create();
+    app.research.start(id, { intake: { url: `${NOTES}/` } }, 'tester');
+    app.research.cancel(id);
+    expect(cancellation.mock.calls).toEqual([['research']]);
   });
 });
 
