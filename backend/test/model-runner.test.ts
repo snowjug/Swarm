@@ -345,6 +345,20 @@ describe('the allowances that hold a model back', () => {
     expect(newOperationBudget(world().config)).toBeNull();
   });
 
+  it('does not read a limit that is not a number as none: a caller’s bad “remaining” is an error', () => {
+    const { config } = world({ MODEL_OPERATION_TOKEN_LIMIT: '4000' });
+    for (const bad of [Number.NaN, -5, Number.POSITIVE_INFINITY]) {
+      expect(() => newOperationBudget(config, { tokens: bad })).toThrowError(
+        expect.objectContaining({ code: 'MODEL_BUDGET_INVALID' }),
+      );
+      expect(() => newOperationBudget(world().config, { usd: bad })).toThrowError(
+        expect.objectContaining({ code: 'MODEL_BUDGET_INVALID' }),
+      );
+    }
+    // Zero, given on purpose, is still none: it lifts the configured limit for this operation.
+    expect(newOperationBudget(config, { tokens: 0 })).toBeNull();
+  });
+
   it('stops at the project’s budget, which every call asks, and reports it as a budget stop', async () => {
     const { config, factory } = world();
     let recorded = 0;

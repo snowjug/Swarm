@@ -114,6 +114,7 @@ export class OperationBudgetError extends AppError {
   }
 }
 
+/** A limit is 0 (none) or a positive number; anything else is refused by `budgetLimit`. */
 export interface OperationBudgetOptions {
   /** Input plus output tokens the operation may use. 0 or absent: no limit. */
   tokens?: number;
@@ -121,6 +122,25 @@ export interface OperationBudgetOptions {
   usd?: number;
   prices?: PriceTable;
 }
+
+/**
+ * A limit is none (0) or a number of tokens or dollars. Anything else is a mistake of the caller, such
+ * as a "remaining" that came out negative or not a number, and it must never read as "no limit": an
+ * allowance is not made from it.
+ */
+export function budgetLimit(kind: 'token' | 'dollar', value: number | undefined): number {
+  if (value === undefined) return 0;
+  if (!Number.isFinite(value) || value < 0) {
+    throw new AppError(
+      500,
+      'MODEL_BUDGET_INVALID',
+      `The ${kind} limit of an operation must be zero (no limit) or a number above it.`,
+    );
+  }
+  return value;
+}
+
+const isCount = (value: number): boolean => Number.isFinite(value) && value >= 0;
 
 export interface CallRequest {
   deployment: string;
@@ -160,12 +180,20 @@ export class OperationBudget {
   private reservedUsd = 0;
 
   constructor(options: OperationBudgetOptions = {}) {
-    this.tokenLimit = Math.max(0, options.tokens ?? 0);
-    this.usdLimit = Math.max(0, options.usd ?? 0);
+    this.tokenLimit = budgetLimit('token', options.tokens);
+    this.usdLimit = budgetLimit('dollar', options.usd);
     this.prices = options.prices ?? [];
   }
 
   reserve(request: CallRequest): Reservation {
+    // A size that is not a number would make every later comparison false, and the limit with it.
+    if (!isCount(request.inputTokens) || !isCount(request.maxOutputTokens)) {
+      throw new AppError(
+        500,
+        'MODEL_BUDGET_INVALID',
+        'A model call has a size that is not a count of tokens, so it was not made.',
+      );
+    }
     const worstTokens = request.inputTokens + request.maxOutputTokens;
     if (
       this.tokenLimit > 0 &&

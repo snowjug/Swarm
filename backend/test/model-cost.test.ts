@@ -4,6 +4,7 @@ import {
   OperationBudget,
   UNKNOWN_COST,
   addCosts,
+  budgetLimit,
   estimateCostUsd,
   estimateTokens,
   priceFor,
@@ -136,6 +137,51 @@ describe('an operation’s allowance of tokens', () => {
     strict.charge('gpt-large', { inputTokens: 90, outputTokens: 40 });
     expect(strict.snapshot()).toMatchObject({ calls: 1, inputTokens: 90, outputTokens: 40 });
     expect(() => strict.reserve({ ...call, inputTokens: 1, maxOutputTokens: 1 })).toThrow(
+      'token budget',
+    );
+  });
+});
+
+describe('a limit that is not a limit', () => {
+  const call = { deployment: 'gpt-large', inputTokens: 1_000, maxOutputTokens: 1_000 };
+
+  // A caller that works out what is "remaining" can get a number below zero, or no number at all. Read
+  // as none, either would be an allowance that never stops anything, so neither is made.
+  it.each([-1, -0.01, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'is not made from %s tokens, or from that many dollars',
+    (value) => {
+      for (const options of [{ tokens: value }, { usd: value, prices: table }]) {
+        expect(() => new OperationBudget(options)).toThrowError(
+          expect.objectContaining({ code: 'MODEL_BUDGET_INVALID', statusCode: 500 }),
+        );
+      }
+      expect(() => budgetLimit('token', value)).toThrow('zero (no limit)');
+    },
+  );
+
+  it('keeps 0, and no limit given, as no limit, as the settings document', () => {
+    for (const options of [{}, { tokens: 0 }, { usd: 0 }, { tokens: 0, usd: 0 }]) {
+      const open = new OperationBudget(options);
+      expect([open.tokenLimit, open.usdLimit]).toEqual([0, 0]);
+      open.reserve({ ...call, inputTokens: 1e9, maxOutputTokens: 1e9 }).settle(null);
+    }
+    expect(budgetLimit('dollar', undefined)).toBe(0);
+    expect(budgetLimit('dollar', 0.25)).toBe(0.25);
+  });
+
+  it('does not let a call whose size is not a count of tokens make every later comparison false', () => {
+    const budget = new OperationBudget({ tokens: 10_000 });
+    for (const size of [Number.NaN, -1, Number.POSITIVE_INFINITY]) {
+      expect(() => budget.reserve({ ...call, inputTokens: size })).toThrowError(
+        expect.objectContaining({ code: 'MODEL_BUDGET_INVALID' }),
+      );
+      expect(() => budget.reserve({ ...call, maxOutputTokens: size })).toThrowError(
+        expect.objectContaining({ code: 'MODEL_BUDGET_INVALID' }),
+      );
+    }
+    // Nothing was reserved by them, and the limit still holds.
+    expect(budget.snapshot().calls).toBe(0);
+    expect(() => budget.reserve({ ...call, inputTokens: 6_000, maxOutputTokens: 6_000 })).toThrow(
       'token budget',
     );
   });
