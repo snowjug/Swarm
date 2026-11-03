@@ -69,18 +69,12 @@ function serve(initial: ResearchView | null) {
     finish: vi
       .spyOn(researchApi, 'finish')
       .mockImplementation(async () => answer(viewOf(completed()))),
-    addSource: vi.spyOn(researchApi, 'addSource').mockImplementation(async (_id, url) => {
-      const held = server.held!.run!;
-      return answer(
-        viewOf({
-          ...held,
-          sources: [
-            ...held.sources,
-            source(40 + held.sources.length, { requestedUrl: url, outcome: 'read' }),
-          ],
-        }),
-      );
-    }),
+    // A site that is named is a run of its own: the server starts one, and the page follows it.
+    addSource: vi
+      .spyOn(researchApi, 'addSource')
+      .mockImplementation(async () =>
+        answer(viewOf(run({ status: 'queued', stage: 'planning', plan: null }))),
+      ),
   };
   return { server, calls };
 }
@@ -367,6 +361,8 @@ describe('a search from a question alone that cannot go on', () => {
     expect(
       screen.queryByRole('button', { name: 'Add this site: operator.example.org' }),
     ).toBeNull();
+    // The plan names a kind of source and no site: there is nothing to add.
+    expect(screen.getByText('Studies of fare changes on ferry routes')).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Add this site: regulator.example.org' }));
     expect(calls.addSource).toHaveBeenCalledWith(
@@ -374,36 +370,50 @@ describe('a search from a question alone that cannot go on', () => {
       'https://regulator.example.org',
       expect.any(AbortSignal),
     );
-    await screen.findByText('Added');
+    // What was named is a run of its own, and the page follows it.
+    await waitFor(() => expect(chip()?.textContent).toBe('Queued'));
     expect(
       screen.queryByRole('button', { name: 'Add this site: regulator.example.org' }),
     ).toBeNull();
-    // The plan names a kind of source and no site: there is nothing to add.
-    expect(screen.getByText('Studies of fare changes on ferry routes')).toBeTruthy();
+  });
+
+  it('names no site while a run is under way, because what is named is a run of its own, and says when it can be', async () => {
+    open(viewOf(runningAt('reading')));
+    await screen.findByRole('list', { name: 'Research progress' });
+    expect(screen.queryByRole('textbox', { name: 'Site or page to add' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Add this site/u })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add a site or page' })).toBeNull();
+    expect(document.body.textContent).toContain('once the research has stopped');
+    // The plan's suggestions are still there to read.
+    expect(screen.getByText('The regulator’s published fare rules')).toBeTruthy();
   });
 });
 
 describe('naming a site or a page', () => {
-  it('sends an address the person typed, as an address, and clears the field', async () => {
-    const { user, calls } = open(viewOf(runningAt('reading')));
+  const stopped = () =>
+    viewOf(runningAt('reading', { status: 'cancelled', stoppedBecause: 'cancelled' }));
+
+  it('sends an address the person typed, as an address, and the page follows the run that it starts', async () => {
+    const { user, calls } = open(stopped());
     const field = await screen.findByRole<HTMLInputElement>('textbox', {
       name: 'Site or page to add',
     });
     await user.type(field, 'example.org');
-    await user.click(screen.getByRole('button', { name: 'Add', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Add' }));
     expect(calls.addSource).toHaveBeenCalledWith(
       expect.any(String),
       'https://example.org',
       expect.any(AbortSignal),
     );
-    await waitFor(() => expect(field.value).toBe(''));
+    await waitFor(() => expect(chip()?.textContent).toBe('Queued'));
+    expect(screen.queryByRole('textbox', { name: 'Site or page to add' })).toBeNull();
   });
 
   it('says what is wrong with what is not an address, and sends nothing', async () => {
-    const { user, calls } = open(viewOf(runningAt('reading')));
+    const { user, calls } = open(stopped());
     const field = await screen.findByRole('textbox', { name: 'Site or page to add' });
     await user.type(field, 'javascript:alert(1)');
-    await user.click(screen.getByRole('button', { name: 'Add', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Add' }));
     expect((await screen.findByRole('alert')).textContent).toContain(
       'does not look like a web address',
     );
@@ -412,7 +422,7 @@ describe('naming a site or a page', () => {
   });
 
   it('shows the server’s refusal beside the field, and keeps what was typed', async () => {
-    const { user, calls } = open(viewOf(runningAt('reading')));
+    const { user, calls } = open(stopped());
     calls.addSource.mockRejectedValue(
       new ApiError('That address is on a private network, which Swarm never reads.', 'URL_BLOCKED'),
     );
@@ -420,7 +430,7 @@ describe('naming a site or a page', () => {
       name: 'Site or page to add',
     });
     await user.type(field, 'https://10.0.0.5/status');
-    await user.click(screen.getByRole('button', { name: 'Add', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Add' }));
     expect((await screen.findByRole('alert')).textContent).toContain('private network');
     expect(field.value).toBe('https://10.0.0.5/status');
   });

@@ -221,6 +221,24 @@ describe('what a person asks of it', () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
+  it('does not call it a success when a site could not be named because a run is under way: that run was not made', async () => {
+    vi.spyOn(researchApi, 'get').mockResolvedValue(live());
+    vi.spyOn(researchApi, 'addSource').mockRejectedValue(
+      new ApiError('Research is already running for this project.', 'RESEARCH_ACTIVE'),
+    );
+    const { result } = renderHook(() => useResearch('p1', { enabled: true }));
+    await tick();
+    let ok = true;
+    await act(async () => {
+      ok = await result.current.addSource('https://regulator.example.org');
+    });
+    expect(ok).toBe(false);
+    expect(result.current.problem).toMatchObject({
+      kind: 'add-source',
+      message: 'Research is already running for this project.',
+    });
+  });
+
   it('says why a request was refused, and reads again so that the page shows what is true', async () => {
     const get = vi.spyOn(researchApi, 'get').mockResolvedValue(live());
     vi.spyOn(researchApi, 'addSource').mockRejectedValue(

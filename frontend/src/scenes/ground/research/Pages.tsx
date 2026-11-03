@@ -129,9 +129,13 @@ function PageRow({
       style={vars({ '--i': Math.min(index, 4) })}
     >
       {openable ? (
-        <button type="button" className="sw-research-page__open" onClick={openable}>
+        <button
+          type="button"
+          className="sw-research-page__open"
+          aria-label={`${title}, open the source`}
+          onClick={openable}
+        >
           {name}
-          <span className="sr-only">, open the source</span>
         </button>
       ) : (
         <div className="sw-research-page__open sw-research-page__open--plain">{name}</div>

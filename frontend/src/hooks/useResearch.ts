@@ -177,8 +177,9 @@ export function useResearch(
         return true;
       } catch (failure) {
         if (!mounted.current || request.signal.aborted || isAbort(failure)) return false;
-        // A run that is already under way is what was asked for: it is shown as it is.
-        if (failure instanceof ApiError && failure.code === 'RESEARCH_ACTIVE') {
+        // Starting what is already under way is what was asked for: it is shown as it is. Naming a site is not: it
+        // is a run of its own, and it was not made.
+        if (kind === 'start' && failure instanceof ApiError && failure.code === 'RESEARCH_ACTIVE') {
           reload();
           return true;
         }

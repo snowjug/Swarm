@@ -174,6 +174,7 @@ describe('what a person may do', () => {
       finish: true,
       cancel: true,
       start: false,
+      add: false,
     });
     expect(at('paused')).toMatchObject({
       pause: false,
@@ -181,6 +182,7 @@ describe('what a person may do', () => {
       finish: true,
       cancel: true,
       start: false,
+      add: false,
     });
     expect(at('queued')).toMatchObject({
       pause: false,
@@ -188,14 +190,23 @@ describe('what a person may do', () => {
       finish: false,
       cancel: true,
       start: false,
+      add: false,
     });
     expect(at('completed')).toMatchObject({
       pause: false,
       finish: false,
       cancel: false,
       start: true,
+      add: true,
     });
-    expect(at('failed')).toMatchObject({ start: true });
+    expect(at('failed')).toMatchObject({ start: true, add: true });
+  });
+
+  it('names a site or a page where a run may start, because what is named is a run of its own', () => {
+    const idle = { start: true, pause: false, cancel: false };
+    expect(at('running', { ...MAY, start: true }).add).toBe(false);
+    expect(at('completed', idle).add).toBe(true);
+    expect(at('completed', { ...idle, start: false }).add).toBe(false);
   });
 
   it('offers nothing to a person the server says may do nothing, and never more than the server allows', () => {

@@ -2,6 +2,7 @@ import { Check, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { SOURCE_CATEGORY_LABELS, type ResearchRun } from '../../../../../shared/research';
 import { Button, Chip } from '../../../design/ui';
+import { isLive } from '../../../lib/research';
 import { useGroundResearch } from './context';
 import { suggestionsOf } from './model';
 
@@ -30,7 +31,8 @@ export function Suggestions({ run }: { run: ResearchRun }) {
         Suggestions
       </h3>
       <p className="sw-research-quiet sw-caption">
-        From the plan. Swarm reads a suggested site only when you add it.
+        From the plan. Swarm reads a suggested site only when you add it
+        {isLive(run.status) ? ', which you can do once the research has stopped.' : '.'}
       </p>
       <ul
         className="sw-research-suggest__list"
@@ -38,7 +40,8 @@ export function Suggestions({ run }: { run: ResearchRun }) {
         aria-labelledby="ground-research-suggest"
       >
         {items.map((item) => {
-          const done = item.read || added.has(item.key);
+          // What a person added is "Added", whether or not the run has read it by now.
+          const label = added.has(item.key) ? 'Added' : item.read ? 'Already read' : null;
           return (
             <li key={item.key} className="sw-research-suggest__item">
               <div className="sw-research-suggest__text">
@@ -46,13 +49,13 @@ export function Suggestions({ run }: { run: ResearchRun }) {
                 <p className="sw-research-suggest__what">{item.description}</p>
                 {item.site && <p className="sw-research-suggest__site">{item.site}</p>}
               </div>
-              {item.address && done && (
+              {item.address && label && (
                 <span className="sw-research-suggest__done">
                   <Check size={15} strokeWidth={2.5} aria-hidden="true" />
-                  {item.read ? 'Already read' : 'Added'}
+                  {label}
                 </span>
               )}
-              {item.address && !done && controls.add && (
+              {item.address && !label && controls.add && (
                 <Button
                   size="sm"
                   variant="glass"

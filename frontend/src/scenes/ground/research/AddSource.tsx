@@ -26,7 +26,7 @@ export function AddSource() {
   if (!research) return null;
   const { state, presence, controls, addField } = research;
   const starting = presence.kind === 'empty';
-  if (!(starting ? controls.start : controls.add)) return null;
+  if (!controls.add) return null;
 
   const kind = starting ? 'start' : 'add-source';
   const refused = state.problem?.kind === 'add-source' ? state.problem.message : null;

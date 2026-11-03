@@ -289,13 +289,15 @@ export function controlsOf(view: ResearchView | null): Controls {
   const { may, run } = view;
   const status = run?.status ?? null;
   const control = may.pause || may.cancel;
+  const start = may.start && !isLive(status);
   return {
     pause: may.pause && status === 'running',
     resume: control && status === 'paused',
     finish: may.cancel && (status === 'running' || status === 'paused'),
     cancel: may.cancel && isLive(status),
-    start: may.start && !isLive(status),
-    add: control || may.start,
+    start,
+    // A site or a page that is named is a run of its own, so it is offered where a run may start.
+    add: start,
   };
 }
 
