@@ -110,6 +110,8 @@ describe('a name that leads to an address that is not public is never connected 
     ['100.100.100.200', 'shared-address-space'],
     ['127.0.0.1', 'loopback'],
     ['127.255.255.254', 'loopback'],
+    ['168.63.129.16', 'cloud-platform'],
+    ['::ffff:a83f:8110', 'cloud-platform'],
     ['169.254.169.254', 'link-local'],
     ['169.254.0.1', 'link-local'],
     ['172.16.0.1', 'private-network'],
@@ -299,6 +301,8 @@ describe('an address that is written in a way that is not a public web page is r
     'https://[::1]/',
     'https://[::ffff:127.0.0.1]/',
     'https://[fd00:ec2::254]/',
+    'https://168.63.129.16/',
+    'https://[::ffff:a83f:8110]/',
     'https://127.0.0.1/',
     'https://10.1.2.3/admin',
     'https://169.254.169.254/latest/meta-data/',
@@ -781,16 +785,46 @@ describe('robots.txt', () => {
     expect(done.result.sources.map(({ outcome }) => outcome)).toEqual(['blocked', 'blocked']);
   });
 
-  it('is read to a limit of a little over 500 kilobytes, whatever size a site makes it: rules inside the limit apply, and a page is still read', async () => {
-    const padding = '# padding\n'.repeat(400_000);
-    const allowed = await read1(`User-agent: *\nDisallow: /nothing\n${padding}`, '/open');
-    expect(allowed.done.result.sources[0]!.outcome).toBe('used');
-    const disallowed = await read1(`User-agent: *\nDisallow: /open\n${padding}`, '/open');
-    expect(disallowed.done.result.sources[0]).toMatchObject({
+  it('is read to a limit of 512,000 bytes: rules inside the limit apply, and a robots.txt that is longer forbids the site, since what is past the limit cannot be obeyed', async () => {
+    const inside = await read1(
+      `User-agent: *\nDisallow: /nothing\n${'# padding\n'.repeat(50_000)}`,
+      '/open',
+    );
+    expect(inside.done.result.sources[0]!.outcome).toBe('used');
+    const late = await read1(
+      `User-agent: *\nDisallow: /open\n${'# padding\n'.repeat(50_000)}`,
+      '/open',
+    );
+    expect(late.done.result.sources[0]).toMatchObject({
       outcome: 'blocked',
       failure: { class: 'robots-disallowed' },
     });
+    // Over the limit, whatever the rules it can be read to say: the site is left alone, and no page is asked for.
+    const over = await read1(`User-agent: *\nAllow: /\n${'# padding\n'.repeat(400_000)}`, '/open');
+    expect(over.done.result.pages).toHaveLength(0);
+    expect(over.done.result.sources[0]).toMatchObject({
+      outcome: 'blocked',
+      robots: 'disallowed',
+      failure: {
+        class: 'robots-disallowed',
+        message: 'The site\u2019s robots.txt could not be read, so the page was not fetched.',
+      },
+    });
+    expect(over.world.seen['a.example.com']?.map((entry) => entry.url)).toEqual(['/robots.txt']);
   }, 30_000);
+
+  it('obeys a rule that is the 2,501st, and a pattern of 1,001 characters', async () => {
+    const lines = ['User-agent: *'];
+    for (let index = 0; index < 2_500; index += 1) lines.push(`Allow: /open${index}`);
+    lines.push('Disallow: /private/', `Disallow: /${'a'.repeat(1_000)}`);
+    const robots = lines.join('\n');
+    const { done } = await read1(robots, '/private/report');
+    expect(done.result.pages).toHaveLength(0);
+    expect(done.result.sources[0]).toMatchObject({ failure: { class: 'robots-disallowed' } });
+    const long = await read1(robots, `/${'a'.repeat(1_000)}/x`);
+    expect(long.done.result.pages).toHaveLength(0);
+    expect((await read1(robots, '/public')).done.result.pages).toHaveLength(1);
+  });
 
   describe('when it is sent on to another place', () => {
     const sentTo = async (

@@ -7,7 +7,7 @@ import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { APP_VERSION } from '../../../../shared/types.js';
 import { UrlFailure } from './failure.js';
 import { classifyAddress, validateUrl, type UrlPolicy, type ValidatedUrl } from './policy.js';
-import { parseRobots, type Robots } from './robots.js';
+import { parseRobots, ROBOTS_MAX_BYTES, type Robots } from './robots.js';
 
 export const ROBOTS_PRODUCT_TOKEN = 'SwarmLab-EvidenceFetcher';
 export const USER_AGENT = `${ROBOTS_PRODUCT_TOKEN}/${APP_VERSION} (user-initiated evidence retrieval)`;
@@ -31,8 +31,6 @@ const EVIDENCE_IDENTITY: FetchIdentity = {
 };
 
 const DEFAULTS = { maxBytes: 1_500_000, timeoutMs: 12_000, idleMs: 5_000, maxRedirects: 5 };
-// RFC 9309 asks a crawler to read at least 500 KiB of robots.txt, and to ignore the rest.
-const ROBOTS_MAX_BYTES = 512_000;
 const MAX_ADDRESSES = 16;
 // A real response head is a few kilobytes. This is node's default, stated so that it stays so.
 const MAX_HEADER_BYTES = 16_384;
@@ -165,6 +163,8 @@ type Reply =
       charset: string | null;
       body: Buffer;
       headers: Record<string, string>;
+      /** There was more than the plan allowed, and only what fitted was kept (a plan that `truncate`s). */
+      truncated: boolean;
     };
 
 interface ReadPlan {
@@ -701,6 +701,9 @@ export class PublicFetcher {
           if (reply.status >= 400 && reply.status < 500) return 'absent';
           break;
         }
+        // What is past the limit cannot be read, so it cannot be obeyed: a robots.txt that is longer
+        // than what is read is one that cannot be read, which forbids the origin.
+        if (reply.truncated) break;
         return parseRobots(
           decodeBody(reply.body, reply.charset, reply.mediaType),
           limits.identity.robotsToken,
@@ -815,6 +818,7 @@ export class PublicFetcher {
 
           const chunks: Buffer[] = [];
           let total = 0;
+          let truncated = false;
           const finish = (): void =>
             succeed({
               kind: 'body',
@@ -823,17 +827,22 @@ export class PublicFetcher {
               charset,
               body: Buffer.concat(chunks),
               headers: keptHeaders(response.headers),
+              truncated,
             });
-          const tooLarge = (decompressed: boolean): void =>
-            plan.truncate
-              ? finish()
-              : fail(
-                  new UrlFailure(
-                    'size',
-                    'The page is larger than the limit.',
-                    decompressed ? { decompressed: true } : {},
-                  ),
-                );
+          const tooLarge = (decompressed: boolean): void => {
+            if (plan.truncate) {
+              truncated = true;
+              finish();
+              return;
+            }
+            fail(
+              new UrlFailure(
+                'size',
+                'The page is larger than the limit.',
+                decompressed ? { decompressed: true } : {},
+              ),
+            );
+          };
           const source: Readable = decoder ?? response;
           if (decoder) {
             let compressedBytes = 0;

@@ -48,6 +48,23 @@ describe('the address policy: IPv4', () => {
     blocked('255.255.255.255', 'broadcast');
   });
 
+  it('blocks the platform address of Azure, in every way it can be written as an address', () => {
+    blocked('168.63.129.16', 'cloud-platform');
+    for (const written of [
+      '::ffff:168.63.129.16',
+      '::ffff:a83f:8110',
+      '64:ff9b::168.63.129.16',
+      '64:ff9b::a83f:8110',
+      '2002:a83f:8110::1',
+    ]) {
+      blocked(written);
+    }
+    // Written in any other form it is not an address at all, as for every other.
+    for (const odd of ['168.063.129.16', '0xa83f8110', '2822078736']) {
+      blocked(odd, 'invalid-address');
+    }
+  });
+
   // The address just outside each range is public: a range written one bit too wide is as wrong as too narrow.
   it.each([
     '9.255.255.255',

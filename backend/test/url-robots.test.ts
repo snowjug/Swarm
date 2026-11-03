@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseRobots } from '../src/ingest/url/robots.js';
+import { parseRobots, ROBOTS_MAX_BYTES } from '../src/ingest/url/robots.js';
 
 const TOKEN = 'SwarmLab-EvidenceFetcher';
 const allows = (robots: string, path: string, token = TOKEN) =>
@@ -110,15 +110,70 @@ describe('reading robots.txt (RFC 9309)', () => {
     expect(Date.now() - started).toBeLessThan(1_000);
   });
 
-  it('reads only a bounded number of lines and rules, and ignores a huge pattern', () => {
+  it('obeys a rule however late in the file it comes, and however long its pattern is', () => {
     const lines = ['User-agent: *'];
     for (let index = 0; index < 20_000; index += 1) lines.push(`Disallow: /p${index}`);
-    lines.push('Disallow: /late');
-    expect(allows(lines.join('\n'), '/p1')).toBe(false);
-    expect(allows(lines.join('\n'), '/late')).toBe(true);
-    expect(
-      allows(`User-agent: *\nDisallow: /${'a'.repeat(1_500)}\n`, `/${'a'.repeat(1_500)}`),
-    ).toBe(true);
+    lines.push('Disallow: /late', 'Disallow: /private/');
+    const text = lines.join('\n');
+    expect(allows(text, '/p1')).toBe(false);
+    expect(allows(text, '/p19999')).toBe(false);
+    expect(allows(text, '/late')).toBe(false);
+    expect(allows(text, '/private/report')).toBe(false);
+    expect(allows(text, '/public')).toBe(true);
+  });
+
+  it('obeys the 2,501st rule, and a pattern of 1,001 characters, which were once left out', () => {
+    const lines = ['User-agent: *'];
+    for (let index = 0; index < 2_500; index += 1) lines.push(`Allow: /open${index}`);
+    lines.push('Disallow: /private/');
+    expect(allows(lines.join('\n'), '/private/x')).toBe(false);
+    const long = `/${'a'.repeat(1_000)}`;
+    expect(long).toHaveLength(1_001);
+    expect(allows(`User-agent: *\nDisallow: ${long}\n`, `${long}/x`)).toBe(false);
+    expect(allows(`User-agent: *\nDisallow: ${long}\n`, `${long.slice(0, -1)}`)).toBe(true);
+    // A long pattern with wildcards can match a short path, so it is not one that could be left out as too long to match.
+    const wild = `/${'*'.repeat(1_200)}private`;
+    expect(allows(`User-agent: *\nDisallow: ${wild}\n`, '/x/private')).toBe(false);
+    expect(allows(`User-agent: *\nDisallow: ${wild}\n`, '/x/public')).toBe(true);
+  });
+
+  it('reads as much as the limit allows, and forbids everything when there is more, rather than obeying what it could read', () => {
+    const body = 'User-agent: *\nAllow: /\n';
+    const justOver = `${body}${'#'.repeat(ROBOTS_MAX_BYTES - body.length - 1)}\nDisallow: /\n`;
+    expect(justOver.length).toBeGreaterThan(ROBOTS_MAX_BYTES);
+    expect(allows(justOver, '/page')).toBe(false);
+    const filled = `User-agent: *\n${'#'.repeat(ROBOTS_MAX_BYTES - 40)}\nDisallow: /secret\n`;
+    expect(filled.length).toBeLessThanOrEqual(ROBOTS_MAX_BYTES);
+    expect(allows(filled, '/secret')).toBe(false);
+    expect(allows(filled, '/open')).toBe(true);
+    const over = `${body}${'#'.repeat(ROBOTS_MAX_BYTES)}`;
+    expect(parseRobots(over, TOKEN).allows('/anything')).toBe(false);
+    expect(parseRobots(over, TOKEN).crawlDelaySeconds).toBeNull();
+  });
+
+  it('takes tens of milliseconds, and no more, for the largest robots.txt that is read', () => {
+    const fill = (head: string, line: string): string => {
+      const lines = [head];
+      for (
+        let size = head.length;
+        size + line.length + 1 <= ROBOTS_MAX_BYTES;
+        size += line.length + 1
+      ) {
+        lines.push(line);
+      }
+      return lines.join('\n');
+    };
+    const path = `/${'b'.repeat(2_000)}`;
+    const started = Date.now();
+    for (const text of [
+      fill('User-agent: *', 'allow:/'),
+      fill('User-agent: *', 'Disallow: /*a*b$'),
+      `User-agent: *\nDisallow: /${'*a'.repeat(250_000)}z\n`,
+    ]) {
+      const robots = parseRobots(text, TOKEN);
+      for (let index = 0; index < 5; index += 1) robots.allows(`${path}${index}`);
+    }
+    expect(Date.now() - started).toBeLessThan(3_000);
   });
 
   it('survives text that is not valid Unicode', () => {
