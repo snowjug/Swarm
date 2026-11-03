@@ -218,7 +218,7 @@ before it looks at `IF NOT EXISTS` (**UNVERIFIED**: confirm against a real serve
 - **Separating a migration identity from a runtime identity needs an application change** (a migrate command run with
   the administrator identity; a runtime that only verifies the schema version and does not run DDL), and then a template
   change to stop making the runtime identity an administrator. Neither is done. The application half belongs with the
-  database guidance in `docs/production/database.md` (planned, owned by the hardening workstream).
+  database guidance in [database.md](./database.md#10-the-database-role).
 - What infra _does_ provide: the application authenticates as a **user-assigned managed identity** that is mapped to a
   database role through Microsoft Entra (**no password exists**: `DATABASE_AUTH=entra`, `require_secure_transport=ON`);
   an optional break-glass group; and, for a server it did not create, **no administrator right at all** for the identity

@@ -8,9 +8,12 @@ product signals and the rules for logs, answers and the audit log.
 **Status: built and tested with in-memory exporters and a scripted session of real requests
 (`backend/test/telemetry-product.test.ts`, `privacy.test.ts`, `logging.test.ts`). Nothing here has
 been exported to a real Application Insights resource, and no dashboard or alert has been run
-against these signals.** The signals are recorders that other parts of the product call; at the time
-of writing the recorders exist and are tested, and the research, actor, constraint and report code
-that will call them is being written by other changes. A metric that nobody calls yet stays empty.
+against these signals.** The signals are recorders that other parts of the product call. The recorders
+all exist and are tested; product code calls the research ones (`research/run.ts`, `research/service.ts`),
+`swarm.report.duration` (the Decision Canvas, `decision/service.ts`) and `swarm.deployment.info`
+(`deployment.ts`). **No product code calls** the recorders for `swarm.actors.*`, `swarm.constraints.*` and
+`swarm.sim.duration`, and a cancellation is recorded for research only, so those metrics stay empty: a metric
+that nobody calls stays empty.
 
 ## Principles
 
@@ -31,27 +34,27 @@ that will call them is being written by other changes. A metric that nobody call
 Recorders are in `backend/src/telemetry/product-signals.ts`; the header of that file documents each
 one. Attribute values are listed here by the enumeration they come from.
 
-| Metric                             | Kind           | Attributes                                                                    | What it counts                                                                                       |
-| ---------------------------------- | -------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `swarm.research.runs`              | counter        | `swarm.research.outcome`, `swarm.research.mode`, `swarm.research.stop_reason` | Research runs: started, completed, cancelled, failed, blocked; the reason a finished run stopped     |
-| `swarm.research.pages`             | counter        | `swarm.research.mode`                                                         | Pages fetched                                                                                        |
-| `swarm.research.crawl.duration`    | histogram (ms) | `swarm.research.mode`, `swarm.research.stop_reason`                           | How long a crawl took                                                                                |
-| `swarm.research.fetch.failures`    | counter        | `swarm.fetch.error_class`                                                     | Failed fetches, by `FETCH_ERROR_CLASSES`                                                             |
-| `swarm.research.safety.blocks`     | counter        | `swarm.safety.reason`                                                         | Requests a deterministic rule refused, by `SAFETY_BLOCK_REASONS`                                     |
-| `swarm.research.quarantines`       | counter        | `swarm.quarantine.reason`                                                     | Pages set aside, by `QUARANTINE_REASONS`                                                             |
-| `swarm.research.sources.used`      | counter        | `swarm.source.category`                                                       | Sources that became evidence, by `SOURCE_CATEGORIES`                                                 |
-| `swarm.research.evidence.passages` | counter        | `swarm.research.mode`                                                         | Passages indexed as evidence                                                                         |
-| `swarm.actors.proposals`           | counter        | `swarm.proposal.origin`                                                       | Actor proposals: by the model, by rules, or by rules after the model failed (`fallback`)             |
-| `swarm.actors.proposed`            | counter        | `swarm.proposal.origin`                                                       | Actors proposed                                                                                      |
-| `swarm.actors.valid`               | counter        | `swarm.proposal.origin`                                                       | Proposed actors that passed validation                                                               |
-| `swarm.actors.issues`              | counter        | `swarm.issue.code`                                                            | Validation issues, by code                                                                           |
-| `swarm.constraints.proposals`      | counter        | `swarm.proposal.origin`                                                       | Constraint proposals                                                                                 |
-| `swarm.constraints.proposed`       | counter        | `swarm.proposal.origin`                                                       | Constraints proposed                                                                                 |
-| `swarm.constraints.gate`           | counter        | `swarm.gate.status`                                                           | Where the approval gate stood, by `GATE_STATUSES`                                                    |
-| `swarm.sim.duration`               | histogram (ms) | `swarm.sim.outcome`                                                           | How long a simulation took: completed, failed, cancelled                                             |
-| `swarm.report.duration`            | histogram (ms) | `swarm.report.outcome`                                                        | How long generating a report took                                                                    |
-| `swarm.cancellations`              | counter        | `swarm.cancel.scope`                                                          | Work a person stopped: research, simulation, analysis, report, critique, actors, constraints         |
-| `swarm.deployment.info`            | gauge          | `swarm.deployment.mode`, `swarm.build.version`, `swarm.build.sha`             | 1 for the deployment this process is: its mode, version and the first twelve characters of the build |
+| Metric                             | Kind           | Attributes                                                                    | What it counts                                                                                                                            |
+| ---------------------------------- | -------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `swarm.research.runs`              | counter        | `swarm.research.outcome`, `swarm.research.mode`, `swarm.research.stop_reason` | Research runs: started, completed, cancelled, failed, blocked; the reason a finished run stopped                                          |
+| `swarm.research.pages`             | counter        | `swarm.research.mode`                                                         | Pages fetched                                                                                                                             |
+| `swarm.research.crawl.duration`    | histogram (ms) | `swarm.research.mode`, `swarm.research.stop_reason`                           | How long a crawl took                                                                                                                     |
+| `swarm.research.fetch.failures`    | counter        | `swarm.fetch.error_class`                                                     | Failed fetches, by `FETCH_ERROR_CLASSES`                                                                                                  |
+| `swarm.research.safety.blocks`     | counter        | `swarm.safety.reason`                                                         | Requests a deterministic rule refused, by `SAFETY_BLOCK_REASONS`                                                                          |
+| `swarm.research.quarantines`       | counter        | `swarm.quarantine.reason`                                                     | Pages set aside, by `QUARANTINE_REASONS`                                                                                                  |
+| `swarm.research.sources.used`      | counter        | `swarm.source.category`                                                       | Sources that became evidence, by `SOURCE_CATEGORIES`                                                                                      |
+| `swarm.research.evidence.passages` | counter        | `swarm.research.mode`                                                         | Passages indexed as evidence                                                                                                              |
+| `swarm.actors.proposals`           | counter        | `swarm.proposal.origin`                                                       | Actor proposals: by the model, by rules, or by rules after the model failed (`fallback`)                                                  |
+| `swarm.actors.proposed`            | counter        | `swarm.proposal.origin`                                                       | Actors proposed                                                                                                                           |
+| `swarm.actors.valid`               | counter        | `swarm.proposal.origin`                                                       | Proposed actors that passed validation                                                                                                    |
+| `swarm.actors.issues`              | counter        | `swarm.issue.code`                                                            | Validation issues, by code                                                                                                                |
+| `swarm.constraints.proposals`      | counter        | `swarm.proposal.origin`                                                       | Constraint proposals                                                                                                                      |
+| `swarm.constraints.proposed`       | counter        | `swarm.proposal.origin`                                                       | Constraints proposed                                                                                                                      |
+| `swarm.constraints.gate`           | counter        | `swarm.gate.status`                                                           | Where the approval gate stood, by `GATE_STATUSES`                                                                                         |
+| `swarm.sim.duration`               | histogram (ms) | `swarm.sim.outcome`                                                           | How long a simulation took: completed, failed, cancelled (no caller yet)                                                                  |
+| `swarm.report.duration`            | histogram (ms) | `swarm.report.outcome`                                                        | How long the Decision Canvas took to build (its only caller; the guided report does not record one)                                       |
+| `swarm.cancellations`              | counter        | `swarm.cancel.scope`                                                          | Work a person stopped: the scopes are research, simulation, analysis, report, critique, actors and constraints; only research records one |
+| `swarm.deployment.info`            | gauge          | `swarm.deployment.mode`, `swarm.build.version`, `swarm.build.sha`             | 1 for the deployment this process is: its mode, version and the first twelve characters of the build                                      |
 
 `swarm.cancellations` is the one name outside the families `swarm.research.*`, `swarm.actors.*`,
 `swarm.constraints.*`, `swarm.sim.*` and `swarm.report.*`: a cancellation belongs to all of them, and one
@@ -147,9 +150,12 @@ the full URL, logging an exception's message, echoing an address in an answer).
 
 ## Not covered, and why
 
-- **Trace content stays off.** Whether the model client may attach a prompt or an answer to a span is
-  decided by the models workstream (`TELEMETRY_TRACE_CONTENT`), not here. What this page and its tests
-  cover is the application's own spans: the request span and the job span carry a route template, a status
+- **Trace content stays off unless it is asked for.** With `TELEMETRY_TRACE_CONTENT=redacted` the
+  `swarm.model.task` span of a task that goes through the task runner (today, the planning of a research run)
+  also carries the size of the prompt and of the reply and a short hash of the prompt: derived from content,
+  never the text ([Foundry models](../models/foundry.md#telemetry); tested in `telemetry-model.test.ts` and
+  `foundry-config.test.ts`). The scripted session of `privacy.test.ts` does not turn it on. What this page and
+  its tests cover is the application's own spans: the request span and the job span carry a route template, a status
   and an error code, never an exception, an event, a query or a body.
 - **A real Application Insights resource.** No export has been made to one, so what the portal shows, the
   retention and the access to it are unverified.

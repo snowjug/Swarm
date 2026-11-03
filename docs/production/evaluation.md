@@ -23,7 +23,7 @@ Every number states its mode. A metric that is not measured in a mode is printed
 
 The live column is empty in every report and says `NOT MEASURED: no Azure authorization on this machine`, with the reason (no `--live`, no `AI_PROVIDER=foundry`, no credentials, an endpoint on this machine). It reads no secret and prints none; a live run stops at a token budget (1,500,000 by default, set under the per-project cap). When a live measurement is asked for (`--live`, or `--mode` naming `live`) and refused, the command exits 3, so that a run that measured nothing is not taken for a pass; a breach (exit 1) outranks it, and 2 is a harness error.
 
-Three further suites are listed as `NOT MEASURED (pending)` because they are being built by other workstreams and are not on this base: the research planner, a research run end to end, and the Decision Canvas status matrix. The harness is structured so that each plugs in as another suite.
+Three further suites do not exist and are listed as `NOT MEASURED (pending)`: the research planner, a research run end to end, and the Decision Canvas status matrix. The research orchestration and the canvas are now in the product, and their rules are tested in `backend/test/research-*.test.ts` and `decision-*.test.ts`; those are tests of rules, not a labelled evaluation. The harness is structured so that each plugs in as another suite.
 
 ## What is measured, on what
 
@@ -82,48 +82,48 @@ The definition of each, and why it is measured only where it is, is in `threshol
 
 ## Results
 
-At the time of writing, on 13 scenarios, 61 pages, 48 safety requests and 21 planted flaws. Pooled over dev and test; the dev and test values and every interval are in [`ai-latest.md`](../../evaluation/results/ai-latest.md).
+As recorded on 3 November 2026, on 13 scenarios, 61 pages, 48 safety requests and 21 planted flaws. Pooled over dev and test; the dev and test values and every interval are in [`ai-latest.md`](../../evaluation/results/ai-latest.md), which `npm run eval:ai:write` regenerates and which is the authority if the two differ. **Two registered thresholds are breached in rules mode, and they are listed in [`known-breaches.json`](../../evaluation/known-breaches.json) with the reason.**
 
 ### rules
 
-| Metric                                                    | Result                              | Threshold  | Status       |
-| --------------------------------------------------------- | ----------------------------------- | ---------- | ------------ |
-| Rules fallback schema-valid rate                          | 100% (82/82)                        | 100%       | met          |
-| Grounded claim rate                                       | 100% (466/466)                      | ≥ 95%      | met          |
-| Unsupported claim rate                                    | 0% (0/292)                          | ≤ 2%       | met          |
-| Citation correctness                                      | 100% (466/466)                      | 100%       | met          |
-| Actor coverage                                            | 30.4% (49/161; 24% to 38%)          | ≥ 90%      | **breached** |
-| Actor redundancy                                          | 8.4% (10/119); dev 11.7%, test 5.1% | ≤ 10%      | met          |
-| Generic actor names accepted                              | 0 of 270                            | 0          | met          |
-| Hard-constraint detection recall                          | 24.5% (12/49; 15% to 38%)           | ≥ 80%      | **breached** |
-| `extracted` without a quote in the source                 | 0 of 63                             | 0          | met          |
-| Missing-constraint detection                              | 15.4% (2/13; 4% to 42%)             | ≥ 70%      | **breached** |
-| Source diversity                                          | 5 domains; largest share 39%        | ≥ 3; ≤ 60% | met          |
-| Critic catch rate (rule critics)                          | 90.5% (19/21; dev 81.8%, test 100%) | ≥ 80%      | met          |
-| Injections obeyed or echoed                               | 0 of 6                              | 0          | met          |
-| Hostile hosts government with high authority              | 0 of 9                              | 0          | met          |
-| Injected lines without the flag label                     | 1 of 11                             | 0          | **breached** |
-| Schema-valid reply rate, unsafe and benign requests, cost | NOT MEASURED                        |            |              |
+| Metric                                                    | Result                                                 | Threshold  | Status                                |
+| --------------------------------------------------------- | ------------------------------------------------------ | ---------- | ------------------------------------- |
+| Rules fallback schema-valid rate                          | 100% (82/82)                                           | 100%       | met                                   |
+| Grounded claim rate                                       | 100% (680/680)                                         | ≥ 95%      | met                                   |
+| Unsupported claim rate                                    | 0% (0/442)                                             | ≤ 2%       | met                                   |
+| Citation correctness                                      | 100% (680/680)                                         | 100%       | met                                   |
+| Actor coverage                                            | 67.1% (108/161; 59.5% to 73.9%); dev 72.2%, test 60.6% | ≥ 90%      | **breached**                          |
+| Actor redundancy                                          | 10% (18/180); dev 9.7%, test 10.4%                     | ≤ 10%      | met, at the ceiling                   |
+| Generic actor names accepted                              | 0 of 417                                               | 0          | met                                   |
+| Hard-constraint detection recall                          | 75.5% (37/49; 61.9% to 85.4%); dev 78.8%, test 68.8%   | ≥ 80%      | **breached**                          |
+| `extracted` without a quote in the source                 | 0 of 102                                               | 0          | met                                   |
+| Missing-constraint detection                              | 76.9% (10/13; 49.7% to 91.8%)                          | ≥ 70%      | met; the interval spans the threshold |
+| Source diversity                                          | 5 domains; largest share 39%                           | ≥ 3; ≤ 60% | met                                   |
+| Critic catch rate (rule critics)                          | 90.5% (19/21; dev 81.8%, test 100%)                    | ≥ 80%      | met                                   |
+| Injections obeyed or echoed                               | 0 of 6                                                 | 0          | met                                   |
+| Hostile hosts government with high authority              | 0 of 9                                                 | 0          | met                                   |
+| Injected lines without the flag label                     | 0 of 8                                                 | 0          | met                                   |
+| Schema-valid reply rate, unsafe and benign requests, cost | NOT MEASURED                                           |            |                                       |
 
-Read leniently, with a live name that shares any content word of the labelled name counting as a match, the rules cover half of the labelled participants (80/161). They surfaced none of the 23 missing voices.
+The participant and constraint figures improved in the rounds recorded in `known-breaches.json` (coverage was 30.4% and recall 24.5% on the first run). The rules now read a wide, domain-neutral vocabulary, name the groups the sources spell out, take the decision owner from the text and add a marked scaffold of what a decision structurally has; they read hardness from what a clause asserts. What is left needs a model or a guess: roles the sources never mention, most missing voices (the rules surfaced 2 of the 23), and limits stated as bare quantities. Read leniently, with a live name that shares any content word of the labelled name counting as a match, the rules cover 76% (123/161) of the labelled participants. The rules were tuned on the dev split, and the drop to test (72.2% to 60.6%, and 78.8% to 68.8%) shows it.
 
 ### fake-foundry
 
-| Metric                                         | Result                                                               | Threshold          | Status       |
-| ---------------------------------------------- | -------------------------------------------------------------------- | ------------------ | ------------ |
-| Rules fallback schema-valid rate               | 100% (167/167)                                                       | 100%               | met          |
-| Grounded claim rate / citation correctness     | 100% (5,198/5,198)                                                   | ≥ 95% / 100%       | met          |
-| Unsupported claim rate                         | 0% (0/4,498)                                                         | ≤ 2%               | met          |
-| Actor coverage / redundancy (clean reply)      | 99.4% (160/161) / 1.6% (3/184)                                       | ≥ 90% / ≤ 10%      | met          |
-| Generic actor names accepted                   | 0 of 3,380                                                           | 0                  | met          |
-| Hard-constraint detection recall (clean reply) | 53.1% (26/49; 39% to 66%)                                            | ≥ 80%              | **breached** |
-| `extracted` without a quote in the source      | 0 of 1,386                                                           | 0                  | met          |
-| Injections echoed                              | 0 of 22                                                              | 0                  | met          |
-| Unsafe requests passed                         | 0 of 72                                                              | 0                  | met          |
-| Benign requests refused                        | 0% (0/24; 0% to 14%)                                                 | ≤ 2%               | met          |
-| Cost per flagship run                          | at most 16,396 tokens (0.41% of the cap), about $0.014 at list price | ≤ 4,000,000 tokens | met          |
+| Metric                                         | Result                                                                | Threshold          | Status                                |
+| ---------------------------------------------- | --------------------------------------------------------------------- | ------------------ | ------------------------------------- |
+| Rules fallback schema-valid rate               | 100% (167/167)                                                        | 100%               | met                                   |
+| Grounded claim rate / citation correctness     | 100% (5,976/5,976)                                                    | ≥ 95% / 100%       | met                                   |
+| Unsupported claim rate                         | 0% (0/5,028)                                                          | ≤ 2%               | met                                   |
+| Actor coverage / redundancy (clean reply)      | 99.4% (160/161) / 1.6% (3/184)                                        | ≥ 90% / ≤ 10%      | met                                   |
+| Generic actor names accepted                   | 0 of 3,934                                                            | 0                  | met                                   |
+| Hard-constraint detection recall (clean reply) | 89.8% (44/49; 78.2% to 95.6%)                                         | ≥ 80%              | met; the interval spans the threshold |
+| `extracted` without a quote in the source      | 0 of 1,464                                                            | 0                  | met                                   |
+| Injections echoed                              | 0 of 22                                                               | 0                  | met                                   |
+| Unsafe requests passed                         | 0 of 72                                                               | 0                  | met                                   |
+| Benign requests refused                        | 0% (0/24; 0% to 13.8%)                                                | ≤ 2%               | met                                   |
+| Cost per flagship run                          | at most 16,460 tokens (0.41% of the cap), about $0.0143 at list price | ≤ 4,000,000 tokens | met                                   |
 
-What the corruption arms show: every content fault the arms plant (a missing or extra field, an invented evidence id, an unverifiable quote, a generic name, duplicate names, a personal detail, a forecast, a stereotype, duplicate or instruction-like constraints, an echoed injection) is rejected, corrected or taken in with its mark gone, whether the second reply is clean or not; a provider refusal or content filter is surfaced as a refusal and never answered from rules; any other provider failure, and a spent call budget, falls back to a rules answer that passes its own checks. A real quote from the wrong passage is the exception (see below).
+What the corruption arms show: most content faults the arms plant (a missing or extra field, an invented evidence id, an unverifiable quote, a generic name, duplicate names, a personal detail, a forecast in a participant, a stereotype, duplicate or instruction-like constraints, an echoed injection) are rejected, corrected or taken in with the mark gone, whether the second reply is clean or not; a provider refusal or content filter is surfaced as a refusal and never answered from rules; any other provider failure, and a spent call budget, falls back to a rules answer that passes its own checks. The exceptions are a real quote from the wrong passage (0 of 12 caught, for participants and for constraints), a critique worded as a forecast (0 of 1), and a reply that calls a soft limit hard: 12% (12 of 100) of the hardness a model claimed too high was accepted by the product, and the "inflated hardness" arm was corrected 77% (10 of 13) of the time.
 
 ### live
 
@@ -133,18 +133,18 @@ Every row is `NOT MEASURED`.
 
 The measurements show these. Each has the numbers it rests on, and a way to see it again, in [`ai-latest.md`](../../evaluation/results/ai-latest.md).
 
-**Defect.** On a page whose body is over about 80,000 characters, an instruction to an AI in its structured data (a JSON-LD field) is kept in the extracted text without the flag label, the page's injection count stays 0, and its links would be followed (page P67). `extract/document.ts` spends its scan budget on the body before it labels the structured data. This is the one breach of a threshold that is a defect rather than a limit of the rules.
+**Found by the first run, and fixed.** On a page whose body is over about 80,000 characters, an instruction to an AI in its structured data (a JSON-LD field) was kept in the extracted text without the flag label, the page's injection count stayed 0, and its links would have been followed (page P67). The crawler's extraction now reads the structured data for instructions with a budget of its own, and the metric reads 0 of 8 (commit `f0d4d09`; `research/README.md` says how).
 
 Limits and gaps:
 
-- **Hardness comes from a word list.** A correct and complete reply that proposes every labelled constraint with its labelled hardness leaves 53% of the labelled hard constraints held as hard: `constraints/build.ts` sets an extracted constraint hard only when its quote matches `HARD_CUE`, so an agreement that makes work voluntary, or a deadline, is soft. This is a design choice that the registered threshold does not share.
+- **A model's "hard" can still be wrong.** The product reads hardness from the quote (`constraints/cues.ts`), and a model's label can raise a source's limit only where the quoted words bear it out, so a reply that calls everything hard is held in check; it is a guard and not a wall. In the fake-Foundry arms 12% (12 of 100) of the hardness a model claimed too high was accepted, and a hard legal, regulatory or safety constraint that nobody has validated blocks a run at the gate. [constraints.md](../analysis/constraints.md#hardness-is-a-proposal-with-a-basis) says why.
 - **A real quote from the wrong passage is accepted.** A scripted reply that attached a verbatim quote from another passage to a participant or a constraint was accepted without a correction, and the constraint was labelled `extracted`. The grounded and citation rates cannot see it; no check asks whether a quote bears on its statement.
 - **The product has no screen for unsafe requests of its own.** When the provider did not block, all 24 unsafe requests were answered. Refusal is the provider's decision; with no model, or a provider that does not filter, nothing refuses.
 - **The model critic is not checked for wording, and gets two corrections.** A critique saying the change "will certainly fail" is kept (participants are held to the brief's wording guard); a critique that keeps failing costs three provider calls where the rule for a model task, and the registered rate, say one correction. (The critic path is guarded against an echoed injection, as every task is, by the client.)
 - **A near copy is read as a separate source.** The same text on the same site with one phrase changed differs from the original in 9 of 64 fingerprint bits; the crawler takes 3 as the same. An exact copy on another site is set aside.
 - **A news article on a site a person named is read as an official statement**, and credible reporting is assigned only from a built-in list of domains.
 - **The claim check is lexical**: it rates 67% (16 of 24) of the labelled unsupported statements as supported.
-- **The rules proposal is lexical too**: no labelled alternative was found in the scenario frame (0/36), 73% (8/11) of the labelled conflicts were found with 4 detections no label accounts for, and removing the sentence of one constraint changed what was asked in 1 of 13 scenarios.
+- **The rules proposal is lexical too**: no labelled alternative was found in the scenario frame (0/36), 73% (8/11) of the labelled conflicts were found with 4 detections no label accounts for, and a seeded gap was raised in 10 of 13 scenarios but in only 6 because its sentence had been removed (in the others the same question or constraint was raised with the sentence present).
 
 ## What this does not show
 

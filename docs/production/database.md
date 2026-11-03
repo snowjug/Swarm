@@ -268,8 +268,9 @@ are in [the runbook](../operations/runbook.md#roll-back).
   in the template) keeps automated backups and its transaction log, so it can be restored to any point
   within `backupRetentionDays` (7 by default, 7 to 35). A restore always creates a **new** server: add
   the application's identity as its Entra administrator and point `DATABASE_URL` at it. The parameters
-  belong to the infrastructure workstream (`infra/pilot` and its `docs/production` runbook and release
-  process); [the pilot plan](../azure/pilot-plan.md#backup-restore-and-rollback) and
+  are in `infra/pilot`, and the production [runbook](./runbook.md#restore-the-database-to-a-new-server)
+  and [release process](./release-process.md) have the procedure;
+  [the pilot plan](../azure/pilot-plan.md#backup-restore-and-rollback) and
   [the runbook](../operations/runbook.md#restore-the-database) have the commands.
 - **No restore of a hosted server has been rehearsed.** Do one before it is needed, and record how long it
   took and what was lost. `npm run db:drill -- --from postgres://...` rehearses the logical path (a
@@ -355,7 +356,7 @@ Not done, in the order they would pay:
 1. **Fewer round trips for a read.** Fold the session and workspace-role lookups into one query (2 trips on
    every request), and list a project's artifacts in one query (6 of the 12 to open one). Opening a project
    would cost about 6 trips instead of 12 and the ceiling would roughly double. This changes the stores,
-   which this workstream did not.
+   and has not been done.
 2. **Asynchronous stores with a pool of connections** (the follow-up in ADR 0009). It removes the blocking
    itself, and with it the probe delay and the single-statement ceiling. It is the design change.
 3. **Timeouts the operator can set:** `statement_timeout`, `lock_timeout`, `idle_in_transaction_session_timeout`
