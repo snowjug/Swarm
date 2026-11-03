@@ -17,7 +17,9 @@
  * `response_format: json_schema`, that the schema obeys the documented strict-mode rules
  * (`strictSchemaProblems`: closed objects, every property required, no lengths or ranges, `anyOf` only).
  * A reply it is scripted to give under a strict schema must also conform to that schema, as a real
- * constrained model's would: otherwise the answer is a 501 and the mismatch is listed in `problems`.
+ * constrained model's would: a key the script leaves out is written as null where the schema allows
+ * it (what a constrained model does for an optional property), and anything else that does not
+ * conform makes the answer a 501 and is listed in `problems`.
  *
  * Every request is kept in `requests` with its parsed body, so a test can prove what was sent, and
  * where: which deployment, which parameters, and that no secret or untrusted text went anywhere else.
@@ -256,6 +258,37 @@ export function strictSchemaProblems(schema: unknown): string[] {
   return problems;
 }
 
+/**
+ * What a constrained model does with an optional property it has nothing for: it writes null. A test
+ * scripts a natural reply, and this completes it the way the real thing would, where the schema allows.
+ */
+function fillNulls(schema: unknown, value: unknown, root: Node, depth = 0): unknown {
+  if (!isNode(schema) || depth > 12) return value;
+  if (typeof schema.$ref === 'string') {
+    const target = (isNode(root.$defs) ? root.$defs : {})[schema.$ref.replace('#/$defs/', '')];
+    return fillNulls(target, value, root, depth + 1);
+  }
+  if (Array.isArray(schema.anyOf)) {
+    for (const variant of schema.anyOf) {
+      const filled = fillNulls(variant, value, root, depth + 1);
+      if (mismatch(variant, filled, root) === null) return filled;
+    }
+    return value;
+  }
+  if (Array.isArray(value) && isNode(schema.items)) {
+    return value.map((item) => fillNulls(schema.items, item, root, depth + 1));
+  }
+  if (isNode(value) && isNode(schema.properties)) {
+    const out: Node = { ...value };
+    for (const [key, property] of Object.entries(schema.properties)) {
+      if (key in out) out[key] = fillNulls(property, out[key], root, depth + 1);
+      else if (mismatch(property, null, root) === null) out[key] = null;
+    }
+    return out;
+  }
+  return value;
+}
+
 /** Whether a value conforms to a strict schema, for the replies a test scripts. Returns the first mismatch. */
 function mismatch(schema: unknown, value: unknown, root: Node, path = '#'): string | null {
   if (!isNode(schema)) return `${path}: not a schema`;
@@ -419,10 +452,13 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
     const schema = request.body?.response_format?.json_schema?.schema;
     const strict = request.body?.response_format?.type === 'json_schema';
     const render = (given: unknown): string | null => {
-      const value =
+      const scripted =
         typeof given === 'function' ? (given as (r: RecordedRequest) => unknown)(request) : given;
+      const root = isNode(schema) ? schema : {};
+      // A constrained model writes every key; for an optional property it writes null.
+      const value = strict ? fillNulls(schema, scripted, root) : scripted;
       if (strict) {
-        const found = mismatch(schema, value, isNode(schema) ? schema : {});
+        const found = mismatch(schema, value, root);
         if (found) {
           problems.push(`scripted reply does not conform to the strict schema: ${found}`);
           return null;

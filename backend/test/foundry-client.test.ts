@@ -170,6 +170,25 @@ describe('strict structured output', () => {
     expect(fake.problems).toEqual([]);
   });
 
+  it('is given the nulls a constrained model would write: a natural reply that leaves an optional property out still passes', async () => {
+    const { client } = made();
+    const schema = z.object({
+      answer: z.string().min(1),
+      notes: z.array(z.string()).optional(),
+      nested: z.object({ detail: z.string().optional(), size: z.number() }).optional(),
+    });
+    fake.script({ kind: 'reply', value: { answer: 'ok' } });
+    await expect(client.json(schema, 'Return JSON.', {}, signal())).resolves.toEqual({
+      answer: 'ok',
+    });
+    // A reply that breaks the schema for another reason is still refused by the fake, and listed.
+    fake.script({ kind: 'reply', value: { answer: 7 } });
+    await expect(client.json(schema, 'Return JSON.', {}, signal())).rejects.toMatchObject({
+      code: 'MODEL_HTTP_ERROR',
+    });
+    expect(fake.problems).toEqual([expect.stringContaining('#.answer')]);
+  });
+
   it('keeps a null that the schema itself allows, and rejects one it does not', async () => {
     const { client } = made();
     const schema = z.object({ label: z.string().nullable(), count: z.number() });
