@@ -380,25 +380,28 @@ async function measure(options: Options, rtt: number, results: Phase[]): Promise
     await phase('list 20 projects', Math.max(...options.concurrency), list);
     await phase('create and delete one', Math.min(4, Math.max(...options.concurrency)), write);
 
-    // The cost of one query, with nothing else going on.
-    let queries = 0;
-    const started = performance.now();
-    while (performance.now() - started < Math.min(options.seconds, 3) * 1_000) {
-      for (let index = 0; index < 50; index += 1) repository.ping();
-      queries += 50;
+    // The cost of one query, with nothing else going on: the fastest is what the machine and the
+    // server can do, and the rest is whatever else they were doing.
+    const durations: number[] = [];
+    const began = performance.now();
+    while (performance.now() - began < Math.min(options.seconds, 3) * 1_000) {
+      const before = performance.now();
+      repository.ping();
+      durations.push(performance.now() - before);
     }
-    const wall = performance.now() - started;
+    const wall = performance.now() - began;
+    durations.sort((a, b) => a - b);
     results.push({
       engine: options.engine,
       rtt,
-      phase: `one query (SELECT 1), ${round(wall / queries, 3)} ms each`,
+      phase: `one query (SELECT 1), fastest ${round(durations[0] ?? 0, 3)} ms`,
       concurrency: 1,
-      requests: queries,
-      perSecond: round((queries / wall) * 1_000),
-      p50: round(wall / queries, 3),
-      p95: 0,
-      p99: 0,
-      max: 0,
+      requests: durations.length,
+      perSecond: round((durations.length / wall) * 1_000),
+      p50: round(percentile(durations, 50), 3),
+      p95: round(percentile(durations, 95), 3),
+      p99: round(percentile(durations, 99), 3),
+      max: round(durations.at(-1) ?? 0, 3),
       databaseCallsPerRequest: null,
       databaseHeldPercent: null,
       loopDelayP99: 0,
