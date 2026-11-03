@@ -29,7 +29,7 @@ a tamper-evident audit log.
 
 ## What is not
 
-- It is not production ready. See [the gates](../production-readiness.md): 8 of 29 are met.
+- It is not production ready. See [the gates](../production-readiness.md): 8 of 31 are met.
 - Sign-in has never been used with a real Entra tenant. People are added by Entra object ID (there is no directory lookup).
 - Storage is SQLite unless a PostgreSQL database is configured. The PostgreSQL adapter passes the unit suite
   in-process and has never run against a deployed server; the job queue has not run across separate
