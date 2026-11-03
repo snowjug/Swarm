@@ -584,6 +584,8 @@ export const constraintReviewSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('confirm-set'), ...revision }).strict(),
 ]);
 export type ConstraintReviewAction = z.infer<typeof constraintReviewSchema>;
+/** What a client sends: the defaults of a constraint it writes are left to the server. */
+export type ConstraintReviewInput = z.input<typeof constraintReviewSchema>;
 
 export const proposeConstraintsSchema = z
   .object({
