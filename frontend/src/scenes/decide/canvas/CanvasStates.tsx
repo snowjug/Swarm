@@ -90,13 +90,7 @@ export function CanvasEmpty({
             <Compass size={26} aria-hidden="true" />
           )
         }
-        title={
-          running
-            ? 'A comparison is running'
-            : failed
-              ? 'The last comparison did not finish'
-              : 'Nothing to decide from yet'
-        }
+        title={running ? 'Not ready yet' : 'Nothing to decide from yet'}
         action={
           running ? null : (
             <div className="sw-canvas-state__actions">

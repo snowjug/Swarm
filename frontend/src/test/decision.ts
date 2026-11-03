@@ -845,6 +845,10 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.status.headline =
           '“Proposed change” is ahead on every lens that could be computed, and nothing tried reverses it.';
         canvas.status.conditions = [];
+        canvas.status.why = [
+          'On “Least resistance overall”: clearly ahead.',
+          'No counterfactual view or sensitive assumption reverses it.',
+        ];
         canvas.answer.preferredAlternativeId = 'proposed-change';
         canvas.answer.recommendation.kind = 'proceed';
         canvas.answer.recommendation.what = say(
@@ -858,6 +862,10 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.status.headline =
           'No option is clearly ahead: “No change” and “Proposed change” cannot be told apart on the headline lens.';
         canvas.status.conditions = [];
+        canvas.status.why = [
+          'On “Least resistance overall”: level with the best.',
+          'On “Broadest support among key actors”: level with the best.',
+        ];
         canvas.answer.preferredAlternativeId = null;
         canvas.answer.recommendation.kind = 'decide';
         canvas.answer.recommendation.what = say(
@@ -871,6 +879,7 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.status.headline =
           'The evidence is not enough for the simulation to carry a recommendation.';
         canvas.status.conditions = [];
+        canvas.status.why = ['No actor has a cited supporting passage.'];
         canvas.answer.preferredAlternativeId = null;
         canvas.answer.recommendation.kind = 'gather-evidence';
         canvas.evidence.level = 'insufficient';
@@ -886,6 +895,9 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.status.headline =
           'Every option breaks a hard constraint that is confirmed, so none can be recommended.';
         canvas.status.conditions = [];
+        canvas.status.why = [
+          '“No change” and “Proposed change” each break a hard constraint that is confirmed.',
+        ];
         canvas.answer.preferredAlternativeId = null;
         canvas.answer.recommendation.kind = 'resolve-constraint';
         canvas.constraints.gate = 'blocked';
@@ -908,6 +920,9 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.status.headline =
           'Two lenses each name a different leader, so the choice turns on which of them matters more.';
         canvas.status.conditions = [];
+        canvas.status.why = [
+          '“No change” leads on “Least resistance overall”; “Proposed change” leads on “Broadest support among key actors”.',
+        ];
         canvas.answer.preferredAlternativeId = null;
         canvas.answer.recommendation.kind = 'decide';
         canvas.answer.recommendation.what = say(
@@ -919,6 +934,8 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
       case 'conditional-option':
         break;
     }
+    // The sentence at the top of the page is the status's own.
+    canvas.answer.headline = say(canvas.status.headline, 'recommendation', `status:${status}`);
   });
 }
 

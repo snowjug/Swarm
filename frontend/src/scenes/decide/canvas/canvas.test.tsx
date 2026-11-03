@@ -192,20 +192,22 @@ describe('the decision canvas when there is nothing to show', () => {
   });
 
   it.each([
-    ['no-analysis', 'simulate', 'Nothing to decide from yet', 'Open Simulate'],
-    ['no-analysis', 'ground', 'Nothing to decide from yet', 'Open Ground'],
-    ['no-analysis', 'ask', 'Nothing to decide from yet', 'Open Ask'],
+    ['no-analysis', 'simulate', 'No comparison has been run yet.', 'Open Simulate'],
+    ['no-analysis', 'ground', 'No comparison has been run yet.', 'Open Ground'],
+    ['no-analysis', 'ask', 'No comparison has been run yet.', 'Open Ask'],
     ['failed', 'simulate', 'The last comparison did not finish', 'Open Simulate'],
-  ] as const)('says %s with the step that is missing: %s', (state, next, title, action) => {
-    const said = text(render(handleOf(emptyFixture(state, next)), { below: false }));
-    expect(said).toContain(title);
-    expect(said).toContain(action);
-    expect(said).not.toContain('Current best answer');
+  ] as const)('says %s with the step that is missing: %s', (state, next, said, action) => {
+    const page = text(render(handleOf(emptyFixture(state, next)), { below: false }));
+    expect(page).toContain('Nothing to decide from yet');
+    expect(page).toContain(said);
+    expect(page).toContain(action);
+    expect(page).not.toContain('Current best answer');
   });
 
   it('says that a comparison is running and offers nothing to press', () => {
     const markup = render(handleOf(emptyFixture('running')), { below: false });
-    expect(text(markup)).toContain('A comparison is running');
+    expect(text(markup)).toContain('Not ready yet');
+    expect(text(markup)).toContain('A comparison is running.');
     expect(markup).not.toContain('Open Simulate');
   });
 
