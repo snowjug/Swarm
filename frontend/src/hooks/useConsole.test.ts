@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ResearchIntakeInput } from '../../../shared/research';
 import type { CreateProjectInput } from '../../../shared/types';
 import { ApiError, api } from '../api';
 import { researchApi } from '../api/research';
@@ -9,8 +10,9 @@ import { run, view } from '../scenes/ground/research/fixtures';
 import { projectFixture } from '../test/project';
 import { useConsole } from './useConsole';
 
-// How a question becomes a project, and what starts: with sources of its own, its evidence is read; with none,
-// research is what starts, and the page that shows it opens once it has. Only the network is replaced.
+// How a question becomes a project, and what starts: with sources of its own, its evidence is read; with none, or
+// with a site or a page named for research to read, research is what starts, and the page that shows it opens once it
+// has. Only the network is replaced.
 
 const QUESTION =
   'What could happen if the harbour office doubles the mooring fee for visiting boats?';
@@ -170,5 +172,96 @@ describe('a question that brings none', () => {
     });
     expect(start).not.toHaveBeenCalled();
     expect(step).toHaveBeenCalled();
+  });
+});
+
+describe('a question that brings sources and names a site for research to read', () => {
+  const sites: [string, ResearchIntakeInput][] = [
+    ['a site', { auto: true, domain: 'harbour.example.org' }],
+    ['a page', { auto: true, url: 'https://harbour.example.org/fees/2025' }],
+  ];
+  const naming = (research: ResearchIntakeInput): CreateProjectInput => ({
+    ...withSources,
+    research,
+  });
+
+  it.each(sites)(
+    'starts research for %s, keeps the sources that were added, and does not also read its evidence',
+    async (_what, research) => {
+      const step = vi.spyOn(api, 'step');
+      const start = vi
+        .spyOn(researchApi, 'start')
+        .mockResolvedValue(view(run({ status: 'queued', stage: 'planning', plan: null })));
+      const { result } = await open();
+
+      await act(async () => {
+        await result.current.create(naming(research));
+      });
+      // The sources are part of the project that is made, and research adds to them.
+      expect(api.create).toHaveBeenCalledWith(
+        { ...naming(research), workflow: 'guided' },
+        expect.any(AbortSignal),
+      );
+      expect(start).toHaveBeenCalledWith(
+        'new-project',
+        { intake: research },
+        expect.any(AbortSignal),
+      );
+      // The run reads first and then grounds: a second job on the stage would only conflict with it.
+      expect(step).not.toHaveBeenCalled();
+      expect(result.current.selectedId).toBe('new-project');
+      expect(result.current.actionError).toBeNull();
+    },
+  );
+
+  it('reads the evidence of its sources, as it always did, when research was asked for and no site was named', async () => {
+    const start = vi.spyOn(researchApi, 'start');
+    const step = vi.spyOn(api, 'step').mockResolvedValue(created);
+    const { result } = await open();
+    await act(async () => {
+      await result.current.create(naming({ auto: true, horizon: '1 year' }));
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(step).toHaveBeenCalledWith('new-project', 'knowledge', expect.any(AbortSignal));
+  });
+
+  it('reads the evidence of its sources, and not the site, when research is off', async () => {
+    const start = vi.spyOn(researchApi, 'start');
+    const step = vi.spyOn(api, 'step').mockResolvedValue(created);
+    const { result } = await open();
+    await act(async () => {
+      await result.current.create(naming({ auto: false, domain: 'harbour.example.org' }));
+    });
+    expect(start).not.toHaveBeenCalled();
+    expect(step).toHaveBeenCalledWith('new-project', 'knowledge', expect.any(AbortSignal));
+
+    // A project that did not ask for anything of research is the same.
+    await act(async () => {
+      await result.current.create(withSources);
+    });
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('says plainly that a project that holds the most sources it can has no room for the site, and what to press', async () => {
+    vi.spyOn(researchApi, 'start').mockRejectedValue(
+      new ApiError(
+        'This project already holds 10 sources, the most it can, so research has nowhere to add more.',
+        'DOCUMENT_LIMIT',
+      ),
+    );
+    const step = vi.spyOn(api, 'step');
+    const { result } = await open();
+    await act(async () => {
+      await result.current.create(naming({ auto: true, domain: 'harbour.example.org' }));
+    });
+    // The project is kept, and is open, with its sources: nothing was lost and nothing was started.
+    expect(result.current.selectedId).toBe('new-project');
+    expect(step).not.toHaveBeenCalled();
+    const { message } = result.current.actionError!;
+    expect(message).toMatch(
+      /^The exploration was saved, but the website you named was not read\. This project already holds 10 sources, the most it can, so research has nowhere to add more\. Open Ground and press “Ground it” to read the sources you added\.$/u,
+    );
+    // Starting research again cannot change it, so it is not what is suggested.
+    expect(message).not.toMatch(/Start research/u);
   });
 });
