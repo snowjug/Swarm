@@ -8,8 +8,10 @@ orchestrator: it plans a run, keeps its record, chooses which pages become sourc
 ([Automatic research for a project](#automatic-research-for-a-project), below).
 
 One rule sits under all of it: **a model may analyse a source, and a source may never instruct the
-system.** Which addresses are fetched, in what order, how often, and when to stop are decided by code, from
-the budget and from what pages link to. Nothing a page says, and nothing a model says, changes any of that.
+system.** Which addresses are fetched, how often, and when to stop are decided by code, from the budget
+and from what pages link to. Nothing a page says changes any of that, and nothing a model says can add
+an address or lift a limit. A model's plan can only narrow and rank what code has already allowed: its
+terms (`hints.terms`) order the links of an allowed page, and a link that carries none of them is not read.
 
 ```
 backend/src/research/
