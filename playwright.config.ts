@@ -80,6 +80,8 @@ const suites: Record<string, { project: Project; servers: WebServer[] }> = {
     project: {
       name: 'journey',
       testMatch: /journey\/.*\.spec\.ts/u,
+      // The production journey and its failure cases run from playwright.journey.config.ts, on a harness of their own.
+      testIgnore: /journey\/(?:production-journey|failure-cases)\.spec\.ts/u,
       use: { baseURL: `http://127.0.0.1:${journeyPort}` },
     },
     servers: [server(journeyPort, 'journey', { AI_PROVIDER: 'none' })],
