@@ -14,6 +14,7 @@ import {
   planQuestion,
   rulesContent,
   stoppingConditionsOf,
+  wordingIssuesOf,
   type PlanContent,
   type PlanInput,
 } from '../src/research/plan.js';
@@ -404,6 +405,39 @@ describe('a plan from a model', () => {
       ).toBe(true);
     },
   );
+
+  it.each([
+    ['a forecast', 'Fees will rise next year.'],
+    ['a word of certainty', 'The schedule certainly shows the rise.'],
+    ['a percentage', 'Fees rose by 40 percent.'],
+  ])(
+    'is not used when its own prose holds %s: the wording guard holds it as it holds everything that is generated',
+    async (_name, prose) => {
+      const bad = {
+        ...modelPlan,
+        likelySources: [{ ...modelPlan.likelySources[0]!, description: prose }],
+      };
+      const { runner } = runnerOver([bad]);
+      const outcome = await plan(runner);
+      expect(outcome.origin).toBe('rules');
+      expect(outcome.failure).toMatchObject({ code: 'MODEL_OUTPUT_INVALID' });
+      expect(JSON.stringify(outcome)).not.toContain(prose);
+      expect(wordingIssuesOf(bad)).not.toEqual([]);
+    },
+  );
+
+  it('reads the names, topics and statements to check as the person’s words, which are not the plan’s claims', async () => {
+    const wordy = {
+      ...modelPlan,
+      topics: ['what will happen to the fees'],
+      claimsToVerify: [
+        { ...modelPlan.claimsToVerify[0]!, statement: 'Fees will be raised in the spring.' },
+      ],
+    };
+    expect(wordingIssuesOf(wordy)).toEqual([]);
+    const outcome = await plan(runnerOver([wordy]).runner);
+    expect(outcome.origin).toBe('model');
+  });
 
   it('is not answered from rules when the model refuses: a person is told', async () => {
     const { runner } = runnerOver([new AppError(422, 'MODEL_REFUSED', 'The model declined.')]);

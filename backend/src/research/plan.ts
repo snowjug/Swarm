@@ -9,12 +9,13 @@ import {
   type ResearchPlan,
   type SourceCategory,
 } from '../../../shared/research.js';
+import { lintText } from '../brief/lint.js';
 import { AppError } from '../errors.js';
 import { validateUrl } from '../ingest/url/policy.js';
 import { tokenize } from '../knowledge/retrieval.js';
 import { NO_COST, type CostEstimate } from '../models/cost.js';
 import type { RunUsage, TaskRunner } from '../models/runner.js';
-import type { TaskFailure } from '../models/task.js';
+import { taskFailure, type TaskFailure } from '../models/task.js';
 import {
   BARE_HOST,
   CONTROL,
@@ -381,6 +382,20 @@ function textsOf(content: PlanContent): string[] {
   ];
 }
 
+/**
+ * What a plan says in its own words, as the wording guard reads it. The names, topics and statements to check
+ * are the person's words or things to find, not claims the plan makes, so they are not read.
+ */
+export function wordingIssuesOf(content: PlanContent): string[] {
+  return [
+    ...content.claimsToVerify.map((claim) => claim.why),
+    ...content.likelySources.map((source) => source.description),
+    content.timeSensitivity.note,
+    ...content.conflictsToLookFor,
+    ...content.missingEvidence,
+  ].flatMap((text) => lintText(text).map((issue) => `${issue.rule}: ${issue.match}`));
+}
+
 function isPublicHost(domain: string): boolean {
   if (!BARE_HOST.test(domain)) return false;
   try {
@@ -431,7 +446,7 @@ export const PLAN_INSTRUCTIONS =
   '{entities:[{name,kind}],topics:[text],claimsToVerify:[{id,statement,why}],' +
   'likelySources:[{category,description,suggestedDomain?}],timeSensitivity:{level,note},' +
   'conflictsToLookFor:[text],missingEvidence:[text]}. ' +
-  'Say what to look for, not what is true, and do not predict what will happen. ' +
+  'Say what to look for, not what is true, and do not predict what will happen: no forecast, no word of certainty and no percentage. ' +
   'entities: the organisations, products, roles, places, rules or technologies the question names (kind: organization, product, role, place, regulation, technology, concept or other). ' +
   'claimsToVerify: 1 to 8 statements that a source could confirm or contradict, with ids c1, c2, c3 in order. ' +
   'likelySources: kinds of source worth reading (category: primary, official-documentation, official-statement, government-regulatory, research-publication, credible-reporting or community), each with a short description. ' +
@@ -517,6 +532,17 @@ export async function buildResearchPlan(input: BuildPlanInput): Promise<PlanOutc
     ...(input.tenantId ? { tenantId: input.tenantId } : {}),
     ...(input.costCeilingUsd ? { costCeilingUsd: input.costCeilingUsd } : {}),
   });
+  if (outcome.source === 'model' && wordingIssuesOf(outcome.value).length > 0) {
+    // The model's own prose is shown to people, so it is held to the project's wording guard as everything
+    // generated is: a plan that forecasts or overclaims is not used, and rules plan instead.
+    return {
+      plan: assemble(input, rules(), 'rules'),
+      origin: 'rules',
+      failure: taskFailure('MODEL_OUTPUT_INVALID'),
+      usage: outcome.usage,
+      cost: outcome.cost,
+    };
+  }
   const origin = outcome.source === 'model' ? 'model' : 'rules';
   return {
     plan: assemble(input, outcome.value, origin),
