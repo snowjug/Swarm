@@ -11,6 +11,7 @@ import type { ScenarioFrame } from '../../../shared/scenario.js';
 import type { ActorSet } from '../../../shared/stakeholders.js';
 import { planImpacts } from '../analysis/constraint-impact.js';
 import { AppError } from '../errors.js';
+import { productSignals } from '../telemetry/product-signals.js';
 import { compileConstraints } from './enforce.js';
 import type { GateWorld } from './gate.js';
 import { refreshSet } from './refresh.js';
@@ -134,6 +135,8 @@ export function readinessOf(
   const world = gateWorldOf(record.data, records, variants);
   const set = refreshSet(record.data, world, now);
   const coverage = set.coverage as ConstraintCoverage;
+  // Where the gate stands, as the page that offers the next comparison asked for it.
+  productSignals.constraintGate(coverage.status);
   const compiled = compileConstraints(set.constraints, {
     actorIds: new Set(world.actors.map((actor) => actor.id)),
     variantIds: world.variantIds,

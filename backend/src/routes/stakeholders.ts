@@ -47,6 +47,7 @@ import {
 import {
   MAX_PROPOSAL_CALLS,
   proposeParticipants,
+  recordProposal,
   regenerateParticipant,
 } from '../stakeholders/participants/propose.js';
 import {
@@ -556,7 +557,10 @@ export function stakeholderRoutes(
           },
         });
       });
-      return reply.code(201).send(stakeholdersView(request, id));
+      const view = stakeholdersView(request, id);
+      // Once the proposal is kept, the review the person is about to see is also what the metrics are told.
+      if (view.review) recordProposal(result, view.review);
+      return reply.code(201).send(view);
     },
   );
 
