@@ -19,6 +19,7 @@ import { newId, runScenario, scenarioDocument, type Scenario } from './support/r
 // take turns (the outcomes asserted are the same). A real PostgreSQL server is raced the same way as
 // SQLite when SWARM_TEST_POSTGRES_URL names an empty database that this test may fill.
 const WRITERS = 4;
+const ROUNDS = 5;
 const JOBS = 12;
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -126,6 +127,10 @@ class Racers {
 const rawOf = (repository: Repository): SqlDatabase =>
   (repository as unknown as { database: SqlDatabase }).database;
 
+/** What every writer should have been told when one wins: asserting it whole shows a surprise in full. */
+const oneWinner = (winner: string, others: string): unknown[] =>
+  [winner, ...Array.from({ length: WRITERS - 1 }, () => others)].sort();
+
 describe.each(engines)('$name: writers that run at once', (engine) => {
   const owner = { tenantId: `tenant-${newId()}`, ownerId: 'owner' };
   let opened: Opened;
@@ -163,10 +168,7 @@ describe.each(engines)('$name: writers that run at once', (engine) => {
         expectedRevision: 1,
         decision: `writer ${index}`,
       }));
-      expect(outcomes.filter((outcome) => outcome === 'won:2')).toHaveLength(1);
-      expect(outcomes.filter((outcome) => outcome === 'ARTIFACT_CONFLICT')).toHaveLength(
-        WRITERS - 1,
-      );
+      expect([...outcomes].sort()).toEqual(oneWinner('won:2', 'ARTIFACT_CONFLICT'));
       const stored = parent.artifacts.get(project.id, 'scenario');
       expect(stored?.revision).toBe(2);
       // What is stored is the winner's document, whole, and not a mixture.
@@ -174,18 +176,20 @@ describe.each(engines)('$name: writers that run at once', (engine) => {
     });
 
     it('is created by exactly one when they all expect that there is none', async () => {
-      const project = parent.create(fixtureInput({ name: 'first write race' }), { owner });
-      const outcomes = await compete('artifact', (index) => ({
-        projectId: project.id,
-        key: 'default',
-        expectedRevision: 0,
-        decision: `first ${index}`,
-      }));
-      expect(outcomes.filter((outcome) => outcome === 'won:1')).toHaveLength(1);
-      expect(outcomes.filter((outcome) => outcome === 'ARTIFACT_CONFLICT')).toHaveLength(
-        WRITERS - 1,
-      );
-      expect(parent.artifacts.get(project.id, 'scenario')?.revision).toBe(1);
+      // Several rounds, because losing at the insert is a matter of timing that one round can miss.
+      for (let round = 0; round < ROUNDS; round += 1) {
+        const project = parent.create(fixtureInput({ name: `first write race ${round}` }), {
+          owner,
+        });
+        const outcomes = await compete('artifact', (index) => ({
+          projectId: project.id,
+          key: 'default',
+          expectedRevision: 0,
+          decision: `first ${index}`,
+        }));
+        expect([...outcomes].sort()).toEqual(oneWinner('won:1', 'ARTIFACT_CONFLICT'));
+        expect(parent.artifacts.get(project.id, 'scenario')?.revision).toBe(1);
+      }
     });
   });
 
@@ -202,8 +206,7 @@ describe.each(engines)('$name: writers that run at once', (engine) => {
         ownerId: `racer-${index}`,
         name: `racer ${index}`,
       }));
-      expect(outcomes.filter((outcome) => outcome === 'won')).toHaveLength(1);
-      expect(outcomes.filter((outcome) => outcome === 'PROJECT_LIMIT')).toHaveLength(WRITERS - 1);
+      expect([...outcomes].sort()).toEqual(oneWinner('won', 'PROJECT_LIMIT'));
       expect(parent.count(tenant)).toBe(MAX_PROJECTS);
     });
   });
