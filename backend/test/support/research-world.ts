@@ -175,7 +175,8 @@ export interface Call {
  * A network of pages that answers from a table, with the behaviour of the real fetcher that the crawler
  * depends on: the address policy, robots.txt (once for each origin, kept in the crawl's cache),
  * redirects offered to the caller, and a request held before it goes out. Pages are reached at
- * `https://host/path`; a path that is not in the table is a 404.
+ * `https://host/path`; a path that is not in the table is answered by the route named `*` when there
+ * is one, and is a 404 when there is not.
  */
 export class FakeNetwork implements PageFetcher {
   readonly policy: UrlPolicy;
@@ -209,7 +210,7 @@ export class FakeNetwork implements PageFetcher {
   }
 
   private reply(url: string): Reply {
-    const route = this.routes[url];
+    const route = this.routes[url] ?? this.routes['*'];
     const count = (this.counts.get(url) ?? 0) + 1;
     this.counts.set(url, count);
     if (route === undefined) return { status: 404, type: 'text/plain', body: 'not found' };
