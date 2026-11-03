@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "id": "P81",
+      "split": "dev",
+      "group": "G6",
+      "host": "dup-original.example",
+      "path": "/hours",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library opening hours</title></head><body><main><article><h1>Library opening hours</h1><p>The central library opens from nine in the morning until seven in the evening from Monday to Thursday. On Friday it closes at five, and on Saturday it opens from ten until two.</p><p>Study rooms can be booked at the desk for up to two hours. A librarian can help with printing, scanning and the public computers during all opening hours.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "duplicate-group",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The original text. One of three copies is used, the rest are repeats."
+      }
+    },
+    {
+      "id": "P82",
+      "split": "test",
+      "group": "G6",
+      "host": "mirror-notes.example",
+      "path": "/copy-of-hours",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library opening hours</title></head><body><main><article><h1>Library opening hours</h1><p>The central library opens from nine in the morning until seven in the evening from Monday to Thursday. On Friday it closes at five, and on Saturday it opens from ten until two.</p><p>Study rooms can be booked at the desk for up to two hours. A librarian can help with printing, scanning and the public computers during all opening hours.</p></article></main><footer><p>Mirror notes 2026</p></footer></body></html>"
+      },
+      "gold": {
+        "outcome": "duplicate-group",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The same text on another site."
+      }
+    },
+    {
+      "id": "P83",
+      "split": "dev",
+      "group": "G6",
+      "host": "dup-original.example",
+      "path": "/hours?utm_source=newsletter&utm_medium=email",
+      "via": "seed",
+      "response": { "alias": "P81" },
+      "gold": {
+        "outcome": "not-used",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The same address with tracking added: never a second page."
+      }
+    },
+    {
+      "id": "P84",
+      "split": "test",
+      "group": "G6",
+      "host": "dup-original.example",
+      "path": "/hours-print",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library opening hours</title></head><body><main><article><h1>Library opening hours</h1><p>The central library opens from nine in the morning until seven in the evening from Monday to Thursday. On Friday it closes at five, and on Saturday it opens from ten until two.</p><p>Study rooms can be booked at the desk for up to two hours. A member of staff can help with printing, scanning and the public computers during all opening hours.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "duplicate-group",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The same text on the same site with four words changed."
+      }
+    },
+    {
+      "id": "P85",
+      "split": "dev",
+      "group": "G6",
+      "host": "mirror-notes.example",
+      "path": "/hours-reworded",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours, reworded</title></head><body><main><article><h1>Library hours, reworded</h1><p>The central library opens from nine in the morning until seven in the evening, Monday to Thursday. Fridays it closes at five; Saturdays it opens ten to two.</p><p>Study rooms can be booked at the front desk for up to two hours. A librarian can help with printing, scanning and the public computers during all opening hours.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A reworded copy on another site. By the crawler's own rule, nearly the same text is a repeat only on the same site, so that a page made to look like another cannot stand in for it."
+      }
+    },
+    {
+      "id": "P86",
+      "split": "test",
+      "group": "G6",
+      "host": "dup-original.example",
+      "path": "/about-the-hours-team",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>About the hours team</title></head><body><main><article><h1>About the hours team</h1><p>The hours team keeps the opening times of the town libraries up to date and answers questions from the public by telephone and by email during working hours.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "An unrelated page on the same site."
+      }
+    }
+  ]
+}

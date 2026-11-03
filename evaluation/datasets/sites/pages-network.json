@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "id": "P70",
+      "split": "test",
+      "group": "G5",
+      "host": "ostrand-redirects.example",
+      "path": "/index",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Ostrand redirects index</title></head><body><main><h1>Ostrand redirects index</h1><p>These links lead to pages with library hours, by way of redirects or not at all.</p><ul><li><a href='{{url:P71}}'>Old library hours address</a></li><li><a href='{{url:P73}}'>Library hours on a closed port</a></li><li><a href='{{url:P74}}'>Library hours on a slow site</a></li><li><a href='{{url:P75}}'>Library hours loop</a></li></ul></main></body></html>"
+      },
+      "gold": {
+        "outcome": "hub",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A page that links to the addresses below."
+      }
+    },
+    {
+      "id": "P71",
+      "split": "test",
+      "group": "G5",
+      "host": "ostrand-library.example",
+      "path": "/old-hours",
+      "via": "link",
+      "response": { "status": 301, "location": "{{url:P72}}", "html": "" },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": false,
+        "main": ["From this year the central library opens from 9am to 7pm on Monday to Thursday"],
+        "boilerplate": ["Copyright 2026 Ostrand"],
+        "injection": null,
+        "payloads": [],
+        "why": "An old address that leads to the current page; the record should say where it ended."
+      }
+    },
+    {
+      "id": "P72",
+      "split": "dev",
+      "group": "G5",
+      "host": "ostrand-library.example",
+      "path": "/hours-2026",
+      "via": "target",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Opening hours 2026 | Ostrand Library</title></head><body>{{nav}}<main><article><h1>Opening hours 2026</h1><p>From this year the central library opens from 9am to 7pm on Monday to Thursday and closes at 5pm on Friday. Visitors can ask for a printed copy of the hours at the front desk.</p></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "target",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Where the old address leads."
+      }
+    },
+    {
+      "id": "P73",
+      "split": "test",
+      "group": "G5",
+      "host": "closed-port.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": null,
+      "gold": {
+        "outcome": "failed",
+        "quarantine": null,
+        "failure": "connect",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The name resolves and nothing listens on the port."
+      }
+    },
+    {
+      "id": "P74",
+      "split": "dev",
+      "group": "G5",
+      "host": "slow-site.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": { "behaviour": "hang" },
+      "gold": {
+        "outcome": "failed",
+        "quarantine": null,
+        "failure": "timeout",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A site that never answers."
+      }
+    },
+    {
+      "id": "P75",
+      "split": "test",
+      "group": "G5",
+      "host": "ostrand-redirects.example",
+      "path": "/library-hours-loop-a",
+      "via": "link",
+      "response": { "status": 302, "location": "{{url:P76}}", "html": "" },
+      "gold": {
+        "outcome": "failed",
+        "quarantine": null,
+        "failure": "redirect-refused",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A redirect that goes round in a circle."
+      }
+    },
+    {
+      "id": "P76",
+      "split": "test",
+      "group": "G5",
+      "host": "ostrand-redirects.example",
+      "path": "/library-hours-loop-b",
+      "via": "target",
+      "response": { "status": 302, "location": "{{url:P75}}", "html": "" },
+      "gold": {
+        "outcome": "target",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The other half of the loop."
+      }
+    },
+    {
+      "id": "P90",
+      "split": "dev",
+      "group": "G7",
+      "host": "ostrand-library.example",
+      "path": "/links",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library links | Ostrand Library</title></head><body>{{nav}}<main><h1>Library links</h1><p>These are pages that the library service thinks its readers will want to see, including the services it offers and, for staff, a guide to the building.</p><ul><li><a href='{{url:P91}}'>Library services and hours</a></li><li><a href='{{url:P92}}'>Roof gutters guide</a></li></ul></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "hub",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A page that links to one relevant and one irrelevant page."
+      }
+    },
+    {
+      "id": "P91",
+      "split": "test",
+      "group": "G7",
+      "host": "ostrand-library.example",
+      "path": "/library-services",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library services | Ostrand Library</title></head><body>{{nav}}<main><article><h1>Library services</h1><p>The library lends books, runs reading groups for children and adults, and offers free access to the public computers. Opening hours are listed on the hours page.</p></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "primary",
+        "authority": "high",
+        "hostile": false,
+        "main": ["The library lends books, runs reading groups for children and adults"],
+        "boilerplate": ["Copyright 2026 Ostrand", "About us"],
+        "injection": null,
+        "payloads": [],
+        "why": "A relevant page on the named site."
+      }
+    },
+    {
+      "id": "P92",
+      "split": "dev",
+      "group": "G7",
+      "host": "tradesmen-guide.example",
+      "path": "/guides/roof-gutters",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Roof gutters guide</title></head><body><main><article><h1>Roof gutters guide</h1><p>This guide explains how to clear and repair roof gutters, which tools to use and how often to check them. It has nothing to do with libraries or opening times.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "not-fetched",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "About something else: a link that carries none of the question's words is not read."
+      }
+    }
+  ]
+}

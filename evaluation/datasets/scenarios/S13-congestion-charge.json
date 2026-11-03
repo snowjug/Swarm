@@ -1,0 +1,314 @@
+{
+  "id": "S13",
+  "split": "dev",
+  "kind": "custom",
+  "title": "City centre: a daily charge for cars",
+  "tags": ["custom", "contradictory-sources"],
+  "question": "What could happen if the city of Harrowgate introduces a daily charge for cars entering its centre?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-council-transport-report.md",
+        "content": "# Council transport report: a central charge\n\nThis is a fictional report written for an evaluation. All names, places and figures are invented.\n\n## Proposal\n\nHarrowgate City Council proposes a daily charge of £6 for cars entering the central zone between 7am and 7pm on weekdays, starting in January. Revenue would be used only to improve bus services.\n\n## Traffic\n\nCounts show that 52,000 vehicles a day enter the central zone. The council expects the charge to reduce car entries by about one in six.\n\n## Process\n\nA traffic regulation order is required before any charge can start, and it needs a public consultation of at least six weeks. Camera and plate-recognition equipment would take nine months to procure and install.\n\n## Data\n\nImages of number plates may be kept for no more than 30 days under the council's data policy.\n"
+      },
+      {
+        "name": "02-traders-and-access-note.md",
+        "content": "# Traders and access note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Traders\n\nThe Harrowgate Traders' Association says that city-centre shops will lose trade, and points to a nearby town where footfall fell after a similar charge. The association asks for free parking in the council's car parks for the first two hours.\n\n## Access\n\nResidents of the central zone would be offered a 90% discount. Blue badge holders would be exempt. The disability access group asked that taxis used by disabled people be exempt too, and said that the bus stops on the main road are not step-free.\n\n## Buses\n\nThe bus operator says it can add routes only when new buses are delivered, which takes about a year, and that bus lanes need the council to act.\n"
+      },
+      {
+        "name": "03-air-quality-and-counts.md",
+        "content": "# Air quality and counts\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Air quality\n\nThe air quality monitor on the main road recorded levels above the legal limit on 41 days last year. The health authority says that the limit protects children and older people.\n\n## Counts\n\nThe traffic team's counts show that 47,000 vehicles a day enter the central zone. Delivery vans make up about 15% of those vehicles.\n\n## Neighbouring areas\n\nResidents of streets just outside the zone fear that drivers would park there to avoid the charge.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Harrowgate City Council",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["city council", "council", "harrowgate"],
+      "quote": {
+        "document": "01-council-transport-report.md",
+        "text": "Harrowgate City Council proposes a daily charge of £6 for cars entering the central zone between 7am and 7pm on weekdays, starting in January."
+      },
+      "rationale": "Proposes the charge."
+    },
+    {
+      "id": "p02",
+      "name": "Traders' Association",
+      "role": "opponents-resistors",
+      "voice": "named",
+      "aliases": ["traders' association", "traders association", "traders"],
+      "quote": {
+        "document": "02-traders-and-access-note.md",
+        "text": "The Harrowgate Traders' Association says that city-centre shops will lose trade, and points to a nearby town where footfall fell after a similar charge."
+      },
+      "rationale": "Opposes the charge."
+    },
+    {
+      "id": "p03",
+      "name": "Residents of the central zone",
+      "role": "beneficiaries",
+      "voice": "named",
+      "aliases": ["residents of the central zone", "central zone residents"],
+      "quote": {
+        "document": "02-traders-and-access-note.md",
+        "text": "Residents of the central zone would be offered a 90% discount."
+      },
+      "rationale": "Offered a discount."
+    },
+    {
+      "id": "p04",
+      "name": "Blue badge holders",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["blue badge"],
+      "quote": {
+        "document": "02-traders-and-access-note.md",
+        "text": "Blue badge holders would be exempt."
+      },
+      "rationale": "Exempt."
+    },
+    {
+      "id": "p05",
+      "name": "Disability access group",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["disability access", "disabled"],
+      "quote": {
+        "document": "02-traders-and-access-note.md",
+        "text": "The disability access group asked that taxis used by disabled people be exempt too, and said that the bus stops on the main road are not step-free."
+      },
+      "rationale": "Asks for an exemption."
+    },
+    {
+      "id": "p06",
+      "name": "Bus operator",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["bus operator"],
+      "quote": {
+        "document": "02-traders-and-access-note.md",
+        "text": "The bus operator says it can add routes only when new buses are delivered, which takes about a year, and that bus lanes need the council to act."
+      },
+      "rationale": "Would run added services."
+    },
+    {
+      "id": "p07",
+      "name": "Delivery drivers and vans",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["delivery vans", "delivery", "vans"],
+      "quote": {
+        "document": "03-air-quality-and-counts.md",
+        "text": "Delivery vans make up about 15% of those vehicles."
+      },
+      "rationale": "Enter the zone."
+    },
+    {
+      "id": "p08",
+      "name": "Health authority",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["health authority"],
+      "quote": {
+        "document": "03-air-quality-and-counts.md",
+        "text": "The health authority says that the limit protects children and older people."
+      },
+      "rationale": "Speaks for air quality."
+    },
+    {
+      "id": "p09",
+      "name": "Residents just outside the zone",
+      "role": "indirectly-affected",
+      "voice": "named",
+      "aliases": ["just outside", "outside the zone"],
+      "quote": {
+        "document": "03-air-quality-and-counts.md",
+        "text": "Residents of streets just outside the zone fear that drivers would park there to avoid the charge."
+      },
+      "rationale": "Fear displaced parking."
+    },
+    {
+      "id": "p10",
+      "name": "Drivers entering the central zone",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["drivers", "commuters", "motorists"],
+      "quote": {
+        "document": "01-council-transport-report.md",
+        "text": "Counts show that 52,000 vehicles a day enter the central zone."
+      },
+      "rationale": "Pay the charge."
+    },
+    {
+      "id": "p11",
+      "name": "Camera equipment suppliers",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["equipment", "suppliers", "camera"],
+      "quote": {
+        "document": "01-council-transport-report.md",
+        "text": "Camera and plate-recognition equipment would take nine months to procure and install."
+      },
+      "rationale": "Would supply the equipment."
+    },
+    {
+      "id": "p12",
+      "name": "Council traffic team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["traffic team"],
+      "quote": {
+        "document": "03-air-quality-and-counts.md",
+        "text": "The traffic team's counts show that 47,000 vehicles a day enter the central zone."
+      },
+      "rationale": "Counts vehicles."
+    },
+    {
+      "id": "p13",
+      "name": "Shift workers with no bus alternative",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["shift workers", "no bus"],
+      "quote": null,
+      "rationale": "May have no alternative to the car; not mentioned."
+    },
+    {
+      "id": "p14",
+      "name": "Visitors from outside the city",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["visitors", "tourists"],
+      "quote": null,
+      "rationale": "Would pay the charge; not mentioned."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "regulatory",
+      "hardness": "hard",
+      "document": "01-council-transport-report.md",
+      "quote": "A traffic regulation order is required before any charge can start, and it needs a public consultation of at least six weeks.",
+      "rationale": "A legal step with a minimum duration."
+    },
+    {
+      "id": "c02",
+      "category": "infrastructure",
+      "hardness": "hard",
+      "document": "01-council-transport-report.md",
+      "quote": "Camera and plate-recognition equipment would take nine months to procure and install.",
+      "rationale": "A lead time."
+    },
+    {
+      "id": "c03",
+      "category": "privacy",
+      "hardness": "hard",
+      "document": "01-council-transport-report.md",
+      "quote": "Images of number plates may be kept for no more than 30 days under the council's data policy.",
+      "rationale": "A retention limit."
+    },
+    {
+      "id": "c04",
+      "category": "budget",
+      "hardness": "hard",
+      "document": "01-council-transport-report.md",
+      "quote": "Revenue would be used only to improve bus services.",
+      "rationale": "A restriction on use."
+    },
+    {
+      "id": "c05",
+      "category": "accessibility",
+      "hardness": "soft",
+      "document": "02-traders-and-access-note.md",
+      "quote": "The disability access group asked that taxis used by disabled people be exempt too, and said that the bus stops on the main road are not step-free.",
+      "rationale": "A request and an access gap."
+    },
+    {
+      "id": "c06",
+      "category": "dependency",
+      "hardness": "hard",
+      "document": "02-traders-and-access-note.md",
+      "quote": "The bus operator says it can add routes only when new buses are delivered, which takes about a year, and that bus lanes need the council to act.",
+      "rationale": "Routes wait for buses."
+    },
+    {
+      "id": "c07",
+      "category": "environmental",
+      "hardness": "soft",
+      "document": "03-air-quality-and-counts.md",
+      "quote": "The air quality monitor on the main road recorded levels above the legal limit on 41 days last year.",
+      "rationale": "A pressure for the change."
+    }
+  ],
+  "gap": {
+    "constraintId": "c03",
+    "removeText": "Images of number plates may be kept for no more than 30 days under the council's data policy.",
+    "document": "01-council-transport-report.md",
+    "category": "privacy",
+    "accept": ["privacy", "security", "legal"],
+    "rationale": "The only statement about the retention of images."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["£6", "daily charge"], "rationale": "The proposed charge." },
+    { "id": "a2", "cues": ["90% discount", "discount"], "rationale": "A resident discount." },
+    { "id": "a3", "cues": ["free parking"], "rationale": "Traders ask for free parking." }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "Camera equipment would take nine months to procure and install.",
+      "gold": "supported",
+      "documents": ["01-council-transport-report.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "Blue badge holders would be exempt from the charge.",
+      "gold": "supported",
+      "documents": ["02-traders-and-access-note.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "The charge would reduce car entries by one in six.",
+      "gold": "partial",
+      "documents": ["01-council-transport-report.md"],
+      "rationale": "The council expects about one in six."
+    },
+    {
+      "id": "k4",
+      "statement": "Footfall in the city centre will fall after the charge.",
+      "gold": "unsupported",
+      "documents": ["02-traders-and-access-note.md"],
+      "rationale": "The traders point to another town; it is a claim, not a finding."
+    },
+    {
+      "id": "k5",
+      "statement": "Taxis used by disabled people are exempt.",
+      "gold": "unsupported",
+      "documents": ["02-traders-and-access-note.md"],
+      "rationale": "The group asked for it; nothing says it was agreed."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-council-transport-report.md",
+        "quote": "Counts show that 52,000 vehicles a day enter the central zone."
+      },
+      "b": {
+        "document": "03-air-quality-and-counts.md",
+        "quote": "The traffic team's counts show that 47,000 vehicles a day enter the central zone."
+      },
+      "mustContain": ["52,000", "47,000"],
+      "rationale": "Two daily counts."
+    }
+  ],
+  "labelRevisions": []
+}

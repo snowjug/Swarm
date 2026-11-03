@@ -1,0 +1,329 @@
+{
+  "id": "S06",
+  "split": "test",
+  "kind": "flagship",
+  "title": "Launch pricing: higher price, no free trial",
+  "tags": ["flagship", "contradictory-sources"],
+  "question": "What could happen if we launch the new plan at a higher price with a free trial removed?",
+  "source": {
+    "kind": "example",
+    "id": "launch-pricing",
+    "pins": {
+      "01-launch-brief.md": "9a29f61eb48cb3731932e616c9daa3b13d0f05a153b8e4965f3444b94e4d0b7f",
+      "02-funnel-and-pricing-test-summary.md": "83fff4079f175e9521e29f15ed0d95b4db19d4da86e4143a88b34a9c0488b7e3",
+      "03-sales-support-and-partner-notes.md": "6081f2c8cb64789a1aeb5a3280be506b016d72405a4e3654fa1b3ec27c448871",
+      "04-market-notes-and-gaps.md": "0f0ce21c9653751c636f46b117e10ddeaf05b551a031d53d29e99c5bb43badba"
+    }
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Head of product",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["head of product"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "The head of product owns the plan design and wants the extra reporting priced as a premium."
+      },
+      "rationale": "Owns the plan design."
+    },
+    {
+      "id": "p02",
+      "name": "Chief financial officer",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["chief financial officer", "cfo"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "The chief financial officer wants better revenue per customer after a year of slower growth, which the board and investors have noticed."
+      },
+      "rationale": "Wants better revenue per customer."
+    },
+    {
+      "id": "p03",
+      "name": "Board and investors",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["board", "investors"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "The chief financial officer wants better revenue per customer after a year of slower growth, which the board and investors have noticed."
+      },
+      "rationale": "Have noticed slower growth."
+    },
+    {
+      "id": "p04",
+      "name": "Marketing managers",
+      "role": "opponents-resistors",
+      "voice": "named",
+      "aliases": ["marketing managers", "marketing"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Marketing managers worry that the free trial is the main way small teams find the product."
+      },
+      "rationale": "Worry about losing the trial."
+    },
+    {
+      "id": "p05",
+      "name": "Sales staff",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["sales staff", "account executives", "sales leads", "sales"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Sales staff say larger prospects already ask for demos and rarely use the trial."
+      },
+      "rationale": "Run demos and sales cycles."
+    },
+    {
+      "id": "p06",
+      "name": "Customer success managers",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["customer success"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Customer success managers expect existing customers to ask whether their price would rise."
+      },
+      "rationale": "Field questions from existing customers."
+    },
+    {
+      "id": "p07",
+      "name": "Support team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["support team"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "The support team handles trial users at a cost that has not been measured separately."
+      },
+      "rationale": "Handles trial users."
+    },
+    {
+      "id": "p08",
+      "name": "Channel partners",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["channel partners", "reselling partners", "resell"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Channel partners who resell the product to small businesses ask for notice and for a margin that still works at the higher price."
+      },
+      "rationale": "Resell to small businesses."
+    },
+    {
+      "id": "p09",
+      "name": "Procurement teams at larger customers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["procurement"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Procurement teams at larger customers usually compare quotes and look for price locks."
+      },
+      "rationale": "Compare quotes and look for price locks."
+    },
+    {
+      "id": "p10",
+      "name": "Small teams starting a trial",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["small teams", "trial users", "teams of one to five"],
+      "quote": {
+        "document": "02-funnel-and-pricing-test-summary.md",
+        "text": "There were 12,400 trial starts a year, and 74% came from teams of one to five people."
+      },
+      "rationale": "Most trials start with small teams."
+    },
+    {
+      "id": "p11",
+      "name": "Existing Team-plan customers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["existing customers", "team plan customers", "team-plan customers"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "It has not been decided whether the Team plan stays on sale or whether existing customers would move."
+      },
+      "rationale": "May be moved or have their price changed."
+    },
+    {
+      "id": "p12",
+      "name": "Competitors",
+      "role": "competitors-alternatives",
+      "voice": "named",
+      "aliases": ["competitors", "competitor a", "competitor b"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Two main competitors sell similar tools, and one offers a permanent free tier."
+      },
+      "rationale": "Sell similar tools."
+    },
+    {
+      "id": "p13",
+      "name": "Industry analysts",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["analysts"],
+      "quote": {
+        "document": "01-launch-brief.md",
+        "text": "Analysts who follow this category would notice a price move quickly."
+      },
+      "rationale": "Would notice a price move."
+    },
+    {
+      "id": "p14",
+      "name": "Prospects who need a trial before buying",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["need a trial", "needed one", "needed a trial"],
+      "quote": {
+        "document": "04-market-notes-and-gaps.md",
+        "text": "No data separates customers who would have bought without a trial from those who needed one."
+      },
+      "rationale": "Named only as unmeasured."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "time",
+      "hardness": "soft",
+      "document": "01-launch-brief.md",
+      "quote": "The pricing review meets in four weeks.",
+      "rationale": "A date the decision is tied to."
+    },
+    {
+      "id": "c02",
+      "category": "capacity",
+      "hardness": "soft",
+      "document": "03-sales-support-and-partner-notes.md",
+      "quote": "They worry that a demo-only route would lengthen sales cycles and lean on a team of nine account executives who are already near capacity.",
+      "rationale": "Sales capacity is limited."
+    },
+    {
+      "id": "c03",
+      "category": "technical-feasibility",
+      "hardness": "hard",
+      "document": "03-sales-support-and-partner-notes.md",
+      "quote": "Two leads said the guided demo would need a booking system that the company does not have.",
+      "rationale": "A missing system."
+    },
+    {
+      "id": "c04",
+      "category": "contractual",
+      "hardness": "soft",
+      "document": "03-sales-support-and-partner-notes.md",
+      "quote": "Several accounts on annual contracts renew in the quarter of the proposed launch, and the team has been given no guidance on whether their prices would change.",
+      "rationale": "Renewals fall in the launch quarter."
+    },
+    {
+      "id": "c05",
+      "category": "contractual",
+      "hardness": "soft",
+      "document": "01-launch-brief.md",
+      "quote": "Procurement teams at larger customers usually compare quotes and look for price locks.",
+      "rationale": "Customers look for price locks."
+    },
+    {
+      "id": "c06",
+      "category": "evidence-quality",
+      "hardness": "soft",
+      "document": "04-market-notes-and-gaps.md",
+      "quote": "The company has never tested a price above $34.",
+      "rationale": "No evidence for the proposed price."
+    },
+    {
+      "id": "c07",
+      "category": "data-quality",
+      "hardness": "soft",
+      "document": "01-launch-brief.md",
+      "quote": "The support team handles trial users at a cost that has not been measured separately.",
+      "rationale": "A missing measure."
+    },
+    {
+      "id": "c08",
+      "category": "contractual",
+      "hardness": "soft",
+      "document": "03-sales-support-and-partner-notes.md",
+      "quote": "Two reselling partners said they would resist a price rise on a product they have already quoted to clients at the current price.",
+      "rationale": "Partners have quoted the current price."
+    }
+  ],
+  "gap": {
+    "constraintId": "c03",
+    "removeText": " Two leads said the guided demo would need a booking system that the company does not have.",
+    "document": "03-sales-support-and-partner-notes.md",
+    "category": "technical-feasibility",
+    "accept": ["technical-feasibility", "infrastructure", "dependency"],
+    "rationale": "The only statement that a booking system is missing."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["$39"], "rationale": "The new plan price." },
+    {
+      "id": "a2",
+      "cues": ["team plan stays", "team plan"],
+      "rationale": "Whether the Team plan stays on sale."
+    },
+    {
+      "id": "a3",
+      "cues": ["guided demo", "money-back"],
+      "rationale": "Demo and money-back instead of a trial."
+    }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "17% of trials converted to a paid plan within 30 days.",
+      "gold": "supported",
+      "documents": ["02-funnel-and-pricing-test-summary.md"],
+      "rationale": "Stated in the funnel."
+    },
+    {
+      "id": "k2",
+      "statement": "The average new paid account had 6.4 seats at an effective $27 per seat per month after discounts.",
+      "gold": "supported",
+      "documents": ["02-funnel-and-pricing-test-summary.md"],
+      "rationale": "Stated in the funnel."
+    },
+    {
+      "id": "k3",
+      "statement": "The earlier price test showed that a higher price reduces conversion.",
+      "gold": "partial",
+      "documents": ["02-funnel-and-pricing-test-summary.md"],
+      "rationale": "15.8% against 17.0%, too small to separate from noise."
+    },
+    {
+      "id": "k4",
+      "statement": "Removing the free trial will raise revenue per customer.",
+      "gold": "unsupported",
+      "documents": ["01-launch-brief.md", "04-market-notes-and-gaps.md"],
+      "rationale": "Nobody has tested it."
+    },
+    {
+      "id": "k5",
+      "statement": "Competitor B offers a permanent free tier.",
+      "gold": "unsupported",
+      "documents": ["04-market-notes-and-gaps.md"],
+      "rationale": "Competitor A does; B has a 30-day trial."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "02-funnel-and-pricing-test-summary.md",
+        "quote": "34% of new paid accounts began with a free trial."
+      },
+      "b": {
+        "document": "03-sales-support-and-partner-notes.md",
+        "quote": "The regional sales leads say about 60% of new paid accounts began with a free trial."
+      },
+      "mustContain": ["34%", "60%"],
+      "rationale": "Two shares for the same count."
+    }
+  ],
+  "labelRevisions": []
+}

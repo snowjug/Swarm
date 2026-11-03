@@ -1,0 +1,412 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "id": "P20",
+      "split": "dev",
+      "group": "G2",
+      "host": "ostrand-directory.example",
+      "path": "/index",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Ostrand library pages | Ostrand Directory</title></head><body><main><h1>Ostrand library pages</h1><p>This directory lists pages about library opening hours that people have asked about.</p><ul><li><a href='{{url:P21}}'>Library members area for hours</a></li><li><a href='{{url:P22}}'>Library hours article for readers</a></li><li><a href='{{url:P23}}'>Old library hours page</a></li><li><a href='{{url:P24}}'>Library hours discussion welcome page</a></li><li><a href='{{url:P25}}'>Library hours dashboard</a></li><li><a href='{{url:P26}}'>Library hours missing page</a></li><li><a href='{{url:P27}}'>Library hours maintenance page</a></li><li><a href='{{url:P28}}'>Library hours file</a></li><li><a href='{{url:P29}}'>Library hours download</a></li><li><a href='{{url:P30}}'>Library hours everything so far</a></li><li><a href='{{url:P31}}'>Best library hours near me</a></li><li><a href='{{url:P32}}'>Library hours cheap</a></li><li><a href='{{url:P33}}'>Library hours drafts</a></li><li><a href='{{url:P34}}'>Library hours notes</a></li><li><a href='{{url:P35}}'>Library hours partner link</a></li><li><a href='{{url:P36}}'>Library hours elsewhere</a></li></ul></main></body></html>"
+      },
+      "gold": {
+        "outcome": "hub",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A directory page that links to the pages below."
+      }
+    },
+    {
+      "id": "P21",
+      "split": "test",
+      "group": "G2",
+      "host": "ostrand-ledger.example",
+      "path": "/members/area",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Members area | The Ostrand Ledger</title></head><body><main><h1>Members area</h1><p>Enter your details to continue to the library hours archive.</p><form action='/session' method='post'><label>Email <input type='email' name='email'></label><label>Password <input type='password' name='password'></label><button>Sign in</button></form><p><a href='/forgot'>Forgot your password?</a></p></main></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "login-page",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A sign-in form: nothing public to read."
+      }
+    },
+    {
+      "id": "P22",
+      "split": "dev",
+      "group": "G2",
+      "host": "ostrand-ledger.example",
+      "path": "/read/continue",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Why the library hours plan stalled | The Ostrand Ledger</title><script type='application/ld+json'>{\"@type\":\"NewsArticle\",\"headline\":\"Why the library hours plan stalled\",\"isAccessibleForFree\":false}</script></head><body><main><article><h1>Why the library hours plan stalled</h1><p>The plan to change library hours stalled this month after the council asked for more figures from the library service.</p><div class='paywall'><p>Subscribe to continue reading this article. Already a subscriber? Sign in.</p></div></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "paywall",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "One paragraph, then an invitation to subscribe."
+      }
+    },
+    {
+      "id": "P23",
+      "split": "test",
+      "group": "G2",
+      "host": "ostrand-council.gov.uk",
+      "path": "/libraries/old-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Page not found | Ostrand Council</title></head><body><main><h1>Page not found</h1><p>Sorry, we could not find that page. It may have moved or no longer exist. Try the search or go to the home page.</p></main></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "error-page",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "An error that answers 200."
+      }
+    },
+    {
+      "id": "P24",
+      "split": "dev",
+      "group": "G2",
+      "host": "forum.ostrand-talk.example",
+      "path": "/welcome",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Ostrand Talk</title></head><body><div class='cookie-consent' role='dialog'><h2>We value your privacy</h2><p>We and our partners use cookies and similar technologies to store and access information on your device. Accept all cookies to continue, or manage your preferences.</p><button>Accept all</button><button>Manage preferences</button><button>Reject all</button></div></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "consent-wall",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Only a cookie dialog."
+      }
+    },
+    {
+      "id": "P25",
+      "split": "test",
+      "group": "G2",
+      "host": "app-shell.example",
+      "path": "/dashboard",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Dashboard</title></head><body><div id='root'></div><noscript>You need to enable JavaScript to run this app.</noscript><script>{{script:400}}</script></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "empty",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Its text is built by scripts, which are not run."
+      }
+    },
+    {
+      "id": "P26",
+      "split": "dev",
+      "group": "G2",
+      "host": "ostrand-council.gov.uk",
+      "path": "/libraries/missing-page",
+      "via": "link",
+      "response": {
+        "status": 404,
+        "contentType": "text/plain; charset=utf-8",
+        "html": "not found"
+      },
+      "gold": {
+        "outcome": "failed",
+        "quarantine": null,
+        "failure": "http-status",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A real 404."
+      }
+    },
+    {
+      "id": "P27",
+      "split": "test",
+      "group": "G2",
+      "host": "ostrand-council.gov.uk",
+      "path": "/libraries/maintenance",
+      "via": "link",
+      "response": {
+        "status": 503,
+        "contentType": "text/plain; charset=utf-8",
+        "html": "service unavailable"
+      },
+      "gold": {
+        "outcome": "failed",
+        "quarantine": null,
+        "failure": "http-status",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A 503 that stays a 503 after the tries."
+      }
+    },
+    {
+      "id": "P28",
+      "split": "dev",
+      "group": "G2",
+      "host": "files-hosting.example",
+      "path": "/library-hours-file",
+      "via": "link",
+      "response": {
+        "contentType": "text/html; charset=utf-8",
+        "bodyBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "binary-as-text",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "An image sent as text."
+      }
+    },
+    {
+      "id": "P29",
+      "split": "test",
+      "group": "G2",
+      "host": "files-hosting.example",
+      "path": "/download/library-hours",
+      "via": "link",
+      "response": { "contentType": "application/zip", "bodyBase64": "UEsDBAoAAAAAAAAAIQ==" },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "unsupported-type",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A type that is not read."
+      }
+    },
+    {
+      "id": "P30",
+      "split": "dev",
+      "group": "G2",
+      "host": "files-hosting.example",
+      "path": "/library-hours-everything",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Everything about library hours</title></head><body><main><h1>Everything about library hours</h1>{{fill:30000}}</main></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "oversized",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Larger than the size this crawl allows for one page (20,000 bytes)."
+      }
+    },
+    {
+      "id": "P31",
+      "split": "test",
+      "group": "G2",
+      "host": "cheap-deals-seo.example",
+      "path": "/best-library-hours-near-me",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Best Library Hours Near Me | Cheap Library Hours</title></head><body><main><h1>Best library hours near me cheap</h1><p>Library hours near me best library hours cheap library hours today library opening times near me best cheap library hours open now.</p><p>Library hours near me best library hours cheap library hours today library opening times near me best cheap library hours open now best price.</p><p>Buy cheap library cards now click here best price guaranteed library hours near me open now.</p></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Keyword stuffing with nothing to say. No rule can tell it from a page, so it is read; it must not be taken for an authority."
+      }
+    },
+    {
+      "id": "P32",
+      "split": "dev",
+      "group": "G2",
+      "host": "cheap-deals-seo.example",
+      "path": "/library-hours-cheap",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours cheap</title></head><body><main><h1>Library hours cheap</h1><p>Cheap library hours. Click here.</p></main></body></html>"
+      },
+      "gold": {
+        "outcome": "quarantined",
+        "quarantine": "empty",
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Almost no text."
+      }
+    },
+    {
+      "id": "P33",
+      "split": "test",
+      "group": "G2",
+      "host": "ostrand-private-notes.example",
+      "path": "/drafts/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Draft notes on library hours</title></head><body><main><h1>Draft notes on library hours</h1><p>These draft notes about library hours are not for crawlers and the site's robots.txt says so, which the crawler must obey without fetching the page.</p></main></body></html>"
+      },
+      "gold": {
+        "outcome": "blocked",
+        "quarantine": null,
+        "failure": "robots-disallowed",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "robots.txt disallows /drafts/."
+      }
+    },
+    {
+      "id": "P34",
+      "split": "dev",
+      "group": "G2",
+      "host": "ostrand-archive.example",
+      "path": "/notes/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><meta name='robots' content='noai, noimageai'><title>Archive notes on library hours</title></head><body><main><article><h1>Archive notes on library hours</h1><p>The archive keeps notes on library hours from past years, and the owner of this page asks that AI systems do not use it.</p><p>Earlier notes say that the central library once closed on Mondays and opened late on Thursdays.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "blocked",
+        "quarantine": null,
+        "failure": "robots-disallowed",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The page asks that AI systems do not use it."
+      }
+    },
+    {
+      "id": "P35",
+      "split": "test",
+      "group": "G2",
+      "host": "ostrand-ledger.example",
+      "path": "/go/library-hours-partner",
+      "via": "link",
+      "response": { "status": 302, "location": "http://10.0.0.5/admin", "html": "" },
+      "gold": {
+        "outcome": "blocked",
+        "quarantine": null,
+        "failure": "redirect-refused",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Redirects to a private address."
+      }
+    },
+    {
+      "id": "P36",
+      "split": "dev",
+      "group": "G2",
+      "host": "gone-away.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": null,
+      "gold": {
+        "outcome": "failed",
+        "quarantine": null,
+        "failure": "dns",
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A name that does not exist."
+      }
+    }
+  ]
+}

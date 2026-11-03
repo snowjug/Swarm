@@ -1,0 +1,313 @@
+{
+  "id": "S12",
+  "split": "test",
+  "kind": "custom",
+  "title": "Components factory: two twelve-hour shifts",
+  "tags": ["custom", "contradictory-sources"],
+  "question": "What could happen if a components factory moves from three eight-hour shifts to two twelve-hour shifts?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-plant-proposal.md",
+        "content": "# Plant proposal: two twelve-hour shifts\n\nThis is a fictional proposal written for an evaluation. All names, places and figures are invented.\n\n## Proposal\n\nCorvane Components, a factory with 310 employees, proposes to replace three eight-hour shifts with two twelve-hour shifts, from 6am to 6pm and 6pm to 6am. The plant manager expects fewer handovers between shifts and one fewer changeover of the machines each day.\n\n## Reasons\n\nAbsence on the night shift is the highest in the plant. The operations director wants to reduce overtime, which cost the plant about £420,000 last year.\n\n## Timing\n\nThe plant manager would like to start in the new financial year.\n"
+      },
+      {
+        "name": "02-health-safety-and-law.md",
+        "content": "# Health and safety review\n\nThis is a fictional review written for an evaluation. All names, places and figures are invented.\n\n## Working time\n\nThe working time rules say that workers must have 11 hours of rest between shifts and must not average more than 48 hours a week. Twelve-hour shifts on a four-day rota average 42 hours, but a block of seven twelve-hour nights would breach the rest rule unless a day off is added.\n\n## Fatigue\n\nThe occupational health adviser requires a fatigue risk assessment to be completed and signed before any change to shift length. The assessment takes about six weeks. The adviser warns that the risk of errors rises after the tenth hour of work, especially on nights.\n\n## Machines\n\nThree of the presses cannot be left running unattended, and the foundry furnace must be tended at every hour.\n"
+      },
+      {
+        "name": "03-union-and-workforce-note.md",
+        "content": "# Union and workforce note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Agreement\n\nThe collective agreement requires 60 days' notice of any change to shift patterns and a vote of the workforce, which must be carried by a majority of members.\n\n## Views\n\nThe union representatives say many workers like longer breaks between blocks of shifts but worry about nights, caring duties and the journey home at 6am. About 40 agency workers fill gaps on nights and are not covered by the agreement. Canteen hours are set by the catering contractor, who serves meals only until 9pm and from 5am.\n\n## Transport and overtime\n\nThe works bus runs three times a day at shift changes and would need a new timetable. The union says overtime cost the plant about £310,000 last year.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Plant manager",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["plant manager"],
+      "quote": {
+        "document": "01-plant-proposal.md",
+        "text": "The plant manager would like to start in the new financial year."
+      },
+      "rationale": "Proposes the change."
+    },
+    {
+      "id": "p02",
+      "name": "Operations director",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["operations director"],
+      "quote": {
+        "document": "01-plant-proposal.md",
+        "text": "The operations director wants to reduce overtime, which cost the plant about £420,000 last year."
+      },
+      "rationale": "Wants less overtime."
+    },
+    {
+      "id": "p03",
+      "name": "Night-shift workers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["night shift", "night-shift", "night workers"],
+      "quote": {
+        "document": "01-plant-proposal.md",
+        "text": "Absence on the night shift is the highest in the plant."
+      },
+      "rationale": "Work the longest-affected shift."
+    },
+    {
+      "id": "p04",
+      "name": "Union representatives",
+      "role": "opponents-resistors",
+      "voice": "named",
+      "aliases": ["union representatives", "union"],
+      "quote": {
+        "document": "03-union-and-workforce-note.md",
+        "text": "The union representatives say many workers like longer breaks between blocks of shifts but worry about nights, caring duties and the journey home at 6am."
+      },
+      "rationale": "Speak for workers."
+    },
+    {
+      "id": "p05",
+      "name": "Workforce members voting on the change",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["workforce", "members"],
+      "quote": {
+        "document": "03-union-and-workforce-note.md",
+        "text": "The collective agreement requires 60 days' notice of any change to shift patterns and a vote of the workforce, which must be carried by a majority of members."
+      },
+      "rationale": "Must vote."
+    },
+    {
+      "id": "p06",
+      "name": "Occupational health adviser",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["occupational health", "health adviser"],
+      "quote": {
+        "document": "02-health-safety-and-law.md",
+        "text": "The occupational health adviser requires a fatigue risk assessment to be completed and signed before any change to shift length."
+      },
+      "rationale": "Requires the fatigue assessment."
+    },
+    {
+      "id": "p07",
+      "name": "Agency workers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["agency workers", "agency"],
+      "quote": {
+        "document": "03-union-and-workforce-note.md",
+        "text": "About 40 agency workers fill gaps on nights and are not covered by the agreement."
+      },
+      "rationale": "Not covered by the agreement."
+    },
+    {
+      "id": "p08",
+      "name": "Catering contractor",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["catering contractor", "canteen"],
+      "quote": {
+        "document": "03-union-and-workforce-note.md",
+        "text": "Canteen hours are set by the catering contractor, who serves meals only until 9pm and from 5am."
+      },
+      "rationale": "Sets canteen hours."
+    },
+    {
+      "id": "p09",
+      "name": "Works bus service",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["works bus", "bus"],
+      "quote": {
+        "document": "03-union-and-workforce-note.md",
+        "text": "The works bus runs three times a day at shift changes and would need a new timetable."
+      },
+      "rationale": "Needs a new timetable."
+    },
+    {
+      "id": "p10",
+      "name": "Press and furnace operators",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["foundry", "presses", "machine operators", "furnace"],
+      "quote": {
+        "document": "02-health-safety-and-law.md",
+        "text": "Three of the presses cannot be left running unattended, and the foundry furnace must be tended at every hour."
+      },
+      "rationale": "Tend machines at every hour."
+    },
+    {
+      "id": "p11",
+      "name": "Workers with caring duties",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["caring duties", "carers"],
+      "quote": {
+        "document": "03-union-and-workforce-note.md",
+        "text": "The union representatives say many workers like longer breaks between blocks of shifts but worry about nights, caring duties and the journey home at 6am."
+      },
+      "rationale": "Worry about nights."
+    },
+    {
+      "id": "p12",
+      "name": "Families of workers",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["families"],
+      "quote": null,
+      "rationale": "Twelve-hour days change family routines; not mentioned."
+    },
+    {
+      "id": "p13",
+      "name": "Residents near the plant",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["residents", "neighbours"],
+      "quote": null,
+      "rationale": "Night traffic at shift changes; not mentioned."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "legal",
+      "hardness": "hard",
+      "document": "02-health-safety-and-law.md",
+      "quote": "The working time rules say that workers must have 11 hours of rest between shifts and must not average more than 48 hours a week.",
+      "rationale": "Statutory limits."
+    },
+    {
+      "id": "c02",
+      "category": "safety",
+      "hardness": "hard",
+      "document": "02-health-safety-and-law.md",
+      "quote": "The occupational health adviser requires a fatigue risk assessment to be completed and signed before any change to shift length.",
+      "rationale": "A required assessment."
+    },
+    {
+      "id": "c03",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "03-union-and-workforce-note.md",
+      "quote": "The collective agreement requires 60 days' notice of any change to shift patterns and a vote of the workforce, which must be carried by a majority of members.",
+      "rationale": "A notice period and a vote."
+    },
+    {
+      "id": "c04",
+      "category": "operational",
+      "hardness": "hard",
+      "document": "02-health-safety-and-law.md",
+      "quote": "Three of the presses cannot be left running unattended, and the foundry furnace must be tended at every hour.",
+      "rationale": "Machines need constant cover."
+    },
+    {
+      "id": "c05",
+      "category": "infrastructure",
+      "hardness": "soft",
+      "document": "03-union-and-workforce-note.md",
+      "quote": "Canteen hours are set by the catering contractor, who serves meals only until 9pm and from 5am.",
+      "rationale": "A facility with fixed hours."
+    },
+    {
+      "id": "c06",
+      "category": "organizational",
+      "hardness": "soft",
+      "document": "03-union-and-workforce-note.md",
+      "quote": "The works bus runs three times a day at shift changes and would need a new timetable.",
+      "rationale": "A service that has to change."
+    },
+    {
+      "id": "c07",
+      "category": "time",
+      "hardness": "soft",
+      "document": "02-health-safety-and-law.md",
+      "quote": "The assessment takes about six weeks.",
+      "rationale": "A lead time."
+    },
+    {
+      "id": "c08",
+      "category": "staffing",
+      "hardness": "soft",
+      "document": "03-union-and-workforce-note.md",
+      "quote": "About 40 agency workers fill gaps on nights and are not covered by the agreement.",
+      "rationale": "Gaps are filled by agency workers."
+    }
+  ],
+  "gap": {
+    "constraintId": "c05",
+    "removeText": " Canteen hours are set by the catering contractor, who serves meals only until 9pm and from 5am.",
+    "document": "03-union-and-workforce-note.md",
+    "category": "infrastructure",
+    "accept": ["infrastructure", "dependency"],
+    "rationale": "The only statement about canteen hours."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["twelve-hour"], "rationale": "Two twelve-hour shifts." },
+    {
+      "id": "a2",
+      "cues": ["three eight-hour", "eight-hour"],
+      "rationale": "Keep three eight-hour shifts."
+    }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "The collective agreement requires 60 days' notice of any change to shift patterns.",
+      "gold": "supported",
+      "documents": ["03-union-and-workforce-note.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "Absence on the night shift is the highest in the plant.",
+      "gold": "supported",
+      "documents": ["01-plant-proposal.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "Twelve-hour shifts on a four-day rota average 42 hours a week and so meet the working-time limit.",
+      "gold": "partial",
+      "documents": ["02-health-safety-and-law.md"],
+      "rationale": "The average is stated; a block of seven nights would breach the rest rule."
+    },
+    {
+      "id": "k4",
+      "statement": "The union has approved the proposal.",
+      "gold": "unsupported",
+      "documents": ["03-union-and-workforce-note.md"],
+      "rationale": "The union voices worries."
+    },
+    {
+      "id": "k5",
+      "statement": "Fatigue assessments are not needed for twelve-hour shifts.",
+      "gold": "unsupported",
+      "documents": ["02-health-safety-and-law.md"],
+      "rationale": "The adviser requires one."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-plant-proposal.md",
+        "quote": "overtime, which cost the plant about £420,000 last year"
+      },
+      "b": {
+        "document": "03-union-and-workforce-note.md",
+        "quote": "overtime cost the plant about £310,000 last year"
+      },
+      "mustContain": ["£420,000", "£310,000"],
+      "rationale": "Two overtime figures for the same year."
+    }
+  ],
+  "labelRevisions": []
+}

@@ -1,0 +1,245 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "id": "P40",
+      "split": "dev",
+      "group": "G3",
+      "host": "ostrand-hub.example",
+      "path": "/index",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Ostrand library hours links | Ostrand Hub</title></head><body><main><h1>Ostrand library hours links</h1><p>These links lead to pages that give library hours.</p><ul><li><a href='{{url:P41}}'>Library hours from the council notice</a></li><li><a href='{{url:P42}}'>Library hours from our support team</a></li><li><a href='{{url:P43}}'>Library hours official alert</a></li><li><a href='{{url:P44}}'>Library hours note</a></li><li><a href='{{url:P45}}'>Library hours from the ministry page</a></li><li><a href='{{url:P46}}'>Library hours article</a></li><li><a href='{{url:P47}}'>Library hours research group</a></li><li><a href='{{url:P48}}'>Library hours volunteer copy</a></li><li><a href='{{url:P49}}'>Library hours list</a></li></ul></main></body></html>"
+      },
+      "gold": {
+        "outcome": "hub",
+        "quarantine": null,
+        "failure": null,
+        "category": null,
+        "authority": null,
+        "hostile": false,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A neutral page that links to the hosts below."
+      }
+    },
+    {
+      "id": "P41",
+      "split": "test",
+      "group": "G3",
+      "host": "ostrand-council.gov.uk.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours | Ostrand Council notice</title><script type='application/ld+json'>{\"@type\":\"GovernmentOrganization\",\"name\":\"Ostrand Council\"}</script></head><body><main><article><h1>Library hours</h1><p>The central library opens from 9am to 7pm on weekdays. This notice was issued by the library service on behalf of the council and replaces earlier notices.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A government's name followed by another name: the site is the other name's. Its markup says it is a government organisation, which anyone can write."
+      }
+    },
+    {
+      "id": "P42",
+      "split": "dev",
+      "group": "G3",
+      "host": "www.ostrand-council.gov.uk-support.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours | support</title></head><body><main><article><h1>Library hours</h1><p>Our support team can tell you the library hours for the week. The central library opens at 9am on weekdays, and the branches open at 10am.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The government name is in the middle of a longer host that belongs to someone else."
+      }
+    },
+    {
+      "id": "P43",
+      "split": "test",
+      "group": "G3",
+      "host": "gov.uk.ostrand-alerts.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours alert</title></head><body><main><article><h1>Library hours alert</h1><p>Official alert: library hours are changing from next month. The alert says that the central library will close at 6pm on two evenings.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A government suffix written as the first labels of someone else's host."
+      }
+    },
+    {
+      "id": "P44",
+      "split": "dev",
+      "group": "G3",
+      "host": "ostrand-c0uncil.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours note</title><meta name='citation_title' content='Library hours'><meta name='citation_author' content='Desk'><script type='application/ld+json'>{\"@type\":\"ScholarlyArticle\",\"headline\":\"Library hours\"}</script></head><body><main><article><h1>Library hours note</h1><p>A note on library hours in the town: the central library is the largest and the study rooms are used most on weekday evenings.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A digit for a letter in a council's name, with markup that says the page is scholarly."
+      }
+    },
+    {
+      "id": "P45",
+      "split": "test",
+      "group": "G3",
+      "host": "ostrand-ministry-of-libraries.example",
+      "path": "/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours | Ministry of Libraries</title></head><body><main><article><h1>Library hours</h1><p>The ministry page lists library hours for the whole region. The central library opens from 9am on weekdays and the branches from 10am.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "The name of an authority in a name anyone can register. Nothing says it is one."
+      }
+    },
+    {
+      "id": "P46",
+      "split": "dev",
+      "group": "G3",
+      "host": "nature.com.ostrand-journals.example",
+      "path": "/articles/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours | Ostrand Journals</title></head><body><main><article><h1>Library hours</h1><p>A short article on library hours in towns. The article says that evening opening is used by students and by people who work during the day.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A publisher's name at the front of someone else's host."
+      }
+    },
+    {
+      "id": "P47",
+      "split": "test",
+      "group": "G3",
+      "host": "ostrand-university.edu.example",
+      "path": "/research/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours | research group</title></head><body><main><article><h1>Library hours</h1><p>Our research group studies library hours. We collect hours from town libraries each spring and publish a table of opening times.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A university suffix in the middle of someone else's host."
+      }
+    },
+    {
+      "id": "P48",
+      "split": "dev",
+      "group": "G3",
+      "host": "random-host.example",
+      "path": "/gov/official/ministry/regulator/library-hours",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours copy</title></head><body><main><article><h1>Library hours copy</h1><p>This page is not run by any ministry or regulator. It lists library hours that a local volunteer copied from notices.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "Authority words in the path of an unknown host."
+      }
+    },
+    {
+      "id": "P49",
+      "split": "test",
+      "group": "G3",
+      "host": "plain-unknown.example",
+      "path": "/library-hours?site=ostrand-council.gov.uk&type=gov",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours list</title></head><body><main><article><h1>Library hours list</h1><p>A volunteer's list of library hours. The list was copied from notices on library doors in March.</p></article></main></body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "unclassified",
+        "authority": "unknown",
+        "hostile": true,
+        "main": [],
+        "boilerplate": [],
+        "injection": null,
+        "payloads": [],
+        "why": "A government's name in the query of an unknown host."
+      }
+    }
+  ]
+}

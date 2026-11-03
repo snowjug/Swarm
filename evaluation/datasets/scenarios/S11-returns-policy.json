@@ -1,0 +1,296 @@
+{
+  "id": "S11",
+  "split": "dev",
+  "kind": "custom",
+  "title": "Homeware retailer: a shorter returns window",
+  "tags": ["custom", "contradictory-sources"],
+  "question": "What could happen if a homeware retailer shortens its returns window from 60 days to 30 days?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-policy-proposal.md",
+        "content": "# Policy proposal: a shorter returns window\n\nThis is a fictional proposal written for an evaluation. All names, places and figures are invented.\n\n## Proposal\n\nBrindle & Hart, a homeware retailer with 41 shops and an online store, proposes to shorten its returns window from 60 days to 30 days. Returns of items bought in the sale would stay at 14 days.\n\n## Reason\n\nThe retailer says that returns cost it about 8% of annual sales through handling, damage and resale at a discount. The finance lead expects a shorter window to cut returns by a fifth. The online store manager notes that most returns arrive in the last two weeks of the window.\n\n## Timing\n\nThe change would be announced in the January newsletter and take effect on 1 March.\n"
+      },
+      {
+        "name": "02-customer-and-service-data.md",
+        "content": "# Customer and service data\n\nThis is a fictional summary written for an evaluation. All names, places and figures are invented.\n\n## Returns\n\nThe customer service team reports that returns cost the retailer about 12% of annual sales. Of returned items, 35% are resold at full price and 40% are resold at a discount.\n\n## Contacts\n\nCalls to the contact centre about returns rise sharply in the last week of the window. Customers who buy furniture online say they need time to assemble and live with an item before deciding.\n\n## Feedback\n\nA survey of 900 customers found that 64% say the returns window affects whether they buy bigger items. Customers who buy gifts in December often receive them after the 30-day point.\n"
+      },
+      {
+        "name": "03-legal-and-logistics-note.md",
+        "content": "# Legal and logistics note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Consumer rights\n\nThe Marden Consumer Code gives online buyers a right to cancel within 14 days of delivery. It does not apply to goods bought in a shop. The code says that a seller must state its returns terms clearly before purchase and must not change them for orders already placed.\n\n## Stores and warehouse\n\nThe warehouse handles returned online orders and is at capacity in January and February. Shop managers say that shop returns are done at the till and need no extra space. The carrier collects returns for a fee that rises in peak weeks.\n\n## Partners\n\nTwo marketplaces that sell the retailer's goods set their own returns rules, which the retailer cannot change.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Retail management",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["retailer", "management", "brindle"],
+      "quote": {
+        "document": "01-policy-proposal.md",
+        "text": "Brindle & Hart, a homeware retailer with 41 shops and an online store, proposes to shorten its returns window from 60 days to 30 days."
+      },
+      "rationale": "Proposes the change."
+    },
+    {
+      "id": "p02",
+      "name": "Finance lead",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["finance lead", "finance"],
+      "quote": {
+        "document": "01-policy-proposal.md",
+        "text": "The finance lead expects a shorter window to cut returns by a fifth."
+      },
+      "rationale": "Expects returns to fall."
+    },
+    {
+      "id": "p03",
+      "name": "Online store manager",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["online store manager"],
+      "quote": {
+        "document": "01-policy-proposal.md",
+        "text": "The online store manager notes that most returns arrive in the last two weeks of the window."
+      },
+      "rationale": "Runs online returns."
+    },
+    {
+      "id": "p04",
+      "name": "Customer service and contact centre",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["customer service", "contact centre"],
+      "quote": {
+        "document": "02-customer-and-service-data.md",
+        "text": "Calls to the contact centre about returns rise sharply in the last week of the window."
+      },
+      "rationale": "Handle returns calls."
+    },
+    {
+      "id": "p05",
+      "name": "Warehouse",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["warehouse"],
+      "quote": {
+        "document": "03-legal-and-logistics-note.md",
+        "text": "The warehouse handles returned online orders and is at capacity in January and February."
+      },
+      "rationale": "Handles returned online orders."
+    },
+    {
+      "id": "p06",
+      "name": "Shop managers",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["shop managers"],
+      "quote": {
+        "document": "03-legal-and-logistics-note.md",
+        "text": "Shop managers say that shop returns are done at the till and need no extra space."
+      },
+      "rationale": "Handle shop returns."
+    },
+    {
+      "id": "p07",
+      "name": "Returns carrier",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["carrier"],
+      "quote": {
+        "document": "03-legal-and-logistics-note.md",
+        "text": "The carrier collects returns for a fee that rises in peak weeks."
+      },
+      "rationale": "Collects returns."
+    },
+    {
+      "id": "p08",
+      "name": "Marketplaces selling the retailer's goods",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["marketplaces"],
+      "quote": {
+        "document": "03-legal-and-logistics-note.md",
+        "text": "Two marketplaces that sell the retailer's goods set their own returns rules, which the retailer cannot change."
+      },
+      "rationale": "Set their own rules."
+    },
+    {
+      "id": "p09",
+      "name": "Online furniture buyers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["furniture"],
+      "quote": {
+        "document": "02-customer-and-service-data.md",
+        "text": "Customers who buy furniture online say they need time to assemble and live with an item before deciding."
+      },
+      "rationale": "Need time before deciding."
+    },
+    {
+      "id": "p10",
+      "name": "Gift buyers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["gift"],
+      "quote": {
+        "document": "02-customer-and-service-data.md",
+        "text": "Customers who buy gifts in December often receive them after the 30-day point."
+      },
+      "rationale": "Gifts arrive late."
+    },
+    {
+      "id": "p11",
+      "name": "Consumer-rights regulator",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["consumer code", "consumer rights", "regulator"],
+      "quote": {
+        "document": "03-legal-and-logistics-note.md",
+        "text": "The Marden Consumer Code gives online buyers a right to cancel within 14 days of delivery."
+      },
+      "rationale": "Sets the cancellation right."
+    },
+    {
+      "id": "p12",
+      "name": "Online buyers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["online buyers", "online customers"],
+      "quote": {
+        "document": "03-legal-and-logistics-note.md",
+        "text": "The Marden Consumer Code gives online buyers a right to cancel within 14 days of delivery."
+      },
+      "rationale": "Hold the cancellation right."
+    },
+    {
+      "id": "p13",
+      "name": "Customers who cannot easily visit a shop",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["cannot easily", "rural", "disabled"],
+      "quote": null,
+      "rationale": "Depend on online returns; not mentioned."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "legal",
+      "hardness": "hard",
+      "document": "03-legal-and-logistics-note.md",
+      "quote": "The Marden Consumer Code gives online buyers a right to cancel within 14 days of delivery.",
+      "rationale": "A statutory right."
+    },
+    {
+      "id": "c02",
+      "category": "legal",
+      "hardness": "hard",
+      "document": "03-legal-and-logistics-note.md",
+      "quote": "The code says that a seller must state its returns terms clearly before purchase and must not change them for orders already placed.",
+      "rationale": "A rule on changing terms."
+    },
+    {
+      "id": "c03",
+      "category": "capacity",
+      "hardness": "hard",
+      "document": "03-legal-and-logistics-note.md",
+      "quote": "The warehouse handles returned online orders and is at capacity in January and February.",
+      "rationale": "No spare capacity."
+    },
+    {
+      "id": "c04",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "03-legal-and-logistics-note.md",
+      "quote": "Two marketplaces that sell the retailer's goods set their own returns rules, which the retailer cannot change.",
+      "rationale": "A rule the retailer cannot change."
+    },
+    {
+      "id": "c05",
+      "category": "time",
+      "hardness": "soft",
+      "document": "01-policy-proposal.md",
+      "quote": "The change would be announced in the January newsletter and take effect on 1 March.",
+      "rationale": "A proposed date."
+    },
+    {
+      "id": "c06",
+      "category": "budget",
+      "hardness": "soft",
+      "document": "03-legal-and-logistics-note.md",
+      "quote": "The carrier collects returns for a fee that rises in peak weeks.",
+      "rationale": "A cost that varies."
+    }
+  ],
+  "gap": {
+    "constraintId": "c04",
+    "removeText": "Two marketplaces that sell the retailer's goods set their own returns rules, which the retailer cannot change.",
+    "document": "03-legal-and-logistics-note.md",
+    "category": "contractual",
+    "accept": ["contractual", "dependency"],
+    "rationale": "The only statement about marketplace rules."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["30 days", "30-day"], "rationale": "A 30-day window." },
+    { "id": "a2", "cues": ["sale", "14 days"], "rationale": "Sale items stay at 14 days." }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "The retailer proposes shortening its returns window from 60 days to 30 days.",
+      "gold": "supported",
+      "documents": ["01-policy-proposal.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "The Marden Consumer Code gives online buyers a right to cancel within 14 days of delivery.",
+      "gold": "supported",
+      "documents": ["03-legal-and-logistics-note.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "Returns cost the retailer about 8% of annual sales.",
+      "gold": "partial",
+      "documents": ["01-policy-proposal.md", "02-customer-and-service-data.md"],
+      "rationale": "The proposal says 8%; the service team says 12%."
+    },
+    {
+      "id": "k4",
+      "statement": "A 30-day window is the market norm.",
+      "gold": "unsupported",
+      "documents": ["01-policy-proposal.md"],
+      "rationale": "No source compares windows."
+    },
+    {
+      "id": "k5",
+      "statement": "Customers will return fewer items when the window is shorter.",
+      "gold": "unsupported",
+      "documents": ["01-policy-proposal.md", "02-customer-and-service-data.md"],
+      "rationale": "An expectation, not a finding."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-policy-proposal.md",
+        "quote": "returns cost it about 8% of annual sales"
+      },
+      "b": {
+        "document": "02-customer-and-service-data.md",
+        "quote": "returns cost the retailer about 12% of annual sales"
+      },
+      "mustContain": ["8%", "12%"],
+      "rationale": "Two figures for the cost of returns."
+    }
+  ],
+  "labelRevisions": []
+}
