@@ -25,7 +25,7 @@ import { projectRoutes } from './routes/projects.js';
 import { budgetRoutes } from './routes/budget.js';
 import { memberRoutes } from './routes/members.js';
 import { sessionRoutes, sessionStatusRoute } from './routes/session.js';
-import { recordApiError, registerRequestTelemetry } from './telemetry/http.js';
+import { frameworkFailure, recordApiError, registerRequestTelemetry } from './telemetry/http.js';
 import { signals } from './telemetry/signals.js';
 import { ledgerRoutes } from './routes/ledger.js';
 import { studioRoutes } from './routes/studio.js';
@@ -109,6 +109,7 @@ export async function buildApp(options: AppOptions) {
         : false,
     requestIdHeader: false,
     genReqId: () => randomUUID(),
+    frameworkErrors: frameworkFailure,
     logger: {
       level: config.logLevel,
       ...(options.logStream ? { stream: options.logStream } : {}),
