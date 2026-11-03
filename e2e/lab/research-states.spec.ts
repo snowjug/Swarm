@@ -96,7 +96,13 @@ async function open(
   page: Page,
   request: Parameters<typeof makeProject>[0],
   held: ReturnType<typeof viewOf>,
-  options: { questionOnly?: boolean; theme?: ThemeName; enabled?: boolean; project?: string } = {},
+  options: {
+    questionOnly?: boolean;
+    theme?: ThemeName;
+    enabled?: boolean;
+    project?: string;
+    firstReadDelayMs?: number;
+  } = {},
 ): Promise<{ id: string; fake: FakeResearch }> {
   const questionOnly = options.questionOnly ?? true;
   // The page that was open stops asking, and what it was told before is not what it is told now.
@@ -107,7 +113,7 @@ async function open(
   const fake = await fakeResearch(
     page,
     questionOnly ? held : await withDocumentsOf(request, id, held),
-    { questionOnly, enabled: options.enabled },
+    { questionOnly, enabled: options.enabled, firstReadDelayMs: options.firstReadDelayMs },
   );
   await openApp(page, { project: id, scene: 'ground', theme: options.theme });
   return { id, fake };
@@ -259,6 +265,24 @@ test.describe('a question that is being researched', () => {
 });
 
 test.describe('a project that has not been researched', () => {
+  test('says that it is reading while the first answer is on its way, and then shows it', async ({
+    page,
+    request,
+  }) => {
+    const problems = watchPage(page);
+    await open(page, request, viewOf(runAt('reading')), { firstReadDelayMs: 3_000 });
+    const section = researchSection(page);
+    await expect(section).toHaveAttribute('data-research', 'loading');
+    await expect(section.locator('[aria-busy="true"]')).toBeVisible();
+    // Nothing is said of a run that the page has not been told of.
+    await expect(tracker(page)).toHaveCount(0);
+    await expect(press(page, 'Pause')).toHaveCount(0);
+    await expectSound(page, 'research: reading the first answer');
+    await expect(tracker(page)).toBeVisible({ timeout: 10_000 });
+    await expect(chip(page)).toHaveText('Reading');
+    expect(problems).toEqual([]);
+  });
+
   test('shows what would happen, none of it reached, and starts on one press', async ({
     page,
     request,

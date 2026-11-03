@@ -329,6 +329,8 @@ export interface FakeOptions {
    * of its own (what the call would have returned), so that the page goes where it goes next.
    */
   makesQuestionOnly?: boolean;
+  /** How long the first answer to a read takes, in ms: the page is seen waiting for it. Every read before then waits. */
+  firstReadDelayMs?: number;
 }
 
 const STAND_IN = {
@@ -358,6 +360,8 @@ export async function fakeResearch(
   const enabled = options.enabled ?? true;
   const refusals = new Map<string, { status: number; code: string; message: string }>();
   let broken: string | null = null;
+  let opensAt: number | null = null;
+  const delayed = options.firstReadDelayMs ?? 0;
   const fake: FakeResearch = {
     held: start,
     calls: [],
@@ -446,68 +450,76 @@ export async function fakeResearch(
     );
   }
 
-  await page_.route(/\/api\/projects\/[^/]+\/research(?:\/[a-z]+)?$/u, async (route) => {
-    const request = route.request();
-    const path = new URL(request.url()).pathname;
-    const action = path.replace(/^.*\/research\/?/u, '');
-    const label = request.method() === 'GET' ? 'GET' : `POST ${action || 'start'}`;
-    fake.calls.push(label);
-    if (request.method() === 'GET' && broken) return error(route, 503, 'UNAVAILABLE', broken);
-    const refused = refusals.get(label);
-    if (refused) {
-      refusals.delete(label);
-      return error(route, refused.status, refused.code, refused.message);
-    }
-    const run = fake.held.run;
-    const next = (status: ResearchRun['status'], extra: Partial<ResearchRun> = {}) => {
-      if (!run) return;
-      fake.held = {
-        ...fake.held,
-        run: { ...run, status, ...extra },
-        revision: fake.held.revision + 1,
-      };
-    };
-    if (request.method() === 'POST') {
-      if (action === 'pause') next('paused');
-      else if (action === 'resume') next('running');
-      else if (action === 'cancel') next('cancelled', { stoppedBecause: 'cancelled' });
-      else if (action === 'finish') {
-        fake.held = viewOf(
-          runAt('ready', {
-            sources: pagesRead().map((source, index) =>
-              source.outcome === 'used' ? { ...source, documentId: `D${index + 1}` } : source,
-            ),
-          }),
-        );
-      } else if (action === 'sources') {
-        const body = JSON.parse(request.postData() ?? '{}') as { url?: string };
-        const url = new URL(body.url ?? 'https://invalid.example.org');
-        if (/^(?:10\.|127\.|192\.168\.|localhost)/u.test(url.hostname)) {
-          return error(
-            route,
-            422,
-            'URL_BLOCKED',
-            'That address is on a private or local network, which Swarm never reads.',
-          );
-        }
-        // A page or a site that is named is a run of its own, and there is one run at a time.
-        if (run && ['queued', 'running', 'paused'].includes(run.status)) {
-          return error(
-            route,
-            409,
-            'RESEARCH_ACTIVE',
-            'Research is already running for this project. Wait for it, or cancel it first.',
-          );
-        }
-        fake.held = viewOf(runAt('planning', { status: 'queued' }));
-      } else {
-        // Starting: a run that is waiting for its turn.
-        fake.held = viewOf(runAt('planning', { status: 'queued' }));
+  await page_.route(
+    /\/api\/projects\/[^/]+\/research(?:\/[a-z]+)?$/u,
+    unlessClosed(async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      const action = path.replace(/^.*\/research\/?/u, '');
+      const label = request.method() === 'GET' ? 'GET' : `POST ${action || 'start'}`;
+      fake.calls.push(label);
+      if (request.method() === 'GET' && delayed > 0) {
+        opensAt ??= Date.now() + delayed;
+        const wait = opensAt - Date.now();
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
       }
-      return json(route, 202, fake.held);
-    }
-    return json(route, 200, fake.held);
-  });
+      if (request.method() === 'GET' && broken) return error(route, 503, 'UNAVAILABLE', broken);
+      const refused = refusals.get(label);
+      if (refused) {
+        refusals.delete(label);
+        return error(route, refused.status, refused.code, refused.message);
+      }
+      const run = fake.held.run;
+      const next = (status: ResearchRun['status'], extra: Partial<ResearchRun> = {}) => {
+        if (!run) return;
+        fake.held = {
+          ...fake.held,
+          run: { ...run, status, ...extra },
+          revision: fake.held.revision + 1,
+        };
+      };
+      if (request.method() === 'POST') {
+        if (action === 'pause') next('paused');
+        else if (action === 'resume') next('running');
+        else if (action === 'cancel') next('cancelled', { stoppedBecause: 'cancelled' });
+        else if (action === 'finish') {
+          fake.held = viewOf(
+            runAt('ready', {
+              sources: pagesRead().map((source, index) =>
+                source.outcome === 'used' ? { ...source, documentId: `D${index + 1}` } : source,
+              ),
+            }),
+          );
+        } else if (action === 'sources') {
+          const body = JSON.parse(request.postData() ?? '{}') as { url?: string };
+          const url = new URL(body.url ?? 'https://invalid.example.org');
+          if (/^(?:10\.|127\.|192\.168\.|localhost)/u.test(url.hostname)) {
+            return error(
+              route,
+              422,
+              'URL_BLOCKED',
+              'That address is on a private or local network, which Swarm never reads.',
+            );
+          }
+          // A page or a site that is named is a run of its own, and there is one run at a time.
+          if (run && ['queued', 'running', 'paused'].includes(run.status)) {
+            return error(
+              route,
+              409,
+              'RESEARCH_ACTIVE',
+              'Research is already running for this project. Wait for it, or cancel it first.',
+            );
+          }
+          fake.held = viewOf(runAt('planning', { status: 'queued' }));
+        } else {
+          // Starting: a run that is waiting for its turn.
+          fake.held = viewOf(runAt('planning', { status: 'queued' }));
+        }
+        return json(route, 202, fake.held);
+      }
+      return json(route, 200, fake.held);
+    }),
+  );
 
   return fake;
 }
