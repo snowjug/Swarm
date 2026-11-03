@@ -16,7 +16,8 @@ import type { EvidenceChunk } from '../../../shared/types.js';
 import { normalizeText } from '../grounding/text.js';
 import { verifiedEvidence, uniqueEvidence } from '../stakeholders/evidence.js';
 import { truncate, uniqueId } from '../stakeholders/names.js';
-import { HARD_CUE, IMPACT_IF_VIOLATED } from './lexicon.js';
+import { limitSupport, readHardness, type Cancellation } from './deontic.js';
+import { IMPACT_IF_VIOLATED } from './lexicon.js';
 import type { Proposal } from './types.js';
 
 /** The most constraints a set holds, those set aside included: the shared contract's bound. */
@@ -91,6 +92,71 @@ function validEffect(effect: ConstraintEffect, context: BuildContext): boolean {
   }
 }
 
+const WHY_NOT_A_LIMIT: Record<Cancellation, string> = {
+  'asked-for': 'as something someone asks for, which is not a rule',
+  hedged: 'as something that may or may not hold',
+  negated: 'to say it is not required',
+  interpretive: 'as a caution on how to read, not a limit',
+};
+
+/**
+ * Whether a limit is held hard, and why: a proposal a person can overrule, with the basis in words they
+ * can check against the source. A limit is hard where the words of a source, or of the person, state it
+ * as a requirement, a ban, a ceiling or a condition that holds: "hard because the source says ‘must’".
+ * A wish, a possibility, a denial and a caution are not read as limits that hold, whatever word they
+ * carry. A model's own reading can raise a source's limit to hard only when the quote has some word of
+ * a limit to bear it out and nothing in it asks, hedges or denies, so that a model that calls everything
+ * hard cannot make a fact, a wish or a guess into a limit that blocks a run; it never lowers a limit the
+ * words state, and a guess is never hard.
+ */
+export function hardnessOf(input: {
+  source: Constraint['source'];
+  proposal: Pick<Proposal, 'hardness' | 'origin' | 'statement'>;
+  quotes: readonly string[];
+}): { hardness: ConstraintHardness; basis: string } {
+  const { source, proposal, quotes } = input;
+  if (source === 'inferred') {
+    return { hardness: 'soft', basis: 'Held soft: no source or person says it is firm.' };
+  }
+  const user = source === 'user';
+  const whose = user ? 'your words say' : 'the source says';
+  const texts = user ? [proposal.statement] : quotes;
+  let cancelled: ReturnType<typeof readHardness>['cancelled'] = null;
+  for (const text of texts) {
+    const reading = readHardness(text);
+    if (reading.hard && reading.cue) {
+      return { hardness: 'hard', basis: `Hard because ${whose} “${reading.cue.shown}”.` };
+    }
+    cancelled ??= reading.cancelled;
+  }
+  if (user && proposal.hardness === 'hard') {
+    return { hardness: 'hard', basis: 'Hard as read from your words.' };
+  }
+  if (cancelled) {
+    return {
+      hardness: 'soft',
+      basis: `Soft: ${user ? 'your words say' : 'the source says'} “${cancelled.cue.shown}”, but ${WHY_NOT_A_LIMIT[cancelled.why]}.`,
+    };
+  }
+  if (!user && proposal.origin.kind === 'model' && proposal.hardness === 'hard') {
+    const support = quotes.map((quote) => limitSupport(quote)).find((found) => found !== null);
+    if (support) {
+      return {
+        hardness: 'hard',
+        basis: `A model read it as a firm limit, and the source’s words (“${support}”) bear that out. They are not a word of obligation, so check it.`,
+      };
+    }
+    return {
+      hardness: 'soft',
+      basis: 'Soft: a model called it hard, but nothing in the quoted words states a limit.',
+    };
+  }
+  return {
+    hardness: 'soft',
+    basis: `Soft: ${user ? 'your words have' : 'the source has'} no word that makes it an obligation, a ban or a ceiling.`,
+  };
+}
+
 const sourceNote = (proposal: Proposal, refs: readonly EvidenceRef[]): string => {
   const { origin } = proposal;
   switch (origin.kind) {
@@ -117,8 +183,9 @@ const sourceNote = (proposal: Proposal, refs: readonly EvidenceRef[]): string =>
  * Makes constraints of proposals, by rules that do not ask who proposed them. What a constraint is
  * labelled follows from what could be checked: a quote that is found in a passage makes it `extracted`,
  * the person's own words make it `user`, and everything else is `inferred`. Whether it is hard follows
- * from the words of what was quoted or written, never from the proposal's say-so, and an inferred one is
- * never hard. Nothing is validated, and nothing is reviewed.
+ * from the words of what was quoted or written, with a model's reading allowed to raise it only where
+ * those words bear it out (`hardnessOf`); an inferred one is never hard. Nothing is validated, and
+ * nothing is reviewed.
  */
 export function buildConstraints(
   proposals: readonly Proposal[],
@@ -169,15 +236,13 @@ export function buildConstraints(
       : fromSource && evidence.length > 0
         ? 'extracted'
         : 'inferred';
-    // A source's words make a limit hard only if they are hard words, and a guess is never hard.
-    const hardness: ConstraintHardness =
-      source === 'inferred'
-        ? 'soft'
-        : source === 'extracted'
-          ? evidence.some((ref) => ref.quote !== null && HARD_CUE.test(ref.quote))
-            ? 'hard'
-            : 'soft'
-          : proposal.hardness;
+    // A source's words make a limit hard only if they state it as one, and a guess is never hard.
+    const decided = hardnessOf({
+      source,
+      proposal,
+      quotes: evidence.flatMap((ref) => (ref.quote === null ? [] : [ref.quote])),
+    });
+    const hardness = decided.hardness;
 
     const kind: Constraint['confidenceBasis']['kind'] =
       proposal.origin.kind === 'question'
@@ -241,6 +306,7 @@ export function buildConstraints(
       source,
       evidenceRefs: evidence,
       hardness,
+      hardnessBasis: truncate(decided.basis, 240),
       scope: scopeOf(proposal.category, actors, alternatives),
       affectedActorIds: actors,
       affectedAlternativeIds: alternatives,

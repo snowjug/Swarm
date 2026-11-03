@@ -51,6 +51,7 @@ const hardLegal = constraint({
   statement: REGULATOR_QUOTE,
   source: 'extracted',
   hardness: 'hard',
+  hardnessBasis: 'Hard because the source says “needs … approval”.',
   validation: 'unvalidated',
   review: 'proposed',
   evidenceRefs: [quote(REGULATOR_QUOTE)],
@@ -338,6 +339,10 @@ describe('constraints that wait for a decision', () => {
     expect(within(popover).getByText(`“${REGULATOR_QUOTE}”`)).toBeTruthy();
     expect(within(popover).getByText('limits.md')).toBeTruthy();
     expect(within(popover).getByText(/Swarm found the quote in it/u)).toBeTruthy();
+    // Hardness is a proposal, and the words it rests on are shown.
+    expect(
+      within(popover).getByText('Hard because the source says “needs … approval”.'),
+    ).toBeTruthy();
     expect(
       within(popover).getByText(
         /Needs an approver|The change reaches the actors in scope only from the round after/u,
@@ -538,7 +543,7 @@ describe('what Swarm still has to ask', () => {
     expect(screen.getByText(/1 more is waiting\./u)).toBeTruthy();
     expect(
       within(list[0]!).getByText(
-        /What it could change: It could change which alternative comes out ahead\./u,
+        /Why it is asked: It could change which alternative comes out ahead\./u,
       ),
     ).toBeTruthy();
   });

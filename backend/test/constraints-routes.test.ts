@@ -314,7 +314,12 @@ describe('proposing and reviewing constraints', () => {
     const assumed = await act({ action: 'use-assumption', clarificationId: second!.id });
     expect(assumed.statusCode, assumed.body).toBe(200);
     const next = (assumed.json() as ConstraintsView).constraints!;
-    expect(next.clarifications.map((question) => question.status)).toEqual(['answered', 'assumed']);
+    // The two that were dealt with, and whatever else was asked, still open.
+    expect(next.clarifications.map((question) => question.status).slice(0, 2)).toEqual([
+      'answered',
+      'assumed',
+    ]);
+    for (const rest of next.clarifications.slice(2)) expect(rest.status).toBe('open');
     expect(next.constraints.filter((item) => item.review === 'added')).toHaveLength(2);
     expect(next.constraints.find((item) => item.validation === 'assumed')?.source).toBe('user');
   });

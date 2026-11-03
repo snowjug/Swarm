@@ -1,4 +1,5 @@
 import type { ConstraintCategory } from '../../../shared/constraints.js';
+import { ANY_CUE } from './cues.js';
 
 /**
  * A small, generic vocabulary for reading text for limits, used only by the rules path of constraint
@@ -369,9 +370,12 @@ export const CATEGORY_ORDER: readonly ConstraintCategory[] = [
   'uncertainty',
 ];
 
-/** Words that make a limit hard: an obligation, a ban, a ceiling or a floor, a condition. */
-export const HARD_CUE =
-  /\b(?:must(?:\s+not)?|shall(?:\s+not)?|require[sd]?(?:\s+to)?|requirements?|mandatory|obliged|obligat(?:ed|ion)|prohibit(?:ed|s)?|forbid(?:s|den)?|banned|illegal|unlawful|not\s+(?:permitted|allowed)|may\s+not|cannot|can['’]t|unable\s+to|no\s+more\s+than|at\s+most|not\s+(?:to\s+)?exceed|not\s+more\s+than|maximum|minimum|at\s+least|capped?|ceiling|quota|only\s+(?:if|when|after|once)|unless|no\s+(?:earlier|later)\s+than|not\s+before|by\s+law|subject\s+to|(?:has|have)\s+to\b|limited\s+to|needs?\s+(?:to\b|(?:[\p{L}'’-]+\s+){0,3}(?:approval|consent|permission|sign-?off|authori[sz]ation|clearance)))\b/iu;
+/**
+ * Any word that can make a limit hard: an obligation, a ban, a ceiling or a floor, a condition, a binding
+ * source, a fixed date (`cues.ts`). Having one is not enough: `readHardness` reads the clause around it,
+ * because a wish, a possibility or a denial is not a limit that holds.
+ */
+export const HARD_CUE = ANY_CUE;
 
 /** Words that limit without ruling anything out: a preference, a dependence, a commitment, a notice. */
 export const SOFT_CUE =
@@ -381,13 +385,17 @@ export const SOFT_CUE =
 export const UNDECIDED_CUE =
   /\b(?:not\s+yet\s+(?:been\s+)?(?:decided|defined|set|agreed|settled|known|clear)|(?:has|have)\s+not\s+(?:yet\s+)?been\s+(?:set|decided|defined|agreed|settled)|undecided|unknown|unclear|to\s+be\s+(?:decided|determined|confirmed)|(?:nobody|no\s+one)\s+has\s+(?:set|decided|defined|measured|quoted)|\bnot\s+yet\b|(?:has|have|had|was|were)\s+not\s+(?:yet\s+)?(?:been\s+)?(?:tested|checked|assessed|reviewed))\b/iu;
 
+/** Words that say what a source does not say or has not measured: a gap in what is known, which no limit can be read from. */
+export const GAP_CUE =
+  /\b(?:does\s+not\s+(?:say|state|show|give|explain)|(?:was|were|is|are|has|have)\s+not\s+(?:yet\s+)?(?:been\s+)?(?:tracked|measured|studied|tested|quoted|recorded)|not\s+(?:tracked|measured|studied|tested|recorded)|no\s+(?:data|evidence|information)\b|never\s+(?:been\s+)?measured)\b/iu;
+
 /** Words that make a sentence about a requirement for approval. */
 export const APPROVAL_CUE =
   /\b(?:approv(?:al|ed|e|es)|sign-?off|authori[sz]ation|authori[sz]ed|clearance|consent\s+of|permission)\b/iu;
 
 /** A length of time or a date the sentence gives, kept as the words it was found in. */
 export const WINDOW_TEXT =
-  /\b(?:(?:within|for|over|after|before|until|by|no\s+(?:earlier|later)\s+than)\s+(?:the\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s+(?:day|week|month|quarter|year)s?|(?:until|by|before|after)\s+(?:the\s+)?(?:end\s+of\s+)?(?:q[1-4]|(?:the\s+)?(?:next|this|last)\s+(?:day|week|month|quarter|year)))\b/iu;
+  /\b(?:(?:within|for|over|after|before|until|by|no\s+(?:earlier|later)\s+than)\s+(?:the\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|twelve)\s+(?:hour|day|week|month|quarter|year)s?|(?:until|by|before|after)\s+(?:the\s+)?(?:end\s+of\s+)?(?:q[1-4]|(?:the\s+)?(?:next|this|last)\s+(?:day|week|month|quarter|year)))\b/iu;
 
 /** What a hard or a soft constraint says of its own breach: Swarm's words about the kind of limit, not a source's. */
 export const IMPACT_IF_VIOLATED = {
