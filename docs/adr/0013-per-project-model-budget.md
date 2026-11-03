@@ -57,6 +57,14 @@ two workers writing them can lose an update, so they cannot be what a limit is h
 - A branch is a project with a budget of its own, so a person with several branches has several budgets. A
   tenant that must be held to a total needs a workspace budget, which does not exist.
 - It does not limit the rules engine, which makes no model call, or any other cost of the pilot.
+- **More than five places now make a model.** Since this record, the participants' proposals, regenerations
+  and refinements (`routes/stakeholders.ts`), the reading of sources for constraints
+  (`constraints/service.ts`), the planning of a research run (`research/run.ts`) and the model critic
+  (`critics/service.ts`) are made with the same sink, so the project's budget holds for them too.
+  `model-budget.test.ts` lists the original five places and not these. An operation that goes through the
+  task runner can also be held to an estimated dollar limit from prices an operator enters (`MODEL_PRICES`;
+  [Foundry models](../models/foundry.md#budgets-and-cost)). The project's budget itself is still calls and
+  tokens, and there is still no tenant total and no alert.
 
 ## Evidence
 
