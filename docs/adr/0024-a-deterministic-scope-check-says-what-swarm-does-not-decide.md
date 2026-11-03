@@ -90,8 +90,9 @@ reads the Decision view, not them.
   is always open. The status says it can be mistaken "in either direction", and the page says that the rules read
   words and are not complete.
 - **The full report is unchanged.** The brief beneath the Decision view is the brief as it was written, and for a
-  question about one person it may still carry its own conditional recommendation. Only the notice, the note on the
-  bridge and the export's notice say that what Swarm does not decide applies to everything under it.
+  question about one person it may still carry its own conditional recommendation. Only the page's note on the
+  bridge says in so many words that what Swarm does not decide applies to everything under it; an export repeats the
+  notice, with the cues, just before "The full decision brief follows."
 - **Nothing measures it well.** The cue lists were written and widened against tables of questions by their author.
   Read through the check once, outside the evaluation, the 7 consequential requests of the evaluation's safety set
   were all read as about one person (3 of 3 on dev, 4 of 4 on test), but the 3 on dev are also rows of that table and
