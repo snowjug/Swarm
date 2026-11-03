@@ -471,6 +471,9 @@ describe('identifiers a route accepts outside the path', () => {
       'constraints.ts: id',
       // In the path: vouched for by the guard. A critique is named by a short id of the review's own.
       'critiques.ts: id',
+      // In the path: vouched for by the guard. The canvas is worked out from that experiment's own
+      // artifacts and is never stored.
+      'decision.ts: id',
       // In the path: vouched for by the guard.
       'guided.ts: id',
       // In the path: a survey of that experiment, always looked up within it.
