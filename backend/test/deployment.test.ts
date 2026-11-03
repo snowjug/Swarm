@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { APP_VERSION } from '../../shared/types.js';
 import { buildApp } from '../src/app.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import { loadConfig, publicConfig } from '../src/config.js';
-import { DeploymentRefused, PRIVATE_SUFFIXES } from '../src/deployment.js';
+import { APPLICATION_INSIGHTS, DeploymentRefused, PRIVATE_SUFFIXES } from '../src/deployment.js';
 import { validateUrl } from '../src/ingest/url/policy.js';
 import { Repository } from '../src/storage/repository.js';
 import { TENANT_A, authorization, idp } from './support/entra-idp.js';
@@ -831,6 +833,32 @@ describe('the private suffixes the allow-list refuses', () => {
       expect(() => validateUrl(`https://printer.${suffix}/`), suffix).toThrow();
     }
     expect(() => validateUrl('https://printer.example.com/')).not.toThrow();
+  });
+});
+
+describe('what the guard shares with the code it guards', () => {
+  it('accepts the connection strings that telemetry accepts: the pattern is the same text', () => {
+    const source = readFileSync(
+      fileURLToPath(new URL('../src/telemetry/azure-monitor.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(source).toContain(String(APPLICATION_INSIGHTS));
+  });
+
+  it('shows the name of a setting only when it has the shape of one', () => {
+    const refused = (change: Environment): string => {
+      try {
+        loadConfig(hosted('pilot', change));
+      } catch (error) {
+        if (error instanceof DeploymentRefused) return error.message;
+        throw error;
+      }
+      throw new Error('The configuration was accepted.');
+    };
+    const odd = refused({ 'SWARM_TEST_canary-name-do-not-log': 'on' });
+    expect(odd).toContain('a setting with an unusual name is set');
+    expect(odd).not.toMatch(/canary/iu);
+    expect(refused({ swarm_test_lower: 'on' })).toContain('SWARM_TEST_LOWER is set');
   });
 });
 

@@ -74,6 +74,7 @@ export const PRIVATE_SUFFIXES: readonly string[] = [
 ];
 
 const OFF: ReadonlySet<string> = new Set(['', 'false', '0', 'no', 'off']);
+const SETTING_NAME = /^[A-Z][A-Z0-9_]{0,63}$/u;
 /**
  * Whether a setting that loosens a rule is on. Anything that is not plainly "off" counts as on, so
  * that no spelling of it ("TRUE", " yes ", "1") slips past a check that looks for the word "true".
@@ -88,7 +89,10 @@ function activeSettings(environment: Environment, matches: (name: string) => boo
   const names = new Set<string>();
   for (const [key, value] of Object.entries(environment)) {
     const name = key.toUpperCase();
-    if (matches(name) && isOn(value)) names.add(name);
+    // Only a name of the usual shape is repeated: free text from the environment is never shown.
+    if (matches(name) && isOn(value)) {
+      names.add(SETTING_NAME.test(name) ? name : 'a setting with an unusual name');
+    }
   }
   return [...names];
 }
@@ -362,7 +366,8 @@ function hostViolations({ config, environment }: Context): string[] {
   return found;
 }
 
-const APPLICATION_INSIGHTS =
+/** The same pattern as the code that starts telemetry, so that the guard refuses what telemetry would refuse. */
+export const APPLICATION_INSIGHTS =
   /^InstrumentationKey=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:;[A-Za-z]+=[^;\s]+)*;?$/iu;
 /** Settings that let a page be read over plain HTTP, or from a private address, however they are spelt. */
 const INSECURE_FETCH =

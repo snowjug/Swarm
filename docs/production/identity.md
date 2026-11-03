@@ -79,7 +79,9 @@ Naming a new switch: any setting that lets a fetch use plain HTTP, a loopback or
 be called `RESEARCH_ALLOW_<WHAT>` or `URL_INGEST_ALLOW_<WHAT>` with `<WHAT>` one of `HTTP`, `INSECURE`,
 `PLAINTEXT`, `CLEARTEXT`, `DOWNGRADE`, `PRIVATE`, `LOOPBACK`, `LOCALHOST`, `INTERNAL`, `METADATA`; the guard
 refuses it when it is on without knowing its name. A switch that is named otherwise needs a line in
-`backend/src/deployment.ts`.
+`backend/src/deployment.ts`. The code that reads such a switch must read it strictly, so that only the
+word `true` turns it on: a parser that makes any non-empty text true (`z.coerce.boolean()` reads `false`
+as true) disagrees with the guard in the one direction it cannot see.
 
 What the guard cannot know: that `TRUST_PROXY` is the true number of proxies (set higher than the truth, a
 caller can name its own address in `X-Forwarded-For`), that the database host is the right one, or that a
