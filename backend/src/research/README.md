@@ -204,10 +204,23 @@ so an address that is refused costs no place and no request.
 
 ## Measured limits and known limits
 
-- A page is parsed in pieces of 8 KiB with a limit of 1.5 s of parsing, 512 levels of depth, 400,000 nodes
-  and 64 attributes to an element. Measured on this machine (a busy one, so read these as an order of
-  magnitude) on hostile pages of 5 MB (spans, paragraphs, links, table cells, comments, character references)
-  that run to the end: 0.7 to 2.4 s in all, and the longest stretch the event loop was held was 183 ms.
+- A page is parsed in pieces of 8 KiB or less (smaller when a piece is slow) with a limit of 1.5 s of
+  parsing, 512 levels of depth, 400,000 nodes and 64 attributes to an element, and then read for its text with
+  a **work budget**: every element, text node, line written and link costs units that are counted, and a page
+  that costs more than 200,000 units (about 0.2 to 0.35 s; real pages cost under 100,000) is read no further and
+  says so (`cutShort`, with a warning). The budget does not look at a clock, so nothing a page is built of
+  (nested quotations, tables, lists, a flood of attributes) can hold the process longer than it allows: a
+  quotation is marked once however deep it is nested (the marks stop at 6 levels), a table nested more than
+  6 deep is read as its contents, and every block that is written, in whatever it is nested, counts toward the
+  size of the page. Measured on this machine (a busy one, so read these as an order of magnitude) with
+  `monitorEventLoopDelay`, waiting after the call so that a tick that was held up is counted, on 36 hostile
+  shapes of up to 10 MB (nested quotations, lists, tables and `div`s of 400 to 480 levels with up to 100,000
+  paragraphs inside, floods of attributes, 100,000-row tables, character references, links, comments,
+  spans, 20 blocks of structured data of 300 KB, 3.7 MB of inline styles): **the longest stretch the event loop
+  was held was 236 ms** (all but two were under 200 ms), and no page took more than 1.7 s in all. The two pages that
+  held it for 9.6 s and 8.0 s before the work budget (480 nested quotations with 20,000 paragraphs, and with
+  one paragraph of 20,000 line breaks) now hold it for 73 ms and 75 ms. `research-extract.test.ts` builds
+  these pages and fails if the event loop is held for more than 3 s, or if the work done passes its budget.
   A hundred thousand nested elements, which took a minute to parse without the limits, are cut at 512
   levels at once.
 - **Pages whose text is built by scripts are not read.** Nothing is executed; a page that is mostly script is
