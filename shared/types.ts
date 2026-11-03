@@ -379,6 +379,13 @@ export interface AppConfig {
    * the control when it is not true. Absent from a server that does not know the feature.
    */
   urlIngestion?: boolean;
+  /**
+   * What this deployment says it is: `local` (one person, this machine), `pilot` or `production`, and
+   * the label to show. Absent from a server that does not know the field.
+   */
+  deployment?: { mode: 'local' | 'pilot' | 'production'; label: string };
+  /** The release that is running, and the commit it was built from when the build says so. */
+  build?: { version: string; sha: string | null };
   capabilities: {
     local: boolean;
     modelAssisted: boolean;

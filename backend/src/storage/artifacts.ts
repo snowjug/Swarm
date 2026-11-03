@@ -161,13 +161,18 @@ export class ArtifactStore {
         throw conflict(kind, key);
       }
       if (!current) {
-        this.database
+        const inserted = this.database
           .prepare(
             `INSERT INTO project_artifacts
                (project_id, kind, artifact_key, revision, payload, created_at, updated_at)
-             VALUES (?, ?, ?, 1, ?, ?, ?)`,
+             VALUES (?, ?, ?, 1, ?, ?, ?)
+             ON CONFLICT DO NOTHING`,
           )
           .run(projectId, kind, key, payload, now, now);
+        // Another writer inserted this document after it was read. PostgreSQL usually reports that as a
+        // serialization failure, which runs the whole check again; a plain insert would instead have
+        // failed the loser with a unique violation, which no caller can act on.
+        if (Number(inserted.changes) !== 1) throw conflict(kind, key);
         return;
       }
       const updated = this.database

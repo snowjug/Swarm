@@ -14,6 +14,7 @@ import {
   type ProviderAuthMode,
   type ProviderName,
 } from '../../shared/types.js';
+import { withDeployment, type DeploymentConfig } from './deployment.js';
 
 export type ProviderAuth = ProviderAuthMode;
 
@@ -90,6 +91,8 @@ export interface ServerConfig {
   auth: AuthConfig;
   sourceUrl: string | null;
   storageWarning: string | null;
+  /** What kind of deployment this is (`local` unless it was told otherwise) and the label it carries. */
+  deployment: DeploymentConfig;
   /** Multiplies every per-IP request limit. Default 1; raise only for automated tests/load tests. */
   rateLimitScale: number;
   /**
@@ -450,9 +453,16 @@ function buildProvider(
   };
 }
 
+/** Reads the environment, and refuses to start a pilot or production deployment that is not safe to host. */
 export function loadConfig(
   environment: Record<string, string | undefined> = process.env,
 ): ServerConfig {
+  return withDeployment(environment, () => loadBaseConfig(environment));
+}
+
+function loadBaseConfig(
+  environment: Record<string, string | undefined>,
+): Omit<ServerConfig, 'deployment'> {
   const result = environmentSchema.safeParse(environment);
   if (!result.success) {
     throw new Error(
@@ -537,6 +547,8 @@ export function publicConfig(config: ServerConfig): AppConfig {
   const { name, model, configured, reason, auth } = config.provider;
   return {
     version: APP_VERSION,
+    deployment: { mode: config.deployment.mode, label: config.deployment.label },
+    build: { ...config.deployment.build },
     // The endpoint, its host and any key stay server-side; only the auth *mode* is public.
     provider: { name, model, configured, reason, auth },
     limits: {
