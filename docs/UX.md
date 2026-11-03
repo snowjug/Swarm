@@ -316,7 +316,10 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   public sources for you.", "Manual sources only: Swarm reads what you add.", and, where the server does not
   research, "Off on this server. Attach your own sources."), which is also why it cannot be turned on there.
   It is the one thing Swarm does that the person did not ask for by name, which is why it is a switch of its
-  own and why the review says what it will do before it does it.
+  own and why the review says what it will do before it does it. The first of those lines promises more than
+  this build can do: there is no search provider, so a question with no website and no source of the person's
+  own gives research nothing to read, and Ground says **Needs a source**. Neither the line nor the review's
+  asks the server whether it can find sources.
 - **Three tools sit at the foot of the composer**, **Evidence**, **Advanced** and **Options**; **Options**
   shows only an icon, its word kept in its accessible name.
   - **Evidence** brings files (TXT, Markdown, CSV and JSON, and PDF only where the server reports that it
@@ -370,7 +373,10 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   ways to do it, who is affected, what is assumed (each marked as the person's or the system's), the
   questions Swarm asks, and the evidence. It needs a sentence, and a source unless research is on. Where
   research is on, the review says what will happen before it does ("Automatic research is on. After you
-  continue, Swarm looks for public sources, starting from example.org, and lists every page it reads.").
+  continue, Swarm looks for public sources, starting from example.org, and lists every page it reads."). The
+  line is shown whether or not a source is attached, and with no website it says no more than that Swarm looks
+  for public sources; what research does is read the website that was named, and only for a question with no
+  source of its own.
   **Ground it** creates the project and starts reading the evidence, or researching for it; nothing runs
   before that. A reading that takes long enough to notice is a page of its own: the question stays, focus is
   on **Stop**, and Stop or Escape gives focus back to the question with all that was written. A reading that

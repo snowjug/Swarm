@@ -89,13 +89,17 @@ unfold.", and what it asks of you is one question.
    takes a site (`example.org`) or the address of one page, and a tag says which it read it as, **Site** or
    **Page**; an entry that does not look like either is said not to ("That does not look like a website yet.
    Try example.org, or the address of one page."). It is optional, and it is where automatic research
-   starts. **Time horizon** asks over what time the effects should be judged: **Not sure**, **Next quarter**,
+   starts: Swarm has no search provider, so without a website (and without a source of your own) research has
+   nothing to read, and a website matters only when research runs, which is for a question with no source of
+   your own. **Time horizon** asks over what time the effects should be judged: **Not sure**, **Next quarter**,
    **6 months**, **1 year**, **3 years** or **Custom**, which takes your own words ("For example, the next two
    quarters").
 3. **Choose whether Swarm researches.** **Research automatically** is on by default where the server does
    research: "Swarm finds and reads public sources for you." With it on, a question that has no source of
-   your own is researched first: after you continue, Swarm looks for public sources itself ([what that does and
-   does not do](../README.md#automatic-research)). Attach a source of your own and the project is read from
+   your own is researched first: after you continue, Swarm reads the site or page you named and what it
+   links to ([what that does and does not do](../README.md#automatic-research)). That line promises more than
+   this build does: with no website and no source of your own there is nothing for research to read, and
+   Ground says **Needs a source**. Attach a source of your own and the project is read from
    your sources, as it always was, and research does not start. Turned off it says "Manual sources only:
    Swarm reads what you add.", and the website field is greyed out and says it is used by automatic research.
    Where the server does not research, the switch is off and cannot be turned on ("Off on this server. Attach
@@ -143,11 +147,15 @@ unfold.", and what it asks of you is one question.
    three questions that it needs answered: **Answer** or **Skip** each. **Evidence** lists what was
    attached. Where research is on, a line there says what research will do ("Automatic research is on. After
    you continue, Swarm looks for public sources, starting from example.org, and lists every page it reads."),
-   and it says so whether or not you attached a source: research starts only for a question that has none.
+   and it says so whether or not you attached a source: research starts only for a question that has none, and
+   it reads only the site or page you named.
    **Add evidence** adds your own. **How it was read** says how the question was read. A chip says whether it was read by rules, by a
    model, or edited by you. **Question** goes back to the first screen with everything you wrote.
 9. **Ground it.** **Ground it** creates the project and starts reading the evidence, or researching for it.
-   Nothing ran before this: "Nothing runs until you continue." sits beside the button. If the reading of the
+   Nothing ran before this: "Nothing runs until you continue." sits beside the button. For a question with no
+   source of its own and research on, the research run is started as the project is made, and Ground opens on
+   it; if the project is saved and the run could not be started, the page says "The exploration was saved, but
+   Swarm could not start researching" with the reason, and Ground offers **Start research**. If the reading of the
    question fails, the page says so and offers **Try again** (focus is already on it) or **Continue without
    reading**, which starts without a scenario, and so without the time frame, place and assumptions you gave.
 

@@ -2,10 +2,11 @@
 
 **What could happen if X changes?** Swarm is a general-purpose, evidence-grounded platform for
 exploring strategic scenarios: a price change, a product integration, a policy, a launch, a process.
-You bring a question. Swarm researches the public context, or reads the sources you attach, proposes
-who matters and what limits the decision, and walks it, step by step and in the open and with your
-approval before anything is simulated, to a decision view and a brief with recommendations and a plan for
-checking them in the real world. Its motto is **Explore scenarios, not predictions.**
+You bring a question and the evidence: the sources you attach, or a website that Swarm reads for you (it has
+no search engine of its own, so it cannot find sources from a question alone). Swarm proposes who matters
+and what limits the decision, and walks it, step by step and in the open and with your approval before
+anything is simulated, to a decision view and a brief with recommendations and a plan for checking them in
+the real world. Its motto is **Explore scenarios, not predictions.**
 
 > Swarm explores possible scenarios. It does not predict the future.
 
@@ -93,9 +94,12 @@ keep it out of OneDrive, Dropbox, Google Drive and iCloud folders). A `.env` is 
    Its reference chapters (the evidence base, the assumptions, the sources and others) stay closed until
    you open them from the contents, and **Export** saves it as Markdown, JSON or a printable page.
 
-To start from a question of your own, type it in the box and press **Explore**; with **Research
-automatically** on (the default, where the server researches), Swarm looks for public sources itself after
-you choose **Ground it**. [Automatic research](#automatic-research) says what that does and does not do.
+To start from a question of your own, type it in the box and press **Explore**. With **Research
+automatically** on (the default, where the server researches) and a site or page under **Website or domain**,
+Swarm reads that site or page and what it links to after you choose **Ground it**. Swarm has no search
+provider, so a question with no website and no source of your own gives research nothing to read: Ground then
+says **Needs a source**, and you add a site, paste text or attach files.
+[Automatic research](#automatic-research) says what that does and does not do.
 
 The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
 
@@ -367,8 +371,9 @@ retrieval time, then choose **Add as evidence**. Then steps 3 to 7.
 
 ### Demo 4: Your own question and a public URL
 
-Type your own question into **Your what-if question**. Either leave **Research automatically** on and, if you
-like, name a page or a site to start from under **Website or domain**, or add sources of your own: a page you
+Type your own question into **Your what-if question**. Either leave **Research automatically** on and name a
+page or a site to start from under **Website or domain** (a question alone gives research nothing to read), or
+add sources of your own: a page you
 may read (**Evidence**, **Web page**, **Fetch**, then **Add as evidence**; or write its address in the question
 and choose the button under it that offers to read that site), and your own notes as pasted text or files if
 the page alone is thin (each document needs at least 80 characters). Then **Explore** and steps 3 to 7.
@@ -440,8 +445,10 @@ research off.
 
 - **A question alone cannot be researched yet.** Finding sources from a question needs a search provider,
   and none is configured or built (`RESEARCH_SEARCH_PROVIDER` accepts only `none`). Such a run ends
-  **blocked**, says so, and points to the ways on: name a page or a site, or paste or attach text. Swarm does
-  not read the pages of a search engine.
+  **blocked**, says so (Ground shows it as **Needs a source**, not as an error), and points to the ways on:
+  name a page or a site (**Add a site or page**), or paste or attach text (**Paste or attach**). Swarm does
+  not read the pages of a search engine. The website field and the research guidance count only when research
+  runs, which is for a question with no source of your own.
 - **The reading is deterministic code, and a model is only advice.** Which addresses are fetched, in what
   order, how often and when to stop are decided by code from the budget and from what pages link to; a model,
   where you chose one, only writes the plan of what to look for and may suggest a site, which is shown and

@@ -5,8 +5,9 @@ React interface and a Fastify API over one validated store: a SQLite file by def
 Two engines share the project and its evidence:
 
 - **The scenario lab** (this build, [ADR 0014](./docs/adr/0014-scenario-lab.md)): a path from a
-  question to a decision. It reads the question into a scenario, researches the public context or reads the
-  sources a person attaches, proposes the participants of the decision and what constrains it, makes
+  question to a decision. It reads the question into a scenario, reads the sources a person attaches or the
+  site or page a person names (it has no search provider, so it cannot find sources from a question alone),
+  proposes the participants of the decision and what constrains it, makes
   synthetic actors, runs a pure seeded population simulator many times for a baseline and its alternatives,
   reports what held across the runs, lets critics challenge the analysis and writes a Decision Canvas and a
   brief with recommendations and a validation plan. People review and approve the setup before anything is
@@ -38,7 +39,7 @@ industry; the example scenarios are only a question and some synthetic documents
 ```mermaid
 flowchart LR
     Q["Question and sources<br/>files, pasted text, a public page"] --> S["Scenario frame<br/>scenario/"]
-    S --> G["Grounding<br/>passages and conflicts;<br/>research/ finds sources when asked"]
+    S --> G["Grounding<br/>passages and conflicts;<br/>research/ reads a named page or site when asked"]
     G --> K["Participants<br/>stakeholders/"]
     K --> A["Actors<br/>key actors and cohorts"]
     A --> CN["Constraints<br/>constraints/"]
@@ -113,8 +114,9 @@ refusals apply to it.
 
 ### Automatic research
 
-A person may start the lab from a question, with or without a page or a site to start from, and let the
-server find the sources. [backend/src/research/README.md](./backend/src/research/README.md) is the
+A person may start the lab from a question alone, or from a question and a page or a site to start from, and
+let the server read what is named and what it links to; a question alone gives it nothing to read (see "What
+it does not do" below). [backend/src/research/README.md](./backend/src/research/README.md) is the
 specification; this is its shape. One rule sits under all of it: **a model may analyse a source, and a
 source may never instruct the system.** Which addresses are fetched, how often and when to stop are decided
 by code, from the budget and from what pages link to. A model never supplies an address, and nothing a page
@@ -127,9 +129,11 @@ kinds of source that it ranks the links it has found by.
   (`jobs.kind` is a database constraint), so the lease, the heartbeat, cancellation and recovery of a run
   are the queue's ([ADR 0010](./docs/adr/0010-durable-jobs-leased-from-the-database.md)). The record of a
   run is a `research` artifact, one for each run, written whole with the revision it was read at, so it is
-  stored, exported and deleted with its project on either dialect. A project made from a question alone has
-  no document and `research: { auto: true }`. Research is available only while both `RESEARCH_ENABLED`
-  and `URL_INGESTION` are on, and both are on by default.
+  stored, exported and deleted with its project on either dialect. A project made from a question alone is
+  created with no document and `research: { auto: true }` in the request. The server does not keep the intake
+  sent at creation (a run keeps its own): the browser holds it for the page's life, starts the run with it as
+  soon as the project exists, and repeats it if a person starts the run again. Research is available only while
+  both `RESEARCH_ENABLED` and `URL_INGESTION` are on, and both are on by default.
 - **The stages** are planning, finding sources, reading, extracting evidence, checking conflicts and ready.
   A run is `queued`, `running`, `paused`, `completed`, `cancelled`, `failed` or `blocked`. A run that ends
   with nothing to use because a rule and not an error stopped it is `blocked`, and its stage waits instead of
