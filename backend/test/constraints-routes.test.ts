@@ -319,11 +319,13 @@ describe('proposing and reviewing constraints', () => {
     expect(next.constraints.find((item) => item.validation === 'assumed')?.source).toBe('user');
   });
 
-  it('asks at most ten times a minute for a reading, and says when to come back', async () => {
-    const { propose } = await world({}, '1');
+  it('asks at most ten times a minute for a reading, and twenty for the gate, and refuses the rest', async () => {
+    const { propose, get } = await world({}, '1');
     for (let at = 0; at < 10; at += 1) expect((await propose()).statusCode).toBe(201);
-    const refused = await propose();
-    expect(refused.statusCode).toBe(429);
+    expect((await propose()).statusCode).toBe(429);
+    for (let at = 0; at < 20; at += 1)
+      expect((await get('/constraints/gate')).statusCode).toBe(200);
+    expect((await get('/constraints/gate')).statusCode).toBe(429);
   });
 
   it('validates what it is sent', async () => {

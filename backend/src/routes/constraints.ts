@@ -109,7 +109,8 @@ export function constraintRoutes(
     },
   );
 
-  app.get('/api/projects/:id/constraints/gate', async (request) => {
+  // Measuring the gate runs a few paired simulations the first time for a version of the constraints, so it is bounded.
+  app.get('/api/projects/:id/constraints/gate', { config: limit(20) }, async (request) => {
     const { id } = idParams.parse(request.params);
     exists(id);
     return service.gate(id);
