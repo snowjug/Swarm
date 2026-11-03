@@ -11,20 +11,8 @@
     {
       "mode": "rules",
       "metric": "hardConstraintRecall",
-      "measuredWhenRecorded": "24.5% (12/49); 20% of all labelled constraints found, whatever their hardness",
-      "why": "The rules find sentences that carry the product's hard words (must, at least, cannot, ceiling…) in the passages, and a constraint is hard only when its quote matches that list; most labelled hard constraints are stated in other words or are not found."
-    },
-    {
-      "mode": "rules",
-      "metric": "missingConstraintDetection",
-      "measuredWhenRecorded": "15.4% (2/13); 1 of the 2 only because the sentence was removed",
-      "why": "The rules ask a question about a category only when the question or the scenario mentions it, at most three at a time, and they read no passage to decide; removing the one sentence that states a constraint rarely changes what is asked."
-    },
-    {
-      "mode": "fake-foundry",
-      "metric": "hardConstraintRecall",
-      "measuredWhenRecorded": "53.1% (26/49) on a reply that proposed every labelled constraint with its labelled hardness",
-      "why": "The product ignores the hardness a model gives an extracted constraint and sets it from the words of the quote (constraints/build.ts, HARD_CUE), so a correct and complete reply still has about half of the labelled hard constraints held as soft."
+      "measuredWhenRecorded": "75.5% (37/49) pooled after the dev-split improvement round (dev 78.8%, test 68.8%); it was 24.5% (12/49)",
+      "why": "The rules now read hardness from what a clause asserts (obligations, bans, caps, rights, restricted use, named deadlines) and show the basis, and wishes, views, possibilities, conditionals and findings stay soft. The remaining misses are limits stated as bare quantities or by implication (a count of chairs, a number of pharmacists), which the words alone do not make a limit. The dev-to-test drop shows the rules were fitted somewhat to dev, and the intervals span the threshold."
     }
   ]
 }
