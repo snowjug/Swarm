@@ -213,7 +213,9 @@ describe('a site that is hostile to whatever reads it', () => {
       Object.keys(app.run(id)?.passages ?? {}).length,
       'url',
     );
-    const told = JSON.stringify(Object.values(signals).flatMap((spy) => spy.mock.calls));
+    const told = JSON.stringify(
+      Object.values(signals).flatMap((spy) => spy.mock.calls as unknown[][]),
+    );
     for (const text of [
       'example.org',
       'https:',
