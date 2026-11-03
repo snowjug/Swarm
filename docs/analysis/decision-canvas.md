@@ -197,6 +197,45 @@ findings that did not repeat, totals-only results), never as a number that looks
 Not in this version: a model-written synthesis (none is attempted, so there is nothing to withhold or to repair);
 reversibility other than `unknown`; the other options re-run under a counterfactual view.
 
+## The page
+
+The canvas is the first thing the Decide scene shows, in every state of the brief beneath it, and holds the page’s one
+level-one heading (“Decision view”). The brief is the **full report** below it, behind a plain “Full report” rule that a
+button in the canvas’s own header takes the reader to; its headline and the headings of its blocks are one level lower,
+and its chapters stay level-two headings, so nothing about the brief changes but where it starts.
+
+**The first viewport** holds nine things, in the order a decision is read: the question; the current best answer (the
+status as a word and an icon, with why, never a colour alone); the most plausible futures (scenario possibilities, never
+forecasts, with the four groups the simulated members ended up in as a bar and in words); what drives them; the
+material constraints (where the gate stands, hard and soft, which nobody has confirmed, which the simulation only
+read); who moves (simulated roles, never people); what could change the result (the counterfactual views, the ones
+that could reverse the answer first, and the assumption that could); the recommended next move (with how many of its
+parts are stated and which are missing, and that reversibility is unknown); and what to validate before acting (the
+checks, with the ones that come before acting first). Every figure is simulated members in 100, or seeded runs.
+
+At 1440 × 900 all nine are in the viewport, whatever the project holds: each part has a budget (two futures, two
+drivers, two constraints, three roles, two views and one assumption, three checks), what does not fit is counted and one
+press away (“4 views and 2 assumptions in full”), and what a person wrote is clamped to a few lines (the whole of it is
+under “What this rests on”). On a narrow screen the question and the answer keep their place and the other seven fold
+to one line each, in the same order.
+
+**Beneath the nine** are the detail, each in a disclosure: why this status (the rules, the first that applied, the
+conditions), how the options compare on each lens, the recommendation in full, everything that could change the
+result, constraints in full, who moves in full, the validation plan and when to stop, what the answer rests on
+(including the question as it was asked and as Swarm framed it), what the independent review challenged, human
+approval and what Swarm does not do, and what the labels mean. They are open on paper, so print opens on the canvas
+with everything under it.
+
+**Every statement carries its kind** (the eight labels above) as text, with a sentence for a screen reader (“Kind of
+statement: assumption”); the meaning is in a popover for the pointer and in the page (the last detail) for everyone,
+since a tooltip holds the only copy of nothing. Server, model and source text is only ever put in the page as text.
+
+**States:** loading (the shape of the page); could not be read, with a retry and what had been read kept; no comparison
+(“Nothing to decide from yet”: what is missing, the step that supplies it, the detailed report where there is one); a
+comparison running (“Not ready yet”); the last one failed; a picture that describes the project as it was (what
+changed, or that it cannot be told, and a way to run it again); a newer comparison running; and each of the six
+statuses, provisional or not.
+
 ## Exports
 
 When a brief is handed over as Markdown, a printable page or JSON, the canvas is placed first (`backend/src/decision/export.ts`),
@@ -207,4 +246,6 @@ before the brief’s own answer, so that print and PDF open on the decision pict
 `decision-status.test.ts` (every status, every boundary, precedence), `decision-lenses.test.ts`,
 `decision-build.test.ts` (the five worked examples through the real pipeline, labels, wording, completeness, the
 validation plan, defensive participant reads), `decision-labels.test.ts`, `decision-routes.test.ts`,
-`decision-export.test.ts`; on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` and `e2e/lab/decide-canvas.spec.ts`.
+`decision-export.test.ts`; on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` (logic, render of every status
+and state, the folded layout, a copy guard) and `e2e/lab/decide-canvas.spec.ts` (the nine in order in one 1440 × 900
+viewport, every status, a phone, the states, paper).

@@ -20,6 +20,7 @@ import {
   contents,
   openDecide,
   tools,
+  toFullReport,
   topOf,
   verdict,
   watchScrolling,
@@ -62,12 +63,14 @@ test.describe('the brief on a desktop screen', () => {
     const problems = watchPage(page);
     await openDecide(page, project);
 
+    // The brief is the full report beneath the decision view: its first screen is where its answer is.
+    await contents(page).getByRole('link', { name: 'The answer' }).click();
     await expect(verdict(page)).toHaveCount(1);
     await expect(verdict(page)).toContainText('the share of simulated members looking');
     // The four questions are answered on the first screen, each under its own heading.
     for (const name of ['What happened', 'Why', 'What matters', 'What to consider next']) {
       await expect(
-        page.getByRole('main').getByRole('heading', { level: 2, name }),
+        page.getByRole('main').getByRole('heading', { level: 3, name }),
         `${name} is on the first screen`,
       ).toBeInViewport();
     }
@@ -287,6 +290,9 @@ test.describe('the brief on a phone', () => {
   }) => {
     const problems = watchPage(page);
     await openDecide(page, project);
+    // The first screen of a phone is the decision view, answer first; the brief is the full report one press below.
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeInViewport();
+    await toFullReport(page);
     await expect(verdict(page)).toBeInViewport();
     await expect(
       page.getByText('Counts from a simulation under stated assumptions, not a forecast.'),
