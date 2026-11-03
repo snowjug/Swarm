@@ -17,8 +17,8 @@ the browser. The default is `AI_PROVIDER=none`.
 | `DATABASE_AUTH`                         | `password` (default) or `entra`: authenticate to PostgreSQL with a Microsoft Entra access token instead of a password                                                                                                                                                                                                                                                |
 | `ALLOWED_ORIGINS`, `ALLOWED_HOSTS`      | Explicit browser-origin and HTTP-host allowlists. The two probe routes, `/api/health/live` and `/api/health/ready`, answer for any host, because a platform's probe sends the replica's own address                                                                                                                                                                  |
 | `LOG_LEVEL`                             | Server log level; request bodies and credentials are not logged                                                                                                                                                                                                                                                                                                      |
-| `AI_PROVIDER`                           | `none`, `ollama`, `openai`, or `azure`                                                                                                                                                                                                                                                                                                                               |
-| `AI_MODEL`                              | Local/remote model name; Azure deployment name for `azure`                                                                                                                                                                                                                                                                                                           |
+| `AI_PROVIDER`                           | `none` (default), `ollama`, `openai`, `azure` or `foundry` (Microsoft Foundry through the OpenAI-compatible v1 API, [below](#microsoft-foundry-and-model-use))                                                                                                                                                                                                       |
+| `AI_MODEL`                              | Local/remote model name; the Azure or Foundry **deployment** name for `azure` and `foundry`                                                                                                                                                                                                                                                                          |
 | `AI_TIMEOUT_MS`                         | Per-model-request timeout                                                                                                                                                                                                                                                                                                                                            |
 | `OLLAMA_BASE_URL`                       | Administrator-configured local Ollama endpoint                                                                                                                                                                                                                                                                                                                       |
 | `DOCKER_OLLAMA_BASE_URL`                | Compose-only address of Ollama running on the host                                                                                                                                                                                                                                                                                                                   |
@@ -81,6 +81,58 @@ run may use; a person may ask for less, never for more. Empty means the ceiling.
 | `RESEARCH_MAX_COST_USD`       | Most estimated model cost of one run in US dollars (0–2; a run that asks for nothing gets 0.25). It is an estimate from `MODEL_PRICES`; 0 asks no model, and rules plan                |
 | `RESEARCH_DOMAIN_DELAY_MS`    | Least wait between two requests to one site (250–10,000; default 1,000). A person may ask for longer, never for shorter                                                                |
 | `RESEARCH_MAX_PAUSE_SECONDS`  | How long a run may stay paused before it ends by itself with what it has read (30–420; default 300)                                                                                    |
+
+### Deployment mode
+
+A deployment says what it is, and a hosted one is refused unless it is set up to be hosted. These four
+settings are read before anything else; `GET /api/config` reports `deployment` (`mode` and `label`) and `build`
+(`version` and `sha`) to a signed-in caller, and the monitoring carries them as `swarm.deployment.info`.
+
+| Variable              | Purpose                                                                                                                                                                                                                                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DEPLOYMENT_MODE`     | `local` (default), `pilot` or `production`, in any case. A value that is not one of the three (an empty one included) stops the start: it is never read as `local`                                                                                                                                                                        |
+| `DEPLOYMENT_LABEL`    | What the product says it is, as plain text of up to 80 characters. Unset: `LOCAL` for a local run and `PRODUCTION-CANDIDATE CONTROLLED PILOT` for a pilot. A pilot's label must say pilot and must not call itself production, generally available or public; a production deployment must give a label, and must not call itself a pilot |
+| `BUILD_SHA`           | The commit the build was made from: 7 to 40 hexadecimal characters, or unset. Anything else stops a pilot or production start                                                                                                                                                                                                             |
+| `ALLOW_MODEL_API_KEY` | Only the word `true` counts. It records the decision to reach a model with an API key in a **pilot**, which refuses one without it. **Production** refuses a model key whatever this says                                                                                                                                                 |
+
+`local` adds no requirement and refuses nothing. `pilot` and `production` start only when the configuration is safe to
+host, and a refusal is one error that lists every setting to fix and repeats no value: Microsoft Entra sign-in with
+browser sign-in set up, an https redirect address, session limits, TLS to the database (`sslmode`), exact host and origin
+lists, a trusted proxy, an Application Insights connection string, pages read over https only, no raised rate limits and
+no test or demonstration switch, among others. `production` is stricter where a pilot may choose: PostgreSQL, a managed
+identity for the database (`DATABASE_AUTH=entra`), no model API key and no debug logging. A local run that looks hosted
+still starts, and logs one warning that none of these checks ran. Every rule, with the reason for it, is in
+[the guard matrix](./production/identity.md#1-deployment-modes) and in `backend/src/deployment.ts`. Nothing here has been
+run in a deployed environment.
+
+### Microsoft Foundry and model use
+
+`AI_PROVIDER=foundry` reaches a Foundry (Azure OpenAI) resource through its OpenAI-compatible v1 API, with Microsoft
+Entra ID and no key by default. It, and everything in this table, have been proved against an in-process fake of the
+endpoint and **never against a live resource**; [Foundry models](./models/foundry.md) says what each setting does and what
+is not verified. The variables whose names start `MODEL_` and `TELEMETRY_` apply to any provider that is not `none`; the
+`FOUNDRY_` ones are read only when `AI_PROVIDER=foundry`. A name that is not valid, or a malformed JSON value, stops the
+start and names the variable, never its value.
+
+| Variable                                                                                             | Purpose                                                                                                                                                                                                                                   |
+| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FOUNDRY_ENDPOINT`                                                                                   | The resource root or its `/openai/v1` path, https only, on a host ending `.openai.azure.com`, `.services.ai.azure.com` or `.cognitiveservices.azure.com`. A wrong value leaves the server in rules mode and says why without repeating it |
+| `FOUNDRY_AUTH`                                                                                       | `entra` (default; `AZURE_CLIENT_ID` names a user-assigned managed identity) or `key`. A key is refused by `DEPLOYMENT_MODE=production`, and by a pilot unless `ALLOW_MODEL_API_KEY=true`                                                  |
+| `FOUNDRY_API_KEY`                                                                                    | Read only when `FOUNDRY_AUTH=key`; never logged, returned or exported                                                                                                                                                                     |
+| `FOUNDRY_DEPLOYMENT_RESEARCH_PLANNER`, `_EXTRACTION`, `_ACTOR`, `_SCENARIO`, `_CRITIC`, `_SYNTHESIS` | The deployment for one role of a task. Each defaults to `AI_MODEL`                                                                                                                                                                        |
+| `FOUNDRY_DEPLOYMENT_REASONING`, `FOUNDRY_DEPLOYMENT_FALLBACK`                                        | A deployment preferred for a task that needs reasoning, and one tried once when a task's own deployment is missing, throttled, slow or failing                                                                                            |
+| `FOUNDRY_DATA_ZONE`                                                                                  | When set, every task is served only from a deployment whose profile declares this zone; an undeclared deployment is never assumed to be in it                                                                                             |
+| `FOUNDRY_DEPLOYMENT_PROFILES`                                                                        | JSON, by deployment name: `reasoning`, `dataZone`, `maxContextChars`, `latency` (`fast`, `standard`, `slow`) and `structuredOutputs`. What the operator says; nothing is read from the network                                            |
+| `MODEL_PRICES`                                                                                       | JSON array of `{deployment, inputPerMillionUsd, outputPerMillionUsd}` (a name, or a pattern with `*`). Swarm ships no price: a cost is an estimate from these, and a deployment with no price has an unknown cost, never zero             |
+| `MODEL_OPERATION_TOKEN_LIMIT`, `MODEL_OPERATION_COST_LIMIT_USD`                                      | What one operation that goes through the task runner may use, in tokens (input and output) and in estimated dollars. `0`, the default, is no limit. A dollar limit needs `MODEL_PRICES`, or the server does not start                     |
+| `MODEL_CACHE`, `MODEL_CACHE_MAX_ENTRIES`, `MODEL_CACHE_TTL_SECONDS`                                  | `off` (default) or `tenant`: validated answers kept in this process's memory, per tenant, never shared. Up to 10,000 entries (default 256) for up to 86,400 seconds (default 900)                                                         |
+| `TELEMETRY_TRACE_CONTENT`                                                                            | `off` (default) or `redacted`: a trace may then carry the size of a prompt and of a reply and a short hash of the prompt. The text of neither is ever exported                                                                            |
+
+**Where this applies today.** Choosing a deployment by role, failing over, pinning a data zone, holding an operation to an
+allowance and the cache are done by the task runner (`backend/src/models/runner.ts`), and the only caller of the runner is
+the planning of a research run. The other steps that use a model (participants, constraints, the question reading, the
+review and the rest) send to the default deployment, `AI_MODEL`, through the same client, which does ask for strict
+structured output from a Foundry deployment. `POST /api/provider/check` asks every deployment a task could be routed to.
 
 ## Sign-in and tenants
 
@@ -208,6 +260,20 @@ variables. The v1 API does not require a dated `api-version` query parameter.
 > small model. See [Live evidence](./AZURE.md#live-evidence) for what was
 > measured, what failed on the way and the open risks.
 
+### Microsoft Foundry (`AI_PROVIDER=foundry`)
+
+The same OpenAI-compatible v1 API as the Azure mode above, with a deployment for each kind of task, strict structured
+output, a router, allowances, an optional per-tenant cache and safety signals added on top
+([Foundry models](./models/foundry.md) has all of it). Three settings give a working server with one deployment serving
+every role: `AI_PROVIDER=foundry`, `FOUNDRY_ENDPOINT` and `AI_MODEL` (a deployment name). Sign in with `az login`, or give
+the hosted workload a managed identity (`AZURE_CLIENT_ID` for a user-assigned one); the identity needs the **Cognitive
+Services OpenAI User** role. `POST /api/provider/check` then asks every deployment a task could be routed to, once each.
+
+> **Status:** proved against an in-process fake of the endpoint (`backend/test/support/fake-foundry.ts`) and **never run
+> against a live resource**. The live evidence in [AZURE.md](./AZURE.md#live-evidence) was gathered with `AI_PROVIDER=azure`
+> and says nothing about this provider. [Foundry models](./models/foundry.md#verified-and-not-verified) lists what the
+> first live run has to settle.
+
 ### Other OpenAI-compatible providers
 
 Set `AI_PROVIDER=openai`, `AI_MODEL`, `OPENAI_BASE_URL` (including the v1-compatible
@@ -217,24 +283,26 @@ cannot request arbitrary URLs or tools.
 
 ### What a model does in the scenario lab
 
-Every step of the lab has a rules path and runs with `AI_PROVIDER=none`. A provider adds to it in four
-places and never decides the outcome of a comparison:
+Every step of the lab has a rules path and runs with `AI_PROVIDER=none`. A provider adds to it in the places
+below and never decides the outcome of a comparison:
 
-| Step                     | What a provider adds                                                                                                                   | When it is used                                                                                                                                                                                                | If it fails                                                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Explore**              | A reading of the question, sent with each document's name and size and never its text; at most three calls (a reading and two repairs) | Only when the project is made in **Model assisted** mode (the page sends `useModel`) and the server has a provider. Otherwise rules on this server read the question and it goes nowhere else                  | The rules read the question, and a note names the failure; a model that has not answered in 170 seconds is given up on in the same way |
-| **Find who is affected** | Stakeholders from a selection of the passages, each with a verbatim quote that the server checks against the passage                   | Only for a project made in **Model assisted** mode and only when the person chooses **Find who is affected** (it asks the model when one is available; **Read the text instead** does not)                     | The text is read for roles instead, and the set says so (170 seconds at most)                                                          |
-| **Create actors**        | A reading of each key actor against the evidence, with traits labelled as the model's                                                  | Only in a project made in **Model assisted** mode, and only when the person switches on **Let the model read the key actors** as they approve                                                                  | The category priors stand                                                                                                              |
-| **Independent review**   | Extra critiques from a compact digest of the analysis, validated and never able to edit anything                                       | Only in a project made in **Model assisted** mode, and only when the person switches on **Also ask a model**; a project that runs without a model is refused (`409 MODEL_NOT_AVAILABLE`) and the page says why | The rules' critiques are shown, with a note (170 seconds at most)                                                                      |
+| Step                     | What a provider adds                                                                                                                                                                                                  | When it is used                                                                                                                                                                                                | If it fails                                                                                                                               |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Explore**              | A reading of the question, sent with each document's name and size and never its text; at most three calls (a reading and two repairs)                                                                                | Only when the project is made in **Model assisted** mode (the page sends `useModel`) and the server has a provider. Otherwise rules on this server read the question and it goes nowhere else                  | The rules read the question, and a note names the failure; a model that has not answered in 170 seconds is given up on in the same way    |
+| **Research**             | A plan of what to look for: the things to find, the kinds of source and the sites worth a look. It never names an address to fetch, and a suggested site is only shown, until a person adds it                        | Only for a project made in **Model assisted** mode on a server with a provider, and only when the run's cost limit is above zero. Otherwise rules plan, and no model is asked                                  | Rules plan instead, with a sanitised reason and none of the model's words. A refusal is not answered from rules, and the run ends with it |
+| **Find who is affected** | The participants of the decision, with their roles, objectives and the passages they rest on, proposed from a selection of the passages; every quote is checked against its passage and the list is held to 23 checks | Only for a project made in **Model assisted** mode and only when the person chooses **Find who is affected** (it asks the model when one is available; **Read the text instead** does not)                     | One correction round, then the rules propose instead, and the set says so (170 seconds at most)                                           |
+| **Constraints**          | A reading of the sources for the limits on the decision. A limit a model calls hard is a suggestion that the server raises only where the quoted words bear it out                                                    | Only when the person asks for the model's reading of a project that has one (`409 MODEL_NOT_AVAILABLE` otherwise)                                                                                              | One correction round, then the rules' reading stands, and the set says so (170 seconds at most)                                           |
+| **Create actors**        | A reading of each key actor against the evidence, with traits labelled as the model's                                                                                                                                 | Only in a project made in **Model assisted** mode, and only when the person switches on **Let the model read the key actors** as they approve                                                                  | The category priors stand                                                                                                                 |
+| **Independent review**   | Extra critiques from a compact digest of the analysis, validated and never able to edit anything                                                                                                                      | Only in a project made in **Model assisted** mode, and only when the person switches on **Also ask a model**; a project that runs without a model is refused (`409 MODEL_NOT_AVAILABLE`) and the page says why | The rules' critiques are shown, with a note (170 seconds at most)                                                                         |
 
-The repeated runs of a comparison (`simulation/`, `analysis/`) and the decision brief never call a model:
-the engine is a seeded rules engine and the brief is assembled from the stored documents, so the same
-inputs and the same seed give the same findings. Calls made for a project (stakeholders, actors, the review)
-count against its model budget. Reading a question happens before there is a project to charge, so it is
+The repeated runs of a comparison (`simulation/`, `analysis/`), the decision brief and the Decision Canvas never call
+a model: the engine is a seeded rules engine and both documents are assembled from the stored ones, so the same inputs
+and the same seed give the same findings. Calls made for a project (research planning, participants, constraints,
+actors, the review) count against its model budget. Reading a question happens before there is a project to charge, so it is
 bounded by its rate limit, its three calls and its 170 seconds instead. A project made in **Local rules**
 mode sends nothing to a model from any lab step, whatever provider the server has set up. A model that
 fails is shown as a failure, never replaced
-by canned output. In the deep dive, the engine's own **Model assisted** mode drives each actor's decisions (see
+by canned output, except where the table says that rules stand in and a note says so. In the deep dive, the engine's own **Model assisted** mode drives each actor's decisions (see
 [Deliberate resource limits](#deliberate-resource-limits)). What leaves the machine is the provider's to
 handle: read its privacy terms first.
 

@@ -93,6 +93,9 @@ The template compiles, lints and evaluates offline. **Nothing has been deployed 
 | One real model call per proxy, platform and round                                                                               | Yes         | Integration tests and e2e against a fake provider; **live**: 24 decisions per run (4 proxies × 2 platforms × 3 rounds), each with a stated reason, in all three runs      |
 | Grounding review (quotes, support verdicts, contradiction)                                                                      | Yes         | Unit and integration tests against a fake provider; **live**: the independent model check ran in all three runs                                                           |
 | Bicep for an Entra-only Foundry account + deployment                                                                            | Yes         | `bicep build` and lint; **deployed** once to a development subscription (28 Oct 2026)                                                                                     |
+| Foundry provider (`AI_PROVIDER=foundry`): role deployments, strict output, router, cache                                        | Yes         | In-process fake of the v1 endpoint only; **never run against Azure**, and not the live evidence below: [Foundry models](./models/foundry.md#verified-and-not-verified)    |
+| Deployment guard: `DEPLOYMENT_MODE=pilot` or `production` refuses an unsafe start                                               | Yes         | Unit tests (`backend/test/deployment.test.ts`); **never run deployed**: [identity](./production/identity.md#1-deployment-modes)                                           |
+| Live evaluation of the AI-assisted setup on a Foundry deployment                                                                | No          | The harness's live mode refuses without `--live` and a Foundry configuration; **not measured**: [AI evaluation](./production/evaluation.md)                               |
 | Bicep for the hosted pilot (container app, PostgreSQL, registry, monitoring, alerts, budget, optional Key Vault and networking) | Yes         | `bicep build`, strict lint, offline `bicep snapshot` evaluation and invariant tests (`npm run iac:validate`); **never deployed**: see [pilot plan](./azure/pilot-plan.md) |
 | Release, rollback, rollback-drill and pre-flight tools                                                                          | Yes         | Unit tests against a fake Azure CLI; **never run against Azure**; the rollback drill has not been run: see [release process](./production/release-process.md)             |
 | Provisioning/teardown scripts with safety gates                                                                                 | Yes         | Unit tests with a fake Azure CLI; **live**: one real provisioning run (two script defects found and fixed)                                                                |
@@ -441,7 +444,8 @@ and sends it as `Authorization: Bearer …`. Locally that resolves to your `az l
 in Azure it resolves to the managed identity (set `AZURE_CLIENT_ID` only for a
 user-assigned one). Tokens are cached and refreshed by the SDK, are sent only to an
 allow-listed Azure AI host, and never appear in logs, errors or API responses. A
-leftover `AZURE_OPENAI_API_KEY` is ignored in Entra mode.
+leftover `AZURE_OPENAI_API_KEY` is ignored in Entra mode. `AI_PROVIDER=foundry` takes the
+same route with `FOUNDRY_AUTH=entra`, and has been exercised only against an in-process fake.
 
 The identity needs the **Cognitive Services OpenAI User** role. A missing role
 returns an explicit `MODEL_AUTH` error that names the role.
@@ -467,7 +471,9 @@ error mapping and secret hygiene with a fake credential.
 3. Configure Container Apps managed identity, database access and Entra authentication.
    Do not trust client-supplied identity headers or expose an unauthenticated bypass.
 4. Configure exact production `ALLOWED_HOSTS` and `ALLOWED_ORIGINS`, HTTPS ingress,
-   and `SOURCE_URL` for the deployed source version. Keep secrets in Key Vault only
+   and `SOURCE_URL` for the deployed source version, and set `DEPLOYMENT_MODE=pilot` (or `production`) so that the
+   server refuses to start when any of these, the sign-in, the database or the telemetry is not set up to be hosted
+   ([the guard](./production/identity.md#1-deployment-modes)). Keep secrets in Key Vault only
    if they cannot be eliminated with managed identity.
 5. Set minimum/maximum replicas to one until two instances against one database have
    been validated. Jobs are durable (a restart keeps them and a stopped worker's job is
