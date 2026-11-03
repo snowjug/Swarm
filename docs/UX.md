@@ -383,6 +383,28 @@ sources talk about. Until there is a graph, the sources themselves fill its plac
   when pointed at, a line is named only on request, and **Graph options** narrows the links to the stronger
   ones. **Method** says how the sources were read. **Operations** (the engine's recorded operations and
   events, the Advanced log) is shown in Advanced detail only.
+- **Research** is there where the server researches, and everything in it is what the run holds, read again
+  every second or two while a run is live. A project made from a question alone has no sources of its own until
+  research gives it some, so the status chip is the run's (Not started, Queued, Planning, Finding sources,
+  Reading, Extracting evidence, Checking conflicts, Paused, Blocked, Stopped, Failed, and Ready or Researched
+  once it has finished), the figures are Pages read, Sources used, Sites and Conflicts (a dash until the run has
+  said), and the one action is the run's: **Start research**, **Pause**, **Resume**, **Finish early**,
+  **Cancel** (which asks first), **Try again**, or **Add a site or page** where nothing could be read. The
+  section sits under the heading while a run is live or the project has no sources, and after the sources once
+  it has them, as the record of how they were found. It shows the six stages (Planning, Finding sources,
+  Reading, Extracting evidence, Checking conflicts, Ready), each only when the run has reached it; every page
+  the run looked at, with its title, site, kind, an **authority estimate** (three marks and a word, and the
+  line "An estimate from the kind of site it is. It says nothing about whether a page is right."), the dates
+  the page states, what became of it (Used, Read, Quarantined, Blocked, Failed, Duplicate or Skipped, with a
+  plain reason for each that was set aside) and **Provenance** (the requested and final address, when it was
+  fetched, what its content hashes to, the robots.txt decision, how its text was taken, how it was found,
+  warnings, and a link to the page itself); the plan's **Suggestions**, each read only when a person presses
+  **Add this site**; and **What the research looks for** and **Limits for this run** behind disclosures (cost
+  is an estimate, never a bill). A question alone, with no search provider, says so plainly ("Swarm cannot find
+  sources from a question alone"), never searches the web on its own, and keeps **Add a site or page** and
+  **Open the question to add sources** open. A site or a page that is named is a run of its own, so it is
+  offered only where a run may start. What a page says is shown as text and nothing else, and no page is
+  called right.
 - **It must keep** the figures honest (a dash until the engine has said), the line "Found from wording alone.
   Neither side is declared true." beside the conflicts, and "How well the sources back each statement, not
   whether they are true." beside the statements.
