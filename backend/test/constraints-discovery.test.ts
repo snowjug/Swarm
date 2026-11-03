@@ -10,6 +10,7 @@ import { actorFixture, scenarioFixture } from '../../shared/lab-fixtures.js';
 import type { EvidenceChunk } from '../../shared/types.js';
 import { buildConstraints } from '../src/constraints/build.js';
 import { detectIn } from '../src/constraints/detect.js';
+import { readHardness } from '../src/constraints/deontic.js';
 import { HARD_CUE } from '../src/constraints/lexicon.js';
 import { CONSTRAINT_TASK, proposedConstraintsSchema } from '../src/constraints/model.js';
 import { proposeConstraints, type ProposeInput } from '../src/constraints/propose.js';
@@ -132,10 +133,17 @@ describe('reading for constraints with rules', () => {
             expect(findQuote(ref.quote ?? '', passages).found, where).toBe(true);
             expect(ref.role).toBe('supports');
           }
-          // Hard only where the quoted words are hard words.
-          expect(constraint.hardness === 'hard', where).toBe(
-            constraint.evidenceRefs.some((ref) => HARD_CUE.test(ref.quote ?? '')),
-          );
+          // Hard only where the quoted words state a limit that holds, and then with the words it rests on.
+          const holds = constraint.evidenceRefs.some((ref) => readHardness(ref.quote ?? '').hard);
+          expect(constraint.hardness === 'hard', where).toBe(holds);
+          if (holds)
+            expect(constraint.hardnessBasis, where).toMatch(/^Hard because the source says “/u);
+          if (constraint.hardness === 'hard') {
+            expect(
+              constraint.evidenceRefs.some((ref) => HARD_CUE.test(ref.quote ?? '')),
+              where,
+            ).toBe(true);
+          }
         }
         if (constraint.source === 'user') expect(constraint.evidenceRefs, where).toEqual([]);
       }

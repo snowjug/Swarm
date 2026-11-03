@@ -84,6 +84,9 @@ export function Why({ constraint }: { constraint: Constraint }) {
           </p>
         )}
         <Quotes constraint={constraint} />
+        {constraint.hardnessBasis && (
+          <p className="sw-caption sw-cwhy__hardness">{constraint.hardnessBasis}</p>
+        )}
         <p className="sw-caption">
           {UNCERTAINTY_WORDS[uncertainty.level]}
           {uncertainty.reason ? `: ${uncertainty.reason}` : ''}
