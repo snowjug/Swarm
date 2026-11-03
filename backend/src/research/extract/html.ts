@@ -1,8 +1,9 @@
+import type { DefaultTreeAdapterTypes } from 'parse5';
 import { READING, SCRIPTED } from '../../ingest/url/extract.js';
 import { inspectText } from '../../models/injection.js';
 import { sha256 } from '../../ingest/url/provenance.js';
 import { assemble, type Part } from './document.js';
-import { parseDocument, parseFragment, DEFAULT_LIMITS } from './parse.js';
+import { parseDocument, parseFragment, Pacer, DEFAULT_LIMITS } from './parse.js';
 import { Reader, REGION_LIMIT, type RawBlock, type Reading, type Region } from './read.js';
 import { readFacts } from './meta.js';
 import type { RawLink } from './scan.js';
@@ -18,6 +19,7 @@ import type {
 } from './types.js';
 const STRUCTURED_LABEL =
   'Structured data (facts the page publishes for machines, not text on the page):';
+type ParentNode = DefaultTreeAdapterTypes.ParentNode;
 // The tree is not deeper than the limit of the parser, give or take what it moved: reading allows a little more.
 const READ_DEPTH_ALLOWANCE = 100;
 
@@ -29,10 +31,52 @@ interface Body {
   chosen: Set<Region> | null;
 }
 
-const inside = (region: Region | null, chosen: ReadonlySet<Region>): boolean => {
-  for (let at = region; at; at = at.parent) if (chosen.has(at)) return true;
-  return false;
-};
+/**
+ * Whether a region is one of the chosen, or inside one. Each region is looked up once, however deep a page
+ * nests them: asked for every block of a page that nests four hundred, it would otherwise walk them all.
+ */
+function insideTest(chosen: ReadonlySet<Region>): (region: Region | null) => boolean {
+  const known = new Map<Region, boolean>();
+  return (region) => {
+    const path: Region[] = [];
+    let answer = false;
+    for (let at = region; at; at = at.parent) {
+      const seen = known.get(at);
+      if (seen !== undefined) {
+        answer = seen;
+        break;
+      }
+      if (chosen.has(at)) {
+        answer = true;
+        known.set(at, true);
+        break;
+      }
+      path.push(at);
+    }
+    for (const step of path) known.set(step, answer);
+    return answer;
+  };
+}
+
+/**
+ * The characters of text in each region, counting what is in the regions inside it. It takes one pass over
+ * the blocks and one over the regions, however deep they nest.
+ */
+function regionSizes(reading: Reading): Map<Region, number> {
+  const chars = new Map<Region, number>();
+  for (const block of reading.blocks) {
+    if (block.region) chars.set(block.region, (chars.get(block.region) ?? 0) + block.text.length);
+  }
+  // Regions are listed with those that hold others first, so going back through them adds the text of each
+  // to the one that holds it, after everything inside it has been added to it.
+  for (let at = reading.regions.length - 1; at >= 0; at -= 1) {
+    const region = reading.regions[at] as Region;
+    if (region.parent) {
+      chars.set(region.parent, (chars.get(region.parent) ?? 0) + (chars.get(region) ?? 0));
+    }
+  }
+  return chars;
+}
 
 /**
  * The regions that hold the page's own text, when the page has them: its main region, or else its
@@ -41,12 +85,7 @@ const inside = (region: Region | null, chosen: ReadonlySet<Region>): boolean => 
  */
 function chooseRegions(reading: Reading): Set<Region> | null {
   if (reading.regions.length >= REGION_LIMIT) return null;
-  const chars = new Map<Region, number>();
-  for (const block of reading.blocks) {
-    for (let at = block.region; at; at = at.parent) {
-      chars.set(at, (chars.get(at) ?? 0) + block.text.length);
-    }
-  }
+  const chars = regionSizes(reading);
   const size = (region: Region): number => chars.get(region) ?? 0;
   const total = reading.kept;
   const enough = (count: number): boolean =>
@@ -75,17 +114,16 @@ const charsOf = (blocks: readonly RawBlock[]): number =>
  * The text of one reading: the page's main region or its articles when it has them, else the page
  * without its furniture, else, when that leaves almost nothing of a page that shows much more, the page whole.
  */
-function bodyOf(reading: Reading, whole: () => Reading): Body {
+async function bodyOf(reading: Reading, whole: () => Promise<Reading>): Promise<Body> {
   const chosen = chooseRegions(reading);
-  let blocks = chosen
-    ? reading.blocks.filter((block) => inside(block.region, chosen))
-    : reading.blocks;
+  const within = chosen ? insideTest(chosen) : null;
+  let blocks = within ? reading.blocks.filter((block) => within(block.region)) : reading.blocks;
   let kept = chosen ? charsOf(blocks) : reading.kept;
   const leftOut = reading.leftOut || kept < reading.kept;
   let scope: Body['scope'] = !leftOut ? 'all' : chosen ? 'main' : 'page';
   let fellBack = false;
   if (leftOut && kept < READING.floorChars) {
-    const everything = whole();
+    const everything = await whole();
     if (
       everything.kept >= READING.floorRatio * kept &&
       everything.kept - kept >= READING.gainChars
@@ -141,6 +179,7 @@ function finishLinks(
 ): ExtractedLink[] {
   const seen = new Set<string>();
   const links: ExtractedLink[] = [];
+  const within = chosen ? insideTest(chosen) : null;
   for (const link of raw) {
     if (links.length >= maxLinks) break;
     let target: URL;
@@ -162,7 +201,7 @@ function finishLinks(
       url,
       text,
       rel: link.rel,
-      inMain: link.inMain && (chosen === null || inside(link.region, chosen)),
+      inMain: link.inMain && (within === null || within(link.region)),
     });
   }
   return links;
@@ -188,19 +227,27 @@ export async function extractHtml(
 ): Promise<Extraction> {
   const limits: ExtractLimits = { ...DEFAULT_LIMITS, ...options.limits };
   const maxDepth = limits.maxDepth + READ_DEPTH_ALLOWANCE;
-  const parsed = await parseDocument(input.text, limits, options.signal);
+  // The work of this extraction that cannot be interrupted is done in stretches, and the rest of the process
+  // is given a turn after any that has run for a slice, so that they do not add up to one long wait.
+  const pacer = new Pacer(limits.sliceMs);
+  const parsed = await parseDocument(input.text, limits, options.signal, pacer);
   const reader = (trim: boolean, collect: boolean): Reader =>
-    new Reader({ trim, collect, maxDepth, maxLinks: limits.maxLinks });
+    new Reader({ trim, collect, maxDepth, maxLinks: limits.maxLinks, maxWork: limits.maxWork });
+  const whole = async (root: ParentNode): Promise<Reading> => {
+    await pacer.maybe(options.signal);
+    return reader(false, false).read(root);
+  };
+  await pacer.maybe(options.signal);
   const first = reader(true, true).read(parsed.root);
   let cutShort = parsed.cutShort || first.cutShort;
-  options.signal?.throwIfAborted();
-  let body = bodyOf(first, () => reader(false, false).read(parsed.root));
+  let body = await bodyOf(first, () => whole(parsed.root));
 
   let noscript = false;
   if (body.kept < READING.floorChars && first.noscript.length > 0) {
-    const fragment = await parseFragment(first.noscript.join('\n'), limits, options.signal);
+    const fragment = await parseFragment(first.noscript.join('\n'), limits, options.signal, pacer);
+    await pacer.maybe(options.signal);
     const inner = reader(true, false).read(fragment.root);
-    const fallback = bodyOf(inner, () => reader(false, false).read(fragment.root));
+    const fallback = await bodyOf(inner, () => whole(fragment.root));
     if (
       fallback.kept >= READING.floorChars &&
       fallback.kept >= READING.floorRatio * body.kept &&
@@ -211,6 +258,7 @@ export async function extractHtml(
       noscript = true;
     }
   }
+  await pacer.maybe(options.signal);
   const scripted =
     first.embeds ||
     (first.scriptChars > 0 &&

@@ -32,6 +32,11 @@ interface Sink {
   /** Where the blocks are going: the page, a list item, a table cell or a quotation. */
   kind: 'root' | 'item' | 'cell' | 'quote';
   blocks: RawBlock[];
+  /**
+   * For a quotation: how many quotations are open in it, the outermost being the first. What is written
+   * in it is marked with that many `> `, once, as it is written. Zero for every other kind of sink.
+   */
+  level: number;
 }
 
 interface ListState {
@@ -62,6 +67,11 @@ interface TableState {
 const BREAK = '\ue000';
 // Once this much text has been kept the rest of the page cannot be part of the document.
 const MAX_BODY_CHARS = 200_000;
+// Text that has been written into any block at all, in a cell or an item or a quotation as well as on the
+// page: what is in a cell is written again when its table is, so this is a few times the limit above.
+const MAX_WRITTEN_CHARS = 4 * MAX_BODY_CHARS;
+// The most one block may hold. A document is far shorter, so nothing that is read is lost.
+const MAX_BLOCK_CHARS = MAX_BODY_CHARS;
 const MAX_INLINE_CHARS = 400_000;
 const MAX_LIST_LINES = 500;
 const MAX_ROWS = 500;
@@ -69,6 +79,10 @@ const MAX_COLUMNS = 50;
 const MAX_PRE_LINES = 200;
 const CELL_CHARS = 400;
 const LAYOUT_CELL_CHARS = 200;
+// Quotations and tables inside one another are read this deep, and what is inside the deeper ones is read as
+// part of the one that holds them, so that how deep a page nests them does not set how much is done.
+const MAX_QUOTE_LEVELS = 6;
+const MAX_TABLE_LEVELS = 6;
 
 const isElement = (node: Node): node is Element => 'tagName' in node;
 const oneLine = (block: RawBlock): string => block.text.replace(/\n+/gu, ' ');
@@ -79,24 +93,45 @@ const oneLine = (block: RawBlock): string => block.text.replace(/\n+/gu, ' ');
  * or a quotation gathers its own blocks first, and they are put together when it ends.
  */
 export class BlockBuilder {
-  private readonly root: Sink = { kind: 'root', blocks: [] };
+  private readonly root: Sink = { kind: 'root', blocks: [], level: 0 };
   private sinks: Sink[] = [this.root];
   private inlineText = '';
   private preformatted = false;
   private preText = '';
   private lists: ListState[] = [];
   private items: Item[] = [];
+  private tables = 0;
   /** The main region or article the words being read are in. */
   region: Region | null = null;
   /** The characters of the blocks that have been kept, once they are in the page's own text. */
   kept = 0;
   full = false;
   headline: string | null = null;
+  /** What has been done so far, in units that come to about a microsecond each (see `spend`). */
+  work = 0;
+  /** The limit on the work was reached, and the rest of the page was not read. */
+  exhausted = false;
+  private written = 0;
 
-  constructor(private readonly walker: Walker) {}
+  constructor(
+    private readonly walker: Walker,
+    private readonly maxWork: number,
+  ) {}
 
   get blocks(): RawBlock[] {
     return this.root.blocks;
+  }
+
+  /**
+   * Counts work. How long reading a page takes is bounded by this, and by nothing about the clock: a page
+   * that asks for more than the limit is read no further, whatever it is built of and however it nests.
+   */
+  spend(units: number): void {
+    this.work += units;
+    if (this.work > this.maxWork && !this.exhausted) {
+      this.exhausted = true;
+      this.full = true;
+    }
   }
 
   // -- words -------------------------------------------------------------------------------------
@@ -116,11 +151,23 @@ export class BlockBuilder {
     return this.sinks[this.sinks.length - 1] as Sink;
   }
 
-  private emit(kind: BlockKind, text: string): void {
-    if (!text) return;
-    this.sink.blocks.push({ kind, text, region: this.region });
-    if (this.sink === this.root) {
-      this.kept += text.length + 2;
+  private emit(kind: BlockKind, whole: string): void {
+    if (!whole) return;
+    const sink = this.sink;
+    // No block is longer than a document is: what is past that cannot be read, and must not be paid for again
+    // each time a block is written into the one that holds it.
+    const text = whole.length > MAX_BLOCK_CHARS ? whole.slice(0, MAX_BLOCK_CHARS) : whole;
+    // What is quoted is marked as it is written, once; a quotation is never written over again to mark it.
+    const written =
+      sink.kind === 'quote'
+        ? text.replace(/^/gmu, '> '.repeat(Math.min(sink.level, MAX_QUOTE_LEVELS)))
+        : text;
+    sink.blocks.push({ kind, text: written, region: this.region });
+    this.spend(2 + (written.length >> 7));
+    this.written += written.length + 2;
+    if (this.written > MAX_WRITTEN_CHARS) this.full = true;
+    if (sink === this.root) {
+      this.kept += written.length + 2;
       if (this.kept > MAX_BODY_CHARS) this.full = true;
     }
   }
@@ -130,6 +177,7 @@ export class BlockBuilder {
     const raw = this.inlineText;
     this.inlineText = '';
     if (!raw) return;
+    this.spend(1 + (raw.length >> 6));
     const lines = raw
       .split(BREAK)
       .map((line) => inline(line))
@@ -184,6 +232,7 @@ export class BlockBuilder {
     this.preText = '';
     this.walker.visitChildren(element, depth + 1);
     this.preformatted = false;
+    this.spend(1 + (this.preText.length >> 6));
     const all = sanitize(this.preText).split('\n');
     const lines = all.slice(0, MAX_PRE_LINES).map((line) => line.trimEnd());
     this.preText = '';
@@ -195,10 +244,19 @@ export class BlockBuilder {
 
   quote(element: Element, depth: number): void {
     this.flush();
-    const sink: Sink = { kind: 'quote', blocks: [] };
+    const open = this.sink;
+    if (open.kind === 'quote') {
+      // A quotation inside a quotation is not written over: what is in it is marked one level deeper as it is
+      // written, down to a limit, and what is deeper than that is marked as the limit is.
+      open.level += 1;
+      this.walker.visitChildren(element, depth + 1);
+      this.flush();
+      open.level -= 1;
+      return;
+    }
+    const sink: Sink = { kind: 'quote', blocks: [], level: 1 };
     this.gather(sink, () => this.walker.visitChildren(element, depth + 1));
-    const lines = sink.blocks.flatMap((block) => block.text.split('\n'));
-    this.emit('quote', lines.map((line) => `> ${line}`).join('\n'));
+    this.emit('quote', sink.blocks.map((block) => block.text).join('\n'));
   }
 
   // -- lists -------------------------------------------------------------------------------------
@@ -232,6 +290,7 @@ export class BlockBuilder {
 
   private line(item: Item): void {
     const text = item.sink.blocks.map(oneLine).join(' ').trim();
+    this.spend(1 + (text.length >> 7));
     item.sink.blocks = [];
     if (!text) return;
     if (item.list.lines.length >= MAX_LIST_LINES) item.list.cut = true;
@@ -242,7 +301,7 @@ export class BlockBuilder {
   item(element: Element, depth: number): void {
     const list = this.lists[this.lists.length - 1] as ListState;
     const indent = '  '.repeat(Math.min(this.lists.length - 1, 4));
-    const item: Item = { sink: { kind: 'item', blocks: [] }, indent, list };
+    const item: Item = { sink: { kind: 'item', blocks: [], level: 0 }, indent, list };
     this.items.push(item);
     this.sinks.push(item.sink);
     this.walker.visitChildren(element, depth + 1);
@@ -276,8 +335,16 @@ export class BlockBuilder {
 
   table(element: Element, depth: number): void {
     this.flush();
+    if (this.tables >= MAX_TABLE_LEVELS) {
+      // A table nested this deep is read as what it holds, in the cell it is in, and not as a table.
+      this.walker.visitChildren(element, depth + 1);
+      this.flush();
+      return;
+    }
     const state: TableState = { caption: null, rows: [], structural: false, cut: false };
+    this.tables += 1;
     this.parts(element, state, depth + 1);
+    this.tables -= 1;
     this.finish(state);
   }
 
@@ -301,9 +368,11 @@ export class BlockBuilder {
       if (!isElement(child) || cells.length >= MAX_COLUMNS) continue;
       if (child.tagName !== 'td' && child.tagName !== 'th') continue;
       if (hides(attributesOf(child))) continue;
-      const sink: Sink = { kind: 'cell', blocks: [] };
+      const sink: Sink = { kind: 'cell', blocks: [], level: 0 };
+      this.spend(2);
       this.gather(sink, () => this.walker.visitChildren(child, depth + 1));
       const text = sink.blocks.map(oneLine).join(' ').trim();
+      this.spend(text.length >> 7);
       const paragraphs = sink.blocks.filter((block) => block.kind === 'paragraph').length;
       if (
         text.length > CELL_CHARS ||

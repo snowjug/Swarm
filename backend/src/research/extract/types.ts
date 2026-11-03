@@ -134,6 +134,12 @@ export interface ExtractLimits {
   maxParseMs: number;
   /** How long parsing runs before it lets the rest of the process have a turn, and hears a stop, in milliseconds. */
   sliceMs: number;
+  /**
+   * The most work reading a parsed page may do, in units that come to about a microsecond each. It is
+   * counted, not timed: a page that asks for more is read no further, so the time reading holds up
+   * the process is bounded however the page is built, and is the same wherever it runs.
+   */
+  maxWork: number;
   /** The most characters of a document, with the notice that says when it was cut. */
   maxChars: number;
   maxLinks: number;
