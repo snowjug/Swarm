@@ -313,6 +313,54 @@ const RULES: Rule[] = [
     fixed: [{ AZURE_OPENAI_AUTH: 'entra', AZURE_OPENAI_API_KEY: undefined }],
   },
   {
+    name: 'the model uses an API key through Foundry',
+    modes: BOTH,
+    change: {
+      AI_PROVIDER: 'foundry',
+      FOUNDRY_ENDPOINT: 'https://swarm-dev.openai.azure.com',
+      FOUNDRY_AUTH: 'key',
+      FOUNDRY_API_KEY: 'canary-foundry-key',
+    },
+    says: /set up with an API key/u,
+    fixed: [
+      {
+        AI_PROVIDER: 'foundry',
+        FOUNDRY_ENDPOINT: 'https://swarm-dev.openai.azure.com',
+        FOUNDRY_AUTH: 'entra',
+        FOUNDRY_API_KEY: undefined,
+      },
+    ],
+  },
+  {
+    name: 'a Foundry endpoint that is not https',
+    modes: BOTH,
+    change: {
+      AI_PROVIDER: 'foundry',
+      FOUNDRY_ENDPOINT: 'http://127.0.0.1:8080',
+      FOUNDRY_TEST_ALLOW_LOOPBACK: '1',
+    },
+    count: 2,
+    says: /FOUNDRY_ENDPOINT is not an https address/u,
+    fixed: [
+      {
+        AI_PROVIDER: 'foundry',
+        FOUNDRY_ENDPOINT: 'https://swarm-dev.openai.azure.com',
+        FOUNDRY_TEST_ALLOW_LOOPBACK: undefined,
+      },
+    ],
+  },
+  {
+    name: 'the Foundry loopback test seam is on',
+    modes: BOTH,
+    change: {
+      AI_PROVIDER: 'foundry',
+      FOUNDRY_ENDPOINT: 'https://swarm-dev.openai.azure.com',
+      FOUNDRY_TEST_ALLOW_LOOPBACK: '1',
+    },
+    says: /FOUNDRY_TEST_ALLOW_LOOPBACK is set/u,
+    fixed: [{ FOUNDRY_TEST_ALLOW_LOOPBACK: undefined }],
+  },
+  {
     name: 'a key-based provider has not been given its key yet',
     modes: BOTH,
     change: { AI_PROVIDER: 'openai', AI_MODEL: 'a-model' },

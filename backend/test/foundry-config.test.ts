@@ -128,7 +128,7 @@ describe('the loopback seam of the tests', () => {
   it('is not allowed for a production deployment, which then does not start', () => {
     expect(() =>
       loadConfig({ ...loopback, FOUNDRY_TEST_ALLOW_LOOPBACK: '1', DEPLOYMENT_MODE: 'production' }),
-    ).toThrow('test seam');
+    ).toThrow(/FOUNDRY_TEST_ALLOW_LOOPBACK is set/u);
   });
 });
 
@@ -157,22 +157,9 @@ describe('API-key authentication for Foundry', () => {
     });
   });
 
-  it('is refused for a production deployment: it does not start, and the refusal does not repeat the key', () => {
-    for (const mode of ['production', 'Production', ' PRODUCTION ']) {
-      let message = '';
-      try {
-        loadConfig({ ...withKey, DEPLOYMENT_MODE: mode });
-      } catch (error) {
-        message = (error as Error).message;
-      }
-      expect(message, mode).toContain('not allowed');
-      expect(message).toContain('DEPLOYMENT_MODE=production');
-      expect(message).not.toContain(KEY);
-    }
-    expect(loadConfig({ ...withKey, DEPLOYMENT_MODE: 'development' }).provider.auth).toBe(
-      'api-key',
-    );
-    expect(loadConfig({ ...base, DEPLOYMENT_MODE: 'production' }).provider.auth).toBe('entra');
+  it('is allowed on a local run; a pilot or production start that uses one is refused by the deployment guard', () => {
+    expect(loadConfig({ ...withKey, DEPLOYMENT_MODE: 'local' }).provider.auth).toBe('api-key');
+    expect(loadConfig(withKey).provider.auth).toBe('api-key');
   });
 
   it('refuses an authentication mode it does not know, by name and without its value', () => {

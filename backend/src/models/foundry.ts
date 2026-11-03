@@ -1,5 +1,5 @@
 import type { ProviderConfig } from '../config.js';
-import { DEPLOYMENT_NAME, deploymentIsProduction, type Environment } from './routing-config.js';
+import { DEPLOYMENT_NAME, type Environment } from './routing-config.js';
 
 /** A Microsoft Entra token is sent to this host, so only the hosts of Azure AI resources are accepted. */
 export const FOUNDRY_HOST_SUFFIXES = [
@@ -58,7 +58,8 @@ export function foundryEndpoint(
 /**
  * The provider for AI_PROVIDER=foundry: Microsoft Foundry through its OpenAI-compatible v1 API.
  * Microsoft Entra ID is the default and needs no key. A key is used only when FOUNDRY_AUTH=key is
- * chosen, and never for a production deployment, which fails to start rather than hold one.
+ * chosen. Whether a key, or the loopback test seam, is acceptable for a deployment is decided by
+ * the deployment guard (`deployment.ts`), which refuses a pilot or production start that uses one.
  */
 export function buildFoundryProvider(
   base: ProviderConfig,
@@ -69,17 +70,7 @@ export function buildFoundryProvider(
   if (authSetting !== 'entra' && authSetting !== 'key') {
     throw new Error('Invalid server configuration: FOUNDRY_AUTH.');
   }
-  if (authSetting === 'key' && deploymentIsProduction(environment)) {
-    throw new Error(
-      'FOUNDRY_AUTH=key is not allowed when DEPLOYMENT_MODE=production. Use Microsoft Entra ID with a managed identity.',
-    );
-  }
   const loopback = environment.FOUNDRY_TEST_ALLOW_LOOPBACK?.trim() === '1';
-  if (loopback && deploymentIsProduction(environment)) {
-    throw new Error(
-      'FOUNDRY_TEST_ALLOW_LOOPBACK is a test seam and is not allowed when DEPLOYMENT_MODE=production.',
-    );
-  }
 
   const unconfigured = (reason: string): ProviderConfig => ({ ...base, reason });
   if (!base.model) {

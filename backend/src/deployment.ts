@@ -238,9 +238,10 @@ function authViolations({ config }: Context): string[] {
   return found;
 }
 
-const MODEL_KEYS = ['AZURE_OPENAI_API_KEY', 'OPENAI_API_KEY'] as const;
+const MODEL_KEYS = ['AZURE_OPENAI_API_KEY', 'OPENAI_API_KEY', 'FOUNDRY_API_KEY'] as const;
 const ENDPOINT_SETTING = {
   azure: 'AZURE_OPENAI_ENDPOINT',
+  foundry: 'FOUNDRY_ENDPOINT',
   openai: 'OPENAI_BASE_URL',
   ollama: 'OLLAMA_BASE_URL',
 } as const;
@@ -251,14 +252,15 @@ function modelViolations({ mode, config, environment }: Context): string[] {
   const keyed =
     provider.name === 'openai' ||
     provider.auth === 'api-key' ||
-    (provider.name === 'azure' && environment.AZURE_OPENAI_AUTH === 'key');
+    (provider.name === 'azure' && environment.AZURE_OPENAI_AUTH === 'key') ||
+    (provider.name === 'foundry' && environment.FOUNDRY_AUTH?.trim().toLowerCase() === 'key');
   if (keyed && mode === 'production') {
     found.push(
-      'The model provider is set up with an API key (AI_PROVIDER=openai, or AZURE_OPENAI_AUTH=key). Production uses Microsoft Entra and a managed identity only: set AI_PROVIDER=azure with AZURE_OPENAI_AUTH=entra, or AI_PROVIDER=none. ALLOW_MODEL_API_KEY does not apply here.',
+      'The model provider is set up with an API key (AI_PROVIDER=openai, AZURE_OPENAI_AUTH=key or FOUNDRY_AUTH=key). Production uses Microsoft Entra and a managed identity only: set AI_PROVIDER=foundry with FOUNDRY_AUTH=entra, or AI_PROVIDER=none. ALLOW_MODEL_API_KEY does not apply here.',
     );
   } else if (keyed && !isTrue(environment.ALLOW_MODEL_API_KEY)) {
     found.push(
-      'The model provider is set up with an API key (AI_PROVIDER=openai, or AZURE_OPENAI_AUTH=key). Use AI_PROVIDER=azure with AZURE_OPENAI_AUTH=entra, or record the decision to accept a key in a pilot with ALLOW_MODEL_API_KEY=true.',
+      'The model provider is set up with an API key (AI_PROVIDER=openai, AZURE_OPENAI_AUTH=key or FOUNDRY_AUTH=key). Use AI_PROVIDER=foundry with FOUNDRY_AUTH=entra, or record the decision to accept a key in a pilot with ALLOW_MODEL_API_KEY=true.',
     );
   }
   if (!keyed && mode === 'production') {
@@ -390,6 +392,7 @@ const SEAM_NAMES: ReadonlySet<string> = new Set([
   'ENABLE_SEED_ENDPOINTS',
   'ENABLE_TEST_ROUTES',
   'ENABLE_TEST_ENDPOINTS',
+  'FOUNDRY_TEST_ALLOW_LOOPBACK',
 ]);
 
 const privateSuffix = (host: string): string | undefined =>
