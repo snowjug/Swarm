@@ -269,6 +269,35 @@ A run that ends with nothing to use is `blocked` (or `cancelled`, when a person 
 read) and the stage is held, not failed. A run that fails (a refusal by the model's provider, a search
 provider that could not be reached) is `failed` with a code, and the stage is `failed` so that it can be run again.
 
+### A person's own text, added afterwards
+
+A project that research could find no source for is not a dead end, and discovery has no provider here, so
+this is the way on that needs nothing from the web: `POST /api/projects/:id/evidence/documents` with
+`{ "documents": [ DocumentInput, … ] }` (1 to 10; `routes/research.ts`, `ResearchService.addDocuments`).
+
+- **One unit.** `Repository.appendDocuments` and the queuing of the `knowledge` stage (`Orchestrator.enqueueStep`)
+  are one transaction (`Repository.atomic` takes part in the transaction of its caller). A stage that cannot be
+  queued (a full queue, a model that is not set up) takes the sources back with it, so the same request can be
+  sent again and no source waits for a job. The answer is the project, `202`, as for `POST /steps/knowledge`.
+- **Not research.** The text is the person's own evidence: the planner, the crawler and the selection never read,
+  rank or change it, no run is made or touched (a `blocked` run stays as it was) and nothing is fetched. It works
+  when research is turned off, and for a project that research never ran for. Passages continue the
+  numbering of the project's own and nothing already written changes. A ledger built before the sources were
+  added learns of the conflicts they bring (`LedgerService.addFoundConflicts`).
+- **Provenance is the person's word, and only that.** A document may say
+  `{ kind: "paste" | "upload", title?, license?, asOf? }`, or nothing (what the Ask scene sends for text and
+  files). An address, a time, a hash, any other kind and above all `fetchedByServer` are the server's to give for
+  a page it read itself, so a body that carries one is refused (`400`): a client cannot make its own text look
+  like a retrieved page.
+- **The same rules as a research source.** Only a guided project whose `knowledge` stage is `pending`, `failed`
+  or `cancelled`, with no research run live (`409 RESEARCH_ACTIVE`); the limits of a project hold to the
+  character (`409 DOCUMENT_LIMIT` for more than ten sources or 200,000 characters, and nothing is added).
+- **Twice is once.** A request is one request by its `Idempotency-Key` or, without one, by the documents it holds
+  (a key `by-hand:…`, made from them, in the project's own jobs): a double click, or a retry after a lost reply,
+  answers `202` with the project and adds nothing, also once the stage is done.
+- **Who and what is recorded.** `evidence.documents.added` (counts of sources, passages and characters, and who),
+  and a line in the project's log that says the sources were added by a person. Needs `edit` and `run`.
+
 ### Statuses, and why a run stopped
 
 `queued`, `running`, `paused`, `completed`, `cancelled`, `failed`, `blocked`. `stoppedBecause` is one of the
@@ -312,7 +341,9 @@ call (`MODEL_PRICES`); with no price the cost is "unknown" and said so. `0` mean
   nothing shares it fairly between workspaces yet; the queue holds at most three waiting jobs.
 - A read of the state (`GET`) may mark an abandoned run as ended: it is how a run that nobody carries out is
   found when no one restarts the server.
-- Not pasted text or a file: a person adds those when the project is created. The routes add a page or a site.
+- Pasted text and files are not research's: a person adds them when the project is created, or afterwards with
+  `POST /api/projects/:id/evidence/documents` (above), and research neither reads nor changes them. The research
+  routes add a page or a site.
 
 ## Tests
 
@@ -335,7 +366,9 @@ the words), `research-assess`, `research-select` (ranking, limits, repeats, mask
 the real crawler, extractor, job queue and storage, `research-service` (modes, stages, stops, limits,
 determinism), `research-service-control` (pause, finish, cancel, two requests, a server that stops),
 `research-service-hostile`, `research-service-model` and `research-routes` (who may call what, tenants, CSRF,
-rate limits, the audit log). They read a fake web (`support/research-web.ts`) on a virtual clock through the
+rate limits, the audit log), and `research-manual` (a person's own text, added to a question that research found
+no source for: the path to a ready project, what a refusal leaves behind, hostile text, limits, a stage that cannot
+be queued, the same request twice). They read a fake web (`support/research-web.ts`) on a virtual clock through the
 fetcher seam of `buildApp` (`research: { fetcher, now, crawl }`), which only code can set: no environment
 variable or configuration reaches it. **What they do not do**: use the real network, a real search
 provider, a real model or Azure; the model is a scripted double that is held to the real schema and checks,
@@ -343,5 +376,5 @@ and the real socket fetcher is covered by the crawler's own tests, not driven by
 
 ```
 nice -n 10 npx vitest run backend/test/research-*.test.ts
-SWARM_TEST_DATABASE=pglite npx vitest run --testTimeout=240000 backend/test/research-store.test.ts backend/test/research-service*.test.ts backend/test/research-routes.test.ts
+SWARM_TEST_DATABASE=pglite npx vitest run --testTimeout=240000 backend/test/research-store.test.ts backend/test/research-service*.test.ts backend/test/research-routes.test.ts backend/test/research-manual.test.ts
 ```
