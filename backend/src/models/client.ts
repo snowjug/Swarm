@@ -500,7 +500,7 @@ export class ModelClient implements ModelGateway {
       const converted = toStrictSchema(schema, route?.task);
       if (
         converted.ok &&
-        !(deployment && this.capabilities.isSchemaRefused(deployment, converted.strict.name))
+        !(deployment && this.capabilities.isSchemaRefused(deployment, schemaKey(converted.strict)))
       ) {
         strict = converted.strict;
       }
@@ -567,7 +567,7 @@ export class ModelClient implements ModelGateway {
     if (refused.schema === 'deployment')
       this.capabilities.refused(deployment, { jsonSchema: false });
     if (refused.schema === 'schema' && plan.strict) {
-      this.capabilities.schemaRefused(deployment, plan.strict.name);
+      this.capabilities.schemaRefused(deployment, schemaKey(plan.strict));
     }
     if (refused.temperature) this.capabilities.refused(deployment, { temperature: false });
     if (refused.reasoningEffort) this.capabilities.refused(deployment, { reasoningEffort: false });
@@ -673,6 +673,9 @@ export class ModelClient implements ModelGateway {
 
 type Checked<T> =
   { ok: true; value: T } | { ok: false; problem: string; reason: ModelRejectEvent['reason'] };
+
+/** What a deployment's refusal of one schema is remembered under: the name alone could be shared. */
+const schemaKey = (strict: StrictSchema): string => `${strict.name}.${strict.fingerprint}`;
 
 function checkReply<T>(
   schema: z.ZodType<T>,

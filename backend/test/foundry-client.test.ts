@@ -281,15 +281,23 @@ describe('a deployment that refuses a parameter', () => {
   it('does not downgrade for the whole deployment on an ambiguous 400: only that schema is remembered', async () => {
     const capabilities = new CapabilityMemory();
     const { client } = made({ capabilities });
+    const other = z.object({ answer: z.string().min(1).max(40), note: z.string().optional() });
     fake.script(
       { kind: 'status', status: 400, code: 'BadRequest' },
       { kind: 'reply', value: { answer: 'plain' } },
     );
     await client.json(answer, 'Return JSON.', {}, signal(), 500, { route: { task: 'one.v1' } });
     expect(capabilities.get('fast-dep')).toEqual({});
-    expect(capabilities.isSchemaRefused('fast-dep', 'one_v1')).toBe(true);
+    // The same schema goes straight to plain JSON; the deployment still takes strict output for others,
+    // even one with the same name, because the refusal is of that schema and not of its name.
     fake.reset();
-    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route: { task: 'two.v1' } });
+    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route: { task: 'one.v1' } });
+    expect(fake.requests.map((request) => request.body?.response_format?.type)).toEqual([
+      'json_object',
+    ]);
+    fake.reset();
+    fake.script({ kind: 'reply', value: { answer: 'strict', note: null } });
+    await client.json(other, 'Return JSON.', {}, signal(), 500, { route: { task: 'one.v1' } });
     expect(format().type).toBe('json_schema');
   });
 
@@ -305,7 +313,9 @@ describe('a deployment that refuses a parameter', () => {
     });
     expect(fake.requests).toHaveLength(2);
     expect(capabilities.snapshot()).toEqual({});
-    expect(capabilities.isSchemaRefused('fast-dep', 'swarm_reply')).toBe(false);
+    fake.reset();
+    await client.json(answer, 'Return JSON.', {}, signal());
+    expect(format().type).toBe('json_schema');
   });
 
   it('leaves out a temperature it does not take, and a reasoning effort it does take is kept', async () => {

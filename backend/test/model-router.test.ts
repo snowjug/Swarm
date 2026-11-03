@@ -355,3 +355,101 @@ describe('no deployment at all', () => {
     );
   });
 });
+
+// Every combination of role, size, ceiling and zone, against an oracle written the other way round:
+// the router filters a list of candidates in steps, this asks of each deployment, on its own, whether it
+// may serve the request, and takes the first that may.
+describe('every role, size, ceiling and zone', () => {
+  const settings = routing({
+    FOUNDRY_DEPLOYMENT_EXTRACTION: 'extract-dep',
+    FOUNDRY_DEPLOYMENT_CRITIC: 'critic-dep',
+    FOUNDRY_DEPLOYMENT_FALLBACK: 'spare-dep',
+    ...profiles({
+      'general-dep': { dataZone: 'eu' },
+      'extract-dep': { dataZone: 'eu', maxContextChars: 20_000 },
+      'critic-dep': { dataZone: 'us' },
+      'spare-dep': { dataZone: 'us', maxContextChars: 60_000 },
+    }),
+    ...prices([
+      ['general-dep', 1, 4],
+      ['critic-dep', 30, 120],
+      ['spare-dep', 0.5, 2],
+    ]),
+  });
+  const router = createRouter(settings);
+  const price = new Map([
+    ['general-dep', [1, 4]],
+    ['critic-dep', [30, 120]],
+    ['spare-dep', [0.5, 2]],
+  ] as const);
+  const zone = new Map([
+    ['general-dep', 'eu'],
+    ['extract-dep', 'eu'],
+    ['critic-dep', 'us'],
+    ['spare-dep', 'us'],
+  ]);
+  const limit = new Map([
+    ['extract-dep', 20_000],
+    ['spare-dep', 60_000],
+  ]);
+  const own: Record<string, string> = { extraction: 'extract-dep', critic: 'critic-dep' };
+
+  const oracle = (
+    role: string,
+    chars: number,
+    ceiling: number | undefined,
+    wanted: string | undefined,
+  ): string[] => {
+    const order = [...new Set([own[role] ?? 'general-dep', 'general-dep', 'spare-dep'])];
+    return order.filter((name) => {
+      if (wanted !== undefined && zone.get(name) !== wanted) return false;
+      if ((limit.get(name) ?? Infinity) < chars) return false;
+      if (ceiling === undefined) return true;
+      const rate = price.get(name);
+      if (!rate) return false;
+      const worst = (Math.ceil(chars / 3) * rate[0] + 1_000 * rate[1]) / 1_000_000;
+      return worst <= ceiling;
+    });
+  };
+
+  const cases = MODEL_ROLES.flatMap((role) =>
+    [500, 30_000, 70_000].flatMap((chars) =>
+      [undefined, 0.0001, 0.01, 1].flatMap((ceiling) =>
+        [undefined, 'eu', 'us', 'apac'].map((wanted) => ({ role, chars, ceiling, wanted })),
+      ),
+    ),
+  );
+
+  it('agrees with the oracle in all of its cases', () => {
+    expect(cases).toHaveLength(6 * 3 * 4 * 4);
+    let routed = 0;
+    let refused = 0;
+    for (const { role, chars, ceiling, wanted } of cases) {
+      const expected = oracle(role, chars, ceiling, wanted);
+      const request = {
+        role,
+        contextChars: chars,
+        maxTokens: 1_000,
+        costCeilingUsd: ceiling,
+        dataZone: wanted,
+      };
+      const label = JSON.stringify({ role, chars, ceiling, wanted });
+      if (expected.length === 0) {
+        refused += 1;
+        expect(() => router.route(request), label).toThrowError(
+          expect.objectContaining({ code: 'MODEL_ROUTE_UNAVAILABLE' }),
+        );
+      } else {
+        routed += 1;
+        const route = router.route(request);
+        expect([route.deployment, route.fallbackDeployment], label).toEqual([
+          expected[0],
+          expected[1] ?? null,
+        ]);
+      }
+    }
+    // The table has both kinds of case in it, so that neither half of the agreement is empty.
+    expect(routed).toBeGreaterThan(100);
+    expect(refused).toBeGreaterThan(50);
+  });
+});

@@ -235,10 +235,17 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
     if (deps.cache && scope && input) {
       const cached = deps.cache.get(scope, input);
       if (cached !== undefined) {
+        let hit: { value: T } | null = null;
         try {
           // The checks run again: they may depend on more than the data that was hashed.
           const value = task.schema.parse(cached);
           task.validate?.(value);
+          hit = { value };
+        } catch {
+          deps.cache.delete(scope, input);
+        }
+        if (hit) {
+          throwIfAborted(task.signal);
           signals.modelCache({ hit: true, role: task.role, task: task.name });
           deps.observer?.onTask({
             role: task.role,
@@ -247,9 +254,7 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
             failureCode: null,
             latencyMs: performance.now() - started,
           });
-          return finish({ value, source: 'model', failure: null }, 'hit');
-        } catch {
-          deps.cache.delete(scope, input);
+          return finish({ value: hit.value, source: 'model', failure: null }, 'hit');
         }
       }
       signals.modelCache({ hit: false, role: task.role, task: task.name });

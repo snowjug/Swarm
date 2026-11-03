@@ -17,8 +17,8 @@ export type PriceTable = readonly PriceEntry[];
 /** `estimate`: priced, and only an estimate. `unknown`: no price is configured, so no number is given. */
 export type CostEstimate = { basis: 'estimate'; usd: number } | { basis: 'unknown'; usd: null };
 
-export const NO_COST: CostEstimate = { basis: 'estimate', usd: 0 };
-export const UNKNOWN_COST: CostEstimate = { basis: 'unknown', usd: null };
+export const NO_COST: CostEstimate = Object.freeze({ basis: 'estimate', usd: 0 });
+export const UNKNOWN_COST: CostEstimate = Object.freeze({ basis: 'unknown', usd: null });
 
 /**
  * Characters per token used wherever a token count has to be guessed before a call. Low on purpose:
@@ -77,7 +77,7 @@ const usd = (price: PriceEntry, input: number, output: number): number =>
 export function estimateCostUsd(
   usage: TokenCounts,
   deployment: string | null,
-  table: PriceTable,
+  table: PriceTable = [],
 ): CostEstimate {
   const price = priceFor(table, deployment);
   if (!price) return UNKNOWN_COST;

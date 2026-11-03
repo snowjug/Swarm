@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 
 /**
@@ -17,6 +18,11 @@ import { z } from 'zod';
 export interface StrictSchema {
   /** The name of the output as the provider sees it: 1-64 letters, digits, underscores and hyphens. */
   name: string;
+  /**
+   * Identifies this schema, not just its name: two tasks, or two versions, may share a name. What the
+   * process learns about a deployment refusing a schema is remembered under it.
+   */
+  fingerprint: string;
   /** The value of `response_format.json_schema.schema`. */
   schema: Record<string, unknown>;
   /** Replaces the null of an optional property by its absence. Never changes a reply that is valid as it is. */
@@ -349,13 +355,15 @@ export function toStrictSchema(schema: z.ZodType, name?: string): StrictConversi
       ...root.node,
       ...(Object.keys(converted).length > 0 ? { $defs: converted } : {}),
     };
-    if (JSON.stringify(strictRoot).length > MAX_SCHEMA_CHARS) {
+    const text = JSON.stringify(strictRoot);
+    if (text.length > MAX_SCHEMA_CHARS) {
       throw new Unsupported('The schema is too large.');
     }
     return {
       ok: true,
       strict: {
         name: strictSchemaName(name),
+        fingerprint: createHash('sha256').update(text).digest('hex').slice(0, 12),
         schema: strictRoot,
         normalize: (value) => restore(value, root.optionality, definitions),
       },

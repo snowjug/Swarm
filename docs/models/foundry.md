@@ -1,0 +1,267 @@
+# Microsoft Foundry models: routing, structured outputs, budgets, cache and safety signals
+
+> **Status.** Everything below is proved against an in-process fake of the Azure OpenAI v1 endpoint
+> (`backend/test/support/fake-foundry.ts`). No part of it has been run against a live Foundry resource.
+> Where this page describes what the real service does (error shapes, annotation shapes, which keywords
+> strict structured output refuses) it is written from the service's public documentation and marked
+> _unverified_. Treat the first live run as the test of those lines.
+
+`AI_PROVIDER=foundry` reaches a Microsoft Foundry (Azure OpenAI) resource through its
+OpenAI-compatible **v1 Chat Completions** API, using the client Swarm already has. On top of the existing
+provider contract it adds Microsoft Entra ID without keys, a deployment per **role**, strict structured
+outputs, a deterministic router, per-operation allowances, a tenant-scoped cache, content-safety signals
+and metrics. `AI_PROVIDER=azure` is unchanged and does not use any of this routing.
+
+Every task keeps a deterministic rules path (`fallback`), and the product works end to end with no model
+configured. The model has no tools, and web content is data, never an instruction.
+
+## Quick start
+
+Three variables give a working server, with one deployment serving every role:
+
+```dotenv
+AI_PROVIDER=foundry
+FOUNDRY_ENDPOINT=https://<resource>.openai.azure.com
+AI_MODEL=<the name of a deployment of that resource>
+```
+
+Sign in with Microsoft Entra ID: run `az login` locally, or give the hosted workload a managed identity
+(set `AZURE_CLIENT_ID` for a user-assigned one). The identity needs the **Cognitive Services OpenAI User**
+role on the resource. No API key exists or is read. Then call `POST /api/provider/check`, which asks every
+deployment a task could be routed to, once each.
+
+## Environment variables
+
+| Variable                              | Default    | Meaning                                                                                                                                                                                                                                                  |
+| ------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_PROVIDER`                         | `none`     | `foundry` selects this provider.                                                                                                                                                                                                                         |
+| `AI_MODEL`                            | none       | The **default deployment**, used by every role that has none of its own. Required. A deployment name, never a model name.                                                                                                                                |
+| `FOUNDRY_ENDPOINT`                    | none       | `https://` only; the host must end in `.openai.azure.com`, `.services.ai.azure.com` or `.cognitiveservices.azure.com`. The resource root or its `/openai/v1` path. A wrong value leaves the server in rules mode, with a reason that does not repeat it. |
+| `FOUNDRY_AUTH`                        | `entra`    | `entra` or `key`. A key is used only when `key` is chosen, and **a production deployment (`DEPLOYMENT_MODE=production`) refuses to start with it**.                                                                                                      |
+| `FOUNDRY_API_KEY`                     | none       | Read only when `FOUNDRY_AUTH=key`. Sent as the `api-key` header. Never logged, returned or exported.                                                                                                                                                     |
+| `AZURE_CLIENT_ID`                     | none       | Client id of a user-assigned managed identity (not a secret).                                                                                                                                                                                            |
+| `FOUNDRY_DEPLOYMENT_RESEARCH_PLANNER` | `AI_MODEL` | Deployment for the role `research-planner`.                                                                                                                                                                                                              |
+| `FOUNDRY_DEPLOYMENT_EXTRACTION`       | `AI_MODEL` | … the role `extraction`.                                                                                                                                                                                                                                 |
+| `FOUNDRY_DEPLOYMENT_ACTOR`            | `AI_MODEL` | … the role `actor`.                                                                                                                                                                                                                                      |
+| `FOUNDRY_DEPLOYMENT_SCENARIO`         | `AI_MODEL` | … the role `scenario`.                                                                                                                                                                                                                                   |
+| `FOUNDRY_DEPLOYMENT_CRITIC`           | `AI_MODEL` | … the role `critic`.                                                                                                                                                                                                                                     |
+| `FOUNDRY_DEPLOYMENT_SYNTHESIS`        | `AI_MODEL` | … the role `synthesis`.                                                                                                                                                                                                                                  |
+| `FOUNDRY_DEPLOYMENT_REASONING`        | none       | Preferred when a task needs reasoning and its role's deployment is not a reasoning one.                                                                                                                                                                  |
+| `FOUNDRY_DEPLOYMENT_FALLBACK`         | none       | Tried once, in place of the chosen deployment, when that one is missing, throttled, slow or failing.                                                                                                                                                     |
+| `FOUNDRY_DEPLOYMENT_PROFILES`         | none       | JSON object, per deployment: `reasoning` (takes `reasoning_effort`, refuses `temperature`), `dataZone`, `maxContextChars`, `latency` (`fast`, `standard`, `slow`), `structuredOutputs` (`false`: never ask for strict output).                           |
+| `FOUNDRY_DATA_ZONE`                   | none       | When set, **every** task is served only from a deployment whose profile declares this zone. An undeclared deployment is never assumed to be in it.                                                                                                       |
+| `AI_TIMEOUT_MS`                       | `120000`   | The time limit of one request. A task's latency budget can only shorten it.                                                                                                                                                                              |
+| `MODEL_PRICES`                        | none       | JSON array of `{deployment, inputPerMillionUsd, outputPerMillionUsd}`; `deployment` is a name or a pattern with `*`. **Swarm ships no price.**                                                                                                           |
+| `MODEL_OPERATION_TOKEN_LIMIT`         | `0`        | Tokens (input plus output) an operation may use. `0`: no limit.                                                                                                                                                                                          |
+| `MODEL_OPERATION_COST_LIMIT_USD`      | `0`        | Estimated dollars an operation may spend. Needs `MODEL_PRICES`; the server does not start without them.                                                                                                                                                  |
+| `MODEL_CACHE`                         | `off`      | `off` or `tenant`.                                                                                                                                                                                                                                       |
+| `MODEL_CACHE_MAX_ENTRIES`             | `256`      | Entries kept (the cache is also bounded to 16 MiB in all and 256 KiB per entry).                                                                                                                                                                         |
+| `MODEL_CACHE_TTL_SECONDS`             | `900`      | How long an entry is served.                                                                                                                                                                                                                             |
+| `TELEMETRY_TRACE_CONTENT`             | `off`      | `off` or `redacted`. See [Telemetry](#telemetry).                                                                                                                                                                                                        |
+| `DEPLOYMENT_MODE`                     | none       | `production` tightens what may be configured (a key is refused). Another setting owns the rest of this guard.                                                                                                                                            |
+| `FOUNDRY_TEST_ALLOW_LOOPBACK`         | none       | **Test seam.** `1` lets `FOUNDRY_ENDPOINT` be `http(s)://localhost`, `127.0.0.1` or `[::1]`, so that a test can use the fake server. Refused when `DEPLOYMENT_MODE=production`. Never set it for a real resource.                                        |
+
+A name that is not a deployment name (letters, digits, dots, hyphens, underscores), a malformed JSON value,
+or an unknown option stops the server at start-up and names the variable, never its value. The role
+variables, profiles and zone are read only when `AI_PROVIDER=foundry`; prices, allowances, the cache and
+trace content apply to any provider.
+
+## Roles
+
+A task names its **role**, never a model. A deployment may serve several roles, or all of them.
+
+| Role               | Used for                                     | Default temperature | Effort on a reasoning deployment | Answer budget (tokens) |
+| ------------------ | -------------------------------------------- | ------------------- | -------------------------------- | ---------------------- |
+| `research-planner` | deciding what to look for                    | 0.2                 | medium                           | 2,000                  |
+| `extraction`       | reading a passage into structured evidence   | 0                   | low                              | 4,000                  |
+| `actor`            | proposing and refining role-based actors     | 0.5                 | low                              | 2,500                  |
+| `scenario`         | structuring a question into a scenario frame | 0.3                 | medium                           | 3,000                  |
+| `critic`           | challenging a result                         | 0.2                 | high                             | 3,000                  |
+| `synthesis`        | writing a conclusion from recorded results   | 0.3                 | medium                           | 4,000                  |
+
+A reasoning deployment is sent `reasoning_effort` and no temperature, and is given room for its thinking on
+top of the answer (500 to 4,000 tokens by effort, never more than 16,000 in all). These are defaults in
+`backend/src/models/router.ts`; no model name is built into the code.
+
+## How a deployment is chosen
+
+`createRouter(config.routing).route(request)` is configuration and arithmetic: no network, no randomness,
+no learning. The same request and settings always give the same route.
+
+| Factor              | Rule                                                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task type           | The role's deployment, else `AI_MODEL`. Candidates, in order: the role's, the default, the reasoning one, the fallback.                                                                         |
+| Availability        | A deployment the caller says is not available is skipped. Within an operation, the runner passes over a deployment that was not found, or throttled, for 30 seconds.                            |
+| Privacy / data zone | With a zone (the task's own, else `FOUNDRY_DATA_ZONE`) only a deployment declared in it may serve the task. No such deployment: no route, and the task is answered by rules, nothing is sent.   |
+| Context size        | A deployment with a smaller `maxContextChars` than the request is skipped.                                                                                                                      |
+| Cost ceiling        | With a ceiling, a deployment must have a price and the worst case of the call (every input token and a full answer) must fit under it. An unpriced deployment is refused, not guessed.          |
+| Reasoning need      | A task that needs reasoning prefers a reasoning deployment. It is a preference: with none configured the task still runs.                                                                       |
+| Latency budget      | The time limit becomes the budget. Under 20 s: prefer a `fast` deployment, cap the effort at `low`, one transient and one throttle retry. Under 60 s: one transient and three throttle retries. |
+| Schema needs        | Strict structured output is asked for unless the deployment's profile says `structuredOutputs: false`.                                                                                          |
+
+The route also carries `fallbackDeployment`: the next eligible candidate, tried once if the first fails with
+`MODEL_NOT_FOUND`, `MODEL_RATE_LIMIT`, `MODEL_TIMEOUT` or `MODEL_HTTP_ERROR`. The runner never changes
+deployment for a refusal, an authentication failure or a cancellation. There is **no dependence on a
+preview model router**: every deployment the router can return is one the operator named.
+
+## Structured outputs
+
+For a Foundry deployment the client sends
+`response_format: {type: "json_schema", json_schema: {name, strict: true, schema}}`, where `schema` is made
+from the task's own zod schema (`z.toJSONSchema`) and adapted for strict mode
+(`backend/src/models/strict-schema.ts`):
+
+- every object is closed (`additionalProperties: false`) and lists every property as `required`;
+- an **optional** or defaulted property becomes one that may be `null`, and a reply's `null` for it is turned
+  back into an absence before zod judges it (only when the reply was not valid as it came, and only where
+  strict mode put the null; a `null` the schema allows itself stays);
+- unions are `anyOf`; a literal is a one-value `enum`;
+- lengths, ranges, patterns, counts and defaults, which strict mode does not take, are left out and said in
+  the property's description ("2 to 80 characters"). _The list of refused keywords is from the public
+  documentation and is unverified._
+
+A schema strict mode cannot say (a map with free keys, a tuple, a value of any type, an array at the root, a
+very deep or large schema) is asked for as plain JSON (`json_object`) without trying.
+
+**zod and the server's checks still judge every reply**, whatever the mode. A Foundry reply must be one JSON
+document: a fenced block or prose is not repaired by pattern, it fails and gets the one correction round.
+
+If a deployment rejects a parameter (`MODEL_PARAMETER_UNSUPPORTED`, or a plain 400), the client asks again
+once without it: `json_schema` gives way to `json_object`, and a `temperature` or `reasoning_effort` is left
+out. That round trip is admitted, counted and gated like any other and does not use up the correction
+round. The refusal is remembered **per deployment**, only after a reply shows the call went through, and
+expires after an hour. An explicit "not supported" for `response_format` is remembered for the deployment;
+anything vaguer, for that one schema alone. A refused parameter is therefore found out once per process, not
+once per operation.
+
+## Safety signals
+
+The client reads the annotations Azure adds (`prompt_filter_results`, `choices[].content_filter_results`,
+`finish_reason`, `message.refusal`) and the error of a blocked prompt (_shapes unverified_):
+
+| Kind                           | Meaning                                                           | Outcome                                               |
+| ------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------- |
+| `refusal`                      | the model declined                                                | `MODEL_REFUSED`; never answered from rules            |
+| `blocked_input`                | the prompt was blocked (HTTP 400 `content_filter`, or `filtered`) | `MODEL_REFUSED`                                       |
+| `blocked_output`               | the answer was filtered or cut (`finish_reason`)                  | `MODEL_REFUSED`; partial content is never read        |
+| `jailbreak`, `indirect_attack` | Prompt Shields saw an attack                                      | blocked: `MODEL_REFUSED`; detected only: a **signal** |
+| `protected_material`           | protected text or code                                            | blocked: `MODEL_REFUSED`; detected only: a signal     |
+
+A refusal is never answered from rules and never retried on another deployment. A detection that did not
+block is counted and handed to the caller (`RunOutcome.safety`; `ModelRefusedError.findings` for a block);
+the reply is judged as any other. Messages never carry text from the provider, only category names.
+
+## Budgets and cost
+
+Cost is an **estimate**, from the operator's `MODEL_PRICES`. A deployment with no price has a cost of
+`unknown`: not zero and not a guess, and the cost metric is simply absent for it. Nothing here is a bill.
+
+An **operation** (one research run, one stage) has its own allowance in tokens and in estimated dollars
+(`OperationBudget`, by default from `MODEL_OPERATION_*`). Before **every** provider round trip (first reply,
+correction round, refused-parameter retry, bigger-budget retry after truncation, failover) the call's worst
+case must still fit, so calls that run at the same moment cannot pass the limit together. A call whose usage
+the provider did not report is charged at an estimate, and so is a gateway that never asked. A dollar limit
+is never enforced from a price that is not there: a deployment without a price is refused under one, and
+the server does not start with a dollar limit and no price table. Beyond the allowance, the project's own
+budget (`ModelUsageSink.admit`) is asked before every call, and the per-operation call cap (`maxCalls`, 16
+by default) still applies.
+
+A budget stop is not a failure: the task is answered by rules, with `failure.code` one of
+`MODEL_TOKEN_BUDGET`, `MODEL_COST_BUDGET`, `MODEL_CALL_BUDGET` or `PROJECT_BUDGET` (`BUDGET_CODES` in
+`backend/src/models/cost.ts`), so that a caller can stop instead of retrying.
+
+## Cache
+
+`MODEL_CACHE=tenant` keeps validated answers in process memory, keyed by **(tenant, role, task name, schema
+version, deployment, SHA-256 of the instructions and data)**. It is off by default.
+
+- A task with no `tenantId` is never cached, and one tenant never finds another's entry.
+- Only a validated model answer is stored: never a refusal, a failure or a rules answer. It holds the hash
+  and the answer, never the prompt.
+- An answer is checked again (schema and `validate`) on every hit; one that fails is dropped.
+- It is bounded in entries, in bytes per entry, in bytes in all, and in time. A reader gets a copy.
+- The key includes the deployment the router would choose now, so a changed zone or routing is a miss, and a
+  task that cannot be routed does not read the cache.
+
+## Telemetry
+
+Metrics are OpenTelemetry. The attribute allow-list in `backend/src/telemetry/attributes.ts` applies, so a
+prompt, a reply, an endpoint or a credential has no name to travel under. For Foundry, `swarm.model.name` is
+the deployment.
+
+| Metric                              | Kind      | Attributes                                                                             |
+| ----------------------------------- | --------- | -------------------------------------------------------------------------------------- |
+| `swarm.model.calls`                 | counter   | provider, name, role, structured (`json_schema` or `json_object`), outcome, error code |
+| `swarm.model.tokens`                | counter   | provider, name, role, direction (`input` or `output`)                                  |
+| `swarm.model.cost.estimated_usd`    | counter   | provider, name, role. An **estimate**, and absent for a deployment with no price       |
+| `swarm.model.task.duration`         | histogram | role, task, source (`model`, `fallback` or `refused`), name                            |
+| `swarm.model.schema_failures`       | counter   | reason (`not_json`, `schema`, `validation`, `injection_echo`), repair, role, name      |
+| `swarm.model.fallbacks`             | counter   | role, task, error code (only when rules stood in for a model)                          |
+| `swarm.model.safety_blocks`         | counter   | safety kind, role, name                                                                |
+| `swarm.model.safety_signals`        | counter   | safety kind, role, name (detections that did not block)                                |
+| `swarm.model.cache.hits`, `.misses` | counter   | role, task                                                                             |
+
+Each `swarm.model.task` span carries role, task, source, deployment and the error code. With
+`TELEMETRY_TRACE_CONTENT=redacted` it also carries `swarm.model.input_chars`, `swarm.model.output_chars` and
+the first 16 hex characters of a SHA-256 of the input: these are derived from content. With `off` (the
+default) no content-derived attribute exists. In neither mode is the text of a prompt or a reply exported.
+
+## Using it from code
+
+```ts
+import { taskRunnerFor } from '../models/factory.js';
+
+const runner = taskRunnerFor(config, createModel, {
+  onUsage: repository.modelUse(projectId), // the project's sink: records usage, refuses past its budget
+  maxCalls: 40, // provider calls of this operation (default 16)
+  // budget: newOperationBudget(config, { usd: 0.25 }), // an allowance of its own; default from MODEL_OPERATION_*
+});
+
+const outcome = await runner.run({
+  role: 'extraction',
+  name: 'evidence-extraction.v1',
+  schema,
+  instructions,
+  data, // untrusted
+  signal,
+  validate,
+  fallback, // the rules answer; it must pass `schema` and `validate`
+  tenantId, // only needed for the cache
+  // optional routing hints: requiresReasoning, latencyBudgetMs, costCeilingUsd, dataZone
+});
+// outcome: { value, source: 'model' | 'fallback', failure, deployment, usage, cost, cache, safety }
+```
+
+`runStructuredTask(model, task, observer)` in `backend/src/models/task.ts` keeps working unchanged and is
+what the runner calls; use it directly when no routing or allowance is wanted. A refusal or a cancellation
+is thrown, never answered from rules. The runner emits the task metrics itself.
+
+## Testing without Azure
+
+`startFakeFoundry()` in `backend/test/support/fake-foundry.ts` is an HTTP server on a loopback port that
+speaks the v1 chat-completions endpoint. It checks the credential, the deployment and what it accepts
+(`jsonSchema`, `temperature`, `reasoningEffort`, `maxContextChars`), enforces the strict-schema rules on what
+it is sent, can be scripted to reply, return invalid output, refuse, filter, truncate, throttle, fail, be
+slow or hang, and records every request:
+
+```ts
+const fake = await startFakeFoundry({ deployments: { fast: {}, deep: { temperature: false } } });
+const config = testConfig(fake.environment()); // AI_PROVIDER=foundry with the loopback seam
+fake.script({ kind: 'reply', value: { answer: 'ok' } });
+// ... use `config`, then assert on `fake.requests` and `fake.problems`
+await fake.close();
+```
+
+## Verified and not verified
+
+Verified against the fake only: the request shape (`response_format`, `max_completion_tokens`, sampling,
+credentials), strict-schema conversion against the documented rules, downgrade and parameter handling,
+refusal and filter classification, routing, budgets, cache isolation, failover, and that no credential,
+endpoint or content reaches logs, status or telemetry.
+
+**Not verified against Azure:** that the deployments you configure accept strict `json_schema` and
+`reasoning_effort`; the exact error codes and bodies for refused parameters and blocked content; the shape of
+the content-filter annotations; the schema keywords strict mode refuses; Retry-After behaviour; the token
+usage fields; the Entra scope and role assignment; and any latency, quota or price. Run
+`POST /api/provider/check` against the real resource first, then a small task, and read the status
+counters.
