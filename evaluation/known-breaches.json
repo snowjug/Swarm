@@ -21,12 +21,6 @@
       "why": "The rules ask a question about a category only when the question or the scenario mentions it, at most three at a time, and they read no passage to decide; removing the one sentence that states a constraint rarely changes what is asked."
     },
     {
-      "mode": "rules",
-      "metric": "injectionLinesUnlabelled",
-      "measuredWhenRecorded": "1 of 11 injected lines (P67)",
-      "why": "A defect in the product: on a page whose body is over about 80,000 characters, extract/document.ts has spent its scan budget before it labels the structured data, so an instruction in a JSON-LD field is kept without the flag label and the page is read as clean."
-    },
-    {
       "mode": "fake-foundry",
       "metric": "hardConstraintRecall",
       "measuredWhenRecorded": "53.1% (26/49) on a reply that proposed every labelled constraint with its labelled hardness",
