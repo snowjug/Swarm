@@ -132,6 +132,18 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'POST /api/projects/:id/analysis': project('run'),
   'POST /api/projects/:id/analysis/:aid/cancel': project('run'),
 
+  // [constraints policy]
+  // What limits the decision. Reading is for anyone who can read the project; proposing may ask a model and
+  // measures the proposed change, so it needs the right to run, as do the counterfactual views; changing and
+  // reviewing the constraints need the right to edit.
+  'GET /api/projects/:id/constraints': project('read'),
+  'PUT /api/projects/:id/constraints': project('edit'),
+  'POST /api/projects/:id/constraints/propose': project('run'),
+  'POST /api/projects/:id/constraints/review': project('edit'),
+  'GET /api/projects/:id/constraints/gate': project('read'),
+  'GET /api/projects/:id/constraints/counterfactuals': project('read'),
+  'POST /api/projects/:id/constraints/counterfactuals': project('run'),
+
   // [critics policy]
   // The independent review: reading is for anyone who can read the project, running it is a duty of
   // those who run the analysis, and answering a critique is an edit.

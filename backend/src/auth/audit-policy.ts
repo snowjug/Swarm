@@ -261,6 +261,25 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'POST /api/projects/:id/analysis': { kind: 'inside', action: 'analysis.started' },
   'POST /api/projects/:id/analysis/:aid/cancel': { kind: 'inside', action: 'analysis.cancelled' },
 
+  // [constraints audit]
+  // Recorded by the service, in the transaction of the change, with counts and a status: never a statement or a quote.
+  'GET /api/projects/:id/constraints': reads(
+    'Reads the constraints of an experiment; changes nothing.',
+  ),
+  'PUT /api/projects/:id/constraints': { kind: 'inside', action: 'constraints.edited' },
+  'POST /api/projects/:id/constraints/propose': { kind: 'inside', action: 'constraints.proposed' },
+  'POST /api/projects/:id/constraints/review': { kind: 'inside', action: 'constraints.reviewed' },
+  'GET /api/projects/:id/constraints/gate': reads(
+    'Works the gate out from what is stored; changes nothing.',
+  ),
+  'GET /api/projects/:id/constraints/counterfactuals': reads(
+    'Reads the stored views; running them is recorded.',
+  ),
+  'POST /api/projects/:id/constraints/counterfactuals': {
+    kind: 'inside',
+    action: 'constraints.counterfactuals.run',
+  },
+
   // [critics audit]
   'GET /api/projects/:id/critiques': reads(
     'Reads the stored review; running it is recorded as critiques.run.',

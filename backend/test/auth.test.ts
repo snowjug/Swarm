@@ -466,6 +466,9 @@ describe('identifiers a route accepts outside the path', () => {
       'brief.ts: id',
       // In the path: vouched for by the guard.
       'budget.ts: id',
+      // In the path: vouched for by the guard. A constraint is named by a short id of the set's own,
+      // and is only ever looked up inside the constraint document of that experiment.
+      'constraints.ts: id',
       // In the path: vouched for by the guard. A critique is named by a short id of the review's own.
       'critiques.ts: id',
       // In the path: vouched for by the guard.
