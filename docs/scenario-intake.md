@@ -147,7 +147,12 @@ seconds when a first reply had to be repaired. The page shows that it is reading
 ## In the page
 
 Intake is the first screen of the interface, the **Ask** scene (`frontend/src/scenes/ask/`). Its composer
-takes the question, the evidence and the engine (under **Options**), and a line there says which applies:
+takes the question, a website or domain for automatic research to start from, a time horizon, a switch for
+whether Swarm researches, the evidence, and under **Advanced** a geography, guidance for research and up to six
+assumptions. The time horizon, the geography and the assumptions are put into the frame after the question has
+been read, as the person's own (`withIntake`), so nothing that reads the question, a model included, sees them;
+the website and the guidance go to research and not to the reading. The engine is under **Options**, and a
+line there says which applies:
 that rules on this machine read the question and it goes nowhere else, or that it is sent to the model
 provider this server uses (`useModel` is true only when **Model assisted** is chosen). The person chooses
 **Explore**, and the page shows that the server is reading and offers **Stop**.
@@ -158,7 +163,9 @@ under "Swarm asks", the notes are under **How it was read**, and a chip says whe
 rules, read by a model, or edited by you. The review opens with focus on its heading, and its **Question**
 (back) and **Ground it** buttons stay at the foot of the screen, so that a long scenario never hides the
 choice. **Ground it** sends the frame with the project, which creates the project and starts reading the
-evidence. If a reading fails, the page says so and offers **Try again** or **Continue without reading**,
+evidence, or, for a question with no source of its own and research on, starts the research run (see
+[the research README](../backend/src/research/README.md)). If a reading fails, the page says so and offers
+**Try again** or **Continue without reading**,
 which creates the project with no frame. Every step is optional, nothing is sent until the person asks
 ("Nothing runs until you continue."), and nothing is kept until they say so. It works with the keyboard, and
 `Ctrl` or `⌘` with Enter explores. How the scene is built is in [UX.md](./UX.md#ask).
