@@ -88,32 +88,41 @@ async function capturingCreation(page: Page, researching: boolean) {
   return sent;
 }
 
-/** What is on the screen that a person could use, and what it says, before anything is done. */
+/** What a person can read and press before scrolling, counted as the eye does: words in view, and the controls in view. */
 async function whatIsOnTheFirstView(page: Page) {
   return page.evaluate(() => {
-    const seen = (element: Element): boolean => {
+    const shown = (element: Element): boolean => {
       const box = element.getBoundingClientRect();
       const style = getComputedStyle(element);
       return (
-        box.width > 0 &&
-        box.height > 0 &&
-        box.top < window.innerHeight &&
-        box.bottom > 0 &&
+        box.width > 1 &&
+        box.height > 1 &&
         style.visibility !== 'hidden' &&
         Number(style.opacity) > 0 &&
-        !element.closest('[inert], [hidden], [aria-hidden="true"], .sr-only')
+        !element.closest('[inert], [hidden], .sr-only')
       );
     };
+    const inView = (element: Element): boolean =>
+      element.getBoundingClientRect().top < window.innerHeight;
+
+    let words = 0;
+    const walker = document.createTreeWalker(document.querySelector('main')!, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent?.trim();
+      const parent = node.parentElement;
+      if (text && parent && shown(parent) && inView(parent)) words += text.split(/\s+/u).length;
+    }
+    // A radio or a switch is drawn by its label, and the input itself is kept small: it still counts.
     const controls = [
       ...document.querySelectorAll(
         'main button, main input:not([type=hidden]), main textarea, main select, main a[href]',
       ),
-    ].filter(seen);
-    const text = [...document.querySelectorAll('main *')]
-      .filter((element) => seen(element) && element.children.length === 0)
-      .map((element) => element.textContent ?? '')
-      .join(' ');
-    return { controls: controls.length, words: text.split(/\s+/u).filter(Boolean).length };
+    ].filter(
+      (element) =>
+        (shown(element) || element.matches('input[type=radio], input[role=switch]')) &&
+        inView(element),
+    );
+    return { controls: controls.length, words };
   });
 }
 
@@ -185,7 +194,7 @@ test.describe('the first ten seconds, with nothing explained', () => {
     console.log(
       `first view: hero ${hero.length} words, ${first.words} words in all, ${first.controls} controls`,
     );
-    expect(first.words, 'words in the first view').toBeLessThan(330);
+    expect(first.words, 'words in the first view').toBeLessThan(220);
     expect(first.controls, 'controls in the first view').toBeLessThanOrEqual(30);
     expect(problems).toEqual([]);
   });
