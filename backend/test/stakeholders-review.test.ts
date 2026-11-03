@@ -642,6 +642,20 @@ describe('merging', () => {
     expect(two.stakeholders.find((s) => s.id === intoNext.id)).toMatchObject({ status: 'removed' });
     expect(find(two, 'Enterprise customers').mergedFrom).toEqual([intoNext.id]);
   });
+
+  it('keeps a basis that says “quoted from a source” only while a passage is cited, so that undoing a merge leaves no such claim behind', () => {
+    const next = applyReview(
+      base,
+      review(base, (list) => {
+        const target = find(list, 'Resellers');
+        target.evidence = [];
+        target.confidenceBasis = 'source-quote';
+      }),
+      LATER,
+    );
+    expect(find(next, 'Resellers').confidenceBasis).toBe('category-pattern');
+    expect(find(next, 'Analysts').confidenceBasis).toBeUndefined();
+  });
 });
 
 describe('relations', () => {

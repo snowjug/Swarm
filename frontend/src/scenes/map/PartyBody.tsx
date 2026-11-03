@@ -289,10 +289,18 @@ export function PartyBody({
               <List title="Wants" items={shown.objectives} />
               <List title="Worries" items={shown.concerns} />
               <List title="Pressure" items={[...shown.constraints, ...shown.dependencies]} />
+              <List title="Could do" items={shown.plausibleActions ?? []} />
+              <List title="Never asserted about it" items={shown.prohibitedClaims ?? []} />
               {(shown.objectives.length > 0 || shown.concerns.length > 0) && (
                 <p className="sw-caption sw-insp__fine">
                   What it wants and fears is assumed from its category, or read by a model. It is
                   not found in the sources.
+                </p>
+              )}
+              {(shown.plausibleActions ?? []).length > 0 && (
+                <p className="sw-caption sw-insp__fine">
+                  What it could do is a set of possibilities for the simulation to try, not a
+                  prediction.
                 </p>
               )}
               {editable && stored && (

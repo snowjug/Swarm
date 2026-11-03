@@ -22,7 +22,9 @@ const SOURCES = [
   'frontend/src/viz',
   'frontend/src/api/stakeholders.ts',
   'frontend/src/api/stakeholderFlows.ts',
+  'frontend/src/api/participants.ts',
   'frontend/src/hooks/useStakeholders.ts',
+  'frontend/src/hooks/useParticipants.ts',
 ];
 
 function filesOf(path: string): string[] {

@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   STAKEHOLDER_CATEGORY_LABELS,
   TRAIT_KEYS,
+  participantOf,
   type StakeholderCategory,
 } from '../../shared/stakeholders';
 import { expectScene, goTo, openApp, step } from '../support/app';
@@ -235,11 +236,17 @@ test.describe('finding who is affected', () => {
       expect(found.length).toBeGreaterThanOrEqual(3);
       await expect.poll(async () => (await partyNames(page)).length).toBe(found.length);
       // Whatever the domain, what a stakeholder cites is in the project's own sources, and a party that was found by
-      // reading the text is a party the text names.
+      // reading the text is a party the text names. A party that rests on the pattern of its role alone (the owner of the
+      // decision, which every decision has) cites nothing, says it is an assumption, and is not claimed to be in the text.
       const text = squash([seed.question, ...record.documents.map((doc) => doc.content)].join(' '));
       for (const stakeholder of found) {
         for (const ref of stakeholder.evidence) {
           if (ref.quote) expect(inDocuments(ref.quote, record.documents)).toBe(true);
+        }
+        if (participantOf(stakeholder).confidenceBasis === 'category-pattern') {
+          expect(stakeholder.evidence).toEqual([]);
+          expect(stakeholder.assumptions.length).toBeGreaterThan(0);
+          continue;
         }
         if (stakeholder.origin === 'rules' || stakeholder.origin === 'scenario') {
           for (const word of squash(stakeholder.name).split(' ')) {

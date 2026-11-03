@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { ScenarioFrame } from '../../../shared/scenario.js';
 import {
+  PARTICIPANT_ROLE_LABELS,
   SIGNED_TRAIT_KEYS,
   STAKEHOLDER_CATEGORY_LABELS,
   TRAIT_KEYS,
@@ -8,6 +9,7 @@ import {
   UNSIGNED_TRAIT_KEYS,
   actorSchema,
   actorSetSchema,
+  participantOf,
   sizeIsDefault,
   type Actor,
   type ActorRelation,
@@ -96,6 +98,85 @@ function impactOf(stakeholder: Stakeholder, spread: number): ImpactTrait {
       `The direction (${direction}) rests on cited passages (${passageIds.join(', ')}); ${sizeIsDefault(value)}. ${reason}`,
     ),
     direction: { origin: 'evidence', passageIds },
+  };
+}
+
+const INFLUENCE_VALUE = { low: 0.25, medium: 0.5, high: 0.8 } as const;
+const AUTHORITY_VALUE = {
+  decides: 0.9,
+  approves: 0.7,
+  'can-block': 0.7,
+  advises: 0.35,
+  none: 0.1,
+} as const;
+
+/** Whether a stakeholder was proposed or edited as a participant, and so carries a profile for its actor. */
+const isParticipant = (stakeholder: Stakeholder): boolean =>
+  stakeholder.participantRole !== undefined ||
+  stakeholder.objective !== undefined ||
+  stakeholder.plausibleActions !== undefined ||
+  stakeholder.influence !== undefined ||
+  stakeholder.decisionAuthority !== undefined;
+
+const cleanLines = (lines: readonly string[], max: number): string[] =>
+  [...new Set(lines.map((line) => truncate(line, 200)).filter(Boolean))].slice(0, max);
+
+/**
+ * What a participant's profile adds to its actor: its own objective, incentives, concerns, constraints
+ * and pressures, what it is assumed to see, the role it plays, what it could do and what must never be
+ * said of it. Its influence and authority levels set those two traits, labelled with who proposed them.
+ * A stakeholder with no profile gets none of this, and its actor is exactly what it always was.
+ */
+function withProfile(actor: Actor, stakeholder: Stakeholder): Actor {
+  if (!isParticipant(stakeholder)) return actor;
+  const view = participantOf(stakeholder);
+  const label = PARTICIPANT_ROLE_LABELS[view.role];
+  const origin: TraitOrigin =
+    stakeholder.origin === 'model'
+      ? 'model'
+      : stakeholder.origin === 'user'
+        ? 'user'
+        : 'system-assumption';
+  const who =
+    origin === 'model'
+      ? 'proposed by a model'
+      : origin === 'user'
+        ? 'set by you'
+        : `a default for the role of ${label.toLowerCase()} unless you changed it`;
+  const traits: Traits = { ...actor.traits };
+  if (stakeholder.influence) {
+    traits.influence = trait(
+      INFLUENCE_VALUE[view.influence],
+      actor.traits.influence.spread,
+      origin,
+      `From the participant’s influence level (${view.influence}), ${who}.`,
+    );
+  }
+  if (stakeholder.decisionAuthority) {
+    traits.authority = trait(
+      AUTHORITY_VALUE[view.decisionAuthority],
+      actor.traits.authority.spread,
+      origin,
+      `From the participant’s decision authority (${view.decisionAuthority}), ${who}.`,
+    );
+  }
+  const relevance = firstSentence(stakeholder.relevance, 150).replace(/[.]$/u, '');
+  return {
+    ...actor,
+    role: truncate(`${label}${relevance ? `: ${relevance}` : ''}`, 200),
+    objectives: cleanLines(view.objective ? [view.objective] : actor.objectives, 6),
+    incentives: cleanLines(view.incentives, 6),
+    concerns: cleanLines([...actor.concerns, ...view.concerns], 6),
+    constraints: cleanLines(
+      [...view.constraints, ...view.pressures.map((pressure) => `Pressure: ${pressure}`)],
+      6,
+    ),
+    information: cleanLines(view.informationAccess, 6),
+    traits,
+    participantRole: view.role,
+    plausibleActions: cleanLines(view.plausibleActions, 8),
+    prohibitedClaims: cleanLines(view.prohibitedClaims, 10),
+    synthetic: true,
   };
 }
 
@@ -387,7 +468,9 @@ export async function generateActors(input: GenerateInput): Promise<ActorSet> {
     );
   }
   const names = new Map(live.map((stakeholder) => [stakeholder.id, stakeholder.name]));
-  const actors = live.map((stakeholder) => actorOf(stakeholder, input.relations, names));
+  const actors = live.map((stakeholder) =>
+    withProfile(actorOf(stakeholder, input.relations, names), stakeholder),
+  );
   const relations: ActorRelation[] = input.relations
     .filter((relation) => names.has(relation.from) && names.has(relation.to))
     .map(({ from, to, type, strength }) => ({ from, to, type, strength }));
@@ -528,7 +611,17 @@ export function applyActorEdit(stored: ActorSet, incoming: readonly Actor[]): Ac
       TRAIT_KEYS.map((name) => [name, adopt(was.traits[name], raw.traits[name])]),
     ) as Traits;
     traits.impact = keepDirection(was.traits.impact, traits.impact);
-    const next: Actor = { ...raw, traits, evidence: was.evidence, uncertainty: was.uncertainty };
+    // What a participant's actor is, could do and must never be said to be is the stakeholder's, not the edit's.
+    const next: Actor = {
+      ...raw,
+      traits,
+      evidence: was.evidence,
+      uncertainty: was.uncertainty,
+      participantRole: was.participantRole,
+      plausibleActions: was.plausibleActions,
+      prohibitedClaims: was.prohibitedClaims,
+      synthetic: was.synthetic,
+    };
     return { ...next, edited: was.edited || editable(next) !== editable(was) };
   });
   return actorSetSchema.parse({ ...stored, actors });

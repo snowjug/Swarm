@@ -248,6 +248,39 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
     kind: 'inside',
     action: 'stakeholders.approved',
   },
+  // Participants. Each change is recorded by the route, with an `operation` and counts, under the
+  // action that already names what it is: proposing is finding, everything else is an edit.
+  'POST /api/projects/:id/stakeholders/propose': {
+    kind: 'inside',
+    action: 'stakeholders.discovered',
+  },
+  'GET /api/projects/:id/stakeholders/validation': reads(
+    'Checks the list as it is and changes nothing.',
+  ),
+  'POST /api/projects/:id/stakeholders/accept': { kind: 'inside', action: 'stakeholders.edited' },
+  'PATCH /api/projects/:id/stakeholders/:participantId': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'DELETE /api/projects/:id/stakeholders/:participantId': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'POST /api/projects/:id/stakeholders/:participantId/regenerate': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'GET /api/projects/:id/stakeholders/:participantId/why': reads(
+    'Explains a participant from what it already holds; it asks no model and changes nothing.',
+  ),
+  'POST /api/projects/:id/stakeholders/merge-duplicates': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'POST /api/projects/:id/stakeholders/add-missing': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
   'GET /api/projects/:id/actors': reads('Reads the actors of an experiment.'),
   'POST /api/projects/:id/actors/generate': { kind: 'inside', action: 'actors.generated' },
   'PUT /api/projects/:id/actors': { kind: 'inside', action: 'actors.edited' },

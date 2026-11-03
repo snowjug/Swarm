@@ -142,6 +142,12 @@
     .sw-pill__hint {
       display: none;
     }
+    /* The review of the participants says more beside its button than the other pills do, and the button says more
+       than "Create actors": it is closer to the words so that both stay whole on the screen. */
+    .sw-pill[data-kind='gate'] .sw-btn--lg {
+      --btn-px: 1rem;
+      gap: 0.4rem;
+    }
   }
   /* The narrowest phones: the ring and the way to the next are kept, and the words round them give way, so that the
      one action stays whole on the screen. */

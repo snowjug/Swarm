@@ -54,6 +54,12 @@ function personaOf(actor: Actor, stance: number): string {
     actor.objectives.length > 0 ? `Wants: ${actor.objectives.join('; ')}.` : '',
     actor.concerns.length > 0 ? `Concerned about: ${actor.concerns.join('; ')}.` : '',
     actor.constraints.length > 0 ? `Limited by: ${actor.constraints.join('; ')}.` : '',
+    actor.plausibleActions?.length
+      ? `Could: ${actor.plausibleActions
+          .slice(0, 3)
+          .map((action) => truncate(action.replace(/[.]$/u, ''), 70))
+          .join('; ')} (possibilities, not predictions).`
+      : '',
     'These settings are assumptions, category priors unless someone edited them; they are not the beliefs of any real person or group.',
   ];
   return truncate(parts.filter(Boolean).join(' '), 700);

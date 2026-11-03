@@ -20,6 +20,7 @@ import {
 import { useAnnouncer, useFocusRequest } from '../../hooks/useFocusRequest';
 import { useElementSize } from '../../hooks/useElementSize';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useParticipants } from '../../hooks/useParticipants';
 import { useStakeholders, type StakeholderWork } from '../../hooks/useStakeholders';
 import {
   MAX_MERGED,
@@ -41,6 +42,8 @@ import { Inspector } from './Inspector';
 import { Legend } from './Legend';
 import { PartyActions } from './PartyActions';
 import { Pill, type ApproveModel, type PillModel } from './Pill';
+import { gateOf } from './review/logic';
+import { ReviewSurface } from './review/ReviewSurface';
 import { UnsavedBar } from './UnsavedBar';
 import { Roster } from './Roster';
 import { StakeholderDialog } from './StakeholderDialog';
@@ -64,6 +67,8 @@ const FAILED_MODEL = /could not be used|did not answer in time/u;
 
 const WORKING_WORDS: Record<StakeholderWork, string> = {
   finding: 'Finding stakeholders…',
+  proposing: 'Proposing participants…',
+  reviewing: 'Saving…',
   approving: 'Approving…',
   'making-actors': 'Making the actors…',
   saving: 'Saving…',
@@ -196,10 +201,13 @@ export function MapScene() {
     hasActors && (subjectChoice ?? (set?.approvedAt ? 'actors' : 'stakeholders')) === 'actors'
       ? 'actors'
       : 'stakeholders';
-  const view: MapView = ws.view === 'list' ? 'list' : 'map';
+  const view: MapView = ws.view === 'list' ? 'list' : ws.view === 'review' ? 'review' : 'map';
   const may = stakeholdersView?.may ?? { edit: false, run: false };
   const busy = working !== null;
   const editable = may.edit && !busy;
+  // What the server found when it checked the participants. A server that does not check says nothing, and nothing is held back.
+  const checks = stakeholdersView?.review ?? null;
+  const gate = gateOf(checks);
 
   // A new saved set of actors replaces any edits that were not saved.
   const actorsKey = actorsView ? `${actorsView.revision}-${actorSet?.generatedAt ?? ''}` : '';
@@ -228,16 +236,29 @@ export function MapScene() {
 
   const select = useCallback((id: string | null) => setSelectedId(id), []);
   const review = useReview({ state, set, select, say, focus });
+  const participants = useParticipants({
+    projectId: project.id,
+    state,
+    set,
+    revision: stakeholdersView?.revision ?? null,
+    say,
+    focus,
+  });
 
   // ---- Finding, approving, and making actors ---------------------------------------------------------------
   const find = async (mode: FindMode, confirm = false): Promise<void> => {
     setPending(mode);
     setReplacing(null);
-    const found = await state.discover(mode, confirm);
+    // The participants are proposed, and checked, whichever way they are found.
+    const found = await state.propose(mode, confirm);
     setPending(null);
     if (found) {
-      focus(['title']);
-      say('Stakeholders found. They are on the map.');
+      focus(view === 'review' ? ['rv:top', 'title'] : ['title']);
+      say(
+        view === 'review'
+          ? 'Participants proposed again. They are in the review.'
+          : 'Stakeholders found. They are on the map.',
+      );
     }
   };
   const startFind = (mode: FindMode): void => {
@@ -369,8 +390,10 @@ export function MapScene() {
       modelAvailable: Boolean(stakeholdersView?.model.available),
       keepsEdited: editedActors,
       unreviewed: queue.length,
-      disabled: !enough,
-      blocked: enough ? undefined : 'Keep or add two or more',
+      // Actors are made only from a list that passes its checks: until then the way on is shut, and says why.
+      disabled: !enough || !gate.open,
+      blocked: enough ? gate.hint : 'Keep or add two or more',
+      label: view === 'review' && mode === 'approve' ? 'Use these actors' : undefined,
       onConfirm:
         mode === 'approve'
           ? (options) => void approve(options)
@@ -379,6 +402,16 @@ export function MapScene() {
     if (!set.approvedAt) {
       if (!allowed)
         return { kind: 'read', text: 'Approving needs the right to edit and to run the project.' };
+      if (view === 'review') {
+        // The surface beside it says what is wrong; the pill says how much, and holds the one way on.
+        return {
+          kind: 'gate',
+          blocking: gate.blocking,
+          waiting: queue.length,
+          total: live.length,
+          approve: { ...confirm('approve'), blocked: undefined },
+        };
+      }
       return {
         kind: 'review',
         reviewed: live.length - queue.length,
@@ -414,6 +447,10 @@ export function MapScene() {
     actorSet,
     selectedId,
     stakeholdersView?.model.available,
+    view,
+    gate.open,
+    gate.hint,
+    gate.blocking,
     go,
   ]);
 
@@ -497,7 +534,7 @@ export function MapScene() {
         <Discover
           model={stakeholdersView.model}
           may={may}
-          working={working === 'finding'}
+          working={working === 'finding' || working === 'proposing'}
           pending={pending}
           onFind={(mode) => void find(mode)}
           onAdd={() => setDialog({ mode: 'add', ghost: null })}
@@ -661,7 +698,7 @@ export function MapScene() {
         </div>
       )}
 
-      <div className={view === 'list' ? 'sw-map__scroll' : 'sw-map__overlay'}>
+      <div className={view === 'map' ? 'sw-map__overlay' : 'sw-map__scroll'}>
         <div className="sw-map__top" ref={head.ref}>
           <header className="sw-map__head">
             <h1
@@ -712,6 +749,34 @@ export function MapScene() {
                   {set.discovery.note}
                 </Notice>
               )}
+              {checks && view !== 'review' && !set.approvedAt && (set.proposal || !gate.open) && (
+                <Notice
+                  tone={gate.open ? 'info' : 'caution'}
+                  title={
+                    gate.open
+                      ? 'Swarm proposed these participants'
+                      : `${gate.blocking === 1 ? 'One check stands' : `${gate.blocking} checks stand`} in the way of using these participants`
+                  }
+                  action={
+                    <Button
+                      size="sm"
+                      variant="glass"
+                      onClick={() => {
+                        setSelectedId(null);
+                        ws.setView('review');
+                      }}
+                    >
+                      Review participants
+                    </Button>
+                  }
+                >
+                  <span className="sw-hide-sm">
+                    {gate.open
+                      ? 'Read why each is here and what it rests on, then use them to make the actors.'
+                      : 'Actors are made only from a list that passes its checks. The review says what to fix.'}
+                  </span>
+                </Notice>
+              )}
               {stale && (
                 <Notice
                   tone="caution"
@@ -732,7 +797,11 @@ export function MapScene() {
           </header>
           <Toolbar
             view={view}
-            onView={(next) => ws.setView(next === 'map' ? null : next)}
+            onView={(next) => {
+              if (next === 'review') setSelectedId(null);
+              ws.setView(next === 'map' ? null : next);
+            }}
+            checks={gate.blocking}
             subject={subject}
             hasActors={hasActors}
             onSubject={(next) => {
@@ -753,7 +822,7 @@ export function MapScene() {
             focus={focusMode}
             canFocus={party !== null}
             onFocus={setFocusMode}
-            canAdd={canAdd && subject === 'stakeholders'}
+            canAdd={canAdd && subject === 'stakeholders' && view !== 'review'}
             onAdd={() => setDialog({ mode: 'add', ghost: null })}
             gaps={narrow && may.edit && canAdd && subject === 'stakeholders' ? ghosts : []}
             onGap={(ghost) => setDialog({ mode: 'add', ghost })}
@@ -763,6 +832,19 @@ export function MapScene() {
             onMakeAgain={() => setResetting(true)}
           />
         </div>
+        {view === 'review' && (
+          <ReviewSurface
+            set={set}
+            review={checks}
+            may={may}
+            modelAvailable={Boolean(stakeholdersView.model.available)}
+            busy={busy}
+            problem={state.problem}
+            actions={participants}
+            focus={focus}
+            onProposeAgain={() => startFind(set.discovery.mode === 'model' ? 'model' : 'rules')}
+          />
+        )}
         {view === 'list' && model && (
           <Roster
             nodes={model.nodes}
@@ -866,7 +948,7 @@ export function MapScene() {
               </Button>
               <Button
                 variant="danger"
-                busy={working === 'finding'}
+                busy={working === 'finding' || working === 'proposing'}
                 onClick={() => replacing && void find(replacing, true)}
               >
                 Replace my list
