@@ -358,6 +358,9 @@ test.describe('on a phone', () => {
   }) => {
     const id = await makeReady(request);
     await openApp(page, { project: id, scene: 'map', view: 'constraints' });
+    await expect(
+      page.getByRole('heading', { level: 1, name: 'What limits the decision' }),
+    ).toBeVisible();
     await expectNoHorizontalOverflow(page);
     await shoot(page, '09-phone-empty', false);
     await readSources(page);

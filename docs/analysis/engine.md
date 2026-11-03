@@ -395,8 +395,8 @@ changes what the rounds above do for the actors in scope and nothing else:
 Draws are addressed as before, so a constraint changes a run only through what it does and never through a
 shifted random stream. What a run did because of a constraint is recorded as `constraintEvents`, which exist
 only when there are constraints. Measured against the engine before the change (same cast, same seeds, in
-process, interleaved), a run without constraints took the same time within the noise of the machine
-([engine-benchmark.md](engine-benchmark.md)). Which effects exist, what each does, which window it reads, how a
+process, interleaved, CPU time), a run without constraints cost the same within 2%, and seven applied effects
+cost 2% to 10% more ([engine-benchmark.md](engine-benchmark.md#with-constraints)). Which effects exist, what each does, which window it reads, how a
 constraint is proposed and reviewed and what the engine cannot express are in
 [constraints.md](constraints.md).
 
