@@ -171,24 +171,118 @@ export function sitePage(options: {
     return `<li><a href="${href}"${rel ? ` rel="${rel}"` : ''}>${text}</a></li>`;
   });
   return `<!doctype html><html lang="${options.lang ?? 'en'}"><head><meta charset="utf-8"><title>${options.title}</title>${options.head ?? ''}</head>
-<body><main><article><h1>${options.title}</h1>${options.paragraphs.map((text) => `<p>${text}</p>`).join('\n')}
-${links.length > 0 ? `<ul>${links.join('')}</ul>` : ''}</article></main></body></html>`;
+<body><header><p>Harbour Authority</p></header><main><article><h1>${options.title}</h1>${options.paragraphs.map((text) => `<p>${text}</p>`).join('\n')}
+${links.length > 0 ? `<ul>${links.join('')}</ul>` : ''}</article></main><footer><p>Copyright 2026 Harbour Authority. All rights reserved.</p></footer></body></html>`;
 }
 
-const SENTENCES = [
-  'The committee met on the first Tuesday of the month and reviewed the proposals that had been submitted by local groups.',
-  'Members asked for the figures to be published in a form that residents could read without special software.',
-  'The secretary noted that two of the proposals depended on funding that had not yet been confirmed by the regional office.',
-  'A short report on traffic near the school was circulated before the meeting, and its findings were discussed at length.',
-  'The chair proposed a small working group to look at the cost of the scheme and to report back within eight weeks.',
-  'Several residents spoke about noise, and the committee agreed to ask the operator for a plan to reduce it.',
+const NOUNS = [
+  'harbour',
+  'tramline',
+  'library',
+  'allotment',
+  'bridge',
+  'market',
+  'clinic',
+  'ferry',
+  'quarry',
+  'orchard',
+  'viaduct',
+  'reservoir',
+  'tannery',
+  'lighthouse',
+  'depot',
+  'granary',
+  'foundry',
+  'cloister',
+  'meadow',
+  'pier',
+  'schoolhouse',
+  'brewery',
+  'windmill',
+  'causeway',
+  'terrace',
+  'aqueduct',
+  'smithy',
+  'chapel',
+  'boathouse',
+  'kiln',
+  'archive',
+  'workshop',
+  'tunnel',
+  'greenhouse',
+  'lock',
+  'towpath',
+  'junction',
+  'mill',
+  'warehouse',
+  'garden',
+  'observatory',
+  'cannery',
+  'stable',
+  'bakery',
+  'embankment',
+  'signal',
+  'platform',
+  'canal',
+  'barn',
+  'theatre',
+];
+const VERBS = [
+  'surveyed',
+  'repaired',
+  'measured',
+  'recorded',
+  'inspected',
+  'rebuilt',
+  'catalogued',
+  'mapped',
+  'restored',
+  'cleared',
+  'financed',
+  'photographed',
+  'described',
+  'compared',
+  'counted',
+  'opened',
+  'closed',
+  'painted',
+  'lit',
+  'drained',
+];
+const ADJECTIVES = [
+  'old',
+  'northern',
+  'narrow',
+  'quiet',
+  'central',
+  'disused',
+  'handsome',
+  'ruined',
+  'busy',
+  'long',
+  'shallow',
+  'public',
+  'private',
+  'eastern',
+  'covered',
+  'steep',
+  'wide',
+  'little',
+  'famous',
+  'plain',
 ];
 
-/** Prose of about the length asked for, different for each `seed`, so that pages are not duplicates of one another. */
+/** Prose of about 180 words, different for each `seed` (a seeded choice of words), so that pages are not duplicates of one another. */
 export function prose(seed: number, paragraphs = 3): string[] {
-  return Array.from({ length: paragraphs }, (_, index) => {
-    const first = SENTENCES[(seed + index) % SENTENCES.length];
-    const second = SENTENCES[(seed * 3 + index + 1) % SENTENCES.length];
-    return `${first} ${second} Reference ${seed}-${index}: item number ${seed * 31 + index * 7} was recorded in the minutes.`;
-  });
+  let state = (Math.imul(seed + 1, 2654435761) ^ 0x9e3779b9) >>> 0;
+  const next = (): number => {
+    state = Math.imul(state ^ (state >>> 15), 2246822519) >>> 0;
+    state = Math.imul(state ^ (state >>> 13), 3266489917) >>> 0;
+    return ((state ^ (state >>> 16)) >>> 0) / 2 ** 32;
+  };
+  const pick = (list: readonly string[]): string =>
+    list[Math.floor(next() * list.length)] as string;
+  const sentence = (): string =>
+    `The ${pick(ADJECTIVES)} ${pick(NOUNS)} was ${pick(VERBS)} and the ${pick(ADJECTIVES)} ${pick(NOUNS)} was ${pick(VERBS)} near the ${pick(NOUNS)} by the ${pick(ADJECTIVES)} ${pick(NOUNS)}.`;
+  return Array.from({ length: paragraphs }, () => [sentence(), sentence(), sentence()].join(' '));
 }

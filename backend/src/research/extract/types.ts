@@ -132,6 +132,8 @@ export interface ExtractLimits {
   maxNodes: number;
   /** The most time parsing may take before the page is read no further, in milliseconds. */
   maxParseMs: number;
+  /** How long parsing runs before it lets the rest of the process have a turn, and hears a stop, in milliseconds. */
+  sliceMs: number;
   /** The most characters of a document, with the notice that says when it was cut. */
   maxChars: number;
   maxLinks: number;

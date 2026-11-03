@@ -15,6 +15,7 @@ export const DEFAULT_LIMITS: ExtractLimits = {
   maxDepth: 512,
   maxNodes: 400_000,
   maxParseMs: 1_500,
+  sliceMs: 20,
   maxChars: MAX_DOCUMENT_CHARS,
   maxLinks: 3_000,
 };
@@ -29,7 +30,6 @@ export interface Parsed<Root> {
 // let go of, and a stop is heard: a tag that goes on for ever (the tokenizer's work on one tag with many
 // attributes grows with the square of their number) is met in pieces, not all at once.
 const PIECE = 8_192;
-const SLICE_MS = 20;
 // No page needs more than this many attributes on one element; what comes after them is not read.
 const MAX_ATTRIBUTES = 64;
 
@@ -96,7 +96,7 @@ async function feed(
       spent += now - started;
       if (spent > limits.maxParseMs) return true;
       at = end;
-      if (now - sliceStart > SLICE_MS) {
+      if (now - sliceStart > limits.sliceMs) {
         await yieldNow();
         signal?.throwIfAborted();
         sliceStart = performance.now();
