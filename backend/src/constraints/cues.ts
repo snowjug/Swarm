@@ -74,7 +74,14 @@ export const CUES: readonly CueSpec[] = [
     negative: false,
     source: String.raw`require[sd]?(?:\s+to)?`,
   },
-  { family: 'obligation', modal: false, negative: false, source: String.raw`requirements?` },
+  // The noun on its own ("the requirements for the new system") says nothing of what is limited.
+  {
+    family: 'obligation',
+    modal: false,
+    negative: false,
+    standalone: false,
+    source: String.raw`requirements?`,
+  },
   { family: 'obligation', modal: false, negative: false, source: String.raw`mandatory|compulsory` },
   {
     family: 'obligation',
@@ -210,7 +217,14 @@ export const CUES: readonly CueSpec[] = [
     family: 'binding',
     modal: false,
     negative: false,
-    source: String.raw`legal\s+(?:duty|duties|obligation|obligations|requirement|requirements)|binding|enforceable`,
+    source: String.raw`legal\s+(?:duty|duties|obligation|obligations|requirement|requirements)`,
+  },
+  {
+    family: 'binding',
+    modal: false,
+    negative: false,
+    standalone: false,
+    source: String.raw`binding|enforceable`,
   },
   // "gives online buyers a right to cancel", "has the right to appeal", "is entitled to".
   {

@@ -312,10 +312,16 @@ describe('finding limits in sentences that need more than one clause', () => {
   });
 
   it('does not join clauses that only share a sentence', () => {
-    // The budget is not limited by what staff must wear.
+    // The budget is not limited by what staff must wear, or by who must attend.
     expect(
       find(
         'The marketing budget is a matter for the board, and staff must wear their badges.',
+      ).filter((item) => item.category === 'budget'),
+    ).toEqual([]);
+    // A quantifier before a noun starts a new subject; before a verb it stands for what was named.
+    expect(
+      find(
+        'The marketing budget is reviewed every year, and all staff must attend the review.',
       ).filter((item) => item.category === 'budget'),
     ).toEqual([]);
   });
@@ -347,6 +353,8 @@ describe('finding limits in sentences that need more than one clause', () => {
     // These say nothing alone: "at least once a week" and "unless it rains" are not limits on anything.
     expect(find('Replies came mostly from adults who visit at least once a week.')).toEqual([]);
     expect(find('The match goes ahead unless the pitch is waterlogged.')).toEqual([]);
+    // Nor is a noun that only names a kind of thing a limit: "requirements" is not "must".
+    expect(find('The requirements for the new till are listed in the appendix.')).toEqual([]);
   });
 
   it('keeps a survey count a count, and a heading a heading', () => {

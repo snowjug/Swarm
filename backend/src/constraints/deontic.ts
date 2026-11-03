@@ -1,4 +1,4 @@
-import { CUE_PATTERNS, LIMIT_WORDS, type CueFamily } from './cues.js';
+import { ANY_CUE, CUE_PATTERNS, LIMIT_WORDS, type CueFamily } from './cues.js';
 import { splitClauses, type Clause } from './clauses.js';
 import { UNDECIDED_CUE } from './lexicon.js';
 
@@ -142,7 +142,9 @@ function cancellationOf(clause: string, cue: Cue, inherited: boolean): Cancellat
 
 /** How one clause reads, given whether the clause before it was said under a "wants" or a "fears". A question states nothing. */
 export function readClauseHardness(clause: string, inherited = false): HardnessReading {
-  if (clause.trimEnd().endsWith('?')) return { hard: false, cue: null, cancelled: null };
+  if (clause.trimEnd().endsWith('?') || !ANY_CUE.test(clause)) {
+    return { hard: false, cue: null, cancelled: null };
+  }
   let cancelled: HardnessReading['cancelled'] = null;
   for (const cue of cuesIn(clause)) {
     const why = cancellationOf(clause, cue, inherited);

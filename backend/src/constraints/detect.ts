@@ -81,9 +81,15 @@ const SHARE = /\d\s?%|\bper\s?cent\b/iu;
 const POINTS_BACK = /^(?:it|this|that|they|these|those|he|she)\b/iu;
 /** A clause that goes on from the one before it as its consequence ("so the vessel must keep sailing"). */
 const CONSEQUENCE = /^(?:,\s*so|,\s*which)$/u;
-/** A clause that is about a part of what the one before it named ("and some require notice", "and it needs approval"). */
-const ANAPHORIC =
-  /^(?:some|most|all|many|few|both|each|they|it|these|those|this|that|such)(?![\p{L}\p{N}])/iu;
+/**
+ * A clause that is about a part of what the one before it named ("and some require notice", "and it needs
+ * approval"): a pronoun, or a quantifier standing for what was named. A quantifier before a noun ("and all
+ * staff must attend") starts a new subject and goes on from nothing.
+ */
+const ANAPHORIC = new RegExp(
+  String.raw`^(?:(?:they|it|these|those|both|each)(?![\p{L}\p{N}])|(?:some|most|all|many|few|none|neither)(?:\s+of\s+(?:them|these|those|which|it))?\s+(?:must|shall|may|can|cannot|need|needs|require|requires|have|has|will|would|do|does|are|is|set|say|ask|include|apply|allow|prohibit|forbid|expect|carry|charge|cover|impose|specify|state)(?![\p{L}\p{N}]))`,
+  'iu',
+);
 
 const distinct = (pattern: RegExp, text: string): number =>
   new Set([...text.matchAll(pattern)].map((found) => found[0].toLowerCase())).size;
