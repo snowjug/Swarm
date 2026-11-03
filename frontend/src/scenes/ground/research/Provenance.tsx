@@ -1,17 +1,10 @@
 import { ArrowUpRight, ScrollText } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { ResearchSource } from '../../../../../shared/research';
-import { SOURCE_CATEGORY_LABELS } from '../../../../../shared/research';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '../../../design/ui';
 import { plural } from '../model';
 import { formatBytes, formatMoment, linkOf, sourceTitle } from './model';
-import {
-  AUTHORITY_LABEL,
-  AUTHORITY_NOTE,
-  EXTRACTION_SENTENCE,
-  FOUND_BY_SENTENCE,
-  ROBOTS_SENTENCE,
-} from './words';
+import { EXTRACTION_SENTENCE, FOUND_BY_SENTENCE, ROBOTS_SENTENCE } from './words';
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -61,7 +54,7 @@ export function Provenance({ source }: { source: ResearchSource }) {
           <dl className="sw-research-prov__list">
             {source.requestedUrl && <Row label="Address asked for">{source.requestedUrl}</Row>}
             {final && <Row label="Address it ended at">{final}</Row>}
-            {canonical && <Row label="Address the page names for itself">{canonical}</Row>}
+            {canonical && <Row label="Address it names for itself">{canonical}</Row>}
             {source.fetchedAt && (
               <Row label="Fetched">
                 <time dateTime={source.fetchedAt}>{formatMoment(source.fetchedAt)}</time>
@@ -69,26 +62,20 @@ export function Provenance({ source }: { source: ResearchSource }) {
             )}
             {received.length > 0 && <Row label="Received">{received.join(' · ')}</Row>}
             {source.contentHash && (
-              <Row label="Content hash (SHA-256)">
-                <span className="sw-research-prov__hash">{source.contentHash}</span>
+              <Row label="Content hash">
+                <span className="sw-research-prov__hash">SHA-256 {source.contentHash}</span>
               </Row>
             )}
             <Row label="robots.txt">{ROBOTS_SENTENCE[source.robots]}</Row>
             {source.extractionMethod && (
-              <Row label="Text taken from the page as">
-                {EXTRACTION_SENTENCE[source.extractionMethod]}
-              </Row>
+              <Row label="Text taken as">{EXTRACTION_SENTENCE[source.extractionMethod]}</Row>
             )}
             <Row label="Found through">
               {FOUND_BY_SENTENCE[source.discoveredBy]}
               {source.depth > 0 ? ` ${plural(source.depth, 'link')} from the start.` : ''}
             </Row>
             {source.parentUrl && <Row label="Linked from">{source.parentUrl}</Row>}
-            <Row label="Kind of source">{SOURCE_CATEGORY_LABELS[source.category]}</Row>
-            <Row label="Authority estimate">
-              {AUTHORITY_LABEL[source.authority]}. {AUTHORITY_NOTE}
-            </Row>
-            {source.author && <Row label="Author the page names">{source.author}</Row>}
+            {source.author && <Row label="Author it names">{source.author}</Row>}
             {source.relevance && <Row label="Why it was read">{source.relevance}</Row>}
             {source.passageCount > 0 && (
               <Row label="Passages">{plural(source.passageCount, 'passage')}</Row>

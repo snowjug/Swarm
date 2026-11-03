@@ -218,6 +218,7 @@ export function Pages({
           />
         )}
       </div>
+      {sources.length > 0 && <p className="sw-research-quiet sw-caption">{AUTHORITY_NOTE}</p>}
       {shown.length === 0 ? (
         <p className="sw-research-quiet sw-caption">No page has been read yet.</p>
       ) : (

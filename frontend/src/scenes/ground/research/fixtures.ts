@@ -216,7 +216,7 @@ export function plan(overrides: Partial<ResearchPlan> = {}): ResearchPlan {
   });
 }
 
-const NO_PROVIDER: DiscoveryStatus = {
+export const NO_PROVIDER: DiscoveryStatus = {
   available: false,
   provider: null,
   message:
