@@ -1,5 +1,6 @@
 import { ArrowRight, Check, Gauge } from 'lucide-react';
 import {
+  CONSTRAINT_CATEGORY_LABELS,
   type Constraint,
   type ConstraintCoverage,
   type ConstraintImpact,
@@ -21,6 +22,19 @@ export interface GateProps {
   onConfirmSet: () => void;
   onMeasure: () => void;
   onSimulate: () => void;
+}
+
+/** The kinds of limit that touch an actor, once each, so that the list says what and not how many. */
+function kindsOf(ids: readonly string[], byId: ReadonlyMap<string, Constraint>): string {
+  const kinds = [
+    ...new Set(
+      ids.flatMap((id) => {
+        const found = byId.get(id);
+        return found ? [CONSTRAINT_CATEGORY_LABELS[found.category]] : [];
+      }),
+    ),
+  ];
+  return kinds.length > 0 ? kinds.join(', ') : 'a constraint that is no longer listed';
 }
 
 const STALE_WORDS = (stale: GateProps['stale']): string =>
@@ -138,7 +152,7 @@ export function Gate({
             {gate.affectedActors.map((actor) => (
               <li key={actor.actorId}>
                 <strong>{actor.name}</strong>
-                {`: ${actor.constraintIds.length} ${actor.constraintIds.length === 1 ? 'constraint' : 'constraints'}`}
+                {`: ${kindsOf(actor.constraintIds, byId)}`}
               </li>
             ))}
           </ul>

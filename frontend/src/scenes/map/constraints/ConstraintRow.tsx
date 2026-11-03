@@ -50,6 +50,8 @@ export interface Names {
   constraints: ReadonlyMap<string, Constraint>;
 }
 
+const MAX_NAMED = 4;
+
 const ICONS: Partial<Record<ReviewChoice, ReactNode>> = {
   confirm: <Check size={15} aria-hidden="true" />,
   accept: <Check size={15} aria-hidden="true" />,
@@ -63,8 +65,12 @@ function Scope({ constraint, names }: { constraint: Constraint; names: Names }) 
   const actors = namesOf(constraint.affectedActorIds, names.actors);
   const alternatives = namesOf(constraint.affectedAlternativeIds, names.alternatives);
   const window = windowWords(constraint.window);
+  // A long cast would make this a paragraph: the first few are named, and the rest are said to be there.
+  const shown = actors.slice(0, MAX_NAMED);
   const parts = [
-    actors.length > 0 ? `Affects ${actors.join(', ')}` : '',
+    actors.length > 0
+      ? `Affects ${shown.join(', ')}${actors.length > shown.length ? ' and others' : ''}`
+      : '',
     alternatives.length > 0 ? `Applies to ${alternatives.join(', ')}` : '',
     window,
   ].filter(Boolean);
@@ -108,7 +114,8 @@ export function ConstraintRow({ constraint, names, canEdit, busy, onChoose }: Co
   const state = appliedStateOf(constraint);
   const Source = SOURCE_ICONS[constraint.source];
   const { primary, more } = choicesOf(constraint);
-  const considered = consideredWords(constraint);
+  // Every constraint that is only read is in the gate: that is said once, in the pop-up. What is worth a line is more.
+  const considered = constraint.consideredIn.length > 1 ? consideredWords(constraint) : '';
   const category = CONSTRAINT_CATEGORY_LABELS[constraint.category];
   return (
     <li

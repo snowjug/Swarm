@@ -6,6 +6,7 @@ import {
   type Constraint,
 } from '../../../../../shared/constraints';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '../../../design/ui';
+import { consideredWords } from './model';
 import { SOURCE_ICONS } from './sources';
 
 const UNCERTAINTY_WORDS = {
@@ -46,6 +47,12 @@ export function Why({ constraint }: { constraint: Constraint }) {
   const { confidenceBasis, uncertainty, source } = constraint;
   const Icon = SOURCE_ICONS[source];
   const effects = constraint.effects.map((effect) => EFFECT_CATALOGUE[effect.kind]);
+  const shown =
+    source === 'extracted' && constraint.evidenceRefs.length > 0
+      ? `Evidence (${constraint.evidenceRefs.length})`
+      : 'Where from';
+  // The name begins with the words on the button, so that voice control can say what it sees, and goes on to say which one.
+  const name = `${shown}: ${constraint.statement.length > 80 ? `${constraint.statement.slice(0, 79)}…` : constraint.statement}`;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -53,11 +60,9 @@ export function Why({ constraint }: { constraint: Constraint }) {
           size="sm"
           variant="ghost"
           icon={<Info size={14} aria-hidden="true" />}
-          aria-label={`Where this came from: ${sourceLabel(constraint)}`}
+          aria-label={name}
         >
-          {source === 'extracted' && constraint.evidenceRefs.length > 0
-            ? `Evidence (${constraint.evidenceRefs.length})`
-            : 'Where from'}
+          {shown}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -83,6 +88,7 @@ export function Why({ constraint }: { constraint: Constraint }) {
           {UNCERTAINTY_WORDS[uncertainty.level]}
           {uncertainty.reason ? `: ${uncertainty.reason}` : ''}
         </p>
+        {consideredWords(constraint) && <p className="sw-caption">{consideredWords(constraint)}</p>}
         {effects.length > 0 && (
           <div className="sw-cwhy__engine">
             <p className="sw-eyebrow">What the simulation does with it</p>

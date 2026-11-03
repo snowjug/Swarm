@@ -40,7 +40,7 @@ function AnswerForm({
   const problem = shown ? problemWith(draft) : null;
   return (
     <form
-      className="sw-ask__form"
+      className="sw-cask__form"
       noValidate
       aria-label={`Answer: ${question.question}`}
       onSubmit={(event) => {
@@ -71,7 +71,7 @@ function AnswerForm({
           { value: 'hard', label: 'Hard: a rule or a ceiling' },
         ]}
       />
-      <div className="sw-ask__row">
+      <div className="sw-cask__row">
         <Button variant="ghost" size="sm" onClick={onCancel} disabled={working}>
           Cancel
         </Button>
@@ -102,7 +102,7 @@ export function Questions({
   if (open.length === 0) return null;
   const more = totalOpen - open.length;
   return (
-    <section className="sw-ask" aria-labelledby="ask-title">
+    <section className="sw-cask" aria-labelledby="ask-title">
       <h2 id="ask-title" className="sw-title">
         {missingConstraintsSentence(open.length)}
       </h2>
@@ -111,12 +111,12 @@ export function Questions({
         never treated as true.
         {more > 0 ? ` ${more} more ${more === 1 ? 'is' : 'are'} waiting.` : ''}
       </p>
-      <ol className="sw-ask__list">
+      <ol className="sw-cask__list">
         {open.map((question) => (
-          <li key={question.id} className="sw-ask__item">
+          <li key={question.id} className="sw-cask__item">
             <p className="sw-eyebrow">{CONSTRAINT_CATEGORY_LABELS[question.category]}</p>
-            <p className="sw-ask__q">{question.question}</p>
-            <p className="sw-ask__why">
+            <p className="sw-cask__q">{question.question}</p>
+            <p className="sw-cask__why">
               <HelpCircle size={14} aria-hidden="true" />
               <span>What it could change: {question.why}</span>
             </p>
@@ -133,7 +133,7 @@ export function Questions({
                 />
               ) : (
                 <div
-                  className="sw-ask__actions"
+                  className="sw-cask__actions"
                   role="group"
                   aria-label={`Respond: ${question.question}`}
                 >

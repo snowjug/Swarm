@@ -330,9 +330,7 @@ describe('constraints that wait for a decision', () => {
   it('shows the quote of a source word for word, and says of an inference that no source says it', async () => {
     const { user } = mount(viewOf(set, blocked));
     await user.click(
-      within(row(/^Regulatory/u)).getByRole('button', {
-        name: /Where this came from: From evidence/u,
-      }),
+      within(row(/^Regulatory/u)).getByRole('button', { name: /^Evidence \(1\): / }),
     );
     const popover = await screen.findByRole('dialog', {
       name: /Where this came from: From evidence/u,
@@ -347,9 +345,7 @@ describe('constraints that wait for a decision', () => {
     ).toBeTruthy();
     await user.keyboard('{Escape}');
 
-    await user.click(
-      within(row(/^Dependency/u)).getByRole('button', { name: /Where this came from: Inferred/u }),
-    );
+    await user.click(within(row(/^Dependency/u)).getByRole('button', { name: /^Where from: / }));
     const inferred = await screen.findByRole('dialog', { name: /Where this came from: Inferred/u });
     expect(
       within(inferred).getByText(
@@ -537,7 +533,7 @@ describe('what Swarm still has to ask', () => {
     ).toBeTruthy();
     const list = screen
       .getAllByRole('listitem')
-      .filter((item) => item.className.includes('sw-ask__item'));
+      .filter((item) => item.className.includes('sw-cask__item'));
     expect(list).toHaveLength(3);
     expect(screen.getByText(/1 more is waiting\./u)).toBeTruthy();
     expect(
