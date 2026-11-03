@@ -13,7 +13,10 @@
  *   npx tsx scripts/db/measure.ts --engine sqlite
  *   npx tsx scripts/db/measure.ts --engine pglite
  *   PGPASSWORD=... npx tsx scripts/db/measure.ts --engine postgres --url postgres://user@127.0.0.1:55432/swarm?sslmode=require --rtt 0,2,20
+ *   node scripts/db/with-postgres.mjs -- npx tsx scripts/db/measure.ts --engine postgres --rtt 0,2,20
  *
+ *   --url         the PostgreSQL server (default: SWARM_TEST_POSTGRES_URL, which with-postgres.mjs sets for the
+ *                 server it starts, a throwaway one in Docker)
  *   --rtt         milliseconds added to every round trip, for a PostgreSQL server (through a delaying proxy in
  *                 a process of its own); each value is one run. Default 0.
  *   --seconds     how long each phase runs (default 4)
@@ -59,7 +62,7 @@ interface Options {
 function parse(argv: string[]): Options {
   const options: Options = {
     engine: 'sqlite',
-    url: '',
+    url: process.env.SWARM_TEST_POSTGRES_URL ?? '',
     rtt: [0],
     seconds: 4,
     concurrency: [1, 16],
