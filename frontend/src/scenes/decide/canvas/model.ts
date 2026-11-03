@@ -108,6 +108,7 @@ export const COPY = {
   scopeMatched: 'Matched',
   canTell: 'Can tell them',
   cannotTell: 'Cannot tell them',
+  tellLabel: 'What the exploration can and cannot tell the person who decides',
   canTellDetail: 'What the exploration can tell them',
   cannotTellDetail: 'What it cannot tell them',
   scopeBridge: 'The note on what Swarm does not decide, above, applies to everything below.',

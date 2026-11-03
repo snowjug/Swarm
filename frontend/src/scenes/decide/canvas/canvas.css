@@ -98,6 +98,23 @@
     align-items: center;
     gap: var(--s-1) var(--s-3);
   }
+  /*
+   * Wide, with a notice of what Swarm does not decide: the title stands over its line, which gives the notice the room
+   * to be two lines, and the gaps are a little closer, so that the nine parts still end inside 1440 by 900.
+   */
+  @media (min-width: 64rem) {
+    .sw-canvas[data-scope] {
+      gap: var(--s-2);
+    }
+    .sw-canvas[data-scope] .sw-canvas-top__lead {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
+    }
+    .sw-canvas[data-scope] .sw-canvas-grid {
+      row-gap: var(--s-2);
+    }
+  }
 
   /* ---- The grid --------------------------------------------------------------------------------- */
   .sw-canvas-grid {
@@ -651,29 +668,20 @@
   .sw-canvas-tell {
     display: grid;
     gap: var(--s-2);
-    margin: 0;
   }
-  .sw-canvas-tell > div {
-    display: grid;
-    gap: 0.1rem;
+  .sw-canvas-tell > p {
+    margin: 0;
     padding-left: var(--s-2);
     border-left: 2px solid var(--hairline-strong);
-  }
-  .sw-canvas-tell > div:last-child {
-    border-left-color: var(--c-caution);
-  }
-  .sw-canvas-tell dt {
-    color: var(--ink-3);
-    font-size: var(--fs-micro);
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-  .sw-canvas-tell dd {
-    margin: 0;
     color: var(--ink-2);
     font-size: var(--fs-small);
     line-height: 1.4;
+  }
+  .sw-canvas-tell > p[data-kind='cannot'] {
+    border-left-color: var(--c-caution);
+  }
+  .sw-canvas-tell strong {
+    color: var(--ink);
   }
 
   /* ---- What to validate: a checklist --------------------------------------------------------------- */
@@ -963,7 +971,7 @@
       border-left-color: Highlight;
     }
     .sw-canvas-scope,
-    .sw-canvas-tell > div {
+    .sw-canvas-tell > p {
       border-left-color: Highlight;
     }
     .sw-canvas-scope__icon {

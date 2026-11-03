@@ -403,24 +403,18 @@ function Next({ canvas, openDetail }: Props) {
         {card.what.text} <LabelChip label={card.what.label} />
       </p>
       {exploration ? (
-        <dl className="sw-canvas-tell">
-          <div>
-            <dt>{COPY.canTell}</dt>
-            {exploration.canTell.map((line) => (
-              <dd key={line.text}>
-                {line.text} <LabelChip label={line.label} />
-              </dd>
-            ))}
-          </div>
-          <div>
-            <dt>{COPY.cannotTell}</dt>
-            {exploration.cannotTell.map((line) => (
-              <dd key={line.text}>
-                {line.text} <LabelChip label={line.label} />
-              </dd>
-            ))}
-          </div>
-        </dl>
+        <div className="sw-canvas-tell" role="group" aria-label={COPY.tellLabel}>
+          {exploration.canTell.map((line) => (
+            <p key={line.text} data-kind="can">
+              <strong>{COPY.canTell}.</strong> {line.text} <LabelChip label={line.label} />
+            </p>
+          ))}
+          {exploration.cannotTell.map((line) => (
+            <p key={line.text} data-kind="cannot">
+              <strong>{COPY.cannotTell}.</strong> {line.text} <LabelChip label={line.label} />
+            </p>
+          ))}
+        </div>
       ) : (
         <>
           <p className="sw-canvas-basis">
