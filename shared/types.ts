@@ -411,6 +411,12 @@ export interface AppConfig {
    */
   research?: { enabled: boolean; discovery: DiscoveryStatus; budget: ResearchBudget };
   /**
+   * What this server can do beyond the six steps, so the first screen claims only what exists:
+   * `constraints` (a reviewed set of constraints that bears on the simulation) and `participants`
+   * (AI-proposed participants a person reviews). Absent from a server that does not know the field.
+   */
+  features?: { constraints: boolean; participants: boolean };
+  /**
    * What this deployment says it is: `local` (one person, this machine), `pilot` or `production`, and
    * the label to show. Absent from a server that does not know the field.
    */

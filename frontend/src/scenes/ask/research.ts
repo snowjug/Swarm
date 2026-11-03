@@ -141,6 +141,10 @@ export function validateIntake(
   input: CreateProjectInput,
   options: { withoutSources: boolean },
 ): { data: ValidatedProjectInput; error?: never } | { error: string; data?: never } {
+  // A server that does not do research still needs a source of its own, whatever the entry asks for.
+  if (!options.withoutSources && input.documents.length === 0) {
+    return validateEntry({ ...input, research: undefined });
+  }
   const direct = validateEntry(input);
   if (direct.data || !options.withoutSources || input.documents.length > 0) return direct;
   const probed = validateEntry({ ...input, documents: [STAND_IN] });

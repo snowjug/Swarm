@@ -573,6 +573,7 @@ export function publicConfig(config: ServerConfig): AppConfig {
     storage: { warning: config.storageWarning },
     urlIngestion: config.urlIngestion.enabled,
     research: publicResearch(config),
+    features: { constraints: true, participants: true },
     capabilities: {
       local: true,
       modelAssisted: configured,
