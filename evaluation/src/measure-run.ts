@@ -246,7 +246,8 @@ export function checkRun(
   const notReached: string[] = [];
   for (const [page, wanted] of Object.entries(gold.outcomes ?? {})) {
     const source = sourceOf(page);
-    if (!source) {
+    // A skipped source was recorded and never asked for: a site limit, a breaker or a stop kept it back.
+    if (!source || source.outcome === 'skipped') {
       notReached.push(page);
       continue;
     }
@@ -340,4 +341,47 @@ export function checkRun(
     fetchedForbidden,
     consistency: recordProblems(view),
   };
+}
+
+/** What a run with a model used: the calls it made, the cost of them at the list price, and the budget it was given. */
+export interface ModelUseView {
+  calls: number;
+  costUsd: number;
+  budgetUsd: number;
+}
+
+export interface ArmGold {
+  modelCalls?: number | undefined;
+  plan?: 'rules' | 'model' | undefined;
+  costWithinBudget?: boolean | undefined;
+}
+
+/** The statements of a budget arm: how many times a model was asked, whose plan was used, whether the cost stayed within the budget. */
+export function checkArm(
+  gold: ArmGold,
+  view: Pick<RunView, 'planOrigin'>,
+  use: ModelUseView,
+): CheckResult[] {
+  const checks: CheckResult[] = [];
+  if (gold.modelCalls !== undefined)
+    checks.push({
+      name: 'modelCalls',
+      ok: use.calls === gold.modelCalls,
+      detail: `${use.calls} calls; the gold is ${gold.modelCalls}`,
+    });
+  if (gold.plan !== undefined)
+    checks.push({
+      name: 'armPlan',
+      ok: view.planOrigin === gold.plan,
+      detail: `the plan is from ${view.planOrigin ?? 'nowhere'}; the gold is ${gold.plan}`,
+    });
+  if (gold.costWithinBudget !== undefined) {
+    const within = use.costUsd <= use.budgetUsd;
+    checks.push({
+      name: 'costWithinBudget',
+      ok: within === gold.costWithinBudget,
+      detail: `$${use.costUsd} against a budget of $${use.budgetUsd}`,
+    });
+  }
+  return checks;
 }

@@ -16,6 +16,7 @@ import {
   suggestsBait,
 } from '../src/measure-plan.js';
 import {
+  checkArm,
   checkRun,
   limitProblems,
   outcomeLabel,
@@ -365,6 +366,46 @@ describe('the run measures', () => {
     expect(result.opposing).toEqual([{ pair: ['A', 'C'], read: true, kept: true }]);
     // Three passages on a.example and one on c.example: two domains, the larger holds 3 of 4.
     expect(result.diversity).toEqual({ domains: 2, maxShare: 0.75 });
+  });
+
+  it('checks a budget arm on the calls it made, the plan it used and whether its cost stayed within the budget', () => {
+    const use = { calls: 1, costUsd: 0.002, budgetUsd: 0.001 };
+    const checks = checkArm(
+      { modelCalls: 0, plan: 'model', costWithinBudget: true },
+      { planOrigin: 'rules' },
+      use,
+    );
+    // One call where none was wanted, a plan from rules where a model's was wanted, and $0.002 over $0.001.
+    expect(checks.map((check) => [check.name, check.ok])).toEqual([
+      ['modelCalls', false],
+      ['armPlan', false],
+      ['costWithinBudget', false],
+    ]);
+    // A budget of nothing and a cost of nothing is within it; an arm that names nothing is not judged.
+    expect(
+      checkArm(
+        { costWithinBudget: true },
+        { planOrigin: 'rules' },
+        { calls: 0, costUsd: 0, budgetUsd: 0 },
+      ),
+    ).toEqual([{ name: 'costWithinBudget', ok: true, detail: '$0 against a budget of $0' }]);
+    expect(checkArm({}, { planOrigin: null }, use)).toEqual([]);
+  });
+
+  it('does not count a page the run recorded and never asked for', () => {
+    const skipped = source({
+      id: 'rs-s',
+      requestedUrl: 'http://s.example/p',
+      outcome: 'skipped',
+    });
+    const result = checkRun(
+      'X',
+      { status: 'completed', outcomes: { S: 'used' } },
+      view({ sources: [skipped] }),
+      world,
+    );
+    expect(result.outcomes).toEqual([]);
+    expect(result.notReached).toEqual(['S']);
   });
 
   it('judges a question-only run on its status, its reason, its requests and its documents together', () => {

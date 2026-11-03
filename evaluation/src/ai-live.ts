@@ -277,6 +277,7 @@ export async function observeLive(options: LiveOptions): Promise<LiveObservation
 export function liveHarness(config: ServerConfig, tokenBudget: number): Harness {
   return {
     factory: createModelFactory(config, new ProviderTelemetry(config.provider)),
+    config,
     problems: [],
     tokenBudget,
     spent: 0,
