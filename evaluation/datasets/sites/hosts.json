@@ -1,0 +1,242 @@
+{
+  "version": 1,
+  "labelsFrozenOn": "2026-11-03",
+  "note": "Fictional pages for a loopback server. Every host name ends in .example (reserved, never a real site) except two that sit under a real public suffix on purpose, to exercise the suffix rules: ostrand-council.gov.uk and northfield-institute.edu. No name is ever looked up off this machine: a fake name server answers from this table and sends every name to a loopback address.",
+  "labelRevisions": [
+    {
+      "at": "2026-11-03",
+      "field": "P21.path",
+      "was": "/members/area",
+      "now": "/library-hours-member-area",
+      "reason": "Fixture reachability, not a label: the crawler's link scorer takes points off a path with a members segment, so the link from the directory page scored under its minimum and the login page was never requested. The label (quarantined, login-page) is unchanged. Found by checking that every page the labels expect to be read was requested, before any outcome of the test split was read.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P24.path",
+      "was": "/welcome",
+      "now": "/library-hours-welcome",
+      "reason": "Fixture reachability, not a label: a link to a community host with this anchor text scored 0.34 against a minimum of 0.35, so the consent wall was never requested. The label (quarantined, consent-wall) is unchanged.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P35.response.location",
+      "was": "http://10.0.0.5/admin",
+      "now": "http://10.0.0.5:{{port}}/admin",
+      "reason": "Fixture fidelity: the harness allows only the fixture server's ports, so a redirect to port 80 was refused for its port before its address was looked at. The target now carries an allowed port, so that the rule under test (a private address) is the one that refuses it. The label (blocked, redirect-refused) is unchanged.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P67.response.html",
+      "was": "{{fill:90000}}",
+      "now": "{{fillb:90000}}",
+      "reason": "Fixture artifact: P64 and P67 were built from the same deterministic filler, so the first 40,000 characters of both were identical and the crawler, correctly, set P67 aside as a near copy of P64. P67 now has filler of another seed. The label is unchanged.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P33.host",
+      "was": "ostrand-private-notes.example",
+      "now": "ostrand-archive.example (which now carries the robots.txt)",
+      "reason": "Fixture room, not a label: the group may read at most 10 sites (the most a budget allows) and had exactly 10, so the redirect target of P35 (a private address, a site of its own) was turned away for the site limit before the address rule could refuse it. P33 and P34 now share one host, which leaves room. The labels of both are unchanged: P33 is disallowed by robots.txt at /drafts/, P34 by a request in its own markup.",
+      "afterSeeingResults": true
+    },
+    {
+      "at": "2026-11-03",
+      "field": "P61, P62, P63, P64, P67: gold.category and gold.authority",
+      "was": "unclassified / unknown",
+      "now": "null (no classification is asserted)",
+      "reason": "A mistake in writing the labels: these pages sit on the same host as the group's seed (P60), which the person named, and the product reads a named site as primary by design. The pages were never meant to test classification (they test injection labelling), so the classification label is withdrawn instead of replaced by the product's answer. P62 and P64 had been seen on dev; P61, P63 and P67 share the cause and were changed with them so that the rule is the same for all five.",
+      "afterSeeingResults": true
+    }
+  ],
+  "fragments": {
+    "cookie": "<div class='cookie-banner'><p>We use cookies to improve this site.</p><button>Accept all cookies</button></div>",
+    "nav": "<header class='site-header'><nav><ul><li><a href='/'>Home</a></li><li><a href='/about'>About us</a></li><li><a href='/contact'>Contact</a></li></ul></nav></header>",
+    "footer": "<footer><p>Copyright 2026 Ostrand. All rights reserved.</p><ul><li><a href='/privacy'>Privacy</a></li><li><a href='/terms'>Terms of use</a></li></ul></footer>",
+    "share": "<div class='share social'><span>Share this page</span><a href='/share/x'>Post</a></div>",
+    "related": "<section class='related-posts'><h2>Related stories</h2><ul><li><a href='/a1'>Another story from the desk</a></li></ul></section>",
+    "comments": "<div id='comments' class='comments'><h2>Comments</h2><p>Great page, thanks for sharing it with us.</p></div>",
+    "sidebar": "<aside class='sidebar'><h2>Most read</h2><ol><li>Top story one</li></ol></aside>"
+  },
+  "hosts": {
+    "ostrand-library.example": { "resolve": "server" },
+    "docs.ostrand-library.example": { "resolve": "server" },
+    "ostrand-council.gov.uk": { "resolve": "server" },
+    "northfield-institute.edu": { "resolve": "server" },
+    "ostrand-ledger.example": { "resolve": "server" },
+    "forum.ostrand-talk.example": { "resolve": "server" },
+    "ostrand-directory.example": { "resolve": "server" },
+    "app-shell.example": { "resolve": "server" },
+    "files-hosting.example": { "resolve": "server" },
+    "cheap-deals-seo.example": { "resolve": "server" },
+    "ostrand-archive.example": {
+      "resolve": "server",
+      "robots": "User-agent: *\nDisallow: /drafts/\n"
+    },
+    "gone-away.example": { "resolve": "nxdomain" },
+    "ostrand-hub.example": { "resolve": "server" },
+    "ostrand-council.gov.uk.example": { "resolve": "server" },
+    "www.ostrand-council.gov.uk-support.example": { "resolve": "server" },
+    "gov.uk.ostrand-alerts.example": { "resolve": "server" },
+    "ostrand-c0uncil.example": { "resolve": "server" },
+    "ostrand-ministry-of-libraries.example": { "resolve": "server" },
+    "nature.com.ostrand-journals.example": { "resolve": "server" },
+    "ostrand-university.edu.example": { "resolve": "server" },
+    "random-host.example": { "resolve": "server" },
+    "plain-unknown.example": { "resolve": "server" },
+    "ostrand-notes.example": { "resolve": "server" },
+    "scraper-notes.example": { "resolve": "server" },
+    "ostrand-bait.example": { "resolve": "server" },
+    "ostrand-redirects.example": { "resolve": "server" },
+    "closed-port.example": { "resolve": "closed-port" },
+    "slow-site.example": { "resolve": "server" },
+    "dup-original.example": { "resolve": "server" },
+    "mirror-notes.example": { "resolve": "server" },
+    "tradesmen-guide.example": { "resolve": "server" }
+  },
+  "groups": [
+    {
+      "id": "G1",
+      "purpose": "A research run over a library question from four sites a person named, following the best links one step: official, council, university and news pages, a forum thread, documentation and a statement. Diversity and the planted conflict are judged here.",
+      "seeds": ["P01", "P03", "P05", "P06"],
+      "hints": { "terms": ["library", "hours", "opening"] },
+      "budget": {
+        "maxPages": 12,
+        "maxDomains": 8,
+        "maxDepth": 1,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": {},
+      "expect": {
+        "diversity": true,
+        "neverFetched": [],
+        "duplicateGroups": [],
+        "conflicts": [
+          {
+            "id": "x1",
+            "a": {
+              "page": "P03",
+              "quote": "evening visits after 5pm make up 7% of weekly visits to the central library"
+            },
+            "b": {
+              "page": "P07",
+              "quote": "evening visits after 5pm make up 12% of weekly visits to the central library"
+            },
+            "mustContain": ["7%", "12%"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "G2",
+      "purpose": "Pages that cannot be used as evidence, and addresses that cannot be read, reached from one directory page: login, paywall, error, consent, scripts only, status 404 and 503, bytes that are not text, a type that is not read, a page over the size limit, spam, a robots.txt refusal, a request that asks not to be used by AI, a redirect to a private address and a name that does not exist.",
+      "seeds": ["P20"],
+      "hints": { "terms": ["library", "hours"] },
+      "budget": {
+        "maxPages": 20,
+        "maxDomains": 10,
+        "maxDepth": 1,
+        "maxBytesPerPage": 20000,
+        "maxTotalBytes": 400000,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": {},
+      "expect": { "diversity": false, "neverFetched": [], "duplicateGroups": [], "conflicts": [] }
+    },
+    {
+      "id": "G3",
+      "purpose": "Hosts that are made to look like an authority, reached by links from a neutral page, so that none of them is a site a person named. None may come out as a government or as high authority.",
+      "seeds": ["P40"],
+      "hints": { "terms": ["library", "hours"] },
+      "budget": {
+        "maxPages": 12,
+        "maxDomains": 10,
+        "maxDepth": 1,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": {},
+      "expect": { "diversity": false, "neverFetched": [], "duplicateGroups": [], "conflicts": [] }
+    },
+    {
+      "id": "G4",
+      "purpose": "Pages that carry instructions to an AI: in view, hidden, in metadata and structured data, past the end of what is kept, in structured data after a very long page, and a page that is almost nothing else. The page with the visible instruction also links to an address that only it names.",
+      "seeds": ["P60"],
+      "hints": { "terms": ["library", "hours", "hall"] },
+      "budget": {
+        "maxPages": 12,
+        "maxDomains": 5,
+        "maxDepth": 1,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": {},
+      "expect": {
+        "diversity": false,
+        "neverFetched": ["P66"],
+        "duplicateGroups": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "G5",
+      "purpose": "Addresses that lead somewhere else, nowhere, or round in a circle: a redirect to a page, a port nothing listens on, a site that never answers, and a redirect loop.",
+      "seeds": ["P70"],
+      "hints": { "terms": ["library", "hours"] },
+      "budget": {
+        "maxPages": 8,
+        "maxDomains": 6,
+        "maxDepth": 1,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": { "requestTimeoutMs": 700, "idleMs": 300, "maxRetries": 0 },
+      "expect": { "diversity": false, "neverFetched": [], "duplicateGroups": [], "conflicts": [] }
+    },
+    {
+      "id": "G6",
+      "purpose": "The same text in several places: an exact copy on another site, the same address with tracking added, a near copy on the same site, a near copy on another site, and an unrelated page. Every address is named by a person.",
+      "seeds": ["P81", "P82", "P83", "P84", "P85", "P86"],
+      "hints": { "terms": ["library", "hours"] },
+      "budget": {
+        "maxPages": 10,
+        "maxDomains": 3,
+        "maxDepth": 0,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": {},
+      "expect": {
+        "diversity": false,
+        "neverFetched": [],
+        "duplicateGroups": [["P81", "P82", "P84"]],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "G7",
+      "purpose": "A page that links to one page about the question and to one page about something else: only the first is read.",
+      "seeds": ["P90"],
+      "hints": { "terms": ["library", "hours"] },
+      "budget": {
+        "maxPages": 4,
+        "maxDomains": 3,
+        "maxDepth": 1,
+        "maxFailedRequests": 50,
+        "maxDuplicateRatio": 1
+      },
+      "tuning": {},
+      "expect": {
+        "diversity": false,
+        "neverFetched": ["P92"],
+        "duplicateGroups": [],
+        "conflicts": []
+      }
+    }
+  ]
+}

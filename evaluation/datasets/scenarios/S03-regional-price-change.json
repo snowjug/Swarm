@@ -1,0 +1,385 @@
+{
+  "id": "S03",
+  "split": "dev",
+  "kind": "flagship",
+  "title": "One-dollar price rise for a managed service in one region",
+  "tags": ["flagship", "contradictory-sources"],
+  "question": "What could happen if AWS increases the price of a particular cloud service by $1 in a selected region?",
+  "source": {
+    "kind": "example",
+    "id": "regional-price-change",
+    "pins": {
+      "01-finops-brief.md": "51e329def77ccc3b10555b3fc45c15dd733bb13636d3c060c5aa8113c21b898e",
+      "02-usage-and-spend-summary.md": "eaf6e51efab781a65d925e51d77889ad98ca35c4a4a393b935abac2189aec6de",
+      "03-engineering-migration-note.md": "34d23e50677db01d0785b5cd98604520c10282cd283fd663b798d0804230a832",
+      "04-sales-contracts-and-customers-note.md": "13b41e2daf41d581aeb80c4d00e9c0d80b8a61b12fb97ee8d9b5ee31c341ae6d",
+      "05-notice-as-relayed-and-gaps.md": "49b2a383c9ccf4c1e80594e4a85cf60c9e5e773ab3e9efee57b30ac17cff2f8f"
+    }
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Company leadership",
+      "role": "decision-owner",
+      "voice": "implied",
+      "aliases": ["leadership", "executive", "decision owner", "management team"],
+      "quote": null,
+      "rationale": "Somebody decides how the company responds; no source names who."
+    },
+    {
+      "id": "p02",
+      "name": "Head of finance",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["head of finance", "finance"],
+      "quote": {
+        "document": "01-finops-brief.md",
+        "text": "The head of finance wants a range for the annual cost and a view on whether the company's committed-spend discount would apply to the increase."
+      },
+      "rationale": "Owns the cost range and the discount question."
+    },
+    {
+      "id": "p03",
+      "name": "Engineering managers",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["engineering managers", "platform team", "platform engineers"],
+      "quote": {
+        "document": "01-finops-brief.md",
+        "text": "Engineering managers have been asked whether workloads could run in Region S or with another provider, and at what effort."
+      },
+      "rationale": "Would carry out any move."
+    },
+    {
+      "id": "p04",
+      "name": "Sales director",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["sales director"],
+      "quote": {
+        "document": "01-finops-brief.md",
+        "text": "The sales director is concerned about customers that renewed at fixed prices last quarter."
+      },
+      "rationale": "Carries the customer conversations."
+    },
+    {
+      "id": "p05",
+      "name": "Small retailers on monthly plans",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["small retailers", "monthly plans"],
+      "quote": {
+        "document": "01-finops-brief.md",
+        "text": "Customers on monthly plans, mostly small retailers, can leave with 30 days' notice."
+      },
+      "rationale": "Can leave quickly."
+    },
+    {
+      "id": "p06",
+      "name": "Public-sector customers and large retailers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["public-sector customers", "large retailers", "procurement"],
+      "quote": {
+        "document": "04-sales-contracts-and-customers-note.md",
+        "text": "Public-sector customers and large retailers negotiate renewals through procurement teams and usually ask for a written justification of any rise."
+      },
+      "rationale": "Negotiate renewals through procurement."
+    },
+    {
+      "id": "p07",
+      "name": "Customers with data-residency contracts",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["data residency", "data-residency", "eleven customers"],
+      "quote": {
+        "document": "03-engineering-migration-note.md",
+        "text": "Eleven customers have contracts naming that jurisdiction as the place where their data must stay, so their workloads could not move without each customer's agreement."
+      },
+      "rationale": "Their workloads cannot move without agreement."
+    },
+    {
+      "id": "p08",
+      "name": "Audit committee and external auditors",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["audit committee", "external auditors", "auditors"],
+      "quote": {
+        "document": "01-finops-brief.md",
+        "text": "The audit committee of the board has asked for a written note on supplier concentration, and the external auditors have raised the same point."
+      },
+      "rationale": "Ask for a note on supplier concentration."
+    },
+    {
+      "id": "p09",
+      "name": "Cloud reseller",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["reseller", "cloud reseller"],
+      "quote": {
+        "document": "01-finops-brief.md",
+        "text": "The company's cloud reseller has offered a call about commitment options."
+      },
+      "rationale": "Relays the notice and offers commitment options."
+    },
+    {
+      "id": "p10",
+      "name": "Cloud provider",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["cloud provider", "the provider"],
+      "quote": {
+        "document": "05-notice-as-relayed-and-gaps.md",
+        "text": "It says that the provider is raising the price of the service in Region R by one dollar and that details are to follow."
+      },
+      "rationale": "Sets the price."
+    },
+    {
+      "id": "p11",
+      "name": "Rival analytics vendors",
+      "role": "competitors-alternatives",
+      "voice": "named",
+      "aliases": ["rival analytics vendors", "rival", "competitors"],
+      "quote": {
+        "document": "04-sales-contracts-and-customers-note.md",
+        "text": "Three rival analytics vendors sell to the same retailers."
+      },
+      "rationale": "Sell to the same retailers; two advertise price locks."
+    },
+    {
+      "id": "p12",
+      "name": "Implementation partners",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["implementation partners", "resell"],
+      "quote": {
+        "document": "04-sales-contracts-and-customers-note.md",
+        "text": "Implementation partners who resell the product keep 15% of subscription revenue."
+      },
+      "rationale": "Resell the product and must explain any rise."
+    },
+    {
+      "id": "p13",
+      "name": "Investors and the board",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["investors", "board"],
+      "quote": {
+        "document": "02-usage-and-spend-summary.md",
+        "text": "Gross margin on the analytics product is 71%, and investors and the board follow it each quarter."
+      },
+      "rationale": "Follow margin each quarter."
+    },
+    {
+      "id": "p14",
+      "name": "Support engineers",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["support engineers"],
+      "quote": {
+        "document": "03-engineering-migration-note.md",
+        "text": "Support engineers expect more incidents during any cut-over, especially for customers on shared accounts."
+      },
+      "rationale": "Handle incidents during a cut-over."
+    },
+    {
+      "id": "p15",
+      "name": "Migration consultancy",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["consultancy"],
+      "quote": {
+        "document": "05-notice-as-relayed-and-gaps.md",
+        "text": "A consultancy that has offered migration services estimates that moving the service's workloads out of Region R would take 4 engineer-months."
+      },
+      "rationale": "Would earn fees from a move."
+    },
+    {
+      "id": "p16",
+      "name": "Retailers' own shoppers",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["shoppers", "end customers", "consumers"],
+      "quote": null,
+      "rationale": "Reached through the retailers; no source mentions them."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "geographic",
+      "hardness": "hard",
+      "document": "01-finops-brief.md",
+      "quote": "Most customer-facing workloads run in Region R because several customers require their data to stay in that jurisdiction.",
+      "rationale": "Data location is required."
+    },
+    {
+      "id": "c02",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "03-engineering-migration-note.md",
+      "quote": "Eleven customers have contracts naming that jurisdiction as the place where their data must stay, so their workloads could not move without each customer's agreement.",
+      "rationale": "Contracts name the jurisdiction."
+    },
+    {
+      "id": "c03",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "04-sales-contracts-and-customers-note.md",
+      "quote": "Pass-through clauses, which let the company raise prices after a supplier increase, exist in a minority of contracts, and some require 60 days' notice.",
+      "rationale": "A notice period in some contracts."
+    },
+    {
+      "id": "c04",
+      "category": "capacity",
+      "hardness": "hard",
+      "document": "03-engineering-migration-note.md",
+      "quote": "Region S has less spare capacity for the service than Region R, so a quota increase would have to be requested, and the provider's response time is unknown.",
+      "rationale": "A move needs quota the provider has to grant."
+    },
+    {
+      "id": "c05",
+      "category": "organizational",
+      "hardness": "hard",
+      "document": "03-engineering-migration-note.md",
+      "quote": "The security team notes that a second provider would need its own review, and reviews of earlier suppliers took about five months.",
+      "rationale": "A required review with a known duration."
+    },
+    {
+      "id": "c06",
+      "category": "uncertainty",
+      "hardness": "soft",
+      "document": "05-notice-as-relayed-and-gaps.md",
+      "quote": "It gives no effective date, does not say whether committed-spend agreements or reserved capacity are affected and does not name the billing unit for the one-dollar figure.",
+      "rationale": "The notice leaves key terms open."
+    },
+    {
+      "id": "c07",
+      "category": "contractual",
+      "hardness": "soft",
+      "document": "02-usage-and-spend-summary.md",
+      "quote": "The agreement summary the company holds does not say whether the discount would apply to an increase.",
+      "rationale": "A contract term is unknown."
+    },
+    {
+      "id": "c08",
+      "category": "organizational",
+      "hardness": "soft",
+      "document": "01-finops-brief.md",
+      "quote": "The audit committee of the board has asked for a written note on supplier concentration, and the external auditors have raised the same point.",
+      "rationale": "A governance request."
+    },
+    {
+      "id": "c09",
+      "category": "customer",
+      "hardness": "soft",
+      "document": "04-sales-contracts-and-customers-note.md",
+      "quote": "Public-sector customers and large retailers negotiate renewals through procurement teams and usually ask for a written justification of any rise.",
+      "rationale": "Customer practice."
+    },
+    {
+      "id": "c10",
+      "category": "contractual",
+      "hardness": "soft",
+      "document": "01-finops-brief.md",
+      "quote": "Customers on monthly plans, mostly small retailers, can leave with 30 days' notice.",
+      "rationale": "A customer right."
+    }
+  ],
+  "gap": {
+    "constraintId": "c04",
+    "removeText": "Region S has less spare capacity for the service than Region R, so a quota increase would have to be requested, and the provider's response time is unknown. ",
+    "document": "03-engineering-migration-note.md",
+    "category": "capacity",
+    "accept": ["capacity", "infrastructure", "operational", "dependency"],
+    "rationale": "The only statement about spare capacity in Region S."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["region s"], "rationale": "Run workloads in the secondary region." },
+    {
+      "id": "a2",
+      "cues": ["another provider", "other provider"],
+      "rationale": "Move to another provider."
+    },
+    {
+      "id": "a3",
+      "cues": ["commitment options", "committed-spend"],
+      "rationale": "Commitment options offered by the reseller."
+    }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "A $1 increase in Region R would add $18,400 a month at list price, or $220,800 a year, before any discount.",
+      "gold": "supported",
+      "documents": ["02-usage-and-spend-summary.md"],
+      "rationale": "Stated in the spend summary."
+    },
+    {
+      "id": "k2",
+      "statement": "The platform team estimates that moving the service's workloads out of Region R would take 9 engineer-months.",
+      "gold": "supported",
+      "documents": ["03-engineering-migration-note.md"],
+      "rationale": "Stated in the engineering note."
+    },
+    {
+      "id": "k3",
+      "statement": "Fixed-price contracts cover 38% of annual recurring revenue.",
+      "gold": "partial",
+      "documents": ["01-finops-brief.md", "04-sales-contracts-and-customers-note.md"],
+      "rationale": "Finance says 38%; sales operations says 55%."
+    },
+    {
+      "id": "k4",
+      "statement": "The provider has announced that the price rise takes effect next quarter.",
+      "gold": "unsupported",
+      "documents": ["05-notice-as-relayed-and-gaps.md"],
+      "rationale": "The notice gives no effective date."
+    },
+    {
+      "id": "k5",
+      "statement": "A second provider would be cheaper for the company's workloads.",
+      "gold": "unsupported",
+      "documents": ["03-engineering-migration-note.md"],
+      "rationale": "Nobody has tried another provider with these volumes."
+    },
+    {
+      "id": "k6",
+      "statement": "Eleven customers have contracts that require their data to stay in the Region R jurisdiction.",
+      "gold": "supported",
+      "documents": ["03-engineering-migration-note.md"],
+      "rationale": "Stated in the engineering note."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-finops-brief.md",
+        "quote": "Finance counts fixed-price contracts as covering 38% of annual recurring revenue."
+      },
+      "b": {
+        "document": "04-sales-contracts-and-customers-note.md",
+        "quote": "Sales operations counts fixed-price contracts as covering 55% of annual recurring revenue."
+      },
+      "mustContain": ["38%", "55%"],
+      "rationale": "Two shares for the same count."
+    },
+    {
+      "id": "x2",
+      "kind": "deterministic",
+      "a": {
+        "document": "03-engineering-migration-note.md",
+        "quote": "The platform team estimates that moving the service's workloads out of Region R would take 9 engineer-months."
+      },
+      "b": {
+        "document": "05-notice-as-relayed-and-gaps.md",
+        "quote": "A consultancy that has offered migration services estimates that moving the service's workloads out of Region R would take 4 engineer-months."
+      },
+      "mustContain": ["9 engineer-months", "4 engineer-months"],
+      "rationale": "Two estimates of the same work."
+    }
+  ],
+  "labelRevisions": []
+}

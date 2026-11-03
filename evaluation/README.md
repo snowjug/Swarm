@@ -10,6 +10,10 @@ npm run eval -- --sweep   # score the abstention gate's thresholds on the dev sp
 
 `evaluation/test/evaluation.test.ts` runs the same measurements under `npm test` and fails if a metric falls below `thresholds.json`, if a source file no longer matches the text the labels were written against, or if the harness's own arithmetic is wrong.
 
+## The AI-assisted setup stages
+
+A second evaluation, `npm run eval:ai`, measures the participant, constraint, source-reading, critic and safety behaviour of the AI-assisted setup, in three modes kept apart: `rules` (offline, no model), `fake-foundry` (the real client and output policy against a scripted fake of the Foundry endpoint) and `live` (written, and refuses to run without Azure authorization). Its thresholds are registered in `thresholds.json` under `productionV1`, its datasets are `datasets/scenarios/`, `datasets/sites/`, `datasets/ai-safety.json` and `datasets/ai-critic-flaws.json`, and its results are in `results/ai-latest.md`. The method, the results and what they do not show are in [`docs/production/evaluation.md`](../docs/production/evaluation.md). The tests that run it are `evaluation/test/ai-*.test.ts`.
+
 ## What is measured
 
 | Area                      | Question it answers                                                                                                          | Data                               |

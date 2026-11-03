@@ -1,0 +1,331 @@
+{
+  "id": "S07",
+  "split": "dev",
+  "kind": "custom",
+  "title": "Public library: Sunday opening and shorter weekday evenings",
+  "tags": ["custom", "contradictory-sources"],
+  "question": "What could happen if the Ostrand public library opens on Sundays and closes on two weekday evenings?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-service-review.md",
+        "content": "# Ostrand Library Service: review of opening hours\n\nThis is a fictional review written for an evaluation. All names, places and figures are invented.\n\n## Hours today\n\nThe central library opens from 9am to 7pm on Monday to Thursday, 9am to 5pm on Friday and 10am to 2pm on Saturday, which is 52 hours a week, and is closed on Sunday. Two branch libraries open 10am to 6pm on weekdays only.\n\n## Use by time of day\n\nVisit counts for last year show that Tuesday and Wednesday evenings after 5pm account for 7% of weekly visits to the central library, and that Saturday is the busiest day. Students use the study rooms most in the evenings.\n\n## The proposal\n\nThe review proposes opening the central library from noon to 4pm on Sundays and closing it at 5pm on Tuesdays and Wednesdays. Branch libraries would not change.\n\n## Not yet decided\n\nThe review does not say how many extra staff hours a Sunday opening would need, and nobody has priced the cost.\n"
+      },
+      {
+        "name": "02-staff-and-facilities-note.md",
+        "content": "# Staff and facilities note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Staffing\n\nThe library employs 22 staff, of whom 14 work at the central library. Sunday work is voluntary under the staff agreement and is paid at 1.5 times the normal rate. The staff union asks for two weeks' notice of any rota change, and the agreement says no one may be rostered for more than five days in a row.\n\n## Statutory duty\n\nThe County Library Standard says that every central library must be open at least 50 hours a week. Closing two evenings at 5pm would take the central library to 48 hours unless Sunday hours are added.\n\n## Building and contracts\n\nThe cleaning contract covers six days a week and would need a variation to cover Sunday. The building has a single lift, and the lift engineer is not on call at weekends.\n\n## Budget\n\nThe annual library budget is fixed by the council and may not be exceeded. A modest saving of about £9,000 a year is expected from shorter weekday evenings.\n"
+      },
+      {
+        "name": "03-community-feedback.md",
+        "content": "# Community feedback summary\n\nThis is a fictional summary written for an evaluation. All names, places and figures are invented.\n\n## Who answered\n\nThe library asked users in March, and 640 people replied. Replies came mostly from adults who visit at least once a week. Children, and people who do not use the library, were not asked.\n\n## What people said\n\n- 58% said they would use Sunday opening at least once a month.\n- 21% said they rely on the Tuesday and Wednesday evenings and would be hurt by an earlier closing.\n- Parents asked for Sunday opening for children's reading groups.\n- Students said the study rooms are full on weekday evenings and asked for them to stay open.\n- Older users asked for the step-free entrance to remain staffed during all opening hours.\n\n## Other points\n\nThe branch survey reports that Tuesday and Wednesday evenings after 5pm account for 12% of weekly visits to the central library. A local community radio station has said it will cover the change. People without home internet use the library computers, and the survey did not ask how many.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Library service management",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["library service", "library management", "library managers"],
+      "quote": {
+        "document": "01-service-review.md",
+        "text": "The review proposes opening the central library from noon to 4pm on Sundays and closing it at 5pm on Tuesdays and Wednesdays."
+      },
+      "rationale": "Proposes the change."
+    },
+    {
+      "id": "p02",
+      "name": "Library staff",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["library staff", "central library staff"],
+      "quote": {
+        "document": "02-staff-and-facilities-note.md",
+        "text": "The library employs 22 staff, of whom 14 work at the central library."
+      },
+      "rationale": "Would work the new hours."
+    },
+    {
+      "id": "p03",
+      "name": "Staff union",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["staff union", "union"],
+      "quote": {
+        "document": "02-staff-and-facilities-note.md",
+        "text": "The staff union asks for two weeks' notice of any rota change, and the agreement says no one may be rostered for more than five days in a row."
+      },
+      "rationale": "Bargains over rota changes."
+    },
+    {
+      "id": "p04",
+      "name": "Council as budget holder",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["council"],
+      "quote": {
+        "document": "02-staff-and-facilities-note.md",
+        "text": "The annual library budget is fixed by the council and may not be exceeded."
+      },
+      "rationale": "Fixes the budget."
+    },
+    {
+      "id": "p05",
+      "name": "Cleaning contractor",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["cleaning contract", "cleaning contractor", "cleaners"],
+      "quote": {
+        "document": "02-staff-and-facilities-note.md",
+        "text": "The cleaning contract covers six days a week and would need a variation to cover Sunday."
+      },
+      "rationale": "Would need a contract variation."
+    },
+    {
+      "id": "p06",
+      "name": "Building maintenance and lift engineer",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["lift engineer", "maintenance", "building"],
+      "quote": {
+        "document": "02-staff-and-facilities-note.md",
+        "text": "The building has a single lift, and the lift engineer is not on call at weekends."
+      },
+      "rationale": "Not on call at weekends."
+    },
+    {
+      "id": "p07",
+      "name": "Students",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["students"],
+      "quote": {
+        "document": "01-service-review.md",
+        "text": "Students use the study rooms most in the evenings."
+      },
+      "rationale": "Use the study rooms in the evenings."
+    },
+    {
+      "id": "p08",
+      "name": "Parents and children",
+      "role": "beneficiaries",
+      "voice": "named",
+      "aliases": ["parents", "children"],
+      "quote": {
+        "document": "03-community-feedback.md",
+        "text": "Parents asked for Sunday opening for children's reading groups."
+      },
+      "rationale": "Ask for Sunday opening."
+    },
+    {
+      "id": "p09",
+      "name": "Older users",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["older users"],
+      "quote": {
+        "document": "03-community-feedback.md",
+        "text": "Older users asked for the step-free entrance to remain staffed during all opening hours."
+      },
+      "rationale": "Depend on the staffed entrance."
+    },
+    {
+      "id": "p10",
+      "name": "Weekday evening users",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["evening users", "weekday evening", "evening"],
+      "quote": {
+        "document": "03-community-feedback.md",
+        "text": "21% said they rely on the Tuesday and Wednesday evenings and would be hurt by an earlier closing."
+      },
+      "rationale": "Would lose two evenings."
+    },
+    {
+      "id": "p11",
+      "name": "County Library Standard",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["county library standard", "county"],
+      "quote": {
+        "document": "02-staff-and-facilities-note.md",
+        "text": "The County Library Standard says that every central library must be open at least 50 hours a week."
+      },
+      "rationale": "Sets the minimum open hours."
+    },
+    {
+      "id": "p12",
+      "name": "Branch library users",
+      "role": "indirectly-affected",
+      "voice": "named",
+      "aliases": ["branch"],
+      "quote": {
+        "document": "01-service-review.md",
+        "text": "Two branch libraries open 10am to 6pm on weekdays only."
+      },
+      "rationale": "Branches would not change but may take overflow."
+    },
+    {
+      "id": "p13",
+      "name": "People without home internet",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["without home internet", "library computers"],
+      "quote": {
+        "document": "03-community-feedback.md",
+        "text": "People without home internet use the library computers, and the survey did not ask how many."
+      },
+      "rationale": "Named only as not counted."
+    },
+    {
+      "id": "p14",
+      "name": "Children and non-users",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["non-users", "do not use the library"],
+      "quote": {
+        "document": "03-community-feedback.md",
+        "text": "Children, and people who do not use the library, were not asked."
+      },
+      "rationale": "Named only as not asked."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "regulatory",
+      "hardness": "hard",
+      "document": "02-staff-and-facilities-note.md",
+      "quote": "The County Library Standard says that every central library must be open at least 50 hours a week.",
+      "rationale": "A minimum."
+    },
+    {
+      "id": "c02",
+      "category": "staffing",
+      "hardness": "hard",
+      "document": "02-staff-and-facilities-note.md",
+      "quote": "Sunday work is voluntary under the staff agreement and is paid at 1.5 times the normal rate.",
+      "rationale": "Sunday work cannot be required."
+    },
+    {
+      "id": "c03",
+      "category": "staffing",
+      "hardness": "hard",
+      "document": "02-staff-and-facilities-note.md",
+      "quote": "The staff union asks for two weeks' notice of any rota change, and the agreement says no one may be rostered for more than five days in a row.",
+      "rationale": "A rota rule."
+    },
+    {
+      "id": "c04",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "02-staff-and-facilities-note.md",
+      "quote": "The cleaning contract covers six days a week and would need a variation to cover Sunday.",
+      "rationale": "Contract covers six days."
+    },
+    {
+      "id": "c05",
+      "category": "budget",
+      "hardness": "hard",
+      "document": "02-staff-and-facilities-note.md",
+      "quote": "The annual library budget is fixed by the council and may not be exceeded.",
+      "rationale": "A ceiling."
+    },
+    {
+      "id": "c06",
+      "category": "infrastructure",
+      "hardness": "soft",
+      "document": "02-staff-and-facilities-note.md",
+      "quote": "The building has a single lift, and the lift engineer is not on call at weekends.",
+      "rationale": "A weekend risk."
+    },
+    {
+      "id": "c07",
+      "category": "accessibility",
+      "hardness": "soft",
+      "document": "03-community-feedback.md",
+      "quote": "Older users asked for the step-free entrance to remain staffed during all opening hours.",
+      "rationale": "A request."
+    },
+    {
+      "id": "c08",
+      "category": "budget",
+      "hardness": "soft",
+      "document": "01-service-review.md",
+      "quote": "The review does not say how many extra staff hours a Sunday opening would need, and nobody has priced the cost.",
+      "rationale": "Cost unknown."
+    }
+  ],
+  "gap": {
+    "constraintId": "c01",
+    "removeText": "The County Library Standard says that every central library must be open at least 50 hours a week. ",
+    "document": "02-staff-and-facilities-note.md",
+    "category": "regulatory",
+    "accept": ["regulatory", "legal"],
+    "rationale": "The only statement of the statutory minimum."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["sunday"], "rationale": "Open on Sundays." },
+    {
+      "id": "a2",
+      "cues": ["closing it at 5pm", "close", "closing"],
+      "rationale": "Close early on two evenings."
+    }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "The central library is open 52 hours a week today.",
+      "gold": "supported",
+      "documents": ["01-service-review.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "Sunday work is voluntary under the staff agreement.",
+      "gold": "supported",
+      "documents": ["02-staff-and-facilities-note.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "Closing two evenings would save about £9,000 a year and have no other effect.",
+      "gold": "partial",
+      "documents": ["02-staff-and-facilities-note.md"],
+      "rationale": "The saving is stated; 'no other effect' is not."
+    },
+    {
+      "id": "k4",
+      "statement": "Most students prefer Sunday opening to weekday evening hours.",
+      "gold": "unsupported",
+      "documents": ["03-community-feedback.md"],
+      "rationale": "Students asked for evening hours."
+    },
+    {
+      "id": "k5",
+      "statement": "The County Library Standard requires Sunday opening.",
+      "gold": "unsupported",
+      "documents": ["02-staff-and-facilities-note.md"],
+      "rationale": "It sets 50 hours a week, not days."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-service-review.md",
+        "quote": "Tuesday and Wednesday evenings after 5pm account for 7% of weekly visits to the central library"
+      },
+      "b": {
+        "document": "03-community-feedback.md",
+        "quote": "Tuesday and Wednesday evenings after 5pm account for 12% of weekly visits to the central library"
+      },
+      "mustContain": ["7%", "12%"],
+      "rationale": "Two shares for the same count."
+    }
+  ],
+  "labelRevisions": []
+}

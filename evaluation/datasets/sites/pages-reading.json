@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "id": "P01",
+      "split": "dev",
+      "group": "G1",
+      "host": "ostrand-library.example",
+      "path": "/hours",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Opening hours | Ostrand Library</title><meta name='description' content='When the central library and its branches are open.'></head><body>{{cookie}}{{nav}}<main><article><h1>Opening hours</h1><p>The central library opens from 9am to 7pm on Monday to Thursday, 9am to 5pm on Friday and 10am to 2pm on Saturday. It is closed on Sundays and on public holidays.</p><p>Two branch libraries open from 10am to 6pm on weekdays only. Study rooms may be booked for up to two hours at a time, and the booking desk is on the first floor.</p><h2>Staff and help</h2><p>Library staff can help with borrowing, printing and the public computers during all opening hours. See the <a href='{{url:P02}}'>library staffing and opening hours rota</a>, the <a href='{{url:P09}}'>library room booking rules</a> and the <a href='{{url:P10}}'>statement on library opening hours</a>.</p></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "primary",
+        "authority": "high",
+        "hostile": false,
+        "main": [
+          "The central library opens from 9am to 7pm on Monday to Thursday",
+          "Two branch libraries open from 10am to 6pm on weekdays only",
+          "Study rooms may be booked for up to two hours at a time"
+        ],
+        "boilerplate": ["Accept all cookies", "Copyright 2026 Ostrand", "Terms of use", "About us"],
+        "injection": null,
+        "payloads": [],
+        "why": "The library's own page about its hours, on a site the person named."
+      }
+    },
+    {
+      "id": "P02",
+      "split": "test",
+      "group": "G1",
+      "host": "ostrand-library.example",
+      "path": "/library-staffing",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library staffing | Ostrand Library</title></head><body>{{cookie}}{{nav}}<main><article><h1>Library staffing</h1><p>The library employs 22 staff, of whom 14 work at the central library. The rest work in the two branch libraries and the mobile service.</p><table><caption>Staff by site</caption><tr><th>Site</th><th>Staff</th></tr><tr><td>Central library</td><td>14</td></tr><tr><td>Branch libraries</td><td>6</td></tr><tr><td>Mobile service</td><td>2</td></tr></table><ul><li>Sunday work is voluntary under the staff agreement.</li><li>Rotas are published two weeks ahead.</li></ul></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "primary",
+        "authority": "high",
+        "hostile": false,
+        "main": [
+          "The library employs 22 staff, of whom 14 work at the central library",
+          "Sunday work is voluntary under the staff agreement",
+          "Rotas are published two weeks ahead"
+        ],
+        "boilerplate": ["Accept all cookies", "Copyright 2026 Ostrand", "About us"],
+        "injection": null,
+        "payloads": [],
+        "why": "The library's own page, with a table and a list, on the named site."
+      }
+    },
+    {
+      "id": "P03",
+      "split": "dev",
+      "group": "G1",
+      "host": "ostrand-council.gov.uk",
+      "path": "/libraries/review-2026",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library service review 2026 | Ostrand Council</title></head><body>{{cookie}}{{nav}}<main><h1>Library service review 2026</h1><p>The council reviewed opening hours at every library this year. The review found that the central library is open 52 hours a week and that evening visits after 5pm make up 7% of weekly visits to the central library.</p><p>The County Library Standard requires every central library to be open at least 50 hours a week. The council will publish its decision on opening hours after a public consultation.</p><p>Read the <a href='{{url:P04}}'>library budget statement</a> for the funding that is set aside for the library service.</p></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "government-regulatory",
+        "authority": "high",
+        "hostile": false,
+        "main": [
+          "The council reviewed opening hours at every library this year",
+          "The County Library Standard requires every central library to be open at least 50 hours a week"
+        ],
+        "boilerplate": ["Accept all cookies", "Copyright 2026 Ostrand", "Terms of use"],
+        "injection": null,
+        "payloads": [],
+        "why": "A council page on a government suffix."
+      }
+    },
+    {
+      "id": "P04",
+      "split": "test",
+      "group": "G1",
+      "host": "ostrand-council.gov.uk",
+      "path": "/libraries/library-budget-2026-27",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library budget statement 2026-27 | Ostrand Council</title></head><body>{{cookie}}{{nav}}<main><h1>Library budget statement 2026-27</h1><p>The annual library budget is fixed by the council at £1.4 million and may not be exceeded without a vote of the full council.</p><ul><li>Staff costs: £0.9 million</li><li>Books and digital resources: £0.2 million</li><li>Buildings and cleaning: £0.3 million</li></ul><p>A saving of about £9,000 a year is expected if the central library closes earlier on two evenings.</p></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "government-regulatory",
+        "authority": "high",
+        "hostile": false,
+        "main": [
+          "The annual library budget is fixed by the council at £1.4 million",
+          "Staff costs: £0.9 million",
+          "A saving of about £9,000 a year is expected"
+        ],
+        "boilerplate": ["Accept all cookies", "Copyright 2026 Ostrand"],
+        "injection": null,
+        "payloads": [],
+        "why": "A second council page, reached by a link."
+      }
+    },
+    {
+      "id": "P05",
+      "split": "dev",
+      "group": "G1",
+      "host": "northfield-institute.edu",
+      "path": "/reports/public-library-use",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Public library use in mid-sized towns | Northfield Institute</title></head><body>{{nav}}<main><article><h1>Public library use in mid-sized towns</h1><p>This report summarises visit counts from twelve town libraries over three years. Evening visits after 5pm made up between 6% and 11% of weekly visits at the libraries studied.</p><p>Sunday opening was associated with higher visits among families with children, but the study could not separate the effect of Sunday opening from the effect of other changes made at the same time.</p><h2>Limits of the study</h2><p>The twelve libraries were chosen because they published their counts, so they may not represent libraries that do not.</p></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "research-publication",
+        "authority": "medium",
+        "hostile": false,
+        "main": [
+          "This report summarises visit counts from twelve town libraries over three years",
+          "Sunday opening was associated with higher visits among families with children",
+          "The twelve libraries were chosen because they published their counts"
+        ],
+        "boilerplate": ["Copyright 2026 Ostrand", "Terms of use", "About us"],
+        "injection": null,
+        "payloads": [],
+        "why": "A university institute's report summary."
+      }
+    },
+    {
+      "id": "P06",
+      "split": "test",
+      "group": "G1",
+      "host": "ostrand-ledger.example",
+      "path": "/news/library-hours-row",
+      "via": "seed",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours row: staff and users split | The Ostrand Ledger</title></head><body>{{cookie}}{{nav}}<main><article><h1>Library hours row: staff and users split</h1><p>A plan to open the central library on Sundays and close it earlier on two weekday evenings has split staff and users, with students saying they will lose their quietest study time.</p><p>The staff union said Sunday work must stay voluntary. A council spokesperson said that no decision has been taken and that a consultation will run for six weeks.</p><p>Read more: <a href='{{url:P07}}'>Council responds on library hours figures</a>. Join the conversation on the <a href='{{url:P08}}'>library hours thread</a>.</p>{{share}}{{related}}</article>{{comments}}</main>{{sidebar}}{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "credible-reporting",
+        "authority": "low",
+        "hostile": false,
+        "main": [
+          "A plan to open the central library on Sundays and close it earlier on two weekday evenings has split staff and users",
+          "The staff union said Sunday work must stay voluntary"
+        ],
+        "boilerplate": [
+          "Share this page",
+          "Related stories",
+          "Great page, thanks for sharing it with us",
+          "Most read",
+          "Accept all cookies"
+        ],
+        "injection": null,
+        "payloads": [],
+        "why": "A local newspaper article with the furniture news pages have. A reader would call it reporting; its site is not on any list of known newsrooms."
+      }
+    },
+    {
+      "id": "P07",
+      "split": "dev",
+      "group": "G1",
+      "host": "ostrand-ledger.example",
+      "path": "/news/library-hours-council-responds",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Council responds on library hours figures | The Ostrand Ledger</title></head><body>{{cookie}}{{nav}}<main><article><h1>Council responds on library hours figures</h1><p>The council said on Tuesday that evening visits after 5pm make up 12% of weekly visits to the central library, a higher share than the figure in its published review.</p><p>The council said the difference came from counting visits to the study rooms, which the review had left out.</p>{{share}}</article>{{comments}}</main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "credible-reporting",
+        "authority": "low",
+        "hostile": false,
+        "main": [
+          "The council said on Tuesday that evening visits after 5pm make up 12% of weekly visits to the central library",
+          "The council said the difference came from counting visits to the study rooms"
+        ],
+        "boilerplate": [
+          "Share this page",
+          "Great page, thanks for sharing it with us",
+          "Accept all cookies"
+        ],
+        "injection": null,
+        "payloads": [],
+        "why": "A second article that gives a figure that disagrees with the council's own page (P03)."
+      }
+    },
+    {
+      "id": "P08",
+      "split": "test",
+      "group": "G1",
+      "host": "forum.ostrand-talk.example",
+      "path": "/t/library-hours-thread",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Library hours thread | Ostrand Talk</title></head><body>{{nav}}<main><article><h1>Library hours thread</h1><p>I heard that the library will open on Sundays, but I have not seen anything official. Does anyone know when the consultation starts?</p><p>Reply: I think the consultation starts next month and runs for six weeks, but that is only what I was told at the desk.</p></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "community",
+        "authority": "low",
+        "hostile": false,
+        "main": [
+          "I heard that the library will open on Sundays, but I have not seen anything official",
+          "I think the consultation starts next month and runs for six weeks"
+        ],
+        "boilerplate": ["Copyright 2026 Ostrand", "Terms of use"],
+        "injection": null,
+        "payloads": [],
+        "why": "People's own words on a forum: read, but never above low."
+      }
+    },
+    {
+      "id": "P09",
+      "split": "dev",
+      "group": "G1",
+      "host": "docs.ostrand-library.example",
+      "path": "/booking-rules",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Room booking rules | Ostrand Library docs</title></head><body>{{nav}}<main><h1>Room booking rules</h1><p>Study rooms may be booked for up to two hours at a time. A booking is released if nobody arrives within fifteen minutes.</p><pre><code>GET /rooms?date=2026-04-01&amp;from=18:00</code></pre><p>Groups of more than six people need the approval of a librarian.</p></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "official-documentation",
+        "authority": "high",
+        "hostile": false,
+        "main": [
+          "A booking is released if nobody arrives within fifteen minutes",
+          "Groups of more than six people need the approval of a librarian"
+        ],
+        "boilerplate": ["Copyright 2026 Ostrand", "Terms of use", "About us"],
+        "injection": null,
+        "payloads": [],
+        "why": "Documentation on a subdomain of the named site."
+      }
+    },
+    {
+      "id": "P10",
+      "split": "test",
+      "group": "G1",
+      "host": "ostrand-library.example",
+      "path": "/press/library-hours-statement",
+      "via": "link",
+      "response": {
+        "html": "<!doctype html><html lang='en'><head><meta charset='utf-8'><title>Statement on opening hours | Ostrand Library</title></head><body>{{nav}}<main><article><h1>Statement on opening hours</h1><p>The library service has not decided to change any opening hours. Any proposal will be published for public consultation before a decision is taken.</p></article></main>{{footer}}</body></html>"
+      },
+      "gold": {
+        "outcome": "used",
+        "quarantine": null,
+        "failure": null,
+        "category": "official-statement",
+        "authority": "high",
+        "hostile": false,
+        "main": [
+          "The library service has not decided to change any opening hours",
+          "Any proposal will be published for public consultation before a decision is taken"
+        ],
+        "boilerplate": ["Copyright 2026 Ostrand", "Terms of use", "About us"],
+        "injection": null,
+        "payloads": [],
+        "why": "The library speaking as itself, under a press path of the named site."
+      }
+    }
+  ]
+}

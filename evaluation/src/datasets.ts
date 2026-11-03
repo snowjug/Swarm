@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { DATASET_DIRECTORY } from './corpus.js';
+import { DATASET_DIRECTORY } from './paths.js';
 
 export const SPLITS = ['dev', 'test'] as const;
 export type Split = (typeof SPLITS)[number];

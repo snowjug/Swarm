@@ -1,0 +1,216 @@
+{
+  "id": "S10",
+  "split": "test",
+  "kind": "custom",
+  "title": "Secondary school: a later start to the day (thin sources)",
+  "tags": ["custom", "missing-information"],
+  "question": "What could happen if a secondary school starts the day 45 minutes later?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-headteacher-proposal.md",
+        "content": "# Headteacher proposal: a later start\n\nThis is a fictional proposal written for an evaluation. All names, places and figures are invented.\n\nHarwick Secondary School proposes to start lessons at 9.30am instead of 8.45am from the next autumn term. The school day would end at 4.15pm instead of 3.30pm. The proposal says that older pupils arrive tired and that first lessons are the least productive.\n\nThe bus operator's contract fixes the morning and afternoon runs until the end of July, and a change to run times needs three months' notice. Teachers would need to be consulted for 30 days before any change to working hours.\n\nThe proposal does not say what would happen to after-school clubs, to pupils who care for younger siblings, or to staff who have caring duties of their own.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Headteacher and school leadership",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["headteacher", "school leadership", "school leaders", "harwick"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "Harwick Secondary School proposes to start lessons at 9.30am instead of 8.45am from the next autumn term."
+      },
+      "rationale": "Proposes the change."
+    },
+    {
+      "id": "p02",
+      "name": "Teachers",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["teachers"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "Teachers would need to be consulted for 30 days before any change to working hours."
+      },
+      "rationale": "Must be consulted."
+    },
+    {
+      "id": "p03",
+      "name": "Bus operator",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["bus operator"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "The bus operator's contract fixes the morning and afternoon runs until the end of July, and a change to run times needs three months' notice."
+      },
+      "rationale": "Runs school buses."
+    },
+    {
+      "id": "p04",
+      "name": "Older pupils",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["older pupils", "pupils"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "The proposal says that older pupils arrive tired and that first lessons are the least productive."
+      },
+      "rationale": "The intended beneficiaries."
+    },
+    {
+      "id": "p05",
+      "name": "Pupils who care for younger siblings",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["younger siblings", "siblings", "young carers"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "The proposal does not say what would happen to after-school clubs, to pupils who care for younger siblings, or to staff who have caring duties of their own."
+      },
+      "rationale": "Named as not considered."
+    },
+    {
+      "id": "p06",
+      "name": "After-school club providers",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["after-school club", "after-school clubs", "clubs"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "The proposal does not say what would happen to after-school clubs, to pupils who care for younger siblings, or to staff who have caring duties of their own."
+      },
+      "rationale": "Named as not considered."
+    },
+    {
+      "id": "p07",
+      "name": "Staff with caring duties",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["caring duties", "staff who have caring"],
+      "quote": {
+        "document": "01-headteacher-proposal.md",
+        "text": "The proposal does not say what would happen to after-school clubs, to pupils who care for younger siblings, or to staff who have caring duties of their own."
+      },
+      "rationale": "Named as not considered."
+    },
+    {
+      "id": "p08",
+      "name": "Parents and guardians",
+      "role": "directly-affected",
+      "voice": "implied",
+      "aliases": ["parents", "families", "guardians"],
+      "quote": null,
+      "rationale": "School hours shape family routines; the proposal does not mention them."
+    },
+    {
+      "id": "p09",
+      "name": "School governors",
+      "role": "approvers",
+      "voice": "implied",
+      "aliases": ["governors", "education authority", "trust"],
+      "quote": null,
+      "rationale": "A change to hours usually needs governing-body approval; the proposal does not say."
+    },
+    {
+      "id": "p10",
+      "name": "Pupils with part-time jobs",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["part-time jobs", "part-time work"],
+      "quote": null,
+      "rationale": "A later finish cuts into after-school work; not mentioned."
+    },
+    {
+      "id": "p11",
+      "name": "Neighbouring primary schools",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["primary"],
+      "quote": null,
+      "rationale": "May share buses and drop-off times; not mentioned."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "01-headteacher-proposal.md",
+      "quote": "The bus operator's contract fixes the morning and afternoon runs until the end of July, and a change to run times needs three months' notice.",
+      "rationale": "A fixed contract and a notice period."
+    },
+    {
+      "id": "c02",
+      "category": "staffing",
+      "hardness": "hard",
+      "document": "01-headteacher-proposal.md",
+      "quote": "Teachers would need to be consulted for 30 days before any change to working hours.",
+      "rationale": "A required consultation."
+    },
+    {
+      "id": "c03",
+      "category": "uncertainty",
+      "hardness": "soft",
+      "document": "01-headteacher-proposal.md",
+      "quote": "The proposal does not say what would happen to after-school clubs, to pupils who care for younger siblings, or to staff who have caring duties of their own.",
+      "rationale": "Open questions."
+    }
+  ],
+  "gap": {
+    "constraintId": "c02",
+    "removeText": " Teachers would need to be consulted for 30 days before any change to working hours.",
+    "document": "01-headteacher-proposal.md",
+    "category": "staffing",
+    "accept": ["staffing", "legal", "organizational", "time"],
+    "rationale": "The only statement about consultation."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["9.30am"], "rationale": "Start at 9.30am." },
+    { "id": "a2", "cues": ["4.15pm"], "rationale": "End at 4.15pm." }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "The proposal would end the school day at 4.15pm.",
+      "gold": "supported",
+      "documents": ["01-headteacher-proposal.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "A change to bus run times needs three months' notice.",
+      "gold": "supported",
+      "documents": ["01-headteacher-proposal.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "A later start would make first lessons more productive.",
+      "gold": "partial",
+      "documents": ["01-headteacher-proposal.md"],
+      "rationale": "The proposal says first lessons are least productive; the effect of the change is not shown."
+    },
+    {
+      "id": "k4",
+      "statement": "Parents support a later start.",
+      "gold": "unsupported",
+      "documents": ["01-headteacher-proposal.md"],
+      "rationale": "Parents are not mentioned."
+    },
+    {
+      "id": "k5",
+      "statement": "After-school clubs would have to close.",
+      "gold": "unsupported",
+      "documents": ["01-headteacher-proposal.md"],
+      "rationale": "The proposal does not say."
+    }
+  ],
+  "conflicts": [],
+  "labelRevisions": []
+}

@@ -1,0 +1,349 @@
+{
+  "id": "S02",
+  "split": "test",
+  "kind": "flagship",
+  "title": "Default-on assistant in a workplace chat and meetings app",
+  "tags": ["flagship", "contradictory-sources"],
+  "question": "What could happen if Microsoft integrates Copilot more deeply into Teams and enables additional AI capabilities by default?",
+  "source": {
+    "kind": "example",
+    "id": "copilot-in-teams",
+    "pins": {
+      "01-it-office-brief.md": "7dd79021532c76fe04fe62dde0cd5e6a17f24ac1519b14d9d73cef69f02df469",
+      "02-admin-poll-summary.md": "4835beb9d8b2ce45c61ab8f9a3f58c4ac480ce63f9009663e4201fcce66c0d63",
+      "03-pilot-and-helpdesk-summary.md": "85d1d1671ca4669c7c59829f6d7a6670926cd86b1d170c8f55a271277b8f7e8e",
+      "04-security-and-records-note.md": "ca6fd5b21597692af4e09e565e003536873409da766e47014559b24da6f45659",
+      "05-partner-and-market-notes.md": "d0a3f615b204b230bbd1fd4f2c0aed291e136fb35be014ec2e480f822eebacda"
+    }
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Tenant administrators",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["tenant administrators", "administrators", "it office"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "Tenant administrators decide which features are on, and any change goes through a two-week review by the security team and the records manager."
+      },
+      "rationale": "Decide which features are on."
+    },
+    {
+      "id": "p02",
+      "name": "Security reviewers",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["security reviewers", "security team", "security"],
+      "quote": {
+        "document": "04-security-and-records-note.md",
+        "text": "The security reviewers read the assistant's documentation as saying that it respects each person's existing permissions, and they do not dispute that."
+      },
+      "rationale": "Review every change before it goes live."
+    },
+    {
+      "id": "p03",
+      "name": "Records manager",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["records manager"],
+      "quote": {
+        "document": "04-security-and-records-note.md",
+        "text": "The records manager asked how long they are kept, whether they fall under legal hold and whether an employee can delete a recap about themselves."
+      },
+      "rationale": "Co-reviews every change and owns retention."
+    },
+    {
+      "id": "p04",
+      "name": "Helpdesk",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["helpdesk"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "The helpdesk lead expects more questions from ordinary users about the new panel and wants a short guide ready on day one."
+      },
+      "rationale": "Absorbs the questions after a change."
+    },
+    {
+      "id": "p05",
+      "name": "Ordinary users",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["ordinary users", "employees", "users"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "The helpdesk lead expects more questions from ordinary users about the new panel and wants a short guide ready on day one."
+      },
+      "rationale": "Employees who see the new panel and the recaps."
+    },
+    {
+      "id": "p06",
+      "name": "Client-facing department managers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["department managers", "client-facing"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "Department managers in client-facing teams like the idea of recaps but are uneasy about clients receiving automatic summaries of calls."
+      },
+      "rationale": "Like recaps but worry about clients receiving them."
+    },
+    {
+      "id": "p07",
+      "name": "Employee representatives",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["employee representatives"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "Employee representatives have asked whether recaps could end up in performance reviews."
+      },
+      "rationale": "Speak for employees on monitoring."
+    },
+    {
+      "id": "p08",
+      "name": "Finance team",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["finance team", "finance"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "The finance team asked whether features that arrive by default would be charged to the firm, and nobody has been able to answer."
+      },
+      "rationale": "Bears the licence cost."
+    },
+    {
+      "id": "p09",
+      "name": "Larger clients",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["clients", "larger clients"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "Two of the firm's larger clients have their own rules on recording and transcription."
+      },
+      "rationale": "Have rules on recording."
+    },
+    {
+      "id": "p10",
+      "name": "Managed-service partner",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["managed-service partner", "partner"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "The managed-service partner that supports the tenant bills by the hour for configuration work."
+      },
+      "rationale": "Supports the tenant and bills for configuration."
+    },
+    {
+      "id": "p11",
+      "name": "Rival collaboration suite vendors",
+      "role": "competitors-alternatives",
+      "voice": "named",
+      "aliases": ["rival collaboration suite", "rival", "competitors"],
+      "quote": {
+        "document": "01-it-office-brief.md",
+        "text": "Some staff work inside a client's tenant on a rival collaboration suite, and a few power users have tried that suite's assistant on the side."
+      },
+      "rationale": "Offer assistants that users already try."
+    },
+    {
+      "id": "p12",
+      "name": "Data protection officer",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["data protection officer"],
+      "quote": {
+        "document": "04-security-and-records-note.md",
+        "text": "The data protection officer expects that regulators in some regions would ask how employees are told about AI processing of meetings."
+      },
+      "rationale": "Answers to regulators on processing."
+    },
+    {
+      "id": "p13",
+      "name": "Internal auditors",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["internal auditors", "auditors"],
+      "quote": {
+        "document": "04-security-and-records-note.md",
+        "text": "Internal auditors asked for a log of when recaps were generated, and the tenant report gives daily counts, not counts per meeting."
+      },
+      "rationale": "Ask for a log the tenant report does not give."
+    },
+    {
+      "id": "p14",
+      "name": "Frontline and shift workers",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["frontline", "shift workers"],
+      "quote": {
+        "document": "03-pilot-and-helpdesk-summary.md",
+        "text": "No frontline or shift workers were in the group."
+      },
+      "rationale": "Named only as absent from the pilot."
+    },
+    {
+      "id": "p15",
+      "name": "External guests in meetings",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["external guests", "guests"],
+      "quote": {
+        "document": "05-partner-and-market-notes.md",
+        "text": "There is no record of how external guests reacted to automatic recaps."
+      },
+      "rationale": "Named only as a group nobody has heard from."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "organizational",
+      "hardness": "hard",
+      "document": "01-it-office-brief.md",
+      "quote": "Tenant administrators decide which features are on, and any change goes through a two-week review by the security team and the records manager.",
+      "rationale": "A mandatory review before any change."
+    },
+    {
+      "id": "c02",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "01-it-office-brief.md",
+      "quote": "Two of the firm's larger clients have their own rules on recording and transcription.",
+      "rationale": "Client rules bind the firm's work for them."
+    },
+    {
+      "id": "c03",
+      "category": "legal",
+      "hardness": "hard",
+      "document": "04-security-and-records-note.md",
+      "quote": "Clients in some countries need consent before a meeting is transcribed.",
+      "rationale": "A consent requirement."
+    },
+    {
+      "id": "c04",
+      "category": "time",
+      "hardness": "soft",
+      "document": "01-it-office-brief.md",
+      "quote": "The review board meets in three weeks.",
+      "rationale": "A date the decision is tied to."
+    },
+    {
+      "id": "c05",
+      "category": "budget",
+      "hardness": "soft",
+      "document": "05-partner-and-market-notes.md",
+      "quote": "No licence terms for newly default-on features are in hand, so the finance team cannot say who pays or whether people without a licence would see anything.",
+      "rationale": "Cost is unknown."
+    },
+    {
+      "id": "c06",
+      "category": "operational",
+      "hardness": "soft",
+      "document": "01-it-office-brief.md",
+      "quote": "Administrators ask for a separate switch for each new feature and enough notice to test it.",
+      "rationale": "A request about how a change should be rolled out."
+    },
+    {
+      "id": "c07",
+      "category": "regulatory",
+      "hardness": "soft",
+      "document": "04-security-and-records-note.md",
+      "quote": "The retention schedule has no entry for AI-generated summaries.",
+      "rationale": "A records rule is missing."
+    },
+    {
+      "id": "c08",
+      "category": "data-quality",
+      "hardness": "soft",
+      "document": "04-security-and-records-note.md",
+      "quote": "Internal auditors asked for a log of when recaps were generated, and the tenant report gives daily counts, not counts per meeting.",
+      "rationale": "The report cannot show what auditors want."
+    }
+  ],
+  "gap": {
+    "constraintId": "c03",
+    "removeText": "Clients in some countries need consent before a meeting is transcribed. ",
+    "document": "04-security-and-records-note.md",
+    "category": "legal",
+    "accept": ["legal", "privacy"],
+    "rationale": "The only statement that consent is needed."
+  },
+  "alternatives": [
+    {
+      "id": "a1",
+      "cues": ["by default", "switched on", "default-on"],
+      "rationale": "The proposal itself."
+    },
+    {
+      "id": "a2",
+      "cues": ["staged rollout", "volunteers"],
+      "rationale": "Administrators ask for a staged rollout."
+    },
+    { "id": "a3", "cues": ["separate switch"], "rationale": "A switch for each feature." }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "Weekly use of the meeting recap feature reached 41% of pilot seats at the end of the pilot.",
+      "gold": "supported",
+      "documents": ["03-pilot-and-helpdesk-summary.md"],
+      "rationale": "Stated in the pilot summary."
+    },
+    {
+      "id": "k2",
+      "statement": "The review board meets in three weeks.",
+      "gold": "supported",
+      "documents": ["01-it-office-brief.md"],
+      "rationale": "Stated in the status section."
+    },
+    {
+      "id": "k3",
+      "statement": "Most administrators said they would turn off new assistant features by default until a review was finished.",
+      "gold": "partial",
+      "documents": ["02-admin-poll-summary.md"],
+      "rationale": "44% said so; that is not most."
+    },
+    {
+      "id": "k4",
+      "statement": "The pilot measured the time saved by recaps independently.",
+      "gold": "unsupported",
+      "documents": ["03-pilot-and-helpdesk-summary.md"],
+      "rationale": "The source says it was not measured independently."
+    },
+    {
+      "id": "k5",
+      "statement": "Frontline and shift workers rated the recap feature highly in the pilot.",
+      "gold": "unsupported",
+      "documents": ["03-pilot-and-helpdesk-summary.md"],
+      "rationale": "No frontline workers were in the pilot."
+    },
+    {
+      "id": "k6",
+      "statement": "Self-reported time saved had a median of 25 minutes a week.",
+      "gold": "supported",
+      "documents": ["03-pilot-and-helpdesk-summary.md"],
+      "rationale": "Stated in the pilot summary."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "03-pilot-and-helpdesk-summary.md",
+        "quote": "Weekly use of the meeting recap feature reached 41% of pilot seats at the end of the pilot."
+      },
+      "b": {
+        "document": "05-partner-and-market-notes.md",
+        "quote": "weekly use of the meeting recap feature reached 68% of seats in its early-adopter tenants"
+      },
+      "mustContain": ["41%", "68%"],
+      "rationale": "Two weekly-use figures for the same feature that disagree; the populations differ, which a reader must weigh."
+    }
+  ],
+  "labelRevisions": []
+}
