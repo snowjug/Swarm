@@ -59,7 +59,7 @@ import {
   sizeWeight,
 } from './parameters.js';
 import type { Population } from './population.js';
-import { CATEGORY_COUNT, classifyIndex } from './response.js';
+import { CATEGORY_COUNT, classifyIndex, openResponse } from './response.js';
 import { uniformAt } from './random.js';
 
 /** Counters and means of one round, per actor. Reused from round to round. */
@@ -205,6 +205,17 @@ export function createEffects(actorCount: number): Effects {
 }
 
 /**
+ * What constraints add to a round, per actor (constraints.ts): the change held back (1), scrutiny on top
+ * of what responders have added, and the responses taken away, as bits. A run with no constraints passes
+ * `null` and the round is the one it always was.
+ */
+export interface RoundAdjust {
+  held: Uint8Array;
+  extraScrutiny: Float64Array;
+  forbid: Uint8Array;
+}
+
+/**
  * One round for every member of every actor. `push` is the change's gain times its intensity from the
  * round it lands, and 0 before it; `listening` is what each actor listens to this round.
  */
@@ -215,6 +226,7 @@ export function stepRound(
   listening: Float64Array,
   round: number,
   push: number,
+  adjust: RoundAdjust | null = null,
 ): void {
   const {
     start,
@@ -237,8 +249,11 @@ export function stepRound(
     const relief = effects.relief[actor] ?? 0;
     const amplify =
       SWITCH_PULL * (effects.pullSwitch[actor] ?? 0) - ENABLE_LIFT * (effects.lift[actor] ?? 0);
-    const concern = SCRUTINY_PULL * (effects.scrutiny[actor] ?? 0);
-    const pushed = push * (group[actor] ?? 1);
+    const scrutiny = effects.scrutiny[actor] ?? 0;
+    const concern =
+      SCRUTINY_PULL * (adjust === null ? scrutiny : scrutiny + (adjust.extraScrutiny[actor] ?? 0));
+    const pushed = adjust !== null && adjust.held[actor] === 1 ? 0 : push * (group[actor] ?? 1);
+    const forbidden = adjust === null ? 0 : (adjust.forbid[actor] ?? 0);
     const noise = population.noiseStream[actor] ?? 0;
     const base = actor * CATEGORY_COUNT;
     let sum = 0;
@@ -261,7 +276,8 @@ export function stepRound(
         (noiseAmp[at] ?? 0) * (2 * draw - 1);
       const next = moved > 1 ? 1 : moved < -1 ? -1 : moved;
       stance[at] = next;
-      const category = base + classifyIndex(next, (switchingCost[at] ?? 0) - relief);
+      const read = classifyIndex(next, (switchingCost[at] ?? 0) - relief);
+      const category = base + (forbidden === 0 ? read : openResponse(read, forbidden));
       stats.counts[category] = (stats.counts[category] ?? 0) + 1;
       const influenceHere = influence[at] ?? 0;
       sum += next;

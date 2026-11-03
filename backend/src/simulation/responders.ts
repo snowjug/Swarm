@@ -138,6 +138,8 @@ export function buildResponders(
   population: Population,
   relations: readonly ActorRelation[],
   index: ReadonlyMap<string, number>,
+  /** Rounds a responder waits on top of its own before it sees a signal, per actor (a delay that names it). */
+  lagExtra: Int32Array | null = null,
 ): Responder[] {
   const harmed = actors.map(
     (_, at) => (population.resolved[at]?.value.impact ?? 0) <= -AFFECTED_MIN,
@@ -175,7 +177,7 @@ export function buildResponders(
     responders.push({
       actor: self,
       rule,
-      lag: responderLag(resolved.value.reactivity),
+      lag: responderLag(resolved.value.reactivity) + (lagExtra?.[self] ?? 0),
       threshold: responderThreshold(resolved.value.riskTolerance, resolved.value.authority),
       authority: resolved.value.authority,
       reach: {
