@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isGenericName,
   actorCoverage,
+  actorCoverageLenient,
   actorRedundancy,
   genericNamesAccepted,
   missingVoiceSurfaced,
@@ -196,6 +197,17 @@ describe('actors', () => {
     const coverage = actorCoverage(gold, live);
     expect(coverage).toMatchObject({ successes: 2, total: 3, missed: ['C'] });
     expect(missingVoiceSurfaced(gold, live)).toMatchObject({ successes: 0, total: 1 });
+  });
+
+  it('reads coverage leniently by a shared content word, which is never lower than the strict reading', () => {
+    const names = ['Crew members', 'Harbour office', 'Staff'].map((name, i) => ({
+      id: `m${i}`,
+      name,
+    }));
+    // Strict: only A (alias "crew") is matched. Lenient: A shares "crew", C ("Harbour council") shares
+    // "harbour", B ("Passengers") shares nothing, and "Staff" is generic.
+    expect(actorCoverage(gold, names)).toMatchObject({ successes: 1, total: 3 });
+    expect(actorCoverageLenient(gold, names)).toMatchObject({ successes: 2, total: 3 });
   });
 
   it('counts a repeat of an earlier participant, by label or by name words', () => {

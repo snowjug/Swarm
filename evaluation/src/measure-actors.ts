@@ -125,6 +125,29 @@ export function missingVoiceSurfaced(gold: readonly GoldActor[], live: readonly 
   return rateOf(missing.filter((actor) => isCovered(actor, live)).length, missing.length);
 }
 
+const contentWords = (name: string): Set<string> =>
+  new Set(
+    wordsOf(name)
+      .filter((word) => !CONNECTIVES.has(word) && word.length >= 4)
+      .map(singular)
+      .filter((word) => !GENERIC_WORDS.has(word) && !MODIFIER_WORDS.has(word)),
+  );
+
+/**
+ * A lenient reading of coverage, for judging how much the strict one depends on the aliases: a
+ * labelled participant counts as covered when any live name shares a word of four letters or more with
+ * its own name, that is not a generic word. It is an upper bound, and is not compared with a threshold.
+ */
+export function actorCoverageLenient(gold: readonly GoldActor[], live: readonly LiveActor[]): Rate {
+  const labelled = gold.filter((actor) => actor.voice !== 'missing');
+  const liveWords = live.map((actor) => contentWords(actor.name));
+  const covered = labelled.filter((actor) => {
+    const own = contentWords(actor.name);
+    return liveWords.some((words) => [...own].some((word) => words.has(word)));
+  });
+  return rateOf(covered.length, labelled.length);
+}
+
 const nameKey = (name: string): string =>
   [
     ...new Set(

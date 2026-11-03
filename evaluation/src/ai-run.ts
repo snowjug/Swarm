@@ -288,6 +288,10 @@ export function rulesExtras(m: RulesMeasures): string[] {
   const lines: string[] = [
     rateLine('Missing voices surfaced as participants', m.actors.missingVoices),
     rateLine(
+      'Actor coverage read leniently (a live name shares a content word of the labelled name; an upper bound on what the aliases hide)',
+      m.actors.coverageLenient,
+    ),
+    rateLine(
       'Constraints found, any hardness (a quote overlapping the labelled sentence)',
       m.constraints.recall,
     ),
@@ -321,6 +325,9 @@ export function rulesExtras(m: RulesMeasures): string[] {
       c.dispositions.agree,
     ),
     rateLine('Quarantine: right reason for the pages labelled quarantined', c.quarantine.recall),
+    `Quarantine by reason: ${Object.entries(c.quarantine.byReason)
+      .map(([reason, rate]) => `${reason} ${percentOf(rate)}`)
+      .join(', ')}`,
     rateLine('Quarantine: pages labelled used that were set aside', c.quarantine.falseQuarantines),
     rateLine('Classification exact (category and authority as labelled)', c.classification.exact),
     rateLine(
@@ -343,6 +350,10 @@ export function rulesExtras(m: RulesMeasures): string[] {
       'Injected lines left labelled where the label was expected (not dropped)',
       c.injection.labelledAsExpected,
     ),
+    `Critic catch rate by class of flaw: ${Object.entries(m.critics.catches.byClass)
+      .map(([name, rate]) => `${name} ${percentOf(rate)}`)
+      .join(', ')}; missed: ${m.critics.catches.missed.join(', ') || 'none'}`,
+    `Critiques raised on inputs with no planted flaw: ${m.critics.falseAlarms.count} across ${m.critics.falseAlarms.of} controls`,
   ];
   if (m.groups) {
     lines.push(
@@ -370,6 +381,17 @@ export function fakeExtras(m: FakeMeasures): string[] {
     `Provider refusals and filters surfaced as a refusal: ${percentOf(m.refusalsSurfaced)}; other provider failures answered from rules with a valid answer: ${percentOf(m.failuresFellBack)}; a second call refused by the call budget: ${percentOf(m.budgetFellBack)}`,
     `Hardness a model claimed too high that the product accepted: ${percentOf(m.hardnessInflation)}`,
     `Unsafe requests answered when the provider did not block: ${percentOf(m.safety.unscreenedAnswered)}`,
+    `Refusal correctness (blocked and refused, or answered and answered), over every trial: ${percentOf(m.safety.correct)}; by class: ${Object.entries(
+      m.safety.byClass,
+    )
+      .map(([name, rate]) => `${name} ${percentOf(rate)}`)
+      .join(', ')}`,
+    `Flagship runs, tokens and list-price cost (participants, constraints, one critic review): ${m.usage.flagship.perScenario
+      .map(
+        (item) =>
+          `${item.scenario} ${item.tokens.toLocaleString('en-GB')} tokens, $${item.costUsd.toFixed(4)}`,
+      )
+      .join('; ')}`,
     `Provider mechanisms surfaced as refusals: ${Object.entries(m.safety.mechanisms)
       .map(([k, v]) => `${k} ${percentOf(v)}`)
       .join(', ')}`,

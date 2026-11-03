@@ -20,6 +20,7 @@ import { FLAG_LABEL, outcomeMap } from './ai-rules.js';
 import type { Split } from './datasets.js';
 import {
   actorCoverage,
+  actorCoverageLenient,
   actorRedundancy,
   genericNamesAccepted,
   missingVoiceSurfaced,
@@ -137,6 +138,8 @@ export interface RulesMeasures {
   grounding: GroundingMeasures;
   actors: {
     coverage: Rate;
+    /** Any shared content word of the name counts as a match: an upper bound on what the aliases could be hiding. */
+    coverageLenient: Rate;
     missed: { scenario: string; ids: string[] }[];
     missingVoices: Rate;
     redundancy: Rate;
@@ -232,12 +235,14 @@ export function measureRules(
   const repeats: RulesMeasures['actors']['repeats'] = [];
   const genericNames: string[] = [];
   let genericOf = 0;
+  const lenient: Rate[] = [];
   const blocked: Rate[] = [];
   for (const { item, reading } of full) {
     const gold = goldActors(item.scenario);
     const live = reading.participants.value ? liveActors(reading.participants.value) : [];
     const covered = actorCoverage(gold, live);
     coverage.push(covered);
+    lenient.push(actorCoverageLenient(gold, live));
     if (covered.missed.length > 0) missed.push({ scenario: item.scenario.id, ids: covered.missed });
     missingVoices.push(missingVoiceSurfaced(gold, live));
     const repeated = actorRedundancy(gold, live);
@@ -413,6 +418,7 @@ export function measureRules(
     ]),
     actors: {
       coverage: pooled(coverage),
+      coverageLenient: pooled(lenient),
       missed,
       missingVoices: pooled(missingVoices),
       redundancy: pooled(redundancy),
