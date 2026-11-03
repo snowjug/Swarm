@@ -1,16 +1,27 @@
 @layer scenes {
   .sw-composer {
     --glass-radius: var(--r-xl);
+    /* The question is set larger than the rest, and is two lines tall on a narrow screen, where a suggestion needs two;
+       on a wide one a suggestion is shown only when it fits on one, and the field is a line and a half. */
+    --composer-fs: clamp(1.4rem, 1.05rem + 1.1vw, 1.9rem);
+    --lines: 2;
+    --clamp: 2;
     position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: var(--s-3);
-    width: min(54rem, 100%);
+    width: min(var(--ask-w), 100%);
     padding: var(--s-5) var(--s-5) var(--s-3);
     box-shadow: var(--shadow-4);
     transition:
       transform var(--dur-slow) var(--ease-spring-smooth),
       box-shadow var(--dur-slow) var(--ease-out);
+  }
+  @media (min-width: 48rem) {
+    .sw-composer {
+      --lines: 1.5;
+      --clamp: 1;
+    }
   }
   .sw-composer.is-active {
     transform: translateY(-2px);
@@ -54,15 +65,35 @@
   [data-theme='high-contrast'] .sw-composer.is-active {
     outline: 3px solid var(--focus-ring);
   }
+  /* Forced colors take the glass and its lit edge away; the composer is a box that is drawn, in the system's own colour. */
+  @media (forced-colors: active) {
+    .sw-composer {
+      border: 1px solid CanvasText;
+    }
+    .sw-composer__edge {
+      display: none;
+    }
+  }
 
   .sw-composer__field {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .sw-composer__label {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .sw-composer__box {
     position: relative;
-    min-height: 5.2rem;
+    min-height: calc(var(--lines) * 1.28 * var(--composer-fs));
   }
   .sw-composer__input,
   .sw-composer__ghost {
     font-family: var(--font-display);
-    font-size: clamp(1.4rem, 1.05rem + 1.1vw, 1.9rem);
+    font-size: var(--composer-fs);
     line-height: 1.28;
     letter-spacing: -0.012em;
   }
@@ -70,6 +101,7 @@
     display: block;
     position: relative;
     z-index: 1;
+    min-height: calc(var(--lines) * 1.28 * var(--composer-fs));
     color: var(--ink);
     caret-color: var(--accent);
   }
@@ -84,8 +116,8 @@
   .sw-composer__ghost span {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
+    -webkit-line-clamp: var(--clamp);
+    line-clamp: var(--clamp);
     overflow: hidden;
   }
   /* The same lines, out of sight, to know which of them are shown whole at this width. */
@@ -111,14 +143,47 @@
     white-space: nowrap;
   }
 
-  .sw-composer__bar {
+  /* What the person can say beside the question and what they can do with it, in two columns: the site and what research
+     does under it, the time horizon and the way forward under that. One column where there is no room for two. */
+  .sw-composer__lower {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'site horizon'
+      'research actions';
+    align-items: start;
+    gap: var(--s-3) var(--s-6);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-composer__lower > .sw-ask-site {
+    grid-area: site;
+  }
+  .sw-composer__lower > .sw-ask-horizon {
+    grid-area: horizon;
+  }
+  .sw-composer__research {
+    grid-area: research;
+    align-self: center;
+    min-width: 0;
+  }
+  .sw-composer__actions {
+    grid-area: actions;
     display: flex;
-    flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--s-3);
-    padding-top: var(--s-2);
-    border-top: 1px solid var(--hairline);
+    min-width: 0;
+  }
+  @media (max-width: 62rem) {
+    .sw-composer__lower {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        'site'
+        'horizon'
+        'research'
+        'actions';
+    }
   }
   .sw-composer__tools {
     display: flex;
@@ -225,6 +290,10 @@
   @media (max-width: 40rem) {
     .sw-composer {
       padding: var(--s-4) var(--s-4) var(--s-3);
+    }
+    .sw-composer__actions {
+      flex-direction: column;
+      align-items: stretch;
     }
     .sw-composer__go {
       width: 100%;

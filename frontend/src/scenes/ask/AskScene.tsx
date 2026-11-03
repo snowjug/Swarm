@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
 import { Globe, Paperclip, Server, SlidersHorizontal, X } from 'lucide-react';
+import { DEMO_PROJECTS } from '../../../../shared/demo';
 import { SCENARIO_QUESTION_MAX, type ScenarioFrame } from '../../../../shared/scenario';
 import type {
   AppConfig,
@@ -13,39 +14,48 @@ import type {
 import { errorMessage } from '../../api';
 import { SwarmField } from '../../design/ambient';
 import { SPRING } from '../../design/motion';
-import { Button, ChipButton, Notice, Tooltip } from '../../design/ui';
+import { Button, ChipButton, Notice } from '../../design/ui';
 import { useScenarioReading } from '../../hooks/useScenarioReading';
-import { entryInput, validateEntry } from '../../lib/entryValidation';
+import { entryInput } from '../../lib/entryValidation';
 import {
   canRead,
   documentSummaries,
   frameIssues,
   hasContext,
   tidyFrame,
-  withContext,
   withEvidence,
-  type Context,
 } from '../../lib/intake';
-import { POSITIONING_STATEMENT, urlIngestionEnabled } from '../../lib/product';
+import { urlIngestionEnabled } from '../../lib/product';
 import type { UiMode } from '../../lib/mode';
+import { AdvancedPanel, AdvancedToggle, ResearchSwitch } from './Advanced';
+import { capabilityFlags, constraintsEnabled, researchEnabled } from './capabilities';
 import { Composer, Tray } from './Composer';
-import { Assumptions, TimeFrame } from './Context';
+import { HorizonField, SiteField } from './ContextFields';
+import { Assumptions } from './Context';
+import { Credibility } from './Credibility';
+import { Demonstrations } from './Demonstrations';
 import { DocumentSheet } from './DocumentSheet';
 import { EvidenceMenu } from './EvidenceMenu';
-import { JourneyPreview } from './JourneyPreview';
+import { Explainer } from './Explainer';
+import { flowSteps } from './flow';
+import { Footer } from './Footer';
 import { ReadingView } from './ReadingView';
 import { Recents } from './Recents';
+import {
+  classifySite,
+  horizonText,
+  researchIntake,
+  validateIntake,
+  withIntake,
+  type HorizonChoice,
+  type Site,
+} from './research';
 import { useRefocus } from './rows';
 import { ScenarioReview } from './ScenarioReview';
 import { SettingsPopover } from './SettingsPopover';
-import {
-  exampleLabel,
-  OFFERED_EXAMPLES,
-  startingFromExample,
-  startingFromStarter,
-  STARTER,
-  type Starting,
-} from './examples';
+import { Starts } from './Starts';
+import { firstBlank, leftBlank, PROMPTS, type Template } from './templates';
+import type { Starting } from './examples';
 import { firstUrl, samePage, siteOf, type DocumentInput } from './evidence';
 import { useEvidence } from './useEvidence';
 import './AskScene.css';
@@ -88,12 +98,19 @@ const submitKeys = (): string =>
     ? '⌘ ↵'
     : 'Ctrl ↵';
 
-const POOL = [...OFFERED_EXAMPLES.map((example) => example.question), STARTER.question];
+const POOL = PROMPTS;
+
+/** What the website field adds to a sentence about research: nothing, a site, or one page. */
+function startingFrom(site: Site): string {
+  if (site.kind === 'domain') return `, starting from ${site.domain}`;
+  if (site.kind === 'url') return `, starting from a page of ${site.host}`;
+  return '';
+}
 
 /**
  * The first screen and the way into every exploration. One idea: say what change you want to explore.
- * The composer takes the question and the evidence; Swarm reads the question into a scenario you can
- * correct; going on starts the exploration with the evidence. Nothing runs before that.
+ * The composer takes the question, what the person can say beside it, and whether Swarm researches for itself;
+ * Swarm reads the question into a scenario you can correct; going on starts the exploration. Nothing runs before that.
  */
 export function AskScene({
   config,
@@ -123,9 +140,19 @@ export function AskScene({
     initialProject?.settings ?? DEFAULT_SETTINGS,
   );
   const [frame, setFrame] = useState<ScenarioFrame | null>(null);
-  // What the person said before the question was read: how long the effects are judged over, and what to take as given.
-  const [horizon, setHorizon] = useState('');
+  // What the person said beside the question before it was read: how long the effects are judged over, where, what to
+  // take as given, and what research is asked to do.
+  const [horizonChoice, setHorizonChoice] = useState<HorizonChoice>('open');
+  const [horizonCustom, setHorizonCustom] = useState('');
+  const [geography, setGeography] = useState('');
   const [assumed, setAssumed] = useState<string[]>([]);
+  const [researchOn, setResearchOn] = useState(true);
+  const [site, setSite] = useState('');
+  const [siteSeen, setSiteSeen] = useState(false);
+  const [guidance, setGuidance] = useState('');
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // The template whose blanks the question still has to fill, so that a question is not read with "[a team]" in it.
+  const [template, setTemplate] = useState<string | null>(null);
   const [read, setRead] = useState<{
     /** What the reading was made from: a different question, engine, source or context is a different reading. */
     key: string;
@@ -148,10 +175,13 @@ export function AskScene({
 
   const form = useRef<HTMLFormElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const siteInput = useRef<HTMLInputElement>(null);
+  const geographyInput = useRef<HTMLInputElement>(null);
   const title = useRef<HTMLHeadingElement>(null);
   const scene = useRef<HTMLDivElement>(null);
   const evidenceTrigger = useRef<HTMLButtonElement>(null);
   const addEvidenceTrigger = useRef<HTMLButtonElement>(null);
+  const advancedId = useId();
   const removedAt = useRef(0);
   // Going back to the question: the question is not on the page until the review has gone, so focus is asked for
   // here and given when the question arrives.
@@ -186,6 +216,11 @@ export function AskScene({
     disabled: busy || starting,
   });
   const useModel = settings.mode === 'llm';
+  // Research is the server's to do: where it does not, the person's own sources are what a project is made from.
+  const researchAvailable = researchEnabled(config);
+  const researchRuns = researchAvailable && researchOn;
+  const siteKind = useMemo(() => classifySite(site), [site]);
+  const horizon = horizonText(horizonChoice, horizonCustom);
 
   // A source that is taken away takes focus with it: it goes to the source that is now in its place, or to the
   // control that adds one, so that a keyboard is not sent back to the top of the page.
@@ -236,22 +271,54 @@ export function AskScene({
     setNudge((old) => ({ target, key: (old?.key ?? 0) + 1 }));
   }, []);
 
+  /** Whether a finger is the pointer: it would have the keyboard open over what has just been put in the box. */
+  const touching = () => window.matchMedia('(pointer: coarse)').matches;
+  const focusQuestion = () => {
+    if (!touching()) textarea.current?.focus();
+  };
+
+  // A sample case is a question with its own evidence: everything the person had said beside the question goes, as
+  // it did for an example, and research is off, since the sources it brings are the point of it.
   const choose = (starting_: Starting) => {
     setName(starting_.name);
     setQuestion(starting_.question);
+    setTemplate(null);
     setDocuments(starting_.documents);
-    setHorizon('');
+    setHorizonChoice('open');
+    setHorizonCustom('');
+    setGeography('');
     setAssumed([]);
+    setSite('');
+    setSiteSeen(false);
+    setGuidance('');
+    setResearchOn(false);
     setFrame(null);
     setRead(null);
     setLoaded(starting_);
     setError(null);
     reading.clearError();
     setPhase('compose');
-    // With a finger on a phone the keyboard would open over what the example has just brought.
-    if (!window.matchMedia('(pointer: coarse)').matches) {
-      requestAnimationFrame(() => textarea.current?.focus());
-    }
+  };
+
+  // A template only fills the box, and selects its first blank so that the next words replace it.
+  const useTemplate = (chosen: Template) => {
+    setQuestion(chosen.question);
+    setTemplate(chosen.question);
+    setError(null);
+    reading.clearError();
+    if (touching()) return;
+    requestAnimationFrame(() => {
+      const box = textarea.current;
+      if (!box) return;
+      box.focus();
+      const blank = firstBlank(chosen.question);
+      if (blank) box.setSelectionRange(blank[0], blank[1]);
+    });
+  };
+  const startFromNothing = () => {
+    if (template !== null && question === template) setQuestion('');
+    setTemplate(null);
+    focusQuestion();
   };
 
   const explore = async () => {
@@ -264,18 +331,39 @@ export function AskScene({
       textarea.current?.focus();
       return;
     }
-    if (documents.length === 0) {
+    const blank = template === null ? null : leftBlank(question, template);
+    if (blank) {
+      setError(`Replace ${blank} with your own words.`);
+      poke('question');
+      const box = textarea.current;
+      box?.focus();
+      const at = box ? question.indexOf(blank) : -1;
+      if (box && at >= 0) box.setSelectionRange(at, at + blank.length);
+      return;
+    }
+    if (researchRuns && siteKind.kind === 'unclear') {
+      setSiteSeen(true);
+      siteInput.current?.focus();
+      return;
+    }
+    if (documents.length === 0 && !researchRuns) {
       setError('Add a source to ground it: a file, pasted notes or a public page.');
       poke('evidence');
       setEvidenceOpen(true);
       return;
     }
-    const context: Context = { horizon, assumptions: assumed };
     // What a reading is made from: the question, who reads it, what each source tells the reader of itself, and what
     // the person said. A reading whose sources have changed since is a different reading, and is made again; one
     // whose inputs are all as they were stays, with the person's own corrections of it.
     const sources = documentSummaries(documents);
-    const key = JSON.stringify([question.trim(), useModel, sources, horizon.trim(), assumed]);
+    const key = JSON.stringify([
+      question.trim(),
+      useModel,
+      sources,
+      horizon.trim(),
+      geography.trim(),
+      assumed,
+    ]);
     if (frame && read && read.key === key) {
       setPhase('review');
       return;
@@ -284,20 +372,30 @@ export function AskScene({
     const result = await reading.read(question.trim(), sources, useModel);
     if (!result) return;
     wantsRetry.current = false;
-    setFrame(withContext(result.frame, context));
+    setFrame(withIntake(result.frame, { horizon, geography, assumptions: assumed }));
     setRead({ key, mode: result.mode, model: result.model, notes: result.notes });
     setPhase('review');
   };
 
   const start = async (withFrame: ScenarioFrame | null) => {
-    const parsed = validateEntry(
-      entryInput({
-        name,
-        question,
-        documents,
-        settings,
-        frame: withFrame ? tidyFrame(withEvidence(withFrame, documents)) : null,
-      }),
+    const parsed = validateIntake(
+      {
+        ...entryInput({
+          name,
+          question,
+          documents,
+          settings,
+          frame: withFrame ? tidyFrame(withEvidence(withFrame, documents)) : null,
+        }),
+        research: researchIntake({
+          auto: researchRuns,
+          site: siteKind,
+          horizon,
+          geography,
+          guidance,
+        }),
+      },
+      { withoutSources: researchRuns },
     );
     if (parsed.error) {
       setError(parsed.error);
@@ -314,8 +412,20 @@ export function AskScene({
   };
 
   // Only one thing in the page is the page's heading, and it changes with the phase.
-  const heading = phase === 'review' ? 'Your scenario' : 'Explore what could happen next.';
-  const missingSource = asked && documents.length === 0;
+  const heading = phase === 'review' ? 'Your scenario' : 'See how a decision could unfold.';
+  const missingSource = asked && documents.length === 0 && !researchRuns;
+  const advancedSet =
+    (geography.trim() ? 1 : 0) + (guidance.trim() ? 1 : 0) + (assumed.length > 0 ? 1 : 0);
+  const flags = capabilityFlags(config);
+  const steps = useMemo(
+    () => flowSteps({ research: researchRuns, constraints: constraintsEnabled(config) }),
+    [researchRuns, config],
+  );
+  // The recorded demonstration is offered only when this workspace holds it.
+  const recording =
+    DEMO_PROJECTS.find(
+      (demo) => demo.role === 'base' && history.projects?.some((project) => project.id === demo.id),
+    ) ?? null;
 
   const evidenceButton = (
     <Button
@@ -378,19 +488,30 @@ export function AskScene({
           </m.div>
         )}
       </AnimatePresence>
-      <h1
-        ref={title}
-        tabIndex={-1}
-        className={phase === 'review' || slow ? 'sr-only' : 'sw-ask__title sw-hero'}
-      >
-        {phase === 'review' || slow ? (
-          heading
-        ) : (
-          <>
-            Explore what could <em>happen</em> next.
-          </>
+      <div className="sw-ask-hero">
+        <h1
+          ref={title}
+          tabIndex={-1}
+          className={phase === 'review' || slow ? 'sr-only' : 'sw-ask__title sw-hero'}
+        >
+          {phase === 'review' || slow ? (
+            heading
+          ) : (
+            <>
+              See how a decision could <em>unfold</em>.
+            </>
+          )}
+        </h1>
+        {phase === 'compose' && !slow && (
+          <p
+            className="sw-ask-hero__lead sw-lead sw-rise"
+            style={{ '--i': 1 } as React.CSSProperties}
+          >
+            Swarm researches the context, maps who matters, simulates reactions, and shows possible
+            paths forward.
+          </p>
         )}
-      </h1>
+      </div>
 
       <AnimatePresence mode="wait" initial={false}>
         {slow ? (
@@ -419,10 +540,6 @@ export function AskScene({
             animate={{ opacity: 1, y: 0, transition: SPRING.gentle }}
             exit={{ opacity: 0, y: -14, transition: { duration: 0.16 } }}
           >
-            <p className="sw-ask__lead sw-lead sw-rise" style={{ '--i': 1 } as React.CSSProperties}>
-              What change do you want to explore?
-            </p>
-
             <div className="sw-ask__composer sw-rise" style={{ '--i': 2 } as React.CSSProperties}>
               <Composer
                 ref={form}
@@ -473,14 +590,53 @@ export function AskScene({
                     </m.div>
                   ) : null
                 }
+                context={
+                  <>
+                    <SiteField
+                      ref={siteInput}
+                      value={site}
+                      site={siteKind}
+                      onChange={(value) => {
+                        setSite(value);
+                        setSiteSeen(false);
+                      }}
+                      seen={siteSeen}
+                      onSeen={() => setSiteSeen(true)}
+                      disabled={busy || starting}
+                      active={researchRuns}
+                    />
+                    <HorizonField
+                      choice={horizonChoice}
+                      custom={horizonCustom}
+                      onChoice={setHorizonChoice}
+                      onCustom={setHorizonCustom}
+                      disabled={busy || starting}
+                    />
+                  </>
+                }
+                research={
+                  <ResearchSwitch
+                    available={researchAvailable}
+                    on={researchOn}
+                    onChange={setResearchOn}
+                    disabled={busy || starting}
+                  />
+                }
                 tools={
                   <>
                     {evidenceMenu}
-                    <TimeFrame value={horizon} onChange={setHorizon} disabled={busy || starting} />
-                    <Assumptions
-                      items={assumed}
-                      onChange={setAssumed}
-                      disabled={busy || starting}
+                    <AdvancedToggle
+                      open={advancedOpen}
+                      onToggle={(keyboard) => {
+                        setAdvancedOpen((open) => !open);
+                        // The fields that open are after the button that was pressed, and the way forward comes
+                        // between them in the page: a keyboard is taken into them, a pointer is not moved.
+                        if (keyboard && !advancedOpen) {
+                          requestAnimationFrame(() => geographyInput.current?.focus());
+                        }
+                      }}
+                      controls={advancedId}
+                      count={advancedSet}
                     />
                     <SettingsPopover
                       config={config}
@@ -496,12 +652,31 @@ export function AskScene({
                           size="sm"
                           icon={<SlidersHorizontal size={16} aria-hidden="true" />}
                           aria-label="Options"
-                        >
-                          <span className="sw-hide-sm">Options</span>
-                        </Button>
+                          title="Options"
+                        />
                       }
                     />
                   </>
+                }
+                panel={
+                  <AdvancedPanel
+                    id={advancedId}
+                    open={advancedOpen}
+                    geography={geography}
+                    geographyRef={geographyInput}
+                    onGeography={setGeography}
+                    guidance={guidance}
+                    onGuidance={setGuidance}
+                    researchOn={researchRuns}
+                    disabled={busy || starting}
+                    assumptions={
+                      <Assumptions
+                        items={assumed}
+                        onChange={setAssumed}
+                        disabled={busy || starting}
+                      />
+                    }
+                  />
                 }
                 note={
                   <>
@@ -563,8 +738,9 @@ export function AskScene({
                     }
                   >
                     {reading.error ?? error}
-                    {reading.error && hasContext({ horizon, assumptions: assumed })
-                      ? ' Without a reading, the time frame and assumptions you gave are not kept.'
+                    {reading.error &&
+                    (hasContext({ horizon, assumptions: assumed }) || geography.trim())
+                      ? ' Without a reading, the time frame, place and assumptions you gave are not kept.'
                       : ''}
                   </Notice>
                 )}
@@ -587,53 +763,35 @@ export function AskScene({
                 </ChipButton>
               </div>
             ) : (
-              <ul
-                className="sw-ask__starts sw-rise"
-                style={{ '--i': 3 } as React.CSSProperties}
-                aria-label="Start from an example"
-              >
-                {OFFERED_EXAMPLES.map((example) => (
-                  <li key={example.id}>
-                    <Tooltip label={example.blurb}>
-                      <button
-                        type="button"
-                        className="sw-ask__start"
-                        disabled={disabled}
-                        onClick={() => choose(startingFromExample(example))}
-                      >
-                        {exampleLabel(example)}
-                      </button>
-                    </Tooltip>
-                  </li>
-                ))}
-                <li>
-                  <Tooltip label={STARTER.blurb}>
-                    <button
-                      type="button"
-                      className="sw-ask__start sw-ask__start--quiet"
-                      disabled={disabled}
-                      onClick={() => choose(startingFromStarter())}
-                    >
-                      {STARTER.label}
-                    </button>
-                  </Tooltip>
-                </li>
-              </ul>
+              <div className="sw-ask__block sw-rise" style={{ '--i': 3 } as React.CSSProperties}>
+                <Starts disabled={disabled} onTemplate={useTemplate} onCustom={startFromNothing} />
+              </div>
             )}
 
-            <p
-              className="sw-ask__statement sw-caption sw-rise"
-              style={{ '--i': 4 } as React.CSSProperties}
-            >
-              {POSITIONING_STATEMENT}
-            </p>
+            <div className="sw-ask__block sw-rise" style={{ '--i': 4 } as React.CSSProperties}>
+              <Explainer steps={steps} />
+            </div>
+            <div className="sw-ask__block sw-rise" style={{ '--i': 5 } as React.CSSProperties}>
+              <Credibility flags={flags} />
+            </div>
+            <div className="sw-ask__block sw-rise" style={{ '--i': 6 } as React.CSSProperties}>
+              <Footer
+                demonstrations={
+                  <Demonstrations
+                    recording={recording}
+                    disabled={disabled}
+                    onRecording={() => recording && onOpenProject(recording.id)}
+                    onSample={choose}
+                    onFocusQuestion={focusQuestion}
+                  />
+                }
+              />
+            </div>
             {initialProject && (
               <p className="sw-ask__copied sw-caption">
                 Only the question, evidence and settings were copied. Nothing that was run.
               </p>
             )}
-
-            <JourneyPreview />
           </m.div>
         ) : (
           frame && (
@@ -661,6 +819,12 @@ export function AskScene({
                 onContinue={() => void start(frame)}
                 evidence={
                   <div className="sw-ask__evidence">
+                    {researchRuns && (
+                      <p className="sw-ask__research sw-caption">
+                        Automatic research is on. After you continue, Swarm looks for public sources
+                        {startingFrom(siteKind)}, and lists every page it reads.
+                      </p>
+                    )}
                     <Tray
                       documents={documents}
                       disabled={starting}

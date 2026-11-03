@@ -1,5 +1,7 @@
 @layer scenes {
   .sw-ask {
+    /* The width of the column the first screen is set in: the composer, and what is under it. */
+    --ask-w: 58rem;
     position: relative;
     display: grid;
     /* One column that is never wider than the screen: a row that scrolls (the examples, the sources) must not
@@ -7,9 +9,9 @@
     grid-template-columns: minmax(0, 1fr);
     justify-items: center;
     align-content: start;
-    gap: var(--s-4);
+    gap: var(--s-5);
     min-height: calc(100dvh - var(--topbar-h));
-    padding: clamp(2rem, 7vh, 5.5rem) var(--gutter) var(--s-8);
+    padding: clamp(1rem, 4.5vh, 3.25rem) var(--gutter) var(--s-8);
     overflow-x: clip;
   }
   /* The signature field is drawn over the first screenful and no more. Its box does not follow the height of the page:
@@ -22,17 +24,35 @@
     height: 100vh;
     height: 100lvh;
     pointer-events: none;
-    -webkit-mask-image: linear-gradient(180deg, black 46%, transparent 72%);
-    mask-image: linear-gradient(180deg, black 46%, transparent 72%);
+    -webkit-mask-image: linear-gradient(180deg, black 40%, transparent 66%);
+    mask-image: linear-gradient(180deg, black 40%, transparent 66%);
+  }
+  .sw-ask-hero {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: var(--s-3);
+    width: 100%;
+    text-align: center;
   }
   .sw-ask__title {
     position: relative;
     max-width: 18ch;
     text-align: center;
-    /* Scales with the width and the height of the screen, so that the composer and the path stay in the first view on
-       a short laptop and the question is large on a big monitor. */
-    font-size: clamp(2.9rem, min(1.3rem + 6.2vw, 12vh), 8rem);
+    /* Scales with the width and the height of the screen, so that the composer stays in the first view on a short
+       laptop and the question is large on a big monitor. On a wide screen it is one line. */
+    font-size: clamp(2.6rem, min(1rem + 4.6vw, 11vh), 6.5rem);
     animation: sw-rise var(--dur-cinema) var(--ease-out) both;
+  }
+  @media (min-width: 48rem) {
+    .sw-ask__title {
+      max-width: 40ch;
+    }
+  }
+  .sw-ask-hero__lead {
+    max-width: min(60rem, 100%);
+    font-size: clamp(1rem, 0.92rem + 0.35vw, 1.1875rem);
+    text-wrap: balance;
   }
   .sw-ask__title em {
     padding: 0 0.04em;
@@ -82,9 +102,11 @@
     justify-items: stretch;
     max-width: 48rem;
   }
-  .sw-ask__lead {
-    margin-top: calc(var(--s-1) * -1);
-    text-align: center;
+  /* A large monitor: the column grows a little, with the heading, so that the screen is not a small card in the middle. */
+  @media (min-width: 100rem) {
+    .sw-ask {
+      --ask-w: 64rem;
+    }
   }
   .sw-ask__composer {
     display: grid;
@@ -92,8 +114,14 @@
     gap: var(--s-3);
     width: 100%;
   }
+  /* A block of the first screen under the composer: as wide as the screen, with what is in it in the middle. */
+  .sw-ask__block {
+    display: grid;
+    justify-items: center;
+    width: 100%;
+  }
   .sw-ask__status {
-    width: min(54rem, 100%);
+    width: min(var(--ask-w), 100%);
     min-height: 0;
   }
   .sw-ask__actions {
@@ -254,13 +282,33 @@
     justify-content: center;
     min-width: 0;
   }
-  .sw-ask__statement {
-    max-width: 44ch;
-    text-align: center;
+  .sw-ask-starts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-2) var(--s-3);
+    max-width: min(76rem, 100%);
+  }
+  .sw-ask-starts__lead {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    white-space: nowrap;
+  }
+  @media (max-width: 40rem) {
+    .sw-ask-starts {
+      display: grid;
+      justify-items: center;
+      max-width: 100%;
+    }
   }
   .sw-ask__copied {
     max-width: 44ch;
     text-align: center;
+  }
+  /* In the review, where the sources would be: what research does, said where it would be looked for. */
+  .sw-ask__research {
+    flex: 0 0 100%;
   }
 
   .sw-ask__echo {
@@ -281,16 +329,24 @@
   }
   .sw-ask__recents {
     width: 100%;
-    margin-top: var(--s-7);
+    margin-top: var(--s-6);
   }
-  /* A short laptop screen: the whole first view is one composition, so the margins give a little. */
-  @media (max-height: 820px) and (min-width: 62rem) {
+  /* A laptop screen: the whole first view is one composition, so the margins give a little. */
+  @media (max-height: 940px) and (min-width: 62rem) {
     .sw-ask {
-      padding-top: clamp(1.25rem, 3.5vh, 2.5rem);
-      gap: var(--s-3);
+      padding-top: clamp(0.75rem, 2.5vh, 2rem);
+      gap: var(--s-4);
     }
     .sw-ask__stage {
       gap: var(--s-4);
+    }
+  }
+  @media (max-height: 820px) and (min-width: 62rem) {
+    .sw-ask {
+      gap: var(--s-3);
+    }
+    .sw-ask__stage {
+      gap: var(--s-3);
     }
   }
 

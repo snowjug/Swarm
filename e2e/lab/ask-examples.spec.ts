@@ -9,22 +9,24 @@ import {
   chooseExample,
   chooseStarter,
   exampleSummary,
-  examplesList,
   exploreButton,
   expectAttached,
   groundIt,
   openAsk,
+  openSamples,
   pill,
   questionBox,
   readScenario,
   recordRequests,
+  templatesList,
   textOf,
   tray,
 } from '../support/ask';
 
-// The examples are a question and some evidence, and nothing else: no scenario, no stakeholders, no result comes with
-// one. Choosing one fills the composer; everything after is made by the code that handles any other question. Rules
-// mode. Motion is reduced so that nothing is measured while it moves.
+// The sample cases are a question and some evidence, and nothing else: no scenario, no stakeholders, no result comes
+// with one. Choosing one fills the composer; everything after is made by the code that handles any other question.
+// The templates are a sentence with blanks and no evidence at all. Rules mode. Motion is reduced so that nothing is
+// measured while it moves.
 
 test.use({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
 
@@ -39,7 +41,7 @@ const note = (page: Parameters<typeof openAsk>[0], title: string) =>
 
 const wordsOf = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}$-]+/gu) ?? [];
 
-test.describe('every example', () => {
+test.describe('every sample case', () => {
   for (const example of EXAMPLES) {
     test(`"${chipName(example)}" brings its own question and every one of its sources, and says what came with it`, async ({
       page,
@@ -56,11 +58,11 @@ test.describe('every example', () => {
       );
       await expectAttached(page, example.documents.length);
 
-      // What came with it is said under the composer, and the chips make way for that line.
+      // What came with it is said under the composer, and the templates make way for that line.
       await expect(note(page, example.title)).toHaveText(
         `${example.title} · ${exampleSummary(example)}`,
       );
-      await expect(examplesList(page)).toHaveCount(0);
+      await expect(templatesList(page)).toHaveCount(0);
 
       // The keyboard is where the person writes, so that the question can be changed at once.
       await expect(questionBox(page)).toBeFocused();
@@ -86,21 +88,44 @@ test.describe('every example', () => {
       /Fictional starter input — not a real case/u,
     );
   });
+
+  test('they are described as sample cases, with invented evidence, and not as recordings', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    const dialog = await openSamples(page);
+    await expect(dialog.getByRole('heading', { name: 'Sample cases' })).toBeVisible();
+    await expect(dialog).toContainText('None of it describes a real case');
+    // Each one says in a line what it is about, which is also its description for a screen reader.
+    for (const example of EXAMPLES) {
+      await expect(
+        dialog.getByRole('button', { name: chipName(example), exact: true }),
+      ).toHaveAccessibleDescription(example.blurb);
+    }
+  });
+
+  test('they bring their own sources, so automatic research is off for them, and says so', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await chooseExample(page, EXAMPLES[0]!);
+    await expect(page.getByRole('switch', { name: /^Research automatically/u })).not.toBeChecked();
+  });
 });
 
 test.describe('changing the mind', () => {
-  test('the line that says what came with an example is dismissed, and the chips come back with the question and sources kept', async ({
+  test('the line that says what came with a sample case is dismissed, and the templates come back with the question and sources kept', async ({
     page,
   }) => {
     await openAsk(page);
     await chooseExample(page, EXAMPLES[0]!);
     await note(page, EXAMPLES[0]!.title).click();
-    await expect(examplesList(page).getByRole('listitem')).toHaveCount(EXAMPLES.length + 1);
+    await expect(templatesList(page).getByRole('listitem')).toHaveCount(7);
     await expect(questionBox(page)).toHaveValue(EXAMPLES[0]!.question);
     await expect(tray(page).getByRole('listitem')).toHaveCount(EXAMPLES[0]!.documents.length);
   });
 
-  test('another example takes the place of the first: its question, its sources, and nothing of the first', async ({
+  test('another sample case takes the place of the first: its question, its sources, and nothing of the first', async ({
     page,
   }) => {
     await openAsk(page);
@@ -116,7 +141,7 @@ test.describe('changing the mind', () => {
     await expect(note(page, EXAMPLES[0]!.title)).toHaveCount(0);
   });
 
-  test('an example changes what was written before it, and the person can write over what it brought', async ({
+  test('a sample case changes what was written before it, and the person can write over what it brought', async ({
     page,
   }) => {
     await openAsk(page);
@@ -134,37 +159,97 @@ test.describe('changing the mind', () => {
     expect(((await parsed).postDataJSON() as { question: string }).question).toBe(own);
   });
 
-  test('is chosen from the keyboard: Tab to a chip and Enter', async ({ page }) => {
-    await openAsk(page);
-    const chip = examplesList(page).getByRole('button', {
-      name: chipName(EXAMPLES[3]!),
-      exact: true,
-    });
-    await chip.focus();
-    await page.keyboard.press('Enter');
-    await expect(questionBox(page)).toHaveValue(EXAMPLES[3]!.question);
-    await expect(questionBox(page)).toBeFocused();
-  });
-
-  test('says on a chip, when it is pointed at or focused, what the example is about', async ({
+  test('a sample case is chosen from the keyboard: Tab to the link, Enter, an arrow to a case and Enter', async ({
     page,
   }) => {
     await openAsk(page);
-    const chip = examplesList(page).getByRole('button', {
-      name: chipName(EXAMPLES[0]!),
-      exact: true,
-    });
-    await chip.hover();
-    await expect(page.getByRole('tooltip').first()).toContainText(EXAMPLES[0]!.blurb);
-    // Pointed away, with a few moves as a hand makes them: the tooltip that opens above a chip covers the composer.
-    await page.mouse.move(2, 2, { steps: 8 });
-    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    const link = page.getByRole('button', { name: /^Try a sample case$/u });
+    await link.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: 'Try a sample case' });
+    await expect(dialog).toBeVisible();
+    const chip = dialog.getByRole('button', { name: chipName(EXAMPLES[3]!), exact: true });
     await chip.focus();
-    await expect(page.getByRole('tooltip').first()).toContainText(EXAMPLES[0]!.blurb);
+    await page.keyboard.press('Enter');
+    await expect(dialog).toBeHidden();
+    await expect(questionBox(page)).toHaveValue(EXAMPLES[3]!.question);
+    // Not back on the link that opened the list: where the person writes.
+    await expect(questionBox(page)).toBeFocused();
+  });
+
+  test('closing the sample cases with Escape changes nothing and gives the keyboard back to the link', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await openSamples(page);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', { name: 'Try a sample case' })).toBeHidden();
+    await expect(page.getByRole('button', { name: /^Try a sample case$/u })).toBeFocused();
+    await expect(questionBox(page)).toHaveValue('');
+    await expect(tray(page)).toHaveCount(0);
   });
 });
 
-test.describe('what is made of an example', () => {
+test.describe('the templates', () => {
+  const chip = (page: Parameters<typeof openAsk>[0], name: string) =>
+    templatesList(page).getByRole('button', { name, exact: true });
+
+  test('fill the box with a sentence to write over, select its first blank, and bring no evidence and no figure', async ({
+    page,
+  }) => {
+    const made = recordRequests(page);
+    await openAsk(page);
+    await chip(page, 'Market entry').click();
+    const template =
+      'What could happen if we enter [a market, region or community] with [an offer]?';
+    await expect(questionBox(page)).toHaveValue(template);
+    await expect(questionBox(page)).toBeFocused();
+    expect(
+      await questionBox(page).evaluate((box: HTMLTextAreaElement) =>
+        box.value.slice(box.selectionStart, box.selectionEnd),
+      ),
+    ).toBe('[a market, region or community]');
+    await expect(tray(page)).toHaveCount(0);
+    await expectAttached(page, 0);
+    expect(apiCalls(made).filter((call) => !call.startsWith('GET '))).toEqual([]);
+
+    // The next words replace the blank that was selected.
+    await page.keyboard.type('a coastal region');
+    await expect(questionBox(page)).toHaveValue(
+      'What could happen if we enter a coastal region with [an offer]?',
+    );
+  });
+
+  test('are not read until their blanks are replaced: the person is told which blank is left', async ({
+    page,
+  }) => {
+    const made = recordRequests(page);
+    await openAsk(page);
+    await chip(page, 'AI adoption').click();
+    await exploreButton(page).click();
+    await expect(
+      page.getByRole('main').getByRole('status').or(page.getByRole('main').getByRole('alert')),
+    ).toContainText('Replace [a team] with your own words.');
+    await expect(questionBox(page)).toBeFocused();
+    expect(apiCalls(made).filter((call) => !call.startsWith('GET '))).toEqual([]);
+  });
+
+  test('"Custom" is the way to start from nothing: it clears a template that was not touched, and keeps what was written', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await chip(page, 'Policy change').click();
+    await chip(page, 'Custom').click();
+    await expect(questionBox(page)).toHaveValue('');
+    await expect(questionBox(page)).toBeFocused();
+
+    await questionBox(page).fill('What if the town closes the harbour to cars?');
+    await chip(page, 'Custom').click();
+    await expect(questionBox(page)).toHaveValue('What if the town closes the harbour to cars?');
+  });
+});
+
+test.describe('what is made of a sample case', () => {
   test('is read into a scenario about its own question, and the same reading serves each example', async ({
     page,
   }) => {

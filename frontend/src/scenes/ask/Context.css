@@ -7,11 +7,6 @@
     margin: 0;
     color: var(--ink-2);
   }
-  .sw-ctx__presets {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-2);
-  }
   .sw-ctx__foot {
     display: flex;
     justify-content: flex-end;
@@ -40,17 +35,6 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--s-2);
     align-items: start;
-  }
-  .sw-ctx__value {
-    display: inline-block;
-    max-width: 9rem;
-    margin-inline-start: 0.35rem;
-    overflow: hidden;
-    vertical-align: bottom;
-    color: var(--accent);
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   /* Said, and kept: the glyph takes the accent, and on a phone, where the words are not shown, a point says it too. */
   .sw-btn.is-set svg {

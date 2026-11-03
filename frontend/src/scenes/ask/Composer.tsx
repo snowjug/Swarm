@@ -174,7 +174,13 @@ export interface ComposerProps {
   tray: ReactNode;
   /** What the question brought up that can be done with it (a page it names), below the field while there is one. */
   suggestion?: ReactNode;
+  /** What the person can say beside the question: the website it concerns and how far ahead it looks. */
+  context: ReactNode;
+  /** Whether Swarm researches for itself, which is the one thing it does that the person did not ask for by name. */
+  research: ReactNode;
   tools: ReactNode;
+  /** What opens under the foot of the composer (the advanced fields). */
+  panel?: ReactNode;
   note?: ReactNode;
   onSubmit: () => void;
   onFocusChange: (focused: boolean) => void;
@@ -213,6 +219,18 @@ export const Composer = forwardRef<HTMLFormElement, ComposerProps>(function Comp
       onSubmit={submit}
       noValidate
       aria-busy={busy || undefined}
+      // From any field of the composer. What is drawn in a portal (a menu, a sheet) is inside this form for React and
+      // outside it for the page, so only a key that was pressed in the composer itself asks.
+      onKeyDown={(event) => {
+        if (
+          event.key === 'Enter' &&
+          (event.metaKey || event.ctrlKey) &&
+          event.currentTarget.contains(event.target as Node)
+        ) {
+          event.preventDefault();
+          if (!disabled) props.onSubmit();
+        }
+      }}
       onFocus={() => {
         setFocused(true);
         props.onFocusChange(true);
@@ -242,48 +260,51 @@ export const Composer = forwardRef<HTMLFormElement, ComposerProps>(function Comp
     >
       <span className="sw-composer__edge" aria-hidden="true" />
       <div className="sw-composer__field">
-        <Prompts questions={props.pool} visible={question.length === 0} />
-        <Textarea
-          bare
-          id="swarm-question"
-          ref={props.textareaRef}
-          className="sw-composer__input"
-          aria-label="Your what-if question"
-          aria-describedby={props.describedBy}
-          aria-invalid={props.invalid || undefined}
-          rows={2}
-          maxRows={9}
-          maxLength={2000}
-          disabled={disabled}
-          value={question}
-          onChange={(event) => props.onQuestion(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              if (!disabled) props.onSubmit();
-            }
-          }}
-        />
+        <label className="sw-composer__label" htmlFor="swarm-question">
+          Your what-if question
+        </label>
+        <div className="sw-composer__box">
+          <Prompts questions={props.pool} visible={question.length === 0} />
+          <Textarea
+            bare
+            id="swarm-question"
+            ref={props.textareaRef}
+            className="sw-composer__input"
+            aria-describedby={props.describedBy}
+            aria-invalid={props.invalid || undefined}
+            rows={1}
+            maxRows={9}
+            maxLength={2000}
+            disabled={disabled}
+            value={question}
+            onChange={(event) => props.onQuestion(event.target.value)}
+          />
+        </div>
       </div>
       <AnimatePresence initial={false}>{props.suggestion}</AnimatePresence>
       {props.tray}
-      <div className="sw-composer__bar">
-        <div className="sw-composer__tools">{props.tools}</div>
-        <div className="sw-composer__go">
-          {props.note}
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            busy={busy}
-            busyLabel="Reading your question"
-            disabled={disabled && !busy}
-            iconEnd={<ArrowRight size={18} aria-hidden="true" />}
-          >
-            {props.submitLabel ?? 'Explore'}
-          </Button>
+      <div className="sw-composer__lower">
+        {props.context}
+        <div className="sw-composer__research">{props.research}</div>
+        <div className="sw-composer__actions">
+          <div className="sw-composer__tools">{props.tools}</div>
+          <div className="sw-composer__go">
+            {props.note}
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              busy={busy}
+              busyLabel="Reading your question"
+              disabled={disabled && !busy}
+              iconEnd={<ArrowRight size={18} aria-hidden="true" />}
+            >
+              {props.submitLabel ?? 'Explore'}
+            </Button>
+          </div>
         </div>
       </div>
+      {props.panel}
       <AnimatePresence>
         {props.dropping && (
           <m.div

@@ -20,6 +20,7 @@ export function Surface({
   open,
   onOpenChange,
   width,
+  onCloseAutoFocus,
   children,
 }: {
   title: string;
@@ -28,6 +29,8 @@ export function Surface({
   onOpenChange?: (open: boolean) => void;
   /** How wide the popover is on a larger screen. */
   width: string;
+  /** Where focus goes when the popover closes, if not back to `trigger`. A sheet always gives it back. */
+  onCloseAutoFocus?: (event: Event) => void;
   children: ReactNode;
 }) {
   const phone = useMediaQuery('(max-width: 40rem)');
@@ -44,7 +47,12 @@ export function Surface({
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent width={width} align="start" aria-label={title}>
+      <PopoverContent
+        width={width}
+        align="start"
+        aria-label={title}
+        onCloseAutoFocus={onCloseAutoFocus}
+      >
         {children}
       </PopoverContent>
     </Popover>

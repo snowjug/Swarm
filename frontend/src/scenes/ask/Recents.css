@@ -2,7 +2,7 @@
   .sw-recents {
     display: grid;
     gap: var(--s-3);
-    width: min(54rem, 100%);
+    width: min(var(--ask-w, 54rem), 100%);
     margin: 0 auto;
   }
   .sw-recents__head {

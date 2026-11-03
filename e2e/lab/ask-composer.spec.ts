@@ -15,7 +15,11 @@ import {
   HARBOUR_QUESTION,
   HEADING,
   POSITIONING,
+  PROMPTS,
   READS_AT_OPEN,
+  SUPPORT_LINE,
+  TAGLINE,
+  advancedButton,
   apiCalls,
   asked,
   assumptionsButton,
@@ -23,20 +27,24 @@ import {
   bar,
   chipName,
   chooseExample,
+  chooseHorizon,
   chooseStarter,
   closeEvidence,
   createProject,
+  demonstrationLink,
   evidenceButton,
   evidenceDialog,
-  examplesList,
   exploreButton,
   expectAttached,
+  expectHorizon,
   expectNothingClipped,
   focusedElement,
   goOn,
   groundIt,
+  openAdvanced,
   openAsk,
   openEvidence,
+  openSamples,
   optionsButton,
   part,
   pasteSource,
@@ -44,11 +52,13 @@ import {
   questionBox,
   readScenario,
   recordRequests,
+  researchSwitch,
   reviewHarbour,
   reviewHeading,
   scenarioOf,
+  siteBox,
+  templatesList,
   textOf,
-  timeFrameButton,
   tray,
 } from '../support/ask';
 
@@ -62,7 +72,7 @@ const writes = (made: Parameters<typeof apiCalls>[0]): string[] =>
   apiCalls(made).filter((call) => !call.startsWith('GET '));
 
 test.describe('the first screen', () => {
-  test('says in one heading what Swarm is for, asks one question, and offers the way forward', async ({
+  test('says in one heading what Swarm is for, in one sentence what it does, asks one question, and offers the way forward', async ({
     page,
   }) => {
     const problems = watchPage(page);
@@ -70,67 +80,85 @@ test.describe('the first screen', () => {
 
     await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(HEADING);
-    await expect(
-      page.getByText('What change do you want to explore?', { exact: true }),
-    ).toBeVisible();
+    await expect(page.getByText(SUPPORT_LINE, { exact: true })).toBeVisible();
     await expect(page).toHaveTitle('Swarm | Explore what could happen next');
 
-    // The one question box, empty, with the three things that can be done beside it.
+    // The one question box, empty, with what can be done with it beside it.
     await expect(questionBox(page)).toBeVisible();
     await expect(questionBox(page)).toBeEditable();
     await expect(questionBox(page)).toHaveValue('');
     await expect(questionBox(page)).toBeInViewport({ ratio: 1 });
     await expectAttached(page, 0);
     await expect(optionsButton(page)).toBeVisible();
+    await expect(advancedButton(page)).toHaveAttribute('aria-expanded', 'false');
     await expect(exploreButton(page)).toBeInViewport({ ratio: 1 });
     await expect(exploreButton(page)).toBeEnabled();
+
+    // On this server nothing researches for itself: the switch is off and out of reach, and says why in one line; the
+    // website is for research, so the field is out of reach too. Not saying a time frame is the choice that is made.
+    await expect(researchSwitch(page)).toBeDisabled();
+    await expect(researchSwitch(page)).not.toBeChecked();
+    await expect(page.getByText('Off on this server. Attach your own sources.')).toBeVisible();
+    await expect(siteBox(page)).toBeDisabled();
+    await expect(page.getByRole('radio', { name: 'Not sure' })).toBeChecked();
 
     // Nothing is attached, and no project is open: there is no journey to follow yet.
     await expect(tray(page)).toHaveCount(0);
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
     await expect(page).not.toHaveURL(/[?&](?:project|scene)=/u);
 
-    // The whole path is promised, in order, as a list that is not a control.
+    // The way from a question to a decision, in order, as a list of steps that open; the first is open.
     const path = page.getByRole('list', { name: 'How Swarm works' });
-    await expect(path.getByRole('listitem')).toHaveCount(6);
-    await expect(path.getByRole('listitem').locator('strong')).toHaveText([
-      'Ask',
-      'Ground',
-      'Map',
-      'Simulate',
-      'Compare',
-      'Decide',
-    ]);
-    await expect(path.getByRole('button')).toHaveCount(0);
+    await expect(path.getByRole('listitem')).toHaveCount(5);
+    const names = ['Question', 'Research', 'People', 'Possible futures', 'Decision'];
+    for (const [at, name] of names.entries()) {
+      await expect(path.getByRole('button').nth(at)).toHaveAccessibleName(name);
+      await expect(path.getByRole('button').nth(at)).toHaveAttribute(
+        'aria-expanded',
+        at === 0 ? 'true' : 'false',
+      );
+    }
 
     expect(problems).toEqual([]);
   });
 
-  test('offers every example, and the fictional starter, as a chip that is a button', async ({
+  test('offers the templates as chips that are buttons, and the sample cases as one quiet link', async ({
     page,
   }) => {
     await openAsk(page);
-    await expect(examplesList(page).getByRole('listitem')).toHaveCount(EXAMPLES.length + 1);
-    await expect(examplesList(page).getByRole('button')).toHaveCount(EXAMPLES.length + 1);
-    await expect(examplesList(page).getByRole('button').last()).toHaveText('Library hours');
+    await expect(templatesList(page).getByRole('listitem')).toHaveCount(7);
+    await expect(templatesList(page).getByRole('button')).toHaveText([
+      'AI adoption',
+      'Pricing change',
+      'Product launch',
+      'Policy change',
+      'Market entry',
+      'Operating-model change',
+      'Custom',
+    ]);
     // Choosing one is a choice: until then the question is empty.
     await expect(questionBox(page)).toHaveValue('');
+
+    // No recorded demonstration is held in this workspace, so the link is named for what is behind it.
+    await expect(demonstrationLink(page)).toHaveText('Try a sample case');
+    const dialog = await openSamples(page);
+    await expect(dialog.getByRole('button')).toHaveCount(EXAMPLES.length + 1);
+    await expect(dialog.getByRole('button').last()).toHaveText('Library hours');
+    await expect(dialog.getByText('Recorded demonstration')).toHaveCount(0);
   });
 
-  test('keeps the responsible-use sentence in sight, and nothing on the screen claims to predict', async ({
+  test('keeps the short line and the responsible-use sentence in sight, and nothing on the screen claims to predict', async ({
     page,
   }) => {
     await openAsk(page);
-    const sentence = page.getByText(POSITIONING, { exact: true });
-    await expect(sentence).toBeVisible();
-    // On a laptop the sentence is part of the first screen, not something to scroll to.
-    await expect(sentence).toBeInViewport({ ratio: 1 });
+    await expect(page.getByText(TAGLINE, { exact: true })).toBeInViewport({ ratio: 1 });
+    await expect(page.getByText(POSITIONING, { exact: true })).toBeVisible();
 
-    const said = await textsOf(page.getByRole('main').locator('h1, h2, p, li, button'));
+    const said = await textsOf(page.getByRole('main').locator('h1, h2, p, li, button, dd, dt'));
     expect(said.flatMap(claimsAgainst), 'what the first screen says').toEqual([]);
     const whole = (await page.getByRole('main').innerText()).toLowerCase();
     expect(whole).not.toMatch(/\bpredicts?\b(?! real)/u);
-    expect(whole).not.toMatch(/\bforecasts?\b|probab/u);
+    expect(whole).not.toMatch(/\bforecasts?\b|probab|\bwill\b/u);
   });
 
   test('reaches the question, then what can be done with it, in reading order from the keyboard', async ({
@@ -149,19 +177,20 @@ test.describe('the first screen', () => {
       stops += 1;
     }
 
+    // What can be said about the question comes next, then what can be done with it: the time horizon is one stop
+    // (the arrows move inside it), the website and the switch are out of reach where research is not on.
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('radio', { name: 'Not sure' })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(evidenceButton(page)).toBeFocused();
-    // What can be said about the question comes next: the time it is judged over, and what is taken as given.
     await page.keyboard.press('Tab');
-    await expect(timeFrameButton(page)).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(assumptionsButton(page)).toBeFocused();
+    await expect(advancedButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(optionsButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(exploreButton(page)).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(examplesList(page).getByRole('button').first()).toBeFocused();
+    await expect(templatesList(page).getByRole('button').first()).toBeFocused();
   });
 
   test('asks nothing of the server until the person asks, and never a model without being told to', async ({
@@ -518,24 +547,12 @@ test.describe('beside the question', () => {
     await questionBox(page).fill(HARBOUR_QUESTION);
     await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
 
-    await timeFrameButton(page).click();
-    const frame = page.getByRole('dialog', { name: 'Time frame' });
-    await frame.getByRole('button', { name: '3 years', exact: true }).click();
-    await expect(frame.getByRole('button', { name: '3 years', exact: true })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    await expect(frame.getByRole('textbox', { name: 'Or in your own words' })).toHaveValue(
-      '3 years',
-    );
-    await frame.getByRole('button', { name: 'Done' }).click();
-    await expect(frame).toBeHidden();
-    await expect(timeFrameButton(page)).toHaveAccessibleName('Time frame 3 years');
-    await expect(
-      timeFrameButton(page),
-      'focus returns to the button that was pressed',
-    ).toBeFocused();
+    // The time horizon is a choice on the screen itself: one press, no menu.
+    await chooseHorizon(page, '3 years');
+    await expectHorizon(page, '3 years');
 
+    // What is assumed is in the advanced fields, which say on their button how many of them hold something.
+    await openAdvanced(page);
     await assumptionsButton(page).click();
     const assumed = page.getByRole('dialog', { name: 'Assumptions' });
     const field = assumed.getByRole('textbox', { name: 'Your assumption' });
@@ -547,6 +564,7 @@ test.describe('beside the question', () => {
     await expect(field, 'the field is ready for the next one').toHaveValue('');
     await assumed.getByRole('button', { name: 'Done' }).click();
     await expect(assumptionsButton(page)).toHaveAccessibleName('Assumptions 1');
+    await expect(advancedButton(page)).toHaveAccessibleName(/^Advanced\s*1 set$/u);
 
     // What is read is the question and the notes. What the person assumes is not sent to be read by anyone.
     const [exchange] = await Promise.all([
@@ -581,6 +599,21 @@ test.describe('beside the question', () => {
     expect(problems).toEqual([]);
   });
 
+  test('the place the person names is the geography of the scenario they confirm, as they said it', async ({
+    page,
+  }) => {
+    await openAsk(page);
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
+    await openAdvanced(page);
+    await page.getByRole('textbox', { name: 'Geography' }).fill('The northern harbours');
+    await expect(advancedButton(page)).toHaveAccessibleName(/^Advanced\s*1 set$/u);
+    await readScenario(page);
+    expect(await textOf(page, 'Where')).toBe('The northern harbours');
+    const project = await groundIt(page);
+    expect((await scenarioOf(page, project)).scenario?.geography).toBe('The northern harbours');
+  });
+
   test('what was said is part of what a reading is made from: unchanged it is kept, changed it is read again', async ({
     page,
   }) => {
@@ -598,12 +631,10 @@ test.describe('beside the question', () => {
     expect(reads(), 'nothing changed, so nothing is asked again').toHaveLength(1);
 
     await bar(page).getByRole('button', { name: 'Question' }).click();
-    await timeFrameButton(page).click();
+    await chooseHorizon(page, 'Custom');
     await page
-      .getByRole('dialog', { name: 'Time frame' })
-      .getByRole('textbox', { name: 'Or in your own words' })
+      .getByRole('textbox', { name: 'Your time horizon, in your own words' })
       .fill('the next two quarters');
-    await page.keyboard.press('Escape');
     await exploreButton(page).click();
     await expect(reviewHeading(page)).toBeVisible();
     await expect(goOn(page)).toBeVisible();
@@ -816,15 +847,21 @@ test.describe('on a phone', () => {
     await expectTouchTargets(page, 'the bar on a phone', 'header');
   });
 
-  test('an example is chosen by touch, fills the composer, and leaves Explore within reach', async ({
+  test('a sample case is chosen by touch from a sheet, fills the composer, and leaves Explore within reach', async ({
     page,
   }) => {
     await openAsk(page);
-    await examplesList(page).getByRole('button', { name: 'Copilot in Teams' }).tap();
+    await demonstrationLink(page).tap();
+    const sheet = page.getByRole('dialog', { name: 'Try a sample case' });
+    await expect(sheet).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    await expectTouchTargets(page, 'the sample cases on a phone', '[role=dialog]');
+    await sheet.getByRole('button', { name: 'Copilot in Teams', exact: true }).tap();
+    await expect(sheet).toBeHidden();
     await expect(tray(page).getByRole('listitem')).toHaveCount(EXAMPLES[0]!.documents.length);
     await expect(questionBox(page)).toHaveValue(EXAMPLES[0]!.question);
     await expectNoHorizontalOverflow(page);
-    await expectNothingClipped(page, 'an example loaded on a phone');
+    await expectNothingClipped(page, 'a sample case loaded on a phone');
     await exploreButton(page).scrollIntoViewIfNeeded();
     await expect(exploreButton(page)).toBeInViewport({ ratio: 1 });
     await exploreButton(page).tap();
@@ -877,30 +914,39 @@ test.describe('on a phone', () => {
     await expect(dialog).toBeVisible();
   });
 
-  test('the time frame and the assumptions open from the foot of the screen, and are made of 44px targets', async ({
+  test('the time horizon is a list on a phone, the advanced fields open in place, and the assumptions open from the foot of the screen', async ({
     page,
   }) => {
     await openAsk(page);
     await expectTouchTargets(page, 'the first screen on a phone', 'main');
-    for (const [button, name] of [
-      [timeFrameButton(page), 'Time frame'],
-      [assumptionsButton(page), 'Assumptions'],
-    ] as const) {
-      await button.tap();
-      const dialog = page.getByRole('dialog', { name });
-      await expect(dialog).toBeVisible();
-      const box = (await dialog.boundingBox())!;
-      expect(box.x, `${name}: starts on the screen`).toBeGreaterThanOrEqual(0);
-      expect(box.x + box.width, `${name}: ends on the screen`).toBeLessThanOrEqual(390 + 1);
-      expect(box.y + box.height, `${name}: rests on the foot of the screen`).toBeGreaterThanOrEqual(
-        844 - 2,
-      );
-      await expectNoHorizontalOverflow(page);
-      await expectTouchTargets(page, `${name} on a phone`, '[role=dialog]');
-      await dialog.getByRole('button', { name: 'Done' }).tap();
-      await expect(dialog).toBeHidden();
-      await expect(button).toBeFocused();
-    }
+    const horizon = page.getByRole('combobox', { name: 'Time horizon' });
+    await expect(horizon).toBeVisible();
+    await horizon.selectOption({ label: '1 year' });
+    await expectHorizon(page, '1 year');
+
+    await advancedButton(page).tap();
+    await expect(advancedButton(page)).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('textbox', { name: 'Geography' })).toBeInViewport();
+    await expectNoHorizontalOverflow(page);
+    await expectNothingClipped(page, 'the advanced fields on a phone');
+    await expectTouchTargets(page, 'the advanced fields on a phone', 'main');
+
+    const button = assumptionsButton(page);
+    await button.tap();
+    const dialog = page.getByRole('dialog', { name: 'Assumptions' });
+    await expect(dialog).toBeVisible();
+    const box = (await dialog.boundingBox())!;
+    expect(box.x, 'assumptions: starts on the screen').toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, 'assumptions: ends on the screen').toBeLessThanOrEqual(390 + 1);
+    expect(
+      box.y + box.height,
+      'assumptions: rests on the foot of the screen',
+    ).toBeGreaterThanOrEqual(844 - 2);
+    await expectNoHorizontalOverflow(page);
+    await expectTouchTargets(page, 'the assumptions on a phone', '[role=dialog]');
+    await dialog.getByRole('button', { name: 'Done' }).tap();
+    await expect(dialog).toBeHidden();
+    await expect(button).toBeFocused();
   });
 
   test('the options fit the screen and are made of 44px targets', async ({ page }) => {
@@ -973,15 +1019,15 @@ test.describe('motion', () => {
 
   const shown = async (page: import('@playwright/test').Page): Promise<string[]> => {
     const found: string[] = [];
-    for (const example of EXAMPLES) {
+    for (const prompt of PROMPTS) {
       // The lines are also set out of sight, to know which are shown whole: only what a person can see is counted.
-      const seen = page.getByText(example.question, { exact: true }).filter({ visible: true });
-      if ((await seen.count()) > 0) found.push(example.question);
+      const seen = page.getByText(prompt, { exact: true }).filter({ visible: true });
+      if ((await seen.count()) > 0) found.push(prompt);
     }
     return found;
   };
 
-  test('the example question in the empty box rotates, and holds still for a person who asks for less motion', async ({
+  test('the suggested question in the empty box rotates, and holds still for a person who asks for less motion', async ({
     page,
   }) => {
     await page.clock.install();
@@ -1033,15 +1079,35 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await expectNoAxeViolations(page, `${theme}: the options`);
     });
 
-    test('is clean with a time frame and an assumption said, and each of them open', async ({
+    test('is clean with the way into a demonstration, a template, a step and the signals open', async ({
       page,
     }) => {
       await openAsk(page, { theme });
-      await timeFrameButton(page).click();
-      const frame = page.getByRole('dialog', { name: 'Time frame' });
-      await frame.getByRole('button', { name: '1 year', exact: true }).click();
-      await expectNoAxeViolations(page, `${theme}: the time frame open`);
-      await frame.getByRole('button', { name: 'Done' }).click();
+      await openSamples(page);
+      await atRest(page);
+      await expectNoAxeViolations(page, `${theme}: the sample cases`);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog', { name: /^Try a/u })).toBeHidden();
+
+      await templatesList(page).getByRole('button', { name: 'Policy change' }).click();
+      await page
+        .getByRole('list', { name: 'How Swarm works' })
+        .getByRole('button', { name: 'Possible futures' })
+        .click();
+      await page.getByRole('button', { name: 'What this means' }).click();
+      await atRest(page);
+      await expectNoAxeViolations(page, `${theme}: a template, a step and the signals open`);
+    });
+
+    test('is clean with the advanced fields, a time horizon and an assumption said, and the assumptions open', async ({
+      page,
+    }) => {
+      await openAsk(page, { theme });
+      await chooseHorizon(page, '1 year');
+      await openAdvanced(page);
+      await page.getByRole('textbox', { name: 'Geography' }).fill('The northern harbours');
+      await atRest(page);
+      await expectNoAxeViolations(page, `${theme}: the advanced fields open`);
       await assumptionsButton(page).click();
       const assumed = page.getByRole('dialog', { name: 'Assumptions' });
       const field = assumed.getByRole('textbox', { name: 'Your assumption' });
@@ -1050,8 +1116,8 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await expectNoAxeViolations(page, `${theme}: the assumptions open`);
       await assumed.getByRole('button', { name: 'Done' }).click();
       await expect(assumed).toBeHidden();
-      await expect(timeFrameButton(page)).toHaveAccessibleName('Time frame 1 year');
-      await expectNoAxeViolations(page, `${theme}: both said`);
+      await expect(assumptionsButton(page)).toHaveAccessibleName('Assumptions 1');
+      await expectNoAxeViolations(page, `${theme}: all said`);
     });
 
     test('is clean with a question that was refused', async ({ page }) => {
@@ -1097,14 +1163,9 @@ test.describe('the first screen at every size', () => {
 test.describe('the first screen at 320px, with a finger', () => {
   test.use({ viewport: { width: 320, height: 568 }, hasTouch: true });
 
-  test('the four tools stay on one line, each a 44px target', async ({ page }) => {
+  test('the three tools stay on one line, each a 44px target', async ({ page }) => {
     await openAsk(page);
-    const tools = [
-      evidenceButton(page),
-      timeFrameButton(page),
-      assumptionsButton(page),
-      optionsButton(page),
-    ];
+    const tools = [evidenceButton(page), advancedButton(page), optionsButton(page)];
     const boxes = await Promise.all(tools.map(async (tool) => (await tool.boundingBox())!));
     expect(new Set(boxes.map((box) => Math.round(box.y))).size).toBe(1);
     for (const box of boxes) {

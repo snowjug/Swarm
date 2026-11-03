@@ -1,0 +1,39 @@
+@layer scenes {
+  .sw-ask-adv__chevron {
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-ask-adv__toggle[aria-expanded='true'] .sw-ask-adv__chevron {
+    transform: rotate(180deg);
+  }
+  .sw-ask-adv__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-4);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-ask-adv__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2) var(--s-3);
+    grid-column: 1 / -1;
+    margin-left: calc(var(--s-3) * -1);
+  }
+  .sw-ask-adv__tools .sw-ask-field__hint {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  @media (max-width: 40rem) {
+    .sw-ask-adv__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  .sw-ask-research {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .sw-ask-research .sw-switch__desc {
+    line-height: 1.35;
+  }
+}

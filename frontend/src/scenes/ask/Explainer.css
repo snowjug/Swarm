@@ -1,0 +1,194 @@
+@layer scenes {
+  .sw-ask-flow {
+    --node: 2.5rem;
+    display: grid;
+    gap: var(--s-3);
+    width: min(var(--ask-w), 100%);
+  }
+  .sw-ask-flow__title {
+    text-align: center;
+  }
+  /* A short window: the steps and what is said at the open one are what the room is for, and they carry their own
+     name for a screen reader. */
+  @media (max-height: 880px) and (min-width: 62rem) {
+    .sw-ask-flow__title {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+    }
+  }
+  .sw-ask-flow__steps {
+    display: flex;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-ask-flow__step {
+    position: relative;
+    display: flex;
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
+  /* The line from a step to the next: drawn from the middle of one to the middle of the other, behind both. The
+     steps that have been passed on the way to the open one are lit. */
+  .sw-ask-flow__step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: calc(0.25rem + var(--node) / 2);
+    left: 50%;
+    width: 100%;
+    height: 1px;
+    background: var(--hairline-strong);
+    transition: background-color var(--dur-base) var(--ease-out);
+  }
+  .sw-ask-flow__step.is-past:not(:last-child)::before {
+    background: var(--accent-line);
+  }
+  .sw-ask-flow__node {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    justify-items: center;
+    align-content: start;
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 11rem;
+    padding: 0.25rem 0.4rem 0.35rem;
+    border: 0;
+    background: transparent;
+    color: var(--ink-3);
+    transition: color var(--dur-fast) var(--ease-out);
+  }
+  .sw-ask-flow__glyph {
+    display: grid;
+    place-items: center;
+    width: var(--node);
+    height: var(--node);
+    border: 1px solid var(--hairline-strong);
+    border-radius: 50%;
+    background: var(--bg-raised);
+    color: var(--ink-2);
+    transition:
+      transform var(--dur-base) var(--ease-spring-snappy),
+      border-color var(--dur-fast) var(--ease-out),
+      background-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out);
+  }
+  .sw-ask-flow__name {
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.08em;
+    line-height: 1.3;
+    text-align: center;
+    text-transform: uppercase;
+    text-wrap: balance;
+  }
+  .sw-ask-flow__short {
+    display: none;
+  }
+  @media (hover: hover) {
+    .sw-ask-flow__node:hover {
+      color: var(--ink);
+    }
+    .sw-ask-flow__node:hover .sw-ask-flow__glyph {
+      transform: translateY(-2px);
+      border-color: var(--accent-line);
+    }
+  }
+  .sw-ask-flow__node:active .sw-ask-flow__glyph {
+    transform: scale(0.94);
+    transition-duration: var(--dur-instant);
+  }
+  .sw-ask-flow__step.is-active .sw-ask-flow__node {
+    color: var(--ink);
+  }
+  .sw-ask-flow__step.is-active .sw-ask-flow__glyph {
+    border-color: var(--accent);
+    background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg-raised);
+    color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft);
+  }
+  @media (pointer: coarse) {
+    .sw-ask-flow__node {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* What is said at each step: all five are in the same place and only the open one is seen, so that opening another
+     moves nothing below. A step that is not open is not read out either. */
+  .sw-ask-flow__details {
+    display: grid;
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-ask-flow__detail {
+    grid-area: 1 / 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-2) var(--s-6);
+    visibility: hidden;
+    opacity: 0;
+  }
+  .sw-ask-flow__detail[data-active] {
+    visibility: visible;
+    opacity: 1;
+  }
+  /* Only what the person opened moves: the first one is simply there. */
+  .sw-ask-flow[data-touched] .sw-ask-flow__detail[data-active] {
+    animation: sw-ask-flow-in var(--dur-base) var(--ease-out) both;
+  }
+  @keyframes sw-ask-flow-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 6px, 0);
+    }
+  }
+  .sw-ask-flow__detail p {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .sw-ask-flow__detail strong {
+    margin-right: 0.15rem;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  @media (max-width: 40rem) {
+    .sw-ask-flow {
+      --node: 2.25rem;
+    }
+    .sw-ask-flow__full {
+      display: none;
+    }
+    .sw-ask-flow__short {
+      display: inline;
+    }
+    .sw-ask-flow__node {
+      padding-inline: 0.1rem;
+    }
+    .sw-ask-flow__name {
+      letter-spacing: 0.02em;
+    }
+    .sw-ask-flow__detail {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+  @media (forced-colors: active) {
+    .sw-ask-flow__step.is-active .sw-ask-flow__glyph {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
+    .sw-ask-flow__step::before {
+      forced-color-adjust: none;
+      background: CanvasText;
+    }
+  }
+}
