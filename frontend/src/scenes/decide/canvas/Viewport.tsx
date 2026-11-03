@@ -18,6 +18,8 @@ import {
   changeWords,
   checksOf,
   completenessOf,
+  basisOf,
+  reasonsOf,
   constraintGlance,
   driverItems,
   futureItems,
@@ -144,6 +146,7 @@ function Question({ canvas }: { canvas: DecisionCanvas }) {
 function Answer({ canvas }: { canvas: DecisionCanvas }) {
   const { status, answer } = canvas;
   const provisional = canvas.constraints.provisional;
+  const reasons = reasonsOf(canvas);
   return (
     <div className="sw-canvas-answer" data-status={status.status} data-tone={statusTone(canvas)}>
       <div className="sw-canvas-status">
@@ -156,8 +159,8 @@ function Answer({ canvas }: { canvas: DecisionCanvas }) {
         {answer.headline.text} <LabelChip label={answer.headline.label} />
       </p>
       <p className="sw-canvas-meaning">{status.meaning}</p>
-      <ul className="sw-canvas-why" aria-label="Why this status">
-        {status.why.slice(0, 2).map((line) => (
+      <ul className="sw-canvas-why" aria-label={reasons.label}>
+        {reasons.lines.map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
@@ -307,9 +310,7 @@ function Who({ canvas, openDetail }: Props) {
           );
         })}
       </ul>
-      <p className="sw-canvas-quiet">
-        Simulated roles, not people. Change in simulated members in 100 who resist.
-      </p>
+      <p className="sw-canvas-quiet">Simulated roles, not people.</p>
       {canvas.actors.items.length > items.length && (
         <button type="button" className="sw-canvas-more" onClick={() => openDetail('actors')}>
           {plural(canvas.actors.items.length - items.length, 'more role')}
@@ -391,10 +392,20 @@ function Changes({ canvas, openDetail }: Props) {
 function Next({ canvas, openDetail }: Props) {
   const card = canvas.answer.recommendation;
   const done = completenessOf(card);
+  const basis = basisOf(canvas);
   return (
     <>
       <p className="sw-canvas-next">
         {card.what.text} <LabelChip label={card.what.label} />
+      </p>
+      <p className="sw-canvas-basis">
+        <strong>Rests on</strong> {basis.counts} <LabelChip label="fact" />
+        {basis.level && (
+          <>
+            {' '}
+            <span className="sw-canvas-flag">{basis.level}</span>
+          </>
+        )}
       </p>
       <p className="sw-canvas-complete" data-gaps={done.missing.length > 0 || undefined}>
         <strong>

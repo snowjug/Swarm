@@ -124,7 +124,7 @@ test next; whether it is reversible; and what human approval is needed. A part w
 sentence, and the card lists the missing parts, so a gap is a finding and never an omission. Reversibility is `unknown`
 in this version: nothing in the project says whether a choice can be undone, and the canvas does not guess. The page
 counts a part that says only that something is not known as a gap, not as a part stated: “7 of 9 parts stated ·
-Missing: Evidence that weakens it, Whether it can be reversed (unknown)”.
+Missing: Evidence that weakens it, Reversibility (unknown)”.
 
 | Status                                | The recommendation (`kind`)                                                                      |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |

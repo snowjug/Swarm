@@ -103,15 +103,10 @@ describe('the first viewport of the decision canvas', () => {
     const canvas = canvasFixture();
     const done = completenessOf(canvas.answer.recommendation);
     expect(done).toMatchObject({ total: 9, stated: 7 });
-    expect(done.missing).toEqual([
-      'Evidence that weakens it',
-      'Whether it can be reversed (unknown)',
-    ]);
+    expect(done.missing).toEqual(['Evidence that weakens it', 'Reversibility (unknown)']);
     const said = text(render(handleOf(viewFixture(canvas))));
     expect(said).toContain('7 of 9 parts stated');
-    expect(said).toContain(
-      'Missing: Evidence that weakens it, Whether it can be reversed (unknown)',
-    );
+    expect(said).toContain('Missing: Evidence that weakens it, Reversibility (unknown)');
     // A recommendation that is known to be reversible, with nothing else missing, is whole.
     const whole = canvasFixture((raw) => {
       raw.answer.recommendation.missing = [];

@@ -69,6 +69,8 @@ export const GLANCE = {
   views: 2,
   assumptions: 1,
   checks: 3,
+  conditions: 2,
+  reasons: 2,
 } as const;
 
 /** What a change in a share is a change in: said wherever a figure of one stands, so that no figure is read as the world’s. */
@@ -247,6 +249,32 @@ export interface Completeness {
 }
 
 /**
+ * What stands under the status. A status that holds only on conditions says them, those the headline has not already
+ * said (a status that leans on a condition without saying it is the page misleading); any other says what made the
+ * rules land.
+ */
+export function reasonsOf(canvas: DecisionCanvas): { label: string; lines: string[] } {
+  const { status, answer } = canvas;
+  const conditions = status.conditions.filter((line) => !answer.headline.text.includes(line));
+  return conditions.length > 0
+    ? { label: 'Conditions it holds under', lines: conditions.slice(0, GLANCE.conditions) }
+    : { label: 'Why this status', lines: status.why.slice(0, GLANCE.reasons) };
+}
+
+/**
+ * What the recommendation rests on, in what the project holds: the sources, the simulated actors with a passage cited for
+ * them, and how far the evidence is judged to go. Counts of the record, so they are facts; the judgement is flagged when it
+ * is not adequate.
+ */
+export function basisOf(canvas: DecisionCanvas): { counts: string; level: string | null } {
+  const { documents, actors, level } = canvas.evidence;
+  return {
+    counts: `${plural(documents.total, 'source document')}, ${actors.supported} of ${plural(actors.total, 'simulated actor')} with a cited passage`,
+    level: level === 'adequate' ? null : `Evidence ${level}`,
+  };
+}
+
+/**
  * How much of the recommendation is said, and which parts are not. A gap is shown, never left out; and a part that
  * says only that something is not known (whether the choice can be reversed) is a gap, not a part stated.
  */
@@ -254,7 +282,7 @@ export function completenessOf(card: DecisionCanvas['answer']['recommendation'])
   const total = RECOMMENDATION_PARTS.length + 1;
   const missing = card.missing.map((part) => RECOMMENDATION_PART_WORDS[part]);
   if (card.reversibility.value === 'unknown' && !card.missing.includes('reversibility')) {
-    missing.push(`${RECOMMENDATION_PART_WORDS.reversibility} (unknown)`);
+    missing.push('Reversibility (unknown)');
   }
   return { total, stated: total - missing.length, missing };
 }

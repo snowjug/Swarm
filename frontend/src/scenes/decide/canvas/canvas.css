@@ -205,7 +205,7 @@
   .sw-canvas-answer {
     --tone: var(--c-neutral);
     display: grid;
-    gap: var(--s-2);
+    gap: 0.4rem;
     padding-left: var(--s-4);
     border-left: 3px solid var(--tone);
   }
@@ -252,7 +252,7 @@
     margin: 0;
     color: var(--ink);
     font-family: var(--font-display);
-    font-size: clamp(1.3rem, 1rem + 0.8vw, 1.75rem);
+    font-size: clamp(1.25rem, 0.95rem + 0.75vw, 1.7rem);
     line-height: 1.14;
     letter-spacing: -0.016em;
     text-wrap: balance;
@@ -585,11 +585,15 @@
     font-weight: 560;
     line-height: 1.45;
   }
+  .sw-canvas-basis,
   .sw-canvas-complete {
     margin: 0;
     color: var(--ink-2);
     font-size: var(--fs-small);
     line-height: 1.45;
+  }
+  .sw-canvas-basis strong {
+    color: var(--ink);
   }
   .sw-canvas-complete[data-gaps] {
     padding-left: var(--s-2);
