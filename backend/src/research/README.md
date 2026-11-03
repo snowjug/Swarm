@@ -1,8 +1,11 @@
-# Research: reading the public web
+# Research: reading the public web, and researching for a project
 
-`backend/src/research` reads web pages for an automatic research run. It is a library: no routes, no
-storage, no model calls, no UI. The orchestrator gives it addresses, a budget and a few hints about the
-question, and gets back the pages it read, a record of every address it tried, and the reason it stopped.
+`backend/src/research` reads web pages for an automatic research run, and does the run. The crawler
+(`crawler/`) and the extractor (`extract/`) are a library: no routes, no storage, no model calls, no UI. The
+orchestrator gives it addresses, a budget and a few hints about the question, and gets back the pages it
+read, a record of every address it tried, and the reason it stopped. The rest of this folder is that
+orchestrator: it plans a run, keeps its record, chooses which pages become sources of a project and adds them
+([Automatic research for a project](#automatic-research-for-a-project), below).
 
 One rule sits under all of it: **a model may analyse a source, and a source may never instruct the
 system.** Which addresses are fetched, in what order, how often, and when to stop are decided by code, from
@@ -12,6 +15,8 @@ the budget and from what pages link to. Nothing a page says, and nothing a model
 backend/src/research/
   crawler/   what is read, in what order, how often, and when to stop (crawl.ts is the loop)
   extract/   one page becomes text with places a reader can point at (extractDocument)
+  config.ts, discovery.ts, plan.ts, assess.ts, select.ts, redact.ts, store.ts, pause.ts, run.ts, service.ts
+             the run for a project: see "Automatic research for a project"
   index.ts   the public surface; import from here
 ```
 
@@ -208,6 +213,106 @@ so an address that is refused costs no place and no request.
 - A page's text is untrusted data. The orchestrator must treat `document.text` that way too: not as an
   instruction, and not as something to put into a prompt without its labels.
 
+## Automatic research for a project
+
+Everything above is the library. The rest of this folder uses it to do research for a project, as the
+**first phase of the job that grounds it**: the existing `knowledge` job. No job kind was added (`jobs.kind`
+is a database constraint), so the lease, heartbeat, cancellation, retry and recovery of a run are the queue's.
+The record of a run is a `research` artifact of its project, written whole, with the revision it was read
+at, so it is stored, revised, exported and deleted with its project on either storage engine and is never
+visible to another tenant.
+
+| File           | What it holds                                                                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `config.ts`    | The `RESEARCH_*` settings, which can only lower the shared ceiling; `clampBudget`, which holds a request to it                                                        |
+| `discovery.ts` | `SearchProvider`, and the default that says plainly that none is configured. It never invents a provider and never reads a search page                                |
+| `plan.ts`      | `buildResearchPlan`: rules plan with no model; a model's plan must pass the schema and the server's checks (no address, bare public hosts only) or rules plan instead |
+| `assess.ts`    | `Assessor`: which pages bear on each claim of the plan, lexically, and when there is enough, or reading adds nothing                                                  |
+| `select.ts`    | Which pages become sources (`selectDocuments`) and where each passage sat in its page (`locatePassages`)                                                              |
+| `redact.ts`    | What is masked before a page is kept: secrets, emails, phone numbers, card, identity and account numbers (never a figure, a date or a year)                           |
+| `store.ts`     | `ResearchStore` and `RunRecorder`: the record, written whole, with a revision check and the job's lease                                                               |
+| `pause.ts`     | The in-process pause gate, bounded                                                                                                                                    |
+| `run.ts`       | `RunPipeline`: planning, finding, reading, keeping, checking, ending                                                                                                  |
+| `service.ts`   | `ResearchService`: what a person may do to a run, and `beforeKnowledge`, which the job calls                                                                          |
+
+### The sequence for a question and nothing else
+
+1. `POST /api/projects` with `documents: []` and `research: { auto: true }` creates a `draft` project with no
+   document and no passage. (Without `auto`, an empty list is refused as it always was.)
+2. `POST /api/projects/:id/research` writes a `queued` run and queues the `knowledge` step. A run that the
+   queue refuses is removed again, so no run waits for a job.
+3. The worker takes the job. `GuidedWorkflow` calls `ResearchService.beforeKnowledge` before it builds
+   knowledge: it carries out the run that is waiting, or, for a project with no evidence at all, makes one.
+4. **Planning.** Rules plan, or, for a project whose person chose a model, the model does, as data: the
+   question and the guidance are never instructions. A plan names things to find and **never an address to
+   fetch**; a suggested site is a bare public host name that is only shown. Every address in the question is
+   replaced by its site's name before it reaches a plan or a search provider.
+5. **Finding sources.** `url` and `domain` modes start from what the person named. `discovery` mode needs a
+   search provider: with none the run ends `blocked` (`discovery-unconfigured`), says so, and the stage goes
+   back to waiting (`pending`, not `failed`) so that a person can name a page or a site, or add sources of their own.
+6. **Reading** is the crawler, held to the budget. This server decides two more stops from what has been read
+   (`shouldStop`): `evidence-sufficient` and `no-new-signal` (see `assess.ts`), and `cost-limit` and
+   `time-limit` (a pause that lasted as long as it may). A person's **finish** stops reading and goes on.
+7. **Extracting evidence.** `selectDocuments` chooses up to ten sources, minus those the project holds, within
+   200,000 characters, ranked by the estimated authority of the kind of site, how much of the plan a page
+   covers, how recent it is (as far as the plan says time matters), whether a person named it, spread over
+   sites and kinds, and **keeping both sides of a disagreement**. Furniture and repeated passages are left out,
+   secrets are masked, instruction-like lines stay **labelled**. Every page not chosen stays on the run's list
+   with the reason. One transaction then appends the documents (`Repository.appendDocuments`: ids and passage
+   numbering carry on, nothing already written is touched) and writes the run's record.
+8. **Checking conflicts.** The project's own contradiction detector runs over the passages and the run
+   records how many touch what was added; the ledger, if one exists, learns of them.
+9. **Ready.** The run is `completed` and the job goes on to `buildKnowledge` as it always did.
+
+A run that ends with nothing to use is `blocked` (or `cancelled`, when a person finished before anything was
+read) and the stage is held, not failed. A run that fails (a refusal by the model's provider, a search
+provider that could not be reached) is `failed` with a code, and the stage is `failed` so that it can be run again.
+
+### Statuses, and why a run stopped
+
+`queued`, `running`, `paused`, `completed`, `cancelled`, `failed`, `blocked`. `stoppedBecause` is one of the
+reasons in `RESEARCH_STOP_LABELS` (`shared/research.ts`); the crawler decides `page-limit`, `domain-limit`,
+`byte-limit`, `duplicate-limit`, `failure-limit`, `time-limit` and `frontier-exhausted`; this folder decides
+`evidence-sufficient`, `no-new-signal`, `cost-limit`, `cancelled` (a person's finish) and
+`discovery-unconfigured`. **Sufficiency is a count of pages whose wording overlaps a claim**, not agreement
+and not truth; the interface says "bears on", "supports" and "opposes" in that weak sense.
+
+### Pause, finish, cancel, and a server that stops
+
+- **Pause** is a gate in this process that the crawl waits at between fetches. The job keeps its lease while
+  paused, so a pause costs no work and loses none. It is bounded (`RESEARCH_MAX_PAUSE_SECONDS`, 300 by
+  default): a run left paused ends by itself with what it had read (`time-limit`).
+- **Finish early** stops reading and goes on with what was read. **Cancel** ends the job and the run
+  (`cancelled`), and leaves no half-written state: sources are appended in one transaction with the record
+  of it, after reading has ended and before nothing else can interrupt.
+- **A server that stops** puts a run that was cut off back in the queue (`queued`, with a line saying so); the
+  next worker carries it out from its start. When the server starts, a run that is not finished and has no job
+  is marked ended (`failed`, or `cancelled` if its job was); a run is never left `running`.
+- Pause and finish act on a run that **this process** is carrying out; sent to another instance they are
+  refused with `409`. Cancel goes through the job and works from any instance.
+
+### Cost and the model
+
+A model is used only for a project whose person chose one and when the provider is configured; the rules path
+calls none. The cost limit of a run is an **estimate** from prices an operator entered, enforced before the
+call (`MODEL_PRICES`); with no price the cost is "unknown" and said so. `0` means no model is asked.
+
+### Known limits of the orchestration
+
+- **No search provider is built.** Discovery from a question alone ends `blocked`; only the pages and sites a
+  person names, and what they link to, are read. `RESEARCH_SEARCH_PROVIDER` accepts only `none`.
+- A run starts from one page or one site; more are added one at a time (each is a run). Sources cannot be
+  added to a project once its grounding step is ready or running.
+- The intake typed at creation is not kept: a research start repeats it in its body, and a project that is
+  simply grounded without one gets a discovery run (which ends `blocked` with no search provider).
+- Selection and assessment are lexical and deterministic, with fixed weights written in `select.ts` and
+  `assess.ts`. They rank what to read and what to keep; they do not say what is right.
+- One worker for each process: a run holds it for as long as it takes (the job is held to 15 minutes), and
+  nothing shares it fairly between workspaces yet; the queue holds at most three waiting jobs.
+- A read of the state (`GET`) may mark an abandoned run as ended: it is how a run that nobody carries out is
+  found when no one restarts the server.
+- Not pasted text or a file: a person adds those when the project is created. The routes add a page or a site.
+
 ## Tests
 
 ```
@@ -222,3 +327,20 @@ use real sockets on this machine: `research-safety` and `research-limits`. The c
 clock and a fake network (`support/research-world.ts`), so they do the same things at the same moments on
 any machine; the socket tests use loopback servers and a fake name server, never the network. The PDF tests
 start the real PDF worker and take a few seconds.
+
+The orchestration is tested in `research-config`, `research-plan` (rules and a model's plan, the checks,
+the words), `research-assess`, `research-select` (ranking, limits, repeats, masking, places), `research-store`
+(the record and `Repository.appendDocuments`; run it on PGlite too), and, through the whole application with
+the real crawler, extractor, job queue and storage, `research-service` (modes, stages, stops, limits,
+determinism), `research-service-control` (pause, finish, cancel, two requests, a server that stops),
+`research-service-hostile`, `research-service-model` and `research-routes` (who may call what, tenants, CSRF,
+rate limits, the audit log). They read a fake web (`support/research-web.ts`) on a virtual clock through the
+fetcher seam of `buildApp` (`research: { fetcher, now, crawl }`), which only code can set: no environment
+variable or configuration reaches it. **What they do not do**: use the real network, a real search
+provider, a real model or Azure; the model is a scripted double that is held to the real schema and checks,
+and the real socket fetcher is covered by the crawler's own tests, not driven by these.
+
+```
+nice -n 10 npx vitest run backend/test/research-*.test.ts
+SWARM_TEST_DATABASE=pglite npx vitest run --testTimeout=240000 backend/test/research-store.test.ts backend/test/research-service*.test.ts backend/test/research-routes.test.ts
+```

@@ -219,6 +219,52 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   caller in the last hour, and is otherwise recorded as pasted text. Everything else in a brief that says
   where evidence came from is read from this.
 
+### Automatic research
+
+Research is the first phase of grounding a project: it reads the page or site a person names, and what they
+link to, keeps the best pages as sources, and checks them against each other. It reads **https only**, from
+public addresses, by the rules of [URL ingestion](./security/url-ingestion.md). How it works, and what it does
+not do: [backend/src/research/README.md](../backend/src/research/README.md).
+
+- **A question on its own.** `POST /api/projects` accepts `documents: []` when `research.auto` is `true`
+  (the Ask scene sends it); without `auto`, the "at least one source" error stands. Such a project is `draft`,
+  with no source and no passage.
+- **State.** `GET /api/projects/:id/research` (needs `read`) answers `{ run, revision, discovery, may }`.
+  `run` is the newest run or `null` (`ResearchRun` in [shared/research.ts](../shared/research.ts): its status
+  and the stage it has really reached, its plan, its budget, what it has used, every address it tried with
+  what became of it, where each passage sat in its page, an assessment for each claim to check, the number of
+  conflicts, why it stopped and a log). `discovery` says whether sources can be found from a question alone
+  (`available`, `provider`, `message`): **no search provider exists in this build**, so it is
+  `available: false`, with the setting it would need named. `may` is `{ start, pause, cancel }`.
+- **Starting.** `POST /api/projects/:id/research` takes `{ "intake"?, "budget"? }` and answers `202` with the
+  same view. `intake` is `{ auto?, url?, domain?, guidance?, horizon?, geography? }`: `url` is a page,
+  `domain` a site, and neither is discovery from a question alone, which ends `blocked` with
+  `stoppedBecause: "discovery-unconfigured"` and puts the stage back to waiting; `auto: false` is
+  `400 RESEARCH_OFF`. `budget` may hold any limit of a run (`maxPages`, `maxDomains`, `maxDepth`,
+  `maxBytesPerPage`, `maxTotalBytes`, `maxElapsedMs`, `maxEstimatedCostUsd`, `maxDuplicateRatio`,
+  `maxFailedRequests`, `maxRedirects`, `perDomainDelayMs`): **the server holds each to its ceiling**
+  (`RESEARCH_*` in [Configuration](./CONFIGURATION.md#automatic-research)), and a person can lengthen the wait
+  between requests to a site and never shorten it. The run's `budget` shows what it was given. Starting needs
+  `run`, is limited to 6 a minute, takes a body of 16,000 bytes and an `Idempotency-Key`, and is recorded as
+  `research.started` (the mode and the limits). Refusals: `409 RESEARCH_ACTIVE` (a run is live),
+  `409 STEP_ALREADY_STARTED` (grounding is under way or done), `409 DOCUMENT_LIMIT` (the project holds ten
+  sources), `403 RESEARCH_DISABLED`.
+- **Adding a page or a site.** `POST /api/projects/:id/research/sources` takes `{ "url", "budget"? }` and
+  starts a run of its own, under the same rules, with `202`. A bare host name such as `example.org` is a site,
+  which is read and stayed on. 10 a minute, a body of 8,192 bytes, an `Idempotency-Key`, recorded as
+  `research.source.added`.
+- **Controlling a run.** `POST /api/projects/:id/research/pause`, `/resume`, `/finish` and `/cancel` answer
+  `200` with the view, need `run`, are limited to 20 a minute and are recorded as `research.paused`,
+  `research.resumed`, `research.finished` and `research.cancelled`. Pause and finish are for a run that the
+  server answering is carrying out, while it is planning, finding or reading. A pause ends by itself after
+  `RESEARCH_MAX_PAUSE_SECONDS`. **Finish** stops reading and goes on with what was read; **cancel** ends the
+  run and its job. Refusals: `409 RESEARCH_NOT_PAUSABLE`, `RESEARCH_NOT_PAUSED`, `RESEARCH_NOT_FINISHABLE` and
+  `RESEARCH_NOT_ACTIVE`.
+- **The audit log** holds counts and words only, never an address, a title, a passage or the question:
+  `research.documents.added` holds how many sources and passages were added, and `research.ended` (written by
+  the worker) the status, the mode, why it stopped and counts. `GET /api/config` reports
+  `research: { enabled, discovery, budget }`.
+
 ### Stakeholders and actors
 
 Reading needs `read`. Finding stakeholders and making actors need `run`, because they may ask a model. Saving
