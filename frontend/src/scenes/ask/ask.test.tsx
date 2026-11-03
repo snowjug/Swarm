@@ -243,29 +243,43 @@ describe('the first screen', () => {
     </MotionRoot>,
   );
 
-  it('says in one heading what Swarm is for, and asks the one question', () => {
-    expect(html).toContain('Explore what could');
-    expect(html).toContain('happen');
-    expect(html).toContain('What change do you want to explore?');
+  it('says in one heading what Swarm is for, and in one sentence what it does', () => {
+    expect(html).toContain('See how a decision could');
+    expect(html).toContain('unfold');
+    expect(html).toContain(
+      'Swarm researches the context, maps who matters, simulates reactions, and shows possible paths forward.',
+    );
     expect(html.match(/<h1/gu)).toHaveLength(1);
   });
 
+  it('keeps the hero to a few words: the heading and the sentence under it are all that is said before the question', () => {
+    const hero = /<h1[^>]*>([^]*?)<\/h1>\s*<p[^>]*>([^]*?)<\/p>/u.exec(html);
+    expect(hero).not.toBeNull();
+    const words = (hero![1]! + ' ' + hero![2]!)
+      .replace(/<[^>]+>/gu, ' ')
+      .split(/\s+/u)
+      .filter(Boolean);
+    expect(words.length).toBeLessThanOrEqual(25);
+  });
+
   it('has the composer, its evidence and the way to go on, each with a name', () => {
-    expect(html).toMatch(/<textarea[^>]*aria-label="[^"]+"|<label[^>]*for=/u);
+    expect(html).toMatch(/<label[^>]*for="swarm-question"[^>]*>Your what-if question<\/label>/u);
     expect(html).toContain('Evidence');
     expect(html).toContain('Explore');
   });
 
-  it('keeps the statement of what Swarm is not, in the words it was verified with', () => {
+  it('keeps the statement of what Swarm is not, in the words it was verified with, under the short line', () => {
+    expect(html).toContain('Explore scenarios, not predictions.');
     expect(html).toContain(POSITIONING_STATEMENT);
   });
 
-  it('shows the whole journey, as a list in order', () => {
-    const order = ['Ask', 'Ground', 'Map', 'Simulate', 'Compare', 'Decide'].map((name) =>
-      html.indexOf(`<strong>${name}</strong>`),
+  it('shows the way from a question to a decision, as a list in order', () => {
+    const order = ['Question', 'Research', 'People', 'Possible futures', 'Decision'].map((name) =>
+      html.indexOf(`aria-label="${name}"`),
     );
     expect(order.every((index) => index > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(html).toMatch(/<ol[^>]*aria-labelledby=/u);
   });
 
   it('writes nothing that claims a prediction', () => {

@@ -1,0 +1,81 @@
+@layer scenes {
+  .sw-ask-field {
+    display: grid;
+    align-content: start;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .sw-ask-field__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    min-height: 1rem;
+  }
+  .sw-ask-field__label {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .sw-ask-field__opt {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-ask-field__hint {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.4;
+  }
+  .sw-ask-field__hint:empty {
+    display: none;
+  }
+
+  .sw-ask-site__box {
+    position: relative;
+    display: block;
+  }
+  .sw-ask-site__icon {
+    position: absolute;
+    top: 50%;
+    left: 0.85rem;
+    transform: translateY(-50%);
+    color: var(--ink-3);
+    pointer-events: none;
+  }
+  .sw-ask-site .sw-ask-site__input {
+    padding-left: 2.35rem;
+    padding-right: 4rem;
+    text-overflow: ellipsis;
+  }
+  /* Something the field could not read is a hint, not a failure: the border takes the caution colour, not the critical one. */
+  .sw-ask-site .sw-ask-site__input[aria-invalid='true'] {
+    border-color: var(--c-caution);
+  }
+  .sw-ask-site__input[aria-invalid='true'] ~ .sw-ask-site__kind {
+    display: none;
+  }
+  .sw-ask-site__box:has(.sw-ask-site__input[aria-invalid='true']) + .sw-ask-field__hint {
+    color: var(--c-caution);
+  }
+  .sw-ask-site__kind {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    transform: translateY(-50%);
+    padding: 0.15rem 0.55rem;
+    border-radius: var(--r-pill);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    pointer-events: none;
+  }
+
+  .sw-ask-horizon .sw-seg {
+    justify-self: start;
+  }
+  .sw-ask-horizon__custom {
+    max-width: 22rem;
+  }
+}

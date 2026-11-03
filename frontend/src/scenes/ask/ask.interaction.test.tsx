@@ -321,19 +321,25 @@ describe('asking for a reading', () => {
     expect(net.parse).not.toHaveBeenCalled();
   });
 
-  it('fills the box from an example, with its evidence, and says what was loaded', async () => {
+  it('fills the box from a sample case, with its evidence, and says what was loaded', async () => {
     const example = EXAMPLE_SCENARIOS[0]!;
     net.parse.mockResolvedValue(reading(scenario()));
     const { user } = renderAsk();
     expect(questionBox().value).toBe('');
 
-    const chips = screen.getByRole('list', { name: 'Start from an example' });
+    // Where a recorded demonstration is not held, the one way in is named for what it holds.
+    expect(screen.queryByRole('button', { name: 'Try a recorded demonstration' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Try a sample case' }));
+    const cases = await screen.findByRole('dialog', { name: 'Try a sample case' });
     expect(
-      within(chips)
+      within(cases)
         .getAllByRole('button')
-        .map((chip) => chip.textContent),
+        .map((button) => button.textContent),
     ).toContain(exampleLabel(example));
-    await user.click(within(chips).getByRole('button', { name: exampleLabel(example) }));
+    await user.click(within(cases).getByRole('button', { name: exampleLabel(example) }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Try a sample case' })).toBeNull(),
+    );
 
     expect(questionBox().value).toBe(example.question);
     expect(
@@ -342,7 +348,7 @@ describe('asking for a reading', () => {
     expect(
       screen.getByRole('button', { name: `Evidence ${example.documents.length} attached` }),
     ).toBeTruthy();
-    // A person who then presses Explore is read what the example says, with its evidence.
+    // The keyboard goes where the person writes, not back to the link that opened the list of cases.
     await waitFor(() => expect(document.activeElement).toBe(questionBox()));
 
     // The name begins with the words on the chip, as a name must (WCAG 2.5.3), and then says what pressing does.
@@ -350,11 +356,12 @@ describe('asking for a reading', () => {
       name: (name) => name.startsWith(`${example.title} · `) && name.endsWith('Dismiss this note'),
     });
     expect(note.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.queryByRole('list', { name: 'Start from an example' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Start from a template' })).toBeNull();
     await user.click(note);
-    expect(screen.getByRole('list', { name: 'Start from an example' })).toBeTruthy();
+    expect(screen.getByRole('list', { name: 'Start from a template' })).toBeTruthy();
     expect(questionBox().value).toBe(example.question);
 
+    // A person who then presses Explore is read what the sample case says, with its evidence.
     await user.click(explore());
     await groundIt();
     const [question, documents] = net.parse.mock.calls[0]!;

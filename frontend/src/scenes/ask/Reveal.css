@@ -1,0 +1,29 @@
+@layer scenes {
+  /* Height grows by growing a grid row from 0fr to 1fr: no measuring, no layout script. */
+  .sw-ask-reveal {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--dur-slow) var(--ease-spring-smooth),
+      opacity var(--dur-base) var(--ease-out);
+  }
+  .sw-ask-reveal[data-open='true'] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .sw-ask-reveal__inner {
+    min-height: 0;
+    overflow: hidden;
+    /* A field in the panel keeps its focus ring: the panel clips at its own edge, so the ring is given room that the
+       negative margin takes back. */
+    margin: -4px;
+    padding: 4px;
+  }
+  @media print {
+    .sw-ask-reveal {
+      grid-template-rows: 1fr;
+      opacity: 1;
+    }
+  }
+}

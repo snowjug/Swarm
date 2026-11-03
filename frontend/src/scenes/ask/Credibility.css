@@ -1,0 +1,93 @@
+@layer scenes {
+  .sw-ask-trust {
+    display: grid;
+    width: min(72rem, 100%);
+  }
+  .sw-ask-trust__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem var(--s-4);
+  }
+  .sw-ask-trust__list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.25rem var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-ask-trust__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 520;
+    white-space: nowrap;
+  }
+  .sw-ask-trust__item svg {
+    color: var(--accent);
+  }
+  .sw-ask-trust__more {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 2rem;
+    padding: 0 0.4rem;
+    border: 0;
+    background: transparent;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    text-decoration: underline;
+    text-decoration-color: transparent;
+    text-underline-offset: 0.2em;
+    transition:
+      color var(--dur-fast) var(--ease-out),
+      text-decoration-color var(--dur-fast) var(--ease-out);
+  }
+  @media (hover: hover) {
+    .sw-ask-trust__more:hover {
+      color: var(--ink);
+      text-decoration-color: currentColor;
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-ask-trust__more {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-ask-trust__chevron {
+    transition: transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-ask-trust__more[aria-expanded='true'] .sw-ask-trust__chevron {
+    transform: rotate(180deg);
+  }
+  .sw-ask-trust__defs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--s-3) var(--s-5);
+    width: min(var(--ask-w), 100%);
+    margin: 0 auto;
+    padding: var(--s-3) 0 var(--s-1);
+  }
+  .sw-ask-trust__defs dt {
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 600;
+  }
+  .sw-ask-trust__defs dd {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  /* A phone: the five do not fit on a line, and a list that wraps raggedly reads worse than one a row to a line. */
+  @media (max-width: 40rem) {
+    .sw-ask-trust__list {
+      gap: 0.1rem var(--s-3);
+    }
+  }
+}
