@@ -70,16 +70,22 @@ describe('the code that finds stakeholders is written for no market or product',
     }
   });
 
-  it('writes no name of an organisation into its role lexicon: every entry is a lower-case common word', () => {
-    const lexicon = readFileSync(join(root, 'backend/src/stakeholders/lexicon.ts'), 'utf8');
-    const entries = [...lexicon.matchAll(/'([^'\n]{3,})'/gu)].map((match) => match[1]!);
-    expect(entries.length).toBeGreaterThan(10);
-    for (const entry of entries) {
-      for (const word of entry.split(/[\s,;:()/-]+/u).filter(Boolean)) {
-        expect(word, `${entry}: ${word}`).not.toMatch(/^\p{Lu}[\p{L}\p{N}]+$/u);
+  it.each([
+    'backend/src/stakeholders/lexicon.ts',
+    'backend/src/stakeholders/participants/vocabulary.ts',
+  ])(
+    'writes no name of an organisation into its role lexicon (%s): every entry is a lower-case common word',
+    (path) => {
+      const lexicon = readFileSync(join(root, path), 'utf8');
+      const entries = [...lexicon.matchAll(/'([^'\n]{3,})'/gu)].map((match) => match[1]!);
+      expect(entries.length).toBeGreaterThan(10);
+      for (const entry of entries) {
+        for (const word of entry.split(/[\s,;:()/-]+/u).filter(Boolean)) {
+          expect(word, `${entry}: ${word}`).not.toMatch(/^\p{Lu}[\p{L}\p{N}]+$/u);
+        }
       }
-    }
-  });
+    },
+  );
 });
 
 describe('every name it produces comes from the text it was given', () => {

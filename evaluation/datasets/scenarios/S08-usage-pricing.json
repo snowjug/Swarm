@@ -1,0 +1,325 @@
+{
+  "id": "S08",
+  "split": "test",
+  "kind": "custom",
+  "title": "Analytics tool: from per-seat to usage-based pricing",
+  "tags": ["custom", "contradictory-sources"],
+  "question": "What could happen if a small analytics tool moves from per-seat pricing to usage-based pricing?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-pricing-memo.md",
+        "content": "# Pricing memo: from seats to usage\n\nThis is a fictional memo written for an evaluation. All names, places and figures are invented.\n\n## Proposal\n\nTallybeam, a small analytics tool, charges $18 per seat per month. The product team proposes charging by the number of reports run each month instead, with the first 200 reports free. Annual contracts would stay on seats until they renew.\n\n## Why\n\nMost revenue comes from teams of two to ten seats, and many of those seats are occasional users. The finance lead says annual churn of paid accounts was 9% last year. The product lead expects usage pricing to make the tool easier to adopt inside a team, and the finance lead expects it to make monthly revenue harder to forecast.\n\n## Timing\n\nThe billing system cannot meter reports until the third quarter. A pilot with new customers only is proposed for the quarter after that.\n"
+      },
+      {
+        "name": "02-customer-interviews.md",
+        "content": "# Customer interview notes\n\nThis is a fictional set of notes written for an evaluation. All names, places and figures are invented.\n\n## Who was interviewed\n\nTwelve customers were interviewed, chosen by the account team. Seven are on annual contracts and five pay monthly.\n\n## What they said\n\nSmall teams said they like paying only for what they use. Two larger customers said their finance departments need a predictable invoice and would not accept a variable bill without a cap. A reseller said it quotes clients a fixed annual price and would need a cap or a bundle. An education customer said its grant rules require a fixed budget line for software.\n\n## Gaps\n\nNobody was asked how many reports a typical user runs. The team has no data on the spread of usage across customers.\n"
+      },
+      {
+        "name": "03-finance-and-contracts-note.md",
+        "content": "# Finance and contracts note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Churn and revenue\n\nThe account team reports that annual churn of paid accounts was 14% last year.\n\n## Contracts\n\nAnnual contracts include a price lock until renewal, so customers on them cannot be moved to usage pricing before then. Invoices to customers in the European market must show value-added tax, and the billing platform does not yet support per-report tax lines.\n\n## Support\n\nThe support team has not been told about the change. A change in how invoices are calculated usually produces a rise in billing questions in the first two months.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Product team",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["product team", "product lead"],
+      "quote": {
+        "document": "01-pricing-memo.md",
+        "text": "The product team proposes charging by the number of reports run each month instead, with the first 200 reports free."
+      },
+      "rationale": "Proposes the change."
+    },
+    {
+      "id": "p02",
+      "name": "Finance lead",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["finance lead", "finance"],
+      "quote": {
+        "document": "01-pricing-memo.md",
+        "text": "The product lead expects usage pricing to make the tool easier to adopt inside a team, and the finance lead expects it to make monthly revenue harder to forecast."
+      },
+      "rationale": "Weighs forecasting."
+    },
+    {
+      "id": "p03",
+      "name": "Small teams",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["small teams", "teams of two to ten"],
+      "quote": {
+        "document": "02-customer-interviews.md",
+        "text": "Small teams said they like paying only for what they use."
+      },
+      "rationale": "Like paying for use."
+    },
+    {
+      "id": "p04",
+      "name": "Finance departments of larger customers",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["larger customers", "finance departments"],
+      "quote": {
+        "document": "02-customer-interviews.md",
+        "text": "Two larger customers said their finance departments need a predictable invoice and would not accept a variable bill without a cap."
+      },
+      "rationale": "Need predictable invoices."
+    },
+    {
+      "id": "p05",
+      "name": "Reseller",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["reseller"],
+      "quote": {
+        "document": "02-customer-interviews.md",
+        "text": "A reseller said it quotes clients a fixed annual price and would need a cap or a bundle."
+      },
+      "rationale": "Quotes fixed prices."
+    },
+    {
+      "id": "p06",
+      "name": "Education customer",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["education customer", "grant"],
+      "quote": {
+        "document": "02-customer-interviews.md",
+        "text": "An education customer said its grant rules require a fixed budget line for software."
+      },
+      "rationale": "Grant rules require a fixed line."
+    },
+    {
+      "id": "p07",
+      "name": "Customers on annual contracts",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["annual contract", "annual-contract"],
+      "quote": {
+        "document": "01-pricing-memo.md",
+        "text": "Annual contracts would stay on seats until they renew."
+      },
+      "rationale": "Stay on seats until renewal."
+    },
+    {
+      "id": "p08",
+      "name": "Account team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["account team"],
+      "quote": {
+        "document": "03-finance-and-contracts-note.md",
+        "text": "The account team reports that annual churn of paid accounts was 14% last year."
+      },
+      "rationale": "Handles customer accounts."
+    },
+    {
+      "id": "p09",
+      "name": "Support team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["support team"],
+      "quote": {
+        "document": "03-finance-and-contracts-note.md",
+        "text": "The support team has not been told about the change."
+      },
+      "rationale": "Would field billing questions."
+    },
+    {
+      "id": "p10",
+      "name": "Billing platform team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["billing"],
+      "quote": {
+        "document": "01-pricing-memo.md",
+        "text": "The billing system cannot meter reports until the third quarter."
+      },
+      "rationale": "Cannot meter reports yet."
+    },
+    {
+      "id": "p11",
+      "name": "Customers in the European market",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["european market", "european"],
+      "quote": {
+        "document": "03-finance-and-contracts-note.md",
+        "text": "Invoices to customers in the European market must show value-added tax, and the billing platform does not yet support per-report tax lines."
+      },
+      "rationale": "Invoices must show tax."
+    },
+    {
+      "id": "p12",
+      "name": "Occasional users within teams",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["occasional users"],
+      "quote": {
+        "document": "01-pricing-memo.md",
+        "text": "Most revenue comes from teams of two to ten seats, and many of those seats are occasional users."
+      },
+      "rationale": "Many seats are occasional."
+    },
+    {
+      "id": "p13",
+      "name": "Heavy users who run many reports",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["heavy users", "high-volume", "many reports"],
+      "quote": {
+        "document": "02-customer-interviews.md",
+        "text": "Nobody was asked how many reports a typical user runs."
+      },
+      "rationale": "Usage spread unknown."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "technical-feasibility",
+      "hardness": "hard",
+      "document": "01-pricing-memo.md",
+      "quote": "The billing system cannot meter reports until the third quarter.",
+      "rationale": "A system limit."
+    },
+    {
+      "id": "c02",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "03-finance-and-contracts-note.md",
+      "quote": "Annual contracts include a price lock until renewal, so customers on them cannot be moved to usage pricing before then.",
+      "rationale": "A price lock."
+    },
+    {
+      "id": "c03",
+      "category": "legal",
+      "hardness": "hard",
+      "document": "03-finance-and-contracts-note.md",
+      "quote": "Invoices to customers in the European market must show value-added tax, and the billing platform does not yet support per-report tax lines.",
+      "rationale": "A tax invoicing duty."
+    },
+    {
+      "id": "c04",
+      "category": "customer",
+      "hardness": "soft",
+      "document": "02-customer-interviews.md",
+      "quote": "Two larger customers said their finance departments need a predictable invoice and would not accept a variable bill without a cap.",
+      "rationale": "A customer need."
+    },
+    {
+      "id": "c05",
+      "category": "budget",
+      "hardness": "hard",
+      "document": "02-customer-interviews.md",
+      "quote": "An education customer said its grant rules require a fixed budget line for software.",
+      "rationale": "Grant rules."
+    },
+    {
+      "id": "c06",
+      "category": "data-quality",
+      "hardness": "soft",
+      "document": "02-customer-interviews.md",
+      "quote": "The team has no data on the spread of usage across customers.",
+      "rationale": "A missing measure."
+    },
+    {
+      "id": "c07",
+      "category": "time",
+      "hardness": "soft",
+      "document": "01-pricing-memo.md",
+      "quote": "A pilot with new customers only is proposed for the quarter after that.",
+      "rationale": "A proposed date."
+    },
+    {
+      "id": "c08",
+      "category": "operational",
+      "hardness": "soft",
+      "document": "03-finance-and-contracts-note.md",
+      "quote": "A change in how invoices are calculated usually produces a rise in billing questions in the first two months.",
+      "rationale": "A support load."
+    }
+  ],
+  "gap": {
+    "constraintId": "c05",
+    "removeText": " An education customer said its grant rules require a fixed budget line for software.",
+    "document": "02-customer-interviews.md",
+    "category": "budget",
+    "accept": ["budget"],
+    "rationale": "The only statement about grant rules."
+  },
+  "alternatives": [
+    {
+      "id": "a1",
+      "cues": ["by the number of reports", "usage pricing", "usage-based"],
+      "rationale": "Charge by usage."
+    },
+    { "id": "a2", "cues": ["stay on seats"], "rationale": "Annual contracts stay on seats." },
+    {
+      "id": "a3",
+      "cues": ["pilot with new customers"],
+      "rationale": "Pilot with new customers only."
+    },
+    { "id": "a4", "cues": ["cap or a bundle", "cap"], "rationale": "A cap or a bundle." }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "The billing system cannot meter reports until the third quarter.",
+      "gold": "supported",
+      "documents": ["01-pricing-memo.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "Twelve customers were interviewed.",
+      "gold": "supported",
+      "documents": ["02-customer-interviews.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "Customers want usage-based pricing.",
+      "gold": "partial",
+      "documents": ["02-customer-interviews.md"],
+      "rationale": "Small teams do; larger customers want predictability."
+    },
+    {
+      "id": "k4",
+      "statement": "Usage pricing will increase revenue.",
+      "gold": "unsupported",
+      "documents": ["01-pricing-memo.md", "03-finance-and-contracts-note.md"],
+      "rationale": "Nobody has shown it."
+    },
+    {
+      "id": "k5",
+      "statement": "Most customers run fewer than 200 reports a month.",
+      "gold": "unsupported",
+      "documents": ["02-customer-interviews.md"],
+      "rationale": "Nobody was asked."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-pricing-memo.md",
+        "quote": "The finance lead says annual churn of paid accounts was 9% last year."
+      },
+      "b": {
+        "document": "03-finance-and-contracts-note.md",
+        "quote": "The account team reports that annual churn of paid accounts was 14% last year."
+      },
+      "mustContain": ["9%", "14%"],
+      "rationale": "Two churn figures for the same year."
+    }
+  ],
+  "labelRevisions": []
+}

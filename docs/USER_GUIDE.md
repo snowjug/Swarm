@@ -296,11 +296,16 @@ who is involved for them (with a model too, if the project has one and you ask f
 validated, reviewed or used by being found. Each constraint says where it came from: **You**, **From evidence**
 (with the quote, word for word, under **Evidence**) or **Inferred** (a suggestion from who is involved, which no
 source says), whether anyone has validated it, whether it is **Hard** or **Soft**, and whether the simulation
-runs under it (**Applied in the simulation**) or only reads it (**Read, not modelled**). A constraint you accept
+runs under it (**Applied in the simulation**) or only reads it (**Read, not modelled**). Hard or soft is Swarm's
+proposal, not a finding: under **Evidence** (or **Where from**) it says why, in the words of the source ("hard
+because the source says ‘must’"; "soft: the source says ‘at least’, but as something someone asks for"), and you
+can change it. A constraint you accept
 stays not yet validated until you **Confirm** it; **Mark unknown** keeps it out of the runs without treating it as
 true; **Use as an assumption** says so wherever the result is used.
 
 Swarm asks up to three questions at a time about limits it could not find and that could change the result.
+Each says what made it worth asking: a source that says the limit is not settled, who is involved, or what a
+section of your sources is about. When you have dealt with some, read again and it asks the next ones.
 You can **Answer**, **Mark unknown**, **Use an assumption** or **Exclude** each one. The coverage gate at the top
 says whether a simulation may start: **Blocked** while a hard legal, regulatory or safety constraint is not
 settled (or a hard constraint rules out every alternative), **Provisional** while anything is left that you have

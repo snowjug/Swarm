@@ -196,20 +196,32 @@ export function usePinned<T extends string>(): [T | null, (place: T | null) => v
   return [pinned, setPinned];
 }
 
-/** Whether an element has scrolled up past the top of the page, so that what it held can be kept in reach. */
+/**
+ * Whether an element has scrolled up past the top of the page, so that what it held can be kept in reach. It is read as
+ * the page scrolls, and not from where an observer says the element enters and leaves the window: the element may begin
+ * below the window and be jumped past, never having been in it.
+ */
 export function usePassed(ref: RefObject<HTMLElement | null>): boolean {
   const [passed, setPassed] = useState(false);
   useEffect(() => {
     const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return undefined;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry) setPassed(!entry.isIntersecting && entry.boundingClientRect.bottom < 80);
-      },
-      { threshold: 0 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
+    if (!node) return undefined;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      setPassed(node.getBoundingClientRect().bottom < 80);
+    };
+    const schedule = () => {
+      if (frame === 0) frame = requestAnimationFrame(read);
+    };
+    read();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
   }, [ref]);
   return passed;
 }

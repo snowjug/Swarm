@@ -154,7 +154,7 @@ test.describe('reading the sources for constraints', () => {
       }),
     ).toBeVisible();
     const first = page.locator('.sw-cask__item').first();
-    await expect(first.getByText(/What it could change:/u)).toBeVisible();
+    await expect(first.getByText(/Why it is asked:/u)).toBeVisible();
     const group = first.getByRole('group');
     await expect(group.getByRole('button')).toHaveText([
       'Answer',

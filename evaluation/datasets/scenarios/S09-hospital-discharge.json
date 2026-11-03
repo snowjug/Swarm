@@ -1,0 +1,337 @@
+{
+  "id": "S09",
+  "split": "dev",
+  "kind": "custom",
+  "title": "Hospital: earlier discharge and a discharge lounge",
+  "tags": ["custom", "contradictory-sources"],
+  "question": "What could happen if a general hospital moves most discharges to before noon and opens a discharge lounge?",
+  "source": {
+    "kind": "inline",
+    "documents": [
+      {
+        "name": "01-operations-proposal.md",
+        "content": "# Operations proposal: earlier discharge and a discharge lounge\n\nThis is a fictional proposal written for an evaluation. All names, places and figures are invented.\n\n## Proposal\n\nMarlow General Hospital proposes that most patients who are fit to leave are discharged before noon, and that those waiting for transport or medicines wait in a new discharge lounge with 12 chairs, open from 7am to 7pm. The aim is to free beds earlier in the day for patients waiting in the emergency department.\n\n## Today\n\nOn an average weekday 41 patients are discharged, and only 9 leave before noon. Patients waiting for medicines wait a median of 3 hours. The emergency department has 18 patients waiting for a bed at 4pm on a typical day.\n\n## Open questions\n\nThe proposal does not say how many nurses the lounge would need or who would staff it at weekends.\n"
+      },
+      {
+        "name": "02-clinical-and-pharmacy-note.md",
+        "content": "# Clinical and pharmacy note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Medicines\n\nA patient may not leave until a pharmacist has signed the medicines review. The pharmacy has four pharmacists on weekdays and one at weekends, and the dispensary opens at 8am.\n\n## Ward rounds\n\nConsultants finish ward rounds between 11am and 1pm on most wards, so an earlier discharge decision would need rounds to start earlier or a junior doctor to authorise discharges.\n\n## Records\n\nDischarge summaries must be sent to the patient's general practice within 24 hours. The ward clerks write most of the letters.\n"
+      },
+      {
+        "name": "03-community-care-and-transport-note.md",
+        "content": "# Community care and patient transport note\n\nThis is a fictional note written for an evaluation. All names, places and figures are invented.\n\n## Social care\n\nThe county social care team needs 48 hours' notice to arrange a care package at home, so patients who need one cannot be discharged to home earlier than that. The team does not work at weekends.\n\n## Transport\n\nThe patient transport service collects patients in pre-booked slots, and 60% of its slots before noon are already taken by dialysis and outpatient trips. The transport service's records show that on an average weekday 33 patients are discharged.\n\n## Patients and families\n\nFamilies say they cannot always arrive before noon. Carers of patients with dementia asked that a discharge lounge be quiet and have staff who know the patient. A patients' group said patients should not be moved to a lounge while in pain.\n"
+      }
+    ]
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Hospital operations management",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["hospital management", "operations", "marlow general"],
+      "quote": {
+        "document": "01-operations-proposal.md",
+        "text": "The aim is to free beds earlier in the day for patients waiting in the emergency department."
+      },
+      "rationale": "Proposes the change."
+    },
+    {
+      "id": "p02",
+      "name": "Emergency department",
+      "role": "beneficiaries",
+      "voice": "named",
+      "aliases": ["emergency department"],
+      "quote": {
+        "document": "01-operations-proposal.md",
+        "text": "The aim is to free beds earlier in the day for patients waiting in the emergency department."
+      },
+      "rationale": "Would get beds sooner."
+    },
+    {
+      "id": "p03",
+      "name": "Ward nurses",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["nurses", "ward nurses"],
+      "quote": {
+        "document": "01-operations-proposal.md",
+        "text": "The proposal does not say how many nurses the lounge would need or who would staff it at weekends."
+      },
+      "rationale": "Would staff the lounge."
+    },
+    {
+      "id": "p04",
+      "name": "Pharmacists",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["pharmacists", "pharmacy"],
+      "quote": {
+        "document": "02-clinical-and-pharmacy-note.md",
+        "text": "A patient may not leave until a pharmacist has signed the medicines review."
+      },
+      "rationale": "Sign the medicines review."
+    },
+    {
+      "id": "p05",
+      "name": "Consultants",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["consultants"],
+      "quote": {
+        "document": "02-clinical-and-pharmacy-note.md",
+        "text": "Consultants finish ward rounds between 11am and 1pm on most wards, so an earlier discharge decision would need rounds to start earlier or a junior doctor to authorise discharges."
+      },
+      "rationale": "Decide discharges on ward rounds."
+    },
+    {
+      "id": "p06",
+      "name": "Junior doctors",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["junior doctor", "junior doctors"],
+      "quote": {
+        "document": "02-clinical-and-pharmacy-note.md",
+        "text": "Consultants finish ward rounds between 11am and 1pm on most wards, so an earlier discharge decision would need rounds to start earlier or a junior doctor to authorise discharges."
+      },
+      "rationale": "Could authorise discharges."
+    },
+    {
+      "id": "p07",
+      "name": "Ward clerks",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["ward clerks"],
+      "quote": {
+        "document": "02-clinical-and-pharmacy-note.md",
+        "text": "The ward clerks write most of the letters."
+      },
+      "rationale": "Write discharge letters."
+    },
+    {
+      "id": "p08",
+      "name": "General practices",
+      "role": "indirectly-affected",
+      "voice": "named",
+      "aliases": ["general practice", "general practices"],
+      "quote": {
+        "document": "02-clinical-and-pharmacy-note.md",
+        "text": "Discharge summaries must be sent to the patient's general practice within 24 hours."
+      },
+      "rationale": "Receive summaries."
+    },
+    {
+      "id": "p09",
+      "name": "County social care team",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["social care"],
+      "quote": {
+        "document": "03-community-care-and-transport-note.md",
+        "text": "The county social care team needs 48 hours' notice to arrange a care package at home, so patients who need one cannot be discharged to home earlier than that."
+      },
+      "rationale": "Arranges care at home."
+    },
+    {
+      "id": "p10",
+      "name": "Patient transport service",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["patient transport", "transport service"],
+      "quote": {
+        "document": "03-community-care-and-transport-note.md",
+        "text": "The patient transport service collects patients in pre-booked slots, and 60% of its slots before noon are already taken by dialysis and outpatient trips."
+      },
+      "rationale": "Collects patients."
+    },
+    {
+      "id": "p11",
+      "name": "Patients",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["patients"],
+      "quote": {
+        "document": "03-community-care-and-transport-note.md",
+        "text": "A patients' group said patients should not be moved to a lounge while in pain."
+      },
+      "rationale": "Would wait in the lounge."
+    },
+    {
+      "id": "p12",
+      "name": "Families",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["families"],
+      "quote": {
+        "document": "03-community-care-and-transport-note.md",
+        "text": "Families say they cannot always arrive before noon."
+      },
+      "rationale": "Collect patients."
+    },
+    {
+      "id": "p13",
+      "name": "Carers of patients with dementia",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["carers", "dementia"],
+      "quote": {
+        "document": "03-community-care-and-transport-note.md",
+        "text": "Carers of patients with dementia asked that a discharge lounge be quiet and have staff who know the patient."
+      },
+      "rationale": "Ask for a quiet lounge."
+    },
+    {
+      "id": "p14",
+      "name": "Patients who live alone",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["live alone", "lives alone", "without family"],
+      "quote": null,
+      "rationale": "Depend on transport and care arrangements; no source mentions them."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "safety",
+      "hardness": "hard",
+      "document": "02-clinical-and-pharmacy-note.md",
+      "quote": "A patient may not leave until a pharmacist has signed the medicines review.",
+      "rationale": "A required sign-off."
+    },
+    {
+      "id": "c02",
+      "category": "capacity",
+      "hardness": "hard",
+      "document": "01-operations-proposal.md",
+      "quote": "Marlow General Hospital proposes that most patients who are fit to leave are discharged before noon, and that those waiting for transport or medicines wait in a new discharge lounge with 12 chairs, open from 7am to 7pm.",
+      "rationale": "Twelve chairs."
+    },
+    {
+      "id": "c03",
+      "category": "regulatory",
+      "hardness": "hard",
+      "document": "02-clinical-and-pharmacy-note.md",
+      "quote": "Discharge summaries must be sent to the patient's general practice within 24 hours.",
+      "rationale": "A deadline."
+    },
+    {
+      "id": "c04",
+      "category": "dependency",
+      "hardness": "hard",
+      "document": "03-community-care-and-transport-note.md",
+      "quote": "The county social care team needs 48 hours' notice to arrange a care package at home, so patients who need one cannot be discharged to home earlier than that.",
+      "rationale": "A notice period."
+    },
+    {
+      "id": "c05",
+      "category": "staffing",
+      "hardness": "hard",
+      "document": "02-clinical-and-pharmacy-note.md",
+      "quote": "The pharmacy has four pharmacists on weekdays and one at weekends, and the dispensary opens at 8am.",
+      "rationale": "Limited pharmacy cover."
+    },
+    {
+      "id": "c06",
+      "category": "dependency",
+      "hardness": "soft",
+      "document": "03-community-care-and-transport-note.md",
+      "quote": "The patient transport service collects patients in pre-booked slots, and 60% of its slots before noon are already taken by dialysis and outpatient trips.",
+      "rationale": "Slots are mostly taken."
+    },
+    {
+      "id": "c07",
+      "category": "accessibility",
+      "hardness": "soft",
+      "document": "03-community-care-and-transport-note.md",
+      "quote": "Carers of patients with dementia asked that a discharge lounge be quiet and have staff who know the patient.",
+      "rationale": "A request."
+    },
+    {
+      "id": "c08",
+      "category": "sequencing",
+      "hardness": "soft",
+      "document": "02-clinical-and-pharmacy-note.md",
+      "quote": "Consultants finish ward rounds between 11am and 1pm on most wards, so an earlier discharge decision would need rounds to start earlier or a junior doctor to authorise discharges.",
+      "rationale": "Rounds fix when decisions are made."
+    },
+    {
+      "id": "c09",
+      "category": "staffing",
+      "hardness": "hard",
+      "document": "03-community-care-and-transport-note.md",
+      "quote": "The team does not work at weekends.",
+      "rationale": "No weekend cover."
+    }
+  ],
+  "gap": {
+    "constraintId": "c01",
+    "removeText": "A patient may not leave until a pharmacist has signed the medicines review. ",
+    "document": "02-clinical-and-pharmacy-note.md",
+    "category": "safety",
+    "accept": ["safety", "legal"],
+    "rationale": "The only statement of the pharmacist sign-off."
+  },
+  "alternatives": [
+    { "id": "a1", "cues": ["before noon"], "rationale": "Discharge before noon." },
+    { "id": "a2", "cues": ["discharge lounge"], "rationale": "A lounge for those waiting." },
+    {
+      "id": "a3",
+      "cues": ["rounds to start earlier", "junior doctor"],
+      "rationale": "Earlier rounds or a junior doctor authorising."
+    }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "Only 9 of the 41 patients discharged on an average weekday leave before noon.",
+      "gold": "supported",
+      "documents": ["01-operations-proposal.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k2",
+      "statement": "The county social care team does not work at weekends.",
+      "gold": "supported",
+      "documents": ["03-community-care-and-transport-note.md"],
+      "rationale": "Stated."
+    },
+    {
+      "id": "k3",
+      "statement": "A discharge lounge would free beds for the emergency department by 4pm.",
+      "gold": "partial",
+      "documents": ["01-operations-proposal.md"],
+      "rationale": "The aim is stated; the effect is not shown."
+    },
+    {
+      "id": "k4",
+      "statement": "Patients prefer to wait in a lounge rather than on the ward.",
+      "gold": "unsupported",
+      "documents": ["03-community-care-and-transport-note.md"],
+      "rationale": "A group objects to moving patients in pain."
+    },
+    {
+      "id": "k5",
+      "statement": "The pharmacy can sign medicines reviews before 7am.",
+      "gold": "unsupported",
+      "documents": ["02-clinical-and-pharmacy-note.md"],
+      "rationale": "The dispensary opens at 8am."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "deterministic",
+      "a": {
+        "document": "01-operations-proposal.md",
+        "quote": "On an average weekday 41 patients are discharged"
+      },
+      "b": {
+        "document": "03-community-care-and-transport-note.md",
+        "quote": "on an average weekday 33 patients are discharged"
+      },
+      "mustContain": ["41", "33"],
+      "rationale": "Two weekday discharge counts."
+    }
+  ],
+  "labelRevisions": []
+}

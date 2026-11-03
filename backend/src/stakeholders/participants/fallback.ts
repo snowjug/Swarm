@@ -1,5 +1,6 @@
 import {
   CATEGORY_DEFAULT_ROLE,
+  MAX_PROPOSED_PARTICIPANTS,
   PARTICIPANT_ROLE_MEANINGS,
   PROPOSED_PARTICIPANTS_VERSION,
   ROLE_CATEGORIES,
@@ -9,15 +10,26 @@ import {
   type Stakeholder,
 } from '../../../../shared/stakeholders.js';
 import type { ScenarioFrame } from '../../../../shared/scenario.js';
-import { capitalise, slugify, truncate, uniqueId } from '../names.js';
+import { slugify, truncate, uniqueId } from '../names.js';
 import { CATEGORY_PURPOSE } from '../priors.js';
 import { deriveRelations } from '../relations.js';
 import { PLACEHOLDER_SIZE, discoverByRules } from '../rules.js';
 import { keyOf } from '../mentions.js';
 import { readCited } from '../tone.js';
 import type { ProposalContext } from './context.js';
-import { isGenericName, nameTokens, normaliseLine, wordsIn } from './language.js';
+import { MAX_RULES_PARTICIPANTS, compareRank } from './build.js';
+import {
+  compareNames,
+  isGenericName,
+  nameProblem,
+  nameTokens,
+  normaliseLine,
+  wordsIn,
+} from './language.js';
+import { readMentions } from './reader.js';
+import { ROLE_DEFAULTS_NOTE, scaffold } from './scaffold.js';
 import { ROLE_DEFAULTS } from './taxonomy.js';
+import { qualifyName } from './topic.js';
 
 /**
  * What the rules path leaves out of the proposal and what it read along the way, kept beside the
@@ -33,30 +45,6 @@ export interface ProposalSide {
 
 export const newSide = (): ProposalSide => ({ legacy: new Map(), dropped: [], notes: [] });
 
-const LEADING: ReadonlySet<string> = new Set(
-  'a an the one this that particular certain selected specific given some any another our their its'.split(
-    ' ',
-  ),
-);
-
-/** The scenario's system in a few words, for naming a participant that the sources only call "staff" or "users". */
-export function shortSystem(scenario: ScenarioFrame | null): string | null {
-  const raw = scenario?.system.trim();
-  if (!raw) return null;
-  const head = raw.split(/[,;(]| of | in | for | at | on /iu)[0] ?? raw;
-  const words = head.split(/\s+/u).filter(Boolean);
-  while (words[0] && LEADING.has(words[0].toLowerCase())) words.shift();
-  const kept = words.slice(0, 4).join(' ');
-  return kept === '' ? null : kept;
-}
-
-/** A generic name made specific by the system it belongs to: "Users" in a scenario about "Online store". */
-export function qualifyName(name: string, scenario: ScenarioFrame | null): string | null {
-  const system = shortSystem(scenario);
-  if (!system) return null;
-  return truncate(`${capitalise(system)} ${name.toLowerCase()}`, 120);
-}
-
 const APPROVAL_CUE =
   /\b(?:approv|sign[- ]?off|authori[sz]|consent|clearance|permit|licen[cs])\w*/iu;
 
@@ -71,11 +59,26 @@ function opensDecision(name: string, scenario: ScenarioFrame | null): boolean {
   return tokens.length > 0 && tokens.every((token) => opening.has(token));
 }
 
-function roleFor(legacy: Stakeholder, scenario: ScenarioFrame | null): ParticipantRole {
+/** Kinds of party that can be the one who decides: an organisation, a body or a person in a position, not a population. */
+const CAN_DECIDE: ReadonlySet<Stakeholder['category']> = new Set([
+  'decision-maker',
+  'other',
+  'channel',
+  'partner',
+  'governance',
+  'regulator',
+  'operations',
+]);
+
+function roleFor(
+  legacy: Stakeholder,
+  scenario: ScenarioFrame | null,
+  deciders: ReadonlySet<string>,
+): ParticipantRole {
   if (
-    legacy.origin === 'scenario' &&
-    legacy.category === 'other' &&
-    opensDecision(legacy.name, scenario)
+    CAN_DECIDE.has(legacy.category) &&
+    (deciders.has(legacy.id) ||
+      (legacy.origin === 'scenario' && opensDecision(legacy.name, scenario)))
   ) {
     return 'decision-owner';
   }
@@ -88,8 +91,12 @@ function roleFor(legacy: Stakeholder, scenario: ScenarioFrame | null): Participa
   return CATEGORY_DEFAULT_ROLE[legacy.category];
 }
 
-const ROLE_DEFAULTS_NOTE =
-  'Influence, authority, information access and plausible actions are defaults for this role, not findings.';
+/**
+ * How many groups the reading hands on to be ranked. The list the person sees is cut to
+ * `MAX_RULES_PARTICIPANTS` by the builder, which knows the roles; cutting earlier, by how often a group
+ * is named, would drop a group that was named once and matters.
+ */
+const MAX_CANDIDATES = 60;
 
 /**
  * Why a participant is on the list when nothing but its role and the sources are known: what the role is, and the
@@ -179,48 +186,6 @@ function composed(
   };
 }
 
-/** A participant that rests on a role pattern alone: nothing quoted, said so in its own words. */
-function templated(
-  role: ParticipantRole,
-  name: string,
-  id: string,
-  why: string,
-  basisNote: string,
-): ProposedParticipant {
-  const defaults = ROLE_DEFAULTS[role];
-  const category = ROLE_CATEGORIES[role][0] ?? 'other';
-  return {
-    id,
-    name,
-    role,
-    category,
-    whyTheyMatter: truncate(`${PARTICIPANT_ROLE_MEANINGS[role]} ${why}`, 600),
-    description: '',
-    objective: CATEGORY_PURPOSE[category],
-    incentives: [],
-    pressures: [],
-    constraints: [],
-    concerns: [],
-    influence: defaults.influence,
-    decisionAuthority: defaults.decisionAuthority,
-    directness: defaults.directness,
-    impact: {
-      direction: 'unclear',
-      rationale: 'No direction is assumed for a role added from a pattern.',
-    },
-    informationAccess: defaults.informationAccess,
-    plausibleActions: defaults.plausibleActions,
-    prohibitedClaims: defaults.prohibitedClaims,
-    evidence: [],
-    assumptions: [basisNote, ROLE_DEFAULTS_NOTE],
-    uncertainty: { level: 'high', reason: 'No passage names this role; it is a role pattern.' },
-    confidenceBasis: 'category-pattern',
-    priority: role === 'decision-owner' ? 'key' : 'standard',
-    populationSize: PLACEHOLDER_SIZE[role === 'decision-owner' ? 'key' : 'standard'],
-    synthetic: true,
-  };
-}
-
 /** What the rules path proposes: the lexical discovery, held to the role taxonomy and to the same checks as a model's reply. */
 export function rulesProposal(context: ProposalContext, side: ProposalSide): ProposedParticipants {
   // A person named in the sources is never a participant: the role is, and the rules read roles.
@@ -233,6 +198,9 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
     scenario: context.scenario,
     graph: safeGraph,
     passages: context.passages,
+    mentions: readMentions,
+    names: 'specific',
+    limit: MAX_CANDIDATES,
   });
   side.notes.push(...found.notices);
 
@@ -240,6 +208,9 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
   const ids = new Map<string, string>();
   const participants: ProposedParticipant[] = [];
   const live = found.stakeholders.filter((stakeholder) => stakeholder.status !== 'removed');
+  // The group the text most often says starts the change is who decides; another that proposes something
+  // of its own (an operator's fare, a firm's offer) is not.
+  const deciders = new Set(found.deciders.slice(0, 1));
   for (const legacy of live) {
     let name = legacy.name;
     if (isGenericName(name)) {
@@ -255,41 +226,42 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
       }
       name = qualified;
     }
+    const problem = nameProblem(name, context.personLabels);
+    if (problem) {
+      side.dropped.push({
+        name: truncate(name, 120),
+        reason: `Left out of the proposal: ${problem}.`,
+      });
+      continue;
+    }
+    // The same words in another order ("Customers in Marlow", "Marlow customers") are one group, and the
+    // checks a proposal is held to refuse it twice. Its relations go to the one that stays.
+    const twin = participants.find((held) => compareNames(held.name, name) === 'same');
+    if (twin) {
+      ids.set(legacy.id, twin.id);
+      side.dropped.push({
+        name: truncate(name, 120),
+        reason: `Left out of the proposal: it names the same group as “${truncate(twin.name, 60)}”.`,
+      });
+      continue;
+    }
     const id = uniqueId(slugify(name), used);
     ids.set(legacy.id, id);
     side.legacy.set(id, legacy);
     participants.push(
-      composed(legacy, normaliseLine(name, 120), id, roleFor(legacy, context.scenario)),
+      composed(legacy, normaliseLine(name, 120), id, roleFor(legacy, context.scenario, deciders)),
     );
   }
 
-  // A decision has someone who makes it and a change lands on someone, so the proposal always has both.
-  const topic = shortSystem(context.scenario) ?? 'this change';
-  if (!participants.some((participant) => participant.role === 'decision-owner')) {
-    const name = normaliseLine(`Decision owner for ${topic}`, 120);
-    participants.push(
-      templated(
-        'decision-owner',
-        name,
-        uniqueId(slugify(name), used),
-        'A decision has someone who makes it; no passage names who.',
-        'Added because every decision has an owner; no passage names who it is.',
-      ),
-    );
-  }
-  if (participants.length < 2) {
-    const name = normaliseLine(`Those directly affected by ${topic}`, 120);
-    participants.push(
-      templated(
-        'directly-affected',
-        name,
-        uniqueId(slugify(name), used),
-        'A change lands on someone; no passage names who.',
-        'Added because a change lands on someone; no passage names who.',
-      ),
-    );
-  }
-
+  // A proposal holds at most `MAX_PROPOSED_PARTICIPANTS`: what is held back is what the builder would have
+  // cut first, in the order it cuts, so that a group named once and matters is not lost to the alphabet.
+  const ranked = [...participants].sort((a, b) =>
+    compareRank(
+      { ...a, quotes: a.evidence.map((item) => item.quote) },
+      { ...b, quotes: b.evidence.map((item) => item.quote) },
+    ),
+  );
+  const assumed = scaffold(context, ranked, used, MAX_RULES_PARTICIPANTS - ranked.length);
   const relations = deriveRelations(live)
     .flatMap((relation) => {
       const from = ids.get(relation.from);
@@ -300,7 +272,7 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
 
   return {
     version: PROPOSED_PARTICIPANTS_VERSION,
-    participants: participants.slice(0, 30),
+    participants: [...ranked.slice(0, MAX_PROPOSED_PARTICIPANTS - assumed.length), ...assumed],
     relations,
     gaps: [],
   };

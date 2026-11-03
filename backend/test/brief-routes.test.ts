@@ -17,6 +17,7 @@ import { BRIEF_CSP } from '../src/brief/export.js';
 import { BriefService } from '../src/brief/service.js';
 import { fixtureInput, testConfig } from './fixtures.js';
 import { critiquesFixture } from './support/brief-world.js';
+import { constraintOf, setOf } from './support/constraint-fixtures.js';
 import {
   TENANT_A,
   TENANT_B,
@@ -171,6 +172,7 @@ describe('making the brief', () => {
       scenario: 1,
       stakeholders: 1,
       actors: 1,
+      constraints: 0,
       analysis: 1,
       critiques: 0,
     });
@@ -245,6 +247,29 @@ describe('making the brief', () => {
     await post();
     expect(repository.artifacts.get(project.id, 'brief')?.data.inputRevisions.scenario).toBe(2);
     expect((await view()).changedSince).toEqual(['scenario']);
+  });
+
+  it('records the constraints a brief is made from, and says at once when the comparison ran before they changed', async () => {
+    const { post, view, repository, project } = await localWorld();
+    holdAnalysis(repository, project.id);
+    // The comparison ran when the project had no constraints; a person has reviewed some since.
+    repository.artifacts.put(project.id, 'constraints', 'default', setOf([constraintOf()]));
+    const made = ((await post()).json() as BriefView).brief;
+    expect(repository.artifacts.get(project.id, 'brief')?.data.inputRevisions.constraints).toBe(1);
+    expect(made?.methodology.notes.join(' ')).toContain('was run before the constraints changed');
+    expect((await view()).changedSince).toEqual(['constraints']);
+    // A comparison that did run under them is not said to have run before them.
+    repository.artifacts.put(
+      project.id,
+      'analysis',
+      'analysis-1',
+      analysisFixture({
+        inputRevisions: { scenario: 1, stakeholders: 1, actors: 1, constraints: 1 },
+      }),
+    );
+    const current = ((await post()).json() as BriefView).brief;
+    expect(current?.methodology.notes.join(' ')).not.toContain('before the constraints changed');
+    expect((await view()).changedSince).toEqual([]);
   });
 
   it('keeps saying that a comparison which recorded nothing cannot be told from a current one, and judges what changed by the brief’s own record', async () => {

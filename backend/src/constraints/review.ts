@@ -118,6 +118,7 @@ export function constraintOfPerson(
     source: 'user',
     evidenceRefs: [],
     hardness: parsed.hardness,
+    hardnessBasis: `You set it to ${parsed.hardness}.`,
     scope:
       parsed.scope === 'decision'
         ? scopeOf(parsed.category, parsed.affectedActorIds, parsed.affectedAlternativeIds)
@@ -170,7 +171,12 @@ export function patched(
       };
     }
   }
-  if (patch.hardness !== undefined) next.hardness = patch.hardness;
+  if (patch.hardness !== undefined) {
+    if (patch.hardness !== constraint.hardness) {
+      next.hardnessBasis = `You set it to ${patch.hardness}; ${constraint.hardness === 'hard' ? 'it was held hard' : 'it was held soft'} before.`;
+    }
+    next.hardness = patch.hardness;
+  }
   if (patch.scope !== undefined) next.scope = patch.scope;
   if (patch.affectedActorIds !== undefined)
     next.affectedActorIds = [...new Set(patch.affectedActorIds)];

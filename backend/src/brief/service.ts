@@ -20,6 +20,7 @@ import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage
 import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
 import { buildBrief } from './build.js';
+import { DecisionService } from '../decision/service.js';
 import type { BriefExportInput } from './export.js';
 import { gatherFacts, type BriefInputs, type BriefLedgerSummary } from './facts.js';
 import { briefVisuals } from './visuals.js';
@@ -121,6 +122,7 @@ export class BriefService {
         scenario: scenario?.revision ?? 0,
         stakeholders: stakeholders?.revision ?? 0,
         actors: actors?.revision ?? 0,
+        constraints: artifacts.get(projectId, 'constraints')?.revision ?? 0,
         analysis: analysis.revision,
         critiques: critiques?.revision ?? 0,
       },
@@ -292,6 +294,10 @@ export class BriefService {
       visuals,
       project: { id: projectId, name: projectName },
       appVersion: APP_VERSION,
+      canvas: new DecisionService(this.repository, this.clock).canvasFor(
+        projectId,
+        stored.data.analysisId,
+      ),
       freshness: {
         changedSince: this.changedSince(stored, analysis, this.latestAnalysis(projectId), now),
         currentRevisions: now,

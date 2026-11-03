@@ -16,7 +16,8 @@ import {
 import { modelReportFixture } from '../../test/grounding';
 import { projectFixture } from '../../test/project';
 import { DecideDocument, type DocumentProps } from './DecideDocument';
-import { BriefFailed, BriefLoading, NoAnalysis, WriteBrief, Writing } from './States';
+import { BriefFailed, BriefLoading, WriteBrief, Writing } from './States';
+import { CanvasEmpty } from './canvas/CanvasStates';
 import { SubScene } from './SubScene';
 import DecideScene from './index';
 
@@ -133,11 +134,22 @@ describe('the states before there is a brief', () => {
     expect(text(markup)).toContain('Try again');
   });
 
-  it('points to the comparison when there is none to write from', () => {
-    const markup = page(<NoAnalysis onSimulate={noop} onReport={null} />);
+  it('points to the step that is missing when there is no comparison to decide from', () => {
+    const go = { ask: noop, ground: noop, map: noop, simulate: noop };
+    const readiness = {
+      state: 'no-analysis' as const,
+      missing: ['No comparison has been run yet.'],
+      next: 'simulate' as const,
+      status: null,
+    };
+    const markup = page(<CanvasEmpty readiness={readiness} go={go} onReport={null} />);
     expect(text(markup)).toContain('Nothing to decide from yet');
+    expect(text(markup)).toContain('No comparison has been run yet.');
     expect(text(markup)).toContain('Open Simulate');
     expect(text(markup)).not.toContain('Detailed report');
+    expect(text(page(<CanvasEmpty readiness={readiness} go={go} onReport={noop} />))).toContain(
+      'Detailed report',
+    );
   });
 
   it('offers to write the brief, and only to someone who may', () => {

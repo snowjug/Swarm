@@ -372,15 +372,27 @@ export interface Mention {
   passageId: string;
   /** A verbatim excerpt of the passage: the sentence the group is named in. */
   quote: string;
+  /** The sentence says what the group asks, says or does. Only a broader reader than the default one sets it. */
+  voiced?: boolean;
+  /** The group is written as a name: a body with a name of its own. Only a broader reader sets it. */
+  named?: boolean;
+  /** The group is the subject of a verb of starting a change ("the Council proposes"). Only a broader reader sets it. */
+  decides?: boolean;
 }
 
 /** A sentence of a passage, with what reading it for groups needs, worked out once. */
-interface Analysed extends Sentence {
+export interface Analysed extends Sentence {
   lowered: string;
   /** It speaks to an AI system, so it is data about the document and is never read as description. */
   suspicious: boolean;
   /** It is a label, a menu entry or a list of names, which says nothing about the groups it names. */
   label: boolean;
+  /** The sentence with each link masked, the same length as the sentence, which is what words are cut from. */
+  readable: string;
+  /** It is written in capitals from end to end and reads as prose, so its capitals say nothing. */
+  shouted: boolean;
+  /** The positions of the words that lie in a long run of capitalised words, which is a list of names and not a name. */
+  listed: ReadonlySet<number>;
   words: Word[];
   phrases: Phrase[];
 }
@@ -464,7 +476,7 @@ function inLongRun(sentence: string, words: readonly Word[]): Set<number> {
  * over a large project took seconds. A passage is never changed, so what is worked out is kept for
  * as long as the passage is.
  */
-function analyse(passage: EvidenceChunk): Analysed[] {
+export function analyse(passage: EvidenceChunk): Analysed[] {
   let found = analysed.get(passage);
   if (!found) {
     const sentences = sentencesOf(passage.text);
@@ -483,6 +495,9 @@ function analyse(passage: EvidenceChunk): Analysed[] {
         lowered: sentence.text.toLowerCase(),
         suspicious: inspectText(sentence.text).suspicious,
         label: isLabel,
+        readable,
+        shouted,
+        listed,
         words,
         phrases: isLabel
           ? []

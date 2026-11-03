@@ -1,0 +1,291 @@
+{
+  "id": "S01",
+  "split": "dev",
+  "kind": "flagship",
+  "title": "Larkholm ferry renewal",
+  "tags": ["flagship", "contradictory-sources", "demo-pack"],
+  "question": "How might fictional stakeholders on Larkholm respond to replacing the island ferry with a battery-electric vessel?",
+  "source": { "kind": "larkholm" },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Larkholm Island Council",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["island council", "the council", "councillors"],
+      "quote": {
+        "document": "01-council-briefing-note.md",
+        "text": "The national Clean Coasts Fund would pay 40% of the electric vessel's cost if the Council commits before 30 September."
+      },
+      "rationale": "The Council chooses between the refit and the electric vessel."
+    },
+    {
+      "id": "p02",
+      "name": "Finance Committee",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["finance committee"],
+      "quote": {
+        "document": "01-council-briefing-note.md",
+        "text": "The Finance Committee will not raise the annual ferry subsidy above $1.8 million."
+      },
+      "rationale": "Sets the subsidy ceiling the plan has to fit under."
+    },
+    {
+      "id": "p03",
+      "name": "Harbour-ward councillors",
+      "role": "opponents-resistors",
+      "voice": "named",
+      "aliases": ["harbour ward", "harbour-ward"],
+      "quote": {
+        "document": "01-council-briefing-note.md",
+        "text": "Councillors from the harbour ward have said they will not back a plan that cuts winter service for islanders."
+      },
+      "rationale": "Say they would not back a plan that cuts winter service."
+    },
+    {
+      "id": "p04",
+      "name": "Larkholm Ferry Company",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["ferry company", "ferry operator", "the operator"],
+      "quote": {
+        "document": "01-council-briefing-note.md",
+        "text": "The operator has proposed a fare increase to cover part of that cost; the Council has not taken a position on the size of any increase."
+      },
+      "rationale": "Runs the route and proposes the timetable and fare changes."
+    },
+    {
+      "id": "p05",
+      "name": "Islander households",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["islanders", "islander households", "residents"],
+      "quote": {
+        "document": "03-residents-survey-summary.md",
+        "text": "The Association surveyed 1,150 islander households and received replies from 52% of them."
+      },
+      "rationale": "Depend on the ferry and bear the timetable and fare changes."
+    },
+    {
+      "id": "p06",
+      "name": "Larkholm Residents' Association",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["residents' association", "residents association", "the association"],
+      "quote": {
+        "document": "03-residents-survey-summary.md",
+        "text": "The Association asks the Council to guarantee at least six winter sailings a day and to cap any fare increase at 5%."
+      },
+      "rationale": "Speaks for islanders and sets two conditions."
+    },
+    {
+      "id": "p07",
+      "name": "Larkholm Health Centre",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["health centre"],
+      "quote": {
+        "document": "03-residents-survey-summary.md",
+        "text": "The Larkholm Health Centre reports about 140 patient trips a month to mainland clinics between November and March, including dialysis appointments that cannot be rescheduled."
+      },
+      "rationale": "Its patients depend on winter sailings."
+    },
+    {
+      "id": "p08",
+      "name": "Winter commuters",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["nurses", "teachers", "shift workers", "commuters"],
+      "quote": {
+        "document": "03-residents-survey-summary.md",
+        "text": "Many nurses, teachers and shift workers commute by the first and last sailings of the day."
+      },
+      "rationale": "Rely on the first and last sailings."
+    },
+    {
+      "id": "p09",
+      "name": "Green Tide Alliance",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["green tide"],
+      "quote": {
+        "document": "04-stakeholder-statements.md",
+        "text": "The Alliance polled 400 visitors and residents and found that 74% support an electric ferry."
+      },
+      "rationale": "Campaigns for the electric ferry."
+    },
+    {
+      "id": "p10",
+      "name": "Harbour Business Council",
+      "role": "beneficiaries",
+      "voice": "named",
+      "aliases": ["business council", "harbour business"],
+      "quote": {
+        "document": "04-stakeholder-statements.md",
+        "text": "The Business Council supports an electric ferry because it would strengthen the island's green image."
+      },
+      "rationale": "Island businesses that gain from summer visitors."
+    },
+    {
+      "id": "p11",
+      "name": "Summer visitors",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["visitors", "day-trip", "tourists"],
+      "quote": {
+        "document": "04-stakeholder-statements.md",
+        "text": "Visitors account for about 70% of summer crossings, and summer visitor spending is worth around $9.5 million a year to island shops, guest houses and cafes."
+      },
+      "rationale": "Most summer crossings."
+    },
+    {
+      "id": "p12",
+      "name": "Clean Coasts Fund",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["clean coasts fund", "the fund"],
+      "quote": {
+        "document": "01-council-briefing-note.md",
+        "text": "The national Clean Coasts Fund would pay 40% of the electric vessel's cost if the Council commits before 30 September."
+      },
+      "rationale": "Would pay 40% of the electric vessel if the Council commits in time."
+    },
+    {
+      "id": "p13",
+      "name": "Terminal grid operator",
+      "role": "partners-suppliers",
+      "voice": "implied",
+      "aliases": ["grid"],
+      "quote": {
+        "document": "01-council-briefing-note.md",
+        "text": "Grid upgrades for charging at both terminals are expected to take 14 to 18 months, and the diesel vessel would keep running throughout."
+      },
+      "rationale": "Somebody has to do the grid upgrades; the text names no operator."
+    },
+    {
+      "id": "p14",
+      "name": "Ferry crew",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["crew", "seafarers"],
+      "quote": null,
+      "rationale": "A reduced winter timetable and a new vessel change their work; no source speaks for them."
+    },
+    {
+      "id": "p15",
+      "name": "Passengers with limited mobility",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["mobility", "disabled", "wheelchair"],
+      "quote": null,
+      "rationale": "Depend on boarding and timetable arrangements; nobody speaks for them."
+    },
+    {
+      "id": "p16",
+      "name": "Freight and delivery carriers",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["freight", "deliveries", "goods"],
+      "quote": null,
+      "rationale": "The island's supplies cross by ferry; the sources do not mention goods."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "budget",
+      "hardness": "hard",
+      "document": "01-council-briefing-note.md",
+      "quote": "The Finance Committee will not raise the annual ferry subsidy above $1.8 million.",
+      "rationale": "A stated ceiling on the subsidy."
+    },
+    {
+      "id": "c02",
+      "category": "time",
+      "hardness": "hard",
+      "document": "01-council-briefing-note.md",
+      "quote": "The grant deadline is 30 September.",
+      "rationale": "The grant is lost if the Council does not commit before it."
+    },
+    {
+      "id": "c03",
+      "category": "organizational",
+      "hardness": "hard",
+      "document": "01-council-briefing-note.md",
+      "quote": "Any decision to buy a new vessel needs evidence of sustained use and a funding plan before the March budget vote.",
+      "rationale": "A procedural condition for buying a vessel."
+    },
+    {
+      "id": "c04",
+      "category": "infrastructure",
+      "hardness": "hard",
+      "document": "02-ferry-operator-feasibility-memo.md",
+      "quote": "Charging at both terminals needs grid upgrades that will take 14 to 18 months, so the diesel vessel must keep sailing until they are finished.",
+      "rationale": "A physical lead time that fixes the order of work."
+    },
+    {
+      "id": "c05",
+      "category": "organizational",
+      "hardness": "soft",
+      "document": "01-council-briefing-note.md",
+      "quote": "Councillors from the harbour ward have said they will not back a plan that cuts winter service for islanders.",
+      "rationale": "A stated political position, not a rule."
+    },
+    {
+      "id": "c06",
+      "category": "technical-feasibility",
+      "hardness": "soft",
+      "document": "02-ferry-operator-feasibility-memo.md",
+      "quote": "Battery vessels have less power in reserve in heavy weather, so more winter sailings may be cancelled in storms.",
+      "rationale": "A technical limit stated with 'may'."
+    },
+    {
+      "id": "c07",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "01-council-briefing-note.md",
+      "quote": "Its maintenance bill has risen every year since 2021, and the operating contract with the Larkholm Ferry Company ends in 2028.",
+      "rationale": "A contract end date fixes when arrangements must change."
+    },
+    {
+      "id": "c08",
+      "category": "safety",
+      "hardness": "hard",
+      "document": "03-residents-survey-summary.md",
+      "quote": "The Larkholm Health Centre reports about 140 patient trips a month to mainland clinics between November and March, including dialysis appointments that cannot be rescheduled.",
+      "rationale": "Medical trips cannot be moved, so winter service has a floor."
+    },
+    {
+      "id": "c09",
+      "category": "customer",
+      "hardness": "soft",
+      "document": "03-residents-survey-summary.md",
+      "quote": "The Association asks the Council to guarantee at least six winter sailings a day and to cap any fare increase at 5%.",
+      "rationale": "A request with two numbers; not binding."
+    }
+  ],
+  "gap": {
+    "constraintId": "c07",
+    "removeText": " Its maintenance bill has risen every year since 2021, and the operating contract with the Larkholm Ferry Company ends in 2028.",
+    "document": "01-council-briefing-note.md",
+    "category": "contractual",
+    "accept": ["contractual"],
+    "rationale": "The only statement of the operating contract is removed."
+  },
+  "alternatives": [
+    {
+      "id": "a1",
+      "cues": ["diesel refit", "refit"],
+      "rationale": "Option 1 in the briefing note."
+    },
+    {
+      "id": "a2",
+      "cues": ["battery-electric", "electric vessel", "electric ferry"],
+      "rationale": "Option 2 in the briefing note."
+    }
+  ],
+  "claims": [],
+  "conflicts": [],
+  "labelRevisions": []
+}

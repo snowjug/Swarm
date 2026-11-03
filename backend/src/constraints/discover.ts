@@ -72,6 +72,16 @@ function proposalOf(candidate: Candidate, context: DiscoveryContext, rank: numbe
     ? approverOf(candidate.quote, mentioned.actors, context)
     : null;
   const askedForApproval = candidate.approval && candidate.where.kind !== 'actor';
+  const notes = [
+    approver
+      ? `It asks for an approval from ${approver.name.slice(0, 60)}. The simulation applies it with a stance of ${DEFAULT_APPROVAL_THRESHOLD} as the line, which is an assumption.`
+      : askedForApproval
+        ? 'It asks for an approval, but no single actor could be named as the approver, so it is read and not run.'
+        : '',
+    candidate.guessed
+      ? 'Its words do not name what is limited, so its category is a guess from how the sentence is worded.'
+      : '',
+  ].filter(Boolean);
   return {
     category: candidate.category,
     statement: candidate.statement,
@@ -97,15 +107,7 @@ function proposalOf(candidate: Candidate, context: DiscoveryContext, rank: numbe
       : [],
     assumptionId: candidate.where.kind === 'assumption' ? candidate.where.assumptionId : null,
     rank: rank - candidate.score / 100,
-    ...(approver
-      ? {
-          note: `It asks for an approval from ${approver.name.slice(0, 60)}. The simulation applies it with a stance of ${DEFAULT_APPROVAL_THRESHOLD} as the line, which is an assumption.`,
-        }
-      : askedForApproval
-        ? {
-            note: 'It asks for an approval, but no single actor could be named as the approver, so it is read and not run.',
-          }
-        : {}),
+    ...(notes.length > 0 ? { note: notes.join(' ') } : {}),
   };
 }
 

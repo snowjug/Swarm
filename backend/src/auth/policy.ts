@@ -181,6 +181,9 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   // The person's own text, added to a project that has not been grounded: for whoever may edit the project.
   // The route also queues the stage that grounds it, so it asks for the right to run it as well.
   'POST /api/projects/:id/evidence/documents': project('edit'),
+  // [decision policy]
+  // The decision canvas is worked out at every read from what the project holds: anyone who may read the project may read it.
+  'GET /api/projects/:id/decision': project('read'),
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */

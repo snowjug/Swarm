@@ -241,8 +241,9 @@ of them reads with the defaults of its role and makes the actor it always made.
    strict schema that refuses any field it was not asked for (an email, a gender, a private motive), then
    the server's own checks, one correction, and then the rules, with a sanitised reason and none of the
    model's words. A refusal and a cancelled request are never answered from rules. Without a model, the
-   **rules path** runs and calls none: the lexical discovery above, the taxonomy, and a decision owner and
-   somebody who is reached if the sources name none.
+   **rules path** runs and calls none: it reads the text for the groups it names, adds what a decision like
+   this has and the sources leave unsaid, and marks each of those as an assumption (see
+   [The rules path](#the-rules-path-what-it-reads-and-what-it-adds)).
 3. The same deterministic steps follow either: every quote is checked against its passage; a participant
    found again keeps its id; the same name twice is folded into one (the copy stays under Removed, named by
    the one it went into); one role may hold at most six, the rules path keeps at most sixteen and a model's
@@ -257,6 +258,81 @@ of them reads with the defaults of its role and makes the actor it always made.
 If the sources carry text addressed to an AI system, it is ignored, the passages are flagged on the set,
 a reply that repeats text such an instruction asked for is refused, and what only the model's word backs is
 left out unless the question names it.
+
+### The rules path: what it reads, and what it adds
+
+The rules path is for a project with no model, for a model that failed, and for the evaluation's `rules`
+mode. It never calls a model and gives the same proposal for the same input. It has two parts, and keeps
+them apart: **what the sources name**, which is read and quoted, and **what a decision like this has
+anyway**, which is assumed and says so.
+
+**What it reads** (`participants/reader.ts`, with the vocabulary in `participants/vocabulary.ts`). The
+discovery lexicon above is small on purpose, and a group it does not know is not found. The participant
+reader keeps its rules and widens its vocabulary to common nouns for people in a role, for the kinds of
+body people form and for the kinds of text that set rules, from health, learning, public service,
+transport, trade, labour and civil society alike, and names no organisation, product or place (a test holds
+every entry to lower case). It differs from the discovery lexicon in what it takes a group's name to be:
+
+- a group is named **as the text names it**, from its describing words to its noun: "ward nurses", "county
+  social care team", not the bare noun it shares with others;
+- the words after the noun that say which ones are meant belong to the name: "councillors from the
+  harbour ward", "customers on monthly plans", "head of finance". They are left out after a single person
+  or after a verb, where they describe one case or may belong to the verb, and they stop at a verb;
+- a **body** is a group when it has a name of its own (a describing word with a capital and a kind of body
+  for a noun: "Harbour Pilots' Association", also in a heading), and a few bodies that decide or check are
+  a group when the text says "the council";
+- a group the text ever writes in the plural is named in the plural, and a noun alone ("the Association")
+  is folded into the fuller name of the group it refers to;
+- a plural noun the vocabulary does not know is a group when the sentence has it say or want something
+  ("baggage handlers say…"), and is not when it names what a text holds ("reports say…");
+- a sentence that says what a group asks, says or does marks it as **voiced**, and a group the text says
+  starts the change ("the council proposes…") is the **decision owner**.
+
+It never takes into a name a person's name, a possessor ("the firm's supplier" is the supplier), a word that
+is a verb, a count of members, a role noun that begins a compound ("patient records") or the name of a
+rule ("the Marden Consumer Code"). A sentence addressed to an AI is skipped, and every name still passes
+the rules that block a participant (an identified person, a personal detail, a generalisation about people,
+a hidden motive) before it is proposed.
+
+**How it keeps the list.** The reader hands on every group it found, and the builder ranks them: the
+decision owner first, then by priority, then a missing voice the sources name, a group the sources have
+asking or saying something, a group that says which ones it means (a role named as broadly as "engineers"
+does not), one cited more, one with a name of its own, and one written in the plural; the alphabet is last,
+so that the order is always the same. It keeps **at most three groups for one noun** ("support engineers",
+"tier-two engineers", "new engineers" are a lot already), as it keeps at most six of a role, and records
+every cut. The limits of the list do not change, and a model's proposal is still cut in the order it always
+was (the owner, the priority, the more cited). A group written with the same words in another order
+("Customers in Marlow", "Marlow customers") is one group: the later is left out, its relations go to the
+first, and the cut is recorded, since a proposal that names a group twice fails the checks it is held to.
+
+**What it adds** (`participants/scaffold.ts`). Each is a role-based assumption: it has `category-pattern`
+as its basis (or, when a passage names the group, `source-quote`), no quotation as a party, an assumption
+that says what it rests on, and a reason that says why it is on the list. Apart from the decision owner, it
+ranks after every group the sources name, so an assumption never takes a named group's place; and apart
+from the owner and those directly affected, which every decision has, it is added only while the list has
+room.
+
+| Added                                                        | When                                                                    | Named from                              |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------- | --------------------------------------- |
+| Decision owner for _the change_                              | Nobody is read as deciding: a decision has an owner.                    | The scenario's change, or its system.   |
+| Those directly affected by _the change_                      | Nobody holds a role that is reached: a change lands on someone.         | The same.                               |
+| Body that sets _the rule_                                    | The text names a code, a standard, a policy, a charter, a framework.    | The rule's own name.                    |
+| Other side of the _kind_ contract                            | The text names a contract and not who is on its other side.             | The contract's own noun.                |
+| A group the text says was left out (a **missing voice**)     | "were not asked", "no data on", as the sources write it. It is sourced. | The text's own words for the group.     |
+| Approvers, oversight, implementers, suppliers, alternatives… | The question or the sources speak of the role and nobody holds it.      | The scenario, and the word that called. |
+| Those reached by _the change_ who have no say in it          | No missing voice is named and nobody stands for the role.               | The scenario.                           |
+
+A role the sources never speak of is not added: a scenario with no word about suppliers has no supplier
+placeholder. The cue for each role is the one the review already uses to say a role is missing, so a role
+that is added here no longer appears as a gap. What this does not do: it does not add who bears the cost or
+the risk as a participant (the reading already places a group there when its sentences speak of paying or
+exposure); it does not turn the scenario's alternatives into parties, since an alternative is a way to make
+the change and not someone to ask; and it does not guess the groups a careful reader would think of from
+world knowledge ("people who rely on a lift", "the crew of a vessel"), which needs a model and is left to
+one, and to the person.
+
+What the rules path cannot find is measured, apart from what the sources name, by the evaluation's `rules`
+mode: [the evaluation](./production/evaluation.md) says how, and what it found.
 
 ### The checks
 
@@ -588,6 +664,7 @@ npm test -- backend/test/stakeholders-packs.test.ts backend/test/stakeholders-to
 npm test -- backend/test/stakeholders-noise.test.ts backend/test/stakeholders-speed.test.ts
 npm test -- backend/test/stakeholders-docs.test.ts
 npm test -- backend/test/participants-schema.test.ts backend/test/participants-rules.test.ts
+npm test -- backend/test/participants-reader.test.ts backend/test/participants-scaffold.test.ts
 npm test -- backend/test/participants-checks.test.ts backend/test/participants-model.test.ts
 npm test -- backend/test/participants-routes.test.ts
 npm test -- frontend/src/scenes/map frontend/src/lib/stakeholders frontend/src/viz frontend/src/api frontend/src/hooks/useParticipants.test.tsx
@@ -603,7 +680,9 @@ different names, and expect the time to grow with the length of the text and not
 routes, the error codes and the table of what the examples give.
 
 The participant tests hold the contract and what an older save still parses as (`participants-schema`), the
-rules proposal on every pack and the library notes with no model (`participants-rules`), each check and
+rules proposal on every pack and the library notes with no model (`participants-rules`), the reader's
+rules on invented sentences from other walks of life (`participants-reader`), what the rules path adds
+and how it keeps its list (`participants-scaffold`), each check and
 its two profiles (`participants-checks`), the model path against a scripted gateway that answers as a
 model would, wrongly and rightly (`participants-model`), and the routes, the gate, the revisions, the
 rate limits and who may do what (`participants-routes`). The model path has been exercised only against

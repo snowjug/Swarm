@@ -18,6 +18,8 @@ import {
   type DecisionBrief,
 } from '../../../shared/brief.js';
 import { STAKEHOLDER_CATEGORY_LABELS, TRAIT_KEYS } from '../../../shared/stakeholders.js';
+import type { DecisionCanvas } from '../../../shared/decision.js';
+import { canvasBlocks } from '../decision/export.js';
 import { markdownText } from '../export.js';
 import {
   approx,
@@ -61,6 +63,8 @@ export interface BriefExportInput {
   appVersion: string;
   /** Absent when the export was not checked against the project, and then it says nothing about freshness. */
   freshness?: BriefFreshness;
+  /** The decision canvas of the comparison the brief is of, worked out at the export: it comes first. Absent when none could be made. */
+  canvas?: DecisionCanvas | null;
 }
 
 type Block =
@@ -382,6 +386,8 @@ function blocks(input: BriefExportInput): Block[] {
     const { title, text } = BRIEF_SIGNAL_NOTICES[brief.signal];
     result.push({ kind: 'paragraph', title, text, tone: 'alert' });
   }
+  // The decision picture comes before the brief’s own account of it, so that a printed page opens on it.
+  if (input.canvas) result.push(...canvasBlocks(input.canvas));
   result.push(
     {
       kind: 'facts',
@@ -585,6 +591,8 @@ export function briefJson(input: BriefExportInput): unknown {
         }
       : {}),
     project: { id: input.project.id, name: input.project.name },
+    // The decision picture, first: the same data the page draws it from. `null` when none could be made.
+    canvas: input.canvas ?? null,
     brief,
     data: input.visuals,
     provenance: {

@@ -1,0 +1,349 @@
+{
+  "version": 1,
+  "labelsFrozenOn": "2026-11-03",
+  "note": "Each flaw is planted into the same unflawed analysis and brief (built by the harness from shared/lab-fixtures.ts the way backend/test/support/critic-world.ts builds its clean input). The labels say what a careful reviewer should object to, in which of the seven critic roles an objection would be at home, and, where it matters, what it is about. A flaw is caught when the rule critics raise a critique that the unflawed input does not raise, in one of the roles the label accepts.",
+  "ops": {
+    "recommendation": "set fields of a brief recommendation by id",
+    "finding": "set fields of an analysis finding by id",
+    "headline": "replace the brief's headline",
+    "statement": "set fields of a brief statement by id",
+    "citations": "change which documents the stakeholders cite: all-one-document, dominant-one-document or all-unfetched-url",
+    "sensitivity": "set fields of a sensitivity row by id",
+    "actors": "change the cast: defaults (no trait was set by a person), one-sided-priors, one-sided-impact",
+    "constraints": "change the record of the constraints the comparison ran under: merge fields, add applied or not-applied constraints, or remove the record"
+  },
+  "flaws": [
+    {
+      "id": "F01",
+      "split": "dev",
+      "class": "unsupported-recommendation",
+      "description": "A recommendation that is not tied to any finding.",
+      "plant": [{ "op": "recommendation", "id": "r1", "set": { "linkedFindingIds": [] } }],
+      "expect": { "roles": ["recommendation"], "targetKinds": ["recommendation"] },
+      "rationale": "Nothing in the analysis supports it."
+    },
+    {
+      "id": "F02",
+      "split": "test",
+      "class": "unsupported-recommendation",
+      "description": "A recommendation that cites a finding that does not exist.",
+      "plant": [
+        { "op": "recommendation", "id": "r1", "set": { "linkedFindingIds": ["f-does-not-exist"] } }
+      ],
+      "expect": { "roles": ["recommendation"], "targetKinds": ["recommendation"] },
+      "rationale": "Its only support is a reference to nothing."
+    },
+    {
+      "id": "F03",
+      "split": "dev",
+      "class": "unsupported-recommendation",
+      "description": "A recommendation that rests only on a finding that holds in 4 of 10 runs.",
+      "plant": [
+        {
+          "op": "finding",
+          "id": "f2",
+          "set": {
+            "classification": "unstable",
+            "holdsIn": 4,
+            "interval": { "lo": 0.17, "hi": 0.69 }
+          }
+        },
+        { "op": "recommendation", "id": "r1", "set": { "linkedFindingIds": ["f2"] } }
+      ],
+      "expect": { "roles": ["recommendation"], "targetKinds": ["recommendation"] },
+      "rationale": "A result that comes and goes between seeds cannot carry a recommendation."
+    },
+    {
+      "id": "F04",
+      "split": "test",
+      "class": "unsupported-recommendation",
+      "description": "A recommendation with no way to check it and no experiment that targets it.",
+      "plant": [{ "op": "recommendation", "id": "r1", "set": { "validation": "" } }],
+      "expect": { "roles": ["recommendation"], "targetKinds": ["recommendation"] },
+      "rationale": "Nothing says how to find out whether it is right."
+    },
+    {
+      "id": "F05",
+      "split": "dev",
+      "class": "missing-constraint",
+      "description": "A hard regulatory constraint that the simulation read and could not test.",
+      "plant": [
+        {
+          "op": "constraints",
+          "addNotApplied": [
+            {
+              "constraintId": "c-law",
+              "statement": "The provider must publish a notice 60 days before a fee change takes effect.",
+              "category": "regulatory",
+              "hardness": "hard",
+              "source": "extracted",
+              "validation": "unvalidated",
+              "reason": "interpretive"
+            }
+          ]
+        }
+      ],
+      "expect": { "roles": ["methodology", "assumption"] },
+      "rationale": "The result may favour an alternative that breaks a legal limit nobody tested."
+    },
+    {
+      "id": "F06",
+      "split": "test",
+      "class": "missing-constraint",
+      "description": "The comparison ran while a hard legal constraint was unvalidated and the gate called it provisional.",
+      "plant": [
+        {
+          "op": "constraints",
+          "merge": {
+            "status": "provisional",
+            "label": "Provisional: 1 constraint has not been validated.",
+            "reasons": ["1 constraint has not been validated."]
+          },
+          "addApplied": [
+            {
+              "constraintId": "c-privacy",
+              "statement": "Customer records may not be passed to a reseller without consent.",
+              "category": "legal",
+              "hardness": "hard",
+              "source": "extracted",
+              "validation": "unvalidated",
+              "effect": { "kind": "block" },
+              "actorIds": [],
+              "alternativeIds": [],
+              "fromRound": null,
+              "toRound": null
+            }
+          ]
+        }
+      ],
+      "expect": { "roles": ["assumption", "methodology"] },
+      "rationale": "The headline result holds only if an unconfirmed legal limit does."
+    },
+    {
+      "id": "F07",
+      "split": "dev",
+      "class": "missing-constraint",
+      "description": "A hard constraint marked unknown and left out of the runs.",
+      "plant": [
+        {
+          "op": "constraints",
+          "addNotApplied": [
+            {
+              "constraintId": "c-capacity",
+              "statement": "The support team cannot take on more than 200 extra cases a week.",
+              "category": "capacity",
+              "hardness": "hard",
+              "source": "extracted",
+              "validation": "unknown",
+              "reason": "unknown"
+            }
+          ]
+        }
+      ],
+      "expect": { "roles": ["assumption", "methodology"] },
+      "rationale": "Leaving a limit out treats it as absent, not as false."
+    },
+    {
+      "id": "F08",
+      "split": "test",
+      "class": "missing-constraint",
+      "description": "A hard constraint that names an actor that is not in the comparison, so it could not be applied.",
+      "plant": [
+        {
+          "op": "constraints",
+          "addNotApplied": [
+            {
+              "constraintId": "c-approver",
+              "statement": "The change needs the approval of the board before it starts.",
+              "category": "organizational",
+              "hardness": "hard",
+              "source": "extracted",
+              "validation": "confirmed",
+              "reason": "dangling"
+            }
+          ]
+        }
+      ],
+      "expect": { "roles": ["methodology", "assumption"] },
+      "rationale": "The runs leave out a limit the list holds."
+    },
+    {
+      "id": "F09",
+      "split": "dev",
+      "class": "missing-constraint",
+      "description": "A comparison that was run with no record of any constraint, although the scenario depends on one.",
+      "plant": [{ "op": "constraints", "remove": true }],
+      "expect": { "roles": ["assumption", "methodology"] },
+      "rationale": "Nobody can tell from the review that limits were considered at all. A reviewer would want it said."
+    },
+    {
+      "id": "F10",
+      "split": "test",
+      "class": "hidden-assumption",
+      "description": "The result moves by 0.31 when an assumption that nothing supports is changed.",
+      "plant": [
+        {
+          "op": "sensitivity",
+          "id": "s1",
+          "set": {
+            "shift": -0.31,
+            "baseMean": 0.45,
+            "classification": "assumption-sensitive",
+            "assumptionOrigin": "system-assumption",
+            "standardError": 0.01
+          }
+        }
+      ],
+      "expect": { "roles": ["assumption", "methodology"] },
+      "rationale": "The headline leans on an assumption Swarm chose."
+    },
+    {
+      "id": "F11",
+      "split": "dev",
+      "class": "hidden-assumption",
+      "description": "Not one actor's traits were set by a person: the cast is all defaults.",
+      "plant": [{ "op": "actors", "mode": "defaults" }],
+      "expect": { "roles": ["assumption", "stakeholder-coverage", "methodology"] },
+      "rationale": "Every behaviour in the runs is an unreviewed default."
+    },
+    {
+      "id": "F12",
+      "split": "test",
+      "class": "hidden-assumption",
+      "description": "Every actor starts in favour of the change.",
+      "plant": [{ "op": "actors", "mode": "one-sided-priors" }],
+      "expect": { "roles": ["bias", "assumption"] },
+      "rationale": "The lean of the outcome may come from how the cast was set up."
+    },
+    {
+      "id": "F13",
+      "split": "dev",
+      "class": "hidden-assumption",
+      "description": "Every actor is expected to be harmed by the change.",
+      "plant": [{ "op": "actors", "mode": "one-sided-impact" }],
+      "expect": { "roles": ["bias", "assumption"] },
+      "rationale": "The framing decides the outcome."
+    },
+    {
+      "id": "F14",
+      "split": "test",
+      "class": "single-source-dependence",
+      "description": "Every cited passage comes from one document.",
+      "plant": [{ "op": "citations", "mode": "all-one-document" }],
+      "expect": { "roles": ["evidence", "bias"] },
+      "rationale": "A gap or error in one document carries through every stakeholder."
+    },
+    {
+      "id": "F15",
+      "split": "dev",
+      "class": "single-source-dependence",
+      "description": "Most cited passages come from one document.",
+      "plant": [{ "op": "citations", "mode": "dominant-one-document" }],
+      "expect": { "roles": ["evidence", "bias"] },
+      "rationale": "One author's view dominates."
+    },
+    {
+      "id": "F16",
+      "split": "test",
+      "class": "single-source-dependence",
+      "description": "All the evidence is a web page that this server did not fetch.",
+      "plant": [{ "op": "citations", "mode": "all-unfetched-url" }],
+      "expect": { "roles": ["evidence"] },
+      "rationale": "Where the text came from has not been verified."
+    },
+    {
+      "id": "F17",
+      "split": "dev",
+      "class": "single-source-dependence",
+      "description": "Every cited passage comes from one document and the headline states a conclusion without saying so.",
+      "plant": [
+        { "op": "citations", "mode": "all-one-document" },
+        {
+          "op": "headline",
+          "text": "Under the proposed change, simulated members ended less favourable than under no change in 10 of 10 simulated runs, as the only source says."
+        }
+      ],
+      "expect": { "roles": ["evidence", "bias"] },
+      "rationale": "The conclusion rests on one source."
+    },
+    {
+      "id": "F18",
+      "split": "test",
+      "class": "overclaiming-wording",
+      "description": "A headline that says the change will certainly make subscribers leave.",
+      "plant": [
+        { "op": "headline", "text": "The proposed change will certainly make subscribers leave." }
+      ],
+      "expect": { "roles": ["bias", "methodology", "recommendation"] },
+      "rationale": "A simulation shows what could happen, not what will."
+    },
+    {
+      "id": "F19",
+      "split": "dev",
+      "class": "overclaiming-wording",
+      "description": "A statement that gives a real-world rate with no mention of the simulation.",
+      "plant": [
+        {
+          "op": "statement",
+          "id": "st-1",
+          "set": {
+            "text": "72% of customers will cancel within a year.",
+            "origin": "simulation-aggregation",
+            "reliance": "strong"
+          }
+        }
+      ],
+      "expect": { "roles": ["bias", "methodology", "recommendation"] },
+      "rationale": "A percentage about customers, with no run or interval."
+    },
+    {
+      "id": "F20",
+      "split": "test",
+      "class": "overclaiming-wording",
+      "description": "A recommendation that guarantees success.",
+      "plant": [
+        {
+          "op": "recommendation",
+          "id": "r1",
+          "set": { "text": "Proceed immediately: this is guaranteed to succeed." }
+        }
+      ],
+      "expect": { "roles": ["bias", "recommendation", "methodology"] },
+      "rationale": "A recommendation is not a guarantee."
+    },
+    {
+      "id": "F21",
+      "split": "dev",
+      "class": "overclaiming-wording",
+      "description": "A statement that claims certainty without using a word that a simple list would hold.",
+      "plant": [
+        {
+          "op": "statement",
+          "id": "st-1",
+          "set": {
+            "text": "There is no doubt that the change is bound to fail, and customers are sure to leave for the rival.",
+            "origin": "simulation-aggregation",
+            "reliance": "strong"
+          }
+        }
+      ],
+      "expect": { "roles": ["bias", "methodology", "recommendation"] },
+      "rationale": "Certainty in different words."
+    }
+  ],
+  "controls": [
+    { "id": "K01", "split": "dev", "description": "The unflawed analysis and brief.", "plant": [] },
+    {
+      "id": "K02",
+      "split": "test",
+      "description": "The unflawed analysis with a careful headline.",
+      "plant": [
+        {
+          "op": "headline",
+          "text": "Under the proposed change, simulated members ended less favourable than under no change in 10 of 10 simulated runs."
+        }
+      ]
+    }
+  ],
+  "labelRevisions": []
+}

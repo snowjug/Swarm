@@ -1,0 +1,932 @@
+@layer scenes {
+  /*
+   * The decision canvas. It is typographic: a rule and a number for each part, no boxes inside boxes, glass
+   * only on what floats. Wide, the nine parts of the first viewport are laid out so that they are read as one
+   * picture (the question beside the answer, the three that say what could happen, the four that say what to do);
+   * narrow, they are one column in the same order, with the answer first and the rest folded to a line each.
+   */
+  .sw-canvas {
+    display: grid;
+    gap: var(--s-3);
+    padding-block: 0 var(--s-6);
+    /* A name is not broken in the middle to fit a column: the part beside it goes under it instead. */
+    overflow-wrap: break-word;
+  }
+  .sw-canvas-notice {
+    max-width: 60rem;
+  }
+
+  /* ---- The line above the picture ---------------------------------------------------------------- */
+  .sw-canvas-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-2) var(--s-5);
+  }
+  .sw-canvas-top__lead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem var(--s-4);
+    min-width: 0;
+  }
+  .sw-canvas-top__title {
+    margin: 0;
+  }
+  .sw-canvas-top__notice {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: var(--fs-h4);
+    font-style: italic;
+    line-height: 1.25;
+  }
+  .sw-canvas-top__based {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  .sw-canvas-top__tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+  }
+
+  /* ---- The grid --------------------------------------------------------------------------------- */
+  .sw-canvas-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--s-4) var(--s-6);
+  }
+  @media (min-width: 40.0625rem) {
+    .sw-canvas-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--s-5) var(--s-6);
+    }
+    .sw-canvas-item--question,
+    .sw-canvas-item--answer,
+    .sw-canvas-item--validate {
+      grid-column: 1 / -1;
+    }
+  }
+  @media (min-width: 64rem) {
+    .sw-canvas-grid {
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: var(--s-3) var(--s-6);
+    }
+    .sw-canvas-item--question {
+      grid-column: 1 / span 4;
+    }
+    .sw-canvas-item--answer {
+      grid-column: 5 / span 8;
+    }
+    .sw-canvas-item--futures {
+      grid-column: span 5;
+    }
+    .sw-canvas-item--drivers {
+      grid-column: span 3;
+    }
+    .sw-canvas-item--constraints {
+      grid-column: span 4;
+    }
+    .sw-canvas-item--who,
+    .sw-canvas-item--changes,
+    .sw-canvas-item--next,
+    .sw-canvas-item--validate {
+      grid-column: span 3;
+    }
+  }
+
+  .sw-canvas-item {
+    min-width: 0;
+  }
+  .sw-canvas-item__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-1) var(--s-2);
+    margin-bottom: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-canvas-item__title {
+    margin: 0;
+  }
+  .sw-canvas-item__body {
+    display: grid;
+    gap: var(--s-2);
+    align-content: start;
+    min-width: 0;
+  }
+  .sw-canvas-no {
+    flex: none;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* A part folded on a narrow screen: its number, its name and one line of what it holds. */
+  .sw-canvas-item .sw-disc {
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-canvas-fold {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 var(--s-3);
+    align-items: baseline;
+    padding-block: var(--s-1);
+  }
+  .sw-canvas-fold__title {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-canvas-fold__gist {
+    grid-column: 2;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 400;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+
+  /* ---- Question --------------------------------------------------------------------------------- */
+  .sw-canvas-question {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+    overflow: hidden;
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.3rem);
+    font-style: italic;
+    line-height: 1.28;
+    text-wrap: pretty;
+  }
+  .sw-canvas-frame {
+    display: grid;
+    gap: var(--s-2);
+    margin: var(--s-1) 0 0;
+  }
+  .sw-canvas-frame > div {
+    display: grid;
+    gap: 0.1rem;
+  }
+  .sw-canvas-frame dt {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  /* A kind of statement stands beside the name of what it is of, and keeps its own case. */
+  .sw-canvas-frame dt .sw-canvas-label {
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  /* What is said about the question is two lines at most here; the whole of it is under "What this rests on". */
+  .sw-canvas-frame dd {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+
+  /* ---- The answer: its status first, in words, with an icon and an edge that are never the only thing ---- */
+  .sw-canvas-answer {
+    --tone: var(--c-neutral);
+    display: grid;
+    gap: 0.4rem;
+    padding-left: var(--s-4);
+    border-left: 3px solid var(--tone);
+  }
+  .sw-canvas-answer[data-tone='favor'] {
+    --tone: var(--c-favor);
+  }
+  .sw-canvas-answer[data-tone='caution'] {
+    --tone: var(--c-caution);
+  }
+  .sw-canvas-answer[data-tone='critical'] {
+    --tone: var(--c-critical);
+  }
+  .sw-canvas-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-3);
+  }
+  .sw-canvas-status__icon {
+    flex: none;
+    color: var(--tone);
+  }
+  .sw-canvas-status__name {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-h4);
+    font-weight: 650;
+    letter-spacing: -0.012em;
+    line-height: 1.2;
+  }
+  .sw-canvas-flag {
+    display: inline-block;
+    padding: 0 0.45rem;
+    border: 1px solid var(--c-caution);
+    border-radius: var(--r-pill);
+    color: var(--ink);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .sw-canvas-headline {
+    max-width: 38em;
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 0.95rem + 0.75vw, 1.7rem);
+    line-height: 1.14;
+    letter-spacing: -0.016em;
+    text-wrap: balance;
+  }
+  .sw-canvas-meaning {
+    max-width: 78ch;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-canvas-why {
+    display: grid;
+    gap: 0.2rem;
+    max-width: 66ch;
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  .sw-canvas-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s-5);
+    margin: 0 0 0 auto;
+  }
+
+  /* A button that reads as a link to the rest of what a part says. */
+  .sw-canvas-more {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.75rem;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--accent-strong);
+    font: inherit;
+    font-size: var(--fs-small);
+    font-weight: 560;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .sw-canvas-more:hover {
+      text-decoration-thickness: 2px;
+    }
+  }
+  /* A finger needs a target of 44 pixels, which a line of link text is not. */
+  @media (max-width: 40rem), (pointer: coarse) {
+    .sw-canvas-more {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* ---- Labels: what kind of statement ------------------------------------------------------------ */
+  .sw-canvas-label {
+    display: inline-block;
+    padding: 0 0.45rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    line-height: 1.5;
+    white-space: nowrap;
+    vertical-align: middle;
+    cursor: default;
+  }
+  .sw-canvas-label[data-label='fact'] {
+    border-color: var(--c-favor);
+  }
+  .sw-canvas-label[data-label='source-claim'] {
+    border-color: var(--c-neutral);
+  }
+  /* What is not established is drawn with a broken edge as well as a name. */
+  .sw-canvas-label[data-label='assumption'],
+  .sw-canvas-label[data-label='model-inference'],
+  .sw-canvas-label[data-label='scenario-possibility'] {
+    border-style: dashed;
+  }
+  .sw-canvas-label[data-label='assumption'],
+  .sw-canvas-label[data-label='validation-requirement'] {
+    border-color: var(--c-caution);
+  }
+  .sw-canvas-label[data-label='model-inference'],
+  .sw-canvas-label[data-label='simulation-event'],
+  .sw-canvas-label[data-label='scenario-possibility'] {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+  }
+  .sw-canvas-label[data-label='recommendation'] {
+    border-color: var(--ink-2);
+    color: var(--ink);
+  }
+
+  /* ---- Lists inside a part ------------------------------------------------------------------------ */
+  .sw-canvas-list,
+  .sw-canvas-strip {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-canvas-list > li {
+    display: grid;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+  .sw-canvas-row__name {
+    display: grid;
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  .sw-canvas-row__text {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  .sw-canvas-row__sub {
+    display: block;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 400;
+    line-height: 1.4;
+  }
+  .sw-canvas-row__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-2);
+    margin: 0;
+  }
+  .sw-canvas-quiet {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  .sw-canvas-quiet-inline {
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+  .sw-canvas-fig {
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .sw-canvas-tag {
+    display: inline-block;
+    padding: 0 0.4rem;
+    border: 1px solid var(--hairline-strong);
+    border-radius: var(--r-xs);
+    color: var(--ink-2);
+    font-size: var(--fs-micro);
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  .sw-canvas-tag[data-hard] {
+    border-color: var(--c-critical);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-canvas-tag[data-open] {
+    border-color: var(--c-caution);
+    color: var(--ink);
+  }
+
+  /* ---- Futures: the four ways simulated members ended up, as a bar and in words ----------------------- */
+  .sw-canvas-bar {
+    display: flex;
+    gap: 1px;
+    width: 100%;
+    height: 0.5rem;
+    overflow: hidden;
+    border-radius: var(--r-pill);
+    background: var(--c-neutral-soft);
+  }
+  /* A future is its name and its bar on one line, and what it says under them. */
+  .sw-canvas-futures > li {
+    grid-template-columns: minmax(0, 9.5rem) minmax(0, 1fr);
+    gap: 0.2rem var(--s-3);
+    align-items: center;
+  }
+  .sw-canvas-futures > li > .sw-canvas-row__text {
+    grid-column: 1 / -1;
+  }
+  .sw-canvas-bar__part {
+    flex: 0 1 var(--w);
+    min-width: 0;
+    height: 100%;
+  }
+  .sw-canvas-bar__part[data-group='favourable'],
+  .sw-canvas-key[data-group='favourable']::before {
+    background: var(--c-favor);
+  }
+  .sw-canvas-bar__part[data-group='neutral'],
+  .sw-canvas-key[data-group='neutral']::before {
+    background: var(--c-neutral);
+  }
+  .sw-canvas-bar__part[data-group='defensive'],
+  .sw-canvas-key[data-group='defensive']::before {
+    background: var(--c-caution);
+  }
+  .sw-canvas-bar__part[data-group='adverse'],
+  .sw-canvas-key[data-group='adverse']::before {
+    background: var(--c-against);
+  }
+  .sw-canvas-legendline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s-4);
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    line-height: 1.5;
+  }
+  .sw-canvas-key::before {
+    content: '';
+    display: inline-block;
+    width: 0.6rem;
+    height: 0.6rem;
+    margin-right: 0.35rem;
+    border-radius: 2px;
+  }
+
+  /* ---- Constraints ------------------------------------------------------------------------------- */
+  .sw-canvas-gate {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-1) var(--s-2);
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+  }
+  .sw-canvas-gate > svg {
+    flex: none;
+    color: var(--c-neutral);
+  }
+  .sw-canvas-gate[data-tone='favor'] > svg {
+    color: var(--c-favor);
+  }
+  .sw-canvas-gate[data-tone='caution'] > svg {
+    color: var(--c-caution);
+  }
+  .sw-canvas-gate[data-tone='critical'] > svg {
+    color: var(--c-critical);
+  }
+  .sw-canvas-gate strong {
+    color: var(--ink);
+    font-weight: 650;
+  }
+
+  /* ---- Who moves --------------------------------------------------------------------------------- */
+  /* What a person wrote as a constraint is three lines at most here; the whole of it is under "Constraints in full". */
+  .sw-canvas-constraints .sw-canvas-row__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
+  .sw-canvas-who > li {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.05rem var(--s-3);
+  }
+  .sw-canvas-who > li > .sw-canvas-row__sub {
+    flex-basis: 100%;
+  }
+  .sw-canvas-move {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    text-align: right;
+  }
+  .sw-canvas-move > svg {
+    flex: none;
+    color: var(--c-neutral);
+  }
+  .sw-canvas-who > li[data-moves='toward-resistance'] .sw-canvas-move > svg {
+    color: var(--c-against);
+  }
+  .sw-canvas-who > li[data-moves='toward-support'] .sw-canvas-move > svg {
+    color: var(--c-favor);
+  }
+
+  /* ---- What could change the result: a strip of counterfactual views -------------------------------- */
+  .sw-canvas-strip {
+    gap: 0;
+  }
+  .sw-canvas-strip > li {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 var(--s-3);
+    align-items: baseline;
+    padding-block: 0.3rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-canvas-strip > li[data-reverses] {
+    padding-left: var(--s-2);
+    border-left: 2px solid var(--c-against);
+  }
+  .sw-canvas-strip > li[data-reverses] .sw-canvas-row__sub {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---- The next move, and how complete it is --------------------------------------------------------- */
+  .sw-canvas-next {
+    margin: 0;
+    color: var(--ink);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    line-height: 1.45;
+  }
+  .sw-canvas-basis,
+  .sw-canvas-complete {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  .sw-canvas-basis strong {
+    color: var(--ink);
+  }
+  .sw-canvas-complete[data-gaps] {
+    padding-left: var(--s-2);
+    border-left: 2px solid var(--c-caution);
+  }
+  .sw-canvas-complete strong {
+    color: var(--ink);
+  }
+
+  /* ---- What to validate: a checklist --------------------------------------------------------------- */
+  .sw-canvas-checks > li {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.15rem var(--s-2);
+    align-items: start;
+  }
+  .sw-canvas-box {
+    margin-top: 0.15rem;
+    color: var(--ink-3);
+  }
+
+  /* ---- Loading, nothing yet ----------------------------------------------------------------------- */
+  .sw-canvas-state {
+    display: grid;
+    gap: var(--s-4);
+    max-width: 44rem;
+    padding-block: var(--s-4);
+  }
+  .sw-canvas-state--empty {
+    justify-items: center;
+    margin-inline: auto;
+    text-align: center;
+  }
+  .sw-canvas-state__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-3);
+  }
+  .sw-canvas-state__status {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-canvas-skel {
+    display: grid;
+    gap: var(--s-4);
+    max-width: 60rem;
+  }
+  .sw-canvas-skel__row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--s-4) var(--s-6);
+  }
+  .sw-canvas-skel__row > div {
+    display: grid;
+    gap: var(--s-2);
+    align-content: start;
+  }
+
+  /* ---- The rest, folded ---------------------------------------------------------------------------- */
+  .sw-canvas-detail {
+    display: grid;
+    margin-top: var(--s-5);
+    border-bottom: 1px solid var(--hairline-strong);
+  }
+  .sw-canvas-detail__item {
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-canvas-detail__summary {
+    display: grid;
+    gap: 0.1rem;
+    min-width: 0;
+    padding-block: var(--s-1);
+  }
+  .sw-canvas-detail__title {
+    font-size: var(--fs-body);
+    font-weight: 600;
+  }
+  .sw-canvas-detail__lead {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 400;
+    line-height: 1.4;
+    text-wrap: pretty;
+  }
+  .sw-canvas-detail__body {
+    display: grid;
+    gap: var(--s-3);
+    max-width: 64rem;
+    padding: var(--s-2) 0 var(--s-5);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.55;
+  }
+  .sw-canvas-detail__body p {
+    margin: 0;
+  }
+  .sw-canvas-detail__body strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-canvas-detail__list {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+  .sw-canvas-part {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-canvas-part__title {
+    margin: var(--s-2) 0 0;
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+  .sw-canvas-missing,
+  .sw-canvas-flagline {
+    padding-left: var(--s-3);
+    border-left: 2px solid var(--c-caution);
+    color: var(--ink);
+  }
+  .sw-canvas-rules {
+    display: grid;
+    gap: var(--s-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-canvas-rules > li {
+    display: grid;
+    grid-template-columns: 8.5rem minmax(0, 1fr);
+    gap: 0 var(--s-3);
+    padding: 0.2rem 0 0.2rem var(--s-2);
+    border-left: 2px solid transparent;
+  }
+  .sw-canvas-rules > li[data-applies] {
+    border-left-color: var(--accent);
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-canvas-rules__state {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sw-canvas-checklist {
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+    padding-left: 1.4rem;
+  }
+  .sw-canvas-checklist > li {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .sw-canvas-checklist__what {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-canvas-table {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .sw-canvas-table table {
+    width: 100%;
+    min-width: 36rem;
+    border-collapse: collapse;
+    font-size: var(--fs-small);
+  }
+  .sw-canvas-table caption {
+    padding-bottom: var(--s-2);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    line-height: 1.45;
+    text-align: left;
+  }
+  .sw-canvas-table th,
+  .sw-canvas-table td {
+    padding: var(--s-2) var(--s-3) var(--s-2) 0;
+    border-bottom: 1px solid var(--hairline);
+    color: var(--ink-2);
+    font-weight: 400;
+    text-align: left;
+    vertical-align: top;
+  }
+  .sw-canvas-table thead th {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 560;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .sw-canvas-table tbody th {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-canvas-legend {
+    display: grid;
+    gap: var(--s-2);
+    margin: var(--s-2) 0 0;
+  }
+  .sw-canvas-legend > div {
+    display: grid;
+    grid-template-columns: 9.5rem minmax(0, 1fr);
+    gap: 0 var(--s-3);
+    align-items: baseline;
+  }
+  .sw-canvas-legend dt,
+  .sw-canvas-legend dd {
+    margin: 0;
+  }
+  .sw-canvas-legend dd {
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.45;
+  }
+  @media (max-width: 30rem) {
+    .sw-canvas-legend > div {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-canvas-rules > li {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  /* Where the full report begins: a plain rule and what it is. */
+  .sw-canvas-bridge {
+    display: grid;
+    gap: var(--s-1);
+    margin-top: var(--s-7);
+    padding-top: var(--s-4);
+    border-top: 2px solid var(--ink);
+    scroll-margin-top: var(--s-5);
+  }
+  .sw-canvas-bridge:focus-visible {
+    outline: none;
+  }
+  .sw-canvas-bridge__title {
+    margin: 0;
+    color: var(--ink);
+    font-family: var(--font-display);
+    font-size: var(--fs-h3);
+    font-weight: 400;
+    line-height: 1.1;
+  }
+  .sw-canvas-bridge__lead {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+
+  /* Under a forced palette the bar and its key are backgrounds and would all be one colour: they keep theirs, and every figure is also in words. */
+  @media (forced-colors: active) {
+    .sw-canvas-bar__part,
+    .sw-canvas-key::before {
+      forced-color-adjust: none;
+    }
+    .sw-canvas-bar {
+      border: 1px solid CanvasText;
+      background: Canvas;
+    }
+    .sw-canvas-answer {
+      border-left-color: CanvasText;
+    }
+    .sw-canvas-label,
+    .sw-canvas-tag,
+    .sw-canvas-flag {
+      border-color: CanvasText;
+      background: Canvas;
+      color: CanvasText;
+    }
+    .sw-canvas-label[data-label='assumption'],
+    .sw-canvas-label[data-label='model-inference'],
+    .sw-canvas-label[data-label='scenario-possibility'] {
+      border-style: dashed;
+    }
+    .sw-canvas-more {
+      color: LinkText;
+    }
+    .sw-canvas-rules > li[data-applies],
+    .sw-canvas-strip > li[data-reverses],
+    .sw-canvas-complete[data-gaps],
+    .sw-canvas-missing,
+    .sw-canvas-flagline {
+      border-left-color: Highlight;
+    }
+  }
+
+  /* On paper: one column in the order of the screen, every detail open, no controls. */
+  @media print {
+    .sw-canvas {
+      gap: var(--s-3);
+      padding-block: 0;
+    }
+    .sw-canvas-top__tools,
+    .sw-canvas-more,
+    .sw-canvas-links {
+      display: none;
+    }
+    .sw-canvas-grid {
+      display: block;
+    }
+    .sw-canvas-item {
+      margin-top: var(--s-4);
+      break-inside: avoid;
+    }
+    .sw-canvas-detail__item,
+    .sw-canvas-part,
+    .sw-canvas-table tr,
+    .sw-canvas-checklist > li {
+      break-inside: avoid;
+    }
+    .sw-canvas-bridge {
+      break-before: page;
+    }
+    .sw-canvas-table {
+      overflow: visible;
+    }
+    .sw-canvas-table table {
+      min-width: 0;
+    }
+    .sw-canvas-bar__part,
+    .sw-canvas-key::before {
+      print-color-adjust: exact;
+    }
+  }
+}

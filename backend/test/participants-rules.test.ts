@@ -112,7 +112,12 @@ describe.each(PACKS)('the rules proposal for the $id pack', (pack) => {
       expect(item.count).toBe(0);
       expect(item.reason).toBeTruthy();
     }
-    expect(set.proposal?.missingVoices.map((voice) => voice.role)).toContain('missing-voices');
+    // A voice nobody stands for is named, never dropped: a participant stands for it, as an assumption, or
+    // the proposal names the gap.
+    expect(
+      roles.includes('missing-voices') ||
+        set.proposal?.missingVoices.some((voice) => voice.role === 'missing-voices'),
+    ).toBe(true);
   });
 
   it('never names a participant by a generic word alone, and says what it left out', async () => {
@@ -164,8 +169,15 @@ describe.each(PACKS)('the rules proposal for the $id pack', (pack) => {
         ].join(' '),
       ),
     );
-    // The role pattern for a decision owner or for the people a change lands on is the only wording of its own.
-    const patterns = new Set(['decision', 'owner', 'directly', 'affected', 'change']);
+    // The role patterns are the only wording of its own: a decision owner, the people a change lands on or
+    // reaches with no say, the body behind a named rule, the other side of a contract, and a role the text
+    // speaks of that nobody holds.
+    const patterns = new Set(
+      (
+        'decision owner directly affected change reached who have no say it approver body set oversee ' +
+        'supplier partner alternative may object would carry out other side'
+      ).split(' '),
+    );
     for (const stakeholder of live(set)) {
       for (const token of nameTokens(stakeholder.name)) {
         expect(own.has(token) || patterns.has(token), `${stakeholder.name}: ${token}`).toBe(true);

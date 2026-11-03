@@ -1,0 +1,18 @@
+{
+  "recorded": "2026-11-03",
+  "rule": "The thresholds in thresholds.json are never edited to pass. A metric that breaches its threshold in a mode where it is measured is listed here, once, with what was measured and why. The tests expect exactly this list: they fail when a metric breaches and is not listed (a regression, or a new breach), and when a listed metric stops breaching (an improvement has to be recorded by taking it out of this file). `npm run eval:ai` ignores this file, prints every breach and exits 1; EVAL_STRICT=1 makes the tests ignore it too, so that every breach fails.",
+  "breaches": [
+    {
+      "mode": "rules",
+      "metric": "actorCoverage",
+      "measuredWhenRecorded": "67.1% (108/161) pooled after the dev-split improvement round (dev 72.2%, test 60.6%); it was 30.4% (49/161). Redundancy is 10.0% (18/180), at the inclusive ceiling.",
+      "why": "The rules now read a wide domain-neutral vocabulary and name the groups the sources spell out in full, take the decision owner from the text, and add a marked, role-based scaffold of what is structurally implied (the owner and those directly affected always, the rest only where the sources point to it). What is left needs a model or a guess: roles the sources never mention (a grid operator, company leadership), most missing voices, and groups cut by the 16-participant cap. Redundancy rose because distinct groups the sources name are counted by the labels as one role."
+    },
+    {
+      "mode": "rules",
+      "metric": "hardConstraintRecall",
+      "measuredWhenRecorded": "75.5% (37/49) pooled after the dev-split improvement round (dev 78.8%, test 68.8%); it was 24.5% (12/49)",
+      "why": "The rules now read hardness from what a clause asserts (obligations, bans, caps, rights, restricted use, named deadlines) and show the basis, and wishes, views, possibilities, conditionals and findings stay soft. The remaining misses are limits stated as bare quantities or by implication (a count of chairs, a number of pharmacists), which the words alone do not make a limit. The dev-to-test drop shows the rules were fitted somewhat to dev, and the intervals span the threshold."
+    }
+  ]
+}

@@ -1,0 +1,338 @@
+{
+  "id": "S04",
+  "split": "test",
+  "kind": "flagship",
+  "title": "Online bookshop: delivery fees and checkout",
+  "tags": ["flagship", "contradictory-sources"],
+  "question": "How might different users react if this online store changes its delivery fees, free-delivery threshold and checkout flow?",
+  "source": {
+    "kind": "example",
+    "id": "ecommerce-experience",
+    "pins": {
+      "01-customer-survey-summary.md": "4e386993a9117a368d54cdac2afd5745acf022368b41ee627bad7546483a1a02",
+      "02-support-ticket-themes.md": "107d2939b06254f6fab5b7d1c9a0c867aa55b9c1487ff6499eabdbfd415a0ad7",
+      "03-analytics-summary.md": "dadeffbba5f32e94641738785161ff38f1be09e91425b5e2331dfab3b7d9c6b7",
+      "04-competitor-delivery-policies.md": "6c2af95557c991da9f6c851918f729d44c5ce7b23c64ef7e442935885baa5508"
+    }
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Marketing manager",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["marketing manager", "marketing"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "The marketing manager has proposed raising the free-delivery threshold from £30 to £40, replacing the flat fee with a fee that depends on delivery speed, and moving to a one-page checkout that shows delivery options earlier."
+      },
+      "rationale": "Proposes the options."
+    },
+    {
+      "id": "p02",
+      "name": "Finance",
+      "role": "approvers",
+      "voice": "named",
+      "aliases": ["finance"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "Finance has asked for a version that keeps the threshold and adds a paid membership instead."
+      },
+      "rationale": "Asks for a different version."
+    },
+    {
+      "id": "p03",
+      "name": "Customer support team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["support lead", "support team", "customer support", "advisers"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "The support lead expects a short rise in tickets after any change to fees or checkout and has no spare capacity before the autumn peak."
+      },
+      "rationale": "Takes the tickets after a change."
+    },
+    {
+      "id": "p04",
+      "name": "Warehouse employees",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["warehouse"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "Warehouse employees say that orders pushed up to a higher threshold tend to hold more items and take longer to pack."
+      },
+      "rationale": "Pack the orders."
+    },
+    {
+      "id": "p05",
+      "name": "Delivery carriers",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["carriers", "carrier"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "The carriers, which the shop treats as delivery partners, say that fee tiers by speed would need a change to their rate cards, and one has hinted at a surcharge for peak weeks."
+      },
+      "rationale": "Deliver and set rate cards."
+    },
+    {
+      "id": "p06",
+      "name": "Payments provider",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["payments provider", "payment"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "The payments provider needs notice before a checkout change goes live."
+      },
+      "rationale": "Needs notice for a checkout change."
+    },
+    {
+      "id": "p07",
+      "name": "Web developer",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["web developer", "developer"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "The web developer notes that a one-page checkout has not been tested with screen readers or keyboard-only navigation, and the accessibility review that would normally come first has not been scheduled."
+      },
+      "rationale": "Builds the checkout."
+    },
+    {
+      "id": "p08",
+      "name": "Trading-standards regulators",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["trading-standards", "trading standards", "regulators"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "Regulators take an interest in charges that appear only on the final page."
+      },
+      "rationale": "Interested in charges shown late."
+    },
+    {
+      "id": "p09",
+      "name": "Regular customers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["regular customers", "frequent buyers", "repeat customers"],
+      "quote": {
+        "document": "01-customer-survey-summary.md",
+        "text": "A few regular customers asked for a paid membership with free delivery."
+      },
+      "rationale": "Frequent buyers."
+    },
+    {
+      "id": "p10",
+      "name": "Gift buyers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["gift buyers", "gift"],
+      "quote": {
+        "document": "01-customer-survey-summary.md",
+        "text": "Gift buyers care more about a delivery date than about the fee."
+      },
+      "rationale": "Care about the date."
+    },
+    {
+      "id": "p11",
+      "name": "Students buying course books",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["students", "course books"],
+      "quote": {
+        "document": "01-customer-survey-summary.md",
+        "text": "Students buying course books said a single-title order rarely reaches the threshold."
+      },
+      "rationale": "Single-title orders rarely reach the threshold."
+    },
+    {
+      "id": "p12",
+      "name": "Customers in remote areas",
+      "role": "directly-affected",
+      "voice": "named",
+      "aliases": ["remote areas", "remote"],
+      "quote": {
+        "document": "01-customer-survey-summary.md",
+        "text": "Several people in remote areas said surcharges are common elsewhere and sometimes appear as a surprise at the last step."
+      },
+      "rationale": "Face surcharges."
+    },
+    {
+      "id": "p13",
+      "name": "Competing sellers",
+      "role": "competitors-alternatives",
+      "voice": "named",
+      "aliases": ["marketplace", "bookshop chain", "competing", "competitors", "rival"],
+      "quote": {
+        "document": "04-competitor-delivery-policies.md",
+        "text": "Free delivery above £20 on items the marketplace sells itself; third-party sellers set their own fees."
+      },
+      "rationale": "Offer other delivery terms."
+    },
+    {
+      "id": "p14",
+      "name": "Customers who use screen readers or keyboards only",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["screen reader", "keyboard-only", "assistive"],
+      "quote": {
+        "document": "02-support-ticket-themes.md",
+        "text": "The web developer notes that a one-page checkout has not been tested with screen readers or keyboard-only navigation, and the accessibility review that would normally come first has not been scheduled."
+      },
+      "rationale": "Named only as not yet tested."
+    },
+    {
+      "id": "p15",
+      "name": "Customers who do not return after a first order",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["do not return", "lapsed", "one-time"],
+      "quote": {
+        "document": "03-analytics-summary.md",
+        "text": "Nothing explains why some customers do not return after a first order."
+      },
+      "rationale": "Named only as unexplained."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "capacity",
+      "hardness": "soft",
+      "document": "02-support-ticket-themes.md",
+      "quote": "The support lead expects a short rise in tickets after any change to fees or checkout and has no spare capacity before the autumn peak.",
+      "rationale": "No spare support capacity."
+    },
+    {
+      "id": "c02",
+      "category": "dependency",
+      "hardness": "hard",
+      "document": "02-support-ticket-themes.md",
+      "quote": "The payments provider needs notice before a checkout change goes live.",
+      "rationale": "A required notice from a supplier."
+    },
+    {
+      "id": "c03",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "02-support-ticket-themes.md",
+      "quote": "The carriers, which the shop treats as delivery partners, say that fee tiers by speed would need a change to their rate cards, and one has hinted at a surcharge for peak weeks.",
+      "rationale": "Rate cards must change for speed tiers."
+    },
+    {
+      "id": "c04",
+      "category": "accessibility",
+      "hardness": "soft",
+      "document": "02-support-ticket-themes.md",
+      "quote": "The web developer notes that a one-page checkout has not been tested with screen readers or keyboard-only navigation, and the accessibility review that would normally come first has not been scheduled.",
+      "rationale": "An untested accessibility requirement."
+    },
+    {
+      "id": "c05",
+      "category": "regulatory",
+      "hardness": "soft",
+      "document": "02-support-ticket-themes.md",
+      "quote": "Regulators take an interest in charges that appear only on the final page.",
+      "rationale": "Regulatory interest, no rule quoted."
+    },
+    {
+      "id": "c06",
+      "category": "data-quality",
+      "hardness": "soft",
+      "document": "03-analytics-summary.md",
+      "quote": "The system does not record what delivery costs the shop for each order, so margin per order cannot be worked out.",
+      "rationale": "A missing measure."
+    },
+    {
+      "id": "c07",
+      "category": "operational",
+      "hardness": "soft",
+      "document": "02-support-ticket-themes.md",
+      "quote": "Warehouse employees say that orders pushed up to a higher threshold tend to hold more items and take longer to pack.",
+      "rationale": "A packing-time effect."
+    },
+    {
+      "id": "c08",
+      "category": "customer",
+      "hardness": "soft",
+      "document": "01-customer-survey-summary.md",
+      "quote": "Several people in remote areas said surcharges are common elsewhere and sometimes appear as a surprise at the last step.",
+      "rationale": "Customers dislike late surprises."
+    }
+  ],
+  "gap": {
+    "constraintId": "c02",
+    "removeText": "The payments provider needs notice before a checkout change goes live. ",
+    "document": "02-support-ticket-themes.md",
+    "category": "dependency",
+    "accept": ["dependency"],
+    "rationale": "The only statement about the payments provider."
+  },
+  "alternatives": [
+    {
+      "id": "a1",
+      "cues": ["£40", "threshold from £30"],
+      "rationale": "Raise the free-delivery threshold."
+    },
+    { "id": "a2", "cues": ["delivery speed"], "rationale": "Fee by speed." },
+    { "id": "a3", "cues": ["one-page checkout"], "rationale": "New checkout." },
+    { "id": "a4", "cues": ["paid membership", "membership"], "rationale": "Finance's version." }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "Today the shop charges a flat £3.49 for standard delivery and delivers free on orders of £30 or more.",
+      "gold": "supported",
+      "documents": ["01-customer-survey-summary.md"],
+      "rationale": "Stated in the survey background."
+    },
+    {
+      "id": "k2",
+      "statement": "About 8,000 orders were placed in the quarter, with a median value of £27.",
+      "gold": "supported",
+      "documents": ["03-analytics-summary.md"],
+      "rationale": "Stated in the funnel."
+    },
+    {
+      "id": "k3",
+      "statement": "Delivery cost is the main reason people leave a basket without buying.",
+      "gold": "partial",
+      "documents": ["01-customer-survey-summary.md", "03-analytics-summary.md"],
+      "rationale": "31% and 41% of the respondents said so; that is not everyone."
+    },
+    {
+      "id": "k4",
+      "statement": "The one-page checkout raised conversion in testing.",
+      "gold": "unsupported",
+      "documents": ["03-analytics-summary.md"],
+      "rationale": "No version has been tested."
+    },
+    {
+      "id": "k5",
+      "statement": "Free delivery above £20 is the norm across the market.",
+      "gold": "unsupported",
+      "documents": ["04-competitor-delivery-policies.md"],
+      "rationale": "The competitor notes show higher thresholds."
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "x1",
+      "kind": "semantic",
+      "a": {
+        "document": "01-customer-survey-summary.md",
+        "quote": "One respondent said free delivery above £20 is normal across the market."
+      },
+      "b": {
+        "document": "04-competitor-delivery-policies.md",
+        "quote": "Free delivery above £35 and a flat £3.95 below that."
+      },
+      "mustContain": ["£20", "£35"],
+      "rationale": "A remark in the survey against the competitor pages."
+    }
+  ],
+  "labelRevisions": []
+}

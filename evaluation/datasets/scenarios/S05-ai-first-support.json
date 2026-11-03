@@ -1,0 +1,342 @@
+{
+  "id": "S05",
+  "split": "dev",
+  "kind": "flagship",
+  "title": "AI-first support troubleshooting",
+  "tags": ["flagship"],
+  "question": "What could happen if an AI assistant handles initial troubleshooting before a customer reaches a human support engineer?",
+  "source": {
+    "kind": "example",
+    "id": "ai-first-support",
+    "pins": {
+      "01-support-operations-brief.md": "678c05e7739ccb721459a48e9a003aaf705c62364fad65bed9eab64cceddae18",
+      "02-ticket-and-handling-summary.md": "48def444960bed2a1acd7b0757240496ac32530d1c705d0f523da8883d0f1884",
+      "03-concerns-and-feedback-note.md": "f0e485a599bb8b46bfcea1ce714db6c729a603249aa1a1c971b2aa6cf0a92f27",
+      "04-case-study-and-gaps.md": "715de1af72e6077647ac7432c6432f89031512cf503756324f82997fd0d2208a"
+    }
+  },
+  "participants": [
+    {
+      "id": "p01",
+      "name": "Support director",
+      "role": "decision-owner",
+      "voice": "named",
+      "aliases": ["support director"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "The support director owns the budget and reports to the chief operating officer, and the head of product relies on tickets as a source of bug reports."
+      },
+      "rationale": "Owns the budget."
+    },
+    {
+      "id": "p02",
+      "name": "Support engineers",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["support engineers", "engineers"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Support engineers want to keep the interesting cases and worry that they would have to undo wrong steps given by the assistant."
+      },
+      "rationale": "Take over cases from the assistant."
+    },
+    {
+      "id": "p03",
+      "name": "Tier-two team",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["tier-two", "tier two"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Thirty-eight support engineers work across three time zones, and a tier-two team of eleven handles escalations and works with product engineers on defects."
+      },
+      "rationale": "Handles escalations."
+    },
+    {
+      "id": "p04",
+      "name": "Team leads",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["team leads"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Team leads ask how handling time and quality would be measured when part of the work is invisible to them."
+      },
+      "rationale": "Measure handling time and quality."
+    },
+    {
+      "id": "p05",
+      "name": "Administrators at larger customers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["administrators", "larger customers"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Administrators at larger customers say they want a route to a person that is easy to find."
+      },
+      "rationale": "Want a route to a person."
+    },
+    {
+      "id": "p06",
+      "name": "Premium and enterprise customers",
+      "role": "customers-users",
+      "voice": "named",
+      "aliases": ["premium", "enterprise"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Premium and enterprise customers have response-time commitments and a named customer success manager."
+      },
+      "rationale": "Have response-time commitments."
+    },
+    {
+      "id": "p07",
+      "name": "Legal and privacy team",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["privacy", "legal"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "The legal and privacy team asks where transcripts are stored and whether customers paste credentials or personal data into chat."
+      },
+      "rationale": "Asks where transcripts are stored."
+    },
+    {
+      "id": "p08",
+      "name": "Security reviewers",
+      "role": "regulators-governance",
+      "voice": "named",
+      "aliases": ["security reviewers", "security"],
+      "quote": {
+        "document": "03-concerns-and-feedback-note.md",
+        "text": "Security reviewers want a way to remove tokens from stored transcripts."
+      },
+      "rationale": "Want tokens removed from transcripts."
+    },
+    {
+      "id": "p09",
+      "name": "Knowledge-base authors",
+      "role": "implementers",
+      "voice": "named",
+      "aliases": ["knowledge-base authors", "knowledge base", "authors"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Knowledge-base authors point out that out-of-date articles would be repeated at scale."
+      },
+      "rationale": "Their articles feed the assistant."
+    },
+    {
+      "id": "p10",
+      "name": "Reseller partner",
+      "role": "partners-suppliers",
+      "voice": "named",
+      "aliases": ["reseller"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "A reseller partner that provides first-line support for its own clients asks whether it would still be needed."
+      },
+      "rationale": "Provides first-line support for its own clients."
+    },
+    {
+      "id": "p11",
+      "name": "Competitors",
+      "role": "competitors-alternatives",
+      "voice": "named",
+      "aliases": ["competitors"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "Two competitors advertise instant answers from an assistant on their websites, and a few customers have mentioned this on renewal calls."
+      },
+      "rationale": "Advertise assistants."
+    },
+    {
+      "id": "p12",
+      "name": "Head of product",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["head of product"],
+      "quote": {
+        "document": "01-support-operations-brief.md",
+        "text": "The support director owns the budget and reports to the chief operating officer, and the head of product relies on tickets as a source of bug reports."
+      },
+      "rationale": "Relies on tickets for bug reports."
+    },
+    {
+      "id": "p13",
+      "name": "Employee representative",
+      "role": "observers-influencers",
+      "voice": "named",
+      "aliases": ["employee representative"],
+      "quote": {
+        "document": "03-concerns-and-feedback-note.md",
+        "text": "An employee representative asked how performance measures for engineers would treat cases the assistant handled first."
+      },
+      "rationale": "Asks about performance measures."
+    },
+    {
+      "id": "p14",
+      "name": "Customers who give up and never open a case",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["give up", "never open"],
+      "quote": {
+        "document": "04-case-study-and-gaps.md",
+        "text": "There is no data on customers who are not helped by the assistant and give up, because they never open a case."
+      },
+      "rationale": "Named only as a gap."
+    },
+    {
+      "id": "p15",
+      "name": "Customers who write in languages other than English",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["languages other than english", "other languages", "non-english"],
+      "quote": {
+        "document": "04-case-study-and-gaps.md",
+        "text": "No data exists for languages other than English."
+      },
+      "rationale": "A fifth of cases, never trialled."
+    },
+    {
+      "id": "p16",
+      "name": "Customers who use screen readers",
+      "role": "missing-voices",
+      "voice": "missing",
+      "aliases": ["screen reader"],
+      "quote": {
+        "document": "03-concerns-and-feedback-note.md",
+        "text": "The chat window has not been tested with screen readers, and the assistant was trialled in English only, although about a fifth of cases arrive in other languages."
+      },
+      "rationale": "The chat window was not tested with them."
+    }
+  ],
+  "constraints": [
+    {
+      "id": "c01",
+      "category": "privacy",
+      "hardness": "hard",
+      "document": "03-concerns-and-feedback-note.md",
+      "quote": "The privacy lead notes that chat transcripts are personal data, that retention rules for assistant conversations are not yet defined, and that regulators in some regions may ask how customers are told they are talking to an automated system.",
+      "rationale": "Transcripts are personal data."
+    },
+    {
+      "id": "c02",
+      "category": "regulatory",
+      "hardness": "soft",
+      "document": "03-concerns-and-feedback-note.md",
+      "quote": "Customers in regulated sectors may need to know when an automated system is involved, and the compliance team has not yet read the relevant guidance.",
+      "rationale": "A possible disclosure duty."
+    },
+    {
+      "id": "c03",
+      "category": "security",
+      "hardness": "soft",
+      "document": "03-concerns-and-feedback-note.md",
+      "quote": "Security reviewers want a way to remove tokens from stored transcripts.",
+      "rationale": "A reviewers' wish."
+    },
+    {
+      "id": "c04",
+      "category": "contractual",
+      "hardness": "hard",
+      "document": "01-support-operations-brief.md",
+      "quote": "Premium and enterprise customers have response-time commitments and a named customer success manager.",
+      "rationale": "Commitments to customers."
+    },
+    {
+      "id": "c05",
+      "category": "budget",
+      "hardness": "soft",
+      "document": "01-support-operations-brief.md",
+      "quote": "Success measures, escalation rules and the budget for the assistant have not been set.",
+      "rationale": "Undecided."
+    },
+    {
+      "id": "c06",
+      "category": "accessibility",
+      "hardness": "soft",
+      "document": "03-concerns-and-feedback-note.md",
+      "quote": "The chat window has not been tested with screen readers, and the assistant was trialled in English only, although about a fifth of cases arrive in other languages.",
+      "rationale": "An untested accessibility and language need."
+    },
+    {
+      "id": "c07",
+      "category": "customer",
+      "hardness": "soft",
+      "document": "03-concerns-and-feedback-note.md",
+      "quote": "Administrators at three larger customers asked in writing that a route to a person be visible on the first screen.",
+      "rationale": "A written customer request."
+    },
+    {
+      "id": "c08",
+      "category": "data-quality",
+      "hardness": "soft",
+      "document": "02-ticket-and-handling-summary.md",
+      "quote": "Reopen rates for the cases the assistant resolved were not tracked.",
+      "rationale": "A missing measure."
+    }
+  ],
+  "gap": {
+    "constraintId": "c06",
+    "removeText": " The chat window has not been tested with screen readers, and the assistant was trialled in English only, although about a fifth of cases arrive in other languages.",
+    "document": "03-concerns-and-feedback-note.md",
+    "category": "accessibility",
+    "accept": ["accessibility", "technical-feasibility", "cultural"],
+    "rationale": "The only statement about screen readers and language."
+  },
+  "alternatives": [
+    {
+      "id": "a1",
+      "cues": ["for all customers", "all customers"],
+      "rationale": "Assistant-first for every customer."
+    },
+    {
+      "id": "a2",
+      "cues": ["outside office hours"],
+      "rationale": "Assistant-first only outside office hours."
+    },
+    {
+      "id": "a3",
+      "cues": ["shown to the engineer", "suggestions shown"],
+      "rationale": "Suggestions for the engineer instead of the customer."
+    }
+  ],
+  "claims": [
+    {
+      "id": "k1",
+      "statement": "44% of cases were closed at first touch, without escalation.",
+      "gold": "supported",
+      "documents": ["02-ticket-and-handling-summary.md"],
+      "rationale": "Stated in the handling summary."
+    },
+    {
+      "id": "k2",
+      "statement": "In the pilot the assistant resolved 34% of the 1,900 cases without a human.",
+      "gold": "supported",
+      "documents": ["02-ticket-and-handling-summary.md"],
+      "rationale": "Stated in the pilot paragraph."
+    },
+    {
+      "id": "k3",
+      "statement": "A supplier's case study shows that assistant-first rollouts raise customer satisfaction.",
+      "gold": "partial",
+      "documents": ["04-case-study-and-gaps.md"],
+      "rationale": "The case study says so but gives no method and the supplier sells the software."
+    },
+    {
+      "id": "k4",
+      "statement": "The assistant improved renewal rates in the pilot.",
+      "gold": "unsupported",
+      "documents": ["02-ticket-and-handling-summary.md", "04-case-study-and-gaps.md"],
+      "rationale": "There is no evidence on renewal."
+    },
+    {
+      "id": "k5",
+      "statement": "The assistant works well in languages other than English.",
+      "gold": "unsupported",
+      "documents": ["03-concerns-and-feedback-note.md", "04-case-study-and-gaps.md"],
+      "rationale": "It was trialled in English only."
+    }
+  ],
+  "conflicts": [],
+  "labelRevisions": []
+}

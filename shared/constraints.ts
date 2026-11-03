@@ -211,6 +211,11 @@ export const constraintSchema = z.object({
   /** Passages the statement was found in, each with a quote that was found in it. Only a source can add one. */
   evidenceRefs: z.array(evidenceRefSchema).max(5).default([]),
   hardness: z.enum(CONSTRAINT_HARDNESS),
+  /**
+   * Why it is held hard or soft, in words a person can check against the source: "the source says
+   * ‘must’", "a model read it as a firm limit", "you set it to hard". Hardness is a proposal; this is its basis.
+   */
+  hardnessBasis: line(240).default(''),
   scope: z.enum(CONSTRAINT_SCOPES).default('decision'),
   affectedActorIds: z.array(idSchema).max(60).default([]),
   affectedAlternativeIds: z.array(idSchema).max(8).default([]),

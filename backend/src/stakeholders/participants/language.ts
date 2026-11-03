@@ -230,6 +230,20 @@ export function wordingProblem(text: string): string | null {
   return `${WORDING_KINDS[first.rule] ?? 'overclaiming wording'} (“${first.match.trim().slice(0, 40)}”)`;
 }
 
+/**
+ * What stops a name from standing, by the rules that block a participant: it points at an identified
+ * person, holds a personal detail, generalises about people or claims to know a hidden reason. A name the
+ * rules path takes from a source or makes from one is held to them before it is proposed, so that a
+ * source's own words never make a proposal that its own checks would refuse.
+ */
+export function nameProblem(name: string, personLabels: readonly string[] = []): string | null {
+  if (namesPerson(name, personLabels)) return 'it points at an identified person';
+  if (findPersonalDetail(name)) return 'it holds a personal detail';
+  if (findStereotype(name)) return 'it generalises about people';
+  if (findUnsupportedMotive(name, personLabels)) return 'it claims to know a hidden reason';
+  return null;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Tidying text
 // ---------------------------------------------------------------------------------------------
