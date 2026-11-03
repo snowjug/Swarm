@@ -242,6 +242,10 @@ test('can be cancelled after asking, keeps the pages that were read, and can be 
 }) => {
   await ask(page, OFFICIAL_SITE);
   await expect(chip(page)).toHaveText('Reading', { timeout: 120_000 });
+  // The crawler waits between two requests to a site, so the first page is read a moment after the stage begins.
+  await expect
+    .poll(() => numberIn(figureOf(page, 'Pages read')), { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(1);
 
   await press(page, 'Cancel').click();
   // The question is asked first, and keeping on is the way out.
