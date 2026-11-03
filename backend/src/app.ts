@@ -134,10 +134,13 @@ export async function buildApp(options: AppOptions) {
   // First, so that every answer, a refusal included, carries the correlation id.
   registerRequestTelemetry(app);
   registerDeployment(app, config.deployment);
-  // Every route as registered, so a test can prove that none of them lacks an authorization policy.
-  const routes: { method: string; url: string }[] = [];
+  // Every route as registered, so a test can prove that none of them lacks an authorization policy,
+  // and whether it carries a rate limit of its own (every route has the general one).
+  const routes: { method: string; url: string; ownRateLimit: boolean }[] = [];
   app.addHook('onRoute', (route) => {
-    for (const method of [route.method].flat()) routes.push({ method, url: route.url });
+    const ownRateLimit = Boolean((route.config as { rateLimit?: unknown } | undefined)?.rateLimit);
+    for (const method of [route.method].flat())
+      routes.push({ method, url: route.url, ownRateLimit });
   });
   repository.usage.setDefaults(config.modelBudget);
   repository.recoverInterrupted();

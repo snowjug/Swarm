@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { buildApp } from '../src/app.js';
+import { AUDIT_POLICY } from '../src/auth/audit-policy.js';
+import { ROUTE_POLICY } from '../src/auth/policy.js';
+import { TokenVerifier } from '../src/auth/tokens.js';
 import { ModelClient } from '../src/models/client.js';
 import { fixtureInput, testConfig } from './fixtures.js';
+import { entraEnvironment, idp } from './support/entra-idp.js';
 import {
   graph,
   modelEnvironment,
@@ -290,4 +294,111 @@ describe('browser and network boundaries', () => {
     );
     expect(fetcher.mock.calls[0]![1]!.redirect).toBe('error');
   });
+});
+
+// A route that is added without deciding who may call it, what is recorded about it, and how often it
+// may be called is a route that nobody has looked at. This holds all three to the routes the server
+// really registers, so that adding one fails here until each has been decided in the open.
+describe('every route has been decided', () => {
+  /** Mutating routes that have only the general per-address limit (120 a minute), and why that is enough. */
+  const GENERAL_LIMIT_ONLY: Readonly<Record<string, string>> = {
+    'POST /api/projects/:id/cancel':
+      'Stops work the caller may start, which costs more than this request does; repeating it changes nothing.',
+    'DELETE /api/projects/:id':
+      'Removes one project the caller leads; each request needs a project that exists, and one is removed once.',
+    'PUT /api/projects/:id/intervention':
+      'Replaces one small record on a stopped run, bounded by its schema; it accumulates nothing.',
+    'PATCH /api/projects/:id/environment':
+      'Replaces the environment of an idle project; bounded by the body limit and so by the general limit. A candidate for a limit of its own.',
+    'POST /api/projects/:id/surveys/:surveyId/cancel':
+      'Stops a survey the caller may start; repeating it changes nothing.',
+  };
+
+  /** Routes outside /api: they do their own checking and are limited on their own. */
+  const OUTSIDE_API: Readonly<Record<string, string>> = {
+    'GET /auth/login':
+      'Starts a sign-in, so there is no one to authorise yet; limited to 30 a minute; records nothing until a sign-in completes.',
+    'GET /auth/callback':
+      'Finishes a sign-in with a one-time state bound to the browser; limited to 30 a minute; a completed sign-in is recorded as session.started.',
+    'POST /auth/logout':
+      'Needs the anti-forgery header; limited to 30 a minute; a sign-out is recorded as session.ended.',
+  };
+
+  async function registered() {
+    const config = testConfig({
+      ...entraEnvironment,
+      AUTH_ENTRA_CLIENT_ID: 'cccccccc-0000-4000-8000-0000000000aa',
+      AUTH_ENTRA_REDIRECT_URI: 'https://swarm.example.test/auth/callback',
+      ALLOWED_HOSTS: 'swarm.example.test,localhost',
+      ALLOWED_ORIGINS: 'https://swarm.example.test',
+    });
+    const harness = await buildApp({
+      config,
+      tokenVerifier: new TokenVerifier(config.auth, idp.keys),
+    });
+    applications.push(harness);
+    return harness.routes.filter((route) => route.method !== 'HEAD');
+  }
+
+  const mutating = (method: string): boolean => !['GET', 'OPTIONS'].includes(method);
+  const keyOf = (route: { method: string; url: string }): string => `${route.method} ${route.url}`;
+  // The files of the page itself: they hold nothing to protect, and are served only when it is built.
+  const serveFiles = (route: { method: string; url: string }): boolean =>
+    route.method === 'GET' && (route.url === '/' || route.url === '/*');
+
+  it('has an authorization policy and an audit policy, and nothing is decided for a route that is not there', async () => {
+    const routes = await registered();
+    const api = routes.filter((route) => route.url.startsWith('/api')).map(keyOf);
+    expect(api.length).toBeGreaterThan(60);
+    expect(api.filter((key) => !(key in ROUTE_POLICY))).toEqual([]);
+    expect(api.filter((key) => !(key in AUDIT_POLICY))).toEqual([]);
+    expect(Object.keys(ROUTE_POLICY).filter((key) => !api.includes(key))).toEqual([]);
+    expect(Object.keys(AUDIT_POLICY).filter((key) => !api.includes(key))).toEqual([]);
+
+    const outside = routes.filter((route) => !route.url.startsWith('/api'));
+    expect(
+      outside
+        .filter((route) => !serveFiles(route))
+        .map(keyOf)
+        .sort(),
+    ).toEqual(Object.keys(OUTSIDE_API).sort());
+    for (const [key, reason] of Object.entries(OUTSIDE_API)) {
+      expect(reason.length, key).toBeGreaterThan(40);
+    }
+  });
+
+  it('has a rate limit of its own on every route that changes something, or says why not', async () => {
+    const routes = await registered();
+    const changing = routes.filter((route) => mutating(route.method));
+    expect(changing.length).toBeGreaterThan(40);
+    const unlimited = changing.filter((route) => !route.ownRateLimit).map(keyOf);
+    const outside = unlimited.filter((key) => !key.split(' ')[1]!.startsWith('/api'));
+    expect(outside, 'a route outside /api with no limit of its own').toEqual([]);
+    expect(unlimited.sort()).toEqual(Object.keys(GENERAL_LIMIT_ONLY).sort());
+    for (const [key, reason] of Object.entries(GENERAL_LIMIT_ONLY)) {
+      expect(reason.length, key).toBeGreaterThan(40);
+    }
+    // An exemption for a route that has a limit of its own is out of date.
+    for (const route of changing.filter((candidate) => candidate.ownRateLimit)) {
+      expect(GENERAL_LIMIT_ONLY, keyOf(route)).not.toHaveProperty(keyOf(route));
+    }
+  });
+
+  it.each(Object.keys(GENERAL_LIMIT_ONLY))(
+    'still holds %s to the general limit, which is what the exemption relies on',
+    async (key) => {
+      const [method, url] = key.split(' ') as ['POST', string];
+      const harness = await buildApp({ config: testConfig() });
+      applications.push(harness);
+      const path = url
+        .replace(':id', '00000000-0000-4000-8000-000000000000')
+        .replace(':surveyId', '00000000-0000-4000-8000-000000000001');
+      const statuses: number[] = [];
+      for (let attempt = 0; attempt < 121; attempt += 1) {
+        statuses.push((await harness.app.inject({ method, url: path, payload: {} })).statusCode);
+      }
+      expect(statuses.slice(0, 120).includes(429)).toBe(false);
+      expect(statuses[120]).toBe(429);
+    },
+  );
 });
