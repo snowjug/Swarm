@@ -1,13 +1,17 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { UrlFailure } from '../src/ingest/url/failure.js';
+import { PublicFetcher, type FetchOptions } from '../src/ingest/url/fetcher.js';
 import { budget } from './support/research-world.js';
 import { crawl } from '../src/research/crawler/crawl.js';
 import { systemDeps } from '../src/research/crawler/deps.js';
 import { PublicPageFetcher } from '../src/research/crawler/fetch.js';
+import { RESEARCH_ROBOTS_TOKEN, RESEARCH_USER_AGENT } from '../src/research/crawler/identity.js';
 import type {
   CrawlEvent,
   CrawlInput,
   CrawlResult,
   CrawlTuning,
+  PageFetchRequest,
 } from '../src/research/crawler/types.js';
 import { LOOPBACK_ADDRESSES } from './support/url-server.js';
 import {
@@ -593,9 +597,100 @@ describe('robots.txt', () => {
     expect(done.result.sources.map(({ outcome }) => outcome)).toEqual(['blocked', 'blocked']);
   });
 
-  it('is read to a limit, whatever size a site makes it, and a page is then still read', async () => {
-    const huge = `User-agent: *\nDisallow: /nothing\n${'# padding\n'.repeat(400_000)}`;
-    const { done } = await read1(huge, '/open');
-    expect(['used', 'blocked']).toContain(done.result.sources[0]!.outcome);
+  it('is read to a limit of a little over 500 kilobytes, whatever size a site makes it: rules inside the limit apply, and a page is still read', async () => {
+    const padding = '# padding\n'.repeat(400_000);
+    const allowed = await read1(`User-agent: *\nDisallow: /nothing\n${padding}`, '/open');
+    expect(allowed.done.result.sources[0]!.outcome).toBe('used');
+    const disallowed = await read1(`User-agent: *\nDisallow: /open\n${padding}`, '/open');
+    expect(disallowed.done.result.sources[0]).toMatchObject({
+      outcome: 'blocked',
+      failure: { class: 'robots-disallowed' },
+    });
   }, 30_000);
+});
+
+describe('how the crawler sets up the fetcher it reads with', () => {
+  const request = (changes: Partial<PageFetchRequest> = {}): PageFetchRequest => ({
+    url: 'https://a.example.com/',
+    maxBytes: 10_000,
+    timeoutMs: 1_000,
+    idleMs: 500,
+    maxRedirects: 3,
+    signal: new AbortController().signal,
+    allowHttp: false,
+    allowPdf: false,
+    robots: new Map(),
+    hooks: {},
+    ...changes,
+  });
+  const optionsOf = async (changes: Partial<PageFetchRequest>): Promise<FetchOptions> => {
+    let seen: FetchOptions | undefined;
+    const spy = vi
+      .spyOn(PublicFetcher.prototype, 'fetchPublicPage')
+      .mockImplementation(async (_address, options) => {
+        seen = options;
+        throw new UrlFailure('network', 'stopped', { reason: 'closed' });
+      });
+    try {
+      await new PublicPageFetcher().fetch(request(changes)).catch(() => undefined);
+    } finally {
+      spy.mockRestore();
+    }
+    return seen!;
+  };
+
+  it('obeys robots.txt, as itself, with the crawl’s own cache and hooks, and cannot be told not to', async () => {
+    const robots = new Map();
+    const hooks = { onRobots: () => undefined };
+    const options = await optionsOf({ robots, hooks });
+    expect(options.respectRobots).toBe(true);
+    expect(options.identity).toEqual({
+      userAgent: RESEARCH_USER_AGENT,
+      robotsToken: RESEARCH_ROBOTS_TOKEN,
+    });
+    expect(options.robotsCache).toBe(robots);
+    expect(options.hooks).toBe(hooks);
+  });
+
+  it('reads https only unless the crawl allows http, and a PDF only when it may', async () => {
+    expect((await optionsOf({})).httpsOnly).toBe(true);
+    expect((await optionsOf({ allowHttp: true })).httpsOnly).toBe(false);
+    expect([...(await optionsOf({})).allowedContentTypes!]).not.toContain('application/pdf');
+    expect([...(await optionsOf({ allowPdf: true })).allowedContentTypes!]).toContain(
+      'application/pdf',
+    );
+  });
+
+  it('passes on the limits of the request, and never reads more than it is given', async () => {
+    const options = await optionsOf({
+      maxBytes: 12_345,
+      timeoutMs: 777,
+      idleMs: 55,
+      maxRedirects: 2,
+    });
+    expect(options).toMatchObject({
+      maxBytes: 12_345,
+      timeoutMs: 777,
+      idleMs: 55,
+      maxRedirects: 2,
+    });
+  });
+
+  it('keeps the address policy it was given: ports and hosts', async () => {
+    let seen: FetchOptions | undefined;
+    const spy = vi
+      .spyOn(PublicFetcher.prototype, 'fetchPublicPage')
+      .mockImplementation(async (_address, options) => {
+        seen = options;
+        throw new UrlFailure('network', 'stopped', { reason: 'closed' });
+      });
+    try {
+      await new PublicPageFetcher({ allowedPorts: [8443], allowedHosts: ['*.example.com'] })
+        .fetch(request())
+        .catch(() => undefined);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(seen).toMatchObject({ allowedPorts: [8443], allowedHosts: ['*.example.com'] });
+  });
 });
