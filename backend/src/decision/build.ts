@@ -726,7 +726,7 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
         current: cfCurrent,
         note: guard.say(
           cfSet === null
-            ? 'No counterfactual view has been run, so nothing was tried against the result. Run them from the constraints.'
+            ? 'No counterfactual view has been run, so no change to the situation was tried to see whether the result holds. Run them from the constraints.'
             : !cfCurrent
               ? 'The counterfactual views were made from an earlier version of the constraints, the scenario or the actors, so they are not counted here.'
               : 'Each view changes one thing and runs the proposed change again on the same seeds. None is a forecast, and the other options were not re-run under it.',

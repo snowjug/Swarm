@@ -118,7 +118,7 @@ const base = (): Raw => ({
     ],
     conditions: [
       'No constraints were reviewed for this decision, so the answer does not say what limits it.',
-      'No counterfactual view was run against it, so nothing was tried against the result.',
+      'No counterfactual view was run against it, so no change to the situation was tried to see whether the result holds.',
     ],
   },
   answer: {
@@ -368,7 +368,7 @@ const base = (): Raw => ({
     counterfactuals: {
       available: false,
       current: false,
-      note: 'No counterfactual view has been run, so nothing was tried against the result. Run them from the constraints.',
+      note: 'No counterfactual view has been run, so no change to the situation was tried to see whether the result holds. Run them from the constraints.',
       views: [],
     },
     assumptions: [],
@@ -584,29 +584,35 @@ export function canvasFixture(patch: (canvas: Raw) => void = () => undefined): D
   return decisionCanvasSchema.parse(raw);
 }
 
+/** One counterfactual view, as the server reads it from a run on the same seeds. */
+const counterfactualView = (
+  id: Raw['changes']['counterfactuals']['views'][number]['id'],
+  label: string,
+  delta: number,
+  reverses: boolean,
+): Raw['changes']['counterfactuals']['views'][number] => ({
+  id,
+  label,
+  change: `${label}, all else as run.`,
+  applicable: true,
+  deltaVsBase: delta,
+  standardError: 0.01,
+  classification: Math.abs(delta) >= 0.05 ? 'material' : 'negligible',
+  driver: 'The constraint was a driver of the simulated resistance.',
+  couldChangeAnswer: reverses,
+  statement: say(
+    `${label}: the simulated share resisting moved by ${Math.round(delta * 100)} in 100 on the same seeds.`,
+    'simulation-event',
+    'run:counterfactual',
+  ),
+});
+
+const COUNTERFACTUAL_NOTE =
+  'Each view takes one constraint away or changes it, on the same seeds. A view that could reverse the answer is marked.';
+
 /** A canvas with every part full: what a project with its constraints reviewed, views run and a review made looks like. */
 export function richFixture(): DecisionCanvas {
-  const view = (
-    id: Raw['changes']['counterfactuals']['views'][number]['id'],
-    label: string,
-    delta: number,
-    reverses: boolean,
-  ): Raw['changes']['counterfactuals']['views'][number] => ({
-    id,
-    label,
-    change: `${label}, all else as run.`,
-    applicable: true,
-    deltaVsBase: delta,
-    standardError: 0.01,
-    classification: Math.abs(delta) >= 0.05 ? 'material' : 'negligible',
-    driver: 'The constraint was a driver of the simulated resistance.',
-    couldChangeAnswer: reverses,
-    statement: say(
-      `${label}: the simulated share resisting moved by ${Math.round(delta * 100)} in 100 on the same seeds.`,
-      'simulation-event',
-      'run:counterfactual',
-    ),
-  });
+  const view = counterfactualView;
   const assumption = (
     id: string,
     text: string,
@@ -748,7 +754,7 @@ export function richFixture(): DecisionCanvas {
     raw.changes.counterfactuals = {
       available: true,
       current: true,
-      note: 'Each view takes one constraint away or changes it, on the same seeds. A view that could reverse the answer is marked.',
+      note: COUNTERFACTUAL_NOTE,
       views: [
         view('without-budget', 'Without the budget constraint', 0.12, true),
         view('delayed-implementation', 'Implementation delayed one quarter', -0.04, false),
@@ -849,6 +855,19 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
           'On “Least resistance overall”: clearly ahead.',
           'No counterfactual view or sensitive assumption reverses it.',
         ];
+        canvas.changes.counterfactuals = {
+          available: true,
+          current: true,
+          note: COUNTERFACTUAL_NOTE,
+          views: [
+            counterfactualView(
+              'delayed-implementation',
+              'Implementation delayed one quarter',
+              -0.01,
+              false,
+            ),
+          ],
+        };
         canvas.answer.preferredAlternativeId = 'proposed-change';
         canvas.answer.recommendation.kind = 'proceed';
         canvas.answer.recommendation.what = say(

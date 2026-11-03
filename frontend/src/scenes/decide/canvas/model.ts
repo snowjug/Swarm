@@ -242,6 +242,16 @@ export function assumptionGlance(
     .slice(0, limit);
 }
 
+/**
+ * What the sensitivity step did and found, in a count of its rows: how many assumptions it moved, and how many moved the
+ * result clearly. Said wherever the changes are, so that "no view was run" is never read as "nothing was tried".
+ */
+export function sensitivityWords(sensitivity: DecisionCanvas['changes']['sensitivity']): string {
+  return sensitivity.tested === 0
+    ? 'Sensitivity to assumptions was not run.'
+    : `${plural(sensitivity.tested, 'assumption')} moved on the same seeds: ${sensitivity.sensitive} moved the result clearly, ${sensitivity.robust} did not, ${sensitivity.inconclusive} could not be told.`;
+}
+
 export interface Completeness {
   total: number;
   stated: number;
@@ -347,13 +357,20 @@ export function gistOf(item: Item, canvas: DecisionCanvas): string {
         ? listed(canvas.actors.items.slice(0, 2).map((actor) => actor.name))
         : 'No role simulated';
     case 'changes': {
-      const reversing = canvas.changes.counterfactuals.views.filter(
-        (view) => view.couldChangeAnswer === true,
-      ).length;
-      const flipping = canvas.changes.assumptions.filter((row) => row.flipsAnswer).length;
-      return reversing + flipping > 0
-        ? `${reversing + flipping} could reverse the answer`
-        : 'Nothing tried reverses it';
+      const { counterfactuals, assumptions, sensitivity } = canvas.changes;
+      const run = counterfactuals.views.filter((view) => view.deltaVsBase !== null);
+      const tried = run.length + sensitivity.tested;
+      if (tried === 0) return 'Nothing was tried against it';
+      if (canvas.answer.preferredAlternativeId === null) return `${tried} tried`;
+      const reversing =
+        run.filter((view) => view.couldChangeAnswer === true).length +
+        assumptions.filter((row) => row.flipsAnswer).length;
+      if (reversing > 0) return `${reversing} could reverse the answer`;
+      const unsettled =
+        run.filter((view) => view.couldChangeAnswer === null).length + sensitivity.inconclusive;
+      return unsettled > 0
+        ? `${tried} tried; ${unsettled} cannot be told`
+        : `${tried} tried; none reverses it`;
     }
     case 'next':
       return clip(canvas.answer.recommendation.what.text, 90);

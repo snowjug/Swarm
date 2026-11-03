@@ -26,6 +26,7 @@ import {
   changeWords,
   moveWords,
   positionWords,
+  sensitivityWords,
   validationWords,
   viewWords,
 } from './model';
@@ -247,9 +248,8 @@ function Changes({ canvas }: { canvas: DecisionCanvas }) {
       </ul>
       <h3 className="sw-canvas-part__title">Sensitive assumptions</h3>
       <Plain>
-        {plural(sensitivity.tested, 'assumption')} moved on the same seeds: {sensitivity.sensitive}{' '}
-        moved the result clearly, {sensitivity.robust} did not, {sensitivity.inconclusive} could not
-        be told. {sensitivity.note}
+        {sensitivityWords(sensitivity)}
+        {sensitivity.tested > 0 ? ` ${sensitivity.note}` : ''}
       </Plain>
       <ul className="sw-canvas-detail__list">
         {assumptions.map((row) => (

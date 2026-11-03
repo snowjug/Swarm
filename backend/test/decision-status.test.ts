@@ -328,7 +328,7 @@ describe('each condition, on its own, keeps a leading option from being robust',
     [
       'no counterfactual view was run',
       { counterfactuals: null },
-      /No counterfactual view was run/u,
+      /No counterfactual view was run against it, so no change to the situation was tried/u,
     ],
     [
       'the counterfactual views no longer describe the project',

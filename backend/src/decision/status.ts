@@ -153,7 +153,7 @@ export function conditionsOf(input: StatusInput, leaderId: string): string[] {
   }
   if (!input.examined.counterfactuals) {
     conditions.push(
-      'No counterfactual view was run against it, so nothing was tried against the result.',
+      'No counterfactual view was run against it, so no change to the situation was tried to see whether the result holds.',
     );
   }
   if (!input.examined.sensitivity) {

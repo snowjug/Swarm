@@ -35,6 +35,7 @@ import {
   moveWords,
   noticesOf,
   roleName,
+  sensitivityWords,
   stateOf,
   strip,
   viewWords,
@@ -409,6 +410,66 @@ describe('what the page works out from the view', () => {
       expect(gist.length, item).toBeLessThanOrEqual(120);
       expect(gist, item).not.toContain('%');
     }
+  });
+
+  it('never says that nothing reverses the answer when nothing was tried against it', () => {
+    const view = (id: string, deltaVsBase: number | null, couldChangeAnswer: boolean | null) =>
+      ({
+        id,
+        label: id,
+        change: '',
+        applicable: true,
+        deltaVsBase,
+        standardError: null,
+        classification: null,
+        driver: '',
+        couldChangeAnswer,
+        statement: { text: id, label: 'simulation-event' },
+      }) as never;
+    const gist = (
+      views: unknown[],
+      moved: { tested?: number; inconclusive?: number; flips?: boolean[]; answered?: boolean } = {},
+    ) => {
+      const { tested = 0, inconclusive = 0, flips = [], answered = true } = moved;
+      const canvas = canvasFixture();
+      const [template] = canvas.changes.assumptions;
+      canvas.changes.counterfactuals.views = views as never;
+      canvas.changes.sensitivity = {
+        ...canvas.changes.sensitivity,
+        tested,
+        sensitive: flips.length,
+        inconclusive,
+        robust: tested - flips.length - inconclusive,
+      };
+      canvas.changes.assumptions = flips.map((flipsAnswer, at) => ({
+        ...template!,
+        id: `a${at}`,
+        flipsAnswer,
+      }));
+      if (!answered) canvas.answer.preferredAlternativeId = null;
+      return gistOf('changes', canvas);
+    };
+    expect(gist([])).toBe('Nothing was tried against it');
+    expect(gist([view('v', null, null)])).toBe('Nothing was tried against it');
+    expect(gist([view('v', 0.02, false)], { tested: 3 })).toBe('4 tried; none reverses it');
+    expect(gist([], { tested: 12, inconclusive: 2 })).toBe('12 tried; 2 cannot be told');
+    expect(gist([view('v', 0.02, null)])).toBe('1 tried; 1 cannot be told');
+    expect(gist([view('v', 0.02, false)], { tested: 2, flips: [true] })).toBe(
+      '1 could reverse the answer',
+    );
+    expect(gist([view('v', 0.02, false)], { tested: 2, answered: false })).toBe('3 tried');
+  });
+
+  it('says what the sensitivity step moved and found, or that it was not run', () => {
+    const sensitivity = canvasFixture().changes.sensitivity;
+    expect(sensitivityWords({ ...sensitivity, tested: 0 })).toBe(
+      'Sensitivity to assumptions was not run.',
+    );
+    expect(
+      sensitivityWords({ ...sensitivity, tested: 12, sensitive: 0, robust: 10, inconclusive: 2 }),
+    ).toBe(
+      '12 assumptions moved on the same seeds: 0 moved the result clearly, 10 did not, 2 could not be told.',
+    );
   });
 
   it('names what a stale picture was made before, or says that it cannot tell', () => {

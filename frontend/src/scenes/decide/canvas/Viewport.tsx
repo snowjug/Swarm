@@ -29,6 +29,7 @@ import {
   moverItems,
   positionWords,
   roleName,
+  sensitivityWords,
   statusTone,
   strip,
   validationWords,
@@ -365,6 +366,7 @@ function Changes({ canvas, openDetail }: Props) {
       ) : (
         <Quiet>{counterfactuals.note}</Quiet>
       )}
+      <Quiet>{sensitivityWords(canvas.changes.sensitivity)}</Quiet>
       {assumptions.length > 0 && (
         <ul className="sw-canvas-list" role="list">
           {assumptions.map((row) => (
