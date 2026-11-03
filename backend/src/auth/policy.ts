@@ -167,6 +167,17 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/projects/:id/brief': project('read'),
   'POST /api/projects/:id/brief': project('edit'),
   'GET /api/projects/:id/brief/export': project('export'),
+
+  // [research policy]
+  // Research reads pages from the public web and may use a model, so starting it, adding to it and
+  // stopping it are for those who may run the project; what it found is read like the project it belongs to.
+  'GET /api/projects/:id/research': project('read'),
+  'POST /api/projects/:id/research': project('run'),
+  'POST /api/projects/:id/research/sources': project('run'),
+  'POST /api/projects/:id/research/pause': project('run'),
+  'POST /api/projects/:id/research/resume': project('run'),
+  'POST /api/projects/:id/research/finish': project('run'),
+  'POST /api/projects/:id/research/cancel': project('run'),
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */

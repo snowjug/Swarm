@@ -57,6 +57,10 @@ import { critiqueRoutes } from './routes/critiques.js';
 
 // [brief imports]
 import { briefRoutes } from './routes/brief.js';
+
+// [research imports]
+import { researchRoutes } from './routes/research.js';
+import { ResearchService, type ResearchSeam } from './research/service.js';
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
 
@@ -90,6 +94,8 @@ export interface AppOptions {
   jobs?: OrchestratorOptions;
   /** Test hook: read web pages through this fetcher (a stub resolver, or servers on this machine). */
   urlFetcher?: PublicFetcher;
+  /** Test hook: how research reaches the web and finds sources (its fetcher, plain http, a search provider, a clock). */
+  research?: ResearchSeam;
 }
 
 /** The routes a platform's health probes call. They answer without sign-in, and for any host. */
@@ -188,6 +194,16 @@ export async function buildApp(options: AppOptions) {
     app.log.error({ projectId, code }, 'Follow-up or survey failed. Inspect its persisted state.'),
   );
   const pdf = new PdfService();
+  // Research is the first phase of the job that grounds a project, so it is made once the queue and the
+  // PDF reader exist, and made known to the job by the repository they share.
+  const research = new ResearchService({
+    repository,
+    config,
+    createModel: modelFactory,
+    jobs,
+    pdf,
+    ...(options.research ?? {}),
+  }).attach();
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -401,6 +417,9 @@ export async function buildApp(options: AppOptions) {
   // [brief routes]
   briefRoutes(app, repository, config.rateLimitScale);
 
+  // [research routes]
+  researchRoutes(app, research, config.rateLimitScale);
+
   const frontend =
     options.frontendRoot === undefined
       ? resolve(process.cwd(), 'frontend', 'dist')
@@ -444,8 +463,9 @@ export async function buildApp(options: AppOptions) {
   }
   app.addHook('preClose', async () => {
     await Promise.all([interaction.stop(), jobs.stop(), pdf.stop()]);
+    research.close();
   });
   app.addHook('onClose', async () => repository.close());
   await app.ready();
-  return { app, repository, jobs, interaction, pdf, routes };
+  return { app, repository, jobs, interaction, pdf, research, routes };
 }

@@ -337,6 +337,20 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
           : 'md',
     }),
   },
+
+  // [research audit]
+  // Words and counts only: never an address, a title, a passage or the question. Starting a run and
+  // adding a source are recorded by the service, with the mode and the limits the run was given; the
+  // end of a run is recorded there too, by the worker that carried it out.
+  'GET /api/projects/:id/research': reads(
+    'Reads the state of the research of a project; it changes nothing.',
+  ),
+  'POST /api/projects/:id/research': { kind: 'inside', action: 'research.started' },
+  'POST /api/projects/:id/research/sources': { kind: 'inside', action: 'research.source.added' },
+  'POST /api/projects/:id/research/pause': { kind: 'request', action: 'research.paused' },
+  'POST /api/projects/:id/research/resume': { kind: 'request', action: 'research.resumed' },
+  'POST /api/projects/:id/research/finish': { kind: 'request', action: 'research.finished' },
+  'POST /api/projects/:id/research/cancel': { kind: 'request', action: 'research.cancelled' },
 };
 
 /**

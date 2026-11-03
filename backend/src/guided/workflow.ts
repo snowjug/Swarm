@@ -2,12 +2,31 @@ import type { ExecutionStep } from '../../../shared/guided.js';
 import { actorCallBudget } from '../agents/actor.js';
 import { AppError, throwIfAborted } from '../errors.js';
 import type { ModelFactory } from '../orchestration/runner.js';
+import { researchServiceFor } from '../research/service.js';
 import type { Repository } from '../storage/repository.js';
 import { prepareEnvironment } from './environment.js';
 import { buildKnowledge } from './knowledge.js';
 import { generateGuidedReport } from './reporting.js';
 import { runPlatforms } from './simulation.js';
-import { beginStage, completeStage } from './state.js';
+import { beginStage, completeStage, updateConsole } from './state.js';
+
+/**
+ * Research found nothing to build knowledge from: the stage goes back to waiting, as it was before it
+ * started, so that sources can be added (or research started again) and the stage run again. It is not a
+ * failure of the stage, and nothing is built from nothing.
+ */
+function holdKnowledge(repository: Repository, id: string): void {
+  updateConsole(repository, id, (state) => ({
+    ...state,
+    steps: { ...state.steps, knowledge: 'pending' },
+  }));
+  repository.update(id, { status: 'draft', stage: 'intake', progress: 0, error: null });
+  repository.addEvent(
+    id,
+    'knowledge',
+    'There is nothing to build knowledge from yet. Add a source, or start research again.',
+  );
+}
 
 export class GuidedWorkflow {
   constructor(
@@ -41,6 +60,14 @@ export class GuidedWorkflow {
     throwIfAborted(signal);
     switch (step) {
       case 'knowledge':
+        // Research is the first phase of grounding: it finds, reads and adds the sources that the
+        // knowledge is then built from. A project that has sources of its own, and no run waiting, is
+        // grounded exactly as it always was.
+        if ((await researchServiceFor(this.repository)?.beforeKnowledge(id, signal)) === 'hold') {
+          holdKnowledge(this.repository, id);
+          return;
+        }
+        throwIfAborted(signal);
         await buildKnowledge(this.repository, id, model, signal);
         break;
       case 'environment':
