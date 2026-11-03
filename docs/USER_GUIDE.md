@@ -195,10 +195,14 @@ the sources fill the first screen.
   whether a page is right."), what became of it (Used, Read, Quarantined, Blocked, Failed, Duplicate or
   Skipped, with the reason of each that was set aside), and **Provenance**: where it was fetched from, when,
   what its content hashes to, whether the site's robots.txt allowed it, and how its text was taken. **Cancel**
-  asks first. **Suggestions** are sites from the plan that Swarm reads only when you press **Add this site**.
-  Where no search provider is set up, a question alone says that it cannot find sources and does not search
-  the web; **Add a site or page** starts from a site or page you name, and **Open the question to add sources**
-  takes the question back to the first screen to paste text or attach files. **What the research looks for**
+  asks first. **Suggestions** are the kinds of source the plan says to look for, and the sites it names, which
+  Swarm reads only when you press **Add this site**.
+  Where no search provider is set up, a question alone is not an error: the status says **Needs a source**, and
+  Swarm says that it cannot find sources from a question alone and does not search the web. **Add a site or
+  page** starts from a site or page you name; **Paste or attach**, under "Use sources of your own", takes text you
+  paste or files you attach as the sources of the project, with nothing fetched, and Swarm goes on to read
+  them. Where the project cannot take sources there, **Open the question to add sources** takes the question back
+  to the first screen. **What the research looks for**
   and **Limits for this run** open on the plan and the limits, and cost is an estimate, never a bill.
 - **Operations**, the engine's recorded operations and events, is shown in Advanced detail only.
 
