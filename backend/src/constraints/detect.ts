@@ -6,6 +6,7 @@ import {
   APPROVAL_CUE,
   CATEGORY_ORDER,
   CATEGORY_STEMS,
+  GAP_CUE,
   SOFT_CUE,
   UNDECIDED_CUE,
   WINDOW_TEXT,
@@ -72,8 +73,6 @@ const KNOWLEDGE_CATEGORIES: ReadonlySet<ConstraintCategory> = new Set([
   'evidence-quality',
   'uncertainty',
 ]);
-const GAP_CUE =
-  /\b(?:does\s+not\s+(?:say|state|show|give|explain)|(?:was|were|is|are|has|have)\s+not\s+(?:yet\s+)?(?:been\s+)?(?:tracked|measured|studied|tested|quoted|recorded)|not\s+(?:tracked|measured|studied|tested|recorded)|no\s+(?:data|evidence|information)\b|never\s+(?:been\s+)?measured)\b/iu;
 
 /** A figure given as a share ("17%", "9 per cent"): a count of people in a source, not a limit. */
 const SHARE = /\d\s?%|\bper\s?cent\b/iu;
@@ -170,10 +169,18 @@ export function guessCategory(text: string): ConstraintCategory {
   return 'operational';
 }
 
-/** Whether the sentence states a limit that needs no word to name what it limits, and none of its clauses names one. */
-function bareLimit(clauses: readonly Clause[], limits: readonly HardnessReading[]): boolean {
-  if (clauses.some((clause) => categoryOf(clause.text) !== null)) return false;
-  return limits.some((limit) => limit.hard && limit.cue?.standalone === true);
+/**
+ * The clause of a sentence that states a limit that needs no word to name what it limits, and names
+ * nothing itself, when nothing else in the sentence has been read as a limit.
+ */
+function bareLimit(clauses: readonly Clause[], limits: readonly HardnessReading[]): Clause | null {
+  const at = limits.findIndex(
+    (limit, index) =>
+      limit.hard &&
+      limit.cue?.standalone === true &&
+      categoryOf((clauses[index] as Clause).text) === null,
+  );
+  return at < 0 ? null : (clauses[at] ?? null);
 }
 
 /** The reading that is the better account of a sentence: a hard one over a soft one, then the one more about its subject. */
@@ -231,6 +238,7 @@ export function detectIn(text: string, where: Origin): Detection {
       best = stronger(best, reading);
     }
     if (!best && !counted && !POINTS_BACK.test(sentence) && bareLimit(clauses, limits)) {
+      // The category is judged from the whole sentence: what it is about may be said in another clause.
       best = { category: guessCategory(sentence), score: 0, hard: true, guessed: true };
     }
     if (!best) {

@@ -385,6 +385,10 @@ export const SOFT_CUE =
 export const UNDECIDED_CUE =
   /\b(?:not\s+yet\s+(?:been\s+)?(?:decided|defined|set|agreed|settled|known|clear)|(?:has|have)\s+not\s+(?:yet\s+)?been\s+(?:set|decided|defined|agreed|settled)|undecided|unknown|unclear|to\s+be\s+(?:decided|determined|confirmed)|(?:nobody|no\s+one)\s+has\s+(?:set|decided|defined|measured|quoted)|\bnot\s+yet\b|(?:has|have|had|was|were)\s+not\s+(?:yet\s+)?(?:been\s+)?(?:tested|checked|assessed|reviewed))\b/iu;
 
+/** Words that say what a source does not say or has not measured: a gap in what is known, which no limit can be read from. */
+export const GAP_CUE =
+  /\b(?:does\s+not\s+(?:say|state|show|give|explain)|(?:was|were|is|are|has|have)\s+not\s+(?:yet\s+)?(?:been\s+)?(?:tracked|measured|studied|tested|quoted|recorded)|not\s+(?:tracked|measured|studied|tested|recorded)|no\s+(?:data|evidence|information)\b|never\s+(?:been\s+)?measured)\b/iu;
+
 /** Words that make a sentence about a requirement for approval. */
 export const APPROVAL_CUE =
   /\b(?:approv(?:al|ed|e|es)|sign-?off|authori[sz]ation|authori[sz]ed|clearance|consent\s+of|permission)\b/iu;

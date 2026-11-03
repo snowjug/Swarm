@@ -1,6 +1,6 @@
 import { ANY_CUE, CUE_PATTERNS, LIMIT_WORDS, type CueFamily } from './cues.js';
 import { splitClauses, type Clause } from './clauses.js';
-import { UNDECIDED_CUE } from './lexicon.js';
+import { GAP_CUE, UNDECIDED_CUE } from './lexicon.js';
 
 /**
  * Whether a text states a limit as a fact or only as something wished for, feared, thought, possible or
@@ -179,14 +179,20 @@ export function readHardness(text: string): HardnessReading {
 /**
  * Whether a text says something that a model could fairly read as a firm limit although no word of
  * obligation, ban, ceiling or condition is in it: a word of limits (a notice, a deadline, a capacity, a
- * term of an agreement) in a clause that does not ask, hedge or say it is not known.
+ * term of an agreement) in a clause that does not ask, hedge or say it is not known, and that does not
+ * report what was measured ("recorded levels above the legal limit") or what a source does not say.
  */
 export function limitSupport(text: string): string | null {
   let framed = false;
   for (const clause of splitClauses(text)) {
     const inherited: boolean = framed && DEPENDENT.test(clause.joint);
     framed = inherited || FRAMING_ANYWHERE.test(clause.text) || VIEW.test(clause.text);
-    if (inherited || clause.text.trimEnd().endsWith('?') || UNDECIDED_CUE.test(clause.text)) {
+    if (
+      inherited ||
+      clause.text.trimEnd().endsWith('?') ||
+      UNDECIDED_CUE.test(clause.text) ||
+      GAP_CUE.test(clause.text)
+    ) {
       continue;
     }
     for (const found of clause.text.matchAll(new RegExp(LIMIT_WORDS.source, 'giu'))) {
@@ -196,7 +202,8 @@ export function limitSupport(text: string): string | null {
         VIEW.test(before) ||
         HEDGE_ADVERB.test(before) ||
         CONDITION.test(before) ||
-        NEGATION.test(before)
+        NEGATION.test(before) ||
+        FINDING.test(before)
       ) {
         continue;
       }

@@ -205,6 +205,15 @@ export const CUES: readonly CueSpec[] = [
     standalone: true,
     source: String.raw`(?:used|spent|applied|available|reserved|allowed|restricted)\s+(?:only|solely|exclusively)\s+(?:to|for|on|by|in)`,
   },
+  // "can add routes only when the new buses arrive": what can be done holds only under a condition.
+  {
+    family: 'condition',
+    modal: false,
+    negative: false,
+    standalone: true,
+    source: String.raw`(?:can|could|may|(?:is|are)\s+(?:able|allowed|permitted)\s+to)(?![\p{L}\p{N}])${NOT_PUNCTUATION}{0,50}?(?<![\p{L}\p{N}])only\s+(?:if|when|after|once)`,
+    shown: spanning(/^\p{L}+/u, /only\s+(?:if|when|after|once)$/iu),
+  },
 
   // A binding source: the law, a contract, a right that someone holds.
   {
@@ -292,7 +301,6 @@ export const LIMIT_WORDS = new RegExp(
       String.raw`committed|commitments?`,
       String.raw`deadlines?|notice|lead\s+times?`,
       String.raw`capacity|quotas?`,
-      String.raw`needs?`,
       String.raw`agreements?|contracts?|contractual\w*|clauses?|terms|polic(?:y|ies)`,
       String.raw`laws?|legal\w*|codes?|standards?|regulat\w+|rules?`,
       String.raw`fixed|voluntary`,

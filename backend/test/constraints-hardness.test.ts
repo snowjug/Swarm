@@ -45,6 +45,11 @@ describe('reading a sentence for a limit that holds', () => {
     ['The kiln is at capacity until June.', 'at capacity', 'bound'],
     ['The cooperative will not raise the rent above £900 a month.', 'will not … above', 'bound'],
     ['The side door opens only when the alarm is off.', 'only when', 'condition'],
+    [
+      'The bakery can open earlier only when the new oven is installed.',
+      'can … only when',
+      'condition',
+    ],
     ['The prize fund is used only for travel costs.', 'used only for', 'condition'],
     ['Customers have the right to a refund within a fortnight.', 'the right to', 'binding'],
     ['Noise limits are set by law.', 'by law', 'binding'],
@@ -292,6 +297,14 @@ describe('limit words a model can lean on', () => {
     expect(limitSupport('The depot is closed to lorries over the weekend.')).toBeNull();
     expect(limitSupport('Neighbours would like a longer notice period.')).toBeNull();
     expect(limitSupport('It is not yet clear what the contract says.')).toBeNull();
+  });
+
+  it('finds none in what a source does not say, in what was measured, or in a bare need', () => {
+    expect(limitSupport('The brochure does not say what the notice period is.')).toBeNull();
+    expect(
+      limitSupport('The scales recorded loads above the stated limit on three days.'),
+    ).toBeNull();
+    expect(limitSupport('The kitchen would need more cooks.')).toBeNull();
   });
 });
 
