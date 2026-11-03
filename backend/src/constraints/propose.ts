@@ -115,6 +115,7 @@ export async function proposeConstraints(input: ProposeInput): Promise<ProposeRe
 
   const asked: Clarification[] = newQuestions({
     context,
+    passages: readablePassages(context).readable,
     undecided: rules.undecided,
     modelQuestions: modelResult?.questions ?? [],
     constraints: merged.constraints,

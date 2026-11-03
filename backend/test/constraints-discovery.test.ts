@@ -400,9 +400,10 @@ describe('what reading again does to what a person decided', () => {
 });
 
 describe('asking the person', () => {
-  const asking = plain({
+  /** More that the situation points to than three, so that what is not asked for want of room is asked next. */
+  const crowded = plain({
     question:
-      'Should the service change how it keeps personal data under the contract with the vendor?',
+      'Should the service change how it keeps personal data under the contract with the vendor, given the staff rota and the new equipment?',
     scenario: scenarioFixture({ geography: null, horizon: null }),
     passages: [
       chunk('S1', 'Spending on the change is capped at a fixed amount agreed by the board.'),
@@ -410,9 +411,10 @@ describe('asking the person', () => {
   });
 
   it('asks at most three things at once, never about a kind the project already holds, and says what each could change', async () => {
-    const { set } = await proposeConstraints(proposal(asking));
+    const { set } = await proposeConstraints(proposal(crowded));
     expect(set.constraints.some((constraint) => constraint.category === 'budget')).toBe(true);
-    expect(set.clarifications.length).toBeGreaterThan(3);
+    // Three are open in all, not three shown of more: what was left out for want of room waits to be asked.
+    expect(set.clarifications).toHaveLength(3);
     expect(openQuestions(set)).toHaveLength(3);
     // The budget is already held (as a constraint), so it is reviewed, not asked.
     expect(set.clarifications.some((question) => question.category === 'budget')).toBe(false);
@@ -426,8 +428,8 @@ describe('asking the person', () => {
     );
   });
 
-  it('does not ask again what the person has answered, left unknown or turned away', async () => {
-    const first = await proposeConstraints(proposal(asking));
+  it('does not ask again what the person has answered, left unknown or turned away, and asks the next kind when there is room', async () => {
+    const first = await proposeConstraints(proposal(crowded));
     const decided: ConstraintSet = {
       ...first.set,
       clarifications: first.set.clarifications.map((question, at) => ({
@@ -435,9 +437,24 @@ describe('asking the person', () => {
         status: (['answered', 'unknown', 'excluded'] as const)[at % 3] ?? 'unknown',
       })),
     };
-    const again = await proposeConstraints(proposal(asking, { existing: decided }));
+    const again = await proposeConstraints(proposal(crowded, { existing: decided }));
+    // What was decided stays as it was, and the next kinds are asked, three open at most.
+    expect(again.set.clarifications.slice(0, decided.clarifications.length)).toEqual(
+      decided.clarifications,
+    );
+    const next = again.set.clarifications.slice(decided.clarifications.length);
+    expect(next.length).toBeGreaterThan(0);
+    expect(openQuestions(again.set)).toHaveLength(next.length);
+    expect(next.length).toBeLessThanOrEqual(3);
+    const decidedKinds = new Set(decided.clarifications.map((question) => question.category));
+    for (const question of next) expect(decidedKinds.has(question.category)).toBe(false);
+  });
+
+  it('asks nothing more while three are open, and nothing the person has dealt with', async () => {
+    const first = await proposeConstraints(proposal(crowded));
+    const again = await proposeConstraints(proposal(crowded, { existing: first.set }));
     expect(again.added.questions).toBe(0);
-    expect(again.set.clarifications).toEqual(decided.clarifications);
+    expect(again.set.clarifications).toEqual(first.set.clarifications);
   });
 });
 
