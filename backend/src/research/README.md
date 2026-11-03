@@ -297,7 +297,16 @@ visible to another tenant.
 4. **Planning.** Rules plan, or, for a project whose person chose a model, the model does, as data: the
    question and the guidance are never instructions. A plan names things to find and **never an address to
    fetch**; a suggested site is a bare public host name that is only shown. Every address in the question is
-   replaced by its site's name before it reaches a plan or a search provider.
+   replaced by its site's name before it reaches a plan or a search provider. **What reads as an instruction to
+   an AI model is not planned from.** The sentences of the question, the guidance, the horizon and the place that
+   `models/injection.ts` reads as instructions (and a role that stands beside one, and a sentence that repeats what
+   one asked for) are left out before the rules derive a claim, a topic, a name, a conflict or a line of what may
+   be missing; the plan says how many in its first line under "What may be missing" ("One sentence of what you
+   wrote reads as an instruction to an AI model. It is treated as data, never followed, and left out of this
+   plan."), never what they said, and its `question` is still the person's words. A model's plan is refused (and
+   the rules' plan stands in, with the reason) if any field repeats what such a sentence asked for, or if it
+   suggests a site that only such a sentence names (`checkPlan`, given what `hear` kept of the question); the
+   same line is added to a model's plan that is used.
 5. **Finding sources.** `url` and `domain` modes start from what the person named. `discovery` mode needs a
    search provider: with none the run ends `blocked` (`discovery-unconfigured`), says so, and the stage goes
    back to waiting (`pending`, not `failed`) so that a person can name a page or a site, or add sources of their own.
@@ -385,6 +394,12 @@ call (`MODEL_PRICES`); with no price the cost is "unknown" and said so. `0` mean
   added to a project once its grounding step is ready or running.
 - The intake typed at creation is not kept: a research start repeats it in its body, and a project that is
   simply grounded without one gets a discovery run (which ends `blocked` with no search provider).
+- **What reads as an instruction is found by patterns**, so an instruction worded in a way they do not know is
+  planned from like any sentence, and a sentence that holds a real question and an instruction is left out whole:
+  the person is told how many sentences were left out and can write the question again. An imperative that asks for
+  some text is read only when that text (a code-like token or a quoted phrase) follows the verb; one that asks for
+  nothing in particular is read only where it speaks to an assistant by name. A suggested site that a model
+  suggests and a person's own address names (no instruction) is still shown, as the site of the question.
 - Selection and assessment are lexical and deterministic, with fixed weights written in `select.ts` and
   `assess.ts`. They rank what to read and what to keep; they do not say what is right.
 - One worker for each process: a run holds it for as long as it takes (the job is held to 15 minutes), and

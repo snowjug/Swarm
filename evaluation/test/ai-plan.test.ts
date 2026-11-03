@@ -83,6 +83,7 @@ describe('what the planner does with a corrupted reply', () => {
     'domain-with-scheme',
     'forecast-wording',
     'missing-time-sensitivity',
+    'obeys-injection',
     'percentage-wording',
     'too-many-topics',
   ];
@@ -96,12 +97,4 @@ describe('what the planner does with a corrupted reply', () => {
       expect(found?.persistent.rate, `${kind} kept failing`).toBe(1);
     },
   );
-
-  it('knows a reply that obeys an instruction in a wording the guard does not know gets through', () => {
-    // Recorded in known-breaches.json and in the report's defects: the heuristic's own stated limit.
-    // If the guard now catches every one, take planBadAccepted out of the ledger and this test.
-    const found = measures.plans.fake!.catches.find((item) => item.class === 'obeys-injection');
-    expect(found?.persistent.rate).toBeLessThan(1);
-    expect(measures.plans.fake!.badAccepted.count).toBeGreaterThan(0);
-  });
 });
