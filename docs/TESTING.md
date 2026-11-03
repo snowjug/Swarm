@@ -99,7 +99,7 @@ runs both over the briefs of the example packs. `readme.test.ts` fails if the RE
 variable, a link or an image that does not exist, or claims what the evidence does not support.
 
 Browser coverage of the lab is the `lab` project, which runs `e2e/lab/*.spec.ts` against built,
-rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its twenty-six
+rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its twenty-eight
 specs are described under [End-to-end, accessibility, security and load
 evidence](#end-to-end-accessibility-security-and-load-evidence). `ask-pipeline.spec.ts` walks the flagship
 demonstrations and a question that no example knows, with a public page as evidence, through the question,
@@ -119,6 +119,7 @@ in a test.
 | The crawler and the extractor               | `research-fetch`, `research-extract`, `research-classify`, `research-crawl` (ordering, sites, duplicates, records), `research-budget` (each stop, cancelling, pausing), `research-pacing` (delays, robots.txt, retries, the breaker), `research-events` (an allow-list of fields, and no text a site wrote), `research-quarantine` (each reason, instruction text, PDFs through the real reader) and `research-wording`, on a virtual clock and a fake network (`support/research-world.ts`)                                                                                                                                                                                                                                                                                         |
 | What a crawler must refuse, on real sockets | `research-safety` (a table of address forms, redirects, rebinding and the two ways a name can fail) and `research-limits` (decompression bombs, trickling bodies, a page that is expensive to parse, held to a work budget), on loopback servers and a fake name server. The PDF tests start the real PDF worker and take a few seconds                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | A research run                              | `research-config`, `research-plan` (rules and a model's plan, the checks), `research-assess`, `research-select` (ranking, limits, repeats, masking), `research-store` (the record and `Repository.appendDocuments`), and, through the whole application with the real queue and storage, `research-service` (modes, stages, stops, limits, determinism), `research-service-control` (pause, finish, cancel, two requests at once, a server that stops), `research-service-hostile`, `research-service-model`, `research-routes` (who may call what, tenants, CSRF, rate limits, the audit log) and `research-manual` (a person's own text added to a project that research found nothing for), reading a fake web (`support/research-web.ts`) through the fetcher seam of `buildApp` |
+| Research on the page                        | `frontend/src/scenes/ground/research/model.test.ts` (the stages, the counters, what is offered by what the server says a person may do, the words for each outcome and reason), `research.interaction.test.tsx` (the surface as a person meets it, and that what a page says of itself is only ever text), `frontend/src/hooks/useResearch.test.ts` (following a run) and `frontend/src/hooks/useConsole.test.ts` (a question that brings no source starts its research and not its evidence; one that brings sources reads them and researches nothing; a run already under way is the one that was asked for; a start that fails keeps the project and says how to start again); in a browser, `e2e/lab/research-states.spec.ts` and `e2e/lab/research-journey.spec.ts`            |
 | The output policy and the Foundry provider  | `model-task` (what a reply may become, one correction, a refusal and a cancellation are never answered from rules), `model-router` (the routing table), `model-runner`, `model-cost`, `model-cache` (isolation between tenants), `model-strict-schema`, `model-use`, `model-budget`, `model-workflow`, `foundry-client`, `foundry-config` and `telemetry-model`, against `support/fake-foundry.ts` or a scripted double                                                                                                                                                                                                                                                                                                                                                              |
 | Participants                                | `participants-schema`, `participants-reader`, `participants-rules`, `participants-scaffold`, `participants-checks` (the catalogue of checks), `participants-model` and `participants-routes`; on the page, `frontend/src/scenes/map/review/*.test.ts(x)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Constraints                                 | `constraints-schema`, `constraints-discovery`, `constraints-hardness`, `constraints-situation`, `constraints-review`, `constraints-gate`, `constraints-engine` (each effect), `constraints-golden` (digests of whole runs with no constraints), `constraints-counterfactuals`, `constraints-critic` and `constraints-routes`; on the page, `frontend/src/scenes/map/constraints/*.test.ts(x)`                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -501,7 +502,7 @@ directory (never your own data):
   the settings menu, where the account lives, says "Signed in · Microsoft Entra" and offers to sign out.
 - **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), through its pages, so that it needs no
   model. The servers are the real application with throwaway data, so the project neither depends on nor
-  changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-six specs:
+  changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-eight specs:
   - `ask-first-use.spec.ts`: the first-use task test. A person who has never seen the screen, and is told
     nothing, wants to know what would happen if a harbour office doubled its fee. The first ten seconds say
     what Swarm does, what to type, what it does by itself, why to trust it, and that it explores and does not
@@ -620,6 +621,31 @@ directory (never your own data):
     control large enough for a pointer and for a finger. The head of the page says when the sources are synthetic
     samples, beside the status and without taking more room than the status already does, and says nothing of
     sources that were supplied.
+  - `research-states.spec.ts`: automatic research in Ground in every state, on a stand-in for the server's
+    research (`e2e/support/research-fake.ts`), so that each state can be reached on purpose. A question being
+    researched goes through the six stages in order, each shown only when the run has reached it, with the
+    counters of the run; pause, resume and finish early follow the server each time, cancelling asks first, and
+    only what the server says a person may do is offered. A server that cannot be read is said so, and the page
+    keeps what was read. A project made from a question alone has its research started and not its evidence,
+    and Ground opens on the run. A search from a question alone that cannot go on says why in the server's
+    words, never searches on its own and keeps the manual ways open: naming a site or a page, pasting text
+    (sent as it was written, with a name and nothing else) or going back to the question. A run that failed
+    says so, with the last thing the run said as text; one that a person stopped keeps the pages that were read;
+    either starts again on one press. Every page says what
+    became of it in plain words, with the reason of each that was set aside, and none is judged; where it came
+    from opens in a popover that closes with Escape; markup in a title is shown as text and a script is no
+    link. Finished research in a project that has its sources is the record of how they were found, and is not
+    drawn at all where the server does not research. Every control is large enough for a pointer, on a phone
+    and with forced colours.
+  - `research-journey.spec.ts`: the same through the real application. The server of
+    `backend/test/support/research-e2e-server.ts` (rules mode, data in memory) reads a fixture web with the real
+    fetcher and the real crawler, robots.txt and extraction, and nothing leaves the machine; the spec starts it
+    on ports of its own ([the ports](#running-one-project-and-the-ports)) and is skipped where the server does
+    not research. A question and a site reach Ready with real sources, each page said in plain words and none
+    judged. A question alone says that it cannot look for sources, searches nothing and reads the page that a
+    person names; it goes on with text that a person pastes, which is read as it is and fetches nothing. A run
+    can be paused, let go on and finished early, and one cancelled after asking keeps the pages that were read
+    and can be done again with what was asked.
   - `map.spec.ts`: the Map scene on the stakeholders the server holds, never a number from a fixture.
     Before anything is found the page says what it will do, that no model is used and what its actors are.
     Finding them reads the text, one party for each stakeholder the engine found; every stakeholder that
@@ -658,6 +684,15 @@ directory (never your own data):
     server already holds. It can be done from the keyboard, with focus never left on nothing. Text addressed to
     an AI system is flagged and appears nowhere in the participants. On a phone the review fits, every control
     is reachable and the one way on stays whole.
+  - `constraints.spec.ts`: the Constraints view of the Map, through the real page, in rules mode: what the
+    sources say limits the decision, as the server holds it, never a figure from a fixture. It starts empty and
+    honest, then shows each constraint with where it came from, and an inference never as a fact; it puts at
+    most three questions at a time, with four things to do about each, and keeps an unknown unknown. A
+    comparison is refused while the constraints are unsettled, in words that say what to do, and runs
+    provisionally once they have been reviewed. A person adds a constraint of their own, with what the
+    simulation does about it, and sees it applied; the views of the proposed change run, each with what moved it,
+    and one that was not run says why. On a phone every part stays inside the screen and every control has a
+    name.
   - `map-responsive.spec.ts`: the Map at every size, in each theme: no sideways scroll, text that
     reads, parties in view and clear of what floats over them, and targets that can be reached (by a
     finger on a phone). The detail of a party is a panel beside the map where there is room, and a
@@ -848,6 +883,11 @@ which is how two runs on one machine, or a run beside your own server, avoid eac
 `E2E_LAB_WEB_URL` and `E2E_LAB_WEB_FIXTURE_URL` are worked out from the two ports above for the workers (the
 two specs that use the web of fixture pages read them), and you do not set them.
 
+`research-journey.spec.ts` is the one spec that starts a server of its own rather than taking one from the
+configuration: the application on `E2E_LAB_RESEARCH_PORT` (3119) and its fixture web on
+`E2E_LAB_RESEARCH_FIXTURE_PORT` (3120), serving the built page unless `E2E_LAB_RESEARCH_PAGE_URL` names a
+development server that proxies to it. Move them as you would the ports above when another run may hold them.
+
 ```powershell
 npm.cmd run build   # the servers run the built output in dist/
 $env:E2E_LOCAL_PORT = 3280; $env:E2E_MODEL_PORT = 3281; $env:E2E_JOURNEY_PORT = 3282
@@ -970,9 +1010,10 @@ exercise except the presentation against a real model (see its row). Re-run the 
 that a model's output is correct, that any scenario predicts the real world, that a manual screen-reader review has been done (it
 has not), that sign-in works against a real Entra tenant, or that Swarm is ready for production.
 
-**What exists now, counted and not run.** The tree has grown since the run these rows record. On 2026-11-03, at commit
-`4631dc2` (the base of this documentation work, which changes no test), `npx vitest list` collects **7,683 tests in 316
-files** (backend 5,524, frontend 1,541, scripts 478, evaluation 140), where the recorded run had 5,065 in 230. That is
+**What exists now, counted and not run.** The tree has grown since the run these rows record. On 2026-11-03, on
+the tree of `56cdc7b` (the integration branch, which includes the research surface in Ground; the documents
+change no test), `npx vitest list` collects **7,781 tests in 320 files** (backend 5,524, frontend 1,639, scripts 478,
+evaluation 140), where the recorded run had 5,065 in 230. That is
 a count of what exists, **not a result**: it says nothing about how many pass. The work added since (automatic
 research, participants, constraints, the Decision Canvas, the Foundry provider, the deployment guard, the AI
 evaluation and the infrastructure checks) has no row below, and the unit suite, the browser projects, the PostgreSQL
