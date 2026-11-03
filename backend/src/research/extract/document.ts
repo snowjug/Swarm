@@ -56,6 +56,26 @@ const length = (lines: readonly string[]): number =>
   lines.reduce((sum, line) => sum + line.length, 0) + Math.max(0, lines.length - 1);
 
 /**
+ * What the page said about itself (its title, description, author, Open Graph data) and that was left
+ * out because it reads like an instruction to an AI is still text of the page that does. There is no line to
+ * label, so it is counted as one block that was flagged, with what link following and the judgement
+ * of whether a page is mostly instructions look at.
+ */
+export function withFlaggedFacts(
+  summary: InjectionSummary,
+  flaggedFacts: readonly string[],
+): InjectionSummary {
+  if (flaggedFacts.length === 0) return summary;
+  const chars = flaggedFacts.reduce((sum, text) => sum + text.length, 0);
+  return {
+    flaggedBlocks: summary.flaggedBlocks + 1,
+    totalBlocks: summary.totalBlocks + 1,
+    flaggedChars: summary.flaggedChars + chars,
+    totalChars: summary.totalChars + chars,
+  };
+}
+
+/**
  * Puts the parts of a document in order as one text, so that `text.slice(start, end)` of each
  * passage is the passage. Lines that read like an instruction to an AI are labelled where they stand.
  * A document is at most `limit` characters: when the body is longer it ends with the notice, and the
@@ -67,9 +87,12 @@ export function assemble(
   tail: readonly string[],
   limit: number,
 ): Assembled {
-  // What is read for instructions is no more than what can end up in the document.
-  const scanned = { chars: 0 };
+  // What is read for instructions is no more than what can end up in the document. The structured data
+  // is read first, with a budget of its own: it is kept however long the body is, so what a long body
+  // leaves of a shared budget must not decide whether it is read.
   const scanBudget = limit * 2;
+  const tailLines = label(tail, { chars: 0 }, scanBudget);
+  const scanned = { chars: 0 };
   const pieces: Piece[] = [];
   const path: { level: number; title: string }[] = [];
   const pathNow = (): string[] => path.slice(0, MAX_PATH_DEPTH).map((entry) => entry.title);
@@ -81,6 +104,15 @@ export function assemble(
   };
   let proseChars = 0;
 
+  if (tail.length > 0) {
+    const chars = tail.reduce((sum, line) => sum + line.length, 0);
+    summary.totalBlocks += 1;
+    summary.totalChars += chars;
+    if (tailLines.flagged) {
+      summary.flaggedBlocks += 1;
+      summary.flaggedChars += chars;
+    }
+  }
   if (head.length > 0)
     pieces.push({ kind: 'metadata', lines: [...head], path: [], flagged: false });
   for (const part of body) {
@@ -108,7 +140,6 @@ export function assemble(
       });
     }
   }
-  const tailLines = label(tail, scanned, scanBudget);
   const tailLength = tailLines.lines.length > 0 ? length(tailLines.lines) + SEPARATOR.length : 0;
 
   const room = Math.max(0, limit - tailLength);

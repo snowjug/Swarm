@@ -71,6 +71,8 @@ export interface Facts {
   canonicalUrl: string | null;
   robotsMeta: RobotsMeta;
   citationMeta: boolean;
+  /** What the page said about itself that was left out because it reads like an instruction to an AI. */
+  flaggedFacts: string[];
   warnings: string[];
 }
 
@@ -85,15 +87,11 @@ export interface FactsInput {
 }
 
 /** A short piece of text a page gives about itself, or null when it is empty or reads like an instruction to an AI. */
-function clean(
-  raw: string | null | undefined,
-  max: number,
-  flagged: { value: boolean },
-): string | null {
+function clean(raw: string | null | undefined, max: number, flagged: Set<string>): string | null {
   const text = inline(raw ?? '').slice(0, max);
   if (!text) return null;
   if (inspectText(text).suspicious) {
-    flagged.value = true;
+    flagged.add(text);
     return null;
   }
   return text;
@@ -214,7 +212,8 @@ function resolveCanonical(
  */
 export function readFacts(input: FactsInput): Facts {
   const { head, structured, headers } = input;
-  const flagged = { value: false };
+  // Each text once, however many of the page's tags said it.
+  const flagged = new Set<string>();
   const meta = (key: string): string | null =>
     head.metas.find((entry) => entry.key === key)?.content ?? null;
   const metaIn = (keys: ReadonlySet<string>): string | null =>
@@ -264,7 +263,7 @@ export function readFacts(input: FactsInput): Facts {
   );
 
   const warnings: string[] = [];
-  if (flagged.value) {
+  if (flagged.size > 0) {
     warnings.push(
       'A title, description or author that read like an instruction to an AI was not kept.',
     );
@@ -290,6 +289,7 @@ export function readFacts(input: FactsInput): Facts {
     canonicalUrl,
     robotsMeta: robotsOf(head, headers['x-robots-tag']),
     citationMeta: head.metas.some((entry) => entry.key.startsWith('citation_')),
+    flaggedFacts: [...flagged],
     warnings,
   };
 }

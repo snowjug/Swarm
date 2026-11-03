@@ -108,7 +108,10 @@ cut for length says so (`SHORTENED_NOTICE`, `(more rows are not shown)`).
 
 Lines that read like instructions to an AI are **kept as what the page said, labelled where they stand**
 (`FLAG_LABEL`), counted in `document.injection`, and marked on the record (`injectionFlagged`). A page that
-is mostly such text is set aside. A title, description or author that reads like an instruction is not kept.
+is mostly such text is set aside. The structured data (JSON-LD) that is kept at the end of a document is
+read for instructions first, with a budget of its own, so how long the body is cannot decide whether it is
+read, and it counts as a block. A title, description, author or Open Graph text that reads like an
+instruction is not kept, and counts as a flagged block too (so the links of such a page are not followed).
 Link text that reads like one is dropped before anything sees it.
 
 A page that cannot be used as evidence is set aside, listed, and given a reason: `empty` (including pages

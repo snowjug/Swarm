@@ -2,7 +2,7 @@ import type { DefaultTreeAdapterTypes } from 'parse5';
 import { READING, SCRIPTED } from '../../ingest/url/extract.js';
 import { inspectText } from '../../models/injection.js';
 import { sha256 } from '../../ingest/url/provenance.js';
-import { assemble, type Part } from './document.js';
+import { assemble, withFlaggedFacts, type Part } from './document.js';
 import { parseDocument, parseFragment, Pacer, DEFAULT_LIMITS } from './parse.js';
 import { Reader, REGION_LIMIT, type RawBlock, type Reading, type Region } from './read.js';
 import { readFacts } from './meta.js';
@@ -344,7 +344,7 @@ export async function extractHtml(
     method,
     warnings: warnings.slice(0, 8),
     links: finishLinks(first.links, base, body.chosen, limits.maxLinks),
-    injection: assembled.injection,
+    injection: withFlaggedFacts(assembled.injection, facts.flaggedFacts),
   };
   return {
     document,
