@@ -10,12 +10,6 @@
     margin-inline: auto;
     align-content: center;
   }
-  .sw-decide-state__actions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--s-3);
-  }
 
   .sw-decide-skel {
     display: grid;

@@ -226,7 +226,12 @@ export interface HeroProps {
   onNext: (() => void) | null;
   /** The row of tools, so that the page can tell when it has gone by and keep them in reach. */
   topRef: RefObject<HTMLDivElement | null>;
+  /** The level of the headline: 1 where the hero opens the page, 2 where the decision view stands above it. */
+  level?: 1 | 2;
 }
+
+/** The headline and the headings of its blocks, by the level the headline takes. */
+const HERO_HEADINGS = { 1: ['h1', 'h2'], 2: ['h2', 'h3'] } as const;
 
 /**
  * The first screen: what happened, why, and what matters. The question, the sentence that answers it, the
@@ -245,7 +250,9 @@ export function Hero({
   comparisonRunning,
   onNext,
   topRef,
+  level = 1,
 }: HeroProps) {
+  const [Headline, Block] = HERO_HEADINGS[level];
   const { brief, visuals, facts, factsLoading } = useDoc();
   const [selected, setSelected] = useState<string | null>(null);
   const [answerOpen, setAnswerOpen] = useState(false);
@@ -349,14 +356,14 @@ export function Hero({
           {brief.question}
         </p>
 
-        <h1
+        <Headline
           id="brief-answer-title"
           className="sw-display sw-decide-verdict sw-rise"
           data-written={!row || undefined}
           style={{ '--i': 2 } as CSSProperties}
         >
           {row && hero ? <Verdict row={row} signal={hero.signal} /> : brief.headline}
-        </h1>
+        </Headline>
 
         <p className="sw-decide-hero__nature sw-rise" style={{ '--i': 3 } as CSSProperties}>
           <Info size={14} aria-hidden="true" />
@@ -376,13 +383,13 @@ export function Hero({
             data-unread={row.unread || undefined}
           >
             <div className="sw-decide-hero__heading">
-              <h2
+              <Block
                 id="hero-happened"
                 className="sw-eyebrow sw-rise"
                 style={{ '--i': 3 } as CSSProperties}
               >
                 What happened
-              </h2>
+              </Block>
               {hero.rows.length > 1 && (
                 <Segmented
                   size="sm"
@@ -499,9 +506,9 @@ export function Hero({
           aria-labelledby="hero-why"
           style={{ '--i': 7 } as CSSProperties}
         >
-          <h2 id="hero-why" className="sw-eyebrow">
+          <Block id="hero-why" className="sw-eyebrow">
             Why
-          </h2>
+          </Block>
           {row && hero && movement ? (
             <div>
               <p className="sw-decide-block__lead">Who moved most</p>
@@ -548,9 +555,9 @@ export function Hero({
           aria-labelledby="hero-matters"
           style={{ '--i': 8 } as CSSProperties}
         >
-          <h2 id="hero-matters" className="sw-eyebrow">
+          <Block id="hero-matters" className="sw-eyebrow">
             What matters
-          </h2>
+          </Block>
           {caveat && (
             <p className="sw-decide-block__text" data-caveat>
               <Labelled statement={caveat} />
@@ -565,9 +572,9 @@ export function Hero({
             aria-labelledby="hero-next"
             style={{ '--i': 9 } as CSSProperties}
           >
-            <h2 id="hero-next" className="sw-eyebrow">
+            <Block id="hero-next" className="sw-eyebrow">
               What to consider next
-            </h2>
+            </Block>
             {recommendation ? (
               <p className="sw-decide-block__text">
                 <Labelled statement={recommendation} />
@@ -596,7 +603,7 @@ export function Hero({
       <div className="sw-decide-hero__foot sw-rise" style={{ '--i': 10 } as CSSProperties}>
         <HowCounted />
         <Disclosure
-          heading={2}
+          heading={level === 1 ? 2 : 3}
           className="sw-decide-hero__full"
           summary={`The answer in full · ${plural(statements.length, 'statement')}`}
           open={answerOpen}

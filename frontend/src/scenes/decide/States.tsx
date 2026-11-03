@@ -1,13 +1,5 @@
 import type { CSSProperties } from 'react';
-import {
-  ArrowRight,
-  Compass,
-  FileText,
-  ListChecks,
-  OctagonAlert,
-  Sparkles,
-  Users,
-} from 'lucide-react';
+import { FileText, ListChecks, OctagonAlert, Sparkles, Users } from 'lucide-react';
 import { BRIEF_SECTION_IDS, BRIEF_SECTION_TITLES } from '../../../../shared/brief';
 import { Button, EmptyState, Notice, Orbit, Skeleton } from '../../design/ui';
 import { POSITIONING_STATEMENT } from '../../lib/product';
@@ -54,15 +46,18 @@ export function BriefFailed({
   message,
   onRetry,
   busy,
+  level = 1,
 }: {
   message: string;
   onRetry: () => void;
   busy: boolean;
+  /** The heading level: 2 where the decision view stands above and has the page's title. */
+  level?: 1 | 2;
 }) {
   return (
     <section className="sw-decide-state sw-decide-state--center" role="alert">
       <EmptyState
-        level={1}
+        level={level}
         icon={<OctagonAlert size={26} aria-hidden="true" />}
         title="The decision brief could not be loaded"
         action={
@@ -72,44 +67,6 @@ export function BriefFailed({
         }
       >
         {message} Nothing has been lost: the brief is stored on the server.
-      </EmptyState>
-    </section>
-  );
-}
-
-/** There is no finished comparison, so there is nothing to decide from yet. */
-export function NoAnalysis({
-  onSimulate,
-  onReport,
-}: {
-  onSimulate: () => void;
-  onReport: (() => void) | null;
-}) {
-  return (
-    <section className="sw-decide-state sw-decide-state--center">
-      <EmptyState
-        level={1}
-        icon={<Compass size={26} aria-hidden="true" />}
-        title="Nothing to decide from yet"
-        action={
-          <div className="sw-decide-state__actions">
-            <Button
-              variant="primary"
-              iconEnd={<ArrowRight size={16} aria-hidden="true" />}
-              onClick={onSimulate}
-            >
-              Open Simulate
-            </Button>
-            {onReport && (
-              <Button variant="glass" onClick={onReport}>
-                Detailed report
-              </Button>
-            )}
-          </div>
-        }
-      >
-        A decision brief is written from a finished comparison: the scenario run many times with
-        different seeds and set against a baseline. There is none in this exploration yet.
       </EmptyState>
     </section>
   );
@@ -134,6 +91,7 @@ export function WriteBrief({
   error,
   onWrite,
   onRetry,
+  level = 1,
 }: {
   completedAt: string | null;
   may: boolean;
@@ -141,17 +99,20 @@ export function WriteBrief({
   error: string | null;
   onWrite: () => void;
   onRetry: () => void;
+  /** The heading level: 2 where the decision view stands above and has the page's title. */
+  level?: 1 | 2;
 }) {
+  const Heading = level === 1 ? 'h1' : 'h2';
   return (
     <section className="sw-decide-state sw-decide-write" aria-labelledby="write-title">
       <p className="sw-eyebrow sw-rise">Decision brief</p>
-      <h1
+      <Heading
         id="write-title"
         className="sw-display sw-decide-write__title sw-rise"
         style={{ '--i': 1 } as CSSProperties}
       >
         Turn the comparison into a <em>decision</em>.
-      </h1>
+      </Heading>
       <p className="sw-lead sw-decide-write__lead sw-rise" style={{ '--i': 2 } as CSSProperties}>
         The brief gives the answer first, then why, what to do and how to check it. It is assembled
         by rules from this exploration’s own data, and every statement says where it comes from.
@@ -212,7 +173,8 @@ export function WriteBrief({
 }
 
 /** The brief is being written: the page it will become, and the chapters it will hold, with light passing over them. */
-export function Writing() {
+export function Writing({ level = 1 }: { level?: 1 | 2 }) {
+  const Heading = level === 1 ? 'h1' : 'h2';
   return (
     <section
       className="sw-decide-state sw-decide-gen"
@@ -224,7 +186,7 @@ export function Writing() {
         <Orbit size={40} label="Writing the brief" />
         <div>
           <p className="sw-eyebrow">Decision brief</p>
-          <h1 className="sw-display sw-decide-gen__title">Writing the brief</h1>
+          <Heading className="sw-display sw-decide-gen__title">Writing the brief</Heading>
           <p className="sw-lead">
             Reading the comparison, the stakeholders and the evidence, and setting down the answer.
           </p>
