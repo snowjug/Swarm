@@ -14,11 +14,14 @@ import { MODEL_ROLES, type ModelRole } from './task.js';
  *  1. Task type (`role`): which deployment the operator named for it (FOUNDRY_DEPLOYMENT_<ROLE>),
  *     else the default (AI_MODEL). One deployment serving every role is the zero-config default.
  *  2. Availability: a deployment the caller says is not available is not chosen.
- *  3. Privacy / data zone: when a zone is required (by the task, else FOUNDRY_DATA_ZONE), only a
- *     deployment declared in that zone may serve it. One that declares none is never assumed to.
+ *  3. Privacy / data zone: FOUNDRY_DATA_ZONE, when set, holds every task to that zone: a task may
+ *     name the same zone and never another, so it can narrow what the operator allowed and not move
+ *     it. With none set, a task may name a zone of its own. Only a deployment declared in the zone
+ *     may serve the task; one that declares none is never assumed to.
  *  4. Context size: a deployment configured with a smaller context than the request is not chosen.
- *  5. Cost ceiling: with a ceiling, a deployment must have a price and the call's worst case must
- *     fit under it; an unpriced deployment is refused rather than guessed.
+ *  5. Cost ceiling: with a ceiling, a deployment must have a price and the call's worst case, priced
+ *     as the call will be sent (a reasoning deployment's room for thinking included), must fit under
+ *     it; an unpriced deployment is refused rather than guessed.
  *  6. Reasoning need: a task that needs reasoning prefers a reasoning deployment. It is a preference:
  *     with none configured the task still runs.
  *  7. Latency budget: a tight budget prefers a deployment declared fast, and lowers the reasoning
@@ -35,6 +38,10 @@ export interface RouteRequest {
   requiresReasoning?: boolean;
   latencyBudgetMs?: number;
   costCeilingUsd?: number;
+  /**
+   * The zone this task may be served from. With FOUNDRY_DATA_ZONE set it can only be that zone:
+   * another is no route.
+   */
   dataZone?: string;
   /** The answer wanted, in tokens. The route adds room for reasoning where the deployment reasons. */
   maxTokens?: number;
@@ -97,6 +104,19 @@ const MIN_TIMEOUT_MS = 1_000;
 const unavailable = (message: string): AppError =>
   new AppError(503, 'MODEL_ROUTE_UNAVAILABLE', message);
 
+/**
+ * The zone a task is held to. The operator's zone is a pin: a task may name it again, in any case, and
+ * never another, and a blank one does not lift it. Without a pin the task's own zone is used, and a
+ * zone that no deployment declares serves nothing.
+ */
+function zoneFor(requested: string | undefined, pinned: string | null): string | null {
+  const asked = typeof requested === 'string' ? requested.toLowerCase() : null;
+  if (pinned !== null && asked !== null && asked !== pinned) {
+    throw unavailable('This task names a data zone other than the one this server is held to.');
+  }
+  return pinned ?? asked;
+}
+
 export function createRouter(routing: RoutingConfig): Router {
   const configured = (role: ModelRole): string[] => {
     const wanted = [
@@ -115,11 +135,19 @@ export function createRouter(routing: RoutingConfig): Router {
       throw unavailable('No model deployment is configured for this task.');
 
     const available = request.available ? new Set(request.available) : null;
-    const zone = request.dataZone?.toLowerCase() ?? routing.dataZone;
+    const zone = zoneFor(request.dataZone, routing.dataZone);
     const parameters = ROLE_PARAMETERS[request.role];
     const estimatedInputTokens = estimateTokens(request.contextChars);
-    const wanted = Math.min(MAX_OUTPUT_TOKENS, request.maxTokens ?? parameters.maxTokens);
+    // Only a number of one or more is an answer budget: a task cannot ask for none, or for a count
+    // that is not a number, and so leave an allowance that counts tokens with nothing to count.
+    const asked = request.maxTokens;
+    const wanted =
+      typeof asked === 'number' && asked >= 1
+        ? Math.min(MAX_OUTPUT_TOKENS, Math.floor(asked))
+        : parameters.maxTokens;
     const refusals = new Set<string>();
+    const tight =
+      request.latencyBudgetMs !== undefined && request.latencyBudgetMs < TIGHT_LATENCY_MS;
 
     const eligible = candidates.filter((name) => {
       const profile = profileOf(routing, name);
@@ -127,7 +155,7 @@ export function createRouter(routing: RoutingConfig): Router {
         refusals.add('availability');
         return false;
       }
-      if (zone && profile.dataZone !== zone) {
+      if (zone !== null && profile.dataZone !== zone) {
         refusals.add('zone');
         return false;
       }
@@ -136,8 +164,11 @@ export function createRouter(routing: RoutingConfig): Router {
         return false;
       }
       if (request.costCeilingUsd !== undefined) {
-        const worst = worstCaseCostUsd(estimatedInputTokens, wanted, name, routing.prices);
-        if (worst === null || worst > request.costCeilingUsd) {
+        // Priced as the call will be sent: a reasoning deployment is given room to think on top of
+        // the answer, and that room is paid for. A ceiling that is not a number refuses everything.
+        const { maxTokens } = sampling(profile, parameters, request, tight, wanted);
+        const worst = worstCaseCostUsd(estimatedInputTokens, maxTokens, name, routing.prices);
+        if (worst === null || !(worst <= request.costCeilingUsd)) {
           refusals.add('cost');
           return false;
         }
@@ -157,8 +188,6 @@ export function createRouter(routing: RoutingConfig): Router {
       );
     }
 
-    const tight =
-      request.latencyBudgetMs !== undefined && request.latencyBudgetMs < TIGHT_LATENCY_MS;
     const rank = (name: string): number => {
       const profile = profileOf(routing, name);
       let score = 0;
@@ -181,7 +210,7 @@ export function createRouter(routing: RoutingConfig): Router {
     if (request.requiresReasoning) {
       because.push(profile.reasoning ? 'reasoning-deployment' : 'reasoning-unavailable');
     }
-    if (zone) because.push('data-zone');
+    if (zone !== null) because.push('data-zone');
     if (tight) because.push(profile.latency === 'fast' ? 'fast-deployment' : 'latency-tight');
     if (request.costCeilingUsd !== undefined) because.push('under-cost-ceiling');
 
@@ -193,7 +222,7 @@ export function createRouter(routing: RoutingConfig): Router {
       retry: retriesFor(request.latencyBudgetMs),
       strictSchema: profile.structuredOutputs,
       fallbackDeployment: ordered.find((name) => name !== chosen) ?? null,
-      dataZone: zone ?? null,
+      dataZone: zone,
       estimatedInputTokens,
       because,
     };

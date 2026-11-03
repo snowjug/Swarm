@@ -27,6 +27,7 @@ beforeAll(async () => {
       'fast-dep': {},
       'plain-dep': { jsonSchema: false },
       'deep-dep': { temperature: false, reasoningEffort: true },
+      'picky-dep': { jsonSchema: false, temperature: false },
       'tiny-dep': { maxContextChars: 2_000 },
     },
     fallbackReply: () => ({ answer: 'ok' }),
@@ -193,6 +194,54 @@ describe('strict structured output', () => {
       code: 'MODEL_HTTP_ERROR',
     });
     expect(fake.problems).toEqual([expect.stringContaining('#.answer')]);
+  });
+
+  it('reads the null of an optional property as absent before the schema looks, so a coercing schema does not make it 0', async () => {
+    const { client } = made();
+    const schema = z.object({
+      answer: z.string().min(1),
+      score: z.coerce.number().optional(),
+      urgent: z.coerce.boolean().default(true),
+      label: z.coerce.string().optional(),
+    });
+    // What a constrained model writes for what it has nothing to say about: null. Coerced as it came,
+    // that would be 0, false and the text "null".
+    fake.script({
+      kind: 'reply',
+      value: { answer: 'ok', score: null, urgent: null, label: null },
+    });
+    const empty = await client.json(schema, 'Return JSON.', {}, signal());
+    expect(empty).toEqual({ answer: 'ok', urgent: true });
+    expect('score' in empty).toBe(false);
+    expect('label' in empty).toBe(false);
+    // A value is still a value, and is coerced as the schema says.
+    fake.script({
+      kind: 'reply',
+      value: { answer: 'ok', score: 3, urgent: false, label: 'x' },
+    });
+    await expect(client.json(schema, 'Return JSON.', {}, signal())).resolves.toEqual({
+      answer: 'ok',
+      score: 3,
+      urgent: false,
+      label: 'x',
+    });
+  });
+
+  it('still accepts a reply that the schema passes only as it came', async () => {
+    const { client } = made();
+    // `note` is optional in one variant and may be null in the other: dropping its null suits the
+    // first and breaks the second, which takes it as it came.
+    const schema = z.object({
+      pick: z.union([
+        z.object({ kind: z.literal('a'), note: z.string().optional() }),
+        z.object({ kind: z.literal('b'), note: z.string().nullable() }),
+      ]),
+    });
+    fake.script({ kind: 'reply', value: { pick: { kind: 'b', note: null } } });
+    await expect(client.json(schema, 'Return JSON.', {}, signal())).resolves.toEqual({
+      pick: { kind: 'b', note: null },
+    });
+    expect(fake.requests).toHaveLength(1);
   });
 
   it('keeps a null that the schema itself allows, and rejects one it does not', async () => {
@@ -382,6 +431,32 @@ describe('a deployment that refuses a parameter', () => {
     });
     expect(fake.requests.map((request) => request.status)).toEqual([400, 200]);
     expect(body(1).reasoning_effort).toBeUndefined();
+  });
+
+  it('is found out once even when it refuses several things: the next operation sends one request', async () => {
+    const capabilities = new CapabilityMemory();
+    const route = { deployment: 'picky-dep', temperature: 0.2 } as const;
+    const operate = async (maxCalls: number) => {
+      fake.reset();
+      const { client, seen } = made({ model: 'picky-dep', capabilities, maxCalls });
+      await client.json(answer, 'Return JSON.', {}, signal(), 800, { route });
+      return { statuses: fake.requests.map((request) => request.status), seen };
+    };
+    // The first operation is refused strict output, then the temperature, and then goes through.
+    const first = await operate(16);
+    expect(first.statuses).toEqual([400, 400, 200]);
+    expect(first.seen.calls.map((event) => event.ok)).toEqual([false, false, true]);
+    expect(capabilities.get('picky-dep')).toEqual({ jsonSchema: false, temperature: false });
+    // Nothing that is known to be refused is sent again, so one call is all that an operation needs,
+    // however often it is made: no round trip is lost to a refusal, and no slot of the call cap.
+    for (let operation = 0; operation < 3; operation += 1) {
+      const next = await operate(1);
+      expect(next.statuses).toEqual([200]);
+      expect(next.seen.calls.map((event) => event.ok)).toEqual([true]);
+      expect(format()).toEqual({ type: 'json_object' });
+      expect(body().temperature).toBeUndefined();
+    }
+    expect(capabilities.get('picky-dep')).toEqual({ jsonSchema: false, temperature: false });
   });
 
   it('gives up when a refusal is for something else, and says which parameter, without echoing the provider', async () => {
@@ -588,6 +663,38 @@ describe('everything else a provider can do', () => {
       [120, 30, true],
       [0, 0, false],
     ]);
+  });
+});
+
+describe('what the process remembers about the deployments that refused it', () => {
+  it('keeps everything a deployment refused, so each thing is found out once', () => {
+    const memory = new CapabilityMemory();
+    memory.refused('d', { jsonSchema: false });
+    memory.refused('d', { temperature: false });
+    expect(memory.get('d')).toEqual({ jsonSchema: false, temperature: false });
+    memory.refused('d', { reasoningEffort: false });
+    expect(memory.get('d')).toEqual({
+      jsonSchema: false,
+      temperature: false,
+      reasoningEffort: false,
+    });
+    expect(memory.snapshot()).toEqual({ d: memory.get('d') });
+    expect(memory.get('another')).toEqual({});
+  });
+
+  it('forgets what it has not been reminded of for the time it is believed, and starts again from nothing', () => {
+    let now = 0;
+    const memory = new CapabilityMemory({ ttlMs: 1_000, now: () => now });
+    memory.refused('d', { jsonSchema: false });
+    now = 900;
+    memory.refused('d', { temperature: false });
+    // A new refusal renews the whole entry: they are one deployment's, and are found out together.
+    now = 1_500;
+    expect(memory.get('d')).toEqual({ jsonSchema: false, temperature: false });
+    now = 2_000;
+    expect(memory.get('d')).toEqual({});
+    memory.refused('d', { reasoningEffort: false });
+    expect(memory.get('d')).toEqual({ reasoningEffort: false });
   });
 });
 

@@ -47,11 +47,16 @@ export class CapabilityMemory {
     return entry.value;
   }
 
-  /** Records that a deployment refused something. */
+  /**
+   * Records that a deployment refused something. What it refused before is kept, so that a deployment
+   * found to refuse several things is known to, and one request in all is then enough. The entry's
+   * time starts again.
+   */
   refused(deployment: string, patch: DeploymentCapabilities): void {
+    const known = this.get(deployment);
     this.deployments.delete(deployment);
     this.deployments.set(deployment, {
-      value: { ...this.get(deployment), ...patch },
+      value: { ...known, ...patch },
       until: this.now() + this.ttlMs,
     });
     this.trim(this.deployments);

@@ -40,9 +40,15 @@ export interface RunnableTask<T> extends StructuredTask<T> {
   requiresReasoning?: boolean;
   /** How long a person is willing to wait for this step; a short budget lowers the time limit and the retries. */
   latencyBudgetMs?: number;
-  /** The most one call of this task may cost, estimated. Needs a price for the deployment. */
+  /**
+   * The most one call of this task may cost, estimated, with a reasoning deployment's room for
+   * thinking included. Needs a price for the deployment.
+   */
   costCeilingUsd?: number;
-  /** The data zone this task's text may be sent to. Only a deployment declared in it can serve the task. */
+  /**
+   * The data zone this task's text may be sent to. Only a deployment declared in it can serve the task.
+   * When the server is held to a zone (FOUNDRY_DATA_ZONE) a task may name that zone and no other.
+   */
   dataZone?: string;
 }
 

@@ -67,6 +67,20 @@ describe('the zero-config default: one deployment serves every role', () => {
     );
   });
 
+  it('takes the role’s own answer budget when the task asks for none, or for what is not a count', () => {
+    for (const asked of [Number.NaN, 0, -5, 0.5]) {
+      expect(
+        router.route({ role: 'critic', contextChars: 1, maxTokens: asked }).maxTokens,
+        String(asked),
+      ).toBe(3_000);
+    }
+    expect(router.route({ role: 'critic', contextChars: 1, maxTokens: 700.9 }).maxTokens).toBe(700);
+    expect(
+      router.route({ role: 'critic', contextChars: 1, maxTokens: Number.POSITIVE_INFINITY })
+        .maxTokens,
+    ).toBe(MAX_OUTPUT_TOKENS);
+  });
+
   it('gives the same route for the same request, and leaves the configuration alone', () => {
     const settings = routing({ FOUNDRY_DEPLOYMENT_ACTOR: 'actor-dep' });
     const before = JSON.stringify(settings);
@@ -245,25 +259,66 @@ describe('the data zone', () => {
     );
   });
 
-  it('holds every task to the configured zone, and lets a task name its own', () => {
-    const policy = createRouter(
+  it('holds every task to the zone the operator set: a task may name that zone, never another', () => {
+    const pinned = createRouter(
       routing({
         FOUNDRY_DATA_ZONE: 'eu',
         FOUNDRY_DEPLOYMENT_FALLBACK: 'us-dep',
         ...profiles({ 'general-dep': { dataZone: 'eu' }, 'us-dep': { dataZone: 'us' } }),
       }),
     );
-    expect(policy.route({ role: 'actor', contextChars: 1 })).toMatchObject({
+    expect(pinned.route({ role: 'actor', contextChars: 1 })).toMatchObject({
       deployment: 'general-dep',
       dataZone: 'eu',
       fallbackDeployment: null,
     });
-    expect(policy.route({ role: 'actor', contextChars: 1, dataZone: 'us' }).deployment).toBe(
-      'us-dep',
-    );
+    for (const same of ['eu', 'EU', 'Eu']) {
+      expect(pinned.route({ role: 'actor', contextChars: 1, dataZone: same })).toMatchObject({
+        deployment: 'general-dep',
+        dataZone: 'eu',
+        fallbackDeployment: null,
+      });
+    }
+    // A deployment declared in the other zone is configured, and still does not serve a task that asks
+    // for it: the task does not replace the operator's zone. Nor does a blank zone lift it.
+    for (const other of ['us', 'US', 'apac', '', ' eu']) {
+      expect(
+        () => pinned.route({ role: 'actor', contextChars: 1, dataZone: other }),
+        other,
+      ).toThrowError(
+        expect.objectContaining({
+          code: 'MODEL_ROUTE_UNAVAILABLE',
+          statusCode: 503,
+          message: expect.stringContaining('other than the one this server is held to'),
+        }),
+      );
+    }
     expect(() =>
       createRouter(routing({ FOUNDRY_DATA_ZONE: 'eu' })).route({ role: 'actor', contextChars: 1 }),
     ).toThrow('data zone');
+  });
+
+  it('lets a task name a zone of its own when the operator set none', () => {
+    const open = createRouter(
+      routing({
+        FOUNDRY_DEPLOYMENT_FALLBACK: 'us-dep',
+        ...profiles({ 'general-dep': { dataZone: 'eu' }, 'us-dep': { dataZone: 'us' } }),
+      }),
+    );
+    expect(open.route({ role: 'actor', contextChars: 1, dataZone: 'us' })).toMatchObject({
+      deployment: 'us-dep',
+      dataZone: 'us',
+      fallbackDeployment: null,
+    });
+    expect(open.route({ role: 'actor', contextChars: 1, dataZone: 'eu' }).deployment).toBe(
+      'general-dep',
+    );
+    expect(open.route({ role: 'actor', contextChars: 1 })).toMatchObject({
+      deployment: 'general-dep',
+      dataZone: null,
+    });
+    // A blank zone is a zone no deployment declares: it serves nothing.
+    expect(() => open.route({ role: 'actor', contextChars: 1, dataZone: '' })).toThrow('data zone');
   });
 });
 
@@ -300,6 +355,103 @@ describe('a cost ceiling', () => {
       'general-dep',
     );
   });
+
+  it('is not passed by a ceiling that is not a number, or one below zero', () => {
+    for (const ceiling of [Number.NaN, -1]) {
+      expect(() =>
+        router.route({ role: 'extraction', contextChars: 100, costCeilingUsd: ceiling }),
+      ).toThrow('cost ceiling');
+    }
+  });
+});
+
+describe('a cost ceiling is held to what the call will be sent with', () => {
+  // A reasoning deployment is given room to think on top of the answer, and that room is paid for: a
+  // critic that is asked for 1,000 tokens is sent 5,000, which at $60 per million of output is $0.30,
+  // not $0.06.
+  const only = routing({
+    AI_MODEL: 'deep-dep',
+    ...profiles({ 'deep-dep': { reasoning: true } }),
+    ...prices([['deep-dep', 10, 60]]),
+  });
+  const request = { role: 'critic', contextChars: 3_000, maxTokens: 1_000 } as const;
+
+  it('prices the room a reasoning deployment is given to think in, not the answer alone', () => {
+    const router = createRouter(only);
+    // 1,000 tokens in at $10 per million are $0.01, and 5,000 out at $60 are $0.30: $0.31 in all. The
+    // answer alone would have made it $0.07, which a ceiling of $0.07 used to let through.
+    expect(() => router.route({ ...request, costCeilingUsd: 0.07 })).toThrow('cost ceiling');
+    expect(() => router.route({ ...request, costCeilingUsd: 0.3099 })).toThrow('cost ceiling');
+    expect(router.route({ ...request, costCeilingUsd: 0.31 })).toMatchObject({
+      deployment: 'deep-dep',
+      reasoningEffort: 'high',
+      maxTokens: 5_000,
+    });
+  });
+
+  it('chooses a cheaper candidate when the reasoning one is over the ceiling', () => {
+    const router = createRouter(
+      routing({
+        FOUNDRY_DEPLOYMENT_CRITIC: 'deep-dep',
+        FOUNDRY_DEPLOYMENT_FALLBACK: 'cheap-dep',
+        ...profiles({ 'deep-dep': { reasoning: true } }),
+        ...prices([
+          ['deep-dep', 10, 60],
+          ['cheap-dep', 1, 4],
+        ]),
+      }),
+    );
+    expect(router.route({ ...request, costCeilingUsd: 0.07 })).toMatchObject({
+      deployment: 'cheap-dep',
+      reasoningEffort: null,
+      maxTokens: 1_000,
+      fallbackDeployment: null,
+    });
+    expect(router.route({ ...request, costCeilingUsd: 0.5 })).toMatchObject({
+      deployment: 'deep-dep',
+      fallbackDeployment: 'cheap-dep',
+    });
+  });
+
+  it('prices a deployment that does not reason on the answer alone', () => {
+    const plain = createRouter(
+      routing({ AI_MODEL: 'plain-dep', ...prices([['plain-dep', 10, 60]]) }),
+    );
+    // (1,000 x $10 + 1,000 x $60) per million is $0.07, with no room for thinking.
+    expect(plain.route({ ...request, costCeilingUsd: 0.07 })).toMatchObject({
+      deployment: 'plain-dep',
+      reasoningEffort: null,
+      maxTokens: 1_000,
+    });
+    expect(() => plain.route({ ...request, costCeilingUsd: 0.069 })).toThrow('cost ceiling');
+  });
+
+  // What is checked is what is sent: the tokens the route carries are the tokens the ceiling is held to,
+  // for each effort, with and without a need to reason or a short wait, and at the cap. The tokens sent
+  // are worked out by hand in the table: the answer asked for plus the room for the effort (500, 1,000,
+  // 2,000 or 4,000), never more than 16,000.
+  it.each([
+    ['critic', false, undefined, 1_000, 5_000],
+    ['critic', true, undefined, 1_000, 5_000],
+    ['critic', true, 10_000, 1_000, 2_000],
+    ['extraction', false, undefined, 1_000, 2_000],
+    ['extraction', true, undefined, 1_000, 3_000],
+    ['research-planner', false, undefined, undefined, 4_000],
+    ['actor', false, undefined, undefined, 3_500],
+    ['synthesis', false, undefined, 15_500, 16_000],
+  ] as const)(
+    '%s, reasoning %s, wait %s, answer %s: %i tokens are sent, and priced',
+    (role, requiresReasoning, latencyBudgetMs, maxTokens, sent) => {
+      const router = createRouter(only);
+      const asked = { role, contextChars: 3_000, requiresReasoning, latencyBudgetMs, maxTokens };
+      // By hand: 1,000 tokens in at $10 per million, and what is sent out at $60 per million.
+      const worst = (1_000 * 10 + sent * 60) / 1_000_000;
+      expect(router.route({ ...asked, costCeilingUsd: worst }).maxTokens).toBe(sent);
+      expect(() => router.route({ ...asked, costCeilingUsd: worst * 0.999 })).toThrow(
+        'cost ceiling',
+      );
+    },
+  );
 });
 
 describe('availability and the wait a person will give', () => {

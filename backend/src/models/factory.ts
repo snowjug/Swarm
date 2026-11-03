@@ -2,7 +2,7 @@ import type { ServerConfig } from '../config.js';
 import { TaskCache } from './cache.js';
 import { CapabilityMemory } from './capabilities.js';
 import { ModelClient, type ModelGateway, type ModelUsageSink } from './client.js';
-import { OperationBudget } from './cost.js';
+import { budgetLimit, OperationBudget } from './cost.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
 import type { RoutingConfig } from './routing-config.js';
 import { createRouter, type Router } from './router.js';
@@ -65,8 +65,9 @@ export function newOperationBudget(
   config: ServerConfig,
   limits: { tokens?: number; usd?: number } = {},
 ): OperationBudget | null {
-  const tokens = limits.tokens ?? config.routing.operationBudget.tokens;
-  const usd = limits.usd ?? config.routing.operationBudget.usd;
+  // Checked before they are compared with 0: a limit that is not a number must not read as none.
+  const tokens = budgetLimit('token', limits.tokens ?? config.routing.operationBudget.tokens);
+  const usd = budgetLimit('dollar', limits.usd ?? config.routing.operationBudget.usd);
   return tokens > 0 || usd > 0
     ? new OperationBudget({ tokens, usd, prices: config.routing.prices })
     : null;
