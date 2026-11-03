@@ -157,6 +157,26 @@ describe('the text of a page, and what is left out of it', () => {
     expect(document.text).not.toContain('Docs\n');
   });
 
+  it('says so when a long code sample or a long table is shown only in part', async () => {
+    const pre = await html(
+      sitePage({ title: 'Log', paragraphs: prose(3) }).replace(
+        '</article>',
+        `<pre>${'a line of a log\n'.repeat(400)}</pre></article>`,
+      ),
+    );
+    expect(pre.document.text.match(/a line of a log/gu)).toHaveLength(200);
+    expect(pre.document.text).toContain('(more lines are not shown)');
+    const rows = '<tr><td>a number</td><td>another</td></tr>'.repeat(700);
+    const table = await html(
+      sitePage({ title: 'Table', paragraphs: prose(4) }).replace(
+        '</article>',
+        `<table>${rows}</table></article>`,
+      ),
+    );
+    expect(table.document.text.match(/\| a number \| another \|/gu)).toHaveLength(500);
+    expect(table.document.text).toContain('(more rows are not shown)');
+  });
+
   it('drops a heading that has nothing left under it', async () => {
     const page = sitePage({
       title: 'Lists',

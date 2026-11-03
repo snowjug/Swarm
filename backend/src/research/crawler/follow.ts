@@ -10,7 +10,8 @@ import { cleanAddress, dedupeKey, registrableDomain } from './urls.js';
 /** The most links of one page that are looked at, and the most refusals of its links that are kept. */
 const LINKS_LOOKED_AT = 1_000;
 const REFUSALS_KEPT_PER_PAGE = 3;
-/** Seeds are explicit, and so are all looked at: but only so many are queued. */
+/** Seeds are explicit, and so are all looked at, up to a bound: but only so many are queued. */
+const SEEDS_LOOKED_AT = 1_000;
 const SEEDS_QUEUED = 100;
 
 export type Vetted = { ok: true; validated: ValidatedUrl } | { ok: false; verdict: Verdict };
@@ -89,7 +90,7 @@ function candidateOf(
  */
 export function admitSeeds(run: CrawlRun): void {
   const passed: { origin: Origin; validated: ValidatedUrl }[] = [];
-  for (const seed of run.input.seeds) {
+  for (const seed of run.input.seeds.slice(0, SEEDS_LOOKED_AT)) {
     const origin: Origin = {
       url: seed.url,
       depth: Math.max(0, Math.min(3, Math.floor(seed.depth ?? 0))),

@@ -77,15 +77,20 @@ export interface Seen {
  */
 export class ContentIndex {
   private readonly hashes = new Map<string, string>();
-  private readonly prints: { print: Fingerprint; url: string; length: number }[] = [];
+  private readonly prints: { print: Fingerprint; url: string; length: number; site: string }[] = [];
 
-  /** The page this text repeats, if it repeats one. */
-  find(text: string, hash: string = sha256(text)): Seen | null {
+  /**
+   * The page this text repeats, if it repeats one: the same text anywhere, or nearly the same text on
+   * the same site. Nearly the same text on another site is not taken for a repeat, so that a page made
+   * to look like another cannot stand in for it.
+   */
+  find(text: string, hash: string = sha256(text), site = ''): Seen | null {
     const exact = this.hashes.get(hash);
     if (exact) return { url: exact, by: 'content-hash' };
     const print = fingerprint(text);
     if (!print) return null;
     for (const known of this.prints) {
+      if (known.site !== site) continue;
       const ratio = text.length / Math.max(1, known.length);
       if (ratio > 0.8 && ratio < 1.25 && distance(print, known.print) <= NEAR_BITS) {
         return { url: known.url, by: 'near-duplicate' };
@@ -95,9 +100,9 @@ export class ContentIndex {
   }
 
   /** Remembers a page that was read, as the original of what repeats it. */
-  add(url: string, text: string, hash: string = sha256(text)): void {
+  add(url: string, text: string, hash: string = sha256(text), site = ''): void {
     if (!this.hashes.has(hash)) this.hashes.set(hash, url);
     const print = fingerprint(text);
-    if (print) this.prints.push({ print, url, length: text.length });
+    if (print) this.prints.push({ print, url, length: text.length, site });
   }
 }

@@ -463,7 +463,7 @@ async function settle(run: CrawlRun, candidate: Candidate, page: FetchedPage): P
     duplicateOf(canonicalRead, 'canonical-url', document);
     return;
   }
-  const repeated = run.content.find(document.text, document.contentHash);
+  const repeated = run.content.find(document.text, document.contentHash, finalDomain);
   if (repeated) {
     duplicateOf(repeated.url, repeated.by, document);
     return;
@@ -476,11 +476,9 @@ async function settle(run: CrawlRun, candidate: Candidate, page: FetchedPage): P
   const crawled = { source, document };
   run.pages.push(crawled);
   run.lastPage = crawled;
-  run.content.add(page.finalUrl, document.text, document.contentHash);
+  run.content.add(page.finalUrl, document.text, document.contentHash, finalDomain);
+  // What a page says about itself (its canonical address) never keeps another address from being read:
+  // only a page that was read under an address is a reason not to read that address again.
   run.read.set(finalKey, page.finalUrl);
-  if (canonicalKey) {
-    run.read.set(canonicalKey, page.finalUrl);
-    run.frontier.mark(canonicalKey);
-  }
   followLinks(run, candidate, document);
 }

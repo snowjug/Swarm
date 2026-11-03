@@ -54,6 +54,8 @@ interface TableState {
   caption: string | null;
   rows: Cell[][];
   structural: boolean;
+  /** There were more rows than are kept. */
+  cut: boolean;
 }
 
 // A line break that is the page's own (`br`), as opposed to the ones in its source.
@@ -182,13 +184,12 @@ export class BlockBuilder {
     this.preText = '';
     this.walker.visitChildren(element, depth + 1);
     this.preformatted = false;
-    const lines = sanitize(this.preText)
-      .split('\n')
-      .slice(0, MAX_PRE_LINES)
-      .map((line) => line.trimEnd());
+    const all = sanitize(this.preText).split('\n');
+    const lines = all.slice(0, MAX_PRE_LINES).map((line) => line.trimEnd());
     this.preText = '';
     while (lines.length > 0 && lines[0] === '') lines.shift();
     while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+    if (all.length > MAX_PRE_LINES) lines.push('(more lines are not shown)');
     this.emit('paragraph', lines.join('\n'));
   }
 
@@ -275,7 +276,7 @@ export class BlockBuilder {
 
   table(element: Element, depth: number): void {
     this.flush();
-    const state: TableState = { caption: null, rows: [], structural: false };
+    const state: TableState = { caption: null, rows: [], structural: false, cut: false };
     this.parts(element, state, depth + 1);
     this.finish(state);
   }
@@ -287,8 +288,9 @@ export class BlockBuilder {
       if (child.tagName === 'caption') state.caption = this.capture(child, depth) || null;
       else if (['thead', 'tbody', 'tfoot'].includes(child.tagName))
         this.parts(child, state, depth + 1);
-      else if (child.tagName === 'tr' && state.rows.length < MAX_ROWS) {
-        this.row(child, state, depth + 1);
+      else if (child.tagName === 'tr') {
+        if (state.rows.length < MAX_ROWS) this.row(child, state, depth + 1);
+        else state.cut = true;
       }
     }
   }
@@ -326,6 +328,7 @@ export class BlockBuilder {
       return;
     }
     const lines = rows.map((row) => `| ${row.map((cell) => cell.text).join(' | ')} |`);
+    if (state.cut) lines.push('(more rows are not shown)');
     if (state.caption) lines.unshift(`Table: ${state.caption}`);
     this.emit('table', lines.join('\n'));
   }

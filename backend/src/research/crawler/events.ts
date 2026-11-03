@@ -24,7 +24,13 @@ export class Reporter {
       if (typeof value === 'string') clean[field] = safeAddress(value);
     }
     try {
-      this.sink({ ...(clean as CrawlEventBody), traceId: this.traceId, at: this.now() });
+      const result: unknown = this.sink({
+        ...(clean as CrawlEventBody),
+        traceId: this.traceId,
+        at: this.now(),
+      });
+      // A listener that is asynchronous and fails must not leave a rejection that nobody handles.
+      if (result instanceof Promise) result.catch(() => undefined);
     } catch {
       // A listener that fails must not stop the crawl it is listening to.
     }

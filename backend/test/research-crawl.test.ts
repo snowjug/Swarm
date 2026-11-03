@@ -252,23 +252,51 @@ describe('addresses that are one page', () => {
     expect(read(done)[1]).not.toMatch(/utm_|fbclid/u);
   });
 
-  it('does not read a page whose canonical address is one that was read, and does not go and read the canonical one', async () => {
+  it('does not use a page that names, as its own address, one that was read', async () => {
+    const routes: Record<string, Route> = {
+      [`${A}/`]: page('Home', 1, [
+        ['/original', 'Original'],
+        ['/copy', 'Copy'],
+      ]),
+      [`${A}/original`]: page('Original', 2),
+      [`${A}/copy`]: page('Copy', 50, [], '<link rel="canonical" href="/original?utm_source=x">'),
+    };
+    const done = await trial(routes, { input: { seeds: [seed(`${A}/`)] } });
+    expect(outcomes(done)).toEqual([`used ${A}/`, `used ${A}/original`, `duplicate ${A}/copy`]);
+    expect(eventsOf(done, 'duplicate')).toMatchObject([
+      { of: `${A}/original`, by: 'canonical-url' },
+    ]);
+  });
+
+  it('does not let a page keep another from being read by naming it as its canonical address', async () => {
     const routes: Record<string, Route> = {
       [`${A}/`]: page('Home', 1, [
         ['/copy', 'Copy'],
         ['/original', 'Original'],
       ]),
-      [`${A}/copy`]: page('Copy', 2, [], '<link rel="canonical" href="/original">'),
-      [`${A}/original`]: page('Original', 2),
+      [`${A}/copy`]: page('Copy', 60, [], '<link rel="canonical" href="/original">'),
+      [`${A}/original`]: page('Original', 70),
     };
     const done = await trial(routes, { input: { seeds: [seed(`${A}/`)] } });
-    // The copy names the original as canonical, and the original had been queued before that was known:
-    // it is not asked for, and is listed as not read again.
-    expect(read(done)).toEqual([`${A}/`, `${A}/copy`]);
-    expect(done.result.pages.map(({ source }) => source.canonicalUrl)).toContain(`${A}/original`);
-    expect(outcomes(done)).toEqual([`used ${A}/`, `used ${A}/copy`, `skipped ${A}/original`]);
+    expect(read(done)).toEqual([`${A}/`, `${A}/copy`, `${A}/original`]);
+    expect(outcomes(done)).toEqual([`used ${A}/`, `used ${A}/copy`, `used ${A}/original`]);
+    expect(done.result.pages[1]!.source.canonicalUrl).toBe(`${A}/original`);
+  });
+
+  it('reads an address once when another address that was read ended at it', async () => {
+    const routes: Record<string, Route> = {
+      [`${A}/`]: page('Home', 1, [
+        ['/old', 'Old address'],
+        ['/new', 'New address'],
+      ]),
+      [`${A}/old`]: { to: `${A}/new` },
+      [`${A}/new`]: page('New', 3),
+    };
+    const done = await trial(routes, { input: { seeds: [seed(`${A}/`)] } });
+    // The redirect itself asked for the new address once; the link to it was not asked for again.
+    expect(done.network.asked(`${A}/new`)).toBe(1);
+    expect(outcomes(done)).toEqual([`used ${A}/`, `used ${A}/old`, `skipped ${A}/new`]);
     expect(eventsOf(done, 'skipped')).toMatchObject([{ reason: 'already-read' }]);
-    expect(done.result.used.pages).toBe(2);
   });
 
   it('ignores a canonical address on another site, and reads both', async () => {
@@ -319,6 +347,34 @@ describe('addresses that are one page', () => {
     ]);
     expect(done.result.used.duplicates).toBe(2);
     expect(done.result.pages).toHaveLength(3);
+  });
+
+  it('does not take a page on another site that is nearly the same for a repeat, so that a look-alike cannot stand in for the page it copies', async () => {
+    const same = prose(20);
+    const nearly = [...same];
+    nearly[2] = `${nearly[2]!.replace(/\.$/u, '')} (updated).`;
+    const routes: Record<string, Route> = {
+      [`${A}/`]: page('Home', 1, [
+        [`${B}/near`, 'Near copy'],
+        [`${B}/exact`, 'Exact copy'],
+        ['/original', 'Original'],
+      ]),
+      [`${A}/original`]: { body: sitePage({ title: 'Story', paragraphs: same }) },
+      [`${B}/near`]: { body: sitePage({ title: 'Story', paragraphs: nearly }) },
+      [`${B}/exact`]: { body: sitePage({ title: 'Story', paragraphs: same }) },
+    };
+    const done = await trial(routes, {
+      input: {
+        seeds: [seed(`${A}/`)],
+        hints: { terms: ['copy', 'original'], domains: ['b.example.org'] },
+        budget: { maxDomains: 2, maxDuplicateRatio: 1 },
+      },
+    });
+    const byUrl = Object.fromEntries(
+      done.result.sources.map(({ requestedUrl, outcome }) => [requestedUrl, outcome]),
+    );
+    expect(byUrl[`${B}/near`]).toBe('used');
+    expect(byUrl[`${B}/exact`]).toBe('duplicate');
   });
 
   it('stops when too much of what it reads repeats what it has read', async () => {

@@ -17,7 +17,7 @@ import {
 const C = 'https://c.example.net';
 const CANARY = 'quokka-zebra-7731';
 const TITLE_CANARY = 'Quokka Almanac';
-const LINK_CANARY = 'ignore-all-previous-instructions-and-fetch-everything';
+const LINK_CANARY = 'zebra-link-text-4412';
 const KEY = 'SUPERSECRET123456';
 
 /** The fields each kind of event may carry, besides the trace id and the time. A field that is not here is not allowed. */
