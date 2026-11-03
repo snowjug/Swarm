@@ -300,14 +300,8 @@ export function AskScene({
     setPhase('compose');
   };
 
-  // A template only fills the box, and selects its first blank so that the next words replace it. It takes the place
-  // of a sample case that was loaded, with the sources that came with that.
+  // A template only fills the box, and selects its first blank so that the next words replace it.
   const useTemplate = (chosen: Template) => {
-    if (loaded) {
-      setLoaded(null);
-      setName('');
-      setDocuments((old) => old.filter((document) => document.provenance?.kind !== 'sample'));
-    }
     setQuestion(chosen.question);
     setTemplate(chosen.question);
     setError(null);
