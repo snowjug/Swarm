@@ -194,7 +194,11 @@ claim**, **assumption**, **model inference**, **simulation event**, **scenario p
 **recommendation** and **validation requirement**. A recommendation always states for whom, under which
 assumptions and constraints, what supports it, what weakens it, what would invalidate it and what to test next,
 or says in a sentence which of those it lacks. Swarm recommends and explains; it does not contact anyone or
-execute anything.
+execute anything. Where the question touches a person's employment, credit, legal, medical or safety situation,
+the canvas says so and names who reviews it; where such a decision is asked about one person, its status is "a
+human decision needed", no option is named and a qualified person decides ([what Swarm does not
+decide](./docs/analysis/decision-canvas.md#what-swarm-does-not-decide)). That is a reading of words by rules and is
+not complete ([Honest limitations](#honest-limitations)).
 
 ### The scenes on screen
 
@@ -626,7 +630,7 @@ npm run demo:journey   # the recorded Larkholm presentation, against a running s
 | `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model, the research crawler's safety suites on loopback sockets, the deployment guard and the privacy tests of telemetry, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build             |
 | `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `lab` project covers the first screen, Ground, Map and the decision brief (its review, its export and Report Studio) through the pages, and walks a question from the first screen to the decision, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
 | `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                                                                                       |
-| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and six thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                    |
+| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and five thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                   |
 | `npm run iac:validate`  | Compiles, lints and evaluates every Bicep template offline with a pinned Bicep CLI; the unit suite then asserts invariants of what compiled. It says plainly that it skipped when the CLI is not installed (`npm run iac:install-bicep`). It is not a deployment                                                                                                                                                                                                                                                                        |
 | `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                                                                                        |
@@ -706,6 +710,18 @@ server process and are marked interrupted if it stops). The wider picture is in 
 - **Constraints apply only what the simulation can express.** Eight kinds of effect are applied to the
   runs. A hard limit with none of them is read, listed and labelled as not modelled, and a violation is found
   only for an explicit hard block: a limit that the words state is not tested against the outcome.
+- **The scope check reads words, and the claim that Swarm does not decide about a person rests on it.** It puts a notice
+  on a question about a person's employment, credit, legal, medical or safety situation and makes a decision about
+  one person a human decision, by rules. Other phrasings are missed ("Is he well enough to be discharged?", "Should
+  I report my manager to HR?", "What should we do about our employee who keeps stealing?"), other languages are not
+  read, and a single capitalised company after "hire" or "sue" is read as a person. Its cue lists were written
+  against tables of questions by their own author, and the one other reading of it (7 requests of the evaluation's
+  safety set, all read as one person's, 3 of them also rows of that table) is too small to say anything about
+  recall. It runs when the Decision view is read: nothing at
+  the first screen or when a project is made notices a question, and nothing refuses one. The full report under the
+  view is not changed by it and may still carry its own conditional recommendation. What does not depend on the
+  words is the human-approval point, which stays open ([limitations of the pilot](./docs/production/LIMITATIONS.md),
+  A14).
 - **The PostgreSQL adapter waits on every query.** Its bridge makes each statement synchronously on the
   thread that serves requests, so a slow remote database slows every request. Measured on a shared
   four-CPU VM against a PostgreSQL 16 container on the same machine (not against Azure Database for
@@ -741,11 +757,11 @@ Until then the right words are: a production-candidate controlled pilot, authore
 not deployed.
 
 Not run, and so not known: the live Foundry evaluation, a journey against a deployed address, the rollback
-drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Six
-registered evaluation thresholds are still breached, four of them in rules mode (participant coverage,
-hard-constraint recall, an instruction in a question reaching the research plan, and the recommendation card's list
-of missing parts) and two in fake-Foundry mode (a corrupted model plan accepted, and the same instruction reaching
-the plan). A search provider has not been chosen, which is a decision for the owner.
+drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Five
+registered evaluation thresholds are still breached, three of them in rules mode (participant coverage,
+hard-constraint recall, and an instruction in a question reaching the research plan) and two in fake-Foundry mode
+(a corrupted model plan accepted, and the same instruction reaching the plan). A search provider has not been
+chosen, which is a decision for the owner.
 
 ## Repository map
 
@@ -797,7 +813,14 @@ Swarm supports human analysis. It must not make high-impact decisions on its own
 - Synthetic actors are **not real people**. Their traits are assumptions, not survey results,
   testimony or evidence about any group.
 - Do not use Swarm to make or justify decisions about real individuals, or anything that affects
-  people's rights, safety, employment, health or access to services, without human review.
+  people's rights, safety, employment, health or access to services, without human review. What Swarm itself does
+  about this is small, and it is not a guarantee. On the Decision view a **scope check** reads the question and the
+  scenario's words by rules: where it finds a person's employment, credit, legal, medical or safety situation it
+  puts a notice there, in the human-approval list (a qualified person, named by matter, and always open) and in
+  every export; where such an act is said of one person it gives the status "needs a human decision", names no
+  option and says that a qualified person decides. It refuses nothing, it runs only when the Decision view is read,
+  and it misses other phrasings and other languages (see [Honest limitations](#honest-limitations)): the control
+  that does not depend on its words is a person's own review.
 - A "supported" label means that a passage backs a statement, not that the passage is true.
 - With a model, bounded excerpts of your sources, your question and the scenario you settled on go to
   your provider. With a public page, or with automatic research, each site sees this server's address.

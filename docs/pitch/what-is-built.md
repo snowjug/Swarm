@@ -43,7 +43,9 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   they are mended) that a person reviews and approves; constraints read from the sources and the question,
   reviewed by a person, with a coverage gate (clear, provisional, blocked) that can refuse to start a
   comparison, and eight kinds of effect applied to the simulation; and a Decision Canvas, derived at every
-  read, with one of six statuses, four lenses, no objective of its own and eight epistemic labels
+  read, with one of six statuses, four lenses, no objective of its own and eight epistemic labels, and a
+  scope check that puts a notice where the question touches a person's employment, credit, legal, medical or
+  safety situation, and leaves a decision about one person to a qualified person
   ([constraints](../analysis/constraints.md), [the canvas](../analysis/decision-canvas.md)).
 - One policy for what a model's reply may become (checked, corrected once, then the rules' answer, and a
   refusal never answered by rules), a Foundry provider on the Azure OpenAI-compatible v1 API with Entra, and a
@@ -64,11 +66,16 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - **Automatic research** has run only against fixture sites on loopback, a fake network on a virtual clock and
   scripted models, never against the real web. Which pages are better is an estimate from the kind of site and
   the wording, not a judgement that a page is right. A question alone cannot be researched.
-- **The AI evaluation** (`npm run eval:ai`) holds six pre-registered thresholds that are still breached, listed in
+- **The AI evaluation** (`npm run eval:ai`) holds five pre-registered thresholds that are still breached, listed in
   `evaluation/known-breaches.json`: in rules mode participant coverage (67.1% against 90%), hard-constraint recall
-  (75.5% against 80%), an instruction in a question that reaches the research plan, and the recommendation card's
-  list of missing parts; in fake-Foundry mode a corrupted model plan accepted and the same instruction reaching
-  the plan. Its live mode, against a real model, has not been run ([evaluation](../production/evaluation.md)).
+  (75.5% against 80%) and an instruction in a question that reaches the research plan; in fake-Foundry mode a
+  corrupted model plan accepted and the same instruction reaching the plan. Its live mode, against a real model,
+  has not been run ([evaluation](../production/evaluation.md)).
+- **The scope check** reads the words of a question by rules, so it is not complete: other phrasings of a
+  decision about one person are missed, other languages are not read, and some readings are of a person where
+  there is none. Its cue lists were written against tables of questions by their author. It runs when the
+  Decision view is read and not at the first screen, and it never refuses; the full report under the view is not
+  changed by it ([the canvas](../analysis/decision-canvas.md#what-swarm-does-not-decide)).
 - **Conflict detection** found 1 of 3 labelled conflicts, with no false alarm on that set. It raises
   false alarms on some real material (two surveys of different groups) and misses conflicts of
   meaning. A person confirms or dismisses every candidate.
