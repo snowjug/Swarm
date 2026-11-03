@@ -12,8 +12,10 @@ import type {
   ProjectDetail,
   ProjectSummary,
 } from '../../../shared/types';
-import { api, errorMessage } from '../api';
+import { api, ApiError, errorMessage } from '../api';
+import { researchApi } from '../api/research';
 import { keepLab, needsPolling } from '../lib/console';
+import { rememberIntake } from '../lib/research';
 
 interface Resource<T> {
   data: T | null;
@@ -239,6 +241,27 @@ export function useConsole() {
       const project = await api.create({ ...input, workflow: 'guided' }, signal);
       if (signal.aborted) return;
       put(project);
+      rememberIntake(project.id, input.research);
+      // A question with no source of its own is made from what research finds: its research is what starts, and the
+      // run exists by the time the page that shows it opens.
+      if (input.documents.length === 0 && input.research?.auto === true) {
+        let failure: unknown = null;
+        try {
+          await researchApi.start(project.id, { intake: input.research }, signal);
+        } catch (error) {
+          // A run that is already under way is the one that was asked for.
+          if (!(error instanceof ApiError && error.code === 'RESEARCH_ACTIVE')) failure = error;
+        }
+        if (signal.aborted) return;
+        if (version === navigation.current) selectProject(project.id);
+        if (failure !== null && alive.current) {
+          setActionError({
+            id: project.id,
+            message: `The exploration was saved, but Swarm could not start researching. ${errorMessage(failure)} Open Ground and press “Start research” to try again.`,
+          });
+        }
+        return project;
+      }
       if (version === navigation.current) selectProject(project.id);
       try {
         return await api.step(project.id, 'knowledge', signal);

@@ -232,6 +232,24 @@ the sources fill the first screen.
   **Reject** it. The section appears only once a report has been checked and lists some; when the check
   found none, a line says so, and until then there is no empty section. See the
   [grounding review](#grounding-review-model-assisted-reports).
+- **Research** is there where the server researches. A question with no sources of its own is researched
+  first: the status chip, the four figures (**Pages read**, **Sources used**, **Sites**, **Conflicts**) and the
+  one main button (**Start research**, **Pause**, **Resume**, **Finish early**, **Cancel**, **Try again**) are
+  the run's, and the six stages (Planning, Finding sources, Reading, Extracting evidence, Checking conflicts,
+  Ready) light as it reaches them. Under them is every page it looked at: its title, its site, what kind of
+  site it is, an **authority estimate** ("An estimate from the kind of site it is. It says nothing about
+  whether a page is right."), what became of it (Used, Read, Quarantined, Blocked, Failed, Duplicate or
+  Skipped, with the reason of each that was set aside), and **Provenance**: where it was fetched from, when,
+  what its content hashes to, whether the site's robots.txt allowed it, and how its text was taken. **Cancel**
+  asks first. **Suggestions** are the kinds of source the plan says to look for, and the sites it names, which
+  Swarm reads only when you press **Add this site**.
+  Where no search provider is set up, a question alone is not an error: the status says **Needs a source**, and
+  Swarm says that it cannot find sources from a question alone and does not search the web. **Add a site or
+  page** starts from a site or page you name; **Paste or attach**, under "Use sources of your own", takes text you
+  paste or files you attach as the sources of the project, with nothing fetched, and Swarm goes on to read
+  them. Where the project cannot take sources there, **Open the question to add sources** takes the question back
+  to the first screen. **What the research looks for**
+  and **Limits for this run** open on the plan and the limits, and cost is an estimate, never a bill.
 - **Operations**, the engine's recorded operations and events, is shown in Advanced detail only.
 
 ## Map: who is affected, and the actors

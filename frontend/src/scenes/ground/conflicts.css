@@ -70,8 +70,10 @@
       gap: var(--s-5);
     }
   }
+  /* One column that cannot grow past the side: a long file name is cut short, and does not widen the page. */
   .sw-ground-duel__side {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     align-content: start;
     gap: var(--s-3);
     min-width: 0;

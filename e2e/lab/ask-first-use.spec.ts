@@ -58,7 +58,7 @@ async function told(page: Page, what: Partial<Told>): Promise<void> {
     const response = await route.fetch();
     const body = (await response.json()) as Record<string, unknown>;
     if (what.research) body.research = { enabled: true };
-    if (what.constraints) body.features = { constraints: true };
+    if (what.constraints !== undefined) body.features = { constraints: what.constraints };
     await route.fulfill({ response, json: body });
   });
 }
@@ -370,6 +370,7 @@ test.describe('what the page claims, by what the server says it can do', () => {
   test('draws four signals and four steps of what Swarm does, and five where constraints are kept', async ({
     page,
   }) => {
+    await told(page, { constraints: false });
     await openAsk(page);
     const signals = page.getByRole('list', { name: 'What every exploration includes' });
     await expect(signals.getByRole('listitem')).toHaveText([
