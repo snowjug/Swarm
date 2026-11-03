@@ -108,6 +108,15 @@ export const MODIFIERS: ReadonlyMap<string, StakeholderCategory | null> = new Ma
 );
 
 /**
+ * Prepositions after which words say which ones of a group are meant: "councillors from the harbour ward",
+ * "customers on monthly plans". Only a reader that names a group with such words (participants/reader.ts)
+ * writes them into a group's key, and the merging of names reads them there.
+ */
+export const KIND_PREPOSITIONS: ReadonlySet<string> = new Set(
+  'of from at on in near outside within around across with'.split(' '),
+);
+
+/**
  * Describing words that say what state a person is in rather than what kind of group they form: a
  * "new customer" is a person, but a "new team" or a "new panel" is only something that is new. They
  * describe people, and do not make a noun like "team" or "panel" into a group of its own.

@@ -205,7 +205,7 @@ const ADVISED_ROLES: ReadonlySet<ParticipantRole> = new Set<ParticipantRole>([
   'missing-voices',
 ]);
 /** Roles that stand in for each other when asking whether one is missing: someone holding one of these already speaks for the role. */
-const STANDS_IN: Readonly<Partial<Record<ParticipantRole, readonly ParticipantRole[]>>> = {
+export const STANDS_IN: Readonly<Partial<Record<ParticipantRole, readonly ParticipantRole[]>>> = {
   approvers: ['regulators-governance'],
   'regulators-governance': ['approvers'],
   'directly-affected': ['customers-users', 'beneficiaries'],
@@ -213,7 +213,7 @@ const STANDS_IN: Readonly<Partial<Record<ParticipantRole, readonly ParticipantRo
 };
 const MAX_MISSING_ADVISORIES = 5;
 
-const textsOf = (context: ReviewContext): string => {
+export const textsOf = (context: ReviewContext): string => {
   const scenario = context.scenario;
   const parts = [
     context.question,
