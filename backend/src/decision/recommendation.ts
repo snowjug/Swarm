@@ -16,6 +16,8 @@ import {
 } from '../../../shared/decision.js';
 import { labelOf } from '../../../shared/decision.js';
 import type { Flip, StatusOption } from './status.js';
+import type { ConsequentialScope } from './scope.js';
+import { reviewersOf } from './scope-words.js';
 import { Guard, embed, listed } from './words.js';
 
 /**
@@ -29,6 +31,7 @@ import { Guard, embed, listed } from './words.js';
 
 export interface CardInput {
   status: DecisionStatusReading;
+  scope: ConsequentialScope;
   options: readonly StatusOption[];
   preferred: StatusOption | null;
   /** The options at the top that cannot be told apart, or that lead on different lenses. */
@@ -92,6 +95,12 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
         'Do not go past the hard constraint. Settle it first with its owner: confirm it, correct it or set it aside, then run the comparison again.';
       break;
     case 'needs-human-decision':
+      if (status.rule === 'individual-decision') {
+        kind = 'qualified-person';
+        what =
+          'A qualified person decides this; here is what the exploration can and cannot tell them.';
+        break;
+      }
       kind = 'decide';
       what =
         input.contenders.length > 1
@@ -101,6 +110,15 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
   }
 
   const forWhom: Labelled[] = [
+    ...(status.rule === 'individual-decision'
+      ? [
+          guard.statement(
+            `A qualified person decides this: ${reviewersOf(input.scope.domains)}, a real person and not a simulated role.`,
+            'validation-requirement',
+            'scope:decider',
+          ),
+        ]
+      : []),
     ...input.owners
       .slice(0, 2)
       .map((actor) =>

@@ -297,6 +297,7 @@ describe('the decision status: every one of the six, reached on purpose and expl
     );
     expect(new Set(STATUS_RULES.map((rule) => rule.status))).toEqual(new Set(DECISION_STATUSES));
     expect(STATUS_RULES.map((rule) => rule.id)).toEqual([
+      'individual-decision',
       'no-analysis',
       'gate-blocked',
       'all-violate',
@@ -461,6 +462,56 @@ describe('the status function on its own: precedence and the cases real data can
     examined: { counterfactuals: true, sensitivity: true },
     stale: null,
     critics: { reviewed: true, current: true, blockingOpen: 0 },
+    scope: { domains: [], aboutIndividual: false, basis: [] },
+  });
+
+  it('is a human decision, before any other rule, when the question is about one person', () => {
+    const one = {
+      domains: ['employment' as const],
+      aboutIndividual: true,
+      basis: ['employment: “fire”', 'about one person: “this employee”'],
+    };
+    for (const input of [
+      base(),
+      { ...base(), hasRuns: false },
+      { ...base(), options: options.slice(0, 1) },
+      {
+        ...base(),
+        gate: {
+          status: 'blocked' as const,
+          blockedBy: ['A rule.'],
+          label: null,
+          hardConflicts: [],
+        },
+      },
+      {
+        ...base(),
+        confirmedViolations: new Map([
+          ['a', ['A hard rule.']],
+          ['b', ['A hard rule.']],
+        ]),
+      },
+      { ...base(), evidence: { level: 'insufficient' as const, reasons: ['No source.'] } },
+    ]) {
+      const result = deriveStatus({ ...input, scope: one }, guard());
+      expect(result.reading).toMatchObject({
+        status: 'needs-human-decision',
+        rule: 'individual-decision',
+        conditions: [],
+      });
+      expect(result.reading.headline).toMatch(
+        /does not make or recommend it: a qualified person decides/u,
+      );
+      expect(result.leaderId).toBeNull();
+      expect(result.preferredId).toBeNull();
+    }
+  });
+
+  it('does not force anything for a matter that is only about a policy: the notice is the canvas’s, the status is the rules’', () => {
+    const policy = { domains: ['employment' as const], aboutIndividual: false, basis: [] };
+    expect(deriveStatus({ ...base(), scope: policy }, guard()).reading).toEqual(
+      deriveStatus(base(), guard()).reading,
+    );
   });
 
   it('has no answer when there is no comparison, or only one option in it', () => {

@@ -27,7 +27,6 @@ import {
   type DecisionReadiness,
   type DecisionStatusReading,
   type DriverReading,
-  type HighStakesDomain,
   type Labelled,
   type LensReading,
 } from '../../../shared/decision.js';
@@ -53,9 +52,11 @@ import {
   type ReadingWorld,
 } from './readings.js';
 import { buildRecommendation } from './recommendation.js';
+import { consequentialScope, type ConsequentialScope } from './scope.js';
+import { individualReading, qualifiedApproval, scopeSection } from './scope-words.js';
 import { deriveStatus, type Flip, type StatusOption } from './status.js';
 import { planValidation } from './validation.js';
-import { Guard, clip, embed, humanize, listed, oneLine, plural, signed } from './words.js';
+import { Guard, clip, embed, listed, oneLine, plural, signed } from './words.js';
 
 /**
  * Builds the Decision Canvas from the documents a project holds. It is a pure function: the same
@@ -90,21 +91,30 @@ const theirs = (text: string, label: Labelled['label'], basis: string): Labelled
   basis,
 });
 
-const DOMAIN_WORDS: Record<HighStakesDomain, RegExp> = {
-  employment:
-    /\b(?:hir(?:e|es|ed|ing)|layoffs?|redundanc(?:y|ies)|dismissals?|recruit(?:ment|ing)|salar(?:y|ies)|promotions?)\b/iu,
-  credit:
-    /\b(?:loans?|lend(?:ing|ers?)|mortgages?|underwrit(?:e|ing)|credit (?:score|limit|decision|approval))\b/iu,
-  legal: /\b(?:lawsuits?|litigation|court|statut(?:e|es|ory)|liabilit(?:y|ies)|legally)\b/iu,
-  medical:
-    /\b(?:patients?|clinical|diagnos(?:is|es|tic)|treatments?|medical|medications?|therap(?:y|ies)|surgery)\b/iu,
-  safety: /\b(?:safety|hazards?|hazardous|injur(?:y|ies)|accidents?|fatalit(?:y|ies))\b/iu,
-};
-
 const SEVERITY_RANK = { blocking: 0, major: 1, minor: 2, note: 3 } as const;
 
-/** What the rules say when there is no canvas to put them on: there is nothing to base an answer on. */
-export function statusWithoutAnalysis(why: string): DecisionStatusReading {
+/**
+ * What the rules say when there is no canvas to put them on: there is nothing to base an answer on, unless the
+ * question is one that Swarm does not decide, which is the first thing the rules read.
+ */
+export function statusWithoutAnalysis(
+  why: string,
+  scope: ConsequentialScope = { domains: [], aboutIndividual: false, basis: [] },
+): DecisionStatusReading {
+  if (scope.aboutIndividual) {
+    const info = DECISION_STATUS_INFO['needs-human-decision'];
+    const guard = new Guard();
+    const reading = individualReading(scope);
+    return {
+      status: 'needs-human-decision',
+      rule: 'individual-decision',
+      label: info.label,
+      meaning: info.meaning,
+      headline: guard.say(reading.headline, 600),
+      why: reading.why.map((line) => guard.say(line, 400)),
+      conditions: [],
+    };
+  }
   const info = DECISION_STATUS_INFO['insufficient-evidence'];
   return {
     status: 'insufficient-evidence',
@@ -121,6 +131,7 @@ export function statusWithoutAnalysis(why: string): DecisionStatusReading {
 export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
   const guard = new Guard();
   const { analysis, scenario, project } = inputs;
+  const scope = consequentialScope(project.question, scenario);
   const measures = measureVariants(analysis);
   const baseline = baselineOf(measures);
   const headline = headlineOf(analysis, measures);
@@ -245,6 +256,7 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
     cfSet !== null && cfCurrent && cfSet.views.some((view) => view.applicable);
   const result = deriveStatus(
     {
+      scope,
       options,
       hasRuns: measures.length > 0,
       gate: {
@@ -298,6 +310,9 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
     if (confirmed) {
       verdict = 'blocked';
       why = `Ruled out by a confirmed hard constraint: ${embed(confirmed[0] ?? '', 120)}.`;
+    } else if (scope.aboutIndividual) {
+      verdict = 'not-ranked';
+      why = `${ahead.length > 0 ? `Clearly ahead or level on ${listed(ahead.map((lens) => embed(lens.name, 60)))}. ` : ''}Shown as explored and not ranked: a decision about one person is for a qualified person.`;
     } else if (option.id === preferredId) {
       verdict = 'preferred';
       why = `Clearly ahead on ${listed(computable.filter((lens) => standing[lens.id] === 'leads').map((lens) => embed(lens.name, 60)))}.`;
@@ -542,22 +557,18 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
   // ---- Validation, recommendation, approvals ---------------------------------------------------------
   const hard = constraints.section.hard;
   const noRegret = readNoRegret(world, actors.items, cfViews, cfCurrent, guard);
-  const text = `${project.question} ${scenario?.decision ?? ''} ${scenario?.system ?? ''}`;
-  const domains = HIGH_STAKES_DOMAINS.filter(
+  // A legal, regulatory or safety constraint also calls for a qualified person to confirm it, so the approval point
+  // stands for those too; the notice does not, for it is about what the question asks.
+  const constrained = HIGH_STAKES_DOMAINS.filter(
     (domain) =>
-      DOMAIN_WORDS[domain].test(text) ||
       (domain === 'legal' &&
         hard.some((row) => row.category === 'legal' || row.category === 'regulatory')) ||
       (domain === 'safety' && hard.some((row) => row.category === 'safety')),
   );
-  const highStakes: DecisionCanvas['highStakes'] = {
-    flagged: domains.length > 0,
-    domains,
-    note: guard.say(
-      domains.length > 0
-        ? `The question or the constraints touch ${listed(domains.map(humanize).map((domain) => domain.toLowerCase()))}. Swarm does not decide such matters: a qualified person has to.`
-        : 'Nothing in the question or the constraints points to employment, credit, legal, medical or safety matters. Swarm still does not decide anything.',
-      400,
+  const approvalScope: ConsequentialScope = {
+    ...scope,
+    domains: HIGH_STAKES_DOMAINS.filter(
+      (domain) => scope.domains.includes(domain) || constrained.includes(domain),
     ),
   };
   const point = (
@@ -593,21 +604,15 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
         : 'A named approver agrees to act: a real person who holds the decision.',
       'open',
     ),
-    ...(domains.length > 0
-      ? [
-          point(
-            'approve-qualified',
-            'before-acting',
-            `A qualified person decides matters of ${listed([...domains])}. Swarm does not decide them.`,
-            'open',
-          ),
-        ]
+    ...(approvalScope.domains.length > 0
+      ? [point('approve-qualified', 'before-acting', qualifiedApproval(approvalScope), 'open')]
       : []),
   ];
 
   const plan = planValidation(
     {
       status,
+      scope,
       evidence,
       scenarioMissing: scenario?.evidenceMissing ?? [],
       hardConstraints: hard,
@@ -640,6 +645,7 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
   const card = buildRecommendation(
     {
       status,
+      scope,
       options,
       preferred: preferredId ? (options.find((option) => option.id === preferredId) ?? null) : null,
       contenders,
@@ -775,7 +781,7 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
     noRegret,
     critic,
     approvals,
-    highStakes,
+    scope: scopeSection(scope, guard),
     freshness: {
       analysisId: analysis.id,
       completedAt: analysis.completedAt,
@@ -962,5 +968,6 @@ export function readinessOf(canvas: DecisionCanvas): DecisionReadiness {
     missing: missing.map((line) => clip(line, 300)),
     next: null,
     status: canvas.status,
+    scope: canvas.scope,
   };
 }

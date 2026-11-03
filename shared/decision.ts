@@ -34,6 +34,32 @@ export const SYNTHETIC_ACTORS_NOTE =
 export const NO_ACTION_NOTE =
   'Swarm recommends and explains. It does not contact anyone, execute anything or make the decision.';
 
+/**
+ * Said wherever a question touches a matter of a person’s employment, credit, legal, medical or safety situation.
+ * Swarm explores such a scenario; the decision is not Swarm’s to make or to recommend.
+ */
+export const SCOPE_NOTICE =
+  'Swarm explores scenarios. It does not make or recommend decisions about a person’s employment, credit, legal, medical or safety situation; a qualified person must decide.';
+
+export const HIGH_STAKES_DOMAINS = ['employment', 'credit', 'legal', 'medical', 'safety'] as const;
+export type HighStakesDomain = (typeof HIGH_STAKES_DOMAINS)[number];
+
+/** Each domain in words, and the kind of person whose review stands in for Swarm’s. */
+export const SCOPE_DOMAIN_WORDS: Record<HighStakesDomain, { label: string; reviewer: string }> = {
+  employment: {
+    label: 'Employment',
+    reviewer: 'a qualified human resources or employment-law professional',
+  },
+  credit: {
+    label: 'Credit',
+    reviewer:
+      'a qualified credit decision-maker who works to the lender’s policy and the rules that apply to lending',
+  },
+  legal: { label: 'Legal', reviewer: 'a qualified lawyer' },
+  medical: { label: 'Medical', reviewer: 'a qualified clinician' },
+  safety: { label: 'Safety', reviewer: 'a qualified safety professional' },
+};
+
 // ---------------------------------------------------------------------------------------------
 // Epistemic labels
 // ---------------------------------------------------------------------------------------------
@@ -287,13 +313,14 @@ export const DECISION_STATUS_INFO: Record<
   'needs-human-decision': {
     label: 'Needs a human decision',
     meaning:
-      'The choice turns on a value trade-off, or on hard constraints that cannot all hold. The simulation shows the trade-off; a person has to weigh it.',
+      'The choice turns on a value trade-off, on hard constraints that cannot all hold, or on a matter that only a qualified person may decide. The simulation shows what it can; a person has to decide.',
     tone: 'neutral',
     recommends: false,
   },
 };
 
 export const STATUS_RULE_IDS = [
+  'individual-decision',
   'no-analysis',
   'gate-blocked',
   'all-violate',
@@ -309,6 +336,11 @@ export type StatusRuleId = (typeof STATUS_RULE_IDS)[number];
 
 /** The rules, in the order they are tried. The first that applies sets the status. */
 export const STATUS_RULES: readonly { id: StatusRuleId; status: DecisionStatus; rule: string }[] = [
+  {
+    id: 'individual-decision',
+    status: 'needs-human-decision',
+    rule: 'The question reads as a decision about one person’s employment, credit, legal, medical or safety situation, which Swarm does not make or recommend.',
+  },
   {
     id: 'no-analysis',
     status: 'insufficient-evidence',
@@ -536,7 +568,13 @@ export function dominantGroup(shares: GroupShares): ResponseGroup {
 // The canvas
 // ---------------------------------------------------------------------------------------------
 
-export const ALTERNATIVE_VERDICTS = ['preferred', 'viable', 'weak', 'blocked'] as const;
+export const ALTERNATIVE_VERDICTS = [
+  'preferred',
+  'viable',
+  'weak',
+  'blocked',
+  'not-ranked',
+] as const;
 export type AlternativeVerdict = (typeof ALTERNATIVE_VERDICTS)[number];
 
 export const ALTERNATIVE_VERDICT_WORDS: Record<AlternativeVerdict, string> = {
@@ -544,6 +582,7 @@ export const ALTERNATIVE_VERDICT_WORDS: Record<AlternativeVerdict, string> = {
   viable: 'Viable',
   weak: 'Weak',
   blocked: 'Blocked',
+  'not-ranked': 'Not ranked',
 };
 
 const alternativeSchema = z.object({
@@ -686,6 +725,7 @@ export type CritiqueReading = z.infer<typeof critiqueReadingSchema>;
 export const VALIDATION_KINDS = ['evidence', 'assumption', 'constraint', 'stakeholder'] as const;
 export type ValidationKind = (typeof VALIDATION_KINDS)[number];
 export const VALIDATION_SOURCES = [
+  'scope',
   'missing-evidence',
   'unvalidated-constraint',
   'flipping-assumption',
@@ -769,6 +809,7 @@ export const recommendationSchema = z.object({
     'keep-no-change',
     'hold',
     'decide',
+    'qualified-person',
     'resolve-constraint',
     'gather-evidence',
   ]),
@@ -798,8 +839,26 @@ export const approvalPointSchema = z.object({
 });
 export type ApprovalPoint = z.infer<typeof approvalPointSchema>;
 
-export const HIGH_STAKES_DOMAINS = ['employment', 'credit', 'legal', 'medical', 'safety'] as const;
-export type HighStakesDomain = (typeof HIGH_STAKES_DOMAINS)[number];
+/**
+ * Whether the question is a matter that Swarm does not decide, and what it says then. `notice` is present when the
+ * question or its framing speaks of employment, credit, legal, medical or safety matters; `aboutIndividual` when an
+ * act of one of them is said of one person, and then the status is a human decision and no option is named.
+ */
+export const scopeSchema = z.object({
+  notice: z.literal(SCOPE_NOTICE).nullable(),
+  domains: z.array(z.enum(HIGH_STAKES_DOMAINS)).max(HIGH_STAKES_DOMAINS.length),
+  aboutIndividual: z.boolean(),
+  /** The cues the reading rests on, a few words each: never a name. The rules read words and are not complete. */
+  basis: lines(120, 8),
+  /** What the exploration can and cannot tell the person who decides: only for a decision about one person. */
+  exploration: z
+    .object({
+      canTell: z.array(labelledSchema).max(4),
+      cannotTell: z.array(labelledSchema).max(4),
+    })
+    .nullable(),
+});
+export type DecisionScope = z.infer<typeof scopeSchema>;
 
 export const decisionCanvasSchema = z.object({
   version: z.literal(DECISION_CANVAS_VERSION),
@@ -941,11 +1000,7 @@ export const decisionCanvasSchema = z.object({
     challenges: z.array(critiqueReadingSchema).max(5),
   }),
   approvals: z.array(approvalPointSchema).max(8),
-  highStakes: z.object({
-    flagged: z.boolean(),
-    domains: z.array(z.enum(HIGH_STAKES_DOMAINS)).max(HIGH_STAKES_DOMAINS.length),
-    note: text(400),
-  }),
+  scope: scopeSchema,
   freshness: z.object({
     analysisId: idSchema,
     completedAt: z.iso.datetime().nullable(),
@@ -973,8 +1028,13 @@ export interface DecisionReadiness {
   missing: string[];
   /** The step that supplies it. */
   next: 'ask' | 'ground' | 'map' | 'simulate' | null;
-  /** Where the status rules land without a canvas: always insufficient evidence, with why. */
+  /**
+   * Where the status rules land without a canvas: insufficient evidence, with why; or a human decision, when
+   * the question is one that Swarm does not make.
+   */
   status: DecisionStatusReading | null;
+  /** What the question touches that Swarm does not decide, read from the question and the scenario: also without a canvas. */
+  scope: DecisionScope | null;
 }
 
 /** `GET /api/projects/:id/decision`. */

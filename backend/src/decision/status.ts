@@ -9,6 +9,8 @@ import {
   type StatusRuleId,
 } from '../../../shared/decision.js';
 import { Guard, clip, embed, listed, plural } from './words.js';
+import type { ConsequentialScope } from './scope.js';
+import { individualReading } from './scope-words.js';
 
 /**
  * The decision status: which of six things the canvas can honestly say about the choice. It is rules
@@ -32,6 +34,8 @@ export interface Flip {
 }
 
 export interface StatusInput {
+  /** What the question touches that Swarm does not decide: about one person, it is a human decision before anything else. */
+  scope: ConsequentialScope;
   options: readonly StatusOption[];
   /** The comparison has options with recorded runs. */
   hasRuns: boolean;
@@ -174,6 +178,11 @@ export function deriveStatus(input: StatusInput, guard: Guard): StatusResult {
     leaderId: null,
     preferredId: null,
   });
+
+  if (input.scope.aboutIndividual) {
+    const { headline, why } = individualReading(input.scope);
+    return fixed('individual-decision', 'needs-human-decision', headline, why);
+  }
 
   if (!input.hasRuns || options.length < 2) {
     return fixed(
