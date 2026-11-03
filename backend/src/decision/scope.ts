@@ -23,8 +23,13 @@ import {
   STATES,
   STRONG_VERBS,
   roleDomain,
+  safeQuote,
   word,
+  type Cue,
 } from './scope-cues.js';
+import { GIVEN_NAMES } from './scope-names.js';
+import { PERSON_CUES, PERSON_FINDERS } from './scope-people.js';
+import { genericPeople, pairedMatters } from './scope-generic.js';
 
 /**
  * Whether a question is about a matter that Swarm does not decide: a person’s employment, credit, legal, medical or
@@ -38,7 +43,9 @@ import {
  *    reference to one person (“this employee”, “these named applicants”, a name after the verb, “him”, “my”) stand
  *    together in one clause. That forces a human decision, so it is read narrowly: a policy or a process (“our
  *    hiring policy”, “lending criteria”, “a triage protocol”) is not one person, whoever else the sentence
- *    mentions, and a group (“our employees”) is not one person either.
+ *    mentions, and a group (“our employees”) is not one person either. A construction that puts a person where an act
+ *    is done to them (“promote Priya”, “give her a raise”, “cut the nurse’s hours”, “let Maria operate the forklift”,
+ *    “offer the job to the second candidate”) is both at once (`scope-people.ts`).
  */
 
 export interface ScopeFrame {
@@ -81,7 +88,8 @@ function nameAt(clause: string, from: number, least: number): boolean {
   const stop = tokens.findIndex((token) => NOT_NAMES.has(token.toLowerCase()));
   if (stop === 0) return false;
   if (stop > 0) tokens = tokens.slice(0, stop);
-  if (tokens.length < (match[1] ? 1 : least)) return false;
+  const known = tokens.length === 1 && GIVEN_NAMES.has((tokens[0] ?? '').toLowerCase());
+  if (tokens.length < (match[1] ? 1 : least) && !known) return false;
   const end = from + match[0].indexOf(match[2]) + tokens.join(' ').length;
   const after = new RegExp(FOLLOWS, 'uy');
   after.lastIndex = end;
@@ -331,9 +339,19 @@ function peopleOf(clause: string): Found {
   for (const { re, cue, noun, accept } of FINDERS) {
     for (const match of clause.matchAll(re)) {
       if (accept && !accept(match, clause)) continue;
-      found.cues.push(cue === 'quoted' ? `“${match[0].toLowerCase()}”` : cue);
+      found.cues.push(cue === 'quoted' ? `“${safeQuote(match[0])}”` : cue);
       const role = noun ? roleDomain(match[noun] ?? '') : undefined;
       if (role) found.roles.push({ domain: role, noun: (match[noun ?? 0] ?? '').toLowerCase() });
+    }
+  }
+  // The constructions that say a person and what is done to them in one: the person is read where they stand.
+  for (const finder of PERSON_FINDERS) {
+    for (const match of clause.matchAll(finder.re)) {
+      if (!finder.accept(match, clause)) continue;
+      found.cues.push(finder.label(match));
+      const noun = finder.nounOf(match);
+      const role = noun ? roleDomain(noun) : undefined;
+      if (role && noun) found.roles.push({ domain: role, noun });
     }
   }
   return found;
@@ -350,23 +368,27 @@ interface Hit {
   aside: boolean;
 }
 
+/** Every cue with the domain it is listed under; the constructions of `scope-people.ts` give their own domain. */
+const CUE_LIST: readonly { domain: HighStakesDomain; cue: Cue }[] = [
+  ...HIGH_STAKES_DOMAINS.flatMap((domain) => CUES[domain].map((cue) => ({ domain, cue }))),
+  ...PERSON_CUES.map((cue) => ({ domain: 'employment' as const, cue })),
+];
+
 function hitsOf(clause: string): Hit[] {
   const hits: Hit[] = [];
-  for (const domain of HIGH_STAKES_DOMAINS) {
-    for (const cue of CUES[domain]) {
-      if (cue.also && clause.search(cue.also) < 0) continue;
-      for (const match of clause.matchAll(cue.re)) {
-        if (cue.accept && !cue.accept(match)) continue;
-        const start = match.index ?? 0;
-        const policy =
-          POLICY_AFTER.test(clause.slice(endOf(match))) ||
-          POLICY_BEFORE.test(clause.slice(Math.max(0, start - 40), start));
-        hits.push({
-          domain: cue.domain ? cue.domain(clause) : domain,
-          cue: match[0].toLowerCase(),
-          aside: cue.topic === true || policy,
-        });
-      }
+  for (const { domain, cue } of CUE_LIST) {
+    if (cue.also && clause.search(cue.also) < 0) continue;
+    for (const match of clause.matchAll(cue.re)) {
+      if (cue.accept && !cue.accept(match, clause)) continue;
+      const start = match.index ?? 0;
+      const policy =
+        POLICY_AFTER.test(clause.slice(endOf(match))) ||
+        POLICY_BEFORE.test(clause.slice(Math.max(0, start - 40), start));
+      hits.push({
+        domain: cue.domain ? cue.domain(clause, match) : domain,
+        cue: cue.label ? cue.label(match) : match[0].toLowerCase(),
+        aside: cue.topic === true || policy,
+      });
     }
   }
   return hits;
@@ -374,16 +396,38 @@ function hitsOf(clause: string): Hit[] {
 
 const SENTENCE_BREAKS = /(?<=[.?!;])\s+(?=\S)|\s[–—]\s/u;
 const CLAUSE_BREAKS =
-  /\s*[,;:]\s*|\s+\b(?:if|when|while|because|since|although|though|unless|until|once|whereas|but|after|before)\b\s+/giu;
+  /\s*[,;:]\s*|\s+\b(if|when|while|because|since|although|though|unless|until|once|whereas|but|after|before)\b\s+/giu;
+/** Words that make what follows “after” a clause of its own, and not a place, a time or a procedure: “after surgery”. */
+const CLAUSE_WORDS =
+  /\b(?:we|i|you|they|he|she|it|there|is|are|was|were|has|have|had|will|would|can|could|should|does|did|do|must|may|might)\b/iu;
+
+/** The clauses of a sentence. “After” and “before” begin one only when a clause follows them: “fit to work after surgery” is one. */
+function splitClauses(sentence: string): string[] {
+  const pieces = sentence.split(CLAUSE_BREAKS);
+  const clauses: string[] = [];
+  for (let at = 0; at < pieces.length; at += 2) {
+    const fragment = pieces[at] ?? '';
+    const conjunction = (pieces[at - 1] ?? '').toLowerCase();
+    const brief = fragment.split(' ').length <= 4 && !CLAUSE_WORDS.test(fragment);
+    if ((conjunction === 'after' || conjunction === 'before') && brief && clauses.length > 0) {
+      clauses[clauses.length - 1] += ` ${conjunction} ${fragment}`;
+    } else {
+      clauses.push(fragment);
+    }
+  }
+  return clauses;
+}
 const ABBREVIATIONS = /\b(Mr|Mrs|Ms|Mx|Dr|Prof|Jr|Sr|St|vs|No)\./gu;
-/** What is read of one text: more clauses than any question holds are not read. */
-const MAX_CLAUSES = 80;
+/** What is read of all the texts together, and of one text: more than this is not read, however long the text is. */
+const MAX_CLAUSES = 40;
+/** And of one text, no more than this many characters are read. */
+const MAX_CHARACTERS = 12_000;
 
 /** A line break is a break only between paragraphs and list items; elsewhere it is where a pasted line was wrapped. */
 const PARAGRAPH_BREAKS = /\n\s*\n|\n(?=\s*(?:[-*•–]|\d+[.)])\s)/u;
 
-/** The clauses of a text: where an act and a person must stand together to be about one another. */
-function clausesOf(text: string): string[] {
+/** The text as it is read: text that is all capitals is lowercased, the apostrophes and quotes are the plain ones. */
+function plainText(text: string): string {
   const letters = text.replace(/[^\p{L}]/gu, '');
   // Capitals are read for names, so text that is all capitals is read as it is said, not as it is written.
   const plain =
@@ -392,29 +436,51 @@ function clausesOf(text: string): string[] {
     .normalize('NFKC')
     .replace(/[\u2018\u2019\u02bc]/gu, "'")
     .replace(/[\u201c\u201d]/gu, '"')
-    .replace(/[\u200b-\u200d\ufeff]/gu, '')
-    .split(PARAGRAPH_BREAKS)
-    .flatMap((paragraph) =>
-      paragraph
-        .replace(/\s+/gu, ' ')
-        .trim()
-        .slice(0, 2_400)
-        .replace(ABBREVIATIONS, '$1')
-        .split(SENTENCE_BREAKS)
-        .flatMap((sentence) => sentence.split(CLAUSE_BREAKS)),
-    )
-    .map((clause) => clause.trim())
-    .filter((clause) => clause.length > 0)
-    .slice(0, MAX_CLAUSES);
+    .replace(/[\u200b-\u200d\ufeff]/gu, '');
 }
+
+/** The clauses of a text: where an act and a person must stand together to be about one another. */
+function clausesOf(text: string, limit: number): string[] {
+  const clauses: string[] = [];
+  // Paragraph by paragraph, and stop at the limit: how much of a long text is read does not depend on how long it is.
+  for (const paragraph of plainText(text.slice(0, MAX_CHARACTERS)).split(PARAGRAPH_BREAKS)) {
+    const sentences = paragraph
+      .replace(/\s+/gu, ' ')
+      .trim()
+      .slice(0, 2_400)
+      .replace(ABBREVIATIONS, '$1')
+      .split(SENTENCE_BREAKS);
+    for (const sentence of sentences) {
+      for (const clause of splitClauses(sentence)) {
+        const trimmed = clause.trim();
+        if (trimmed === '') continue;
+        clauses.push(trimmed);
+        if (clauses.length >= limit) return clauses;
+      }
+    }
+  }
+  return clauses;
+}
+
+/** Verbs that say little by themselves: a cue of one is dropped when a longer cue holds it (“make” and “make redundant”). */
+const WEAK_VERBS: ReadonlySet<string> = new Set(
+  'make put let take give keep turn sign call pull write pass ask stop send move get lay'.split(
+    ' ',
+  ),
+);
 
 /** Cues once each, and a cue that holds another (“we fire” and “fire”) is that other. */
 const distinct = (cues: readonly string[]): string[] => {
   const once = [...new Set(cues)];
-  return once.filter(
-    (cue) =>
-      !once.some((other) => other !== cue && other.length < cue.length && cue.includes(other)),
-  );
+  return once.filter((cue) => {
+    if (WEAK_VERBS.has(cue)) {
+      return !once.some((other) => other !== cue && other.split(' ').includes(cue));
+    }
+    return !once.some(
+      (other) =>
+        other !== cue && other.length < cue.length && !WEAK_VERBS.has(other) && cue.includes(other),
+    );
+  });
 };
 
 /**
@@ -443,31 +509,75 @@ export function consequentialScope(
     cues.set(domain, [...(cues.get(domain) ?? []), cue]);
   };
 
+  // What is read of all the texts together is bounded: more clauses than any question holds are not read.
+  let budget = MAX_CLAUSES;
   for (const text of texts) {
-    for (const clause of clausesOf(text)) {
+    const clauses = clausesOf(text, budget);
+    budget -= clauses.length;
+    for (const clause of clauses) {
       const hits = hitsOf(clause);
       const found = peopleOf(clause);
+      const generic = genericPeople(clause);
+      const persons = [...found.cues, ...generic.cues];
+      // A matter such as a notice or “make … redundant” is a domain’s only where a person stands in the clause.
+      const paired = persons.length > 0 ? pairedMatters(clause) : [];
       for (const hit of hits) note(hit.domain, hit.cue);
-      for (const role of found.roles) note(role.domain, role.noun);
-      const acts = hits.some((hit) => !hit.aside) || found.roles.length > 0;
-      if (found.cues.length === 0 || !acts) continue;
+      for (const role of [...found.roles, ...generic.roles]) note(role.domain, role.noun);
+      for (const hit of paired) note(hit.domain, hit.cue);
+      const acts =
+        hits.some((hit) => !hit.aside) ||
+        paired.some((hit) => !hit.aside) ||
+        found.roles.length > 0 ||
+        generic.roles.length > 0;
+      if (persons.length === 0 || !acts) continue;
       aboutIndividual = true;
-      people.push(...found.cues);
+      people.push(...persons);
     }
   }
 
+  // What is reported never repeats a name: a last guard behind the labels, which are made without one.
+  const names = namesIn(texts);
   const domains = HIGH_STAKES_DOMAINS.filter((domain) => cues.has(domain));
   const basis = [
     ...domains.flatMap((domain) =>
       distinct(cues.get(domain) ?? [])
         .slice(0, 2)
-        .map((cue) => `${domain}: “${cue}”`),
+        .map((cue) => `${domain}: “${withoutNames(cue, names)}”`),
     ),
     ...(aboutIndividual
       ? distinct(people)
           .slice(0, 2)
-          .map((cue) => `about one person: ${cue}`)
+          .map((cue) => `about one person: ${withoutNames(cue, names)}`)
       : []),
   ].slice(0, 8);
   return { domains, aboutIndividual, basis };
+}
+
+/** The capitalised words that can be a name: any that is not at the start of a sentence, and one that is only if it is a given name. */
+function namesIn(texts: readonly string[]): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const text of texts) {
+    const plain = plainText(text.slice(0, 12_000));
+    for (const match of plain.matchAll(/\p{Lu}\p{Ll}[\p{L}'-]*/gu)) {
+      const lower = match[0].toLowerCase().replace(/'s$/u, '');
+      const at = match.index ?? 0;
+      const opening = at === 0 || /[.!?:;\n]\s*$/u.test(plain.slice(Math.max(0, at - 3), at));
+      if (lower.length < 2 || NOT_NAMES.has(lower)) continue;
+      if (!opening || GIVEN_NAMES.has(lower)) names.add(lower);
+    }
+  }
+  return names;
+}
+
+/** A cue without any word that is a name in the text it was read from: “promote … to head” and not the name between. */
+function withoutNames(cue: string, names: ReadonlySet<string>): string {
+  if (names.size === 0) return cue;
+  return cue
+    .replace(/[\p{L}][\p{L}'-]*/gu, (word) =>
+      names.has(word.toLowerCase().replace(/'s$/u, '')) ? '' : word,
+    )
+    .replace(/\s{2,}/gu, ' ')
+    .replace(/“\s+/gu, '“')
+    .replace(/\s+”/gu, '”')
+    .trim();
 }
