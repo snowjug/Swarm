@@ -168,6 +168,30 @@ describe('a local run', () => {
       expect(() => loadConfig({ DEPLOYMENT_LABEL: label })).toThrow('DEPLOYMENT_LABEL');
   });
 
+  it('starts, and says so, when it is set up like a hosted deployment but was given no mode', () => {
+    const forgotten = hosted('pilot', { DEPLOYMENT_MODE: undefined });
+    const config = loadConfig(forgotten);
+    expect(config.deployment.mode).toBe('local');
+    expect(config.deployment.warnings).toEqual([
+      expect.stringMatching(
+        /^This looks like a hosted deployment \(ALLOWED_HOSTS names a host that is not this machine; AUTH_ENTRA_REDIRECT_URI is an https address; DATABASE_URL names another machine\) but DEPLOYMENT_MODE is local, so none of the pilot or production checks ran\. Set DEPLOYMENT_MODE=pilot or production\.$/u,
+      ),
+    ]);
+    // It is still exactly as permissive as before: nothing is refused.
+    expect(
+      loadConfig({ ...forgotten, AUTH_MODE: 'none', RATE_LIMIT_SCALE: '50' }).rateLimitScale,
+    ).toBe(50);
+    expect(loadConfig({ ALLOWED_HOSTS: 'swarm.example.test' }).deployment.warnings).toEqual([
+      expect.stringContaining('(ALLOWED_HOSTS names a host that is not this machine)'),
+    ]);
+    expect(loadConfig({ ALLOWED_HOSTS: 'localhost,127.0.0.1,[::1]' }).deployment.warnings).toEqual(
+      [],
+    );
+    expect(JSON.stringify(config.deployment.warnings)).not.toMatch(
+      /swarm\.example\.test|db\.example\.test/u,
+    );
+  });
+
   it('ignores a build id it cannot read instead of refusing to start', () => {
     expect(loadConfig({ BUILD_SHA: 'v1.2' }).deployment.build.sha).toBeNull();
     expect(loadConfig({ BUILD_SHA: ' A1B2C3D ' }).deployment.build.sha).toBe('a1b2c3d');
@@ -885,8 +909,19 @@ describe('a hosted application', () => {
     const local = await start({ LOG_LEVEL: 'info' });
     try {
       expect(local.lines.filter((entry) => entry.msg === 'Deployment.')).toEqual([]);
+      expect(local.lines.filter((entry) => entry.level === 40)).toEqual([]);
     } finally {
       await local.app.close();
+    }
+
+    const forgotten = await start(hosted('pilot', { DEPLOYMENT_MODE: undefined }));
+    try {
+      expect(forgotten.lines.filter((entry) => entry.msg === 'Deployment.')).toEqual([]);
+      expect(
+        forgotten.lines.filter((entry) => entry.level === 40).map((entry) => entry.msg),
+      ).toEqual([expect.stringContaining('DEPLOYMENT_MODE is local')]);
+    } finally {
+      await forgotten.app.close();
     }
   });
 

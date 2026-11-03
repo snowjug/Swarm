@@ -474,6 +474,32 @@ export function deploymentViolations(
   ];
 }
 
+/**
+ * A local run that is set up like a hosted one has probably been given no mode by mistake, and then
+ * none of the pilot or production checks ran. It still starts, exactly as it always did, and says so.
+ */
+function hostedLooking(config: Omit<ServerConfig, 'deployment'>): string[] {
+  const signs: string[] = [];
+  const elsewhere = (host: string): boolean => {
+    try {
+      return !loopback(new URL(`https://${host}`).hostname);
+    } catch {
+      return true;
+    }
+  };
+  if ([...config.allowedHosts].some(elsewhere))
+    signs.push('ALLOWED_HOSTS names a host that is not this machine');
+  if (config.auth.session?.secureCookies) signs.push('AUTH_ENTRA_REDIRECT_URI is an https address');
+  if (config.databaseUrl && elsewhere(new URL(config.databaseUrl).hostname)) {
+    signs.push('DATABASE_URL names another machine');
+  }
+  return signs.length === 0
+    ? []
+    : [
+        `This looks like a hosted deployment (${signs.join('; ')}) but DEPLOYMENT_MODE is local, so none of the pilot or production checks ran. Set DEPLOYMENT_MODE=pilot or production.`,
+      ];
+}
+
 function warningsOf(config: Context['config'], environment: Environment): string[] {
   const found: string[] = [];
   if (config.databaseUrl === null) {
@@ -534,7 +560,10 @@ export function withDeployment(
   const identity = { version: APP_VERSION, sha: build.sha };
   if (mode === 'local') {
     if (labelled.problem) throw new Error(labelled.problem);
-    return { ...base, deployment: { mode, label: labelled.label, build: identity, warnings: [] } };
+    return {
+      ...base,
+      deployment: { mode, label: labelled.label, build: identity, warnings: hostedLooking(base) },
+    };
   }
   const config = hostedDefaults(base, environment);
   const violations = [
@@ -571,8 +600,8 @@ export function registerDeployment(app: FastifyInstance, deployment: DeploymentC
       },
       'Deployment.',
     );
-    for (const warning of deployment.warnings) app.log.warn(warning);
   }
+  for (const warning of deployment.warnings) app.log.warn(warning);
   const stop = observeDeployment(() => ({
     mode: deployment.mode,
     version: deployment.build.version,

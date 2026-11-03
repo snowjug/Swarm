@@ -107,7 +107,8 @@ The server's logs are structured, one JSON line each. What is in them, and what 
   (`privacy.test.ts` makes a handler throw a connection string and a question).
 - **Sign-in** logs a short reason code, never a code, a state, a token or a cookie.
 - **The deployment** is logged once at start-up for a pilot or production process: mode, label, version
-  and build, and the recommendations that did not stop the start. A local run logs nothing of it.
+  and build, and the recommendations that did not stop the start. A local run logs nothing of it, except
+  one warning when its configuration looks hosted (see [the guards](./identity.md#1-deployment-modes)).
 
 ## What an answer says
 
