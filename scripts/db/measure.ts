@@ -484,7 +484,7 @@ console.log(
   `Measured on ${machine.cpus} CPUs (${machine.platform}, node ${machine.node}), load average at the start ${machine.loadAverageAtStart.join(' ')}, ${options.seconds} s a phase.`,
 );
 console.log(
-  'Times are milliseconds. "held" is the share of the run that this thread spent waiting for the database.',
+  'Times are milliseconds. "held" is the share of the run that this thread spent waiting for the database. "loop" is how long the event loop went without a turn (99th percentile, longest). "probe" is the time from when a /api/health/live probe was due until it was answered, which includes waiting behind the requests in flight.',
 );
 console.log(table(results));
 for (const traced of traces) {
