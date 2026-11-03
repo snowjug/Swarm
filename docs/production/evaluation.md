@@ -6,7 +6,7 @@ How the AI-assisted setup stages of Swarm are measured, against which thresholds
 npm run eval:ai           # print the results; exit 1 if a measured metric breaches its threshold
 npm run eval:ai:write     # also write evaluation/results/ai-latest.{json,md}
 npm run eval:ai -- --mode rules,fake-foundry
-npm run eval:ai:live      # refuses here: see the live mode
+npm run eval:ai:live      # refuses here (exit 3): see the live mode
 ```
 
 The tests run the rules and fake-foundry modes under `npm test` (`evaluation/test/ai-*.test.ts`). The full results are in [`evaluation/results/ai-latest.md`](../../evaluation/results/ai-latest.md).
@@ -21,7 +21,7 @@ Every number states its mode. A metric that is not measured in a mode is printed
 | `fake-foundry` | The real `ModelClient`, `runStructuredTask` and output policy against the in-process fake of the Foundry endpoint. Replies are derived from the labels, then corrupted in controlled ways.     | The rules around a model: what is rejected, corrected, kept, refused. **Never a model's quality.**              |
 | `live`         | The same suites with a real deployment answering. Written, and tested against the fake, but it runs only with `--live` and a Foundry configuration whose endpoint is not on this machine.      | A model's behaviour behind the product's checks. **Not measured here: no Azure authorization on this machine.** |
 
-The live column is empty in every report and says `NOT MEASURED: no Azure authorization on this machine`, with the reason (no `--live`, no `AI_PROVIDER=foundry`, no credentials, an endpoint on this machine). It reads no secret and prints none; a live run stops at a token budget (1,500,000 by default, set under the per-project cap).
+The live column is empty in every report and says `NOT MEASURED: no Azure authorization on this machine`, with the reason (no `--live`, no `AI_PROVIDER=foundry`, no credentials, an endpoint on this machine). It reads no secret and prints none; a live run stops at a token budget (1,500,000 by default, set under the per-project cap). When a live measurement is asked for (`--live`, or `--mode` naming `live`) and refused, the command exits 3, so that a run that measured nothing is not taken for a pass; a breach (exit 1) outranks it, and 2 is a harness error.
 
 Three further suites are listed as `NOT MEASURED (pending)` because they are being built by other workstreams and are not on this base: the research planner, a research run end to end, and the Decision Canvas status matrix. The harness is structured so that each plugs in as another suite.
 

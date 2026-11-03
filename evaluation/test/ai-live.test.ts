@@ -4,7 +4,7 @@ import { prepare, prepareFrom } from '../src/ai-corpus.js';
 import { startFakeWorld, type FakeWorld, type Harness } from '../src/ai-fake.js';
 import { decideLive, NOT_MEASURED_LIVE, observeLive } from '../src/ai-live.js';
 import { liveRows } from '../src/ai-report.js';
-import { buildReport } from '../src/ai-run.js';
+import { argumentsOf, buildReport, exitCodeOf, renderMarkdown } from '../src/ai-run.js';
 import { cleanConstraints, cleanParticipants } from '../src/ai-scripts.js';
 import { loadRegistered } from '../src/ai-thresholds.js';
 import type { FakeStep, RecordedRequest } from '../../backend/test/support/fake-foundry.js';
@@ -84,6 +84,27 @@ describe('the live column', () => {
     expect(live.length).toBeGreaterThan(10);
     expect(live.every((row) => row.status === 'not-measured')).toBe(true);
     expect(report.breached.filter((item) => item.mode === 'live')).toEqual([]);
+  });
+});
+
+describe('the command', () => {
+  it('exits 3 when a live measurement was asked for and refused, so nothing measured is not a pass', async () => {
+    const report = await buildReport({ modes: ['live'], live: true, environment: {} });
+    expect(argumentsOf(['--live']).liveAsked).toBe(true);
+    expect(argumentsOf(['--mode', 'live']).liveAsked).toBe(true);
+    expect(argumentsOf(['--mode', 'rules,fake-foundry']).liveAsked).toBe(false);
+    expect(argumentsOf([]).liveAsked).toBe(false);
+    expect(exitCodeOf(report, true)).toBe(3);
+    expect(exitCodeOf(report, false)).toBe(0);
+    const breached = { mode: 'rules' as const, id: 'x', value: '1', threshold: '0' };
+    expect(exitCodeOf({ ...report, breached: [breached] }, true)).toBe(1);
+  });
+
+  it('says a mode was not run, rather than printing an empty table for it', async () => {
+    const report = await buildReport({ modes: ['live'], live: true, environment: {} });
+    const text = renderMarkdown(report, registered);
+    expect(text.match(/Not run in this invocation/gu)).toHaveLength(2);
+    expect(text).toContain(NOT_MEASURED_LIVE);
   });
 });
 

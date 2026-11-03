@@ -566,6 +566,10 @@ export function renderMarkdown(report: AiReport, registered: Registered): string
     out.push('');
     out.push(`${report.modes[mode] ?? ''}`);
     out.push('');
+    if (!report.rows.some((item) => item.mode === mode)) {
+      out.push('Not run in this invocation: `--mode` did not include it.', '');
+      continue;
+    }
     if (mode === 'live') {
       out.push(`**${report.live.message}**`);
       if (report.live.reasons.length > 0)
@@ -659,10 +663,12 @@ export function renderMarkdown(report: AiReport, registered: Registered): string
 // The command
 // ---------------------------------------------------------------------------------------------
 
-function argumentsOf(argv: readonly string[]): {
+export function argumentsOf(argv: readonly string[]): {
   modes: Mode[];
   write: boolean;
   live: boolean;
+  /** `--live`, or `--mode` naming live: a person asked for a live measurement, not just for a report. */
+  liveAsked: boolean;
 } {
   const get = (flag: string): string | null => {
     const at = argv.indexOf(flag);
@@ -675,17 +681,33 @@ function argumentsOf(argv: readonly string[]): {
       : requested
           .split(',')
           .filter((item): item is Mode => (MODES as readonly string[]).includes(item));
-  return { modes, write: argv.includes('--write'), live: argv.includes('--live') };
+  const live = argv.includes('--live');
+  const named = requested !== null && requested !== 'all' && modes.includes('live');
+  return { modes, write: argv.includes('--write'), live, liveAsked: live || named };
 }
 
-export async function main(argv: readonly string[]): Promise<number> {
+/**
+ * 1 when a measured threshold is breached; 3 when a live measurement was asked for and refused, so
+ * that a run that measured nothing cannot be taken for a pass; otherwise 0. (2 is a harness error.)
+ */
+export const exitCodeOf = (report: AiReport, liveAsked: boolean): number =>
+  report.breached.length > 0 ? 1 : liveAsked && !report.live.ran ? 3 : 0;
+
+export async function main(
+  argv: readonly string[],
+  environment: Record<string, string | undefined> = process.env,
+): Promise<number> {
   const args = argumentsOf(argv);
   const registered = loadRegistered();
-  const report = await buildReport({ modes: args.modes, live: args.live });
+  const report = await buildReport({ modes: args.modes, live: args.live, environment });
   const markdown = renderMarkdown(report, registered);
   process.stdout.write(`${markdown}\n`);
   if (!args.modes.includes('live'))
     process.stdout.write(`\n${NOT_MEASURED_LIVE} (live was not selected)\n`);
+  if (args.liveAsked && !report.live.ran)
+    process.stderr.write(
+      `${report.live.message}. The live mode was asked for and did not run: ${report.live.reasons.join(' ')}\n`,
+    );
   if (args.write) {
     mkdirSync(RESULTS_DIRECTORY, { recursive: true });
     writeFileSync(
@@ -694,7 +716,7 @@ export async function main(argv: readonly string[]): Promise<number> {
     );
     writeFileSync(join(RESULTS_DIRECTORY, 'ai-latest.md'), `${markdown}\n`);
   }
-  return report.breached.length > 0 ? 1 : 0;
+  return exitCodeOf(report, args.liveAsked);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
