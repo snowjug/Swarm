@@ -1,6 +1,9 @@
 import type { ProviderConfig } from '../config.js';
 import { signals } from '../telemetry/signals.js';
 import type { ProviderConnectivity, ProviderStatus } from '../../../shared/types.js';
+import { estimateCostUsd, type PriceTable } from './cost.js';
+import type { SafetyFinding } from './safety.js';
+import type { ModelRole } from './task.js';
 
 export interface ModelCallEvent {
   ok: boolean;
@@ -10,10 +13,24 @@ export interface ModelCallEvent {
   outputTokens: number;
   tokensReported: boolean;
   errorCode: string | null;
+  /** What the client knows about the call when it is made for a routed task; absent for a plain call. */
+  deployment?: string | null;
+  role?: ModelRole | null;
+  structured?: 'json_schema' | 'json_object' | null;
+  safety?: readonly SafetyFinding[];
+}
+
+/** A reply the schema or the server's checks refused: a class of problem, never the reply. */
+export interface ModelRejectEvent {
+  reason: 'not_json' | 'schema' | 'validation' | 'injection_echo';
+  repair: boolean;
+  deployment: string | null;
+  role: ModelRole | null;
 }
 
 export interface ModelObserver {
   onCall(event: ModelCallEvent): void;
+  onReject?(event: ModelRejectEvent): void;
 }
 
 /** Failures that mean the provider could not be reached or used, as opposed to bad model output. */
@@ -43,22 +60,50 @@ export class ProviderTelemetry implements ModelObserver {
   private lastCheckedAt: string | null = null;
   private lastLatencyMs: number | null = null;
   private lastError: { code: string; message: string } | null = null;
+  private prices: PriceTable = [];
 
   constructor(private readonly config: ProviderConfig) {
     this.connectivity = config.configured ? 'unverified' : 'not-applicable';
   }
 
+  /** The operator's price table, so that a call's estimated cost can be counted. Without one, none is. */
+  usePrices(prices: PriceTable): void {
+    this.prices = prices;
+  }
+
+  onReject(event: ModelRejectEvent): void {
+    signals.modelSchemaFailure({
+      reason: event.reason,
+      role: event.role,
+      deployment: event.deployment ?? this.config.model,
+      repair: event.repair,
+    });
+  }
+
   onCall(event: ModelCallEvent): void {
+    const deployment = event.deployment ?? this.config.model;
+    const cost = estimateCostUsd(event, deployment, this.prices);
     signals.modelCall({
       provider: this.config.name,
-      model: this.config.model ?? '',
+      model: deployment ?? '',
       ok: event.ok,
       repair: event.repair,
       latencyMs: event.latencyMs,
       inputTokens: event.inputTokens,
       outputTokens: event.outputTokens,
       errorCode: event.errorCode,
+      role: event.role ?? null,
+      structured: event.structured ?? null,
+      estimatedUsd: event.ok && event.tokensReported ? cost.usd : null,
     });
+    for (const finding of event.safety ?? []) {
+      signals.modelSafety({
+        kind: finding.class,
+        blocked: finding.action === 'blocked',
+        role: event.role ?? null,
+        deployment,
+      });
+    }
     this.lastCheckedAt = new Date().toISOString();
     this.lastLatencyMs = Math.round(event.latencyMs);
     if (event.repair) this.repairCalls += 1;
@@ -132,6 +177,12 @@ function describe(code: string): string {
       return 'A model answer was truncated.';
     case 'MODEL_CALL_BUDGET':
       return 'The per-operation model call budget was reached.';
+    case 'MODEL_TOKEN_BUDGET':
+      return 'The per-operation model token budget was reached.';
+    case 'MODEL_COST_BUDGET':
+      return 'The per-operation estimated cost limit was reached.';
+    case 'MODEL_ROUTE_UNAVAILABLE':
+      return 'No configured deployment could serve a task.';
     default:
       return 'A model call failed.';
   }

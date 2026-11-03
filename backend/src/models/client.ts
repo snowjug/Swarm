@@ -2,9 +2,21 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
 import type { ProviderConfig } from '../config.js';
 import { AppError, throwIfAborted } from '../errors.js';
+import type { CallGate, CallTicket, ModelCallRoute } from './call.js';
+import { CapabilityMemory } from './capabilities.js';
+import { estimateTokens } from './cost.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
 import { echoesInjection, findInjectionPayloads, INJECTION_ECHO_PROBLEM } from './injection.js';
-import type { ModelCallEvent, ModelObserver } from './telemetry.js';
+import {
+  fromBlockedRequest,
+  ModelRefusedError,
+  readSafety,
+  refusalFor,
+  type SafetyFinding,
+} from './safety.js';
+import { toStrictSchema, type StrictSchema } from './strict-schema.js';
+import type { ModelCallEvent, ModelObserver, ModelRejectEvent } from './telemetry.js';
+import type { ModelRole } from './task.js';
 
 export interface ModelUsage {
   inputTokens: number;
@@ -29,6 +41,13 @@ export interface JsonOptions<T> {
   validate?: (value: T) => void;
   /** Maximum repair attempts after the first reply (default 2, hard cap 3). */
   repairs?: number;
+  /**
+   * How this call is routed: the deployment, sampling, time limit and retries a router chose. A client
+   * that has no use for a field leaves it alone, and a gateway that does not know the field ignores it.
+   */
+  route?: ModelCallRoute;
+  /** Asked before every provider round trip of this call; throws to stop it. */
+  gate?: CallGate | null;
 }
 
 export interface ModelGateway {
@@ -48,6 +67,8 @@ export interface ModelClientDeps {
   /** Receives one event per real provider round trip (counts and codes only). */
   observer?: ModelObserver | null;
   maxRepairs?: number;
+  /** What this process has learned about its deployments. Share one across clients so a refusal is paid for once. */
+  capabilities?: CapabilityMemory;
 }
 
 interface ChatMessage {
@@ -61,6 +82,8 @@ const MAX_TRUNCATION_RETRY_TOKENS = 16_000;
 const MAX_TRANSIENT_RETRIES = 2;
 /** Retries after HTTP 429: six attempts in all, each honoring a bounded Retry-After. */
 const MAX_THROTTLE_RETRIES = 5;
+/** How many times one call may be made again without a parameter the deployment refused. */
+const MAX_ADJUSTMENTS = 3;
 /**
  * How much of a validator's message a repair request may carry. The message is written by the
  * server and names every problem and the valid identifiers, so it needs far more room than the
@@ -77,6 +100,37 @@ interface Completion {
   inputTokens: number;
   outputTokens: number;
   tokensReported: boolean;
+  safety: readonly SafetyFinding[];
+}
+
+/** What one round trip learned before it ended, whether it ended well or not: tokens are spent either way. */
+interface Meter {
+  inputTokens: number;
+  outputTokens: number;
+  reported: boolean;
+  safety: readonly SafetyFinding[];
+}
+
+/** What a call to the provider needs besides the conversation. It changes only when a parameter is refused. */
+interface RequestPlan {
+  deployment: string | null;
+  timeoutMs: number;
+  retry: { transient: number; throttle: number };
+}
+
+interface CallPlan extends RequestPlan {
+  role: ModelRole | null;
+  /** `json_schema`: strict structured output. `json_object`: plain JSON, with the contract in the prompt. */
+  mode: 'json_schema' | 'json_object';
+  strict: StrictSchema | null;
+  temperature: number | null;
+  reasoningEffort: string | null;
+  /** Refusals seen on this call. They are remembered only once a reply shows the call went through without them. */
+  refused: {
+    schema: 'deployment' | 'schema' | null;
+    temperature: boolean;
+    reasoningEffort: boolean;
+  };
 }
 
 const systemBoundary = [
@@ -178,6 +232,7 @@ export function retryDelay(header: string | null, attempt: number): number {
 export class ModelClient implements ModelGateway {
   private calls = 0;
   private tokens: TokenProvider | null;
+  private readonly capabilities: CapabilityMemory;
 
   constructor(
     private readonly config: ProviderConfig,
@@ -187,6 +242,7 @@ export class ModelClient implements ModelGateway {
     private readonly deps: ModelClientDeps = {},
   ) {
     this.tokens = deps.tokens ?? null;
+    this.capabilities = deps.capabilities ?? new CapabilityMemory();
   }
 
   private async entraAuthorization(signal: AbortSignal): Promise<string | null> {
@@ -201,8 +257,8 @@ export class ModelClient implements ModelGateway {
     this.deps.observer?.onCall(event);
   }
 
-  private async request(body: unknown, signal: AbortSignal): Promise<unknown> {
-    const { name, baseUrl, apiKey, configured, timeoutMs } = this.config;
+  private async request(body: unknown, signal: AbortSignal, plan: RequestPlan): Promise<unknown> {
+    const { name, baseUrl, apiKey, configured } = this.config;
     if (!configured || !baseUrl || name === 'none') {
       throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.reason);
     }
@@ -213,7 +269,7 @@ export class ModelClient implements ModelGateway {
       throwIfAborted(signal);
       // Signing in is local work: the provider timeout must cover only the request itself.
       const authorization = await this.entraAuthorization(signal);
-      const timeout = AbortSignal.timeout(timeoutMs);
+      const timeout = AbortSignal.timeout(plan.timeoutMs);
       const requestSignal = AbortSignal.any([signal, timeout]);
       let response: Response;
       try {
@@ -224,7 +280,7 @@ export class ModelClient implements ModelGateway {
           headers: {
             'Content-Type': 'application/json',
             ...(apiKey
-              ? name === 'azure'
+              ? name === 'azure' || name === 'foundry'
                 ? { 'api-key': apiKey }
                 : { Authorization: `Bearer ${apiKey}` }
               : {}),
@@ -244,7 +300,7 @@ export class ModelClient implements ModelGateway {
         }
         if (error instanceof AppError) throw error;
         if (!(error instanceof TypeError) && !(error instanceof DOMException)) throw error;
-        if (transient >= MAX_TRANSIENT_RETRIES) {
+        if (transient >= plan.retry.transient) {
           throw new AppError(
             502,
             'MODEL_UNREACHABLE',
@@ -258,7 +314,7 @@ export class ModelClient implements ModelGateway {
       }
       // Per-proxy simulation makes many small calls, so a tokens-per-minute quota is throttled far
       // more often than a batched design would be; throttling gets its own, larger retry allowance.
-      if (response.status === 429 && throttled < MAX_THROTTLE_RETRIES) {
+      if (response.status === 429 && throttled < plan.retry.throttle) {
         await response.body?.cancel();
         await delay(retryDelay(response.headers.get('retry-after'), throttled), undefined, {
           signal,
@@ -266,10 +322,7 @@ export class ModelClient implements ModelGateway {
         throttled += 1;
         continue;
       }
-      if (
-        [408, 500, 502, 503, 504].includes(response.status) &&
-        transient < MAX_TRANSIENT_RETRIES
-      ) {
+      if ([408, 500, 502, 503, 504].includes(response.status) && transient < plan.retry.transient) {
         await response.body?.cancel();
         await delay(retryDelay(response.headers.get('retry-after'), transient), undefined, {
           signal,
@@ -277,7 +330,12 @@ export class ModelClient implements ModelGateway {
         transient += 1;
         continue;
       }
-      throw httpFailure(response.status, this.config, await providerErrorDetail(response));
+      throw httpFailure(
+        response.status,
+        this.config,
+        await providerErrorDetail(response),
+        name === 'foundry' ? plan.deployment : null,
+      );
     }
   }
 
@@ -305,59 +363,106 @@ export class ModelClient implements ModelGateway {
       { role: 'user', content },
     ];
     const repairs = Math.min(3, Math.max(0, options.repairs ?? this.deps.maxRepairs ?? 2));
+    const plan = this.plan(schema, options);
     let problem = '';
     let tokenBudget = maxTokens;
+    let adjustments = 0;
     for (let attempt = 0; attempt <= repairs; attempt += 1) {
-      throwIfAborted(signal);
-      this.onUsage.admit?.();
-      this.calls += 1;
-      if (this.calls > this.maxCalls)
-        throw new AppError(
-          429,
-          'MODEL_CALL_BUDGET',
-          'The model call budget for this operation was exceeded.',
-        );
-      const started = performance.now();
-      let completion: Completion;
-      try {
-        completion = await this.complete(messages, tokenBudget, signal);
-      } catch (error) {
-        if (!signal.aborted) {
-          this.observe({
+      let completion: Completion | null = null;
+      // One attempt is one reply to judge. A parameter the deployment refuses is left out and the
+      // call is made again: that round trip is admitted and counted like any other, but it does not
+      // use up a repair.
+      while (completion === null) {
+        throwIfAborted(signal);
+        this.onUsage.admit?.();
+        this.calls += 1;
+        if (this.calls > this.maxCalls)
+          throw new AppError(
+            429,
+            'MODEL_CALL_BUDGET',
+            'The model call budget for this operation was exceeded.',
+          );
+        const inputChars = messages.reduce((total, message) => total + message.content.length, 0);
+        const ticket: CallTicket | undefined = options.gate?.begin({
+          deployment: plan.deployment ?? '',
+          inputChars,
+          maxOutputTokens: tokenBudget,
+        });
+        const meter: Meter = { inputTokens: 0, outputTokens: 0, reported: false, safety: [] };
+        const structured = this.config.name === 'ollama' ? null : plan.mode;
+        const started = performance.now();
+        let reply: Completion;
+        try {
+          reply = await this.complete(messages, tokenBudget, signal, plan, meter);
+        } catch (error) {
+          const event: ModelCallEvent = {
             ok: false,
             repair: attempt > 0,
             latencyMs: performance.now() - started,
-            inputTokens: 0,
-            outputTokens: 0,
-            tokensReported: false,
+            inputTokens: meter.inputTokens,
+            outputTokens: meter.outputTokens,
+            tokensReported: meter.reported,
             errorCode: error instanceof AppError ? error.code : 'MODEL_UNEXPECTED',
-          });
+            deployment: plan.deployment,
+            role: plan.role,
+            structured,
+            safety: error instanceof ModelRefusedError ? error.findings : meter.safety,
+          };
+          if (!signal.aborted) this.observe(event);
+          ticket?.end(event, { inputTokens: estimateTokens(inputChars), outputTokens: 0 });
+          if (adjustments < MAX_ADJUSTMENTS && this.adjust(plan, error)) {
+            adjustments += 1;
+            continue;
+          }
+          // A reasoning model can spend its whole output budget thinking and write no JSON. One
+          // bounded, counted retry with a larger budget is cheaper than failing the stage.
+          if (
+            error instanceof AppError &&
+            error.code === 'MODEL_TRUNCATED' &&
+            attempt < repairs &&
+            tokenBudget < MAX_TRUNCATION_RETRY_TOKENS
+          ) {
+            tokenBudget = Math.min(MAX_TRUNCATION_RETRY_TOKENS, tokenBudget * 2);
+            break;
+          }
+          throw error;
         }
-        // A reasoning model can spend its whole output budget thinking and write no JSON. One
-        // bounded, counted retry with a larger budget is cheaper than failing the stage.
-        if (
-          error instanceof AppError &&
-          error.code === 'MODEL_TRUNCATED' &&
-          attempt < repairs &&
-          tokenBudget < MAX_TRUNCATION_RETRY_TOKENS
-        ) {
-          tokenBudget = Math.min(MAX_TRUNCATION_RETRY_TOKENS, tokenBudget * 2);
-          continue;
-        }
-        throw error;
+        completion = reply;
+        const event: ModelCallEvent = {
+          ok: true,
+          repair: attempt > 0,
+          latencyMs: performance.now() - started,
+          inputTokens: reply.inputTokens,
+          outputTokens: reply.outputTokens,
+          tokensReported: reply.tokensReported,
+          errorCode: null,
+          deployment: plan.deployment,
+          role: plan.role,
+          structured,
+          safety: reply.safety,
+        };
+        this.observe(event);
+        ticket?.end(event, {
+          inputTokens: estimateTokens(inputChars),
+          outputTokens: estimateTokens(reply.answer.length),
+        });
+        this.remember(plan);
       }
-      this.observe({
-        ok: true,
-        repair: attempt > 0,
-        latencyMs: performance.now() - started,
-        inputTokens: completion.inputTokens,
-        outputTokens: completion.outputTokens,
-        tokensReported: completion.tokensReported,
-        errorCode: null,
-      });
+      // Only a truncated reply leaves nothing to judge: the next attempt asks again with more room.
+      if (completion === null) continue;
       throwIfAborted(signal);
-      const checked = checkReply(schema, completion.answer, options.validate, injected);
+      const checked = checkReply(schema, completion.answer, options.validate, injected, {
+        normalize: plan.mode === 'json_schema' ? plan.strict?.normalize : undefined,
+        // Foundry replies are one JSON document or they are not used; older providers keep the fence strip.
+        unfence: this.config.name !== 'foundry',
+      });
       if (checked.ok) return checked.value;
+      this.deps.observer?.onReject?.({
+        reason: checked.reason,
+        repair: attempt > 0,
+        deployment: plan.deployment,
+        role: plan.role,
+      });
       problem = checked.problem;
       if (attempt < repairs) {
         messages.push(
@@ -374,6 +479,8 @@ export class ModelClient implements ModelGateway {
       outputTokens: 0,
       tokensReported: false,
       errorCode: 'MODEL_OUTPUT_INVALID',
+      deployment: plan.deployment,
+      role: plan.role,
     });
     throw new AppError(
       502,
@@ -382,11 +489,98 @@ export class ModelClient implements ModelGateway {
     );
   }
 
+  /** What this call will ask for: where it goes, in what form, and with which optional parameters. */
+  private plan<T>(schema: z.ZodType<T>, options: JsonOptions<T>): CallPlan {
+    const route = options.route;
+    const deployment = route?.deployment ?? this.config.model;
+    const foundry = this.config.name === 'foundry';
+    const known = deployment ? this.capabilities.get(deployment) : {};
+    let strict: StrictSchema | null = null;
+    if (foundry && route?.strictSchema !== false && known.jsonSchema !== false) {
+      const converted = toStrictSchema(schema, route?.task);
+      if (
+        converted.ok &&
+        !(deployment && this.capabilities.isSchemaRefused(deployment, converted.strict.name))
+      ) {
+        strict = converted.strict;
+      }
+    }
+    return {
+      deployment,
+      role: route?.role ?? null,
+      mode: strict ? 'json_schema' : 'json_object',
+      strict,
+      temperature: foundry && known.temperature !== false ? (route?.temperature ?? null) : null,
+      reasoningEffort:
+        foundry && known.reasoningEffort !== false ? (route?.reasoningEffort ?? null) : null,
+      timeoutMs: route?.timeoutMs ?? this.config.timeoutMs,
+      retry: route?.retry ?? { transient: MAX_TRANSIENT_RETRIES, throttle: MAX_THROTTLE_RETRIES },
+      refused: { schema: null, temperature: false, reasoningEffort: false },
+    };
+  }
+
+  /**
+   * A deployment that refuses one parameter is asked again without it, once per parameter: strict
+   * structured output gives way to plain JSON, and a temperature or a reasoning effort is left out.
+   * Whatever else a provider says no to is the call's failure.
+   */
+  private adjust(plan: CallPlan, error: unknown): boolean {
+    if (!(error instanceof ProviderHttpError)) return false;
+    if (error.providerStatus !== 400 && error.providerStatus !== 422) return false;
+    if (error.code !== 'MODEL_PARAMETER_UNSUPPORTED' && error.code !== 'MODEL_HTTP_ERROR') {
+      return false;
+    }
+    const { code } = error.detail;
+    const parameter = error.detail.param?.toLowerCase() ?? null;
+    if (parameter?.startsWith('temperature') && plan.temperature !== null) {
+      plan.temperature = null;
+      plan.refused.temperature = true;
+      return true;
+    }
+    if (parameter?.startsWith('reasoning') && plan.reasoningEffort !== null) {
+      plan.reasoningEffort = null;
+      plan.refused.reasoningEffort = true;
+      return true;
+    }
+    if (
+      plan.mode === 'json_schema' &&
+      (parameter === null ||
+        parameter.startsWith('response_format') ||
+        code === 'invalid_json_schema')
+    ) {
+      plan.mode = 'json_object';
+      // Only an explicit "this parameter is not supported" says the deployment never takes strict
+      // output. Anything less says only that this schema was not taken.
+      plan.refused.schema =
+        code !== null && PARAMETER_CODES.has(code) && parameter?.startsWith('response_format')
+          ? 'deployment'
+          : 'schema';
+      return true;
+    }
+    return false;
+  }
+
+  /** Once a reply has come, what was left out of the call is known to be refused, and is remembered. */
+  private remember(plan: CallPlan): void {
+    const { deployment, refused } = plan;
+    if (!deployment) return;
+    if (refused.schema === 'deployment')
+      this.capabilities.refused(deployment, { jsonSchema: false });
+    if (refused.schema === 'schema' && plan.strict) {
+      this.capabilities.schemaRefused(deployment, plan.strict.name);
+    }
+    if (refused.temperature) this.capabilities.refused(deployment, { temperature: false });
+    if (refused.reasoningEffort) this.capabilities.refused(deployment, { reasoningEffort: false });
+    plan.refused = { schema: null, temperature: false, reasoningEffort: false };
+  }
+
   /** One real provider round trip: sends the conversation and returns the model's raw reply. */
   private async complete(
     messages: ChatMessage[],
     maxTokens: number,
     signal: AbortSignal,
+    plan: CallPlan,
+    meter: Meter,
   ): Promise<Completion> {
     const raw = await this.request(
       this.config.name === 'ollama'
@@ -398,17 +592,31 @@ export class ModelClient implements ModelGateway {
             options: { num_predict: maxTokens, num_ctx: 32_768, temperature: 0.3 },
           }
         : {
-            model: this.config.model,
+            model: plan.deployment,
             messages,
-            response_format: { type: 'json_object' },
+            response_format:
+              plan.mode === 'json_schema' && plan.strict
+                ? {
+                    type: 'json_schema',
+                    json_schema: {
+                      name: plan.strict.name,
+                      strict: true,
+                      schema: plan.strict.schema,
+                    },
+                  }
+                : { type: 'json_object' },
             max_completion_tokens: maxTokens,
+            ...(plan.temperature === null ? {} : { temperature: plan.temperature }),
+            ...(plan.reasoningEffort === null ? {} : { reasoning_effort: plan.reasoningEffort }),
           },
       signal,
+      plan,
     );
     let answer: string;
     let inputTokens = 0;
     let outputTokens = 0;
     let tokensReported = false;
+    let safety: readonly SafetyFinding[] = [];
     if (this.config.name === 'ollama') {
       const parsed = ollamaResponse.safeParse(raw);
       if (!parsed.success)
@@ -421,6 +629,7 @@ export class ModelClient implements ModelGateway {
       outputTokens = parsed.data.eval_count || 0;
       tokensReported =
         parsed.data.prompt_eval_count !== undefined || parsed.data.eval_count !== undefined;
+      Object.assign(meter, { inputTokens, outputTokens, reported: tokensReported });
       this.onUsage({ inputTokens, outputTokens });
       if (parsed.data.done_reason === 'length')
         throw new AppError(
@@ -440,16 +649,16 @@ export class ModelClient implements ModelGateway {
       inputTokens = parsed.data.usage?.prompt_tokens || 0;
       outputTokens = parsed.data.usage?.completion_tokens || 0;
       tokensReported = parsed.data.usage !== undefined;
+      Object.assign(meter, { inputTokens, outputTokens, reported: tokensReported });
       this.onUsage({ inputTokens, outputTokens });
       const choice = parsed.data.choices[0];
       if (!choice) throw new Error('A validated provider response has no choice.');
-      if (choice.message.refusal || choice.finish_reason === 'content_filter') {
-        throw new AppError(
-          422,
-          'MODEL_REFUSED',
-          'The provider declined this request. Review the scenario and provider usage policy.',
-        );
-      }
+      // A refusal or a block is the provider's answer and is never read in part: whatever content
+      // came with it is dropped, and the call fails as refused.
+      const reading = readSafety(raw);
+      meter.safety = reading.findings;
+      safety = reading.findings;
+      if (reading.blocked) throw refusalFor(reading.findings);
       if (choice.finish_reason === 'length')
         throw new AppError(
           502,
@@ -458,31 +667,46 @@ export class ModelClient implements ModelGateway {
         );
       answer = choice.message.content || '';
     }
-    return { answer, inputTokens, outputTokens, tokensReported };
+    return { answer, inputTokens, outputTokens, tokensReported, safety };
   }
 }
 
-type Checked<T> = { ok: true; value: T } | { ok: false; problem: string };
+type Checked<T> =
+  { ok: true; value: T } | { ok: false; problem: string; reason: ModelRejectEvent['reason'] };
 
 function checkReply<T>(
   schema: z.ZodType<T>,
   answer: string,
   validate: ((value: T) => void) | undefined,
   injected: readonly string[] = [],
+  options: { normalize?: ((value: unknown) => unknown) | undefined; unfence?: boolean } = {},
 ): Checked<T> {
   // First, whatever the reply says: text that an embedded instruction asked for is never accepted.
-  if (echoesInjection(answer, injected)) return { ok: false, problem: INJECTION_ECHO_PROBLEM };
-  const unfenced = answer.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu, '$1');
+  if (echoesInjection(answer, injected)) {
+    return { ok: false, problem: INJECTION_ECHO_PROBLEM, reason: 'injection_echo' };
+  }
+  const unfenced =
+    options.unfence === false
+      ? answer.trim()
+      : answer.trim().replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu, '$1');
   let json: unknown;
   try {
     json = JSON.parse(unfenced);
   } catch {
-    return { ok: false, problem: 'The reply was not a single valid JSON object.' };
+    return {
+      ok: false,
+      problem: 'The reply was not a single valid JSON object.',
+      reason: 'not_json',
+    };
   }
-  const parsed = schema.safeParse(json);
+  let parsed = schema.safeParse(json);
+  // Strict mode asks for null where a property is optional. A reply is only turned back into the
+  // shape the schema expects when it is not valid as it stands, and the schema then judges it.
+  if (!parsed.success && options.normalize) parsed = schema.safeParse(options.normalize(json));
   if (!parsed.success) {
     return {
       ok: false,
+      reason: 'schema',
       problem: parsed.error.issues
         .slice(0, 5)
         .map((issue) => `${issue.path.join('.') || 'reply'}: ${issue.message}`)
@@ -494,7 +718,7 @@ function checkReply<T>(
       validate(parsed.data);
     } catch (error) {
       if (error instanceof AppError && error.code === 'MODEL_OUTPUT_INVALID') {
-        return { ok: false, problem: error.message };
+        return { ok: false, problem: error.message, reason: 'validation' };
       }
       throw error;
     }
@@ -569,7 +793,9 @@ export function parseProviderError(raw: string): ProviderErrorDetail {
   }
   const error = fields(fields(parsed).error);
   const inner = fields(error.innererror);
-  const filtered = Object.entries(fields(inner.content_filter_result))
+  const filtered = Object.entries(
+    fields(inner.content_filter_result ?? inner.content_filter_results),
+  )
     .filter(([, result]) => fields(result).filtered === true)
     .flatMap(([category]) => identifier(category) ?? [])
     .slice(0, 6);
@@ -603,15 +829,35 @@ export async function providerErrorDetail(response: Response): Promise<ProviderE
   }
 }
 
+/**
+ * A refusal of a request by the provider, with what its body said in machine codes. The client reads
+ * `detail` to tell a parameter the deployment refuses from a request that is wrong for another reason.
+ */
+export class ProviderHttpError extends AppError {
+  constructor(
+    statusCode: number,
+    code: string,
+    message: string,
+    public readonly providerStatus: number,
+    public readonly detail: ProviderErrorDetail,
+  ) {
+    super(statusCode, code, message);
+    this.name = 'ProviderHttpError';
+  }
+}
+
 /** Maps a non-retryable HTTP status to an actionable error without exposing the provider body. */
 export function httpFailure(
   status: number,
   config: ProviderConfig,
   detail: ProviderErrorDetail = NO_DETAIL,
+  deployment: string | null = null,
 ): AppError {
   const tagged = detail.code ? ` (provider code: ${detail.code})` : '';
+  const failed = (statusCode: number, code: string, message: string) =>
+    new ProviderHttpError(statusCode, code, message, status, detail);
   if (status === 429) {
-    return new AppError(
+    return failed(
       429,
       'MODEL_RATE_LIMIT',
       `The model provider is rate limiting requests${tagged}. Wait and retry, or raise the deployment quota.`,
@@ -619,7 +865,7 @@ export function httpFailure(
   }
   if (status === 401 || status === 403) {
     const entra = config.auth === 'entra';
-    return new AppError(
+    return failed(
       502,
       'MODEL_AUTH',
       status === 401
@@ -632,24 +878,21 @@ export function httpFailure(
     );
   }
   if (status === 404) {
-    return new AppError(
+    return failed(
       502,
       'MODEL_NOT_FOUND',
-      `The endpoint or deployment was not found${tagged}. Check the endpoint and that AI_MODEL is the exact deployment name.`,
+      deployment
+        ? `The endpoint or the deployment "${deployment}" was not found${tagged}. Check the endpoint and that the deployment name is exact (AI_MODEL, or the FOUNDRY_DEPLOYMENT_* of the role).`
+        : `The endpoint or deployment was not found${tagged}. Check the endpoint and that AI_MODEL is the exact deployment name.`,
     );
   }
   if (status === 400 || status === 422) {
     const codes = [detail.code, detail.innerCode];
     if (codes.some((code) => code !== null && FILTER_CODES.has(code))) {
-      const flagged = detail.filtered.length > 0 ? ` (flagged: ${detail.filtered.join(', ')})` : '';
-      return new AppError(
-        422,
-        'MODEL_REFUSED',
-        `The provider's content filter blocked this request${flagged}. No fallback was used. Review the scenario text or the deployment's content-filter policy.`,
-      );
+      return refusalFor(fromBlockedRequest(detail.filtered));
     }
     if (detail.code === 'context_length_exceeded') {
-      return new AppError(
+      return failed(
         413,
         'MODEL_CONTEXT_LIMIT',
         'The request exceeded the model context window. Reduce the source or persona size.',
@@ -657,14 +900,14 @@ export function httpFailure(
     }
     if (detail.code !== null && PARAMETER_CODES.has(detail.code)) {
       const parameter = detail.param ? ` (${detail.param})` : '';
-      return new AppError(
+      return failed(
         502,
         'MODEL_PARAMETER_UNSUPPORTED',
         `The deployment rejected a request parameter${parameter}. Use a Chat Completions model that supports JSON output and max_completion_tokens.`,
       );
     }
   }
-  return new AppError(
+  return failed(
     502,
     'MODEL_HTTP_ERROR',
     `Model provider returned HTTP ${status}${tagged}. Check the deployment/model name, quota and JSON Chat Completions compatibility. Provider response bodies are not exposed.`,

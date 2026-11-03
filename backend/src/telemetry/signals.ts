@@ -38,6 +38,14 @@ interface Instruments {
   modelCalls: Counter;
   modelLatency: Histogram;
   modelTokens: Counter;
+  modelTaskDuration: Histogram;
+  modelCost: Counter;
+  modelSchemaFailures: Counter;
+  modelFallbacks: Counter;
+  modelSafetyBlocks: Counter;
+  modelSafetySignals: Counter;
+  modelCacheHits: Counter;
+  modelCacheMisses: Counter;
   grounding: Counter;
   gauges: ObservableGauge[];
 }
@@ -132,7 +140,36 @@ function createInstruments(meter: Meter): Instruments {
       unit: 'ms',
     }),
     modelTokens: meter.createCounter('swarm.model.tokens', {
-      description: 'Tokens the provider reported, by direction',
+      description: 'Tokens the provider reported, by direction, role and deployment',
+    }),
+    modelTaskDuration: meter.createHistogram('swarm.model.task.duration', {
+      description: 'Time a structured model task took, whether a model or the rules answered it',
+      unit: 'ms',
+    }),
+    modelCost: meter.createCounter('swarm.model.cost.estimated_usd', {
+      description:
+        'ESTIMATED model spend in US dollars, from the operator’s price table; never a bill, and absent for a deployment with no price',
+      unit: 'USD',
+    }),
+    modelSchemaFailures: meter.createCounter('swarm.model.schema_failures', {
+      description:
+        'Replies that failed the schema or the server’s checks, by deployment and reason',
+    }),
+    modelFallbacks: meter.createCounter('swarm.model.fallbacks', {
+      description: 'Tasks answered by rules because a model could not be used, by failure code',
+    }),
+    modelSafetyBlocks: meter.createCounter('swarm.model.safety_blocks', {
+      description: 'Calls the provider refused or its content filter blocked, by kind',
+    }),
+    modelSafetySignals: meter.createCounter('swarm.model.safety_signals', {
+      description:
+        'Jailbreak, injection or protected-material detections that did not block a call',
+    }),
+    modelCacheHits: meter.createCounter('swarm.model.cache.hits', {
+      description: 'Model task answers served from the tenant-scoped cache',
+    }),
+    modelCacheMisses: meter.createCounter('swarm.model.cache.misses', {
+      description: 'Model tasks that looked in the cache and found nothing usable',
     }),
     grounding: meter.createCounter('swarm.grounding.statements', {
       description: 'Report statements by the support class the grounding review gave them',
@@ -176,6 +213,12 @@ export interface ModelCallSignal {
   inputTokens: number;
   outputTokens: number;
   errorCode: string | null;
+  /** The task's role, when the call was made for one. */
+  role?: string | null;
+  /** `json_schema` or `json_object`: which structured output was asked for. */
+  structured?: string | null;
+  /** ESTIMATED dollars for the tokens the provider reported; absent when the deployment has no price. */
+  estimatedUsd?: number | null;
 }
 
 /**
@@ -249,6 +292,8 @@ export const signals = {
       'swarm.model.provider': input.provider,
       'swarm.model.name': input.model,
       'swarm.model.outcome': outcome,
+      ...(input.role ? { 'swarm.model.role': input.role } : {}),
+      ...(input.structured ? { 'swarm.model.structured': input.structured } : {}),
       ...(input.errorCode ? { 'swarm.error.code': input.errorCode } : {}),
     });
     const set = instruments();
@@ -258,7 +303,11 @@ export const signals = {
       safeAttributes({ 'swarm.model.provider': input.provider, 'swarm.model.outcome': outcome }),
     );
     if (input.ok) {
-      const base = { 'swarm.model.provider': input.provider, 'swarm.model.name': input.model };
+      const base = {
+        'swarm.model.provider': input.provider,
+        'swarm.model.name': input.model,
+        ...(input.role ? { 'swarm.model.role': input.role } : {}),
+      };
       set.modelTokens.add(
         input.inputTokens,
         safeAttributes({ ...base, 'swarm.model.direction': 'input' }),
@@ -267,7 +316,86 @@ export const signals = {
         input.outputTokens,
         safeAttributes({ ...base, 'swarm.model.direction': 'output' }),
       );
+      if (typeof input.estimatedUsd === 'number') {
+        set.modelCost.add(input.estimatedUsd, safeAttributes(base));
+      }
     }
+  },
+
+  /** A structured task has ended: a model answered it, or rules did. */
+  modelTask(input: {
+    role: string;
+    task: string;
+    source: 'model' | 'fallback' | 'refused';
+    deployment: string | null;
+    failureCode: string | null;
+    durationMs: number;
+  }): void {
+    const set = instruments();
+    set.modelTaskDuration.record(
+      input.durationMs,
+      safeAttributes({
+        'swarm.model.role': input.role,
+        'swarm.model.task': input.task,
+        'swarm.model.source': input.source,
+        ...(input.deployment ? { 'swarm.model.name': input.deployment } : {}),
+      }),
+    );
+    // Rules that were chosen (no model configured) are not a fallback; rules that stood in for a model are.
+    if (input.source === 'fallback' && input.failureCode) {
+      set.modelFallbacks.add(
+        1,
+        safeAttributes({
+          'swarm.model.role': input.role,
+          'swarm.model.task': input.task,
+          'swarm.error.code': input.failureCode,
+        }),
+      );
+    }
+  },
+
+  /** A reply that the schema or the server's checks refused. */
+  modelSchemaFailure(input: {
+    reason: string;
+    role: string | null;
+    deployment: string | null;
+    repair: boolean;
+  }): void {
+    instruments().modelSchemaFailures.add(
+      1,
+      safeAttributes({
+        'swarm.model.reason': input.reason,
+        'swarm.model.repair': input.repair,
+        ...(input.role ? { 'swarm.model.role': input.role } : {}),
+        ...(input.deployment ? { 'swarm.model.name': input.deployment } : {}),
+      }),
+    );
+  },
+
+  /** What the provider's content safety said: a block, or a detection that let the call through. */
+  modelSafety(input: {
+    kind: string;
+    blocked: boolean;
+    role: string | null;
+    deployment: string | null;
+  }): void {
+    const attributes = safeAttributes({
+      'swarm.model.safety': input.kind,
+      ...(input.role ? { 'swarm.model.role': input.role } : {}),
+      ...(input.deployment ? { 'swarm.model.name': input.deployment } : {}),
+    });
+    const set = instruments();
+    (input.blocked ? set.modelSafetyBlocks : set.modelSafetySignals).add(1, attributes);
+  },
+
+  /** A cache lookup that could have saved a call. */
+  modelCache(input: { hit: boolean; role: string; task: string }): void {
+    const attributes = safeAttributes({
+      'swarm.model.role': input.role,
+      'swarm.model.task': input.task,
+    });
+    const set = instruments();
+    (input.hit ? set.modelCacheHits : set.modelCacheMisses).add(1, attributes);
   },
 
   grounding(byClass: Readonly<Record<string, number>>): void {
