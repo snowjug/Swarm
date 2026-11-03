@@ -1,4 +1,4 @@
-import { validateUrl, type ValidatedUrl } from '../../ingest/url/policy.js';
+import { classifyAddress, validateUrl, type ValidatedUrl } from '../../ingest/url/policy.js';
 import { UrlFailure } from '../../ingest/url/failure.js';
 import { robotsOrigin } from '../../ingest/url/fetcher.js';
 import type { ExtractedDocument } from '../extract/index.js';
@@ -18,8 +18,9 @@ export type Vetted = { ok: true; validated: ValidatedUrl } | { ok: false; verdic
 /**
  * Checks an address as written, before it is queued and again before anything is fetched: its scheme
  * (https unless the crawl reads http), user name, host, port and every other rule of the address
- * policy. A port other than the standard ones is read only when the fetcher was told to allow it. This
- * is the same check the fetcher makes; making it here too turns an address away before it takes a place.
+ * policy, and an IP address written out must be a public one. A port other than the standard ones is
+ * read only when the fetcher was told to allow it. The fetcher makes the same checks; making them here
+ * too turns an address away before it takes a place, and keeps a fetcher that is not this one honest.
  */
 export function vet(run: CrawlRun, address: string): Vetted {
   try {
@@ -31,6 +32,15 @@ export function vet(run: CrawlRun, address: string): Vetted {
     if (explicit !== '' && !run.extraPorts.has(Number(explicit))) {
       const failure = new UrlFailure('port', `Port ${explicit} is not one that may be read.`);
       return { ok: false, verdict: judge(failure, { cancelled: false, now: run.deps.now() }) };
+    }
+    if (validated.ipLiteral) {
+      const answer = classifyAddress(validated.hostname);
+      if (!answer.allowed) {
+        const failure = new UrlFailure('blocked', 'The address is not a public address.', {
+          address: answer.reason,
+        });
+        return { ok: false, verdict: judge(failure, { cancelled: false, now: run.deps.now() }) };
+      }
     }
     return { ok: true, validated };
   } catch (error) {

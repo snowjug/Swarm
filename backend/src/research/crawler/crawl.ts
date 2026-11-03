@@ -1,16 +1,16 @@
 import type { CrawlResult, CrawlDeps, CrawlInput } from './types.js';
-import type { ResearchStopReason } from '../../../../shared/research.js';
+import { researchBudgetSchema, type ResearchStopReason } from '../../../../shared/research.js';
 import { admitSeeds, refuse } from './follow.js';
 import type { Candidate } from './frontier.js';
 import { alreadyRead, circuitOpen, domainLimit } from './errors.js';
-import { CrawlRun } from './run.js';
+import { CrawlRun, SMALLEST_ROOM } from './run.js';
 import { readAddress } from './task.js';
-
-/** The least room a page may be given in the size limit that is left; below it there is no room for a page. */
-const SMALLEST_ROOM = 1_000;
 
 /** The kinds of stop at which what is being read is let go of; for every other, what is begun is finished. */
 const ABORTS_WORK: ReadonlySet<ResearchStopReason> = new Set(['cancelled', 'time-limit']);
+
+/** How long what was told to stop is given to end before the crawl returns without it, in milliseconds. */
+const GRACE_MS = 2_000;
 
 /**
  * Turns an address away before it takes a place: a site the crawl has read as many of as it may, a
@@ -175,27 +175,40 @@ async function loop(run: CrawlRun): Promise<void> {
       run.stop = run.checkStops();
       if (run.stop) break;
       start(run, active);
-      if (active.size === 0) {
-        if (run.frontier.size === 0) {
-          run.stop = exhausted(run);
-          break;
-        }
-        const soonest = earliestReady(run);
-        if (!Number.isFinite(soonest)) {
-          run.stop = exhausted(run);
-          break;
-        }
-        await run.deps.sleep(Math.max(1, soonest), run.signal);
-        continue;
+      if (active.size === 0 && (run.frontier.size === 0 || !Number.isFinite(earliestReady(run)))) {
+        run.stop = exhausted(run);
+        break;
       }
       await wait(run, active);
     }
   } catch (error) {
-    if (!run.signal.aborted) throw error;
+    if (!run.signal.aborted) {
+      // Something the caller supplied failed: what is being read is let go of, and the failure is passed on.
+      run.abort.abort(error);
+      await ended(run, active);
+      throw error;
+    }
     run.stop ??= run.input.signal.aborted ? 'cancelled' : 'time-limit';
   }
   if (run.stop && ABORTS_WORK.has(run.stop)) run.abort.abort(new Error('The crawl has ended.'));
-  await Promise.allSettled([...active]);
+  await ended(run, active);
+}
+
+/**
+ * Waits for what is being read to end. It ends by itself within its own time limits, or at once when it
+ * was told to stop; a fetcher that does neither is not waited for beyond a grace period, so that a stuck
+ * request cannot hold up the end of a crawl.
+ */
+async function ended(run: CrawlRun, active: ReadonlySet<Promise<void>>): Promise<void> {
+  if (active.size === 0) return;
+  const patience = run.signal.aborted ? GRACE_MS : run.tuning.requestTimeoutMs + GRACE_MS;
+  const wake = new AbortController();
+  const late = run.deps.sleep(patience, wake.signal).catch(() => undefined);
+  try {
+    await Promise.race([Promise.allSettled([...active]), late]);
+  } finally {
+    wake.abort();
+  }
 }
 
 /**
@@ -206,18 +219,25 @@ async function loop(run: CrawlRun): Promise<void> {
  *
  * It reads no clock and no random number of its own: time, waiting, jitter and the fetcher are
  * `deps`. A crawl given the same fetcher, the same clock and the same numbers does the same things.
+ * It throws only for a budget that is not valid, or when something the caller supplied (`shouldStop`,
+ * the pause gate) throws; nothing a site does ends it that way.
  */
 export async function crawl(input: CrawlInput, deps: CrawlDeps): Promise<CrawlResult> {
-  const run = new CrawlRun(input, deps);
-  admitSeeds(run);
-  await loop(run);
-  const reason = run.stop ?? 'frontier-exhausted';
-  run.used.elapsedMs = run.elapsed();
-  run.emit({ type: 'budget-stop', reason });
-  return {
-    pages: run.pages,
-    sources: run.sources,
-    stoppedBecause: reason,
-    used: run.used,
-  };
+  const budget = researchBudgetSchema.parse(input.budget);
+  const run = new CrawlRun({ ...input, budget }, deps);
+  try {
+    admitSeeds(run);
+    await loop(run);
+    const reason = run.stop ?? 'frontier-exhausted';
+    run.used.elapsedMs = run.elapsed();
+    run.emit({ type: 'budget-stop', reason });
+    return {
+      pages: [...run.pages],
+      sources: [...run.sources],
+      stoppedBecause: reason,
+      used: { ...run.used },
+    };
+  } finally {
+    run.close();
+  }
 }

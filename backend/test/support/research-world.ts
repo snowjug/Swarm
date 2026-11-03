@@ -14,6 +14,44 @@ import type {
 } from '../../src/research/crawler/types.js';
 import { crawl } from '../../src/research/crawler/crawl.js';
 import { DEFAULT_RESEARCH_BUDGET, type ResearchBudget } from '../../../shared/research.js';
+import { prose, sitePage } from './research-pages.js';
+
+export const A = 'https://a.example.com';
+export const B = 'https://b.example.org';
+
+export type Link = NonNullable<Parameters<typeof sitePage>[0]['links']>[number];
+
+/** A page of the fixture site with its own prose, linking to `links`. */
+export const htmlPage = (title: string, seed: number, links: Link[] = [], head = ''): Reply => ({
+  type: 'text/html',
+  body: sitePage({ title, paragraphs: prose(seed), links, head }),
+});
+
+/** A start page that links to `count` pages, `/p0` to `/p{count - 1}`, each with prose of its own. */
+export function fan(count: number, host = A, paragraphs = 3): Record<string, Route> {
+  const routes: Record<string, Route> = {
+    [`${host}/`]: htmlPage(
+      'Home',
+      1,
+      Array.from({ length: count }, (_, index): Link => [`/p${index}`, `Page ${index}`]),
+    ),
+  };
+  for (let index = 0; index < count; index += 1) {
+    routes[`${host}/p${index}`] = {
+      type: 'text/html',
+      body: sitePage({
+        title: `P${index}`,
+        paragraphs: prose(100 + index, paragraphs),
+      }),
+    };
+  }
+  return routes;
+}
+
+export const seedOf = (
+  url: string,
+  discoveredBy: CrawlInput['seeds'][number]['discoveredBy'] = 'user-url',
+): CrawlInput['seeds'][number] => ({ url, discoveredBy });
 
 interface Timer {
   at: number;
@@ -142,6 +180,11 @@ export class FakeNetwork implements PageFetcher {
   maxOpen = 0;
   maxOpenToHost = 0;
 
+  /** How many requests are open now. */
+  get inFlight(): number {
+    return this.open;
+  }
+
   constructor(
     private readonly clock: VirtualClock,
     private readonly routes: Record<string, Route>,
@@ -184,6 +227,7 @@ export class FakeNetwork implements PageFetcher {
       const reply = this.reply(url);
       if (reply.hang) {
         await new Promise<never>((_resolve, reject) => {
+          if (request.signal.aborted) reject(request.signal.reason);
           request.signal.addEventListener('abort', () => reject(request.signal.reason), {
             once: true,
           });
@@ -310,11 +354,19 @@ export interface TrialOptions {
   random?: () => number;
   deps?: Partial<CrawlDeps>;
   allowedPorts?: readonly number[];
+  /** A clock the test made, when it needs to give it to something it passes in. */
+  clock?: VirtualClock;
 }
 
-/** Runs a crawl over a table of pages on a clock of its own, and returns what it did. */
-export async function trial(routes: Record<string, Route>, options: TrialOptions): Promise<Trial> {
-  const clock = new VirtualClock();
+export interface Failed {
+  error: unknown;
+  events: CrawlEvent[];
+  network: FakeNetwork;
+  clock: VirtualClock;
+}
+
+function prepare(routes: Record<string, Route>, options: TrialOptions) {
+  const clock = options.clock ?? new VirtualClock();
   const network = new FakeNetwork(
     clock,
     routes,
@@ -345,6 +397,26 @@ export async function trial(routes: Record<string, Route>, options: TrialOptions
       ...options.deps?.extractLimits,
     },
   };
+  return { clock, network, events, input, deps };
+}
+
+/** Runs a crawl over a table of pages on a clock of its own, and returns what it did. */
+export async function trial(routes: Record<string, Route>, options: TrialOptions): Promise<Trial> {
+  const { clock, network, events, input, deps } = prepare(routes, options);
   const result = await drive(clock, crawl(input, deps));
   return { result, events, network, clock };
+}
+
+/** As `trial`, for a crawl that is expected to throw: what it threw, and what was left of the world. */
+export async function failedTrial(
+  routes: Record<string, Route>,
+  options: TrialOptions,
+): Promise<Failed> {
+  const { clock, network, events, input, deps } = prepare(routes, options);
+  try {
+    await drive(clock, crawl(input, deps));
+  } catch (error) {
+    return { error, events, network, clock };
+  }
+  throw new Error('The crawl was expected to throw.');
 }

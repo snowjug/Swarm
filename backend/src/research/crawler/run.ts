@@ -2,6 +2,7 @@ import type {
   ResearchSource,
   ResearchStopReason,
   ResearchUsed,
+  RobotsDecision,
 } from '../../../../shared/research.js';
 import type { RobotsCache } from '../../ingest/url/fetcher.js';
 import type { UrlPolicy } from '../../ingest/url/policy.js';
@@ -25,6 +26,9 @@ import {
   type CrawlTuning,
 } from './types.js';
 import { registrableDomain } from './urls.js';
+
+/** The least room a page may be given in the size limit that is left; below it there is no room for a page. */
+export const SMALLEST_ROOM = 1_000;
 
 /** What an address is, for the record of it: where it came from, before anything is known of the page. */
 export interface Origin {
@@ -117,6 +121,7 @@ export class CrawlRun {
   /** The sites a person named, or added: pages on them are the primary source. */
   readonly named: Set<string>;
   stop: ResearchStopReason | null = null;
+  closed = false;
   private readonly ids = new Set<string>();
   private pdfChain: Promise<unknown> = Promise.resolve();
 
@@ -155,7 +160,13 @@ export class CrawlRun {
   }
 
   emit(body: CrawlEventBody): void {
-    this.reporter.emit(body);
+    if (!this.closed) this.reporter.emit(body);
+  }
+
+  /** Ends the crawl for good: nothing that is still running reports or records anything after it, and it is told to stop. */
+  close(): void {
+    this.closed = true;
+    if (!this.abort.signal.aborted) this.abort.abort(new Error('The crawl has ended.'));
   }
 
   /** What a site asks to be left between requests, as it is applied: the larger of the budget's delay and its own, within a cap. */
@@ -182,8 +193,24 @@ export class CrawlRun {
       source = buildSource({ ...draft, salt }, key);
     }
     this.ids.add(source.id);
-    if (this.sources.length < this.tuning.maxSources) this.sources.push(source);
+    if (this.sources.length < this.tuning.maxSources && !this.closed) this.sources.push(source);
     return source;
+  }
+
+  /** What robots.txt said about an address, when it was asked: an address that failed after that was still one it allowed. */
+  robotsSaid(address: string): RobotsDecision {
+    let url: URL;
+    try {
+      url = new URL(address);
+    } catch {
+      return 'skipped';
+    }
+    const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+    const answer = this.robots.get(`${url.protocol}//${url.hostname}:${port}`);
+    if (answer === undefined) return 'skipped';
+    if (answer === 'absent') return 'absent';
+    if (answer === 'unavailable') return 'disallowed';
+    return answer.allows(`${url.pathname}${url.search}`) ? 'allowed' : 'disallowed';
   }
 
   /** The record of an address that was refused, failed, set aside or not tried. */
@@ -201,7 +228,7 @@ export class CrawlRun {
         relevance: whyRead(origin),
         depth: origin.depth,
         discoveredBy: origin.discoveredBy,
-        robots: verdict.robots ?? 'skipped',
+        robots: verdict.robots ?? this.robotsSaid(origin.url),
         outcome: verdict.outcome,
         quarantine: verdict.quarantine,
         failure: { class: verdict.errorClass, message: verdict.message },
@@ -234,6 +261,10 @@ export class CrawlRun {
     if (this.elapsed() >= budget.maxElapsedMs) return 'time-limit';
     if (this.used.pages >= budget.maxPages) return 'page-limit';
     if (this.used.bytes >= budget.maxTotalBytes || this.byteLimitMet) return 'byte-limit';
+    // With nothing being read, what is left is too little for a page, so nothing more can be read.
+    if (this.reservedBytes === 0 && budget.maxTotalBytes - this.used.bytes < SMALLEST_ROOM) {
+      return 'byte-limit';
+    }
     if (this.used.failures > budget.maxFailedRequests) return 'failure-limit';
     if (
       this.used.pages >= this.tuning.minPagesForRepeats &&

@@ -1,25 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { researchSourceSchema } from '../../shared/research.js';
 import { UrlFailure } from '../src/ingest/url/failure.js';
-import type { CrawlEvent, CrawlInput } from '../src/research/crawler/types.js';
+import type { CrawlEvent } from '../src/research/crawler/types.js';
 import { prose, sitePage } from './support/research-pages.js';
-import { trial, type Reply, type Route, type Trial } from './support/research-world.js';
+import {
+  A,
+  B,
+  htmlPage as page,
+  seedOf as seed,
+  trial,
+  type Link,
+  type Reply,
+  type Route,
+  type Trial,
+} from './support/research-world.js';
 
-const A = 'https://a.example.com';
-const B = 'https://b.example.org';
-
-type Link = NonNullable<Parameters<typeof sitePage>[0]['links']>[number];
-const page = (title: string, seed: number, links: Link[] = [], head = ''): Reply => ({
-  type: 'text/html',
-  body: sitePage({ title, paragraphs: prose(seed), links, head }),
-});
-const seed = (
-  url: string,
-  discoveredBy: CrawlInput['seeds'][number]['discoveredBy'] = 'user-url',
-) => ({
-  url,
-  discoveredBy,
-});
 const outcomes = (done: Trial) =>
   done.result.sources.map(({ requestedUrl, outcome }) => `${outcome} ${requestedUrl}`);
 const eventsOf = (done: Trial, type: CrawlEvent['type']) =>
@@ -374,18 +369,17 @@ describe('every address that was tried has a record', () => {
     };
     const first = await trial(routes, { input });
     const second = await trial(routes, { input });
-    expect(outcomes(first)).toEqual(
-      [
-        'blocked ftp://a.example.com/file',
-        'blocked https://a.example.com/',
-        `used ${A}/`,
-        `used ${A}/ok`,
-        `quarantined ${A}/empty`,
-        `failed ${A}/gone`,
-        `failed ${A}/boom`,
-        `blocked ${A}/private/page`,
-      ].filter((line, _index, all) => all.includes(line)) && outcomes(first),
-    );
+    expect(outcomes(first)).toEqual([
+      'blocked ftp://a.example.com/file',
+      'blocked https://a.example.com/',
+      `used ${A}/`,
+      'blocked http://169.254.169.254/latest/meta-data/',
+      `used ${A}/ok`,
+      `quarantined ${A}/empty`,
+      `failed ${A}/gone`,
+      `failed ${A}/boom`,
+      `blocked ${A}/private/page`,
+    ]);
     const byOutcome = Object.fromEntries(
       first.result.sources.map((source) => [source.requestedUrl, source]),
     );
@@ -406,6 +400,7 @@ describe('every address that was tried has a record', () => {
     expect(byOutcome[`${A}/gone`]).toMatchObject({
       outcome: 'failed',
       httpStatus: 404,
+      robots: 'allowed',
       failure: { class: 'http-status' },
     });
     expect(byOutcome[`${A}/boom`]).toMatchObject({

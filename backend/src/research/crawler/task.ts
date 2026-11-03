@@ -246,6 +246,7 @@ async function failed(
   const worthIt =
     wait !== null &&
     !run.signal.aborted &&
+    run.stop === null &&
     run.used.failures <= budget.maxFailedRequests &&
     run.elapsed() + wait < budget.maxElapsedMs;
   if (worthIt) {
