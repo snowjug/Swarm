@@ -22,7 +22,7 @@ export const FOLLOWS = String.raw`(?=\s*(?:$|[,.;:?!)"]|'s\b)|\s+(?:${CLOSED})\b
 export const MODIFIERS = String.raw`(?:(?!(?:${CLOSED}|${PRONOUNS})\b)[\p{L}-]+\s+){0,2}?`;
 
 export const ROLES =
-  'employee|worker|staff member|team member|colleague|manager|supervisor|intern|apprentice|contractor|assistant|applicant|candidate|recruit|patient|customer|client|borrower|account holder|claimant|tenant|landlord|defendant|plaintiff|suspect|prisoner|inmate|driver|pilot|operator|nurse|doctor|teacher|student|pupil|child|person|individual|user|resident|citizen|passenger|player|athlete|mother|father|parent|son|daughter|wife|husband|brother|sister|friend|neighbou?r|boss|employer|lawyer|solicitor|therapist|ceo|cfo|cto|coo|director|executive|chair|president|principal|engineer|developer|analyst|accountant|clerk|cashier|secretary|receptionist|consultant|advis[eo]r|specialist|officer|official|leader|founder|owner|technician|mechanic|guard|cleaner|carer|surgeon|physician|pharmacist|paramedic|midwife|dentist';
+  'employee|worker|staff member|team member|team lead|tech lead|line manager|colleague|manager|supervisor|intern|apprentice|contractor|assistant|applicant|candidate|recruit|patient|customer|client|borrower|account holder|claimant|tenant|landlord|defendant|plaintiff|suspect|prisoner|inmate|driver|pilot|operator|nurse|doctor|teacher|student|pupil|child|person|individual|user|resident|citizen|passenger|player|athlete|mother|father|parent|son|daughter|wife|husband|brother|sister|friend|neighbou?r|boss|employer|lawyer|solicitor|therapist|ceo|cfo|cto|coo|director|executive|chair|president|principal|engineer|developer|analyst|accountant|clerk|cashier|secretary|receptionist|consultant|advis[eo]r|specialist|officer|official|leader|founder|owner|technician|mechanic|guard|cleaner|carer|surgeon|physician|pharmacist|paramedic|midwife|dentist';
 export const PERSON_PLURAL = `(?:${ROLES})s|children|people|staff|persons|women|men`;
 /** The people a decision is made about when it is said in the definite: “reject the applicant”, “admit the patient”. */
 export const DECIDED_ROLES =
@@ -67,7 +67,7 @@ export const NOT_NAMES: ReadonlySet<string> = new Set(
 /** What is done to a person, by domain: the act that makes a clause about a matter of that domain. */
 export const ACT_VERBS: Record<HighStakesDomain, string> = {
   employment:
-    'fir(?:e|es|ed|ing)|dismiss(?:es|ed|ing)?|sack(?:s|ed|ing)?|demot(?:e|es|ed|ing)|hir(?:e|es|ed|ing)|rehir(?:e|es|ed|ing)|disciplin(?:e|es|ed|ing)|suspend(?:s|ed|ing)?|terminat(?:e|es|ed|ing)',
+    'fir(?:e|es|ed|ing)|dismiss(?:es|ed|ing)?|sack(?:s|ed|ing)?|demot(?:e|es|ed|ing)|hir(?:e|es|ed|ing)|rehir(?:e|es|ed|ing)|disciplin(?:e|es|ed|ing)|suspend(?:s|ed|ing)?|terminat(?:e|es|ed|ing)|lay(?:s|ing)? off|laid off',
   credit: 'lend(?:s|ing)?|underwrit(?:e|es|ing)',
   legal:
     'su(?:e|es|ed|ing)|prosecut(?:e|es|ed|ing)|convict(?:s|ed|ing)?|sentenc(?:e|es|ed|ing)|arrest(?:s|ed|ing)?|evict(?:s|ed|ing)?|deport(?:s|ed|ing)?',
@@ -75,7 +75,7 @@ export const ACT_VERBS: Record<HighStakesDomain, string> = {
   safety: 'evacuat(?:e|es|ed|ing)',
 };
 export const NAMING_VERBS = Object.values(ACT_VERBS).join('|');
-export const STRONG_VERBS = `${NAMING_VERBS}|treat(?:s|ed|ing)?|admit(?:s|ted|ting)?|discharg(?:e|es|ed|ing)|promot(?:e|es|ed|ing)`;
+export const STRONG_VERBS = `${NAMING_VERBS}|treat(?:s|ed|ing)?|admit(?:s|ted|ting)?|discharg(?:e|es|ed|ing)|promot(?:e|es|ed|ing)|replac(?:e|es|ed|ing)`;
 /** Verbs that name no domain by themselves but say that a person is being decided about. */
 export const DECIDING_VERBS =
   'promot(?:e|es|ed|ing)|approv(?:e|es|ed|ing)|declin(?:e|es|ed|ing)|den(?:y|ies|ied|ying)|reject(?:s|ed|ing)?|accept(?:s|ed|ing)?|rank(?:s|ed|ing)?|shortlist(?:s|ed|ing)?|select(?:s|ed|ing)?|choos(?:e|es|ing)|pick(?:s|ed|ing)?|scor(?:e|es|ed|ing)|rat(?:e|es|ed|ing)|screen(?:s|ed|ing)?|vet(?:s|ted|ting)?|assess(?:es|ed|ing)?|evaluat(?:e|es|ed|ing)|clear(?:s|ed|ing)?|certif(?:y|ies|ied|ying)|admit(?:s|ted|ting)?|discharg(?:e|es|ed|ing)|treat(?:s|ed|ing)?|offer(?:s|ed|ing)?|grant(?:s|ed|ing)?|give|gives|gave|giving|ground(?:s|ed|ing)?|put|puts|putting|place|places|placing';
@@ -86,7 +86,7 @@ export const OWN_MATTERS =
   'loan|mortgage|credit|overdraft|treatment|diagnosis|dosage|dose|medication|medicine|prescription|symptoms?|surgery|therapy|injury|lawsuit|case|appeal|sentence|bail|contract|employment|promotion|salary|pay|performance review|dismissal|application|claim|account|licen[cs]e|visa|custody|divorce|condition';
 /** The ones that are a person’s even beside a single capitalised word: “Maria’s mortgage”. */
 export const PERSONAL_MATTERS =
-  'loan|mortgage|overdraft|treatment|diagnosis|dosage|dose|medication|prescription|symptoms?|surgery|therapy|injury|lawsuit|appeal|sentence|bail|promotion|salary|dismissal|custody|divorce|visa';
+  'loan|mortgage|overdraft|treatment|diagnosis|dosage|dose|medication|prescription|symptoms?|surgery|therapy|injury|lawsuit|appeal|sentence|bail|promotion|salary|dismissal|employment|application|custody|divorce|visa';
 /** What a person is said to be when a decision about them is asked: “is she eligible”, “is he fit to”. */
 export const STATES =
   'fit|eligible|safe|qualified|suitable|competent|capable|cleared|entitled|allowed|permitted|able';
@@ -95,7 +95,7 @@ export const SELF_VERBS =
   'sue|take|get|quit|resign|accept|decline|refuse|stop|start|borrow|refinance|settle|plead|appeal|apply for|sign|leave|switch|use';
 
 const DECISION_WORDS =
-  'rank(?:s|ed|ing)?|reject(?:s|ed|ing)?|accept(?:s|ed|ing)?|select(?:s|ed|ing)?|choos(?:e|es|ing)|pick(?:s|ed|ing)?|shortlist(?:s|ed|ing)?|screen(?:s|ed|ing)?|scor(?:e|es|ed|ing)|rat(?:e|es|ed|ing)|decid(?:e|es|ed|ing)|approv(?:e|es|ed|ing)|declin(?:e|es|ed|ing)|den(?:y|ies|ied|ying)|turn(?:s|ed|ing)? down|admit(?:s|ted|ting)?';
+  'rank(?:s|ed|ing)?|reject(?:s|ed|ing)?|accept(?:s|ed|ing)?|select(?:s|ed|ing)?|choos(?:e|es|ing)|pick(?:s|ed|ing)?|shortlist(?:s|ed|ing)?|screen(?:s|ed|ing)?|scor(?:e|es|ed|ing)|rat(?:e|es|ed|ing)|decid(?:e|es|ed|ing)|approv(?:e|es|ed|ing)|declin(?:e|es|ed|ing)|den(?:y|ies|ied|ying)|turn(?:s|ed|ing)? down|admit(?:s|ted|ting)?|interview(?:s|ed|ing)?|invit(?:e|es|ed|ing)|offer(?:s|ed|ing)?|giv(?:e|es|ing)|gave';
 const DECIDING = word(DECISION_WORDS);
 const CREDIT_WORDS = word(
   'loans?|credit|mortgages?|cards?|lend(?:s|ing|ers?)?|borrow(?:s|ed|ing|ers?)?|overdrafts?|financ(?:e|ing)',
@@ -113,7 +113,32 @@ export interface Cue {
   also?: RegExp;
   /** Which domain, when it depends on the clause. */
   domain?: (clause: string) => HighStakesDomain;
+  /** A match that is not a cue after all: a capitalised word that is not a name. */
+  accept?: (match: RegExpMatchArray) => boolean;
 }
+
+/** A run of capitalised words that can be a name: none of them a title, a day or a word of an organisation. */
+export const isName = (run: string | undefined): boolean =>
+  run === undefined || !run.split(/\s+/u).some((token) => NOT_NAMES.has(token.toLowerCase()));
+
+/** The people an employer decides about: for acts that are not named for what they do to a person, such as “let … go”. */
+const STAFF =
+  'employee|worker|staff member|team member|colleague|manager|supervisor|intern|apprentice|contractor|assistant|recruit|engineer|developer|analyst|accountant|clerk|cashier|secretary|receptionist|consultant|specialist|officer|technician|mechanic|cleaner|teacher|nurse|director|executive|[Cc][Ee][Oo]|[Cc][Ff][Oo]|[Cc][Tt][Oo]|[Cc][Oo][Oo]|leader|founder';
+/** “our contractor”, “these two engineers”, “one of our sales managers”. */
+const THE_STAFF = String.raw`(?:this|that|my|our|the|his|her|these|those|one of our)\s+(?:\p{L}+\s+){0,3}?(?:${STAFF})s?\b${NOT_ADJUNCT}`;
+/** Him or her, or one of the people above, or a name: the group is the name, and it is read only if `isName` says so. */
+const PERSON_OBJECT = String.raw`(?:him|her|${THE_STAFF}|(\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+){0,2}))`;
+/** What ends “let X go”, so that it is never “let X go through the gate”. */
+const GO_ENDS = String.raw`go(?=\s*(?:$|[,.;:?!)"])|\s+(?:or|and|but|if|because|since|after|before|due|rather|instead|now|today|tomorrow|next|without|given|based|following|during)\b)`;
+/** What a person is promoted to: a post, not a customer, so that a product is never read as a person. */
+export const PROMOTED_TO = String.raw`to\s+(?:the\s+|a\s+|an\s+)?(?:\p{L}+\s+){0,2}?(?:head|lead|chief|senior|manager|director|partner|vice|supervisor|executive|principal|officer|president|VP|[Cc][Ee][Oo]|[Cc][Ff][Oo]|[Cc][Tt][Oo]|[Cc][Oo][Oo])\b`;
+/** One to three capitalised words, one capture group: the same as the name in `PERSON_OBJECT`. */
+export const NAMES = String.raw`(\p{Lu}\p{Ll}+(?:\s+\p{Lu}\p{Ll}+){0,2})`;
+/** A cue read with capitals, since it holds a name: it counts only if what stands for the name can be one. */
+const ofPerson = (source: string): Cue => ({
+  re: new RegExp(source, 'gu'),
+  accept: (match) => isName(match[1]),
+});
 
 const SAFE_TO_NOT =
   'say|assume|ignore|skip|conclude|infer|presume|bet|claim|argue|suggest|expect|think|believe|guess';
@@ -127,17 +152,48 @@ export const CUES: Record<HighStakesDomain, Cue[]> = {
     { re: word('recruit(?:s|ed|ing|ment)?'), topic: true },
     { re: word('shortlist(?:s|ed|ing)?') },
     { re: word('job offers?|job (?:applicants?|candidates?|interviews?|applications?)') },
-    {
-      re: new RegExp(
-        String.raw`\boffer(?:s|ed|ing)?\s+(?:the|a|an)\s+(?:\p{L}+\s+){0,3}(?:position|role|job)\b`,
-        'giu',
-      ),
-    },
+    ofPerson(
+      String.raw`\b[Oo]ffer(?:s|ed|ing)?\s+(?:${PERSON_OBJECT}\s+)?(?:the|a|an)\s+(?:\p{L}+\s+){0,3}(?:position|role|job)\b`,
+    ),
     { re: word('(?:cv|resume|résumé|application)s? screening'), topic: true },
     { re: word('dismiss(?:es|ed|ing|al|als)?') },
     { re: word('(?:sack|sacked|sacking)(?!\\s+of\\b)') },
     { re: word('lay(?:s|ing)? off|laid off|made redundant') },
     { re: word('(?:let|lay|make|show)\\s+(?:him|her)\\s+(?:go|off|redundant|the door)') },
+    // “let Maria go”, “let our contractor go”, “let go of two engineers”, “which engineer should we let go”
+    ofPerson(String.raw`\b[Ll]et(?:s|ting)?\s+${PERSON_OBJECT}\s+${GO_ENDS}`),
+    ofPerson(String.raw`\b[Ll]et(?:s|ting)?\s+go\s+of\s+${PERSON_OBJECT}`),
+    {
+      re: new RegExp(String.raw`\b[Ll]et(?:s|ting)?\s+${GO_ENDS}`, 'gu'),
+      also: word(`(?:${STAFF})s?|staff`),
+    },
+    ofPerson(String.raw`\b[Mm]ak(?:e|es|ing)\s+${PERSON_OBJECT}\s+redundant\b`),
+    ofPerson(String.raw`\b[Pp]art(?:s|ed|ing)?\s+ways\s+with\s+${PERSON_OBJECT}`),
+    ofPerson(
+      String.raw`\b[Ee]nd(?:s|ed|ing)?\s+(?:his|her|their|my|(\p{Lu}\p{Ll}+)'s)\s+(?:employment|contract|tenure|position|role|job)\b`,
+    ),
+    {
+      re: word(
+        '(?:non-?renew(?:s|ed|ing|al)?|not\\s+renew(?:ing)?|(?:decline|declining|refuse|refusing)\\s+to\\s+renew)\\b[^.?!]{0,40}?\\bcontract',
+      ),
+      also: word(`(?:${STAFF})s?|him|her`),
+    },
+    ofPerson(
+      String.raw`\b[Rr]eplac(?:e|es|ed|ing)\s+(?:him|her|(?:this|that|my|our|the|his|her)\s+(?:\p{L}+\s+){0,2}?(?:${STAFF})\b${NOT_ADJUNCT})`,
+    ),
+    {
+      re: word(
+        '(?:a|an|the|his|her|their|my)\\s+(?:raise|pay (?:rise|increase)|salary increase)|raises?\\s+(?:for|to)\\s+(?:him|her)',
+      ),
+    },
+    ofPerson(
+      String.raw`\b(?:[Gg]ive|[Gg]ives|gave|giving)\s+(?:the|this|that|a|an)\s+(?:\p{L}+\s+){0,2}?(?:job|position|role)\s+to\b`,
+    ),
+    ofPerson(String.raw`\b[Pp]ay(?:s|ing)?\s+${PERSON_OBJECT}\s+(?:more|less)\b`),
+    // “promote Dana to head of sales”: a name after the act is a name only where a post follows.
+    ofPerson(
+      String.raw`\b[Pp]romot(?:e|es|ed|ing)\s+${NAMES}(?:\s+(?:or|and)\s+${NAMES})?\s+${PROMOTED_TO}`,
+    ),
     {
       re: word('layoffs?|redundanc(?:y|ies)|downsiz(?:e|es|ed|ing)|job cuts|headcount reductions?'),
       topic: true,
@@ -187,6 +243,11 @@ export const CUES: Record<HighStakesDomain, Cue[]> = {
   ],
   credit: [
     { re: word('loans?|mortgages?|overdrafts?') },
+    {
+      re: word(
+        '(?:credit|loan|mortgage|card|overdraft) applications?|applications? for (?:an? )?(?:credit|loan|mortgage|card|overdraft)',
+      ),
+    },
     { re: word('lend(?:s|ing)?|underwrit(?:e|es|ing)') },
     { re: word('lenders?|underwriters?|borrowers?'), topic: true },
     {
@@ -210,6 +271,12 @@ export const CUES: Record<HighStakesDomain, Cue[]> = {
   ],
   legal: [
     { re: word('lawsuits?|litigat(?:e|es|ed|ing)') },
+    { re: word('press(?:es|ed|ing)? charges|out[- ]of[- ]court') },
+    {
+      re: word(
+        'report(?:s|ed|ing)?\\s+(?:him|her|them|this \\p{L}+|that \\p{L}+)\\s+to\\s+(?:the\\s+)?(?:police|authorities|regulator|prosecutors?)',
+      ),
+    },
     { re: word('litigation|liabilit(?:y|ies)'), topic: true },
     { re: /\bsu(?:e|es|ed|ing)\b/gu },
     {
@@ -232,6 +299,11 @@ export const CUES: Record<HighStakesDomain, Cue[]> = {
     { re: word('sentenc(?:ed|ing)|(?:prison|jail|custodial|life|suspended) sentences?') },
     { re: word('bail|parole|probation|custody|divorce|injunctions?|restraining orders?') },
     { re: word('evict(?:s|ed|ion|ions|ing)?|deport(?:s|ed|ation|ations|ing)?') },
+    {
+      re: word(
+        '(?:cancel(?:s|led|ling)?|revok(?:e|es|ed|ing)|refus(?:e|es|ed|ing)|den(?:y|ies|ied|ying)|grant(?:s|ed|ing)?|approv(?:e|es|ed|ing))\\s+(?:his|her|their|my|the|a|this|that)\\s+visa',
+      ),
+    },
     {
       re: word(
         'immigration (?:status|cases?|appeals?|hearings?|decisions?)|asylum|visa (?:applications?|refusals?|denials?|decisions?|status)',
@@ -260,7 +332,11 @@ export const CUES: Record<HighStakesDomain, Cue[]> = {
     },
     { re: word('prescrib(?:e|es|ed|ing)|prescriptions?|dos(?:e|es|age|ages)') },
     { re: /\b\d+(?:\.\d+)?\s?(?:mg|mcg|µg|ml|iu)\b/giu },
-    { re: word('medications?|medicines?|drug (?:dose|doses|interactions?|therapy)') },
+    {
+      re: word(
+        'medications?|medicines?|drug (?:dose|doses|interactions?|therapy)|antibiotics?|antidepressants?|antipsychotics?|painkillers?|opioids?|insulin|steroids?|statins?|sedatives?',
+      ),
+    },
     {
       re: word(
         'patients?|clinical|clinicians?|hospitals?|triage|emergency (?:department|room|care)',

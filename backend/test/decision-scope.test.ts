@@ -40,6 +40,23 @@ const ONE_PERSON: readonly Row[] = [
   ['Which of our two engineers should be laid off?', ['employment'], true],
   ['Who should we hire as CTO?', ['employment'], true],
   ['Should we offer the Senior Engineer position to Chen Wei or Ana Silva?', ['employment'], true],
+  ['Should we lay off Maria Lopez?', ['employment'], true],
+  ['Should we let Maria go?', ['employment'], true],
+  ['Which of our two engineers should we let go?', ['employment'], true],
+  ['Should we make Tom Becker redundant?', ['employment'], true],
+  ['Should we part ways with our sales manager?', ['employment'], true],
+  ['Should we end his employment?', ['employment'], true],
+  ['Should we not renew the contract of this contractor?', ['employment'], true],
+  ['Should we replace our CFO?', ['employment'], true],
+  ['Should we give Sam a raise?', ['employment'], true],
+  ['Should we offer Sam the job?', ['employment'], true],
+  ['Should we promote Dana or Priya to head of sales?', ['employment'], true],
+  ['Can I be fired for taking sick leave?', ['employment'], true],
+  ['Should we approve Maria’s application for a credit card?', ['credit'], true],
+  ['Should we report him to the police?', ['legal'], true],
+  ['Should we cancel his visa?', ['legal'], true],
+  ['Should she take this medication while pregnant?', ['medical'], true],
+  ['Should we put her on antidepressants?', ['medical'], true],
   [
     'Set the credit limit for this named customer and approve or decline the card.',
     ['credit'],
@@ -118,6 +135,11 @@ const POLICY_OR_GROUP: readonly Row[] = [
   ['How might residents react to a new evacuation plan?', ['safety'], false],
   ['What if we retire a safety-critical system early?', ['safety'], false],
   ['How would drivers react if we ground the fleet during the storm?', ['safety'], false],
+  ['What happens if we change how we lay off staff in a downturn?', ['employment'], false],
+  ['What if we give every employee a raise?', ['employment'], false],
+  ['Should we give every applicant an interview?', ['employment'], false],
+  ['What if the bank approves credit card applications faster?', ['credit'], false],
+  ['Should the clinic update its dosage guidelines?', ['medical'], false],
   ['How might applicants react if a firm moves to anonymised CV screening?', ['employment'], false],
   [
     'How might customers react if a lender publishes how its credit scoring works?',
@@ -151,6 +173,15 @@ const LOOK_ALIKES: readonly Row[] = [
   ['How would Ms. Lopez, our regional manager, respond to a new bonus scheme?', [], false],
   ['What if our customer Mr. Wu asks for a refund?', [], false],
   ['Sue from accounting asked how a new expenses policy would land.', [], false],
+  ['Should we let go of the legacy billing system?', [], false],
+  ['Should we let customers go through checkout without an account?', [], false],
+  ['Should we let this employee go through the training?', [], false],
+  ['Should we replace the vendor?', [], false],
+  ['Should we part ways with our current software vendor?', [], false],
+  ['What if we renew the contract with our supplier?', [], false],
+  ['Should we raise prices?', [], false],
+  ['Should we promote Google Workspace to our customers?', [], false],
+  ['Should we pay suppliers more?', [], false],
 ];
 
 /** The words of a question that is about a person but that a reading of words does not catch, said so that the limit is on record. */
@@ -158,7 +189,9 @@ const NOT_CAUGHT: readonly string[] = [
   'What should we do about our employee who keeps stealing?',
   'Would it be wise to reject the mortgage for the Hernandez family?',
   'Should we settle with Jane Foster out of court?',
-  'Should we report him to the police?',
+  'Is he well enough to be discharged?',
+  'Should I report my manager to HR?',
+  'Should we increase her limit?',
 ];
 
 const asked = (rows: readonly Row[]): [string, readonly string[], boolean][] =>

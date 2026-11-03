@@ -17,6 +17,7 @@ import {
   PERSON_PLURAL,
   POLICY_AFTER,
   POLICY_BEFORE,
+  PROMOTED_TO,
   ROLES,
   SELF_VERBS,
   STATES,
@@ -242,11 +243,78 @@ const FINDERS: Finder[] = [
     re: finder(String.raw`\b(?:let|lay|make|show)\s+(?:him|her)\s+(?:go|off|redundant|the door)\b`),
     cue: 'quoted',
   },
+  // “let Maria go”, “make Tom Becker redundant”, “part ways with Sam Lee”, “give Sam a raise”.
+  {
+    re: finder(
+      String.raw`\b(?:[Ll]et(?:s|ting)?|[Mm]ak(?:e|es|ing))\s+(${NAME}(?:\s+${NAME}){0,2})\s+(?:go|redundant)\b`,
+      'gu',
+    ),
+    cue: NAMED,
+    accept: (match) => properName(match[1]).length > 0,
+  },
+  {
+    re: finder(
+      String.raw`\b[Pp]art(?:s|ed|ing)?\s+ways\s+with\s+(${NAME}(?:\s+${NAME}){0,2})`,
+      'gu',
+    ),
+    cue: NAMED,
+    accept: (match) => properName(match[1]).length > 0,
+  },
+  {
+    re: finder(
+      String.raw`\b(?:[Gg]ive|[Gg]ives|gave|giving|[Gg]rant|[Gg]ranting|[Dd]eny|[Dd]enying|[Rr]efuse|[Rr]efusing)\s+(${NAME}(?:\s+${NAME}){0,2})\s+(?:a|an|the)\s+(?:raise|pay rise|pay increase|salary increase|promotion|loan|mortgage|overdraft|credit limit|refund)\b`,
+      'gu',
+    ),
+    cue: NAMED,
+    accept: (match) => properName(match[1]).length > 0,
+  },
+  {
+    re: finder(String.raw`\b(?:report|reports|reported|reporting)\s+(?:him|her)\b`),
+    cue: 'quoted',
+  },
+  // “offer Sam the job”, “promote Dana or Priya to head of sales”, “pay Sam more”.
+  {
+    re: finder(
+      String.raw`\b[Oo]ffer(?:s|ed|ing)?\s+(${NAME}(?:\s+${NAME}){0,2})\s+(?:the|a|an)\s+(?:\p{L}+\s+){0,3}(?:position|role|job)\b`,
+      'gu',
+    ),
+    cue: NAMED,
+    accept: (match) => properName(match[1]).length > 0,
+  },
+  {
+    re: finder(
+      String.raw`\b[Pp]romot(?:e|es|ed|ing)\s+(${NAME}(?:\s+${NAME}){0,2})(?:\s+(?:or|and)\s+${NAME}(?:\s+${NAME}){0,2})?\s+${PROMOTED_TO}`,
+      'gu',
+    ),
+    cue: NAMED,
+    accept: (match) => properName(match[1]).length > 0,
+  },
+  {
+    re: finder(
+      String.raw`\b[Pp]ay(?:s|ing)?\s+(${NAME}(?:\s+${NAME}){0,2})\s+(?:more|less)\b`,
+      'gu',
+    ),
+    cue: NAMED,
+    accept: (match) => properName(match[1]).length > 0,
+  },
+  // The asker is the person: “can I be fired for …”, “will I be refused”.
+  {
+    re: finder(
+      String.raw`\bi\s+(?:(?:am\s+|was\s+)?(?:going to|gonna)\s+)?(?:be|get|got|been|being|getting)\s+(?:${ALL_VERBS})\b`,
+    ),
+    cue: 'quoted',
+  },
   { re: finder(String.raw`\b(?:his|her|my)\s+(?:${OWN_MATTERS})\b`), cue: 'quoted' },
-  // The asker’s own matter: “should I sue”.
+  // The asker’s own matter: “should I sue”. And a man or woman’s: “should she take it”.
   {
     re: finder(
       String.raw`\b(?:(?:should|can|could|shall|must|do|would|may|might)\s+i|whether\s+(?:to|i should))\s+(?:${SELF_VERBS})\b`,
+    ),
+    cue: 'quoted',
+  },
+  {
+    re: finder(
+      String.raw`\b(?:should|can|could|shall|must|do|would|may|might)\s+(?:he|she)\s+(?:${SELF_VERBS}|start|stop|continue|receive|undergo|have|keep)\b`,
     ),
     cue: 'quoted',
   },
@@ -288,6 +356,7 @@ function hitsOf(clause: string): Hit[] {
     for (const cue of CUES[domain]) {
       if (cue.also && clause.search(cue.also) < 0) continue;
       for (const match of clause.matchAll(cue.re)) {
+        if (cue.accept && !cue.accept(match)) continue;
         const start = match.index ?? 0;
         const policy =
           POLICY_AFTER.test(clause.slice(endOf(match))) ||
