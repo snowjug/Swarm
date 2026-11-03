@@ -359,9 +359,7 @@ function Changes({ canvas, openDetail }: Props) {
               );
             })}
           </ul>
-          <p className="sw-canvas-quiet">
-            Change in simulated members in 100 who resist, on the same seeds.
-          </p>
+          <p className="sw-canvas-quiet">Change in simulated members in 100 who resist.</p>
         </>
       ) : (
         <Quiet>{counterfactuals.note}</Quiet>

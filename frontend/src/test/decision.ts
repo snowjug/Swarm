@@ -646,6 +646,11 @@ export function richFixture(): DecisionCanvas {
   return canvasFixture((raw) => {
     raw.status.headline =
       '“Proposed change” is ahead on the headline lens, on conditions. One hard constraint is not confirmed, so the answer is provisional.';
+    raw.status.conditions = [
+      'It could stop leading if the budget constraint is taken away.',
+      'The constraints are provisional: one hard constraint is not confirmed.',
+    ];
+    raw.answer.headline = say(raw.status.headline, 'recommendation', 'status:conditional-option');
     raw.constraints = {
       gate: 'provisional',
       gateSummary:
@@ -868,6 +873,36 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
             ),
           ],
         };
+        canvas.constraints = {
+          gate: 'clear',
+          gateSummary: 'Every hard constraint is confirmed and none is broken.',
+          comparisonStatus: 'clear',
+          provisional: false,
+          provisionalLabel: null,
+          reviewed: true,
+          hard: [
+            constraintRow({
+              provisional: false,
+              validation: 'confirmed',
+              label: 'fact',
+              source: 'From evidence',
+            }),
+          ],
+          soft: [],
+          missing: [],
+          notModelled: [],
+          note: 'One constraint, confirmed.',
+        };
+        canvas.answer.recommendation.constraints = {
+          items: [
+            say(
+              'The spend stays inside the budget the board approved: confirmed.',
+              'fact',
+              'constraint:constraint-budget',
+            ),
+          ],
+          missing: null,
+        };
         canvas.answer.preferredAlternativeId = 'proposed-change';
         canvas.answer.recommendation.kind = 'proceed';
         canvas.answer.recommendation.what = say(
@@ -903,6 +938,11 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
         canvas.answer.recommendation.kind = 'gather-evidence';
         canvas.evidence.level = 'insufficient';
         canvas.evidence.reasons = ['No actor has a cited supporting passage.'];
+        canvas.evidence.actors = {
+          total: 15,
+          supported: 0,
+          unsupported: ['Employees', 'Delivery partners', 'Regulators'],
+        };
         canvas.answer.recommendation.what = say(
           'Gather evidence first: nothing cited supports any simulated actor.',
           'recommendation',
@@ -925,6 +965,8 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
           constraintRow({
             provisional: false,
             validation: 'confirmed',
+            label: 'fact',
+            source: 'From evidence',
             violatedBy: ['baseline', 'proposed-change'],
           }),
         ];
