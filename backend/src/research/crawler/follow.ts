@@ -128,6 +128,8 @@ export function admitSeeds(run: CrawlRun): void {
  */
 export function followLinks(run: CrawlRun, parent: Candidate, document: ExtractedDocument): void {
   if (parent.depth >= run.input.budget.maxDepth || document.robotsMeta.nofollow) return;
+  // A page that speaks to its reader as if it gave orders is not asked to point the way.
+  if (document.injection.flaggedBlocks > 0) return;
   const taken: { entry: Omit<Candidate, 'seq'>; at: number }[] = [];
   let refused = 0;
   document.links.slice(0, LINKS_LOOKED_AT).forEach((link, at) => {

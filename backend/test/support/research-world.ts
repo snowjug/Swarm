@@ -13,6 +13,7 @@ import type {
   PageFetchRequest,
 } from '../../src/research/crawler/types.js';
 import { crawl } from '../../src/research/crawler/crawl.js';
+import { sleep } from '../../src/research/crawler/deps.js';
 import { DEFAULT_RESEARCH_BUDGET, type ResearchBudget } from '../../../shared/research.js';
 import { prose, sitePage } from './research-pages.js';
 
@@ -409,6 +410,20 @@ function prepare(routes: Record<string, Route>, options: TrialOptions) {
 export async function trial(routes: Record<string, Route>, options: TrialOptions): Promise<Trial> {
   const { clock, network, events, input, deps } = prepare(routes, options);
   const result = await drive(clock, crawl(input, deps));
+  return { result, events, network, clock };
+}
+
+/** As `trial`, on the real clock and without driving time, for work that takes real time (the PDF reader's worker). */
+export async function realTrial(
+  routes: Record<string, Route>,
+  options: TrialOptions,
+): Promise<Trial> {
+  const { clock, network, events, input, deps } = prepare(routes, options);
+  const result = await crawl(input, {
+    ...deps,
+    now: options.deps?.now ?? (() => Date.now()),
+    sleep: options.deps?.sleep ?? sleep,
+  });
   return { result, events, network, clock };
 }
 

@@ -435,9 +435,18 @@ async function settle(run: CrawlRun, candidate: Candidate, page: FetchedPage): P
     author: document.author,
     extractionMethod: document.method,
     injectionFlagged: document.injection.flaggedBlocks > 0,
-    warnings: document.robotsMeta.noindex
-      ? [...document.warnings, 'The page asks not to be indexed by search engines.']
-      : document.warnings,
+    warnings: [
+      ...document.warnings,
+      ...(document.robotsMeta.noindex
+        ? ['The page asks not to be indexed by search engines.']
+        : []),
+      ...(document.robotsMeta.nofollow ? ['The page asks that its links are not followed.'] : []),
+      ...(document.injection.flaggedBlocks > 0
+        ? [
+            'Its links were not followed, because it has text that reads like instructions to an AI.',
+          ]
+        : []),
+    ],
   };
 
   const set = quarantineOf(extraction);

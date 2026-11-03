@@ -216,7 +216,12 @@ export class CrawlRun {
   /** The record of an address that was refused, failed, set aside or not tried. */
   recordVerdict(origin: Origin, key: string, verdict: Verdict): ResearchSource {
     if (verdict.safety) this.refusedBySafety += 1;
-    if (verdict.outcome === 'quarantined') this.used.quarantined += 1;
+    if (verdict.outcome === 'quarantined') {
+      this.used.quarantined += 1;
+      if (verdict.quarantine) {
+        this.emit({ type: 'quarantine', url: origin.url, reason: verdict.quarantine.reason });
+      }
+    }
     const found = classifySource(origin.url, this.classify);
     return this.record(
       {
