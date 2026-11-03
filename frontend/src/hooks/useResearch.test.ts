@@ -232,7 +232,10 @@ describe('what a person asks of it', () => {
       ok = await result.current.addSource('https://10.0.0.1/');
     });
     expect(ok).toBe(false);
-    expect(result.current.problem).toMatch(/private network/u);
+    expect(result.current.problem).toMatchObject({
+      kind: 'add-source',
+      message: expect.stringMatching(/private network/u),
+    });
     await tick();
     expect(get).toHaveBeenCalledTimes(2);
     act(() => result.current.dismissProblem());

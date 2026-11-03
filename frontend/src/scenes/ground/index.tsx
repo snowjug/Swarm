@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspace } from '../../app/context';
+import { useResearch } from '../../hooks/useResearch';
 import { openConflicts } from '../../lib/ledger';
 import { DURATION, useReducedMotion } from '../../design/motion';
+import { researchEnabled } from '../ask/capabilities';
 import { Conflicts } from './Conflicts';
 import { EvidenceSheet } from './EvidenceSheet';
 import { Hero } from './Hero';
@@ -22,6 +24,9 @@ import {
 } from './context';
 import { buildGraphView, deriveLit, layoutPlacements, type Focus } from './graphModel';
 import { documentList, graphOf, groundStage, isWorking, parseView, type GroundView } from './model';
+import { GroundResearchContext, type GroundResearch } from './research/context';
+import { controlsOf, presenceOf, takesOver } from './research/model';
+import { ResearchSection } from './research/ResearchSection';
 import { useGroundLedger } from './useGroundLedger';
 import { usePassages } from './usePassages';
 import './ground.css';
@@ -80,7 +85,7 @@ function useStackReturn(open: boolean) {
  * report is written, every statement and what backs it. What the engine has not yet read is a dash, not a guess.
  */
 export default function GroundScene() {
-  const { project, mode, view, setView } = useWorkspace();
+  const { project, mode, view, setView, config, refresh } = useWorkspace();
   const reduced = useReducedMotion();
   const stage = groundStage(project);
   // Whether this page has seen the engine at work: only such a page says, afterwards, that the conflicts are being looked for.
@@ -90,6 +95,29 @@ export default function GroundScene() {
   const documents = useMemo(() => documentList(project), [project]);
   const documentKey = documents.map((doc) => doc.id).join(',');
   const stableDocuments = useStable(documents, `${project.id}:${documentKey}`);
+
+  // The research this project asked for. A run adds its sources to the project when it ends, so the project is read
+  // again then, and after anything a person asks of the run.
+  const researchOn = researchEnabled(config);
+  const research = useResearch(project.id, {
+    enabled: researchOn,
+    onSettled: () => refresh({ quiet: true }),
+    onChanged: () => refresh({ quiet: true }),
+  });
+  const presence = useMemo(
+    () =>
+      presenceOf({
+        enabled: researchOn,
+        documents: project.documents.length,
+        view: research.view,
+        loading: research.loading,
+        error: research.error,
+      }),
+    [researchOn, project.documents.length, research.view, research.loading, research.error],
+  );
+  const researchFirst = takesOver(presence, project.documents.length);
+  const researchControls = useMemo(() => controlsOf(research.view), [research.view]);
+  const addField = useRef<HTMLInputElement | null>(null);
 
   const passages = usePassages(project.id, project.documents.length);
   const conflictsKnown = (stage === 'ready' || stage === 'record') && project.documents.length > 0;
@@ -178,6 +206,26 @@ export default function GroundScene() {
       if (target) reach(target, focus);
     },
     [reach],
+  );
+  const researchValue = useMemo<GroundResearch>(
+    () => ({
+      state: research,
+      presence,
+      takesOver: researchFirst,
+      controls: researchControls,
+      addField,
+      showResearch: () => scrollTo('ground-research'),
+      // The field takes focus where the page already is: it is under the head of the page, not far from it.
+      showAdd: () => {
+        const field = addField.current;
+        if (!field) return scrollTo('ground-research');
+        field.focus({ preventScroll: true });
+        requestAnimationFrame(() =>
+          field.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'center' }),
+        );
+      },
+    }),
+    [research, presence, researchFirst, researchControls, scrollTo, reduced],
   );
   // Going somewhere from a sheet waits until the sheet has gone: a closing sheet holds the page inert, and the
   // way back to what opened the sheet is given up, because the person is going somewhere else.
@@ -306,27 +354,31 @@ export default function GroundScene() {
     <GroundDataContext.Provider value={data}>
       <GroundActionsContext.Provider value={actions}>
         <GroundLitContext.Provider value={litValue}>
-          <div className="sw-ground">
-            <Hero />
+          <GroundResearchContext.Provider value={researchValue}>
+            <div className="sw-ground">
+              <Hero />
 
-            {arrived ? (
-              <>
-                {conflictsFirst && <Conflicts flash={flash} seek={seek} />}
-                {sources}
-                {conflictsKnown && !conflictsFirst && <Conflicts flash={flash} seek={seek} />}
-                {conflictsKnown && claims.length > 0 && <Statements />}
-                {conflictsKnown &&
-                  claims.length === 0 &&
-                  ledger.ledger &&
-                  ledger.ledger.reviewedAt !== null && <NoStatements />}
-                {mode === 'advanced' && <Trace />}
-              </>
-            ) : (
-              <div aria-busy="true" />
-            )}
-          </div>
-          <EvidenceSheet stack={sheets} onStack={setSheets} />
-          <StickyNext />
+              {arrived ? (
+                <>
+                  {researchFirst && <ResearchSection />}
+                  {conflictsFirst && <Conflicts flash={flash} seek={seek} />}
+                  {sources}
+                  {!researchFirst && <ResearchSection />}
+                  {conflictsKnown && !conflictsFirst && <Conflicts flash={flash} seek={seek} />}
+                  {conflictsKnown && claims.length > 0 && <Statements />}
+                  {conflictsKnown &&
+                    claims.length === 0 &&
+                    ledger.ledger &&
+                    ledger.ledger.reviewedAt !== null && <NoStatements />}
+                  {mode === 'advanced' && <Trace />}
+                </>
+              ) : (
+                <div aria-busy="true" />
+              )}
+            </div>
+            <EvidenceSheet stack={sheets} onStack={setSheets} />
+            <StickyNext />
+          </GroundResearchContext.Provider>
         </GroundLitContext.Provider>
       </GroundActionsContext.Provider>
     </GroundDataContext.Provider>

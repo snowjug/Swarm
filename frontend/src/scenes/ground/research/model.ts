@@ -354,11 +354,24 @@ export interface Reason {
   detail: string | null;
 }
 
-/** Why a page that was not used was not: in plain words, and in the server's own where it said any. */
-export function reasonOf(source: ResearchSource): Reason | null {
+/**
+ * Why a page that was not used was not: in plain words, and in the server's own where it said any. While the run is
+ * under way a page that was read has not been judged yet, and its reason is not given: it is not yet one.
+ */
+export function reasonOf(
+  source: ResearchSource,
+  status: ResearchStatus = 'completed',
+): Reason | null {
   switch (source.outcome) {
     case 'used':
       return null;
+    case 'read':
+      if (isLive(status)) return null;
+      return {
+        sentence:
+          status === 'completed' ? OUTCOME_SENTENCE.read : 'Read before the research stopped.',
+        detail: null,
+      };
     case 'quarantined':
       return {
         sentence: source.quarantine

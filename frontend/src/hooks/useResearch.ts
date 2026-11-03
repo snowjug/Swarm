@@ -21,8 +21,8 @@ export interface ResearchState {
   readAt: number | null;
   /** What the server is being asked to do, or null. One thing at a time. */
   working: ResearchWork | null;
-  /** Why the last thing asked was refused, in a sentence for the person. */
-  problem: string | null;
+  /** Why the last thing asked was refused, in a sentence for the person, and what it was. */
+  problem: { kind: ResearchWork; message: string } | null;
   reload: () => void;
   dismissProblem: () => void;
   start: (input?: Parameters<typeof researchApi.start>[1]) => Promise<boolean>;
@@ -61,7 +61,7 @@ export function useResearch(
   const [error, setError] = useState<string | null>(null);
   const [readAt, setReadAt] = useState<number | null>(null);
   const [working, setWorking] = useState<ResearchWork | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<ResearchState['problem']>(null);
   const [reads, setReads] = useState(0);
   // Reads that came back, whether they could be read or not: what a run that is polled is polled again after.
   const [answered, setAnswered] = useState(0);
@@ -182,7 +182,7 @@ export function useResearch(
           reload();
           return true;
         }
-        setProblem(errorMessage(failure));
+        setProblem({ kind, message: errorMessage(failure) });
         // What is true is read again: a refusal is often a run that moved on while the page looked at it.
         reload();
         return false;
