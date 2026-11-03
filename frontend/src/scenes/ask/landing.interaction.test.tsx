@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { UserEvent } from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEMO_PROJECTS } from '../../../../shared/demo';
 import { scenarioFixture } from '../../../../shared/lab-fixtures';
@@ -80,9 +81,28 @@ const BASE: AppConfig = {
     authentication: 'local-single-user',
   },
 };
-/** A server that researches for itself, and says so in the part of its settings that later work adds. */
-const RESEARCHING = { ...BASE, research: { enabled: true } } as AppConfig;
+/**
+ * A server that researches for itself, as every server does today: it reads the site or page that is named, and has no
+ * search provider, so it cannot look for sources from a question alone. It says so in the part of its settings that
+ * later work adds.
+ */
+const RESEARCHING = {
+  ...BASE,
+  research: {
+    enabled: true,
+    discovery: { available: false, provider: null, message: 'No search provider is configured.' },
+  },
+} as AppConfig;
+/** One that can also look for sources from a question alone, because a search provider is behind it. */
+const SEARCHING = {
+  ...BASE,
+  research: {
+    enabled: true,
+    discovery: { available: true, provider: 'a search provider', message: 'Ready.' },
+  },
+} as AppConfig;
 const CONSTRAINED = { ...RESEARCHING, features: { constraints: true } } as AppConfig;
+const CONSTRAINED_AND_SEARCHING = { ...SEARCHING, features: { constraints: true } } as AppConfig;
 
 const reading = (): ScenarioParseResult => ({
   frame: scenarioFixture({ origin: 'rules', ambiguities: [], geography: null, horizon: null }),
@@ -121,15 +141,35 @@ const explore = () => screen.getByRole('button', { name: 'Explore' });
 const groundIt = () => screen.findByRole('button', { name: 'Ground it' }, { timeout: 15_000 });
 const advanced = () => screen.getByRole('button', { name: /^Advanced/u });
 
+/** Attaches the notes as the person's own source, through the evidence menu, and closes it. */
+async function attachNotes(user: UserEvent) {
+  await user.click(screen.getByRole('button', { name: /^Evidence(?: \d+ attached)?$/u }));
+  const menu = await screen.findByRole('dialog', { name: 'Add evidence' });
+  await user.click(within(menu).getByRole('radio', { name: 'Paste' }));
+  await user.click(within(menu).getByRole('textbox', { name: 'Source text, not your question' }));
+  await user.paste(NOTES);
+  await user.click(within(menu).getByRole('button', { name: 'Attach' }));
+  await user.click(within(menu).getByRole('button', { name: 'Done' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Add evidence' })).toBeNull());
+}
+
+const SEARCH_PROMISE = /finds and reads public sources|looks for public sources/u;
+const CANNOT_SEARCH = 'This server cannot look for sources from a question alone.';
+
 const written = (call: number) =>
   net.parse.mock.calls[call] as [string, unknown[], unknown, boolean];
 
-describe('on a server that researches for itself', () => {
-  it('is on by default and says what it does; one question is all it takes to get to the scenario and to start', async () => {
+describe('on a server that researches for itself, and has no search provider', () => {
+  it('is on by default and says what it does: it reads the website that is named, and asks for a source when none is', async () => {
     const { user, onSubmit } = renderAsk({ config: RESEARCHING });
     expect(researchSwitch().checked).toBe(true);
     expect(researchSwitch().disabled).toBe(false);
-    expect(screen.getByText('Swarm finds and reads public sources for you.')).toBeTruthy();
+    expect(
+      screen.getByText('Reads the website you name. With none, it asks you for a source.'),
+    ).toBeTruthy();
+    // It does not say that it finds sources, because it cannot.
+    expect(screen.queryByText(SEARCH_PROMISE)).toBeNull();
+    expect(document.body.textContent).not.toMatch(SEARCH_PROMISE);
 
     await user.click(questionBox());
     await user.paste(QUESTION);
@@ -140,12 +180,14 @@ describe('on a server that researches for itself', () => {
     expect(net.parse).toHaveBeenCalledTimes(1);
     expect(written(0)[0]).toBe(QUESTION);
     expect(written(0)[1]).toEqual([]);
-    // What research will do is said where the sources would be, before anything is started.
+    // What is to come is said where the sources would be, before anything is started: no search from a question alone.
     expect(
       screen.getByText(
-        /Automatic research is on\. After you continue, Swarm looks for public sources/u,
+        `${CANNOT_SEARCH} After you continue, Swarm asks you to name a website or add a source.`,
       ),
     ).toBeTruthy();
+    expect(screen.queryByText(/Automatic research is on/u)).toBeNull();
+    expect(document.body.textContent).not.toMatch(SEARCH_PROMISE);
     expect(screen.getByText('Nothing runs until you continue.')).toBeTruthy();
 
     await user.click(await groundIt());
@@ -164,7 +206,13 @@ describe('on a server that researches for itself', () => {
     await user.type(siteBox(), 'Harbour.Example.org');
     expect(screen.getByText('Site')).toBeTruthy();
     await user.click(explore());
-    expect(await screen.findByText(/starting from harbour\.example\.org/u)).toBeTruthy();
+    await groundIt();
+    expect(
+      screen.getByText(
+        'Automatic research is on. After you continue, Swarm reads harbour.example.org and the pages it links to, and lists every page it reads.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();
     await user.click(await groundIt());
     expect(onSubmit.mock.calls[0]![0].research).toEqual({
       auto: true,
@@ -179,12 +227,56 @@ describe('on a server that researches for itself', () => {
     await user.type(siteBox(), 'harbour.example.org/fees/2025');
     expect(screen.getByText('Page')).toBeTruthy();
     await user.click(explore());
-    expect(await screen.findByText(/starting from a page of harbour\.example\.org/u)).toBeTruthy();
+    await groundIt();
+    expect(
+      screen.getByText(
+        'Automatic research is on. After you continue, Swarm reads a page of harbour.example.org and the pages it links to, and lists every page it reads.',
+      ),
+    ).toBeTruthy();
     await user.click(await groundIt());
     expect(onSubmit.mock.calls[0]![0].research).toEqual({
       auto: true,
       url: 'https://harbour.example.org/fees/2025',
     });
+  });
+
+  it('says nothing of research in the review when the sources the person added are what is used', async () => {
+    const { user, onSubmit } = renderAsk({ config: RESEARCHING });
+    await user.click(questionBox());
+    await user.paste(QUESTION);
+    await attachNotes(user);
+    await user.click(explore());
+    await groundIt();
+    // No website was named, so nothing is researched: the one source is what the project is made from.
+    expect(screen.queryByText(/Automatic research is on/u)).toBeNull();
+    expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();
+    expect(document.body.textContent).not.toMatch(SEARCH_PROMISE);
+    expect(written(0)[1]).toHaveLength(1);
+
+    await user.click(await groundIt());
+    const sent = onSubmit.mock.calls[0]![0];
+    expect(sent.documents).toHaveLength(1);
+    expect(sent.research).toEqual({ auto: true });
+  });
+
+  it('reads the site that is named beside the sources that were added, and says so, and keeps the sources', async () => {
+    const { user, onSubmit } = renderAsk({ config: RESEARCHING });
+    await user.click(questionBox());
+    await user.paste(QUESTION);
+    await user.type(siteBox(), 'harbour.example.org');
+    await attachNotes(user);
+    await user.click(explore());
+    await groundIt();
+    expect(
+      screen.getByText(
+        'Automatic research is on. After you continue, Swarm reads harbour.example.org and the pages it links to, and lists every page it reads.',
+      ),
+    ).toBeTruthy();
+
+    await user.click(await groundIt());
+    const sent = onSubmit.mock.calls[0]![0];
+    expect(sent.documents).toHaveLength(1);
+    expect(sent.research).toEqual({ auto: true, domain: 'harbour.example.org' });
   });
 
   it('says gently, once the field is left, that the address does not look like one, and reads nothing until it does', async () => {
@@ -341,6 +433,56 @@ describe('on a server that researches for itself', () => {
     expect(sent.scenario).toBeUndefined();
     expect(sent.documents).toEqual([]);
     expect(sent.research).toEqual({ auto: true, horizon: '3 years' });
+  });
+});
+
+describe('on a server that can also look for sources from a question alone', () => {
+  it('says on the switch and in the review that it finds and reads public sources, and starts with the question alone', async () => {
+    const { user, onSubmit } = renderAsk({ config: SEARCHING });
+    expect(researchSwitch().checked).toBe(true);
+    expect(screen.getByText('Swarm finds and reads public sources for you.')).toBeTruthy();
+
+    await user.click(questionBox());
+    await user.paste(QUESTION);
+    await user.click(explore());
+    await groundIt();
+    expect(
+      screen.getByText(
+        'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();
+
+    await user.click(await groundIt());
+    const sent = onSubmit.mock.calls[0]![0];
+    expect(sent.documents).toEqual([]);
+    expect(sent.research).toEqual({ auto: true });
+  });
+
+  it('still says that it reads the site that is named, and nothing of a search when sources were added', async () => {
+    const { user } = renderAsk({ config: SEARCHING });
+    await user.click(questionBox());
+    await user.paste(QUESTION);
+    await user.type(siteBox(), 'harbour.example.org');
+    await user.click(explore());
+    await groundIt();
+    expect(
+      screen.getByText(
+        'Automatic research is on. After you continue, Swarm reads harbour.example.org and the pages it links to, and lists every page it reads.',
+      ),
+    ).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/looks for public sources/u);
+  });
+
+  it('says nothing of research in the review when the sources that were added are what is used', async () => {
+    const { user } = renderAsk({ config: SEARCHING });
+    await user.click(questionBox());
+    await user.paste(QUESTION);
+    await attachNotes(user);
+    await user.click(explore());
+    await groundIt();
+    expect(screen.queryByText(/Automatic research is on/u)).toBeNull();
+    expect(document.body.textContent).not.toMatch(/looks for public sources/u);
   });
 });
 
@@ -538,7 +680,12 @@ describe('the way from a question to a decision', () => {
     const { user } = renderAsk({ config: CONSTRAINED });
     await user.click(step('Research'));
     let detail = document.getElementById(step('Research').getAttribute('aria-controls')!)!;
-    expect(detail.textContent).toMatch(/finds and reads public sources/u);
+    // A server with no search provider reads the website that is named and the files that are added, and nothing else.
+    expect(detail.textContent).toMatch(/reads the website you name and the files you add/u);
+    expect(detail.textContent).toMatch(
+      /You name a site to start from and add your own files; see every source it used\./u,
+    );
+    expect(detail.textContent).not.toMatch(SEARCH_PROMISE);
     expect(
       steps()
         .getAllByRole('button')
@@ -549,6 +696,16 @@ describe('the way from a question to a decision', () => {
     detail = document.getElementById(step('Research').getAttribute('aria-controls')!)!;
     expect(detail.textContent).toMatch(/reads the files and pages you add/u);
     expect(detail.textContent).toMatch(/You choose every source\. Nothing else is read\./u);
+  });
+
+  it('says that it finds and reads public sources only for a server that has a search provider behind it', async () => {
+    const { user } = renderAsk({ config: CONSTRAINED_AND_SEARCHING });
+    await user.click(step('Research'));
+    const detail = document.getElementById(step('Research').getAttribute('aria-controls')!)!;
+    expect(detail.textContent).toMatch(/finds and reads public sources/u);
+    expect(detail.textContent).toMatch(
+      /You can name a site to start from, add your own files, and see every source it used\./u,
+    );
   });
 });
 

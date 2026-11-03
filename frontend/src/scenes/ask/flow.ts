@@ -13,11 +13,44 @@ export interface FlowStep {
 }
 
 /**
- * The path from a question to a decision, as a person is told it. Each line says what is done, never what the
- * result is. What it says follows what this server can do: where research is off the second step is about the
- * sources the person attaches, and where constraints are not kept the third is about people alone.
+ * What the research step says, by what this server does. Where research is off the step is about the sources the
+ * person attaches. Where it is on, it finds sources from a question alone only if a search provider is behind it
+ * (`discovery`); without one it reads the site or page that is named, and the files that are added, and nothing else.
  */
-export function flowSteps(options: { research: boolean; constraints: boolean }): FlowStep[] {
+function researchStep(options: {
+  research: boolean;
+  discovery: boolean;
+}): Pick<FlowStep, 'swarm' | 'you'> {
+  if (!options.research) {
+    return {
+      swarm:
+        'reads the files and pages you add, then links each claim to the passage it came from.',
+      you: 'choose every source. Nothing else is read.',
+    };
+  }
+  if (!options.discovery) {
+    return {
+      swarm:
+        'reads the website you name and the files you add, then links each claim to the passage it came from.',
+      you: 'name a site to start from and add your own files; see every source it used.',
+    };
+  }
+  return {
+    swarm: 'finds and reads public sources, then links each claim to the passage it came from.',
+    you: 'can name a site to start from, add your own files, and see every source it used.',
+  };
+}
+
+/**
+ * The path from a question to a decision, as a person is told it. Each line says what is done, never what the
+ * result is. What it says follows what this server can do: the second step is about what research can read here, and
+ * where constraints are not kept the third is about people alone.
+ */
+export function flowSteps(options: {
+  research: boolean;
+  discovery: boolean;
+  constraints: boolean;
+}): FlowStep[] {
   return [
     {
       id: 'question',
@@ -31,12 +64,7 @@ export function flowSteps(options: { research: boolean; constraints: boolean }):
       id: 'research',
       name: 'Research',
       short: 'Research',
-      swarm: options.research
-        ? 'finds and reads public sources, then links each claim to the passage it came from.'
-        : 'reads the files and pages you add, then links each claim to the passage it came from.',
-      you: options.research
-        ? 'can name a site to start from, add your own files, and see every source it used.'
-        : 'choose every source. Nothing else is read.',
+      ...researchStep(options),
     },
     {
       id: 'people',

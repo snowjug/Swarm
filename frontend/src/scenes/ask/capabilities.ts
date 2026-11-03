@@ -12,6 +12,14 @@ export function researchEnabled(config: AppConfig | null): boolean {
   return record(record(config)?.research)?.enabled === true;
 }
 
+/**
+ * Whether this server can look for sources from a question alone: there is a search provider behind it. Where it
+ * cannot, research reads the site or page a person names and nothing else, so what the page promises is that.
+ */
+export function discoveryAvailable(config: AppConfig | null): boolean {
+  return record(record(record(config)?.research)?.discovery)?.available === true;
+}
+
 /** Whether this server names and keeps the constraints of a decision. */
 export function constraintsEnabled(config: AppConfig | null): boolean {
   return record(record(config)?.features)?.constraints === true;

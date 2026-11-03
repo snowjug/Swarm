@@ -28,7 +28,12 @@ import {
 import { urlIngestionEnabled } from '../../lib/product';
 import type { UiMode } from '../../lib/mode';
 import { AdvancedPanel, AdvancedToggle, ResearchSwitch } from './Advanced';
-import { capabilityFlags, constraintsEnabled, researchEnabled } from './capabilities';
+import {
+  capabilityFlags,
+  constraintsEnabled,
+  discoveryAvailable,
+  researchEnabled,
+} from './capabilities';
 import { Composer, Tray } from './Composer';
 import { HorizonField, SiteField } from './ContextFields';
 import { Assumptions } from './Context';
@@ -45,10 +50,10 @@ import {
   classifySite,
   horizonText,
   researchIntake,
+  researchNote,
   validateIntake,
   withIntake,
   type HorizonChoice,
-  type Site,
 } from './research';
 import { useRefocus } from './rows';
 import { ScenarioReview } from './ScenarioReview';
@@ -99,13 +104,6 @@ const submitKeys = (): string =>
     : 'Ctrl ↵';
 
 const POOL = PROMPTS;
-
-/** What the website field adds to a sentence about research: nothing, a site, or one page. */
-function startingFrom(site: Site): string {
-  if (site.kind === 'domain') return `, starting from ${site.domain}`;
-  if (site.kind === 'url') return `, starting from a page of ${site.host}`;
-  return '';
-}
 
 /**
  * The first screen and the way into every exploration. One idea: say what change you want to explore.
@@ -219,6 +217,7 @@ export function AskScene({
   // Research is the server's to do: where it does not, the person's own sources are what a project is made from.
   const researchAvailable = researchEnabled(config);
   const researchRuns = researchAvailable && researchOn;
+  const discovers = discoveryAvailable(config);
   const siteKind = useMemo(() => classifySite(site), [site]);
   const horizon = horizonText(horizonChoice, horizonCustom);
 
@@ -414,12 +413,24 @@ export function AskScene({
   // Only one thing in the page is the page's heading, and it changes with the phase.
   const heading = phase === 'review' ? 'Your scenario' : 'See how a decision could unfold.';
   const missingSource = asked && documents.length === 0 && !researchRuns;
+  // What the review says research will do, by what will happen: nothing where the sources the person added are what is used.
+  const researchLine = researchNote({
+    runs: researchRuns,
+    discovery: discovers,
+    site: siteKind,
+    documents: documents.length,
+  });
   const advancedSet =
     (geography.trim() ? 1 : 0) + (guidance.trim() ? 1 : 0) + (assumed.length > 0 ? 1 : 0);
   const flags = capabilityFlags(config);
   const steps = useMemo(
-    () => flowSteps({ research: researchRuns, constraints: constraintsEnabled(config) }),
-    [researchRuns, config],
+    () =>
+      flowSteps({
+        research: researchRuns,
+        discovery: discovers,
+        constraints: constraintsEnabled(config),
+      }),
+    [researchRuns, discovers, config],
   );
   // The recorded demonstration is offered only when this workspace holds it.
   const recording =
@@ -617,6 +628,7 @@ export function AskScene({
                 research={
                   <ResearchSwitch
                     available={researchAvailable}
+                    discovery={discovers}
                     on={researchOn}
                     onChange={setResearchOn}
                     disabled={busy || starting}
@@ -819,12 +831,7 @@ export function AskScene({
                 onContinue={() => void start(frame)}
                 evidence={
                   <div className="sw-ask__evidence">
-                    {researchRuns && (
-                      <p className="sw-ask__research sw-caption">
-                        Automatic research is on. After you continue, Swarm looks for public sources
-                        {startingFrom(siteKind)}, and lists every page it reads.
-                      </p>
-                    )}
+                    {researchLine && <p className="sw-ask__research sw-caption">{researchLine}</p>}
                     <Tray
                       documents={documents}
                       disabled={starting}
