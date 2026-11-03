@@ -139,15 +139,26 @@ export class DecisionService {
     };
   }
 
-  /** The canvas for a project’s newest finished comparison, or null when there is none. */
-  canvasFor(projectId: string): DecisionCanvas | null {
-    return this.view(projectId, { run: false, export: false }).canvas;
+  /**
+   * The canvas for the comparison named, or the newest finished one, or null when there is none or it
+   * could not be made. An export asks for the comparison its brief is of, so that the two agree.
+   */
+  canvasFor(projectId: string, analysisId?: string): DecisionCanvas | null {
+    try {
+      return this.view(projectId, { run: false, export: false }, analysisId).canvas;
+    } catch {
+      return null;
+    }
   }
 
-  view(projectId: string, may: DecisionView['may']): DecisionView {
+  view(projectId: string, may: DecisionView['may'], analysisId?: string): DecisionView {
     const started = performance.now();
     const { artifacts } = this.repository;
-    const { latest, pending, failed } = this.analyses(projectId);
+    const found = this.analyses(projectId);
+    const { pending, failed } = found;
+    const named = analysisId ? artifacts.get(projectId, 'analysis', analysisId) : null;
+    const latest =
+      named && named.data.status === 'completed' && hasRuns(named.data) ? named : found.latest;
     if (!latest) {
       const state = pending ? 'running' : failed ? 'failed' : 'no-analysis';
       return { canvas: null, readiness: this.whatIsMissing(projectId, state), may };
