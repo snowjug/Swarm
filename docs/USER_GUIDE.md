@@ -93,11 +93,13 @@ unfold.", and what it asks of you is one question.
    **6 months**, **1 year**, **3 years** or **Custom**, which takes your own words ("For example, the next two
    quarters").
 3. **Choose whether Swarm researches.** **Research automatically** is on by default where the server does
-   research: "Swarm finds and reads public sources for you." With it on, the project needs no source of your
-   own, and after you continue Swarm looks for public sources itself ([what that does and does not
-   do](../README.md#automatic-research)). Turned off it says "Manual sources only: Swarm reads what you add.",
-   and the website field is greyed out and says it is used by automatic research. Where the server does not
-   research, the switch is off and cannot be turned on ("Off on this server. Attach your own sources.").
+   research: "Swarm finds and reads public sources for you." With it on, a question that has no source of
+   your own is researched first: after you continue, Swarm looks for public sources itself ([what that does and
+   does not do](../README.md#automatic-research)). Attach a source of your own and the project is read from
+   your sources, as it always was, and research does not start. Turned off it says "Manual sources only:
+   Swarm reads what you add.", and the website field is greyed out and says it is used by automatic research.
+   Where the server does not research, the switch is off and cannot be turned on ("Off on this server. Attach
+   your own sources.").
 4. **Add evidence, if you want to.** **Evidence** opens a panel with three ways to add it: **Files** (drop them, or choose
    them: TXT, MD, CSV, JSON or a text-based PDF, where the server reads PDFs), **Paste** (a name and the
    text, then **Attach**) and **Web page**, which is offered only when the server allows it. For a page,
@@ -111,8 +113,7 @@ unfold.", and what it asks of you is one question.
    Everything attached sits in a row of pills, and a pill opens the text that Swarm will work from, to read
    and correct. If you change the text of a page that was fetched, it is kept as pasted text and no longer
    called a retrieved page (put the words back and it is the page again). Every document keeps where it came
-   from. Your own sources and automatic research can be used together: research adds sources up to the
-   project's limit of ten, and never reads, ranks or changes what you attach.
+   from.
 5. **Say what to take as given, if you want to.** **Advanced** opens three more fields, and a number on the
    button says how many of them hold something. **Geography** is where it applies, if that matters (a country,
    region or city). **Research guidance** is used to rank what research reads and never as an instruction to it
@@ -140,9 +141,10 @@ unfold.", and what it asks of you is one question.
    do it** (the alternatives to compare; **Add a way**), **Who is affected** and **Assumed**. Each assumption
    is marked **Yours** or **System assumption**, and you can add or remove them. **Swarm asks** lists at most
    three questions that it needs answered: **Answer** or **Skip** each. **Evidence** lists what was
-   attached, and where research is on, says so: "Automatic research is on. After you continue, Swarm looks
-   for public sources, starting from example.org, and lists every page it reads." **Add evidence** adds your
-   own. **How it was read** says how the question was read. A chip says whether it was read by rules, by a
+   attached. Where research is on, a line there says what research will do ("Automatic research is on. After
+   you continue, Swarm looks for public sources, starting from example.org, and lists every page it reads."),
+   and it says so whether or not you attached a source: research starts only for a question that has none.
+   **Add evidence** adds your own. **How it was read** says how the question was read. A chip says whether it was read by rules, by a
    model, or edited by you. **Question** goes back to the first screen with everything you wrote.
 9. **Ground it.** **Ground it** creates the project and starts reading the evidence, or researching for it.
    Nothing ran before this: "Nothing runs until you continue." sits beside the button. If the reading of the

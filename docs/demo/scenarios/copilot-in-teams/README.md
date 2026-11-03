@@ -8,7 +8,7 @@ more assistant features in its chat and meetings app, switched on by default. Th
 short documents. Microsoft, Copilot and Teams are named only because the question names them; the
 premise is hypothetical and nothing here describes a real plan.
 
-Back to the [example scenarios](../README.md). The text the example chip loads is in
+Back to the [example scenarios](../README.md). The text the sample case loads is in
 [`shared/examples/copilot-in-teams.ts`](../../../../shared/examples/copilot-in-teams.ts), and the
 files in this folder are readable copies of it.
 
@@ -65,8 +65,8 @@ period; left off by default.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** First screen, then the **Copilot in Teams** chip under **Start from
-an example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
+**0:00 Choose the example (30 s).** First screen, then **Try a sample case** in the foot and **Copilot in Teams**.
+Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
 behavior. This question is about a deeper, default-on assistant in a chat and meetings app. Everything
 in it is invented: five short documents about an imaginary firm, each labelled synthetic." Point at the
 question and at the evidence: the count on **Evidence** and the five documents in the tray, each a
