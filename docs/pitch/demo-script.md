@@ -44,6 +44,10 @@ failure table, and says what a recording can and cannot open in the interface.
 
 Notes on the table:
 
+- **Map, when the list is held back.** The proposed participants are checked before they can be used. If the
+  button reads "Fix N things first" instead of **Create actors**, open **Review**: each blocking check says what is
+  wrong and how to mend it, and the list can be used once none stands. The demo guide's
+  [Map step](../demo/README.md) says what to point at there.
 - **Ground, with a model.** The statements of a report appear under **Statements** once a detailed report
   has been written (**Simulate** → **More** → **Deep dive**, **Prepare the environment**, **Start the
   simulation**, **Write the detailed report**). Filter by support class, and open an unsupported statement

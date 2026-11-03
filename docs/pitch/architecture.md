@@ -34,7 +34,7 @@ flowchart LR
 
 - **The model has no tools.** It returns schema-checked JSON. Retrieval, memory search and the
   ledger are server functions called by deterministic code.
-- **Local mode makes no network call.** Real model mode uses a Microsoft Entra token for the signed-in
+- **Local mode makes no network call** unless a person asks Swarm to read a public page or to research a site. Real model mode uses a Microsoft Entra token for the signed-in
   developer or a managed identity; there is no API key to store.
 - **Where the evidence decisions are made:** `backend/src/grounding/` (classification, publication
   policy, conflicts, ledger service) and `backend/src/orchestration/evidence-gate.ts`. No model
@@ -72,8 +72,8 @@ flowchart LR
 **Left out on purpose:** Azure AI Search (lexical retrieval is adequate for the small document sets
 measured so far, and nothing shows semantic retrieval would help; revisit with a real corpus),
 Cosmos DB (the audit chain and migrations want transactions), Azure Functions (there is no event-driven
-work), Key Vault (there are no secrets to hold when both the model and the database use managed
-identity; add it the day a secret appears), API Management, Front Door.
+work), Key Vault (off by default in the Bicep: there are no secrets to hold when both the model and the database use managed
+identity; turn it on the day a secret appears), API Management, Front Door.
 
 ## Decisions this depends on
 
