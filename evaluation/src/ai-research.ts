@@ -255,7 +255,9 @@ async function carryOut(
         const planted = corrupt(item.model.corrupt, base, { markers: [], bait: null });
         modelWorld().fake.respond(() => planted.step);
       } else {
-        modelWorld().fake.script({ kind: 'reply', value: base });
+        // The same reply answers every call: the product asks again when it will not use a plan, and a reply
+        // scripted once left the second call with nothing to say.
+        modelWorld().fake.respond(() => ({ kind: 'reply', value: base }));
       }
     }
     const before = world.requests.length;

@@ -649,4 +649,9 @@ export const SUITE_REVISIONS: readonly { what: string; reason: string }[] = [
     reason:
       'The registered definition of decisionRecommendation asks the card’s list of missing parts to hold reversibility while it is unknown. The product’s card does not (the page adds it), so every canvas fails as registered. That number stays the registered one and is reported as breached; the same canvases read without that one requirement are printed beside it as a number with no threshold, to show it is the only gap.',
   },
+  {
+    what: 'The scripted plan of the runs that a model plans (evaluation/src/ai-research.ts)',
+    reason:
+      'A model-planned run scripted one reply, which was enough while the product used the first plan it was given. Once the product refused a plan that suggests the site that only an instruction in the question names (RR28), it asked a second time and the fake had nothing scripted to say: the fake’s own check reported a reply that did not fit its strict schema. The same reply answers every call now, as a corrupted plan always did. No label, threshold or definition changed.',
+  },
 ];

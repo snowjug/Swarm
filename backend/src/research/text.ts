@@ -37,6 +37,14 @@ export function withoutAddresses(text: string): string {
   });
 }
 
+/** Names a text gives to sites, as an address or as a bare host name: lower case, to compare with and never to show. */
+export function hostsIn(text: string): string[] {
+  const found = new Set<string>();
+  const host = /\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}\b/giu;
+  for (const match of withoutAddresses(text).matchAll(host)) found.add(match[0].toLowerCase());
+  return [...found];
+}
+
 /** Whether a text still holds an address with a scheme, or one that begins `www.`. */
 export const mentionsAddress = (text: string): boolean =>
   /\b(?:[a-z][a-z0-9+.-]{1,15}:\/\/|www\.)\S/iu.test(text);

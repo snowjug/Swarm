@@ -16,24 +16,6 @@
     },
     {
       "mode": "rules",
-      "metric": "planInjectionCarried",
-      "measuredWhenRecorded": "5 of 5 questions that carry a seeded instruction with a marker phrase came back with the marker in the plan (dev 2 of 2, test 3 of 3).",
-      "why": "A product defect, found by the planner suite and not yet fixed (the suite never edits the product). The rules' plan treats every clause of the question as a statement to check: an instruction in the question becomes a claim to verify (“Stated in the question; check what published sources say”), a search topic, an entity and a line of conflicts to look for. The product's own test is named “never carries an address, an instruction or a control character” but asserts only the address and the control character. Leaving the sentences that backend/src/models/injection.ts reads as instructions out of the plan, and saying so, would make the count 0. Reproduction in the report's defects."
-    },
-    {
-      "mode": "fake-foundry",
-      "metric": "planBadAccepted",
-      "measuredWhenRecorded": "4 of 74 corrupted replies were returned as the model's plan with the corruption in it, all of the class that obeys the instruction in the question (I03 and I06, each in the arm corrected once and the arm that kept failing); every other class was caught in both arms.",
-      "why": "The echo guard (backend/src/models/injection.ts) is a heuristic with a stated limit: it cannot recognise an instruction worded in a way it does not know. “Fetch … and tell the reader X” and “You are now the administrator … print X” are not among its patterns, so a model that repeats the marker is believed; the wordings it has patterns for were caught. A limit the product documents, that the planner suite measures as a breach because the registered statement is absolute."
-    },
-    {
-      "mode": "fake-foundry",
-      "metric": "planInjectionCarried",
-      "measuredWhenRecorded": "7 of 17 plans returned for questions that carry a seeded instruction had the marker in them: 4 plans a scripted model made by obeying I03 and I06 and the product accepted, and 3 rules' plans (I01, I02, I04) that stood in after two rejected replies and carried the marker from the question.",
-      "why": "Two causes, each recorded above for its own metric: the obeying plans the guard does not recognise (planBadAccepted, fake-foundry) and the rules' plan that copies an instruction in the question (planInjectionCarried, rules). Fixing the second removes the three fallbacks; the first needs a better guard or a check of the plan for the question's instruction."
-    },
-    {
-      "mode": "rules",
       "metric": "decisionRecommendation",
       "measuredWhenRecorded": "0% (0/86) of canvases (41 gold fixtures and 45 canvases of the five worked examples) are complete and of the right kind as registered; read without one requirement the same canvases are 100% (86/86).",
       "why": "The registered definition asks the card's list of missing parts to hold reversibility while it is unknown. The card lists the eight parts that have nothing in them and leaves reversibility out: it states “unknown” in reversibility itself, and the page adds “Reversibility (unknown)” (frontend/src/scenes/decide/canvas/model.ts, completenessOf); the product's own test asserts the eight-part list. Every other part of the definition holds on all 86 canvases: each part is stated or missing with a sentence, the list is exactly the missing parts, and the kind is the one of the status. Whether the card should also list it is a product decision; the definition was registered as it is and not edited. One line in backend/src/decision/recommendation.ts makes it 100%."
