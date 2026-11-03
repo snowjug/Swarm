@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { ANALYSIS_INPUTS } from '../../shared/analysis.js';
 import { ARTIFACT_KINDS } from '../../shared/artifacts.js';
-import type { DecisionView } from '../../shared/decision.js';
+import { SCOPE_NOTICE, type DecisionView } from '../../shared/decision.js';
 import {
   actorSetFixture,
   analysisFixture,
@@ -53,12 +53,12 @@ function holdComparison(repository: Repository, projectId: string, overrides = {
   );
 }
 
-async function localWorld(scale = '1000') {
+async function localWorld(scale = '1000', input: Record<string, unknown> = {}) {
   const instance = await buildApp({
     config: testConfig({ LOG_LEVEL: 'silent', RATE_LIMIT_SCALE: scale }),
   });
   applications.push(instance);
-  const project = instance.repository.create(fixtureInput());
+  const project = instance.repository.create(fixtureInput(input));
   const get = async (id = project.id) =>
     instance.app.inject({ method: 'GET', url: `/api/projects/${id}/decision` });
   const view = async () => (await get()).json() as DecisionView;
@@ -111,6 +111,57 @@ describe('the canvas of a project that cannot have one yet', () => {
     const { view, repository, project } = await localWorld();
     holdComparison(repository, project.id, { variants: [], findings: [], sensitivity: [] });
     expect((await view()).canvas).toBeNull();
+  });
+});
+
+describe('a question that Swarm does not decide, at each stage of a project', () => {
+  it('says so before there is any comparison, and the status is a human decision, not a lack of evidence', async () => {
+    const { view } = await localWorld('1000', {
+      question: 'Should we fire this employee?',
+    });
+    const body = await view();
+    expect(body.canvas).toBeNull();
+    expect(body.readiness.missing).toEqual([
+      'The question has not been turned into a scenario yet.',
+    ]);
+    expect(body.readiness.status).toMatchObject({
+      status: 'needs-human-decision',
+      rule: 'individual-decision',
+    });
+    expect(body.readiness.scope).toMatchObject({
+      notice: SCOPE_NOTICE,
+      domains: ['employment'],
+      aboutIndividual: true,
+    });
+  });
+
+  it('says it on the canvas of a finished comparison, and names no option', async () => {
+    const { view, repository, project } = await localWorld('1000', {
+      question: 'Should the bank approve John Smith’s mortgage application?',
+    });
+    holdComparison(repository, project.id);
+    const body = await view();
+    expect(body.canvas?.status).toMatchObject({
+      status: 'needs-human-decision',
+      rule: 'individual-decision',
+    });
+    expect(body.canvas?.answer.preferredAlternativeId).toBeNull();
+    expect(body.canvas?.answer.recommendation.kind).toBe('decide');
+    expect(body.canvas?.scope).toMatchObject({ domains: ['credit'], aboutIndividual: true });
+    expect(body.readiness.scope).toEqual(body.canvas?.scope);
+  });
+
+  it('says only the notice for a matter of policy, and nothing for a question about none of the five', async () => {
+    const policy = await localWorld('1000', {
+      question: 'What happens if we change our hiring policy?',
+    });
+    expect((await policy.view()).readiness.scope).toMatchObject({
+      domains: ['employment'],
+      aboutIndividual: false,
+    });
+    expect((await policy.view()).readiness.status).toMatchObject({ rule: 'no-analysis' });
+    const plain = await localWorld();
+    expect((await plain.view()).readiness.scope).toMatchObject({ notice: null, domains: [] });
   });
 });
 

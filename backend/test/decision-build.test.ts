@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { claimsAgainst } from '../../e2e/support/claims.js';
 import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios.js';
 import {
+  CARD_PARTS,
   EPISTEMIC_LABELS,
   RECOMMENDATION_PARTS,
+  SCOPE_NOTICE,
   decisionCanvasSchema,
+  recommendationCompleteness,
   type DecisionCanvas,
   type Labelled,
 } from '../../shared/decision.js';
@@ -39,6 +42,7 @@ const canvasOf = (options: OptionSpec[] = WINNER, config: ControlledOptions = {}
 /** Words that are a person’s, a source’s or an earlier step’s, shown as theirs and never as a sentence of ours. */
 const THEIRS = [
   /^question\.(asked|system)$/u,
+  /^scope\.basis\.\d+$/u,
   /^question\.(decision|baseline|horizon|geography|successWording)\.text$/u,
   /^(alternatives|futures\.items|interventions)\.\d+\.label$/u,
   /^actors\.(focusLabel|baselineLabel)$/u,
@@ -105,6 +109,9 @@ describe('the canvas on the five worked examples, made by the real pipeline', ()
         'worst-affected-downside',
       ]);
       expect(canvas.actors.items.every((actor) => actor.synthetic)).toBe(true);
+      // None of the five questions is about one person, so none is forced to a human decision.
+      expect(canvas.scope.aboutIndividual).toBe(false);
+      expect(canvas.status.rule).not.toBe('individual-decision');
     },
     60_000,
   );
@@ -273,15 +280,47 @@ describe('the recommendation is complete, or says what is missing', () => {
         expect(value.items.length > 0 || value.missing !== null, part).toBe(true);
         expect(value.items.length > 0 && value.missing !== null, part).toBe(false);
       }
-      expect(card.missing).toEqual(
-        RECOMMENDATION_PARTS.filter((part) => card[part].missing !== null),
-      );
       expect(card.reversibility.value).toBe('unknown');
       expect(card.reversibility.statement.text).toMatch(/unknown/u);
+      // The list holds exactly the parts that are not stated, and reversibility among them while it is unknown: the data
+      // says so itself, and a page or an export adds nothing to it.
+      expect(card.missing).toEqual(
+        CARD_PARTS.filter((part) =>
+          part === 'reversibility'
+            ? card.reversibility.value === 'unknown'
+            : card[part].missing !== null,
+        ),
+      );
+      expect(card.missing).toContain('reversibility');
+      expect(card.missing.length).toBeLessThanOrEqual(CARD_PARTS.length);
+      // The count of parts stated follows the list.
+      expect(recommendationCompleteness(card)).toMatchObject({
+        total: 9,
+        stated: 9 - card.missing.length,
+      });
       expect(card.approval.items.length).toBeGreaterThan(0);
       expect(card.what.label).toBe('recommendation');
     },
   );
+
+  it('lists reversibility as missing for as long as it is unknown, and no longer', () => {
+    const card = canvasOf().answer.recommendation;
+    expect(card.missing.at(-1)).toBe('reversibility');
+    // A card that knew whether the choice can be undone would not list it, and the count would not either.
+    const known: typeof card = {
+      ...card,
+      reversibility: { ...card.reversibility, value: 'reversible' },
+      missing: card.missing.filter((part) => part !== 'reversibility'),
+    };
+    expect(recommendationCompleteness(known).missing).not.toContain('Reversibility (unknown)');
+    expect(recommendationCompleteness(known).stated).toBe(9 - known.missing.length);
+    // Data that says “unknown” and does not list it is still counted as a gap.
+    const unlisted: typeof card = {
+      ...card,
+      missing: card.missing.filter((part) => part !== 'reversibility'),
+    };
+    expect(recommendationCompleteness(unlisted)).toEqual(recommendationCompleteness(card));
+  });
 
   it('says who has to approve before acting, and that nothing is done by Swarm', () => {
     const canvas = canvasOf();
@@ -296,7 +335,7 @@ describe('the recommendation is complete, or says what is missing', () => {
     expect(before[1]?.text).toMatch(/real person/u);
   });
 
-  it('flags a decision that may touch employment, credit, legal, medical or safety matters, and asks for a qualified person', () => {
+  it('puts a notice on a decision that touches employment, credit, legal, medical or safety matters, and asks for a qualified person', () => {
     const canvas = buildCanvas(
       controlledInputs(WINNER, {
         sensitivity: CALM,
@@ -305,9 +344,136 @@ describe('the recommendation is complete, or says what is missing', () => {
         }),
       }),
     );
-    expect(canvas.highStakes).toMatchObject({ flagged: true, domains: ['medical'] });
-    expect(canvas.approvals.some((point) => point.id === 'approve-qualified')).toBe(true);
-    expect(canvasOf().highStakes.flagged).toBe(false);
+    expect(canvas.scope).toMatchObject({
+      notice: SCOPE_NOTICE,
+      domains: ['medical'],
+      aboutIndividual: false,
+      exploration: null,
+    });
+    // A matter of a policy keeps its status: the notice is there, and nothing is forced.
+    expect(canvas.status.status).toBe('robust-option');
+    const approval = canvas.approvals.find((point) => point.id === 'approve-qualified');
+    expect(approval?.stage).toBe('before-acting');
+    expect(approval?.text).toMatch(/a qualified clinician/u);
+    expect(canvasOf().scope).toMatchObject({ notice: null, domains: [], aboutIndividual: false });
+    expect(canvasOf().approvals.some((point) => point.id === 'approve-qualified')).toBe(false);
+  });
+});
+
+describe('a decision about one person is a qualified person’s: the canvas does not make or recommend it', () => {
+  const asking = (question: string, config: ControlledOptions = {}): DecisionCanvas => {
+    const inputs = controlledInputs(WINNER, { sensitivity: CALM, ...config });
+    return buildCanvas({ ...inputs, project: { ...inputs.project, question } });
+  };
+
+  it('is a human decision before any other rule is read, whatever the comparison found', () => {
+    const asked = 'Should we fire this employee?';
+    expect(canvasOf().status.status).toBe('robust-option');
+    for (const config of [
+      {},
+      { documents: [], actors: citedActors().map((actor) => ({ ...actor, evidence: [] })) },
+      { constraints: [constraintOf({ id: 'c-1', category: 'legal', hardness: 'hard' })] },
+    ]) {
+      const canvas = asking(asked, config);
+      expect(canvas.status).toMatchObject({
+        status: 'needs-human-decision',
+        rule: 'individual-decision',
+        conditions: [],
+      });
+      expect(canvas.status.headline).toMatch(/one person’s employment situation/u);
+      expect(canvas.status.why[0]).toMatch(
+        /employment: “fire”; about one person: “this employee”/u,
+      );
+      expect(canvas.answer.preferredAlternativeId).toBeNull();
+    }
+  });
+
+  it('names no option and ranks none, and says so for each', () => {
+    const canvas = asking('Should we fire this employee?');
+    expect(canvas.alternatives.map((option) => option.verdict)).toEqual([
+      'not-ranked',
+      'not-ranked',
+    ]);
+    expect(canvas.alternatives.every((option) => /not ranked/u.test(option.why))).toBe(true);
+    expect(
+      canvas.changes.counterfactuals.views.every((view) => view.couldChangeAnswer === null),
+    ).toBe(true);
+  });
+
+  it('replaces the recommended next move with a qualified person and what the exploration can and cannot tell them', () => {
+    const canvas = asking('Should we fire this employee?');
+    const card = canvas.answer.recommendation;
+    // The kind is the status's own, as the table of statuses says: a human decides. The words say which human.
+    expect(card.kind).toBe('decide');
+    expect(card.what.text).toBe(
+      'A qualified person decides this; here is what the exploration can and cannot tell them.',
+    );
+    expect(card.forWhom.items[0]?.text).toMatch(
+      /^A qualified person decides this: a qualified human resources or employment-law professional/u,
+    );
+    expect(canvas.scope.exploration?.canTell.length).toBeGreaterThan(0);
+    expect(canvas.scope.exploration?.cannotTell.length).toBeGreaterThan(0);
+    expect(card.what.text).not.toMatch(/Take|Keep|forward/u);
+  });
+
+  it('strengthens the approval: a named approver, and a qualified professional of the kind the domain calls for', () => {
+    const credit = asking('Should the bank approve John Smith’s mortgage application?');
+    const point = credit.approvals.find((entry) => entry.id === 'approve-qualified');
+    expect(point?.text).toMatch(/^A qualified person decides: a qualified credit decision-maker/u);
+    expect(point?.text).toMatch(/a named approver agrees to act/u);
+    expect(credit.approvals.some((entry) => entry.id === 'approve-named')).toBe(true);
+    const both = asking('Should I sue my landlord, and should I stop taking my medication?');
+    expect(both.scope.domains).toEqual(['legal', 'medical']);
+    expect(both.approvals.find((entry) => entry.id === 'approve-qualified')?.text).toMatch(
+      /a qualified lawyer and a qualified clinician/u,
+    );
+  });
+
+  it('puts the qualified person first among the checks, and among the reasons to stop', () => {
+    const canvas = asking('Should we fire this employee?');
+    expect(canvas.validation.items[0]).toMatchObject({
+      source: 'scope',
+      kind: 'stakeholder',
+      priority: 'high',
+    });
+    expect(canvas.validation.items[0]?.what).toMatch(/^Have a qualified human resources/u);
+    expect(canvas.validation.items.some((item) => item.id.includes('weigh-tradeoff'))).toBe(false);
+    expect(canvas.validation.stopConditions[0]?.id).toBe('stop-qualified-person');
+    expect(canvas.answer.recommendation.testNext.items[0]?.text).toMatch(/^Have a qualified/u);
+  });
+
+  it('still shows the exploration, as exploration: the futures, the lenses, the drivers and the cast', () => {
+    const canvas = asking('Should we fire this employee?');
+    expect(canvas.futures.items.length).toBeGreaterThan(0);
+    expect(canvas.lenses.some((lens) => lens.computable)).toBe(true);
+    expect(canvas.actors.items.length).toBeGreaterThan(0);
+    expect(canvas.status.why.join(' ')).toMatch(
+      /still shown, as exploration and not as a recommendation/u,
+    );
+  });
+
+  it('keeps the labels, and every sentence it adds passes the guard against forecasts and unattributed figures', () => {
+    const canvas = asking('Should we fire Maria Lopez for repeated lateness?');
+    expect(canvas.withheld).toBe(0);
+    expect(decisionCanvasSchema.safeParse(canvas).success).toBe(true);
+    for (const line of statements(canvas)) expect(EPISTEMIC_LABELS).toContain(line.label);
+    for (const [path, text] of ours(canvas)) {
+      expect(
+        lintText(text).map((issue) => issue.rule),
+        `${path}: ${text}`,
+      ).toEqual([]);
+      expect(text, path).not.toBe(WITHHELD_TEXT);
+    }
+    expect(JSON.stringify(canvas.scope)).not.toMatch(/maria|lopez/iu);
+  });
+
+  it('is the same for a question put in other words that mean the same, and not for a policy', () => {
+    const one = asking('Which of these three candidates should we hire?');
+    expect(one.status.rule).toBe('individual-decision');
+    const policy = asking('What happens if we change our hiring policy?');
+    expect(policy.status.rule).not.toBe('individual-decision');
+    expect(policy.scope).toMatchObject({ domains: ['employment'], aboutIndividual: false });
+    expect(policy.answer.recommendation.what.text).not.toContain('A qualified person decides this');
   });
 });
 

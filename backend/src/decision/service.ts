@@ -13,6 +13,9 @@ import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
 import { productSignals } from '../telemetry/product-signals.js';
 import { buildCanvas, readinessOf, statusWithoutAnalysis } from './build.js';
+import { consequentialScope, type ConsequentialScope } from './scope.js';
+import { scopeSection } from './scope-words.js';
+import { Guard } from './words.js';
 
 type AnalysisRecord = ArtifactRecord<'analysis'>;
 
@@ -131,11 +134,18 @@ export class DecisionService {
           : 'No comparison has been run yet.';
       next = 'simulate';
     }
+    let scope: ConsequentialScope | null = null;
+    try {
+      scope = consequentialScope(this.repository.get(projectId).question, scenario?.data ?? null);
+    } catch {
+      scope = null;
+    }
     return {
       state,
       missing: [missing],
       next,
-      status: statusWithoutAnalysis(missing),
+      status: statusWithoutAnalysis(missing, scope ?? undefined),
+      scope: scope ? { ...scopeSection(scope, new Guard()), exploration: null } : null,
     };
   }
 

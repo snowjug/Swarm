@@ -8,7 +8,9 @@ import {
   POSITION_WORDS,
   RECOMMENDATION_PART_WORDS,
   REVERSIBILITY_WORDS,
+  SCOPE_DOMAIN_WORDS,
   SYNTHETIC_ACTORS_NOTE,
+  recommendationCompleteness,
   type DecisionCanvas,
   type Labelled,
   type Part,
@@ -57,10 +59,19 @@ const partBlocks = (title: string, part: Part): CanvasBlock[] =>
 export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
   const { status, answer, question } = canvas;
   const card = answer.recommendation;
+  const done = recommendationCompleteness(card);
   const blocks: CanvasBlock[] = [
     { kind: 'heading', level: 2, text: 'Decision view', anchor: 'decision-view' },
     { kind: 'paragraph', text: `${EXPLORE_NOT_PREDICT} ${SYNTHETIC_ACTORS_NOTE}`, tone: 'notice' },
   ];
+  if (canvas.scope.notice) {
+    blocks.push({
+      kind: 'paragraph',
+      title: 'Scope.',
+      text: `${canvas.scope.notice} What the question touches: ${canvas.scope.domains.map((domain) => SCOPE_DOMAIN_WORDS[domain].label.toLowerCase()).join(', ')}.`,
+      tone: 'notice',
+    });
+  }
   if (canvas.freshness.stale) {
     blocks.push({
       kind: 'paragraph',
@@ -230,6 +241,21 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
   blocks.push(
     { kind: 'heading', level: 3, text: '8. Recommended next move' },
     said(card.what, 'Recommendation'),
+    ...(canvas.scope.exploration
+      ? [
+          ...canvas.scope.exploration.canTell.map((line) =>
+            said(line, 'What the exploration can tell them'),
+          ),
+          ...canvas.scope.exploration.cannotTell.map((line) =>
+            said(line, 'What it cannot tell them'),
+          ),
+        ]
+      : []),
+    {
+      kind: 'paragraph',
+      text: `${done.stated} of ${done.total} parts stated.${done.missing.length > 0 ? ` Missing: ${done.missing.join(', ')}.` : ''}`,
+      tone: 'note',
+    },
     ...partBlocks(RECOMMENDATION_PART_WORDS.forWhom, card.forWhom),
     ...partBlocks(RECOMMENDATION_PART_WORDS.assumptions, card.assumptions),
     ...partBlocks(RECOMMENDATION_PART_WORDS.constraints, card.constraints),
@@ -277,7 +303,13 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
       text: `Human approval: ${canvas.approvals.map((point) => `${point.stage === 'before-simulation' ? 'Before the simulation' : 'Before acting'}: ${point.text} (${point.state === 'done' ? 'recorded' : 'open'})`).join(' ')}`,
       tone: 'note',
     },
-    { kind: 'paragraph', text: canvas.highStakes.note, tone: 'note' },
+    {
+      kind: 'paragraph',
+      text: canvas.scope.notice
+        ? `${canvas.scope.notice} Cues found: ${canvas.scope.basis.join('; ')}.`
+        : 'Nothing in the question or its framing points to a matter of employment, credit, legal, medical or safety. Swarm still does not make the decision.',
+      tone: 'note',
+    },
     { kind: 'paragraph', text: 'The full decision brief follows.', tone: 'note' },
   );
   return blocks;

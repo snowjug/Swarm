@@ -1,5 +1,5 @@
 import {
-  RECOMMENDATION_PARTS,
+  CARD_PARTS,
   type ActorReading,
   type ApprovalPoint,
   type ConstraintRow,
@@ -16,6 +16,8 @@ import {
 } from '../../../shared/decision.js';
 import { labelOf } from '../../../shared/decision.js';
 import type { Flip, StatusOption } from './status.js';
+import type { ConsequentialScope } from './scope.js';
+import { reviewersOf } from './scope-words.js';
 import { Guard, embed, listed } from './words.js';
 
 /**
@@ -29,6 +31,7 @@ import { Guard, embed, listed } from './words.js';
 
 export interface CardInput {
   status: DecisionStatusReading;
+  scope: ConsequentialScope;
   options: readonly StatusOption[];
   preferred: StatusOption | null;
   /** The options at the top that cannot be told apart, or that lead on different lenses. */
@@ -92,7 +95,13 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
         'Do not go past the hard constraint. Settle it first with its owner: confirm it, correct it or set it aside, then run the comparison again.';
       break;
     case 'needs-human-decision':
+      // The kind is the status’s own, a human decides; the words say which human, for a decision about one person.
       kind = 'decide';
+      if (status.rule === 'individual-decision') {
+        what =
+          'A qualified person decides this; here is what the exploration can and cannot tell them.';
+        break;
+      }
       what =
         input.contenders.length > 1
           ? `Take the choice to the decision owner with the trade-off in front of them: ${listed(input.contenders.slice(0, 3).map((option) => optionName(option)))} lead on different lenses.`
@@ -101,6 +110,15 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
   }
 
   const forWhom: Labelled[] = [
+    ...(status.rule === 'individual-decision'
+      ? [
+          guard.statement(
+            `A qualified person decides this: ${reviewersOf(input.scope.domains)}, a real person and not a simulated role.`,
+            'validation-requirement',
+            'scope:decider',
+          ),
+        ]
+      : []),
     ...input.owners
       .slice(0, 2)
       .map((actor) =>
@@ -258,6 +276,11 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
     what: guard.statement(what, 'recommendation', `status:${status.status}`),
     ...parts,
     reversibility: input.reversibility,
-    missing: RECOMMENDATION_PARTS.filter((name) => parts[name].missing !== null),
+    // Reversibility is a gap for as long as it is unknown: the card lists it, and the count of parts stated follows the list.
+    missing: CARD_PARTS.filter((name) =>
+      name === 'reversibility'
+        ? input.reversibility.value === 'unknown'
+        : parts[name].missing !== null,
+    ),
   };
 }

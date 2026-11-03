@@ -4,16 +4,21 @@ import {
   DECISION_STATUS_INFO,
   EPISTEMIC_LABELS,
   EPISTEMIC_LABEL_INFO,
+  SCOPE_NOTICE,
   type DecisionView,
 } from '../../shared/decision';
 import {
+  canvasFixture,
   emptyFixture,
   richFixture,
+  scopeFixture,
+  scopedFixture,
   statusFixture,
   viewFixture,
 } from '../../frontend/src/test/decision';
 import { claimsAgainst } from '../support/claims';
 import {
+  SOURCE,
   apiContext,
   expectNoAxeViolations,
   expectNoHorizontalOverflow,
@@ -380,6 +385,257 @@ test.describe('when there is no picture to show', () => {
     await expect(page.locator('[data-canvas-item="answer"]')).toContainText('Not current');
     await expect(notice.getByRole('button', { name: 'Open Simulate' })).toBeVisible();
     await expectNoAxeViolations(page, 'a decision view that is out of date');
+  });
+});
+
+/** The nine are in the window: the lowest of them ends at or above its bottom edge. */
+async function expectNineInWindow(page: Page, height: number): Promise<void> {
+  const bottoms = await page
+    .locator('[data-canvas-item]')
+    .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom));
+  expect(bottoms).toHaveLength(NINE.length);
+  expect(Math.max(...bottoms), 'the lowest of the nine ends inside the window').toBeLessThanOrEqual(
+    height,
+  );
+}
+
+const notice = (page: Page) => page.getByRole('note', { name: 'What Swarm does not decide' });
+
+/** A project made with a question of our own, and nothing run: the scope is read from the question alone. */
+async function withQuestion(name: string, question: string): Promise<string> {
+  const created = await api.post('/api/projects', {
+    data: {
+      name,
+      question,
+      documents: [{ name: 'notes.md', content: SOURCE }],
+      settings: { mode: 'local', agentCount: 6, rounds: 4, seed: 42, network: 'community' },
+    },
+  });
+  expect(created.ok(), await created.text()).toBe(true);
+  return keep(((await created.json()) as { id: string }).id);
+}
+
+test.describe('what Swarm does not decide, at 1440 by 900', () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
+  for (const status of DECISION_STATUSES) {
+    test(`says it beside the title, with the matters it matched, over "${DECISION_STATUS_INFO[status].label}"`, async ({
+      page,
+    }) => {
+      await serve(
+        page,
+        viewFixture(scopedFixture('domain', statusFixture(status), ['employment', 'legal'])),
+      );
+      await openDecide(page, project);
+      const note = notice(page);
+      await expect(note).toBeVisible();
+      await expect(note).toContainText(SCOPE_NOTICE);
+      await expect(note).toContainText('Employment');
+      await expect(note).toContainText('Legal');
+      // It is the first thing on the page after its title: above the question, and not far under the title.
+      const title = (await page
+        .getByRole('main')
+        .getByRole('heading', { level: 1 })
+        .boundingBox())!;
+      const at = (await note.boundingBox())!;
+      const question = (await viewItem(page, 'Question').boundingBox())!;
+      expect(at.y, 'above the question').toBeLessThan(question.y);
+      expect(at.y - title.y, 'beside or just under the title').toBeLessThan(80);
+      // A matter in general changes nothing else: the status is the one the simulation gave.
+      await expect(page.locator('[data-canvas-item="answer"] h3')).toHaveText(
+        DECISION_STATUS_INFO[status].label,
+      );
+      await expect(page.locator('[data-canvas-item="next"] .sw-canvas-tell')).toHaveCount(0);
+      await expectNineInWindow(page, 900);
+      await expectNoHorizontalOverflow(page);
+    });
+  }
+
+  test('is clean for a matter in general: nothing said that the product may not say, and no axe violation', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await serve(page, viewFixture(scopedFixture('domain', canvasFixture(), ['medical'])));
+    await openDecide(page, project);
+    const said = (await decisionView(page).innerText()).replace(/\s+/gu, ' ');
+    expect(said.replace(/“[^”]*”/gu, '')).not.toContain('%');
+    expect(claimsAgainst(said), said).toEqual([]);
+    await quiet(page);
+    await expectNoAxeViolations(page, 'the decision view with a scope notice');
+    expect(problems).toEqual([]);
+  });
+
+  test('says that a qualified person decides a decision about one person, names no option, and keeps the nine in the first viewport', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    const canvas = scopedFixture('individual', canvasFixture());
+    await serve(page, viewFixture(canvas));
+    await openDecide(page, project);
+    await expect(notice(page)).toContainText(SCOPE_NOTICE);
+    const answer = page.locator('[data-canvas-item="answer"]');
+    await expect(answer.getByRole('heading', { level: 3 })).toHaveText('Needs a human decision');
+    await expect(answer).toContainText(canvas.status.headline);
+    const next = page.locator('[data-canvas-item="next"]');
+    await expect(next).toContainText(
+      'A qualified person decides this; here is what the exploration can and cannot tell them.',
+    );
+    await expect(next).toContainText('Can tell them');
+    await expect(next).toContainText('Cannot tell them');
+    await expectNineInWindow(page, 900);
+
+    // No option is named: the options are shown as explored and not ranked.
+    await page.getByRole('button', { name: 'How the options compare', exact: true }).click();
+    const lenses = page.locator('#canvas-detail-lenses');
+    await expect(lenses).toContainText('Not ranked');
+    await expect(lenses).not.toContainText('Preferred');
+    const said = (await decisionView(page).innerText()).replace(/\s+/gu, ' ');
+    expect(said).not.toMatch(/\bpreferred\b/iu);
+    expect(said.replace(/“[^”]*”/gu, '')).not.toContain('%');
+    expect(claimsAgainst(said), said).toEqual([]);
+    // Every statement still says what kind of statement it is.
+    await expect(next.locator('.sw-canvas-label').first()).toContainText('Kind of statement');
+    await quiet(page);
+    await expectNoAxeViolations(page, 'the decision view for a decision about one person');
+    await expectNoHorizontalOverflow(page);
+    expect(problems).toEqual([]);
+  });
+
+  test('keeps all nine in the first viewport for one person when every part of the picture is full', async ({
+    page,
+  }) => {
+    await serve(
+      page,
+      viewFixture(scopedFixture('individual', richFixture(), ['employment', 'legal', 'medical'])),
+    );
+    await openDecide(page, project);
+    await expect(notice(page)).toContainText('Medical');
+    await expect(page.locator('[data-canvas-item="answer"] h3')).toHaveText(
+      'Needs a human decision',
+    );
+    await expectNineInWindow(page, 900);
+    await expectNoAxeViolations(page, 'the decision view for one person with every part full');
+  });
+
+  test('lists who reviews each matter, and the cues, under human approval', async ({ page }) => {
+    await serve(
+      page,
+      viewFixture(scopedFixture('individual', canvasFixture(), ['medical', 'legal'])),
+    );
+    await openDecide(page, project);
+    await page.getByRole('button', { name: /human approval/iu }).click();
+    const approvals = page.locator('#canvas-detail-approvals');
+    await expect(approvals).toContainText('a qualified clinician');
+    await expect(approvals).toContainText('a qualified lawyer');
+    await expect(approvals).toContainText('The rules read words and are not complete');
+    await expect(approvals).toContainText('Open');
+  });
+
+  test('is there before there is a comparison, and does not stand in the way of the next step', async ({
+    page,
+  }) => {
+    await serve(
+      page,
+      emptyFixture('no-analysis', 'simulate', scopeFixture('individual', ['credit'])),
+    );
+    await openDecide(page, project);
+    await expect(notice(page)).toContainText(SCOPE_NOTICE);
+    await expect(notice(page)).toContainText('Credit');
+    await expect(
+      page.getByRole('heading', { level: 2, name: 'Nothing to decide from yet' }),
+    ).toBeVisible();
+    await expect(page.getByRole('main')).toContainText('a qualified person decides');
+    await expect(page.getByRole('button', { name: 'Open Simulate' })).toBeVisible();
+    await expectNoAxeViolations(page, 'the decision view with a scope notice and no comparison');
+  });
+
+  test('is read from the question of a real project, with a policy question left as a notice only', async ({
+    page,
+  }) => {
+    const person = await withQuestion('Canvas: one person', 'Should we fire this employee?');
+    const read = (await (await api.get(`/api/projects/${person}/decision`)).json()) as DecisionView;
+    expect(read.canvas).toBeNull();
+    expect(read.readiness.scope).toMatchObject({
+      notice: SCOPE_NOTICE,
+      domains: ['employment'],
+      aboutIndividual: true,
+    });
+    expect(read.readiness.status).toMatchObject({
+      status: 'needs-human-decision',
+      rule: 'individual-decision',
+    });
+    await openDecide(page, person);
+    await expect(notice(page)).toContainText(SCOPE_NOTICE);
+    await expect(page.getByRole('main')).toContainText(read.readiness.status!.headline);
+
+    const policy = await withQuestion(
+      'Canvas: a policy',
+      'What happens if we change our hiring policy?',
+    );
+    const other = (await (
+      await api.get(`/api/projects/${policy}/decision`)
+    ).json()) as DecisionView;
+    expect(other.readiness.scope).toMatchObject({
+      notice: SCOPE_NOTICE,
+      domains: ['employment'],
+      aboutIndividual: false,
+    });
+    expect(other.readiness.status).toMatchObject({ status: 'insufficient-evidence' });
+    await openDecide(page, policy);
+    await expect(notice(page)).toBeVisible();
+    await expect(page.getByRole('main')).not.toContainText('Needs a human decision');
+  });
+});
+
+test.describe('what Swarm does not decide, on a phone', () => {
+  test.use(PHONE);
+
+  test('puts the notice above the question, whole and in words, with nothing running off the side', async ({
+    page,
+  }) => {
+    const problems = watchPage(page);
+    await serve(page, viewFixture(scopedFixture('individual')));
+    await openDecide(page, project);
+    const note = notice(page);
+    await expect(note).toBeVisible();
+    await expect(note).toContainText(SCOPE_NOTICE);
+    const box = (await note.boundingBox())!;
+    const question = (await viewItem(page, 'Question').boundingBox())!;
+    expect(box.y, 'above the question').toBeLessThan(question.y);
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, 'inside the window').toBeLessThanOrEqual(390);
+    // The answer keeps its place, the others fold, and what the next move says is in its line.
+    await expect(page.locator('[data-canvas-item="answer"] h3')).toHaveText(
+      'Needs a human decision',
+    );
+    await expect(page.locator('[data-canvas-item="next"]')).toContainText(
+      'A qualified person decides this',
+    );
+    for (const title of NINE.slice(2)) {
+      await expect(viewItem(page, title).getByRole('button'), title).toHaveAttribute(
+        'aria-expanded',
+        'false',
+      );
+    }
+    await expectNoHorizontalOverflow(page);
+    await expectTouchTargets(page, 'the scope notice on a phone', '.sw-canvas');
+    await expectNoAxeViolations(page, 'the decision view for one person on a phone');
+    expect(problems).toEqual([]);
+  });
+
+  test('is there for a matter in general, and for no comparison', async ({ page }) => {
+    await serve(page, viewFixture(scopedFixture('domain')));
+    await openDecide(page, project);
+    await expect(notice(page)).toContainText(SCOPE_NOTICE);
+    await expectNoHorizontalOverflow(page);
+    await page.unroute('**/api/projects/*/decision');
+    await serve(
+      page,
+      emptyFixture('no-analysis', 'simulate', scopeFixture('individual', ['legal'])),
+    );
+    await openDecide(page, project);
+    await expect(notice(page)).toContainText('Legal');
+    await expectNoHorizontalOverflow(page);
   });
 });
 

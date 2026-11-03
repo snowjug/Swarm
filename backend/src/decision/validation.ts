@@ -9,6 +9,8 @@ import {
   type ValidationSource,
 } from '../../../shared/decision.js';
 import { CRITIC_ROLE_LABELS, type CriticRole } from '../../../shared/critique.js';
+import type { ConsequentialScope } from './scope.js';
+import { qualifiedCheck } from './scope-words.js';
 import { Guard, clip, embed, listed, signed } from './words.js';
 
 /**
@@ -39,6 +41,8 @@ export interface OpenCritique {
 
 export interface ValidationWorld {
   status: DecisionStatusReading;
+  /** What the question touches that Swarm does not decide. */
+  scope: ConsequentialScope;
   evidence: DecisionCanvas['evidence'];
   scenarioMissing: readonly string[];
   hardConstraints: readonly ConstraintRow[];
@@ -55,6 +59,7 @@ export interface ValidationWorld {
 
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
 const SOURCE_ORDER: Record<ValidationSource, number> = {
+  scope: -1,
   'unvalidated-constraint': 0,
   'flipping-assumption': 1,
   'missing-evidence': 2,
@@ -110,6 +115,12 @@ export function planValidation(
       refs: refs.slice(0, 4).map((ref) => clip(ref, 80)),
     });
   };
+
+  // A decision about one person is a qualified person’s: the check that comes before every other.
+  if (world.scope.aboutIndividual) {
+    const check = qualifiedCheck(world.scope);
+    add('scope', 'qualified-person', 'stakeholder', 'high', check.what, check.why, check.how);
+  }
 
   // Hard constraints that the result rests on without anyone having confirmed them.
   for (const row of world.hardConstraints) {
@@ -280,7 +291,10 @@ export function planValidation(
       'Look at the assumptions the options differ by, test the one that matters most in a small and reversible trial, and run the comparison again.',
     );
   }
-  if (world.status.status === 'needs-human-decision') {
+  if (
+    world.status.status === 'needs-human-decision' &&
+    world.status.rule !== 'individual-decision'
+  ) {
     add(
       'status',
       'weigh-tradeoff',
@@ -309,6 +323,14 @@ export function planValidation(
       label: 'validation-requirement',
     });
   };
+  if (world.scope.aboutIndividual) {
+    stop(
+      'qualified-person',
+      'This view is used in place of the decision of a qualified person.',
+      'Stop and take the decision to the qualified person.',
+      'Swarm does not make or recommend decisions about one person’s situation.',
+    );
+  }
   for (const row of world.hardConstraints
     .filter(
       (candidate) => candidate.validation !== 'confirmed' && candidate.validation !== 'rejected',

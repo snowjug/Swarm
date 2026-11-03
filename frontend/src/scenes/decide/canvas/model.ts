@@ -9,8 +9,7 @@ import {
   DECISION_STATUS_INFO,
   EPISTEMIC_LABEL_INFO,
   POSITION_WORDS,
-  RECOMMENDATION_PARTS,
-  RECOMMENDATION_PART_WORDS,
+  recommendationCompleteness,
   type ActorReading,
   type CounterfactualReading,
   type CriticalAssumption,
@@ -20,6 +19,7 @@ import {
   type DriverReading,
   type EpistemicLabel,
   type FutureReading,
+  type Labelled,
   type StatusTone,
   type ValidationItem,
 } from '../../../../../shared/decision';
@@ -71,6 +71,9 @@ export const GLANCE = {
   checks: 3,
   conditions: 2,
   reasons: 2,
+  /** What a decision about one person says of what the exploration can and cannot tell, before “more” is said. */
+  canTell: 1,
+  cannotTell: 1,
 } as const;
 
 /** What a change in a share is a change in: said wherever a figure of one stands, so that no figure is read as the world’s. */
@@ -100,6 +103,19 @@ export const COPY = {
   checklistLead:
     'Checks to do in the real world. Swarm does not track them: someone confirms them outside Swarm.',
   simulatedRole: 'Simulated role',
+  scopeLabel: 'What Swarm does not decide',
+  scopeMatched: 'Matched',
+  canTell: 'Can tell them',
+  cannotTell: 'Cannot tell them',
+  tellLabel: 'What the exploration can and cannot tell the person who decides',
+  canTellDetail: 'What the exploration can tell them',
+  cannotTellDetail: 'What it cannot tell them',
+  scopeBridge: 'The note on what Swarm does not decide, above, applies to everything below.',
+  reviewTitle: 'Who reviews it, by matter',
+  scopeLimits:
+    'The rules read words and are not complete: a matter they miss is still a matter for a person.',
+  noScope:
+    'Nothing in the question or its framing points to a matter of employment, credit, legal, medical or safety. Swarm still does not make the decision.',
 } as const;
 
 // ---------------------------------------------------------------------------------------------
@@ -252,11 +268,7 @@ export function sensitivityWords(sensitivity: DecisionCanvas['changes']['sensiti
     : `${plural(sensitivity.tested, 'assumption')} moved on the same seeds: ${sensitivity.sensitive} moved the result clearly, ${sensitivity.robust} did not, ${sensitivity.inconclusive} could not be told.`;
 }
 
-export interface Completeness {
-  total: number;
-  stated: number;
-  missing: string[];
-}
+export type Completeness = ReturnType<typeof recommendationCompleteness>;
 
 /**
  * What stands under the status. A status that holds only on conditions says them, those the headline has not already
@@ -269,6 +281,24 @@ export function reasonsOf(canvas: DecisionCanvas): { label: string; lines: strin
   return conditions.length > 0
     ? { label: 'Conditions it holds under', lines: conditions.slice(0, GLANCE.conditions) }
     : { label: 'Why this status', lines: status.why.slice(0, GLANCE.reasons) };
+}
+
+/**
+ * What a decision about one person says, at a glance, of what the exploration can and cannot tell the person who
+ * decides: the first of each, and how many more the recommendation in full holds. Null for any other question.
+ */
+export function explorationOf(
+  canvas: DecisionCanvas,
+): { canTell: Labelled[]; cannotTell: Labelled[]; more: number } | null {
+  const { exploration } = canvas.scope;
+  if (!exploration) return null;
+  return {
+    canTell: exploration.canTell.slice(0, GLANCE.canTell),
+    cannotTell: exploration.cannotTell.slice(0, GLANCE.cannotTell),
+    more:
+      Math.max(0, exploration.canTell.length - GLANCE.canTell) +
+      Math.max(0, exploration.cannotTell.length - GLANCE.cannotTell),
+  };
 }
 
 /**
@@ -285,16 +315,12 @@ export function basisOf(canvas: DecisionCanvas): { counts: string; level: string
 }
 
 /**
- * How much of the recommendation is said, and which parts are not. A gap is shown, never left out; and a part that
- * says only that something is not known (whether the choice can be reversed) is a gap, not a part stated.
+ * How much of the recommendation is said, and which parts are not: the card's own list of missing parts, counted. A gap
+ * is shown, never left out; and a part that says only that something is not known (whether the choice can be reversed)
+ * is a gap, not a part stated. The count and the words are the shared function's, so that an export says the same.
  */
 export function completenessOf(card: DecisionCanvas['answer']['recommendation']): Completeness {
-  const total = RECOMMENDATION_PARTS.length + 1;
-  const missing = card.missing.map((part) => RECOMMENDATION_PART_WORDS[part]);
-  if (card.reversibility.value === 'unknown' && !card.missing.includes('reversibility')) {
-    missing.push('Reversibility (unknown)');
-  }
-  return { total, stated: total - missing.length, missing };
+  return recommendationCompleteness(card);
 }
 
 export interface Checks {

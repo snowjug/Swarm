@@ -8,6 +8,7 @@ import { smooth } from '../ui/scroll';
 import { CanvasEmpty, CanvasError, CanvasLoading } from './CanvasStates';
 import { Detail, Legend } from './Detail';
 import type { DetailId } from './details';
+import { ScopeNotice } from './Scope';
 import { Viewport } from './Viewport';
 import { COPY, FULL_REPORT_ANCHOR, basedOnWords, noticesOf, stateOf } from './model';
 import './canvas.css';
@@ -31,6 +32,7 @@ export function DecisionCanvasView({ handle, go, below, onDetailed }: Props) {
   const reduced = useReducedMotion();
   const state = stateOf(handle.view, handle.loading, handle.error);
   const canvas = handle.view?.canvas ?? null;
+  const scope = canvas?.scope ?? handle.view?.readiness.scope ?? null;
   const [open, setOpen] = useState<ReadonlySet<DetailId>>(() => new Set());
   const pending = useRef<DetailId | null>(null);
 
@@ -73,6 +75,7 @@ export function DecisionCanvasView({ handle, go, below, onDetailed }: Props) {
       aria-labelledby="canvas-title"
       data-state={state}
       data-status={canvas?.status.status}
+      data-scope={scope?.aboutIndividual ? 'individual' : scope?.notice ? 'domain' : undefined}
     >
       <header className="sw-canvas-top">
         <div className="sw-canvas-top__lead">
@@ -81,6 +84,7 @@ export function DecisionCanvasView({ handle, go, below, onDetailed }: Props) {
           </h1>
           <p className="sw-canvas-top__notice">{COPY.notice}</p>
         </div>
+        {scope && <ScopeNotice scope={scope} />}
         {canvas && (
           <div className="sw-canvas-top__tools">
             <span className="sw-canvas-top__based">{basedOnWords(canvas, dayLabel)}</span>

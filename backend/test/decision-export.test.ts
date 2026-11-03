@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { claimsAgainst } from '../../e2e/support/claims.js';
 import { ANALYSIS_INPUTS } from '../../shared/analysis.js';
-import type { DecisionCanvas } from '../../shared/decision.js';
+import { SCOPE_NOTICE, type DecisionCanvas } from '../../shared/decision.js';
 import {
   actorSetFixture,
   analysisFixture,
@@ -96,6 +96,28 @@ describe('the Markdown and the printable page open on the decision picture', () 
     expect(text).toContain('Swarm recommends and explains. It does not contact anyone');
   });
 
+  it('counts the parts of the recommendation that are stated, and lists reversibility among those that are not, as the data does', () => {
+    const canvas = canvasOf();
+    const card = canvas.answer.recommendation;
+    expect(card.missing).toContain('reversibility');
+    const stated = `${9 - card.missing.length} of 9 parts stated.`;
+    const markdown = plain(briefMarkdown(exportInput(canvas)));
+    const html = briefHtml(exportInput(canvas));
+    for (const text of [markdown, html]) {
+      expect(text).toContain(stated);
+      expect(text).toContain('Reversibility (unknown)');
+    }
+    // It stands in the recommended next move, before the parts it counts.
+    expect(markdown.indexOf(stated)).toBeGreaterThan(markdown.indexOf('8. Recommended next move'));
+    expect(markdown.indexOf(stated)).toBeLessThan(
+      markdown.indexOf('9. What to validate before acting'),
+    );
+    const blocks = canvasBlocks(canvas).filter(
+      (block) => block.kind === 'paragraph' && block.text.startsWith(stated),
+    );
+    expect(blocks).toHaveLength(1);
+  });
+
   it('is unchanged when there is no canvas to put first', () => {
     const without = briefMarkdown(exportInput(undefined));
     expect(without).not.toContain('Decision view');
@@ -139,6 +161,75 @@ describe('the JSON export carries the canvas first and the brief after it', () =
     expect(Object.keys(json).indexOf('canvas')).toBeLessThan(Object.keys(json).indexOf('brief'));
     expect((json.canvas as DecisionCanvas).status.status).toBe('robust-option');
     expect((briefJson(exportInput(null)) as { canvas: unknown }).canvas).toBeNull();
+  });
+});
+
+describe('the scope notice is in everything that is handed over', () => {
+  const asking = (question: string): DecisionCanvas => {
+    const inputs = controlledInputs(WINNER, { sensitivity: [sensitivityRow('small-move', 0.01)] });
+    return buildCanvas({ ...inputs, project: { ...inputs.project, question } });
+  };
+  const plain = (text: string): string => text.replaceAll('\\', '');
+
+  it('stands before the nine items in the Markdown and the printable page, and in the data of the JSON', () => {
+    for (const question of [
+      'Should we fire this employee?',
+      'What happens if we change our hiring policy?',
+    ]) {
+      const canvas = asking(question);
+      for (const text of [
+        plain(briefMarkdown(exportInput(canvas))),
+        briefHtml(exportInput(canvas)),
+      ]) {
+        expect(text, question).toContain(SCOPE_NOTICE);
+        expect(text.indexOf(SCOPE_NOTICE)).toBeLessThan(text.indexOf('1. Question'));
+        expect(text).toContain('employment');
+      }
+      const json = (briefJson(exportInput(canvas)) as { canvas: DecisionCanvas }).canvas;
+      expect(json.scope).toMatchObject({ notice: SCOPE_NOTICE, domains: ['employment'] });
+    }
+  });
+
+  it('says that a qualified person decides, and what the exploration can and cannot tell them, when the question is about one person', () => {
+    const canvas = asking('Should we fire this employee?');
+    for (const text of [
+      plain(briefMarkdown(exportInput(canvas))),
+      briefHtml(exportInput(canvas)),
+    ]) {
+      expect(text).toContain('Needs a human decision');
+      expect(text).toContain(
+        'A qualified person decides this; here is what the exploration can and cannot tell them.',
+      );
+      expect(text).toContain('What the exploration can tell them');
+      expect(text).toContain('What it cannot tell them');
+      expect(text).not.toMatch(/Take .* forward/u);
+    }
+  });
+
+  it('has no notice for a question that touches none of the five, and says that it found none', () => {
+    const canvas = asking('How might customers react if we raise delivery fees?');
+    expect(canvas.scope.notice).toBeNull();
+    const text = plain(briefMarkdown(exportInput(canvas)));
+    expect(text).not.toContain(SCOPE_NOTICE);
+    expect(text).toContain(
+      'Nothing in the question or its framing points to a matter of employment',
+    );
+  });
+
+  it('is held to the wording guards in every sentence it adds', () => {
+    for (const block of canvasBlocks(asking('Should we fire this employee?'))) {
+      const texts =
+        block.kind === 'table'
+          ? [block.caption, ...block.headers, ...block.rows.flat()]
+          : [block.text];
+      for (const text of texts) {
+        expect(
+          lintText(text).map((issue) => issue.rule),
+          text,
+        ).toEqual([]);
+        expect(claimsAgainst(text), text).toEqual([]);
+      }
+    }
   });
 });
 

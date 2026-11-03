@@ -7,6 +7,8 @@ import {
   DECISION_STATUS_INFO,
   EPISTEMIC_LABELS,
   EPISTEMIC_LABEL_INFO,
+  SCOPE_DOMAIN_WORDS,
+  SCOPE_NOTICE,
   type DecisionView,
 } from '../../../../../shared/decision';
 import { TooltipProvider } from '../../../design/ui';
@@ -16,9 +18,12 @@ import {
   constraintRow,
   emptyFixture,
   richFixture,
+  scopeFixture,
+  scopedFixture,
   statusFixture,
   viewFixture,
 } from '../../../test/decision';
+import { ReportBridge } from './Bridge';
 import { DecisionCanvasView } from './Canvas';
 import {
   COPY,
@@ -29,6 +34,7 @@ import {
   checksOf,
   completenessOf,
   constraintGlance,
+  explorationOf,
   futureItems,
   gateWords,
   gistOf,
@@ -102,6 +108,8 @@ describe('the first viewport of the decision canvas', () => {
 
   it('gives the recommendation with how much of it is stated and which parts are not, an unknown among them', () => {
     const canvas = canvasFixture();
+    // The card’s own list holds reversibility while it is unknown, and the count and the words follow the list.
+    expect(canvas.answer.recommendation.missing).toEqual(['weakeningEvidence', 'reversibility']);
     const done = completenessOf(canvas.answer.recommendation);
     expect(done).toMatchObject({ total: 9, stated: 7 });
     expect(done.missing).toEqual(['Evidence that weakens it', 'Reversibility (unknown)']);
@@ -114,6 +122,33 @@ describe('the first viewport of the decision canvas', () => {
       raw.answer.recommendation.reversibility.value = 'reversible';
     });
     expect(completenessOf(whole.answer.recommendation)).toMatchObject({ stated: 9, missing: [] });
+    // Data that says “unknown” and does not list it is never counted as a part stated.
+    const unlisted = canvasFixture((raw) => {
+      raw.answer.recommendation.missing = ['weakeningEvidence'];
+    });
+    expect(completenessOf(unlisted.answer.recommendation)).toEqual(done);
+  });
+
+  it('lists reversibility among the missing parts in every picture, so that the data and the page agree', () => {
+    const cards = [
+      canvasFixture(),
+      richFixture(),
+      ...DECISION_STATUSES.map((status) => statusFixture(status)),
+      scopedFixture('domain'),
+      scopedFixture('individual', richFixture()),
+    ].map((canvas) => canvas.answer.recommendation);
+    for (const card of cards) {
+      expect(card.reversibility.value).toBe('unknown');
+      expect(card.missing).toContain('reversibility');
+      // The page adds nothing of its own: what it counts is the length of the list.
+      expect(completenessOf(card).stated).toBe(9 - card.missing.length);
+    }
+  });
+
+  it('says in the recommendation in full that reversibility is missing, in the same words as the list', () => {
+    const said = text(render(handleOf(viewFixture(canvasFixture()))));
+    expect(said).toContain('Whether it can be reversed: Unknown');
+    expect(said).toMatch(/Missing\. Whether the choice can be reversed is unknown/u);
   });
 
   it('says what kind of statement the answer is, in words for a screen reader too', () => {
@@ -225,6 +260,181 @@ describe('the decision canvas when there is nothing to show', () => {
   });
 });
 
+describe('what the page says of what Swarm does not decide', () => {
+  const domain = (status: (typeof DECISION_STATUSES)[number]) =>
+    viewFixture(scopedFixture('domain', statusFixture(status), ['employment', 'legal']));
+
+  it.each(DECISION_STATUSES)('shows the notice and the matters it matched, for %s', (status) => {
+    const markup = render(handleOf(domain(status)));
+    const said = text(markup);
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain(`${COPY.scopeMatched} ${SCOPE_DOMAIN_WORDS.employment.label}`);
+    expect(said).toContain(SCOPE_DOMAIN_WORDS.legal.label);
+    expect(markup).toContain('role="note"');
+    expect(markup).toContain(`aria-label="${COPY.scopeLabel}"`);
+    expect(markup).toContain('data-scope="domain"');
+    // A matter in general changes nothing else: the status is the one the simulation gave.
+    expect(said).toContain(DECISION_STATUS_INFO[status].label);
+  });
+
+  it('puts the notice in the header, before the tools and above the nine things', () => {
+    const markup = render(handleOf(domain('robust-option')));
+    const at = (needle: string) => markup.indexOf(needle);
+    expect(at('sw-canvas-top__lead')).toBeLessThan(at('sw-canvas-scope'));
+    expect(at('sw-canvas-scope')).toBeLessThan(at('sw-canvas-top__tools'));
+    expect(at('sw-canvas-top__tools')).toBeLessThan(at('data-canvas-item'));
+  });
+
+  it('says nothing of it where the question touches none of the five matters', () => {
+    const markup = render(handleOf(viewFixture(statusFixture('robust-option'))));
+    expect(markup).not.toContain('sw-canvas-scope');
+    expect(markup).not.toContain('data-scope');
+    expect(text(markup)).not.toContain(SCOPE_NOTICE);
+    // The approvals detail still says that Swarm decides nothing.
+    expect(text(markup)).toContain(COPY.noScope);
+  });
+
+  it('says in words, not in colour, that a decision about one person is for a person to decide', () => {
+    const canvas = scopedFixture('individual', statusFixture('robust-option'));
+    const markup = render(handleOf(viewFixture(canvas)));
+    const said = text(markup);
+    expect(markup).toContain('data-scope="individual"');
+    expect(markup).toContain('data-status="needs-human-decision"');
+    expect(said).toContain(DECISION_STATUS_INFO['needs-human-decision'].label);
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain(
+      'A qualified person decides this; here is what the exploration can and cannot tell them.',
+    );
+    expect(said).toContain(canvas.status.headline);
+    expect(canvas.answer.preferredAlternativeId).toBeNull();
+  });
+
+  it('names no option as preferred, and shows the options as explored and not ranked', () => {
+    const canvas = scopedFixture('individual', richFixture());
+    const said = text(render(handleOf(viewFixture(canvas))));
+    expect(said).toContain('Not ranked');
+    expect(said).not.toContain('Preferred');
+    expect(said).not.toContain('Take “');
+    for (const option of canvas.alternatives) {
+      expect(['not-ranked', 'blocked']).toContain(option.verdict);
+    }
+  });
+
+  it('says what the exploration can and cannot tell the person who decides, one of each at a glance', () => {
+    const canvas = scopedFixture('individual');
+    const glance = explorationOf(canvas);
+    expect(glance).not.toBeNull();
+    expect(glance!.canTell).toHaveLength(GLANCE.canTell);
+    expect(glance!.cannotTell).toHaveLength(GLANCE.cannotTell);
+    expect(glance!.more).toBe(
+      canvas.scope.exploration!.canTell.length -
+        GLANCE.canTell +
+        (canvas.scope.exploration!.cannotTell.length - GLANCE.cannotTell),
+    );
+    const markup = render(handleOf(viewFixture(canvas)));
+    expect(text(markup)).toContain(COPY.canTell);
+    expect(text(markup)).toContain(COPY.cannotTell);
+    // Each carries its kind of statement.
+    expect(markup).toContain('Kind of statement: </span>Simulation event');
+    expect(markup).toContain('Kind of statement: </span>Validation requirement');
+    // In full, all of them, under the recommendation.
+    for (const line of [
+      ...canvas.scope.exploration!.canTell,
+      ...canvas.scope.exploration!.cannotTell,
+    ]) {
+      expect(text(markup)).toContain(line.text);
+    }
+    expect(text(markup)).toContain(COPY.canTellDetail);
+    expect(text(markup)).toContain(COPY.cannotTellDetail);
+  });
+
+  it('shows no can or cannot tell list for a matter in general, or for none', () => {
+    expect(explorationOf(canvasFixture())).toBeNull();
+    expect(explorationOf(scopedFixture('domain'))).toBeNull();
+    const markup = render(handleOf(domain('conditional-option')));
+    expect(markup).not.toContain('sw-canvas-tell');
+  });
+
+  it('says no view could reverse a choice that is not made', () => {
+    const base = richFixture();
+    const answered = text(render(handleOf(viewFixture(base))));
+    expect(answered).toContain(COPY.couldReverse);
+    const said = text(render(handleOf(viewFixture(scopedFixture('individual', base)))));
+    expect(said).not.toContain(COPY.couldReverse);
+    expect(said).not.toContain(COPY.notTold);
+  });
+
+  it('shows the matters, who reviews each and the cues the reading rests on, in the approvals', () => {
+    const canvas = scopedFixture('individual', canvasFixture(), ['medical', 'legal']);
+    const said = text(render(handleOf(viewFixture(canvas))));
+    expect(said).toContain(COPY.reviewTitle);
+    expect(said).toContain(SCOPE_DOMAIN_WORDS.medical.reviewer);
+    expect(said).toContain(SCOPE_DOMAIN_WORDS.legal.reviewer);
+    expect(said).toContain(canvas.scope.basis[0]);
+    expect(said).toContain(COPY.scopeLimits);
+    // The approval that stands for a qualified person is one of the points, and is open.
+    expect(canvas.approvals.at(-1)).toMatchObject({ id: 'approve-qualified', state: 'open' });
+  });
+
+  it('is there without a canvas: for a question about one person with nothing yet run', () => {
+    const view = emptyFixture('no-analysis', 'simulate', scopeFixture('individual', ['medical']));
+    const markup = render(handleOf(view), { below: false });
+    const said = text(markup);
+    expect(markup).toContain('data-scope="individual"');
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain(`${COPY.scopeMatched} ${SCOPE_DOMAIN_WORDS.medical.label}`);
+    expect(said).toContain('a qualified person decides');
+    expect(markup).not.toContain('data-canvas-item');
+    // Nothing is blocked: what is missing and the step that supplies it are still there.
+    expect(said).toContain('No comparison has been run yet.');
+    expect(said).toContain('Open Simulate');
+    // Without a matter, nothing is said.
+    const none = render(handleOf(emptyFixture('no-analysis')), { below: false });
+    expect(none).not.toContain('sw-canvas-scope');
+  });
+
+  it('is there while an old picture is kept after the page could not be read again', () => {
+    const view = viewFixture(scopedFixture('individual'));
+    const said = text(render(handleOf(view, { error: 'The server did not answer.' })));
+    expect(said).toContain(SCOPE_NOTICE);
+    expect(said).toContain('What is shown is the last version that could be read.');
+  });
+
+  it('puts the note into the bridge to the full report only where a matter was found', () => {
+    expect(text(renderToStaticMarkup(<ReportBridge scoped />))).toContain(COPY.scopeBridge);
+    expect(text(renderToStaticMarkup(<ReportBridge />))).not.toContain(COPY.scopeBridge);
+  });
+
+  it('writes the cues as text, never as markup', () => {
+    const hostile = scopedFixture('individual');
+    hostile.scope.basis = ['employment: “<img src=x onerror=alert(1)>”'];
+    const markup = render(handleOf(viewFixture(hostile)));
+    expect(markup).not.toContain('<img');
+    expect(markup).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  it('has a gist for the narrow page that says a person decides', () => {
+    const canvas = scopedFixture('individual');
+    expect(gistOf('answer', canvas)).toBe(DECISION_STATUS_INFO['needs-human-decision'].label);
+    expect(gistOf('next', canvas)).toContain('A qualified person decides this');
+  });
+
+  it('puts the check that a qualified person decides before every other, for a decision about one person', () => {
+    const canvas = scopedFixture('individual');
+    const [first] = checksOf(canvas).items;
+    expect(first).toMatchObject({ source: 'scope', priority: 'high' });
+    expect(first?.what).toMatch(
+      /^Have a qualified human resources or employment-law professional decide this/u,
+    );
+    expect(text(render(handleOf(viewFixture(canvas))))).toContain(first!.what);
+    expect(canvas.validation.stopConditions[0]?.id).toBe('stop-qualified-person');
+    // For a matter in general the plan is the simulation's own.
+    expect(checksOf(scopedFixture('domain')).items.every((item) => item.source !== 'scope')).toBe(
+      true,
+    );
+  });
+});
+
 describe('what the page says about itself', () => {
   it('makes no claim the product may not make, in any state or status', () => {
     const pages = [
@@ -247,6 +457,16 @@ describe('what the page says about itself', () => {
       render(handleOf(emptyFixture('no-analysis'))),
       render(handleOf(emptyFixture('running'))),
       render(handleOf(emptyFixture('failed'))),
+      ...DECISION_STATUSES.map((status) =>
+        render(handleOf(viewFixture(scopedFixture('domain', statusFixture(status), ['medical'])))),
+      ),
+      render(handleOf(viewFixture(scopedFixture('individual')))),
+      render(
+        handleOf(viewFixture(scopedFixture('individual', richFixture(), ['employment', 'legal']))),
+      ),
+      render(
+        handleOf(emptyFixture('no-analysis', 'simulate', scopeFixture('individual', ['credit']))),
+      ),
       render(handleOf(null, { loading: true })),
       render(handleOf(null, { error: 'It failed.' })),
     ];

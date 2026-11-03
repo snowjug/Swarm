@@ -8,6 +8,7 @@ import {
   RECOMMENDATION_PARTS,
   RECOMMENDATION_PART_WORDS,
   REVERSIBILITY_WORDS,
+  SCOPE_DOMAIN_WORDS,
   STATUS_RULES,
   SYNTHETIC_ACTORS_NOTE,
   type DecisionCanvas,
@@ -24,6 +25,7 @@ import {
   alignmentWords,
   categoryWords,
   changeWords,
+  completenessOf,
   moveWords,
   positionWords,
   sensitivityWords,
@@ -201,11 +203,31 @@ function Lenses({ canvas }: { canvas: DecisionCanvas }) {
 
 function Recommendation({ canvas }: { canvas: DecisionCanvas }) {
   const card = canvas.answer.recommendation;
+  const { exploration } = canvas.scope;
+  const done = completenessOf(card);
   return (
     <>
       <p className="sw-canvas-next">
         {card.what.text} <LabelChip label={card.what.label} />
       </p>
+      <p className="sw-canvas-complete" data-gaps={done.missing.length > 0 || undefined}>
+        <strong>
+          {done.stated} of {done.total} parts stated
+        </strong>
+        {done.missing.length > 0 ? ` · Missing: ${done.missing.join(', ')}` : ''}
+      </p>
+      {exploration && (
+        <>
+          <section className="sw-canvas-part">
+            <h3 className="sw-canvas-part__title">{COPY.canTellDetail}</h3>
+            <Lines lines={exploration.canTell} />
+          </section>
+          <section className="sw-canvas-part">
+            <h3 className="sw-canvas-part__title">{COPY.cannotTellDetail}</h3>
+            <Lines lines={exploration.cannotTell} />
+          </section>
+        </>
+      )}
       {RECOMMENDATION_PARTS.slice(0, 2).map((name) => (
         <PartView key={name} title={RECOMMENDATION_PART_WORDS[name]} part={card[name]} />
       ))}
@@ -216,7 +238,14 @@ function Recommendation({ canvas }: { canvas: DecisionCanvas }) {
         <h3 className="sw-canvas-part__title">
           {RECOMMENDATION_PART_WORDS.reversibility}: {REVERSIBILITY_WORDS[card.reversibility.value]}
         </h3>
-        <Lines lines={[card.reversibility.statement]} />
+        {card.missing.includes('reversibility') ? (
+          <p className="sw-canvas-missing">
+            <strong>Missing.</strong> {card.reversibility.statement.text}{' '}
+            <LabelChip label={card.reversibility.statement.label} />
+          </p>
+        ) : (
+          <Lines lines={[card.reversibility.statement]} />
+        )}
       </section>
       <PartView title={RECOMMENDATION_PART_WORDS.approval} part={card.approval} />
       <Plain>{NO_ACTION_NOTE}</Plain>
@@ -226,6 +255,8 @@ function Recommendation({ canvas }: { canvas: DecisionCanvas }) {
 
 function Changes({ canvas }: { canvas: DecisionCanvas }) {
   const { counterfactuals, assumptions, sensitivity } = canvas.changes;
+  // No option is named for a decision about one person, so no view could reverse a choice and none is said to.
+  const individual = canvas.scope.aboutIndividual;
   return (
     <>
       <h3 className="sw-canvas-part__title">Counterfactual views</h3>
@@ -239,9 +270,9 @@ function Changes({ canvas }: { canvas: DecisionCanvas }) {
               <span className="num">
                 {words.effect}
                 {view.deltaVsBase !== null ? ` ${FIGURE_UNIT}` : ''}
-              </span>{' '}
-              · {words.flag}. <span>{view.statement.text}</span>{' '}
-              <LabelChip label={view.statement.label} />
+              </span>
+              {individual ? '. ' : ` · ${words.flag}. `}
+              <span>{view.statement.text}</span> <LabelChip label={view.statement.label} />
             </li>
           );
         })}
@@ -560,6 +591,7 @@ function Review({ canvas }: { canvas: DecisionCanvas }) {
 }
 
 function Approvals({ canvas }: { canvas: DecisionCanvas }) {
+  const { scope } = canvas;
   return (
     <>
       <ul className="sw-canvas-detail__list">
@@ -575,7 +607,24 @@ function Approvals({ canvas }: { canvas: DecisionCanvas }) {
           </li>
         ))}
       </ul>
-      <p>{canvas.highStakes.note}</p>
+      <p>{scope.notice ?? COPY.noScope}</p>
+      {scope.domains.length > 0 && (
+        <>
+          <h3 className="sw-canvas-part__title">{COPY.reviewTitle}</h3>
+          <ul className="sw-canvas-detail__list">
+            {scope.domains.map((domain) => (
+              <li key={domain}>
+                <strong>{SCOPE_DOMAIN_WORDS[domain].label}</strong> ·{' '}
+                {SCOPE_DOMAIN_WORDS[domain].reviewer}
+              </li>
+            ))}
+          </ul>
+          <Plain>
+            {scope.basis.length > 0 ? `Cues found: ${scope.basis.join(' · ')}. ` : ''}
+            {COPY.scopeLimits}
+          </Plain>
+        </>
+      )}
       <Plain>
         {NO_ACTION_NOTE} {SYNTHETIC_ACTORS_NOTE}
       </Plain>
