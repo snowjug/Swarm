@@ -75,7 +75,7 @@ export async function expectScene(page: Page, scene: SceneName): Promise<void> {
   const hasJourney = (await journey(page).count()) > 0;
   if (scene === 'ask' && !hasJourney) {
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
   } else {
     await expect(step(page, scene)).toHaveAttribute('aria-current', 'step');

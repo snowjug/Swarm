@@ -397,7 +397,7 @@ test.describe('opening a scene that the record has not opened, by its address', 
     await page.goBack();
     await expect(page).not.toHaveURL(/[?&]project=/u);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
   });
 
@@ -565,7 +565,7 @@ test.describe('the first step, and the other ways of reading the same record', (
     await openApp(page, { project: projects.ground.id, scene: 'ground' });
     await step(page, 'ask').click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     await expect(page).not.toHaveURL(/[?&]scene=/u);
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);

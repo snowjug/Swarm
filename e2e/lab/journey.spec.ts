@@ -63,7 +63,7 @@ async function walk(
     await page.goto('/');
     await settled(page);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
     await expect(

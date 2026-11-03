@@ -108,7 +108,7 @@ test.describe('the top bar and the journey', () => {
     await openApp(page, { project: projects.brief.id, scene: 'compare' });
     await page.getByRole('button', { name: 'Swarm: start a new question' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     await expect(page).not.toHaveURL(/[?&](?:project|scene)=/u);
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
@@ -161,7 +161,7 @@ test.describe('the top bar and the journey', () => {
     await expectScene(page, 'ground');
     await page.goBack();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
     await page.goForward();
@@ -296,7 +296,7 @@ test.describe('the settings menu', () => {
       .click();
 
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     await expect(page.getByRole('textbox', { name: 'Your what-if question' })).toHaveValue(
       project.question,
@@ -474,7 +474,7 @@ test.describe('the history', () => {
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     await expect(page).not.toHaveURL(/[?&]project=/u);
     expect(problems).toEqual([]);
@@ -589,7 +589,7 @@ test.describe('a screen that cannot be drawn', () => {
     await page.getByRole('link', { name: 'Start over' }).click();
     await settled(page);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
   });
 

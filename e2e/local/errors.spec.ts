@@ -456,7 +456,7 @@ test.describe('a link to a project that cannot be opened', () => {
       await expect(openingFailed(page)).toBeVisible();
       await page.getByRole('button', { name: 'Swarm: start a new question' }).click();
       await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-        'Explore what could happen next.',
+        'See how a decision could unfold.',
       );
       await expect(page).not.toHaveURL(/[?&]project=/u);
       await expect(page.getByRole('alert')).toHaveCount(0);

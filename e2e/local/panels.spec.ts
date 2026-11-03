@@ -468,7 +468,7 @@ test.describe('the history', () => {
     await expect(banner).toBeVisible();
     await banner.getByRole('button', { name: 'Start a new question' }).click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
   });
 

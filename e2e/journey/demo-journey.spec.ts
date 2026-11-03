@@ -297,7 +297,7 @@ test('the presentation, step by step, in a real browser', async ({
 
   await run('2. See professional product positioning', async () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-      'Explore what could happen next.',
+      'See how a decision could unfold.',
     );
     const path = page.getByRole('list', { name: 'How Swarm works' }).getByRole('listitem');
     await expect(path).toHaveCount(6);
