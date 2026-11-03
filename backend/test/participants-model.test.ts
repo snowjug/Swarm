@@ -484,6 +484,32 @@ describe('what happens to a proposal after the model or the rules', () => {
     expect(live(set).length).toBeLessThanOrEqual(25);
   });
 
+  it('cuts a model’s list by how often each is cited, whatever its name looks like, as it always has', () => {
+    const reply = proposal(passages);
+    const cited = (...keys: (keyof typeof QUOTES)[]) =>
+      keys.map((key) => ({ passageId: passageWith(passages, QUOTES[key]), quote: QUOTES[key] }));
+    const crew = (id: string, name: string, evidence: ProposedParticipant['evidence']) =>
+      participant(passages, {
+        id,
+        name,
+        role: 'implementers',
+        evidence,
+        priority: 'standard',
+        populationSize: 10,
+      });
+    reply.participants.push(
+      crew('crew-all', 'Engineers', cited('drivers', 'rival')),
+      ...['Welders', 'Fitters', 'Plumbers', 'Painters', 'Glaziers', 'Roofers'].map((name, index) =>
+        crew(`crew-${index}`, `Depot ${name.toLowerCase()}`, cited('drivers')),
+      ),
+    );
+    const set = build(reply);
+    expect(live(set).some((item) => item.name === 'Engineers')).toBe(true);
+    expect(set.proposal?.dropped.filter((item) => item.reason.includes('balanced'))).toHaveLength(
+      2,
+    );
+  });
+
   it('keeps at most eight key actors, and says nothing is lost: the rest are groups', () => {
     const reply = proposal(passages);
     const kinds = [

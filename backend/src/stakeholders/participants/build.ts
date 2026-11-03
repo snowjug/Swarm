@@ -10,6 +10,7 @@ import {
   stakeholderSchema,
   stakeholderSetSchema,
   type ConfidenceBasis,
+  type ParticipantRole,
   type ProposedParticipant,
   type ProposedParticipants,
   type Stakeholder,
@@ -26,12 +27,19 @@ import { countDirections, describeDirections } from '../tone.js';
 import type { ProposalContext } from './context.js';
 import type { ProposalSide } from './fallback.js';
 import { capitalise } from '../names.js';
-import { distinctLines, nameTokens, normaliseLine } from './language.js';
+import { distinctLines, isBroadName, nameTokens, normaliseLine, wordsIn } from './language.js';
+import { headNounOf } from './reader.js';
 import { ROLE_DEFAULTS, roleGapReason, withStandingClaims } from './taxonomy.js';
 import { coverageOf, reviewContext } from './validate.js';
+import { STANCE_FORMS } from './vocabulary.js';
 
 /** The most participants of one role a proposal keeps, so that no one view fills the list. */
 export const MAX_PER_ROLE = 6;
+/**
+ * The most groups of one noun the rules path keeps ("support engineers", "tier-two engineers", "new
+ * engineers"): a noun the text uses for many groups says little of which matter, and fills the list.
+ */
+export const MAX_PER_NOUN = 3;
 /**
  * What reading the text for roles keeps: a group named once, in passing, is rarely what a decision
  * turns on, and a list that cannot be reviewed in one sitting is not reviewed. A model may propose more.
@@ -175,7 +183,13 @@ export function buildParticipant(
         : (legacy?.populationSize ?? participant.populationSize ?? PLACEHOLDER_SIZE[priority]),
     expectedImpact: legacy
       ? legacy.expectedImpact
-      : { direction, rationale: impactReason || 'The model gave no reason.', origin: 'model' },
+      : model
+        ? { direction, rationale: impactReason || 'The model gave no reason.', origin: 'model' }
+        : {
+            direction,
+            rationale: impactReason || 'No reason is given.',
+            origin: 'system-assumption',
+          },
     evidence,
     assumptions: legacy
       ? distinctLines([...participant.assumptions, ...unsourcedNote], 8, 300)
@@ -212,13 +226,66 @@ export function buildParticipant(
   return parsed.success ? parsed.data : null;
 }
 
-const rank = (stakeholder: Stakeholder): [number, number, number, string] => [
-  stakeholder.participantRole === 'decision-owner' ? 0 : 1,
-  PRIORITY_ORDER.indexOf(stakeholder.priority),
-  -stakeholder.evidence.length,
-  stakeholder.name,
-];
-const byRank = (a: Stakeholder, b: Stakeholder): number => {
+const PREPOSITION_AT = /\s(?:of|from|at|on|in|near|outside|within|around|across|with)\s/u;
+/** Written as a name: more than one of its words begins with a capital ("Finance Committee"). */
+const isNamed = (name: string): boolean =>
+  name.split(/\s+/u).filter((word) => /^\p{Lu}/u.test(word)).length >= 2;
+/** Written in the plural, so that it names a population and not one party: "nurses", not "analyst". */
+const isPlural = (name: string): boolean =>
+  /(?<![sui])s['’]?$/iu.test((name.split(PREPOSITION_AT)[0] ?? name).trim());
+
+/** What the order of participants reads: the same of a participant of the set and of one still a proposal. */
+export interface Rankable {
+  role: ParticipantRole;
+  priority: Stakeholder['priority'];
+  name: string;
+  /** The passages it cites, as they read. */
+  quotes: readonly string[];
+}
+
+/**
+ * What puts one participant ahead of another when the list has to be cut: the decision owner, then the
+ * priority; then a missing voice the sources name (what they say was left out is what the review asks
+ * after), one that has a position in the sources (a passage it cites says what it asks, says or does),
+ * one that says which ones it means (a role named as broadly as "engineers" does not), one that is cited
+ * more, one that has a name of its own, and one that names a population; and, last, the alphabet, so that
+ * the order is always the same.
+ */
+export function compareRank(a: Rankable, b: Rankable): number {
+  const signals = (item: Rankable): number[] => [
+    item.role === 'decision-owner' ? 0 : 1,
+    PRIORITY_ORDER.indexOf(item.priority),
+    item.role === 'missing-voices' && item.quotes.length > 0 ? 0 : 1,
+    item.quotes.some((quote) => wordsIn(quote).some((word) => STANCE_FORMS.has(word))) ? 0 : 1,
+    isBroadName(item.name) ? 1 : 0,
+    -item.quotes.length,
+    isNamed(item.name) ? 0 : 1,
+    isPlural(item.name) ? 0 : 1,
+  ];
+  const left = signals(a);
+  const right = signals(b);
+  for (const [at, value] of left.entries()) {
+    const difference = value - (right[at] ?? 0);
+    if (difference !== 0) return difference;
+  }
+  return a.name.localeCompare(b.name);
+}
+
+const rankable = (stakeholder: Stakeholder): Rankable => ({
+  role: participantOf(stakeholder).role,
+  priority: stakeholder.priority,
+  name: stakeholder.name,
+  quotes: stakeholder.evidence.map((ref) => ref.quote ?? ''),
+});
+
+/** The order a list is cut in: the owner, then the priority, then the more cited, then the alphabet. */
+const byCitations = (a: Stakeholder, b: Stakeholder): number => {
+  const rank = (stakeholder: Stakeholder): [number, number, number, string] => [
+    stakeholder.participantRole === 'decision-owner' ? 0 : 1,
+    PRIORITY_ORDER.indexOf(stakeholder.priority),
+    -stakeholder.evidence.length,
+    stakeholder.name,
+  ];
   const left = rank(a);
   const right = rank(b);
   return (
@@ -228,6 +295,9 @@ const byRank = (a: Stakeholder, b: Stakeholder): number => {
     left[3].localeCompare(right[3])
   );
 };
+/** The order the rules path cuts a list in, which knows more of what its own reading found. */
+const byReading = (a: Stakeholder, b: Stakeholder): number => compareRank(rankable(a), rankable(b));
+type Order = (a: Stakeholder, b: Stakeholder) => number;
 
 /**
  * Folds `others` into `keeper`: the keeper takes their evidence (up to the limit) and a note of each
@@ -277,7 +347,10 @@ export function rewireRelations(
 }
 
 /** Folds participants with the same name into the one with the most behind it, keeping the others as removed so a merge can be seen. */
-function foldDuplicates(list: Stakeholder[]): {
+function foldDuplicates(
+  list: Stakeholder[],
+  order: Order,
+): {
   kept: Stakeholder[];
   removed: Stakeholder[];
   into: Map<string, string>;
@@ -293,7 +366,7 @@ function foldDuplicates(list: Stakeholder[]): {
   const removed: Stakeholder[] = [];
   const into = new Map<string, string>();
   for (const group of groups.values()) {
-    const [keeper, ...others] = [...group].sort(byRank);
+    const [keeper, ...others] = [...group].sort(order);
     if (!keeper) continue;
     const folded = mergeInto(keeper, others);
     kept.push(folded.keeper);
@@ -308,9 +381,12 @@ function enforceLimits(
   list: Stakeholder[],
   dropped: { name: string; reason: string }[],
   limit: number,
+  perHead: number | null,
+  order: Order,
 ): Stakeholder[] {
-  const ordered = [...list].sort(byRank);
+  const ordered = [...list].sort(order);
   const perRole = new Map<string, number>();
+  const perNoun = new Map<string, number>();
   const kept: Stakeholder[] = [];
   for (const stakeholder of ordered) {
     const role = participantOf(stakeholder).role;
@@ -322,6 +398,14 @@ function enforceLimits(
       });
       continue;
     }
+    const noun = perHead === null ? null : headNounOf(stakeholder.name);
+    if (noun !== null && perHead !== null && (perNoun.get(noun) ?? 0) >= perHead) {
+      dropped.push({
+        name: stakeholder.name,
+        reason: `Left out to keep the list balanced: ${perHead} groups already share the noun “${noun}”.`,
+      });
+      continue;
+    }
     if (kept.length >= limit) {
       dropped.push({
         name: stakeholder.name,
@@ -330,6 +414,7 @@ function enforceLimits(
       continue;
     }
     perRole.set(role, held + 1);
+    if (noun !== null) perNoun.set(noun, (perNoun.get(noun) ?? 0) + 1);
     kept.push(stakeholder);
   }
   let keys = 0;
@@ -513,20 +598,25 @@ export function buildSet(input: BuildInput): StakeholderSet {
     built.push(stakeholder);
   }
 
-  const folded = foldDuplicates(built);
+  const order = input.source === 'rules' ? byReading : byCitations;
+  const folded = foldDuplicates(built, order);
   const limited = enforceLimits(
     folded.kept,
     dropped,
     input.source === 'rules' ? MAX_RULES_PARTICIPANTS : MAX_PROPOSED_LIVE,
+    input.source === 'rules' ? MAX_PER_NOUN : null,
+    order,
   );
   const removed = folded.removed.filter((copy) =>
     limited.some((keeper) => keeper.mergedFrom.includes(copy.id)),
   );
-  const order = (stakeholder: Stakeholder): number => PRIORITY_ORDER.indexOf(stakeholder.priority);
+  const priorityOf = (stakeholder: Stakeholder): number =>
+    PRIORITY_ORDER.indexOf(stakeholder.priority);
   const roleOrder = (stakeholder: Stakeholder): number =>
     PARTICIPANT_ROLES.indexOf(participantOf(stakeholder).role);
   const live = [...limited].sort(
-    (a, b) => order(a) - order(b) || roleOrder(a) - roleOrder(b) || a.name.localeCompare(b.name),
+    (a, b) =>
+      priorityOf(a) - priorityOf(b) || roleOrder(a) - roleOrder(b) || a.name.localeCompare(b.name),
   );
   const copies = [...removed].sort((a, b) => a.name.localeCompare(b.name));
 
