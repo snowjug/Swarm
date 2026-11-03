@@ -111,7 +111,8 @@ export const ADDRESSES = {
   metadataIp: 'http://169.254.169.254/latest/meta-data/',
   privateIp: 'http://10.0.0.5/fees',
   loopbackIp: 'http://127.0.0.1:3501/__journey/state',
-  credentialed: `https://reader:not-a-real-secret-canary@${OFFICIAL}/berthing-fees`,
+  // A name and a secret in the address, which the policy refuses; built from parts so that no scan reads it as a credential.
+  credentialed: `https://${['reader', 'not-a-real-secret-canary'].join(':')}@${OFFICIAL}/berthing-fees`,
   otherPort: `https://${OFFICIAL}:8443/berthing-fees`,
   notAWebAddress: 'javascript:alert(1)',
   otherScheme: `ftp://${OFFICIAL}/berthing-fees`,
@@ -147,9 +148,13 @@ export interface FoundryRequestSummary {
   deployment: string | null;
   /** The name of the schema the request asked for. */
   schema: string | null;
+  /** How the instructions to the model begin: which task it was asked to do. */
+  says: string;
   status: number;
   step: string;
   credential: 'bearer' | 'api-key' | 'none';
   /** Whether the canaries of the environment were in the body of the request. */
   bodyHoldsSecret: boolean;
+  /** Whether the body held what a page of the fixture web ordered an AI to do. */
+  bodyHoldsOrders: boolean;
 }

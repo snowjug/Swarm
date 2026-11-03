@@ -21,7 +21,11 @@
  *     site, at the least the configuration allows (RESEARCH_DOMAIN_DELAY_MS=250);
  *   - the pause between two simulated runs, which a control can lengthen so that a person can cancel one in the middle
  *     (the `analysis.yieldNow` option);
+ *   - the database, for an outage only: a control makes every use of the repository's database throw (`outageOf`, below),
+ *     as an outage does, and lets it work again; nothing in the product knows;
  *   - telemetry and logs: held in memory (`journey-capture.ts`) instead of being exported.
+ *
+ * JOURNEY_TRACE_CRAWL=1 says on stderr how long each short wait of the crawler took (defect J-03, docs/production/journey.md).
  *
  * Nothing in the product is switched off, and no seam was added to it. The control surface (`/__journey/*`) is a
  * second server on a loopback port: it starts failures, reads what was captured and says where a canary was found.
@@ -35,6 +39,7 @@ import { TokenVerifier } from '../../src/auth/tokens.js';
 import { loadConfig } from '../../src/config.js';
 import { PublicFetcher } from '../../src/ingest/url/fetcher.js';
 import { PublicPageFetcher } from '../../src/research/crawler/fetch.js';
+import { sleep as crawlerSleep } from '../../src/research/crawler/deps.js';
 import type { CrawlTuning } from '../../src/research/crawler/types.js';
 import type { SearchProvider } from '../../src/research/discovery.js';
 import type { SqlDatabase } from '../../src/storage/sql.js';
@@ -46,6 +51,7 @@ import { AUDIENCE, CLIENT_ID, TENANT_A, TENANT_B, startIdp } from './journey-idp
 import {
   ADDRESSES,
   CANARIES,
+  INJECTED,
   DEFAULT_PORTS,
   INSTANCES,
   INSTANCE_FACTS,
@@ -131,6 +137,25 @@ install('natural');
 const search = new ScriptedSearch();
 search.reset();
 const tuning: Partial<CrawlTuning> = { ...DEFAULT_TUNING };
+
+/**
+ * JOURNEY_TRACE_CRAWL=1 says on stderr how long each short wait of the crawler took against what it asked for, and
+ * marks one that ended early (a wait that is cut short because a read ended says nothing). It is how defect J-03 was
+ * found: a timer that fires a millisecond before the clock says it should.
+ */
+async function tracedSleep(ms: number, signal: AbortSignal): Promise<void> {
+  const begun = Date.now();
+  try {
+    await crawlerSleep(ms, signal);
+  } finally {
+    const took = Date.now() - begun;
+    if (ms <= 2_000) {
+      console.error(
+        `crawl wait ${ms} ms took ${took} ms${took < ms ? ` (${ms - took} ms early)` : ''}`,
+      );
+    }
+  }
+}
 
 /** How long each simulated run waits before the next, so that a person can cancel one in the middle. */
 let paceMs = 0;
@@ -219,7 +244,10 @@ async function start(name: InstanceName): Promise<Running> {
     analysis: { yieldNow },
     research: {
       fetcher: new PublicPageFetcher({ seam: { lookup: resolver } }),
-      crawl: { tuning },
+      crawl: {
+        tuning,
+        ...(process.env.JOURNEY_TRACE_CRAWL ? { sleep: tracedSleep } : {}),
+      },
       ...(facts.search === 'test-double' ? { search } : {}),
     },
   });
@@ -276,6 +304,7 @@ const summaryOf = (): FoundryRequestSummary[] =>
     index: request.index,
     deployment: request.deployment,
     schema: request.body?.response_format?.json_schema?.name ?? null,
+    says: request.system.split('\n\n').slice(1).join('\n\n').slice(0, 80),
     status: request.status,
     step: request.step,
     credential: request.credential,
@@ -285,6 +314,11 @@ const summaryOf = (): FoundryRequestSummary[] =>
       CANARIES.clientSecret,
       CANARIES.environment,
     ].some((secret) => request.rawBody.includes(secret)),
+    // What a page ordered an AI to do is the page's, and is data to describe: whether it went to the model is said, so that
+    // a test can hold the product to what it says about passages it withholds.
+    bodyHoldsOrders: [INJECTED.ordered, INJECTED.answer].some((order) =>
+      request.rawBody.includes(order),
+    ),
   }));
 
 function resetAll(): void {
