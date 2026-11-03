@@ -69,6 +69,12 @@ export interface AppOptions {
   /** Test hook: capture structured logs to assert that no secret or content is written. */
   logStream?: { write(message: string): void };
   /**
+   * Where the built frontend is served from. The default is `frontend/dist` under the working
+   * directory, when it holds an index.html; null serves none, so a test does not depend on whether a
+   * frontend has been built on the machine that runs it.
+   */
+  frontendRoot?: string | null;
+  /**
    * Test hook: send people to, and redeem codes at, a local identity provider instead of Microsoft.
    * `authorityHost` replaces `https://login.microsoftonline.com`; `fetcher` replaces the token call.
    */
@@ -395,8 +401,11 @@ export async function buildApp(options: AppOptions) {
   // [brief routes]
   briefRoutes(app, repository, config.rateLimitScale);
 
-  const frontend = resolve(process.cwd(), 'frontend', 'dist');
-  if (existsSync(resolve(frontend, 'index.html'))) {
+  const frontend =
+    options.frontendRoot === undefined
+      ? resolve(process.cwd(), 'frontend', 'dist')
+      : options.frontendRoot;
+  if (frontend !== null && existsSync(resolve(frontend, 'index.html'))) {
     await app.register(staticFiles, {
       root: frontend,
       prefix: '/',
