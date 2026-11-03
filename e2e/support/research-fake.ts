@@ -300,14 +300,15 @@ export const viewOf = (run: ResearchRun | null, may = MAY): ResearchView => ({
   may,
 });
 
-/** What the server does with a request: the answer, and what the run becomes. */
-type Handler = (body: unknown) => { status: number; body: unknown } | null;
-
 export interface FakeResearch {
   /** What the server holds: the next read answers with it. */
   held: ResearchView;
   /** Every request made of the research, as `GET`, `POST start`, `POST pause`, `POST sources`. */
   calls: string[];
+  /** What the page sent to make a project, when `makesQuestionOnly` answered it. */
+  created: { documents?: unknown[]; research?: unknown; question?: string } | null;
+  /** The projects that were made for it, to be taken away when the test is over. */
+  made: string[];
   /** Puts the research in a state, as if the run had moved on. */
   put: (view: ResearchView) => void;
   /** Answers the next request of this kind with an error instead of doing it. */
@@ -323,7 +324,18 @@ export interface FakeOptions {
   discovery?: typeof NO_PROVIDER;
   /** Whether the server says it researches. Default: it does. */
   enabled?: boolean;
+  /**
+   * A question with no sources is answered with a project the real server makes from the same question and a source
+   * of its own (what the call would have returned), so that the page goes where it goes next.
+   */
+  makesQuestionOnly?: boolean;
 }
+
+const STAND_IN = {
+  name: 'sources.md',
+  content:
+    'A stand-in source for a project that is made without one: it is never shown, since the page is told that the project has none.',
+};
 
 const KNOWLEDGE_OF: Record<string, string> = {
   queued: 'queued',
@@ -349,6 +361,8 @@ export async function fakeResearch(
   const fake: FakeResearch = {
     held: start,
     calls: [],
+    created: null,
+    made: [],
     put: (view) => {
       fake.held = view;
     },
@@ -365,39 +379,71 @@ export async function fakeResearch(
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
   const error = (route: Route, status: number, code: string, message: string) =>
     json(route, status, { error: { code, message } });
+  // A page that is closing leaves a request in flight, and nobody is waiting for its answer.
+  const unlessClosed =
+    (handler: (route: Route) => Promise<unknown>) =>
+    async (route: Route): Promise<void> => {
+      try {
+        await handler(route);
+      } catch (failure) {
+        if (!/closed|disposed|Test ended/iu.test(String(failure))) throw failure;
+      }
+    };
+
+  if (options.makesQuestionOnly) {
+    await page_.route(/\/api\/projects$/u, async (route) => {
+      const request = route.request();
+      if (request.method() !== 'POST') return route.fallback();
+      const body = request.postDataJSON() as NonNullable<FakeResearch['created']>;
+      fake.created = body;
+      if ((body.documents ?? []).length > 0) return route.fallback();
+      const made = await page_.request.post('/api/projects', {
+        data: { ...body, documents: [STAND_IN] },
+      });
+      const project = (await made.json()) as { id: string };
+      fake.made.push(project.id);
+      return json(route, 201, project);
+    });
+  }
 
   // The server says that it researches, and what it would do with a question alone.
-  await page_.route(/\/api\/config$/u, async (route) => {
-    const response = await route.fetch();
-    const config = (await response.json()) as Record<string, unknown>;
-    await json(route, 200, {
-      ...config,
-      research: {
-        enabled,
-        discovery: options.discovery ?? NO_PROVIDER,
-        budget: DEFAULT_RESEARCH_BUDGET,
-      },
-    });
-  });
+  await page_.route(
+    /\/api\/config$/u,
+    unlessClosed(async (route) => {
+      const response = await route.fetch();
+      const config = (await response.json()) as Record<string, unknown>;
+      await json(route, 200, {
+        ...config,
+        research: {
+          enabled,
+          discovery: options.discovery ?? NO_PROVIDER,
+          budget: DEFAULT_RESEARCH_BUDGET,
+        },
+      });
+    }),
+  );
 
   // A project with no sources of its own, for as long as research has not given it any.
   if (options.questionOnly) {
-    await page_.route(/\/api\/projects\/[^/]+$/u, async (route) => {
-      if (route.request().method() !== 'GET') return route.continue();
-      const response = await route.fetch();
-      const project = (await response.json()) as {
-        documents: unknown[];
-        graph: unknown;
-        console?: { steps: Record<string, string> };
-      };
-      const status = fake.held.run?.status ?? 'none';
-      if (status !== 'completed') {
-        project.documents = [];
-        project.graph = null;
-        if (project.console) project.console.steps.knowledge = KNOWLEDGE_OF[status] ?? 'pending';
-      }
-      await json(route, 200, project);
-    });
+    await page_.route(
+      /\/api\/projects\/[^/]+$/u,
+      unlessClosed(async (route) => {
+        if (route.request().method() !== 'GET') return route.continue();
+        const response = await route.fetch();
+        const project = (await response.json()) as {
+          documents: unknown[];
+          graph: unknown;
+          console?: { steps: Record<string, string> };
+        };
+        const status = fake.held.run?.status ?? 'none';
+        if (status !== 'completed') {
+          project.documents = [];
+          project.graph = null;
+          if (project.console) project.console.steps.knowledge = KNOWLEDGE_OF[status] ?? 'pending';
+        }
+        await json(route, 200, project);
+      }),
+    );
   }
 
   await page_.route(/\/api\/projects\/[^/]+\/research(?:\/[a-z]+)?$/u, async (route) => {
@@ -444,16 +490,16 @@ export async function fakeResearch(
             'That address is on a private or local network, which Swarm never reads.',
           );
         }
-        if (run) {
-          const added = page(run.sources.length + 20, {
-            title: `Page of ${url.hostname}`,
-            requestedUrl: url.href,
-            finalUrl: url.href,
-            outcome: 'read',
-            discoveredBy: 'user-added',
-          });
-          next(run.status, { sources: [...run.sources, added] });
+        // A page or a site that is named is a run of its own, and there is one run at a time.
+        if (run && ['queued', 'running', 'paused'].includes(run.status)) {
+          return error(
+            route,
+            409,
+            'RESEARCH_ACTIVE',
+            'Research is already running for this project. Wait for it, or cancel it first.',
+          );
         }
+        fake.held = viewOf(runAt('planning', { status: 'queued' }));
       } else {
         // Starting: a run that is waiting for its turn.
         fake.held = viewOf(runAt('planning', { status: 'queued' }));
@@ -465,15 +511,3 @@ export async function fakeResearch(
 
   return fake;
 }
-
-/** What `viewOf` makes of a run that has reached a stage, for the specs that put a run at each in turn. */
-export const STAGES: readonly ResearchStage[] = [
-  'planning',
-  'finding-sources',
-  'reading',
-  'extracting-evidence',
-  'checking-conflicts',
-  'ready',
-];
-
-export type Handlers = Record<string, Handler>;
