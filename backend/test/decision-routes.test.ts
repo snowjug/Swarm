@@ -146,7 +146,7 @@ describe('a question that Swarm does not decide, at each stage of a project', ()
       rule: 'individual-decision',
     });
     expect(body.canvas?.answer.preferredAlternativeId).toBeNull();
-    expect(body.canvas?.answer.recommendation.kind).toBe('qualified-person');
+    expect(body.canvas?.answer.recommendation.kind).toBe('decide');
     expect(body.canvas?.scope).toMatchObject({ domains: ['credit'], aboutIndividual: true });
     expect(body.readiness.scope).toEqual(body.canvas?.scope);
   });

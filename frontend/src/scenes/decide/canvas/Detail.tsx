@@ -25,6 +25,7 @@ import {
   alignmentWords,
   categoryWords,
   changeWords,
+  completenessOf,
   moveWords,
   positionWords,
   sensitivityWords,
@@ -203,10 +204,17 @@ function Lenses({ canvas }: { canvas: DecisionCanvas }) {
 function Recommendation({ canvas }: { canvas: DecisionCanvas }) {
   const card = canvas.answer.recommendation;
   const { exploration } = canvas.scope;
+  const done = completenessOf(card);
   return (
     <>
       <p className="sw-canvas-next">
         {card.what.text} <LabelChip label={card.what.label} />
+      </p>
+      <p className="sw-canvas-complete" data-gaps={done.missing.length > 0 || undefined}>
+        <strong>
+          {done.stated} of {done.total} parts stated
+        </strong>
+        {done.missing.length > 0 ? ` · Missing: ${done.missing.join(', ')}` : ''}
       </p>
       {exploration && (
         <>
@@ -230,7 +238,14 @@ function Recommendation({ canvas }: { canvas: DecisionCanvas }) {
         <h3 className="sw-canvas-part__title">
           {RECOMMENDATION_PART_WORDS.reversibility}: {REVERSIBILITY_WORDS[card.reversibility.value]}
         </h3>
-        <Lines lines={[card.reversibility.statement]} />
+        {card.missing.includes('reversibility') ? (
+          <p className="sw-canvas-missing">
+            <strong>Missing.</strong> {card.reversibility.statement.text}{' '}
+            <LabelChip label={card.reversibility.statement.label} />
+          </p>
+        ) : (
+          <Lines lines={[card.reversibility.statement]} />
+        )}
       </section>
       <PartView title={RECOMMENDATION_PART_WORDS.approval} part={card.approval} />
       <Plain>{NO_ACTION_NOTE}</Plain>

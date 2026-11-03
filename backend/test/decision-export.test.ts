@@ -96,6 +96,28 @@ describe('the Markdown and the printable page open on the decision picture', () 
     expect(text).toContain('Swarm recommends and explains. It does not contact anyone');
   });
 
+  it('counts the parts of the recommendation that are stated, and lists reversibility among those that are not, as the data does', () => {
+    const canvas = canvasOf();
+    const card = canvas.answer.recommendation;
+    expect(card.missing).toContain('reversibility');
+    const stated = `${9 - card.missing.length} of 9 parts stated.`;
+    const markdown = plain(briefMarkdown(exportInput(canvas)));
+    const html = briefHtml(exportInput(canvas));
+    for (const text of [markdown, html]) {
+      expect(text).toContain(stated);
+      expect(text).toContain('Reversibility (unknown)');
+    }
+    // It stands in the recommended next move, before the parts it counts.
+    expect(markdown.indexOf(stated)).toBeGreaterThan(markdown.indexOf('8. Recommended next move'));
+    expect(markdown.indexOf(stated)).toBeLessThan(
+      markdown.indexOf('9. What to validate before acting'),
+    );
+    const blocks = canvasBlocks(canvas).filter(
+      (block) => block.kind === 'paragraph' && block.text.startsWith(stated),
+    );
+    expect(blocks).toHaveLength(1);
+  });
+
   it('is unchanged when there is no canvas to put first', () => {
     const without = briefMarkdown(exportInput(undefined));
     expect(without).not.toContain('Decision view');

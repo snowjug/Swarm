@@ -9,8 +9,7 @@ import {
   DECISION_STATUS_INFO,
   EPISTEMIC_LABEL_INFO,
   POSITION_WORDS,
-  RECOMMENDATION_PARTS,
-  RECOMMENDATION_PART_WORDS,
+  recommendationCompleteness,
   type ActorReading,
   type CounterfactualReading,
   type CriticalAssumption,
@@ -269,11 +268,7 @@ export function sensitivityWords(sensitivity: DecisionCanvas['changes']['sensiti
     : `${plural(sensitivity.tested, 'assumption')} moved on the same seeds: ${sensitivity.sensitive} moved the result clearly, ${sensitivity.robust} did not, ${sensitivity.inconclusive} could not be told.`;
 }
 
-export interface Completeness {
-  total: number;
-  stated: number;
-  missing: string[];
-}
+export type Completeness = ReturnType<typeof recommendationCompleteness>;
 
 /**
  * What stands under the status. A status that holds only on conditions says them, those the headline has not already
@@ -320,16 +315,12 @@ export function basisOf(canvas: DecisionCanvas): { counts: string; level: string
 }
 
 /**
- * How much of the recommendation is said, and which parts are not. A gap is shown, never left out; and a part that
- * says only that something is not known (whether the choice can be reversed) is a gap, not a part stated.
+ * How much of the recommendation is said, and which parts are not: the card's own list of missing parts, counted. A gap
+ * is shown, never left out; and a part that says only that something is not known (whether the choice can be reversed)
+ * is a gap, not a part stated. The count and the words are the shared function's, so that an export says the same.
  */
 export function completenessOf(card: DecisionCanvas['answer']['recommendation']): Completeness {
-  const total = RECOMMENDATION_PARTS.length + 1;
-  const missing = card.missing.map((part) => RECOMMENDATION_PART_WORDS[part]);
-  if (card.reversibility.value === 'unknown' && !card.missing.includes('reversibility')) {
-    missing.push('Reversibility (unknown)');
-  }
-  return { total, stated: total - missing.length, missing };
+  return recommendationCompleteness(card);
 }
 
 export interface Checks {

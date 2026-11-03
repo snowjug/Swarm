@@ -205,7 +205,7 @@ const base = (): Raw => ({
           'approve-named',
         ),
       ]),
-      missing: ['weakeningEvidence'],
+      missing: ['weakeningEvidence', 'reversibility'],
     },
   },
   alternatives: [
@@ -1135,7 +1135,7 @@ export function scopedFixture(
       preferredAlternativeId: null,
       recommendation: {
         ...from.answer.recommendation,
-        kind: 'qualified-person',
+        kind: 'decide',
         what: say(
           'A qualified person decides this; here is what the exploration can and cannot tell them.',
           'recommendation',

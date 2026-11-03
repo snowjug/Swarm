@@ -777,6 +777,24 @@ export const RECOMMENDATION_PARTS = [
 ] as const;
 export type RecommendationPart = (typeof RECOMMENDATION_PARTS)[number];
 
+/**
+ * Every part of a recommendation that can be missing, in the order it is read: the eight that hold statements, and
+ * reversibility, which is missing for as long as nothing in the project says whether a choice can be undone. The card’s
+ * `missing` list is made of these nine. `RECOMMENDATION_PARTS` stays the eight that have items.
+ */
+export const CARD_PARTS = [
+  'forWhom',
+  'assumptions',
+  'constraints',
+  'supportingEvidence',
+  'weakeningEvidence',
+  'invalidatedBy',
+  'testNext',
+  'reversibility',
+  'approval',
+] as const;
+export type CardPart = (typeof CARD_PARTS)[number];
+
 export const RECOMMENDATION_PART_WORDS: Record<RecommendationPart | 'reversibility', string> = {
   forWhom: 'For whom',
   assumptions: 'Under these assumptions',
@@ -809,7 +827,6 @@ export const recommendationSchema = z.object({
     'keep-no-change',
     'hold',
     'decide',
-    'qualified-person',
     'resolve-constraint',
     'gather-evidence',
   ]),
@@ -823,10 +840,34 @@ export const recommendationSchema = z.object({
   testNext: partSchema,
   reversibility: z.object({ value: z.enum(REVERSIBILITY_VALUES), statement: labelledSchema }),
   approval: partSchema,
-  /** Every part above that has nothing in it, so that a gap is a finding and not an omission. */
-  missing: z.array(z.enum([...RECOMMENDATION_PARTS, 'reversibility'])).max(9),
+  /**
+   * Every part above that has nothing in it, and reversibility while it is `unknown`, so that a gap is a finding and
+   * not an omission: a part is either stated or listed here.
+   */
+  missing: z.array(z.enum(CARD_PARTS)).max(CARD_PARTS.length),
 });
 export type RecommendationCard = z.infer<typeof recommendationSchema>;
+
+/**
+ * How much of a recommendation is stated, and which parts are not: the card’s own `missing` list, counted and worded,
+ * so that no page or export adds a gap of its own or counts one differently. A part that says only that something is
+ * not known (reversibility, while it is unknown) is a gap and not a part stated. Data that says “unknown” and does not
+ * list it is read as if it did, so that a count is never the larger for it.
+ */
+export function recommendationCompleteness(card: RecommendationCard): {
+  total: number;
+  stated: number;
+  missing: string[];
+} {
+  const gaps = new Set<CardPart>(card.missing);
+  if (card.reversibility.value === 'unknown') gaps.add('reversibility');
+  const missing = CARD_PARTS.filter((part) => gaps.has(part)).map((part) =>
+    part === 'reversibility' && card.reversibility.value === 'unknown'
+      ? 'Reversibility (unknown)'
+      : RECOMMENDATION_PART_WORDS[part],
+  );
+  return { total: CARD_PARTS.length, stated: CARD_PARTS.length - missing.length, missing };
+}
 
 export const APPROVAL_STAGES = ['before-simulation', 'before-acting'] as const;
 export type ApprovalStage = (typeof APPROVAL_STAGES)[number];

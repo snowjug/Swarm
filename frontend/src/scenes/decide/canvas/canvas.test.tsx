@@ -108,6 +108,8 @@ describe('the first viewport of the decision canvas', () => {
 
   it('gives the recommendation with how much of it is stated and which parts are not, an unknown among them', () => {
     const canvas = canvasFixture();
+    // The card’s own list holds reversibility while it is unknown, and the count and the words follow the list.
+    expect(canvas.answer.recommendation.missing).toEqual(['weakeningEvidence', 'reversibility']);
     const done = completenessOf(canvas.answer.recommendation);
     expect(done).toMatchObject({ total: 9, stated: 7 });
     expect(done.missing).toEqual(['Evidence that weakens it', 'Reversibility (unknown)']);
@@ -120,6 +122,33 @@ describe('the first viewport of the decision canvas', () => {
       raw.answer.recommendation.reversibility.value = 'reversible';
     });
     expect(completenessOf(whole.answer.recommendation)).toMatchObject({ stated: 9, missing: [] });
+    // Data that says “unknown” and does not list it is never counted as a part stated.
+    const unlisted = canvasFixture((raw) => {
+      raw.answer.recommendation.missing = ['weakeningEvidence'];
+    });
+    expect(completenessOf(unlisted.answer.recommendation)).toEqual(done);
+  });
+
+  it('lists reversibility among the missing parts in every picture, so that the data and the page agree', () => {
+    const cards = [
+      canvasFixture(),
+      richFixture(),
+      ...DECISION_STATUSES.map((status) => statusFixture(status)),
+      scopedFixture('domain'),
+      scopedFixture('individual', richFixture()),
+    ].map((canvas) => canvas.answer.recommendation);
+    for (const card of cards) {
+      expect(card.reversibility.value).toBe('unknown');
+      expect(card.missing).toContain('reversibility');
+      // The page adds nothing of its own: what it counts is the length of the list.
+      expect(completenessOf(card).stated).toBe(9 - card.missing.length);
+    }
+  });
+
+  it('says in the recommendation in full that reversibility is missing, in the same words as the list', () => {
+    const said = text(render(handleOf(viewFixture(canvasFixture()))));
+    expect(said).toContain('Whether it can be reversed: Unknown');
+    expect(said).toMatch(/Missing\. Whether the choice can be reversed is unknown/u);
   });
 
   it('says what kind of statement the answer is, in words for a screen reader too', () => {

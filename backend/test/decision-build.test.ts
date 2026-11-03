@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { claimsAgainst } from '../../e2e/support/claims.js';
 import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios.js';
 import {
+  CARD_PARTS,
   EPISTEMIC_LABELS,
   RECOMMENDATION_PARTS,
   SCOPE_NOTICE,
   decisionCanvasSchema,
+  recommendationCompleteness,
   type DecisionCanvas,
   type Labelled,
 } from '../../shared/decision.js';
@@ -278,15 +280,47 @@ describe('the recommendation is complete, or says what is missing', () => {
         expect(value.items.length > 0 || value.missing !== null, part).toBe(true);
         expect(value.items.length > 0 && value.missing !== null, part).toBe(false);
       }
-      expect(card.missing).toEqual(
-        RECOMMENDATION_PARTS.filter((part) => card[part].missing !== null),
-      );
       expect(card.reversibility.value).toBe('unknown');
       expect(card.reversibility.statement.text).toMatch(/unknown/u);
+      // The list holds exactly the parts that are not stated, and reversibility among them while it is unknown: the data
+      // says so itself, and a page or an export adds nothing to it.
+      expect(card.missing).toEqual(
+        CARD_PARTS.filter((part) =>
+          part === 'reversibility'
+            ? card.reversibility.value === 'unknown'
+            : card[part].missing !== null,
+        ),
+      );
+      expect(card.missing).toContain('reversibility');
+      expect(card.missing.length).toBeLessThanOrEqual(CARD_PARTS.length);
+      // The count of parts stated follows the list.
+      expect(recommendationCompleteness(card)).toMatchObject({
+        total: 9,
+        stated: 9 - card.missing.length,
+      });
       expect(card.approval.items.length).toBeGreaterThan(0);
       expect(card.what.label).toBe('recommendation');
     },
   );
+
+  it('lists reversibility as missing for as long as it is unknown, and no longer', () => {
+    const card = canvasOf().answer.recommendation;
+    expect(card.missing.at(-1)).toBe('reversibility');
+    // A card that knew whether the choice can be undone would not list it, and the count would not either.
+    const known: typeof card = {
+      ...card,
+      reversibility: { ...card.reversibility, value: 'reversible' },
+      missing: card.missing.filter((part) => part !== 'reversibility'),
+    };
+    expect(recommendationCompleteness(known).missing).not.toContain('Reversibility (unknown)');
+    expect(recommendationCompleteness(known).stated).toBe(9 - known.missing.length);
+    // Data that says “unknown” and does not list it is still counted as a gap.
+    const unlisted: typeof card = {
+      ...card,
+      missing: card.missing.filter((part) => part !== 'reversibility'),
+    };
+    expect(recommendationCompleteness(unlisted)).toEqual(recommendationCompleteness(card));
+  });
 
   it('says who has to approve before acting, and that nothing is done by Swarm', () => {
     const canvas = canvasOf();
@@ -369,7 +403,8 @@ describe('a decision about one person is a qualified person’s: the canvas does
   it('replaces the recommended next move with a qualified person and what the exploration can and cannot tell them', () => {
     const canvas = asking('Should we fire this employee?');
     const card = canvas.answer.recommendation;
-    expect(card.kind).toBe('qualified-person');
+    // The kind is the status's own, as the table of statuses says: a human decides. The words say which human.
+    expect(card.kind).toBe('decide');
     expect(card.what.text).toBe(
       'A qualified person decides this; here is what the exploration can and cannot tell them.',
     );
@@ -438,7 +473,7 @@ describe('a decision about one person is a qualified person’s: the canvas does
     const policy = asking('What happens if we change our hiring policy?');
     expect(policy.status.rule).not.toBe('individual-decision');
     expect(policy.scope).toMatchObject({ domains: ['employment'], aboutIndividual: false });
-    expect(policy.answer.recommendation.kind).not.toBe('qualified-person');
+    expect(policy.answer.recommendation.what.text).not.toContain('A qualified person decides this');
   });
 });
 

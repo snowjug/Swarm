@@ -10,6 +10,7 @@ import {
   REVERSIBILITY_WORDS,
   SCOPE_DOMAIN_WORDS,
   SYNTHETIC_ACTORS_NOTE,
+  recommendationCompleteness,
   type DecisionCanvas,
   type Labelled,
   type Part,
@@ -58,6 +59,7 @@ const partBlocks = (title: string, part: Part): CanvasBlock[] =>
 export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
   const { status, answer, question } = canvas;
   const card = answer.recommendation;
+  const done = recommendationCompleteness(card);
   const blocks: CanvasBlock[] = [
     { kind: 'heading', level: 2, text: 'Decision view', anchor: 'decision-view' },
     { kind: 'paragraph', text: `${EXPLORE_NOT_PREDICT} ${SYNTHETIC_ACTORS_NOTE}`, tone: 'notice' },
@@ -249,6 +251,11 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
           ),
         ]
       : []),
+    {
+      kind: 'paragraph',
+      text: `${done.stated} of ${done.total} parts stated.${done.missing.length > 0 ? ` Missing: ${done.missing.join(', ')}.` : ''}`,
+      tone: 'note',
+    },
     ...partBlocks(RECOMMENDATION_PART_WORDS.forWhom, card.forWhom),
     ...partBlocks(RECOMMENDATION_PART_WORDS.assumptions, card.assumptions),
     ...partBlocks(RECOMMENDATION_PART_WORDS.constraints, card.constraints),

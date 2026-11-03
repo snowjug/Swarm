@@ -153,8 +153,8 @@ in “promote Notion to our teams” is not.
   that touches it before it is acted on, besides the named approver. The status is whatever the simulation gives.
 - **`aboutIndividual` is true.** Rule 1 `individual-decision` forces `needs-human-decision` and says why, with the cues.
   No leader and no preferred option is named; the options are shown as explored and **not ranked**. The recommended next
-  move is replaced: “A qualified person decides this; here is what the exploration can and cannot tell them.” (`kind`
-  `qualified-person`), followed by what it can tell them (how the simulated roles responded under the stated assumptions;
+  move is replaced: “A qualified person decides this; here is what the exploration can and cannot tell them.” (the kind
+  is the status’s own, `decide`; the words say which person), followed by what it can tell them (how the simulated roles responded under the stated assumptions;
   which assumptions the result is most sensitive to) and what it cannot (what is right, fair or lawful for this person;
   how this person responds, since a simulated role stands for a group; whether a decision follows the rules that apply).
   The validation plan starts with a high-priority check to have the qualified person decide, and a stop condition says
@@ -220,19 +220,22 @@ ASSUMPTION; it is never a verdict on whether a page is right.
 Whenever a recommendation is shown, in any status, it states: what is recommended; for whom; under which assumptions;
 under which constraints; the evidence that supports it; the evidence that weakens it; what would invalidate it; what to
 test next; whether it is reversible; and what human approval is needed. A part with nothing to say is `missing` with a
-sentence, and the card lists the missing parts, so a gap is a finding and never an omission. Reversibility is `unknown`
-in this version: nothing in the project says whether a choice can be undone, and the canvas does not guess. The page
-counts a part that says only that something is not known as a gap, not as a part stated: “7 of 9 parts stated ·
-Missing: Evidence that weakens it, Reversibility (unknown)”.
+sentence, and the card lists the missing parts, so a gap is a finding and never an omission: every part is either
+stated or in `recommendation.missing`, and nothing is in the list that is stated. Reversibility is `unknown` in this
+version (nothing in the project says whether a choice can be undone, and the canvas does not guess), and a part that says
+only that something is not known is a gap and not a part stated, so **the data lists `reversibility` in `missing` for as
+long as it is unknown**. The list is the single source: the page and the exports count and word it with the same function
+(`recommendationCompleteness`, `shared/decision.ts`), so “N of 9 parts stated” is nine less the length of the list and
+no screen adds a gap of its own: “7 of 9 parts stated · Missing: Evidence that weakens it, Reversibility (unknown)”.
+The nine are `CARD_PARTS`; `RECOMMENDATION_PARTS` is the eight that hold statements.
 
-| Status                                | The recommendation (`kind`)                                                                      |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `robust-option`, `conditional-option` | `proceed` with the option in steps that can be checked, or `keep-no-change` when no change leads |
-| `multiple-plausible-options`          | `hold`: do not choose between them; test what separates them                                     |
-| `insufficient-evidence`               | `gather-evidence`                                                                                |
-| `blocked-by-hard-constraint`          | `resolve-constraint` with its owner                                                              |
-| `needs-human-decision`                | `decide`: take the trade-off, or the conflicting constraints, to the decision owner              |
-| `needs-human-decision`, by rule 1     | `qualified-person`: a qualified person decides; what the exploration can and cannot tell them    |
+| Status                                | The recommendation (`kind`)                                                                                                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robust-option`, `conditional-option` | `proceed` with the option in steps that can be checked, or `keep-no-change` when no change leads                                                                                               |
+| `multiple-plausible-options`          | `hold`: do not choose between them; test what separates them                                                                                                                                   |
+| `insufficient-evidence`               | `gather-evidence`                                                                                                                                                                              |
+| `blocked-by-hard-constraint`          | `resolve-constraint` with its owner                                                                                                                                                            |
+| `needs-human-decision`                | `decide`: take the trade-off, or the conflicting constraints, to the decision owner; for a decision about one person (rule 1) the same kind, and the words say that a qualified person decides |
 
 Human approval points: before the simulation (the actors and the constraints reviewed — shown `done` only where Swarm
 holds the record) and before acting (the validation plan done; a named approver — always `open`, because Swarm cannot
@@ -365,7 +368,9 @@ before the brief’s own answer, so that print and PDF open on the decision pict
 matter, a “Scope.” paragraph with the notice and the matters follows the line that says the picture explores and does not
 predict; for a decision about one person what the exploration can and cannot tell comes after the recommendation; and the
 closing paragraph carries the notice and the cues, or says that nothing in the question or its framing pointed to such
-a matter and that Swarm still does not make the decision. The JSON export holds the whole canvas, `scope` included.
+a matter and that Swarm still does not make the decision. After the recommendation a line says how many of its nine parts
+are stated and which are not (“7 of 9 parts stated. Missing: Evidence that weakens it, Reversibility (unknown).”), in
+the words of the page. The JSON export holds the whole canvas, `scope` and the card’s `missing` list included.
 
 ## Tests
 

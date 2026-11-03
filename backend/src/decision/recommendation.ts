@@ -1,5 +1,5 @@
 import {
-  RECOMMENDATION_PARTS,
+  CARD_PARTS,
   type ActorReading,
   type ApprovalPoint,
   type ConstraintRow,
@@ -95,13 +95,13 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
         'Do not go past the hard constraint. Settle it first with its owner: confirm it, correct it or set it aside, then run the comparison again.';
       break;
     case 'needs-human-decision':
+      // The kind is the status’s own, a human decides; the words say which human, for a decision about one person.
+      kind = 'decide';
       if (status.rule === 'individual-decision') {
-        kind = 'qualified-person';
         what =
           'A qualified person decides this; here is what the exploration can and cannot tell them.';
         break;
       }
-      kind = 'decide';
       what =
         input.contenders.length > 1
           ? `Take the choice to the decision owner with the trade-off in front of them: ${listed(input.contenders.slice(0, 3).map((option) => optionName(option)))} lead on different lenses.`
@@ -276,6 +276,11 @@ export function buildRecommendation(input: CardInput, guard: Guard): Recommendat
     what: guard.statement(what, 'recommendation', `status:${status.status}`),
     ...parts,
     reversibility: input.reversibility,
-    missing: RECOMMENDATION_PARTS.filter((name) => parts[name].missing !== null),
+    // Reversibility is a gap for as long as it is unknown: the card lists it, and the count of parts stated follows the list.
+    missing: CARD_PARTS.filter((name) =>
+      name === 'reversibility'
+        ? input.reversibility.value === 'unknown'
+        : parts[name].missing !== null,
+    ),
   };
 }
