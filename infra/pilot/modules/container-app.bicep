@@ -87,6 +87,18 @@ param projectModelCallLimit int = 0
 @description('Most tokens, input and output together, one project may use in all (PROJECT_MODEL_TOKEN_LIMIT); 0 is no limit.')
 param projectModelTokenLimit int = 0
 
+@description('DEPLOYMENT_MODE. The application refuses to start in pilot or production unless every hosted-deployment guard passes (backend/src/deployment.ts), so a hosted app never runs with the permissive local defaults.')
+@allowed(['pilot', 'production'])
+param deploymentMode string = 'pilot'
+
+@description('DEPLOYMENT_LABEL: what this deployment is, in words, for the people who use it (at most 80 characters). Empty uses the default of the mode; production requires one.')
+@maxLength(80)
+param deploymentLabel string = ''
+
+@description('BUILD_SHA: the commit the image was built from. A release sets it on the revision it creates; this is the value of a template deployment. Empty leaves the setting out.')
+@maxLength(40)
+param buildSha string = ''
+
 @description('Name suffix of the revision this deployment creates: <app>--<suffix>. Lower-case letters, digits and hyphens, starting with a letter, at most 20 characters. The release tooling uses the first 12 characters of the commit SHA behind an "r" so a revision name identifies the code. Empty lets the platform name it.')
 @maxLength(20)
 param revisionSuffix string = ''
@@ -191,6 +203,7 @@ var probeHeaders = [
 var baseEnvironment = [
   { name: 'PORT', value: string(targetPort) }
   { name: 'HOST', value: '0.0.0.0' }
+  { name: 'DEPLOYMENT_MODE', value: deploymentMode }
   { name: 'AUTH_MODE', value: 'entra' }
   { name: 'AUTH_ENTRA_TENANT_ID', value: tenant().tenantId }
   { name: 'AUTH_ENTRA_AUDIENCE', value: authAudience }
@@ -203,10 +216,11 @@ var baseEnvironment = [
     value: 'postgres://${uriComponent(identityName)}@${databaseHost}:5432/${databaseName}?sslmode=require'
   }
   { name: 'DATABASE_AUTH', value: 'entra' }
-  { name: 'AI_PROVIDER', value: 'azure' }
+  // Microsoft Foundry through its OpenAI-compatible v1 API, signed in with the managed identity: no key.
+  { name: 'AI_PROVIDER', value: 'foundry' }
   { name: 'AI_MODEL', value: aiDeploymentName }
-  { name: 'AZURE_OPENAI_ENDPOINT', value: azureOpenAiEndpoint }
-  { name: 'AZURE_OPENAI_AUTH', value: 'entra' }
+  { name: 'FOUNDRY_ENDPOINT', value: azureOpenAiEndpoint }
+  { name: 'FOUNDRY_AUTH', value: 'entra' }
   { name: 'AZURE_CLIENT_ID', value: identityClientId }
   { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
   {
@@ -222,6 +236,10 @@ var baseEnvironment = [
   { name: 'PROJECT_MODEL_TOKEN_LIMIT', value: string(projectModelTokenLimit) }
 ]
 var sourceEnvironment = empty(sourceUrl) ? [] : [{ name: 'SOURCE_URL', value: sourceUrl }]
+var identityEnvironment = concat(
+  empty(deploymentLabel) ? [] : [{ name: 'DEPLOYMENT_LABEL', value: deploymentLabel }],
+  empty(buildSha) ? [] : [{ name: 'BUILD_SHA', value: buildSha }]
+)
 
 // The application refuses both an Entra client secret and a client assertion, because a client
 // authenticates one way. The pilot uses the managed identity; a secret in Key Vault replaces it.
@@ -372,7 +390,13 @@ resource app 'Microsoft.App/containerApps@2025-07-01' = {
             cpu: json(cpu)
             memory: memoryByCpu[cpu]
           }
-          env: concat(baseEnvironment, assertionEnvironment, secretEnvironment, sourceEnvironment)
+          env: concat(
+            baseEnvironment,
+            assertionEnvironment,
+            secretEnvironment,
+            sourceEnvironment,
+            identityEnvironment
+          )
           probes: placeholderImage ? [] : probes
         }
       ]
