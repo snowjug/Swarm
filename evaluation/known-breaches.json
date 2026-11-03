@@ -13,6 +13,12 @@
       "metric": "hardConstraintRecall",
       "measuredWhenRecorded": "75.5% (37/49) pooled after the dev-split improvement round (dev 78.8%, test 68.8%); it was 24.5% (12/49)",
       "why": "The rules now read hardness from what a clause asserts (obligations, bans, caps, rights, restricted use, named deadlines) and show the basis, and wishes, views, possibilities, conditionals and findings stay soft. The remaining misses are limits stated as bare quantities or by implication (a count of chairs, a number of pharmacists), which the words alone do not make a limit. The dev-to-test drop shows the rules were fitted somewhat to dev, and the intervals span the threshold."
+    },
+    {
+      "mode": "rules",
+      "metric": "decisionStatus",
+      "measuredWhenRecorded": "98.3% (57/58) pooled (dev 29/29, test 28/29): the one miss is D43, “Which of our two engineers should we make redundant?”, which the canvas gives as a robust option with a preferred option and a recommendation to proceed (rule robust), where the gold is needs-human-decision by the first rule (individual-decision).",
+      "why": "A product defect found by the fixtures about the scope check and not yet fixed (the evaluation never edits the product), so it is a number to fix and not one to explain. The scope check reads “make redundant” only with its object between the two words (“make this employee redundant”) and has no form with the object in front or after, as its cue for “let go” has: the question is not read as a matter of employment at all, so no notice is shown either. The document (docs/analysis/decision-canvas.md) lists “make redundant” among the employment cues, lists “which of our two engineers” among the references to one person, and gives “Which of our two engineers should we let go?” as a question about one person. The gold of D43 was written from the document before the canvas was run on it and was not moved. These 17 fixtures were written after the rule existed and have no pre-registered gold; the other 41 are unchanged and all agree. The entry comes out when the cue is added in backend/src/decision/scope-cues.ts."
     }
   ]
 }

@@ -158,6 +158,17 @@ function datasetCounts(scenarios: readonly Scenario[]): Record<string, unknown> 
         decisions.cases.flatMap((item) => item.gold.rules.slice(0, 1)),
         (item) => item,
       ),
+      scope: {
+        aboutOnePerson: decisions.cases.filter((item) => item.gold.scope?.individual === true)
+          .length,
+        lookAlikes: decisions.cases.filter((item) => item.gold.scope?.individual === false).length,
+        domains: by(
+          decisions.cases.flatMap((item) =>
+            item.gold.scope?.individual ? (item.gold.scope.domains ?? []) : [],
+          ),
+          (item) => item,
+        ),
+      },
       workedExamples: 5,
     },
   };

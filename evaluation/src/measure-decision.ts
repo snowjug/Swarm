@@ -86,7 +86,9 @@ export const KIND_OF_STATUS: Record<DecisionCanvas['status']['status'], readonly
 /**
  * Where a recommendation leaves a part out without saying so, says it is missing and also holds
  * something, lists the wrong parts as missing, or is of a kind its status does not give. Empty when
- * it is complete and right. `kind` is the gold's own kind when a fixture has one.
+ * it is complete and right. `kind` is a kind to compare it with as well, when one is given: the
+ * registered metric gives none (the kind the status table gives for the canvas's own status is the
+ * registered one), and the agreement of the kind with the gold is a number of its own.
  */
 export function recommendationProblems(
   canvas: Pick<DecisionCanvas, 'status' | 'answer' | 'reversibility'>,
@@ -119,6 +121,101 @@ export function recommendationProblems(
   if (!KIND_OF_STATUS[canvas.status.status].includes(card.kind))
     problems.push(`kind ${card.kind} for status ${canvas.status.status}`);
   if (kind !== null && card.kind !== kind) problems.push(`kind ${card.kind}, gold ${kind}`);
+  return problems;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The scope check
+// ---------------------------------------------------------------------------------------------
+
+/** What the document says the recommended next move is for a decision about one person, word for word. */
+export const QUALIFIED_PERSON_MOVE =
+  'A qualified person decides this; here is what the exploration can and cannot tell them.';
+
+const escaped = (text: string): string => text.replaceAll(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+
+/** Whether a text holds a name as a word of its own, in any case. */
+const holds = (text: string, name: string): boolean =>
+  new RegExp(String.raw`(?<![\p{L}\p{N}])${escaped(name)}(?![\p{L}\p{N}])`, 'iu').test(text);
+
+/**
+ * Where a canvas does not do what the document says for the question of its fixture. For a decision about
+ * one person (rule 1): the options are not ranked, the next move is the document's own sentence, the
+ * validation plan opens with the high-priority check that a qualified person decides, a stop condition says
+ * the view is not that person's decision, a qualified person's approval is open, the exploration says what it
+ * can and cannot tell, the notice stands, and the cues never repeat a name (“a named person”). For a question
+ * that only names a matter, none of that is so. The matters are the ones the gold names where the document's
+ * tables settle them. Empty for a fixture that says nothing of its scope.
+ */
+export function scopeProblems(
+  gold: Pick<DecisionGold, 'scope'>,
+  canvas: Pick<DecisionCanvas, 'scope' | 'alternatives' | 'answer' | 'validation' | 'approvals'>,
+): string[] {
+  const expected = gold.scope;
+  if (!expected) return [];
+  const { scope } = canvas;
+  const problems: string[] = [];
+  if (scope.aboutIndividual !== expected.individual)
+    problems.push(
+      `read as ${scope.aboutIndividual ? 'about one person' : 'not about one person'}, the gold says ${expected.individual ? 'one person' : 'not one person'}`,
+    );
+  if (expected.domains) {
+    const got = [...scope.domains].sort().join(', ');
+    const wanted = [...expected.domains].sort().join(', ');
+    if (got !== wanted)
+      problems.push(`matters ${got || 'none'}, the gold says ${wanted || 'none'}`);
+    if (expected.domains.length > 0 && scope.notice === null)
+      problems.push('a matter is named and there is no notice');
+    if (expected.domains.length === 0 && scope.notice !== null)
+      problems.push('no matter is named and there is a notice');
+  }
+  // A question about one person that was not read as one: the rest follows from that, and is not counted again.
+  if (expected.individual && !scope.aboutIndividual) return problems;
+  const ranked = canvas.alternatives.filter((option) => option.verdict !== 'not-ranked');
+  if (expected.individual) {
+    if (ranked.length > 0)
+      problems.push(
+        `the options are ranked: ${ranked.map((option) => `${option.id} ${option.verdict}`).join(', ')}`,
+      );
+    if (!canvas.answer.recommendation.what.text.includes(QUALIFIED_PERSON_MOVE))
+      problems.push('the next move is not the document’s sentence');
+    const first = canvas.validation.items[0];
+    if (
+      !first ||
+      first.source !== 'scope' ||
+      first.kind !== 'stakeholder' ||
+      first.priority !== 'high'
+    )
+      problems.push('the validation plan does not open with the high-priority scope check');
+    if (
+      !canvas.validation.stopConditions.some((stop) =>
+        /qualified person/iu.test(`${stop.when} ${stop.then}`),
+      )
+    )
+      problems.push('no stop condition says the view is not a qualified person’s decision');
+    if (
+      !canvas.approvals.some((point) => point.id === 'approve-qualified' && point.state === 'open')
+    )
+      problems.push('no open approval by a qualified person');
+    const { exploration } = scope;
+    if (!exploration || exploration.canTell.length === 0 || exploration.cannotTell.length === 0)
+      problems.push('the exploration does not say what it can and cannot tell');
+    if (scope.notice === null) problems.push('there is no notice');
+  } else {
+    if (scope.exploration !== null)
+      problems.push('an exploration for a person is given to a question that is not about one');
+    if (canvas.alternatives.some((option) => option.verdict === 'not-ranked'))
+      problems.push('options are not ranked in a question that is not about one person');
+    if (canvas.validation.items.some((item) => item.source === 'scope'))
+      problems.push(
+        'the validation plan has the scope check for a question that is not about one person',
+      );
+  }
+  const names = (expected.names ?? []).flatMap((name) => name.split(/\s+/u)).filter(Boolean);
+  const leaked = scope.basis.filter((cue) => names.some((name) => holds(cue, name)));
+  if (leaked.length > 0) problems.push(`a cue repeats a name: ${leaked.join('; ')}`);
+  if (names.length > 0 && !scope.basis.some((cue) => /a named person/iu.test(cue)))
+    problems.push('no cue says “a named person”');
   return problems;
 }
 
