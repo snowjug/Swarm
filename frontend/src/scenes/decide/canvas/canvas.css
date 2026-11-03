@@ -451,8 +451,8 @@
     grid-column: 1 / -1;
   }
   .sw-canvas-bar__part {
-    flex: none;
-    width: var(--w);
+    flex: 0 1 var(--w);
+    min-width: 0;
     height: 100%;
   }
   .sw-canvas-bar__part[data-group='favourable'],

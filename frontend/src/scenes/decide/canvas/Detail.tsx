@@ -19,6 +19,7 @@ import { perHundred, plural, signedPerHundred } from '../model/format';
 import { LabelChip } from './parts';
 import {
   COPY,
+  FIGURE_UNIT,
   PRIORITY_WORDS,
   alignmentWords,
   categoryWords,
@@ -233,8 +234,12 @@ function Changes({ canvas }: { canvas: DecisionCanvas }) {
           const words = viewWords(view);
           return (
             <li key={view.id}>
-              <strong>{view.label}</strong> · <span className="num">{words.effect}</span> ·{' '}
-              {words.flag}. <span>{view.statement.text}</span>{' '}
+              <strong>{view.label}</strong> ·{' '}
+              <span className="num">
+                {words.effect}
+                {view.deltaVsBase !== null ? ` ${FIGURE_UNIT}` : ''}
+              </span>{' '}
+              · {words.flag}. <span>{view.statement.text}</span>{' '}
               <LabelChip label={view.statement.label} />
             </li>
           );
@@ -250,7 +255,9 @@ function Changes({ canvas }: { canvas: DecisionCanvas }) {
         {assumptions.map((row) => (
           <li key={row.id}>
             <span>{row.statement.text}</span> <LabelChip label={row.statement.label} />{' '}
-            <span className="num">{signedPerHundred(row.shift)} in 100</span>
+            <span className="num">
+              {signedPerHundred(row.shift)} in 100 {FIGURE_UNIT}
+            </span>
             {row.flipsAnswer ? <span className="sw-canvas-flag">{COPY.couldReverse}</span> : null}
           </li>
         ))}
@@ -536,7 +543,7 @@ function Review({ canvas }: { canvas: DecisionCanvas }) {
             </strong>
             <span>
               {' '}
-              The reviewer says: “{challenge.objection.text}”{' '}
+              Objection: “{challenge.objection.text}”{' '}
               <LabelChip label={challenge.objection.label} />
             </span>
             {challenge.impact ? (

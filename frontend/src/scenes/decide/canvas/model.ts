@@ -71,6 +71,9 @@ export const GLANCE = {
   checks: 3,
 } as const;
 
+/** What a change in a share is a change in: said wherever a figure of one stands, so that no figure is read as the world’s. */
+export const FIGURE_UNIT = 'simulated members who resist';
+
 /** The words the page uses about itself: held to the same guard as every other sentence, by a test. */
 export const COPY = {
   notice: 'Explore scenarios, not predictions.',
@@ -80,7 +83,7 @@ export const COPY = {
   emptyLead:
     'A decision picture is read from a finished comparison: the scenario run many times with different seeds and set against a baseline.',
   fullReportLead:
-    'The decision brief behind this picture: the account, the charts and the independent review. It stays as it was.',
+    'The decision brief as it was written, with its charts and the independent review. The picture above is worked out again each time this page is read.',
   toFullReport: 'Go to the full report',
   legendTitle: 'What the labels mean',
   legendLead: 'Every statement says what kind of statement it is.',
@@ -241,19 +244,19 @@ export interface Completeness {
   total: number;
   stated: number;
   missing: string[];
-  reversibilityUnknown: boolean;
 }
 
-/** How much of the recommendation is said, and which parts are not. A gap is shown, never left out. */
+/**
+ * How much of the recommendation is said, and which parts are not. A gap is shown, never left out; and a part that
+ * says only that something is not known (whether the choice can be reversed) is a gap, not a part stated.
+ */
 export function completenessOf(card: DecisionCanvas['answer']['recommendation']): Completeness {
   const total = RECOMMENDATION_PARTS.length + 1;
   const missing = card.missing.map((part) => RECOMMENDATION_PART_WORDS[part]);
-  return {
-    total,
-    stated: total - missing.length,
-    missing,
-    reversibilityUnknown: card.reversibility.value === 'unknown',
-  };
+  if (card.reversibility.value === 'unknown' && !card.missing.includes('reversibility')) {
+    missing.push(`${RECOMMENDATION_PART_WORDS.reversibility} (unknown)`);
+  }
+  return { total, stated: total - missing.length, missing };
 }
 
 export interface Checks {

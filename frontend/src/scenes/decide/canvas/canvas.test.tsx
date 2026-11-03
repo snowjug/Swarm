@@ -15,6 +15,7 @@ import {
   canvasFixture,
   constraintRow,
   emptyFixture,
+  richFixture,
   statusFixture,
   viewFixture,
 } from '../../../test/decision';
@@ -98,15 +99,25 @@ describe('the first viewport of the decision canvas', () => {
     expect(names).toEqual([...ITEMS]);
   });
 
-  it('gives the recommendation with how much of it is stated and which parts are not', () => {
+  it('gives the recommendation with how much of it is stated and which parts are not, an unknown among them', () => {
     const canvas = canvasFixture();
     const done = completenessOf(canvas.answer.recommendation);
-    expect(done).toMatchObject({ total: 9, stated: 8, reversibilityUnknown: true });
-    expect(done.missing).toHaveLength(1);
+    expect(done).toMatchObject({ total: 9, stated: 7 });
+    expect(done.missing).toEqual([
+      'Evidence that weakens it',
+      'Whether it can be reversed (unknown)',
+    ]);
     const said = text(render(handleOf(viewFixture(canvas))));
-    expect(said).toContain('8 of 9 parts stated');
-    expect(said).toContain('Missing: Evidence that weakens it');
-    expect(said).toContain('Reversible: unknown');
+    expect(said).toContain('7 of 9 parts stated');
+    expect(said).toContain(
+      'Missing: Evidence that weakens it, Whether it can be reversed (unknown)',
+    );
+    // A recommendation that is known to be reversible, with nothing else missing, is whole.
+    const whole = canvasFixture((raw) => {
+      raw.answer.recommendation.missing = [];
+      raw.answer.recommendation.reversibility.value = 'reversible';
+    });
+    expect(completenessOf(whole.answer.recommendation)).toMatchObject({ stated: 9, missing: [] });
   });
 
   it('says what kind of statement the answer is, in words for a screen reader too', () => {
@@ -222,6 +233,7 @@ describe('what the page says about itself', () => {
   it('makes no claim the product may not make, in any state or status', () => {
     const pages = [
       ...DECISION_STATUSES.map((status) => render(handleOf(viewFixture(statusFixture(status))))),
+      render(handleOf(viewFixture(richFixture()))),
       render(
         handleOf(
           viewFixture(
@@ -245,7 +257,7 @@ describe('what the page says about itself', () => {
     for (const markup of pages) {
       const said = text(markup);
       expect(said).not.toContain('%');
-      expect(claimsAgainst(said), said).toEqual([]);
+      expect(claimsAgainst(said)).toEqual([]);
     }
   });
 

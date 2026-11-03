@@ -9,6 +9,7 @@ import type { DetailId } from './details';
 import { LabelChip, LabelsOf, ShareBar, StatusIcon } from './parts';
 import {
   COPY,
+  FIGURE_UNIT,
   ITEMS,
   ITEM_TITLES,
   PRIORITY_WORDS,
@@ -290,7 +291,11 @@ function Who({ canvas, openDetail }: Props) {
                 <span>
                   {moveWords(actor)}
                   {changeWords(actor) ? (
-                    <span className="sw-canvas-quiet-inline"> {changeWords(actor)}</span>
+                    <span className="sw-canvas-quiet-inline">
+                      {' '}
+                      {changeWords(actor)}
+                      <span className="sr-only"> {FIGURE_UNIT}</span>
+                    </span>
                   ) : null}
                 </span>
               </span>
@@ -344,7 +349,10 @@ function Changes({ canvas, openDetail }: Props) {
                       <span className="sw-canvas-row__sub">{words.flag}</span>
                     )}
                   </span>
-                  <span className="sw-canvas-fig num">{words.effect}</span>
+                  <span className="sw-canvas-fig num">
+                    {words.effect}
+                    {view.deltaVsBase !== null && <span className="sr-only"> {FIGURE_UNIT}</span>}
+                  </span>
                 </li>
               );
             })}
@@ -393,7 +401,6 @@ function Next({ canvas, openDetail }: Props) {
           {done.stated} of {done.total} parts stated
         </strong>
         {done.missing.length > 0 ? ` · Missing: ${done.missing.join(', ')}` : ''}
-        {done.reversibilityUnknown ? ' · Reversible: unknown' : ''}
       </p>
       <button type="button" className="sw-canvas-more" onClick={() => openDetail('recommendation')}>
         The recommendation in full

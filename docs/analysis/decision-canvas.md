@@ -122,7 +122,9 @@ Whenever a recommendation is shown, in any status, it states: what is recommende
 under which constraints; the evidence that supports it; the evidence that weakens it; what would invalidate it; what to
 test next; whether it is reversible; and what human approval is needed. A part with nothing to say is `missing` with a
 sentence, and the card lists the missing parts, so a gap is a finding and never an omission. Reversibility is `unknown`
-in this version: nothing in the project says whether a choice can be undone, and the canvas does not guess.
+in this version: nothing in the project says whether a choice can be undone, and the canvas does not guess. The page
+counts a part that says only that something is not known as a gap, not as a part stated: “7 of 9 parts stated ·
+Missing: Evidence that weakens it, Whether it can be reversed (unknown)”.
 
 | Status                                | The recommendation (`kind`)                                                                      |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------ |
