@@ -131,6 +131,18 @@ test('a question and a site reach Ready with real sources, each page said in pla
   await expect(page.getByRole('region', { name: /^Sources \d+$/u })).toBeVisible();
   expect(claimsAgainst(await researchSection(page).innerText())).toEqual([]);
   await expectSound(page, 'research journey: ready, with real sources');
+
+  // The same project on a phone. Real documents are named by their site and their title, and a page can carry three marks:
+  // neither widens the page, and a title is never left a few letters wide.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
+    .toBeLessThanOrEqual(390);
+  await expectSound(page, 'research journey: ready, on a phone');
+  const narrowest = await pagesList(page)
+    .locator('.sw-research-page__name')
+    .evaluateAll((names) => Math.min(...names.map((name) => name.getBoundingClientRect().width)));
+  expect(narrowest).toBeGreaterThan(100);
   expect(problems).toEqual([]);
 });
 

@@ -306,7 +306,8 @@
   }
   .sw-research-page {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    /* The marks may take at most a little over half the row, and wrap inside it: a title is never left a few letters wide. */
+    grid-template-columns: minmax(0, 1fr) fit-content(55%);
     grid-template-areas:
       'title state'
       'where where'
