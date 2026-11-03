@@ -397,7 +397,7 @@ describe('adding sources to a project that exists', () => {
     expect(MAX_TOTAL_CHARS).toBeLessThan(6 * 40_000);
     expect(
       thrown(() => repository.appendDocuments(projectId, [1, 2, 3, 4, 5, 6].map(huge))),
-    ).toEqual({ code: 'SOURCE_SIZE_LIMIT', statusCode: 409 });
+    ).toEqual({ code: 'DOCUMENT_LIMIT', statusCode: 409 });
     expect(state()).toEqual(held);
   });
 
@@ -438,6 +438,55 @@ describe('adding sources to a project that exists', () => {
     expect(repository.chunks(projectId)).toEqual([]);
     const events = repository.get(projectId).events.map((event) => event.message);
     expect(events.some((message) => message.includes('added from research'))).toBe(false);
+  });
+
+  it('says in the log who added the sources, in the words it is given, and in the audit entry under the name it is given', () => {
+    const projectId = questionOnly();
+    const { chunks } = repository.appendDocuments(projectId, [addition(15)], {
+      actor: 'a-person',
+      origin: 'evidence',
+      how: 'by a person',
+    });
+    expect(repository.get(projectId).events.map((event) => event.message)).toContain(
+      `1 source added by a person and indexed as ${chunks.length} passage${chunks.length === 1 ? '' : 's'}.`,
+    );
+    const entry = repository.audit
+      .list({ projectId, limit: 50 })
+      .find((candidate) => candidate.action === 'evidence.documents.added');
+    expect(entry).toMatchObject({ actor: 'a-person', detail: { documents: 1 } });
+  });
+
+  it('lets a unit of work be made of several, so that what is added and what is queued with it stand or fall together', () => {
+    const projectId = questionOnly();
+    const held = (): number => repository.get(projectId).documents.length;
+    // Inside another unit, a unit does not end on its own: what it did is the outer unit's to keep or to lose.
+    expect(() =>
+      repository.atomic(() => {
+        repository.atomic(() => repository.appendDocuments(projectId, [addition(16)]));
+        expect(held()).toBe(1);
+        throw new Error('The outer unit failed after the inner one was done.');
+      }),
+    ).toThrow('The outer unit failed');
+    expect(held()).toBe(0);
+    expect(repository.chunks(projectId)).toEqual([]);
+    // One that fails inside takes the work around it with it, wherever the failure is caught or not.
+    expect(() =>
+      repository.atomic(() => {
+        repository.appendDocuments(projectId, [addition(17)]);
+        repository.atomic(() => {
+          throw new Error('The inner unit failed.');
+        });
+      }),
+    ).toThrow('The inner unit failed.');
+    expect(held()).toBe(0);
+    // On its own it is what it was: the answer comes out, and the work is kept.
+    expect(repository.atomic(() => repository.atomic(() => 7))).toBe(7);
+    repository.atomic(() =>
+      repository.atomic(() => repository.appendDocuments(projectId, [addition(18)])),
+    );
+    expect(held()).toBe(1);
+    // And a unit that has ended is not still open: the next one begins as any does.
+    expect(repository.atomic(() => 'again')).toBe('again');
   });
 
   it('is refused to a job that lost its lease, and writes nothing', () => {
