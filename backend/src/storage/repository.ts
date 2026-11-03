@@ -198,6 +198,21 @@ export class Repository {
     return countRow.parse(row).count;
   }
 
+  /**
+   * Refuses a new project when the tenant already has as many as it may. It reads the count, so it
+   * belongs inside the transaction that inserts: counted outside it, two instances that both saw one
+   * place left would both take it.
+   */
+  private requireRoom(tenantId: string): void {
+    if (this.count(tenantId) >= MAX_PROJECTS) {
+      throw new AppError(
+        409,
+        'PROJECT_LIMIT',
+        `Keep at most ${MAX_PROJECTS} experiments. Export/delete an old one first.`,
+      );
+    }
+  }
+
   /** Who an experiment belongs to, or null when there is no such experiment. */
   ownership(id: string): Owner | null {
     const row = this.database
@@ -276,14 +291,6 @@ export class Repository {
     options: { inheritChunksFrom?: string; owner?: Owner } = {},
   ): ProjectDetail {
     const owner = options.owner ?? LOCAL_OWNER;
-    // The limit is per tenant, so one organisation cannot use up another's allowance.
-    if (this.count(owner.tenantId) >= MAX_PROJECTS) {
-      throw new AppError(
-        409,
-        'PROJECT_LIMIT',
-        `Keep at most ${MAX_PROJECTS} experiments. Export/delete an old one first.`,
-      );
-    }
     const now = new Date().toISOString();
     const project: StoredProject = {
       id: randomUUID(),
@@ -310,6 +317,9 @@ export class Repository {
       console: input.workflow === 'guided' ? emptyConsole() : null,
     };
     this.transaction(() => {
+      // The limit is per tenant, so one organisation cannot use up another's allowance. It is checked
+      // in the transaction that inserts, so that two instances that both counted one place cannot both take it.
+      this.requireRoom(owner.tenantId);
       this.database
         .prepare(
           'INSERT INTO projects (id, created_at, updated_at, status, payload, tenant_id, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -393,14 +403,8 @@ export class Repository {
         'An experiment with this identifier belongs to another workspace.',
       );
     }
-    if (!existing && this.count(owner.tenantId) >= MAX_PROJECTS) {
-      throw new AppError(
-        409,
-        'PROJECT_LIMIT',
-        `Keep at most ${MAX_PROJECTS} experiments. Export/delete an old one first.`,
-      );
-    }
     this.transaction(() => {
+      if (!existing) this.requireRoom(owner.tenantId);
       if (existing) this.database.prepare('DELETE FROM projects WHERE id = ?').run(project.id);
       this.database
         .prepare(
