@@ -72,7 +72,7 @@ function Status({ canvas }: { canvas: DecisionCanvas }) {
       <p>{status.meaning}</p>
       {status.why.length > 0 && (
         <>
-          <h3 className="sw-canvas-part__title">Why</h3>
+          <h3 className="sw-canvas-part__title">The reasons</h3>
           <ul className="sw-canvas-detail__list">
             {status.why.map((line) => (
               <li key={line}>{line}</li>

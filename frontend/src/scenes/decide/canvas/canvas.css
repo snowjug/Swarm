@@ -304,6 +304,12 @@
       text-decoration-thickness: 2px;
     }
   }
+  /* A finger needs a target of 44 pixels, which a line of link text is not. */
+  @media (max-width: 40rem), (pointer: coarse) {
+    .sw-canvas-more {
+      min-height: 2.75rem;
+    }
+  }
 
   /* ---- Labels: what kind of statement ------------------------------------------------------------ */
   .sw-canvas-label {
