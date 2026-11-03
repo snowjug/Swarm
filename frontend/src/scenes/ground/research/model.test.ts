@@ -63,6 +63,17 @@ describe('the stages of a run', () => {
     expect(at('failed')).toEqual(['done', 'failed', 'waiting', 'waiting', 'waiting', 'waiting']);
   });
 
+  it('say where a run stopped, before what it held there, and say nothing of the sort for a run that goes on', () => {
+    const stopped = (status: 'cancelled' | 'failed') =>
+      stageItems(runningAt('extracting-evidence', { status })).map((item) => item.detail);
+    expect(stopped('failed')[3]).toMatch(/^Stopped here · \d+ passages$/u);
+    expect(stopped('cancelled')[3]).toMatch(/^Stopped here/u);
+    expect(stageItems(runningAt('extracting-evidence'))[3]!.detail).not.toContain('Stopped here');
+    expect(
+      stageItems(runningAt('extracting-evidence', { status: 'paused' }))[3]!.detail,
+    ).not.toContain('Stopped here');
+  });
+
   it('say that a queued run has not started, and that a blocked search needs a provider', () => {
     const queued = stageItems(run({ status: 'queued', stage: 'planning', plan: null }));
     expect(states(queued)[0]).toBe('waiting');

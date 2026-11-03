@@ -58,6 +58,14 @@ export function conflictsKnown(run: ResearchRun): boolean {
 }
 
 function detailOf(run: ResearchRun, id: ResearchStage, state: StageState): string | null {
+  const held = heldDetailOf(run, id, state);
+  // A run that failed or was stopped says where, before what it held there: the count is not the error.
+  if (state === 'failed' || state === 'stopped')
+    return held ? `Stopped here · ${held}` : 'Stopped here';
+  return held;
+}
+
+function heldDetailOf(run: ResearchRun, id: ResearchStage, state: StageState): string | null {
   if (state === 'waiting')
     return id === 'planning' && run.status === 'queued' ? 'Waiting to start' : null;
   switch (id) {
