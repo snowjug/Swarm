@@ -3,13 +3,16 @@
 The Decision Canvas is the answer-first picture of a decision: the first thing the Decide scene shows. It
 says what the simulation shows, which option (if any) it supports, under which assumptions and
 constraints, what weakens that, what would invalidate it, and what to check before anyone acts.
-It is derived, not stored, and it is built entirely by rules: no model writes any of it.
+It is derived, not stored, and it is built entirely by rules: no model writes any of it. It explores scenarios and
+decides nothing about a person’s employment, credit, legal, medical or safety situation: a question about one is
+met by a deterministic scope check, with a notice, a human decision as the status and no option named (see
+[What Swarm does not decide](#what-swarm-does-not-decide)).
 
 > Explore scenarios, not predictions.
 
 Code: `shared/decision.ts` (the contract, the labels, the status words and rules), `backend/src/decision/*`
-(the pure builder), `backend/src/routes/decision.ts` (`GET /api/projects/:id/decision`),
-`frontend/src/scenes/decide/canvas/*` (the page).
+(the pure builder, with the scope check in `scope.ts`, `scope-cues.ts` and `scope-words.ts`),
+`backend/src/routes/decision.ts` (`GET /api/projects/:id/decision`), `frontend/src/scenes/decide/canvas/*` (the page).
 
 ## What it is made from
 
@@ -23,12 +26,15 @@ Code: `shared/decision.ts` (the contract, the labels, the status words and rules
 | `constraint-counterfactuals`          | the counterfactual views, counted only while they still describe the project                         |
 | `critiques`                           | the independent review, counted only when it is of this comparison                                   |
 | project documents, ledger, `research` | the evidence reading                                                                                 |
+| the question and the scenario frame   | the scope check: which matters the question touches and whether it is about one person               |
 
 Nothing is written, so a canvas is never older than what it describes. When the comparison was run before the
 scenario, the stakeholders, the actors or the constraints changed (compared by revision, as the brief does), the canvas
 says so, and it cannot be `robust-option`. With no finished comparison the route answers `canvas: null` and a
 `readiness` that says what is missing and which step supplies it; the status rules still apply to that case and give
-`insufficient-evidence`.
+`insufficient-evidence`, unless the question is about one person, which is the first rule and gives
+`needs-human-decision` with or without a comparison. The readiness carries the `scope` too, so the notice is on the page
+before there is anything to decide from.
 
 ## The decision status
 
@@ -37,16 +43,22 @@ Exactly one of six. The rules are tried in this order and the first that applies
 
 | #   | Rule id                 | Applies when                                                                                                                                | Status                       |
 | --- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| 1   | `no-analysis`           | There is no finished comparison with recorded runs, or it holds only one option.                                                            | `insufficient-evidence`      |
-| 2   | `gate-blocked`          | The constraint gate, worked out now, is blocked (an unsettled hard legal, regulatory or safety constraint; or every alternative ruled out). | `blocked-by-hard-constraint` |
-| 3   | `all-violate`           | Every alternative violates a **confirmed** hard constraint.                                                                                 | `blocked-by-hard-constraint` |
-| 4   | `no-direction`          | The comparison cannot tell the change from no change because no stakeholder has an expected direction of impact.                            | `insufficient-evidence`      |
-| 5   | `evidence-insufficient` | The evidence reading is `insufficient` (see below).                                                                                         | `insufficient-evidence`      |
-| 6   | `hard-conflict`         | Two live **hard** constraints cannot hold together.                                                                                         | `needs-human-decision`       |
-| 7   | `value-tradeoff`        | Two lenses each have a **different clear leader**.                                                                                          | `needs-human-decision`       |
-| 8   | `no-clear-leader`       | The headline lens has no clear leader (a tie within run-to-run variation, fewer than 10 runs, or the change cannot be told from no change). | `multiple-plausible-options` |
-| 9   | `robust`                | One option is the clear leader on the headline lens **and none of the conditions below applies**.                                           | `robust-option`              |
-| 10  | `conditional`           | One option is the clear leader on the headline lens and at least one condition applies. The conditions are listed.                          | `conditional-option`         |
+| 1   | `individual-decision`   | The scope check reads the question as a **decision about one person** in a matter of employment, credit, legal, medical or safety.          | `needs-human-decision`       |
+| 2   | `no-analysis`           | There is no finished comparison with recorded runs, or it holds only one option.                                                            | `insufficient-evidence`      |
+| 3   | `gate-blocked`          | The constraint gate, worked out now, is blocked (an unsettled hard legal, regulatory or safety constraint; or every alternative ruled out). | `blocked-by-hard-constraint` |
+| 4   | `all-violate`           | Every alternative violates a **confirmed** hard constraint.                                                                                 | `blocked-by-hard-constraint` |
+| 5   | `no-direction`          | The comparison cannot tell the change from no change because no stakeholder has an expected direction of impact.                            | `insufficient-evidence`      |
+| 6   | `evidence-insufficient` | The evidence reading is `insufficient` (see below).                                                                                         | `insufficient-evidence`      |
+| 7   | `hard-conflict`         | Two live **hard** constraints cannot hold together.                                                                                         | `needs-human-decision`       |
+| 8   | `value-tradeoff`        | Two lenses each have a **different clear leader**.                                                                                          | `needs-human-decision`       |
+| 9   | `no-clear-leader`       | The headline lens has no clear leader (a tie within run-to-run variation, fewer than 10 runs, or the change cannot be told from no change). | `multiple-plausible-options` |
+| 10  | `robust`                | One option is the clear leader on the headline lens **and none of the conditions below applies**.                                           | `robust-option`              |
+| 11  | `conditional`           | One option is the clear leader on the headline lens and at least one condition applies. The conditions are listed.                          | `conditional-option`         |
+
+Rule 1 comes before everything, including a missing comparison, a blocked gate and insufficient evidence: whatever else
+is true, a decision about a person’s employment, credit, legal, medical or safety situation is for a qualified person,
+and no other reading may put a recommendation or a different status in front of that. It names no leader and no
+preferred option.
 
 **Conditions** (`conditionsOf`). A leading option is robust only when none of these holds; each one on its own makes it
 `conditional-option`:
@@ -76,6 +88,91 @@ is **at least 0.05 of the lens’s own scale** (the sensitivity step’s “mate
 errors of that difference**, over **at least 10 paired runs**. Anything closer is _level_. An option is a lens’s
 **clear leader** only when it is told apart from every other option that can be chosen.
 (`LENS_MATERIAL_GAP`, `LENS_NOISE_FACTOR`, `LENS_MIN_RUNS` in `shared/decision.ts`.)
+
+## What Swarm does not decide
+
+Swarm explores scenarios. It does not make or recommend decisions about a person’s employment, credit, legal, medical
+or safety situation; a qualified person must decide. The canvas is the last thing a reader sees before acting, so it
+checks for this itself. `consequentialScope(question, scenarioFrame)` (`backend/src/decision/scope.ts`) is pure,
+deterministic and uses no model. It returns `{ domains, aboutIndividual, basis }`:
+
+- **`domains`**: which of the five matters the question or its framing speaks of. It reads the question and the frame’s
+  decision, requested decision, system and the labels and descriptions of its alternatives, clause by clause (a clause
+  ends at a sentence, a list item, a comma or a word such as _if_, _because_ or _but_). Every cue is a whole word or
+  phrase; the word tables are data in `scope-cues.ts`.
+- **`aboutIndividual`**: true only when, **in one clause**, an _act_ of a matter and a _reference to one person_ stand
+  together.
+- **`basis`**: the cues found, a few words each (`employment: “fire”`, `about one person: “this employee”`), and never
+  a name (a named person is `a named person`).
+
+| Domain       | Cues (families, not the whole list)                                                                                                                                                                                        |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `employment` | hire, dismiss, sack, terminate (an employee), fire (a person: “fire up” and “fire safety” are not), lay off, let go, make redundant, part ways, demote, discipline, promote (a person), a raise, rank or reject applicants |
+| `credit`     | loan, mortgage, overdraft, lend, underwrite, credit limit, score or check, a credit or loan application, approve or decline a card or account, borrow                                                                      |
+| `legal`      | sue, lawsuit, litigate, legal advice, action or dispute, contract dispute or breach, convict, sentence, bail, custody, evict, deport, arrest, prosecute, press charges, cancel a visa                                      |
+| `medical`    | diagnose, treat (a patient), prescribe, dose or dosage, medication or a class of drug, symptoms, surgery, therapy, hospitalise, a quantity in mg or ml                                                                     |
+| `safety`     | safety-critical, life-threatening, injury, fatal, unsafe, evacuate, “safe to” do something, fit for duty, emergency shutdown, grounding, safeguarding                                                                      |
+
+**An act, and a field.** A word for the field and not for an act (_recruitment_, _layoffs_, _lender_, _patients_,
+_hospital_, _court_, _hazard_, _credit scoring_, _promotion criteria_) calls for the notice and never pairs with a
+person. So does a cue that is followed or preceded by a word for a rule, a process or a market (_hiring policy_,
+_lending criteria_, _triage protocol_, _credit card market_, _medical device launch_). A bare _safety_, _medical_,
+_credit_ or _fire safety_ names nothing at all.
+
+**One person** is read from: “this”, “that”, “my”, “our”, “his”, “her” or “your” and a role (“this employee”, “our sales
+manager”); “these three named applicants”; “one of our engineers”, “which of our two engineers”, “who should we hire”; an
+act and “the” and a role (“fire the manager”); a name after an act, or before a post (“fire Maria Lopez”, “offer Sam the
+job”, “promote Dana to head of sales”); “him” or “her” as the person an act is done to; “his”, “her” or “my” and a matter
+of one’s own (“her loan”, “my medication”); “should I sue”, “should she take it”, “can I be fired”. A role that is a matter
+of its domain by itself (patient, defendant, plaintiff, suspect, prisoner, claimant, borrower) counts as an act of that
+domain. A group (“our employees”, “applicants”), a policy and a process are not one person, and neither is a capitalised
+title, day or word of an organisation taken for a name. A name is read as one only beside an act of a matter, so “Notion”
+in “promote Notion to our teams” is not.
+
+| Question                                                      | `domains`    | `aboutIndividual`                 |
+| ------------------------------------------------------------- | ------------ | --------------------------------- |
+| Should we fire this employee?                                 | `employment` | **true**                          |
+| What happens if we change our hiring policy?                  | `employment` | false: a policy, so a notice only |
+| Should we approve the loan for Maria Gomez?                   | `credit`     | **true**                          |
+| What happens to our lending criteria if rates rise?           | `credit`     | false                             |
+| Should the clinic prescribe a higher dosage for this patient? | `medical`    | **true**                          |
+| What if we change our triage protocol?                        | `medical`    | false                             |
+| Should we evacuate the building when the alarm sounds?        | `safety`     | false: no person                  |
+| Is the credit card market growing?                            | none         | false: a word in common           |
+| What would a safety culture programme change?                 | none         | false                             |
+| Should we let go of the legacy billing system?                | none         | false                             |
+| Which of our two engineers should we let go?                  | `employment` | **true**                          |
+
+**What the canvas does with it.**
+
+- **`domains` is not empty, `aboutIndividual` is false.** A calm scope notice, in the canvas data (`scope.notice`), at the
+  top of the page and in every export: “Swarm explores scenarios. It does not make or recommend decisions about a
+  person’s employment, credit, legal, medical or safety situation; a qualified person must decide.”, with the matters
+  matched. The human-approval point is stronger: a person qualified in the matter (`approve-qualified`: a human resources or
+  employment-law professional, a credit decision-maker, a lawyer, a clinician, a safety professional) reviews anything
+  that touches it before it is acted on, besides the named approver. The status is whatever the simulation gives.
+- **`aboutIndividual` is true.** Rule 1 `individual-decision` forces `needs-human-decision` and says why, with the cues.
+  No leader and no preferred option is named; the options are shown as explored and **not ranked**. The recommended next
+  move is replaced: “A qualified person decides this; here is what the exploration can and cannot tell them.” (`kind`
+  `qualified-person`), followed by what it can tell them (how the simulated roles responded under the stated assumptions;
+  which assumptions the result is most sensitive to) and what it cannot (what is right, fair or lawful for this person;
+  how this person responds, since a simulated role stands for a group; whether a decision follows the rules that apply).
+  The validation plan starts with a high-priority check to have the qualified person decide, and a stop condition says
+  the same. The rest of the canvas (futures, drivers, constraints, who moves, the validation plan) is shown as
+  exploration, with every epistemic label as before; no view or assumption is said to reverse a choice that is not made.
+- **No canvas yet.** The readiness carries the same `scope`, so the notice is on the page before there is anything to
+  decide from, and the status there is the same human decision, not “insufficient evidence”.
+
+It blocks nothing and refuses nothing: project creation is not touched, and the picture is still there.
+
+**Limits, stated plainly.** Rules that read words cannot be complete and this is not. It recognises questions in the
+words it has; a question put in other words is missed (“What should we do about our employee who keeps stealing?”, “Is he
+well enough to be discharged?”, “Should I report my manager to HR?”), and so is one in another language. It reads some
+things as a person that are not (a single capitalised organisation after _hire_ or _sue_; “hire a replacement for him”),
+because the cost of missing a decision about a person was judged higher than the cost of a notice that is not needed;
+the cues are listed in the Approvals detail so that a reader can see why. The check is a safety net, not a classifier of
+the person’s situation: a qualified person decides every such matter whatever it says, and the notice says so whenever any
+matter is found. The `NOT_CAUGHT` list in `backend/test/decision-scope.test.ts` keeps the known misses on record.
 
 ## The lenses
 
@@ -135,12 +232,15 @@ Missing: Evidence that weakens it, Reversibility (unknown)”.
 | `insufficient-evidence`               | `gather-evidence`                                                                                |
 | `blocked-by-hard-constraint`          | `resolve-constraint` with its owner                                                              |
 | `needs-human-decision`                | `decide`: take the trade-off, or the conflicting constraints, to the decision owner              |
+| `needs-human-decision`, by rule 1     | `qualified-person`: a qualified person decides; what the exploration can and cannot tell them    |
 
 Human approval points: before the simulation (the actors and the constraints reviewed — shown `done` only where Swarm
 holds the record) and before acting (the validation plan done; a named approver — always `open`, because Swarm cannot
-know). A question or constraint that mentions employment, credit, legal, medical or safety matters (from a small word
-list and from legal, regulatory and safety constraints) is flagged and adds an approval point for a qualified person.
-Swarm recommends and explains; it contacts no one, executes nothing and decides nothing.
+know). Where the scope check finds employment, credit, legal, medical or safety matters, or a legal, regulatory or
+safety constraint says so, a third point is added and stays open: a person qualified in the matter reviews before
+anything is acted on, named by matter (a clinician for a medical one, a lawyer for a legal one). For a decision about
+one person it reads “A qualified person decides”, and the named approver agrees to act on that. Swarm recommends and
+explains; it contacts no one, executes nothing and decides nothing.
 
 ## Epistemic labels
 
@@ -171,6 +271,7 @@ Derived by rules (`backend/src/decision/validation.ts`), sorted by priority, the
 
 | Source                   | Kind                         | Priority    | From                                                                                                                      |
 | ------------------------ | ---------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `scope`                  | `stakeholder`                | high        | a question about one person: have a qualified person decide it, with this view as one input (always first)                |
 | `unvalidated-constraint` | `constraint`                 | high        | a hard constraint that is unvalidated, assumed or unknown; open questions (medium)                                        |
 | `flipping-assumption`    | `assumption`                 | high        | an assumption whose move could reverse the answer; other sensitive, unevidenced ones (medium)                             |
 | `missing-evidence`       | `evidence`                   | high/medium | no source attached; evidence the scenario lists as missing; a high-influence or authoritative actor with no cited passage |
@@ -182,7 +283,8 @@ Derived by rules (`backend/src/decision/validation.ts`), sorted by priority, the
 Each item says what to check, why, and how. **Stop conditions** are when to pause or stop and rethink: an unconfirmed
 hard constraint turns out not to hold; a real measurement falls where it would reverse the answer; a role that can
 decide or block says no when asked directly; a blocking objection cannot be answered; the first step cannot be undone;
-anything the comparison did not include appears. All are labelled validation requirement.
+anything the comparison did not include appears; and, for a decision about one person, this view is used in place of
+the decision of a qualified person. All are labelled validation requirement.
 
 ## What the canvas can and cannot say
 
@@ -199,7 +301,11 @@ Uncertainty is shown as named limits (runs per option, fidelity and its caveats,
 findings that did not repeat, totals-only results), never as a number that looks like confidence.
 
 Not in this version: a model-written synthesis (none is attempted, so there is nothing to withhold or to repair);
-reversibility other than `unknown`; the other options re-run under a counterfactual view.
+reversibility other than `unknown`; the other options re-run under a counterfactual view; a note at the Ask step (the
+scope check runs on the server and the Ask scene reads nothing from it, so the notice first stands on the Decide page);
+a scope-aware **brief**: the full report beneath the canvas is the brief as it was written, and for a question about one
+person it may still carry its own conditional recommendation. The notice above it, the note on the bridge and, in an
+export, the notice paragraph before it say that what Swarm does not decide applies to everything below.
 
 ## The page
 
@@ -243,16 +349,33 @@ comparison running (“Not ready yet”); the last one failed; a picture that de
 changed, or that it cannot be told, and a way to run it again); a newer comparison running; and each of the six
 statuses, provisional or not.
 
+**What Swarm does not decide** has its place in every one of those states. Beside the title, in the free space of the
+line and on a line of its own when narrow, is the scope notice (a note, not a refusal) with the matters matched; it is
+there with no comparison, while one runs, and over an old picture kept after a failed read. For a decision about one
+person the answer says “Needs a human decision” with the cues behind it; the options read “Not ranked”; the next move is
+“A qualified person decides this; here is what the exploration can and cannot tell them”, with one thing it can tell them
+and one it cannot at a glance (the rest are under “The recommendation in full”); and the approvals detail lists the
+matters, who reviews each and the cues the reading rests on, and says that the rules read words and are not complete.
+The bridge to the full report carries a note that the notice applies to everything below it.
+
 ## Exports
 
 When a brief is handed over as Markdown, a printable page or JSON, the canvas is placed first (`backend/src/decision/export.ts`),
-before the brief’s own answer, so that print and PDF open on the decision picture.
+before the brief’s own answer, so that print and PDF open on the decision picture. Where the scope check found a
+matter, a “Scope.” paragraph with the notice and the matters follows the line that says the picture explores and does not
+predict; for a decision about one person what the exploration can and cannot tell comes after the recommendation; and the
+closing paragraph carries the notice and the cues, or says that nothing in the question or its framing pointed to such
+a matter and that Swarm still does not make the decision. The JSON export holds the whole canvas, `scope` included.
 
 ## Tests
 
-`decision-status.test.ts` (every status, every boundary, precedence), `decision-lenses.test.ts`,
-`decision-build.test.ts` (the five worked examples through the real pipeline, labels, wording, completeness, the
-validation plan, defensive participant reads), `decision-labels.test.ts`, `decision-routes.test.ts`,
-`decision-export.test.ts`; on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` (logic, render of every status
-and state, the folded layout, a copy guard) and `e2e/lab/decide-canvas.spec.ts` (the nine in order in one 1440 × 900
-viewport, every status, a phone, the states, paper).
+`decision-status.test.ts` (every status, every boundary, precedence, rule 1 before every other),
+`decision-scope.test.ts` (a table of 135 questions: one person and not, in all five matters, with
+the look-alikes; the basis; the same answer every time; the framing; speed on hostile text; the canvas section; the limits
+on record), `decision-lenses.test.ts`, `decision-build.test.ts` (the five worked examples through the real pipeline,
+labels, wording, completeness, the validation plan, defensive participant reads, a decision about one person end to end),
+`decision-labels.test.ts`, `decision-routes.test.ts`, `decision-export.test.ts` (the notice in Markdown, HTML and JSON,
+and its absence where there is no matter); on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` (logic, render of
+every status and state, the notice with and without a canvas, one person against a matter in general, the folded layout, a
+copy guard) and `e2e/lab/decide-canvas.spec.ts` (the nine in order in one 1440 × 900 viewport, every status, a phone, the
+states, paper, and the scope notice at both sizes).
