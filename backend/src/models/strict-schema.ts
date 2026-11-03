@@ -8,9 +8,9 @@ import { z } from 'zod';
  * does not: every object lists every property as required and closes itself to others, an optional
  * property is a property that may be null, a union is `anyOf`, and a good part of JSON Schema is not
  * accepted at all (lengths, ranges, patterns, counts). So the conversion can only ever be a request
- * to the model. What is accepted is still decided by the zod schema and the server's own checks, on
- * the reply as it came; `normalize` only gives a reply back the shape the zod schema expects, by
- * dropping the nulls that strict mode asked for in place of an absent optional property.
+ * to the model. What is accepted is still decided by the zod schema and the server's own checks;
+ * `normalize` only gives a reply back the shape the zod schema expects, by dropping the nulls that
+ * strict mode asked for in place of an absent optional property.
  *
  * A schema that strict mode cannot express (a map with free keys, a tuple, an untyped value) is not
  * converted: the caller asks for plain JSON and the zod schema and prompt carry the contract.
@@ -25,7 +25,11 @@ export interface StrictSchema {
   fingerprint: string;
   /** The value of `response_format.json_schema.schema`. */
   schema: Record<string, unknown>;
-  /** Replaces the null of an optional property by its absence. Never changes a reply that is valid as it is. */
+  /**
+   * Replaces the null that strict mode asked for in place of an absent optional property by its absence.
+   * A null the schema allows itself is a value and stays. The caller judges the result with the schema,
+   * and falls back to the reply as it came.
+   */
   normalize(value: unknown): unknown;
 }
 

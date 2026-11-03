@@ -196,6 +196,54 @@ describe('strict structured output', () => {
     expect(fake.problems).toEqual([expect.stringContaining('#.answer')]);
   });
 
+  it('reads the null of an optional property as absent before the schema looks, so a coercing schema does not make it 0', async () => {
+    const { client } = made();
+    const schema = z.object({
+      answer: z.string().min(1),
+      score: z.coerce.number().optional(),
+      urgent: z.coerce.boolean().default(true),
+      label: z.coerce.string().optional(),
+    });
+    // What a constrained model writes for what it has nothing to say about: null. Coerced as it came,
+    // that would be 0, false and the text "null".
+    fake.script({
+      kind: 'reply',
+      value: { answer: 'ok', score: null, urgent: null, label: null },
+    });
+    const empty = await client.json(schema, 'Return JSON.', {}, signal());
+    expect(empty).toEqual({ answer: 'ok', urgent: true });
+    expect('score' in empty).toBe(false);
+    expect('label' in empty).toBe(false);
+    // A value is still a value, and is coerced as the schema says.
+    fake.script({
+      kind: 'reply',
+      value: { answer: 'ok', score: 3, urgent: false, label: 'x' },
+    });
+    await expect(client.json(schema, 'Return JSON.', {}, signal())).resolves.toEqual({
+      answer: 'ok',
+      score: 3,
+      urgent: false,
+      label: 'x',
+    });
+  });
+
+  it('still accepts a reply that the schema passes only as it came', async () => {
+    const { client } = made();
+    // `note` is optional in one variant and may be null in the other: dropping its null suits the
+    // first and breaks the second, which takes it as it came.
+    const schema = z.object({
+      pick: z.union([
+        z.object({ kind: z.literal('a'), note: z.string().optional() }),
+        z.object({ kind: z.literal('b'), note: z.string().nullable() }),
+      ]),
+    });
+    fake.script({ kind: 'reply', value: { pick: { kind: 'b', note: null } } });
+    await expect(client.json(schema, 'Return JSON.', {}, signal())).resolves.toEqual({
+      pick: { kind: 'b', note: null },
+    });
+    expect(fake.requests).toHaveLength(1);
+  });
+
   it('keeps a null that the schema itself allows, and rejects one it does not', async () => {
     const { client } = made();
     const schema = z.object({ label: z.string().nullable(), count: z.number() });

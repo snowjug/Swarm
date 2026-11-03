@@ -713,10 +713,15 @@ function checkReply<T>(
       reason: 'not_json',
     };
   }
-  let parsed = schema.safeParse(json);
-  // Strict mode asks for null where a property is optional. A reply is only turned back into the
-  // shape the schema expects when it is not valid as it stands, and the schema then judges it.
-  if (!parsed.success && options.normalize) parsed = schema.safeParse(options.normalize(json));
+  // Strict mode asked the model for null where a property is optional, and null there means absent.
+  // It is turned back before the schema looks: a schema that coerces (`z.coerce.number().optional()`)
+  // would take the null as 0. A reply that passes only as it came is still accepted.
+  const restored = options.normalize ? options.normalize(json) : json;
+  let parsed = schema.safeParse(restored);
+  if (!parsed.success && restored !== json) {
+    const asItCame = schema.safeParse(json);
+    if (asItCame.success) parsed = asItCame;
+  }
   if (!parsed.success) {
     return {
       ok: false,
