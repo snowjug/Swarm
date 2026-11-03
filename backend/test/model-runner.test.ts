@@ -618,4 +618,28 @@ describe('a deployment that fails', () => {
     });
     expect(fake.requests).toHaveLength(0);
   });
+
+  it('does not let a task move the zone the operator set: it is answered by rules, and nothing is sent', async () => {
+    const { config, factory } = world({
+      FOUNDRY_DATA_ZONE: 'eu',
+      FOUNDRY_DEPLOYMENT_FALLBACK: 'spare-dep',
+      FOUNDRY_DEPLOYMENT_PROFILES: JSON.stringify({
+        'general-dep': { dataZone: 'eu' },
+        'spare-dep': { dataZone: 'us' },
+      }),
+    });
+    const runner = taskRunnerFor(config, factory, { onUsage: sink() });
+    const moved = await runner.run(task({ dataZone: 'us' }));
+    expect(moved).toMatchObject({
+      source: 'fallback',
+      value: rules,
+      failure: { code: 'MODEL_ROUTE_UNAVAILABLE' },
+      deployment: null,
+    });
+    expect(fake.requests).toHaveLength(0);
+    // Naming the operator's own zone is allowed, and is served only from a deployment declared in it.
+    const same = await runner.run(task({ dataZone: 'EU' }));
+    expect(same).toMatchObject({ source: 'model', deployment: 'general-dep' });
+    expect(fake.requests.map((request) => request.deployment)).toEqual(['general-dep']);
+  });
 });
