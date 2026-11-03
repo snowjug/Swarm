@@ -102,6 +102,7 @@ function Body({ research, aged }: { research: GroundResearch; aged: Age | null }
   const { state, presence, takesOver, controls } = research;
   const data = useGroundData();
   const actions = useGroundActions();
+  const { duplicate, busy } = useWorkspace();
   const pageActions = useMemo<PageActions>(
     () => ({
       openDocument: (id) => actions.openDocument(id),
@@ -217,7 +218,11 @@ function Body({ research, aged }: { research: GroundResearch; aged: Age | null }
               >
                 Research again
               </Button>
-            ) : undefined
+            ) : (
+              <Button size="sm" variant="glass" disabled={busy} onClick={duplicate}>
+                Open the question again
+              </Button>
+            )
           }
         >
           It finished {plural(aged.days, 'day')} ago, and the question was marked as{' '}
@@ -231,8 +236,10 @@ function Body({ research, aged }: { research: GroundResearch; aged: Age | null }
       <Suggestions run={run} />
       <AddSource />
       {manual && <Manual />}
-      <Plan run={run} />
-      <Limits run={run} />
+      <div className="sw-research-more">
+        <Plan run={run} />
+        <Limits run={run} />
+      </div>
     </>
   );
 }

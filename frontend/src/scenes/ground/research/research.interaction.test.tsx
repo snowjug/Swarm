@@ -664,6 +664,20 @@ describe('research that has finished, in a project that has its sources', () => 
     expect(calls.start).toHaveBeenCalledTimes(1);
   });
 
+  it('opens the question again when the research is old and the server will not start another run', async () => {
+    const held = finishedView(30);
+    const { user, calls, workspace } = open(
+      { ...held, may: { start: false, pause: false, cancel: false } },
+      { project: groundProject('ready') },
+    );
+    const record = await screen.findByRole('region', { name: /^Research/u });
+    expect(record.textContent).toContain('This research may be out of date');
+    expect(within(record).queryByRole('button', { name: 'Research again' })).toBeNull();
+    await user.click(within(record).getByRole('button', { name: 'Open the question again' }));
+    expect(workspace.duplicate).toHaveBeenCalledTimes(1);
+    expect(calls.start).not.toHaveBeenCalled();
+  });
+
   it('says nothing of being out of date for research that is recent', async () => {
     open(finishedView(1), { project: groundProject('ready') });
     const record = await screen.findByRole('region', { name: /^Research/u });
