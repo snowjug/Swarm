@@ -98,6 +98,20 @@ export const createProjectSchema = z
         path: ['documents'],
       });
     }
+    // Research is the first phase of a guided project's grounding: a quick run has no such phase, and with
+    // no source it could only fail, so it is refused here, where the person can still change it.
+    if (
+      project.documents.length === 0 &&
+      project.research?.auto === true &&
+      project.workflow !== 'guided'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['workflow'],
+        message:
+          'A question with no source needs the guided workflow, where research finds sources.',
+      });
+    }
     if (
       project.documents.reduce((sum, document) => sum + document.content.length, 0) >
       MAX_TOTAL_CHARS

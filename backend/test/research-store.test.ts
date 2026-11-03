@@ -35,7 +35,9 @@ afterAll(() => repository.close());
 
 /** A project as the Ask scene makes it: a question and no source. */
 const questionOnly = (name = 'Question only'): string =>
-  repository.create(fixtureInput({ name, documents: [], research: { auto: true } })).id;
+  repository.create(
+    fixtureInput({ name, workflow: 'guided', documents: [], research: { auto: true } }),
+  ).id;
 
 const aRun = (sequence = 1, changes: Partial<ResearchRun> = {}): ResearchRun => ({
   ...newRun({
@@ -434,6 +436,7 @@ describe('a project made from a question alone', () => {
   const body = (changes: Record<string, unknown>) => ({
     name: 'Berthing fees',
     question: 'What if the harbour authority raises berthing fees for coastal vessels?',
+    workflow: 'guided',
     documents: [],
     ...changes,
   });
@@ -453,8 +456,35 @@ describe('a project made from a question alone', () => {
     }
   });
 
+  it('needs the guided workflow, because that is where research finds the sources', () => {
+    for (const workflow of [undefined, 'quick']) {
+      const refused = createProjectSchema.safeParse(
+        body({ research: { auto: true }, ...(workflow ? { workflow } : { workflow: undefined }) }),
+      );
+      expect(refused.success).toBe(false);
+      expect(refused.error?.issues).toMatchObject([
+        {
+          path: ['workflow'],
+          message:
+            'A question with no source needs the guided workflow, where research finds sources.',
+        },
+      ]);
+    }
+    // A quick run that comes with a source is what it always was.
+    expect(
+      createProjectSchema.safeParse(
+        body({
+          workflow: 'quick',
+          documents: [{ name: 'notes.txt', content: 'A source of the person’s own, '.repeat(6) }],
+        }),
+      ).success,
+    ).toBe(true);
+  });
+
   it('is stored with no source and no passage, and says in its log that research or a person adds them', () => {
-    const created = repository.create(fixtureInput({ documents: [], research: { auto: true } }));
+    const created = repository.create(
+      fixtureInput({ workflow: 'guided', documents: [], research: { auto: true } }),
+    );
     expect(created.documents).toEqual([]);
     expect(repository.chunks(created.id)).toEqual([]);
     expect(created.status).toBe('draft');

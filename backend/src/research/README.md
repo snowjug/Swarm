@@ -237,8 +237,9 @@ visible to another tenant.
 
 ### The sequence for a question and nothing else
 
-1. `POST /api/projects` with `documents: []` and `research: { auto: true }` creates a `draft` project with no
-   document and no passage. (Without `auto`, an empty list is refused as it always was.)
+1. `POST /api/projects` with `documents: []`, `workflow: "guided"` and `research: { auto: true }` creates a
+   `draft` project with no document and no passage. (Without `auto`, an empty list is refused as it always was;
+   a quick project with no source is refused too, because a quick run has no research phase.)
 2. `POST /api/projects/:id/research` writes a `queued` run and queues the `knowledge` step. A run that the
    queue refuses is removed again, so no run waits for a job.
 3. The worker takes the job. `GuidedWorkflow` calls `ResearchService.beforeKnowledge` before it builds

@@ -227,8 +227,9 @@ public addresses, by the rules of [URL ingestion](./security/url-ingestion.md). 
 not do: [backend/src/research/README.md](../backend/src/research/README.md).
 
 - **A question on its own.** `POST /api/projects` accepts `documents: []` when `research.auto` is `true`
-  (the Ask scene sends it); without `auto`, the "at least one source" error stands. Such a project is `draft`,
-  with no source and no passage.
+  and `workflow` is `"guided"` (the Ask scene sends both): research is the first phase of a guided project's
+  grounding. Without `auto`, the "at least one source" error stands, and with `"quick"` the workflow is refused
+  (`400`, on `workflow`). Such a project is `draft`, with no source and no passage.
 - **State.** `GET /api/projects/:id/research` (needs `read`) answers `{ run, revision, discovery, may }`.
   `run` is the newest run or `null` (`ResearchRun` in [shared/research.ts](../shared/research.ts): its status
   and the stage it has really reached, its plan, its budget, what it has used, every address it tried with
