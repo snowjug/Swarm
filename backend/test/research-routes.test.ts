@@ -29,6 +29,16 @@ afterEach(async () => {
 
 const CANARY = 'zq-canary-9041';
 
+/** Text that a person adds to a project of their own: a name, and what it says. */
+const pasted = (name = 'notes.txt', canary = 'Note') => ({
+  documents: [
+    {
+      name,
+      content: `${canary}: the harbour board reviews the berthing fee each spring, and coastal vessels pay by the metre of hull.`,
+    },
+  ],
+});
+
 /** The application as a deployment runs it, with research reading a web of fake pages on a clock of its own. */
 function research(
   config: ReturnType<typeof testConfig>,
@@ -198,6 +208,15 @@ describe('who may use the research routes', () => {
       });
     }
     expect(AUDIT_POLICY['GET /api/projects/:id/research']).toMatchObject({ kind: 'none' });
+    // The text a person adds is evidence of the project: whoever may edit it, and it queues the stage that grounds it.
+    expect(ROUTE_POLICY['POST /api/projects/:id/evidence/documents']).toEqual({
+      kind: 'project',
+      capability: 'edit',
+    });
+    expect(AUDIT_POLICY['POST /api/projects/:id/evidence/documents']).toEqual({
+      kind: 'inside',
+      action: 'evidence.documents.added',
+    });
   });
 
   const actors = Object.keys(MAY) as Actor[];
@@ -239,6 +258,70 @@ describe('who may use the research routes', () => {
           .filter((entry) => entry.action.startsWith('research.')),
       ).toEqual([]);
     }
+  });
+
+  it.each(actors)(
+    'does what the table says for %s when they add text of their own',
+    async (actor) => {
+      const instance = await signedIn();
+      const hidden = !MAY[actor].read;
+      const refusal = actor === 'anonymous' ? 401 : hidden ? 404 : 403;
+      const added = await call(
+        instance,
+        actor,
+        'POST',
+        `/api/projects/${instance.shared}/evidence/documents`,
+        pasted(),
+      );
+      // Who may edit the project may run it, and adding the text queues the stage that grounds the project.
+      expect(added.statusCode, `${actor} adds text: ${added.body}`).toBe(
+        MAY[actor].run ? 202 : refusal,
+      );
+      const entries = instance.repository.audit
+        .list({ projectId: instance.shared, limit: 100 })
+        .filter((entry) => entry.action === 'evidence.documents.added');
+      if (MAY[actor].run) {
+        expect(instance.repository.get(instance.shared).documents).toHaveLength(1);
+        expect(instance.repository.jobs.recent(instance.shared)).toHaveLength(1);
+        // The person who did it is the one on record, and nothing of the text is.
+        expect(entries.map((entry) => entry.actor)).toEqual([ID[actor as keyof typeof ID]]);
+        expect(JSON.stringify(entries)).not.toContain('berthing');
+      } else {
+        // A refusal changes nothing: no source, no passage, no job, nothing in the audit trail.
+        expect(instance.repository.get(instance.shared).documents).toEqual([]);
+        expect(instance.repository.chunks(instance.shared)).toEqual([]);
+        expect(instance.repository.jobs.recent(instance.shared)).toEqual([]);
+        expect(entries).toEqual([]);
+      }
+    },
+  );
+
+  it('shows a project that someone may not see exactly as one that is not there, when they add text to it', async () => {
+    const instance = await signedIn();
+    const absent = '99999999-9999-4999-8999-999999999999';
+    for (const actor of ['member', 'stranger', 'foreignOwner'] as const) {
+      const hiddenResponse = await call(
+        instance,
+        actor,
+        'POST',
+        `/api/projects/${instance.shared}/evidence/documents`,
+        pasted(),
+      );
+      const missing = await call(
+        instance,
+        actor,
+        'POST',
+        `/api/projects/${absent}/evidence/documents`,
+        pasted(),
+      );
+      expect(hiddenResponse.statusCode, actor).toBe(404);
+      const shape = (response: typeof hiddenResponse) => {
+        const { code, message } = failure(response);
+        return { code, message };
+      };
+      expect(shape(hiddenResponse)).toEqual(shape(missing));
+    }
+    expect(instance.repository.get(instance.shared).documents).toEqual([]);
   });
 
   it('shows a project that someone may not see exactly as one that is not there', async () => {
@@ -319,6 +402,56 @@ describe('who may use the research routes', () => {
     expect(first.statusCode, first.body).toBe(202);
     expect(second.statusCode).toBe(404);
     expect(instance.research.store.count(instance.shared)).toBe(1);
+  });
+
+  it('keeps the text a person adds out of reach of another workspace, and of the people who share another project', async () => {
+    const instance = await signedIn();
+    const own = (tenantId: string, ownerId: string) =>
+      instance.repository.create(
+        fixtureInput({ workflow: 'guided', documents: [], research: { auto: true } }),
+        { owner: { tenantId, ownerId } },
+      ).id;
+    const mine = own(TENANT_A, ID.member);
+    const theirs = own(TENANT_B, ID.foreignOwner);
+    const url = (id: string) => `/api/projects/${id}/evidence/documents`;
+    const key = { 'idempotency-key': 'shared-key-0002' };
+    // The same key on two projects is two requests: a key is a project's own, and a workspace's.
+    const first = await call(
+      instance,
+      'member',
+      'POST',
+      url(mine),
+      pasted('mine.txt', CANARY),
+      key,
+    );
+    const second = await call(
+      instance,
+      'foreignOwner',
+      'POST',
+      url(theirs),
+      pasted('theirs.txt', 'Other'),
+      key,
+    );
+    expect(first.statusCode, first.body).toBe(202);
+    expect(second.statusCode, second.body).toBe(202);
+
+    for (const actor of ['lead', 'analyst', 'reviewer', 'viewer', 'foreignOwner'] as const) {
+      const response = await call(instance, actor, 'POST', url(mine), pasted('theirs.txt'));
+      expect(response.statusCode, actor).toBe(404);
+      expect(response.body).not.toContain(CANARY);
+    }
+    for (const actor of ['lead', 'member', 'owner'] as const) {
+      const response = await call(instance, actor, 'POST', url(theirs), pasted('mine.txt'));
+      expect(response.statusCode, actor).toBe(404);
+    }
+    expect(instance.repository.get(mine).documents.map((document) => document.name)).toEqual([
+      'mine.txt',
+    ]);
+    expect(instance.repository.get(theirs).documents.map((document) => document.name)).toEqual([
+      'theirs.txt',
+    ]);
+    expect(instance.repository.get(instance.shared).documents).toEqual([]);
+    expect(instance.repository.jobs.recent(instance.shared)).toEqual([]);
   });
 });
 
@@ -489,6 +622,23 @@ describe('the research routes', () => {
       expect(failure(limited).code).toBe('RATE_LIMITED');
     },
   );
+
+  it('limits how often text may be added, because each call is work for the server', async () => {
+    const app = await local();
+    const send = () =>
+      app.app.inject({
+        method: 'POST',
+        url: `/api/projects/${app.project}/evidence/documents`,
+        payload: {},
+      });
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      expect((await send()).statusCode, `call ${attempt + 1}`).toBe(400);
+    }
+    const limited = await send();
+    expect(limited.statusCode).toBe(429);
+    expect(failure(limited).code).toBe('RATE_LIMITED');
+    expect(app.repository.get(app.project).documents).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -586,5 +736,44 @@ describe('a change made with a browser session', () => {
       payload: { intake: { url: `${HARBOUR}/` } },
     });
     expect(sent.statusCode, sent.body).toBe(202);
+  });
+
+  it('needs the anti-forgery header to add text, as every route that changes a project does', async () => {
+    const app = await withCookie();
+    const id = app.base.split('/')[3] ?? '';
+    const url = `/api/projects/${id}/evidence/documents`;
+    const headers = (extra: Record<string, string> = {}) => ({
+      host: HOST,
+      cookie: app.cookie,
+      origin: `https://${HOST}`,
+      ...extra,
+    });
+    const bare = await app.app.inject({
+      method: 'POST',
+      url,
+      headers: headers(),
+      payload: pasted(),
+    });
+    expect(bare.statusCode).toBe(403);
+    expect(failure(bare).code).toBe('CSRF_REQUIRED');
+    const forged = await app.app.inject({
+      method: 'POST',
+      url,
+      headers: headers({ 'x-swarm-csrf': '1', origin: 'https://evil.example' }),
+      payload: pasted(),
+    });
+    expect(forged.statusCode).toBe(403);
+    expect(failure(forged).code).toBe('ORIGIN_NOT_ALLOWED');
+    expect(app.repository.get(id).documents).toEqual([]);
+    expect(app.repository.jobs.recent(id)).toEqual([]);
+
+    const sent = await app.app.inject({
+      method: 'POST',
+      url,
+      headers: headers({ 'x-swarm-csrf': '1' }),
+      payload: pasted(),
+    });
+    expect(sent.statusCode, sent.body).toBe(202);
+    expect(app.repository.get(id).documents).toHaveLength(1);
   });
 });

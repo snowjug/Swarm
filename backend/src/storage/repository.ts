@@ -76,6 +76,8 @@ const leaseLost = (): AppError =>
 export interface AddedDocument {
   name: string;
   content: string;
+  /** Pages, for text that was read from a PDF. */
+  pageCount?: number;
   provenance?: SourceProvenance;
 }
 
@@ -168,9 +170,12 @@ export class Repository {
     return this.database.transaction(operation);
   }
 
-  /** Runs several changes as one unit: all of them are saved, or none. Not re-entrant. */
+  /**
+   * Runs several changes as one unit: all of them are saved, or none. Called inside another unit it takes
+   * part in that one, so that what several services change together can be one unit too.
+   */
   atomic<T>(operation: () => T): T {
-    return this.transaction(operation);
+    return this.database.inTransaction ? operation() : this.transaction(operation);
   }
 
   private readStored(id: string): StoredProject | undefined {
@@ -408,11 +413,13 @@ export class Repository {
    * one that is a job's holds the job's lease, as every write does. The limits of a project hold: at
    * most ten documents and 200,000 characters. The claim ledger is not touched here: a caller that adds
    * sources checks them for conflicts with what was already there (`LedgerService.addFoundConflicts`).
+   * `origin` names who added them in the audit entry (`research.documents.added`), and `how` says so in the
+   * project's log, as words that follow "added" (default: `from` and the origin).
    */
   appendDocuments(
     projectId: string,
     additions: readonly AddedDocument[],
-    options: { actor?: string; origin?: string } = {},
+    options: { actor?: string; origin?: string; how?: string } = {},
   ): { documents: SourceDocument[]; chunks: EvidenceChunk[] } {
     let added: { documents: SourceDocument[]; chunks: EvidenceChunk[] } = {
       documents: [],
@@ -436,7 +443,7 @@ export class Repository {
       if (chars > MAX_TOTAL_CHARS) {
         throw new AppError(
           409,
-          'SOURCE_SIZE_LIMIT',
+          'DOCUMENT_LIMIT',
           `The sources of a project may hold at most ${MAX_TOTAL_CHARS.toLocaleString('en-GB')} characters.`,
         );
       }
@@ -476,7 +483,7 @@ export class Repository {
       this.addEvent(
         projectId,
         'knowledge',
-        `${additions.length} source${additions.length === 1 ? '' : 's'} added from ${options.origin ?? 'research'} and indexed as ${chunks.length} passage${chunks.length === 1 ? '' : 's'}.`,
+        `${additions.length} source${additions.length === 1 ? '' : 's'} added ${options.how ?? `from ${options.origin ?? 'research'}`} and indexed as ${chunks.length} passage${chunks.length === 1 ? '' : 's'}.`,
       );
       this.audit.record({
         actor: options.actor ?? 'system',

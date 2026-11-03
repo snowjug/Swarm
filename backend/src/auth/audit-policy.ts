@@ -351,6 +351,12 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   'POST /api/projects/:id/research/resume': { kind: 'request', action: 'research.resumed' },
   'POST /api/projects/:id/research/finish': { kind: 'request', action: 'research.finished' },
   'POST /api/projects/:id/research/cancel': { kind: 'request', action: 'research.cancelled' },
+  // Written by the repository in the transaction that adds the sources: how many sources, passages and
+  // characters, and who. Never a name or a word of the text.
+  'POST /api/projects/:id/evidence/documents': {
+    kind: 'inside',
+    action: 'evidence.documents.added',
+  },
 };
 
 /**

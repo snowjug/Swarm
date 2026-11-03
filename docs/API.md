@@ -30,6 +30,7 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | POST         | `/api/evidence/url`                                                             | Read one public web page (or a text, Markdown, CSV or JSON file at an address) as a document with provenance; workspace members who may create a project; 10 a minute; see [URL ingestion](./security/url-ingestion.md)                                                                                                                                           |
 | GET          | `/api/projects/:id/evidence?query=...`                                          | Sparse-vector search; exact `S1`-style citation lookup                                                                                                                                                                                                                                                                                                            |
 | GET          | `/api/projects/:id/evidence`                                                    | Explicit unranked browsing of this project's bounded passages                                                                                                                                                                                                                                                                                                     |
+| POST         | `/api/projects/:id/evidence/documents`                                          | Add text a person pasted or took from a file (`{ "documents": [DocumentInput] }`, 1 to 10) to a guided project that is not grounded yet, and queue the stage that grounds it; returns 202 with the project. See [Automatic research](#automatic-research)                                                                                                         |
 | GET / POST   | `/api/projects/:id/chat`                                                        | Read target conversation / perform a bounded follow-up                                                                                                                                                                                                                                                                                                            |
 | GET          | `/api/projects/:id/memories?query=&platform=all`                                | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/surveys`                                                     | Queue a bounded state snapshot or model-interview survey; returns 202                                                                                                                                                                                                                                                                                             |
@@ -275,7 +276,8 @@ not do: [backend/src/research/README.md](../backend/src/research/README.md).
 - **A question on its own.** `POST /api/projects` accepts `documents: []` when `research.auto` is `true`
   and `workflow` is `"guided"` (the Ask scene sends both): research is the first phase of a guided project's
   grounding. Without `auto`, the "at least one source" error stands, and with `"quick"` the workflow is refused
-  (`400`, on `workflow`). Such a project is `draft`, with no source and no passage.
+  (`400`, on `workflow`). Such a project is `draft`, with no source and no passage. A person's own text goes in
+  afterwards with `POST /api/projects/:id/evidence/documents` (below).
 - **State.** `GET /api/projects/:id/research` (needs `read`) answers `{ run, revision, discovery, may }`.
   `run` is the newest run or `null` (`ResearchRun` in [shared/research.ts](../shared/research.ts): its status
   and the stage it has really reached, its plan, its budget, what it has used, every address it tried with
@@ -300,6 +302,32 @@ not do: [backend/src/research/README.md](../backend/src/research/README.md).
   starts a run of its own, under the same rules, with `202`. A bare host name such as `example.org` is a site,
   which is read and stayed on. 10 a minute, a body of 8,192 bytes, an `Idempotency-Key`, recorded as
   `research.source.added`.
+- **Adding text of their own.** `POST /api/projects/:id/evidence/documents` takes
+  `{ "documents": [ { "name", "content", "pageCount"?, "provenance"? } ] }`: one to ten documents, as
+  `documents` of `POST /api/projects` are, in a body of at most 600,000 bytes. It adds them **and queues the
+  `knowledge` stage that grounds the project, in one transaction**, and answers `202` with the project, as
+  `POST /api/projects/:id/steps/:step` does (the stage is `queued`; poll `GET /api/projects/:id`). It is how a
+  question-only project whose run ended `blocked` goes on, and it works when research is off and for a project that
+  research never ran for. Research does not read, plan from or change this text, no run is made or touched, and
+  nothing is fetched. Passages continue the project's own numbering; nothing already written changes.
+  - `name` is a TXT, Markdown, CSV, JSON or PDF file name (no path); `content` is 80 to 40,000 characters, with no
+    control characters other than tab and line breaks; `pageCount` is 1 to 40. A key that is not one of these is
+    left out. `provenance` is optional, and is `{ "kind": "paste" | "upload", "title"?, "license"?, "asOf"? }`
+    and nothing else: pasted text and a file say so, and what the Ask scene sends today (no `provenance`) is
+    taken too. **An address, a time, a hash, another kind or `fetchedByServer`, true or false, is `400`**: only the
+    server can say that it fetched a page, and a page goes through `POST …/research/sources`.
+  - Needs `edit` (and so `run`: it queues a stage), is limited to 10 a minute, and is recorded as
+    `evidence.documents.added` (the counts of sources, passages and characters, and who; never a name or text).
+  - Refusals, and each leaves the project as it was: `400 INVALID_INPUT`, `413` (over 600,000 bytes),
+    `409 DOCUMENT_LIMIT` (more than ten sources, or more than 200,000 characters, in the project; the message says
+    which), `409 STEP_ALREADY_STARTED` (grounding is queued, running or done), `409 RESEARCH_ACTIVE`,
+    `409 GUIDED_PROJECT_REQUIRED`, `409 PROJECT_READ_ONLY`, `429 QUEUE_FULL` and `503 MODEL_NOT_CONFIGURED` (the stage
+    could not be queued, so the text is not kept either and the same request can be sent again), `404` for a project
+    that is not there or not the caller's.
+  - **The same request twice is one request**, by its `Idempotency-Key` or, without one, by the documents it holds
+    (same project, same documents, same order): a double click, or a retry after a lost reply, answers `202` with
+    the project and adds nothing, also once grounding is done. To run a stage that failed or was cancelled again, use
+    `POST /api/projects/:id/steps/knowledge`; text that is new is added here, after a failure or a cancellation too.
 - **Controlling a run.** `POST /api/projects/:id/research/pause`, `/resume`, `/finish` and `/cancel` answer
   `200` with the view, need `run`, are limited to 20 a minute and are recorded as `research.paused`,
   `research.resumed`, `research.finished` and `research.cancelled`. Pause and finish are for a run that the
@@ -309,7 +337,8 @@ not do: [backend/src/research/README.md](../backend/src/research/README.md).
   `RESEARCH_NOT_ACTIVE`.
 - **The audit log** holds counts and words only, never an address, a title, a passage or the question:
   `research.documents.added` holds how many sources and passages were added, and `research.ended` (written by
-  the worker) the status, the mode, why it stopped and counts. `GET /api/config` reports
+  the worker) the status, the mode, why it stopped and counts. `evidence.documents.added` (a person's own text)
+  holds the same counts and the number of characters. `GET /api/config` reports
   `research: { enabled, discovery, budget }`.
 
 ### Stakeholders and actors
