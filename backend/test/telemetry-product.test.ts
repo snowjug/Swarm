@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { metrics } from '@opentelemetry/api';
 import { describe, expect, it } from 'vitest';
+import { GATE_STATUSES as CONSTRAINT_GATE_STATUSES } from '../../shared/constraints.js';
 import {
   FETCH_ERROR_CLASSES,
   QUARANTINE_REASONS,
@@ -9,10 +10,12 @@ import {
   SOURCE_CATEGORIES,
 } from '../../shared/research.js';
 import { classifyAddress } from '../src/ingest/url/policy.js';
+import { RULE_CATALOGUE } from '../src/stakeholders/participants/validate.js';
 import { ALLOWED_ATTRIBUTES, safeAttributes } from '../src/telemetry/attributes.js';
 import {
   CANCEL_SCOPES,
   GATE_STATUSES,
+  PARTICIPANT_ISSUE_CODES,
   PROPOSAL_ORIGINS,
   RESEARCH_OUTCOMES,
   SAFETY_BLOCK_REASONS,
@@ -132,19 +135,19 @@ const SIGNALS: Signal[] = [
     attributes: { 'swarm.proposal.origin': 'fallback' },
     by: 6,
   },
-  {
-    name: 'actor validation issues by code',
+  ...PARTICIPANT_ISSUE_CODES.map((code): Signal => ({
+    name: `a participants issue of the rule ${code}`,
     record: () =>
       productSignals.actorProposal({
         origin: 'model',
         proposed: 5,
         valid: 3,
-        issues: { ACTOR_ROLE_UNKNOWN: 2, ACTOR_NAMES_A_PERSON: 1 },
+        issues: { [code]: 2 },
       }),
     metric: 'swarm.actors.issues',
-    attributes: { 'swarm.issue.code': 'ACTOR_ROLE_UNKNOWN' },
+    attributes: { 'swarm.issue.code': code },
     by: 2,
-  },
+  })),
   {
     name: 'a constraint proposal',
     record: () => productSignals.constraintProposal({ origin: 'fallback', count: 5 }),
@@ -159,13 +162,13 @@ const SIGNALS: Signal[] = [
     attributes: { 'swarm.proposal.origin': 'model' },
     by: 5,
   },
-  {
-    name: 'the constraint gate',
-    record: () => productSignals.constraintGate('pending-approval'),
+  ...GATE_STATUSES.map((status): Signal => ({
+    name: `the constraint gate standing ${status}`,
+    record: () => productSignals.constraintGate(status),
     metric: 'swarm.constraints.gate',
-    attributes: { 'swarm.gate.status': 'pending-approval' },
+    attributes: { 'swarm.gate.status': status },
     by: 1,
-  },
+  })),
   ...WORK_OUTCOMES.flatMap((outcome): Signal[] => [
     {
       name: `a simulation that ${outcome}`,
@@ -200,7 +203,7 @@ describe('what the product tells its operators', () => {
   });
 
   it('counts a proposal with no more valid actors than were proposed, and the issues by code', async () => {
-    const issues = { ACTOR_ROLE_UNKNOWN: 4, 'a free text issue': 3, lower_case_code: 2 };
+    const issues = { 'generic-name': 4, 'a free text issue': 3, lower_case_code: 2 };
     const before = await telemetry.measurements();
     productSignals.actorProposal({ origin: 'fallback', proposed: 6, valid: 99, issues });
     const after = await telemetry.measurements();
@@ -208,22 +211,38 @@ describe('what the product tells its operators', () => {
       telemetry.total(after, name, attributes) - telemetry.total(before, name, attributes);
     expect(by('swarm.actors.proposed', { 'swarm.proposal.origin': 'fallback' })).toBe(6);
     expect(by('swarm.actors.valid', { 'swarm.proposal.origin': 'fallback' })).toBe(6);
-    expect(by('swarm.actors.issues', { 'swarm.issue.code': 'ACTOR_ROLE_UNKNOWN' })).toBe(4);
-    // Whatever is not a code is counted together, and is never a name of its own.
+    expect(by('swarm.actors.issues', { 'swarm.issue.code': 'generic-name' })).toBe(4);
+    // Whatever is not a code of the review is counted together, and is never a name of its own.
     expect(by('swarm.actors.issues', { 'swarm.issue.code': 'other' })).toBe(5);
   });
 
-  it('reports no more than a bounded number of distinct issue codes for one proposal', async () => {
-    const issues = Object.fromEntries(
-      Array.from({ length: 40 }, (_, index) => [`ISSUE_CODE_${index}`, 1]),
-    );
-    productSignals.actorProposal({ origin: 'model', proposed: 1, valid: 1, issues });
-    const reported = (await telemetry.measurements()).filter(
-      (point) =>
-        point.name === 'swarm.actors.issues' &&
-        String(point.attributes['swarm.issue.code']).startsWith('ISSUE_CODE_'),
-    );
-    expect(reported).toHaveLength(20);
+  it('records every rule of the participants’ review as itself, reads a bounded number of entries, and folds the rest into other', async () => {
+    const real = Object.fromEntries(PARTICIPANT_ISSUE_CODES.map((code) => [code, 1]));
+    const junk = Object.fromEntries(Array.from({ length: 60 }, (_, index) => [`junk-${index}`, 1]));
+    const before = await telemetry.measurements();
+    productSignals.actorProposal({
+      origin: 'model',
+      proposed: 1,
+      valid: 1,
+      issues: { ...real, ...junk },
+    });
+    const after = await telemetry.measurements();
+    const by = (code: string) =>
+      telemetry.total(after, 'swarm.actors.issues', { 'swarm.issue.code': code }) -
+      telemetry.total(before, 'swarm.actors.issues', { 'swarm.issue.code': code });
+    for (const code of PARTICIPANT_ISSUE_CODES) expect(by(code), code).toBe(1);
+    // Forty entries are read, and the real ones came first: the other seventeen are junk, counted as one.
+    expect(by('other')).toBe(40 - PARTICIPANT_ISSUE_CODES.length);
+    expect(
+      (await telemetry.measurements()).some((point) =>
+        String(point.attributes['swarm.issue.code']).startsWith('junk-'),
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps the lists it names in step with the code that owns them', () => {
+    expect([...GATE_STATUSES]).toEqual([...CONSTRAINT_GATE_STATUSES]);
+    expect([...PARTICIPANT_ISSUE_CODES].sort()).toEqual(Object.keys(RULE_CATALOGUE).sort());
   });
 
   it('ignores a count or a duration that is not a number it can use', async () => {
@@ -305,6 +324,7 @@ describe('what a signal can never carry', () => {
       'swarm.source.category': SOURCE_CATEGORIES,
       'swarm.proposal.origin': PROPOSAL_ORIGINS,
       'swarm.gate.status': GATE_STATUSES,
+      'swarm.issue.code': PARTICIPANT_ISSUE_CODES,
       'swarm.sim.outcome': WORK_OUTCOMES,
       'swarm.report.outcome': WORK_OUTCOMES,
       'swarm.cancel.scope': CANCEL_SCOPES,
@@ -318,11 +338,8 @@ describe('what a signal can never carry', () => {
     for (const point of points) {
       for (const [key, value] of Object.entries(point.attributes)) {
         const allowed = allowedValues[key];
-        if (allowed)
-          expect([...allowed, 'other'], `${point.name} ${key}=${value}`).toContain(value);
-        else if (key === 'swarm.issue.code')
-          expect(String(value)).toMatch(/^(?:[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*|other)$/u);
-        else throw new Error(`${point.name} carries ${key}, which no signal sets`);
+        if (!allowed) throw new Error(`${point.name} carries ${key}, which no signal sets`);
+        expect([...allowed, 'other'], `${point.name} ${key}=${value}`).toContain(value);
       }
     }
     const exported = await telemetry.everythingExported();
@@ -373,6 +390,27 @@ describe('with telemetry off', () => {
     }
     const after = await telemetry.measurements();
     expect(after).toEqual(before);
+  });
+});
+
+describe('with a meter that fails', () => {
+  it('no recorder throws, and nothing is recorded: observing the work cannot stop it', async () => {
+    const before = await telemetry.measurements();
+    metrics.disable();
+    metrics.setGlobalMeterProvider({
+      getMeter: () => {
+        throw new Error('the exporter is down');
+      },
+    } as never);
+    try {
+      for (const signal of SIGNALS) expect(() => signal.record(), signal.name).not.toThrow();
+      const stop = observeDeployment(() => ({ mode: 'local', version: '0.3.0', sha: null }));
+      expect(() => stop()).not.toThrow();
+    } finally {
+      metrics.disable();
+      metrics.setGlobalMeterProvider(telemetry.meterProvider);
+    }
+    expect(await telemetry.measurements()).toEqual(before);
   });
 });
 

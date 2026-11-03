@@ -177,13 +177,16 @@ its existence is not disclosed.
 ### Rate limits
 
 Every route has the general limit of 120 requests a minute per address, and every route that changes
-something has a limit of its own, except five that are held to the general limit and listed, with the
-reason, in `backend/test/security.test.ts` (which fails if the list and the routes disagree):
-`POST /api/projects/:id/cancel`, `DELETE /api/projects/:id`, `PUT /api/projects/:id/intervention`,
-`PATCH /api/projects/:id/environment` and `POST /api/projects/:id/surveys/:surveyId/cancel`. The
-sign-in routes (`/auth/login`, `/auth/callback`, `/auth/logout`) are outside `/api`, do their own checks
-and have a limit of 30 a minute. The environment edit (a body of up to 600 kB, written whole) is the
-one that deserves a limit of its own.
+something has a limit of its own. The five that once had only the general limit now have one, which
+`RATE_LIMIT_SCALE` multiplies (a hosted deployment keeps it at 1): `POST /api/projects/:id/cancel`,
+`DELETE /api/projects/:id`, `PUT /api/projects/:id/intervention` and
+`POST /api/projects/:id/surveys/:surveyId/cancel` 30 a minute each, and `PATCH /api/projects/:id/environment`
+(a body of up to 600 kB, written whole) 20. `backend/test/security.test.ts` fails if a route that changes
+something has no limit of its own and no entry, with a reason, in its list of exemptions (which is empty),
+and it exceeds each of the five to see the refusal: 429 `RATE_LIMITED` in the shape every error has, with
+`Retry-After`. The sign-in routes (`/auth/login`, `/auth/callback`, `/auth/logout`) are outside `/api`, do
+their own checks and have a limit of 30 a minute. A limit is counted per address and per process, in the
+limiter's own memory, so behind more than one replica a caller's allowance is multiplied by the replicas.
 
 ## 5. Azure dependencies use the managed identity
 
@@ -242,7 +245,8 @@ Before the first person is let in:
   and removing it is part of the setup, not an afterthought.
 - **The `Host` header is logged as received,** because the host allow-list refuses on it; a path is logged
   as sent (see [privacy and telemetry](./privacy-telemetry.md)).
-- **Five mutating routes have only the general rate limit** (above).
+- **Rate limits are per address and per process** (the limiter's own memory), so they are not shared by
+  replicas, and an address behind one shared egress is counted as one (see [Rate limits](#rate-limits)).
 - **The answer headers** are Helmet's defaults with a content security policy of `'self'` (and inline
   styles), a one-year `Strict-Transport-Security` and `Referrer-Policy: no-referrer`; they have not been
   reviewed against the ingress, which may add or replace some.

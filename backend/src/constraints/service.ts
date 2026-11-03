@@ -24,6 +24,7 @@ import type { ModelFactory } from '../models/factory.js';
 import { simulateEachSpecOnce } from '../simulation/simulate.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
+import { productSignals } from '../telemetry/product-signals.js';
 import { emptySet } from './build.js';
 import { COUNTERFACTUAL_SEEDS, runCounterfactuals } from './counterfactuals.js';
 import { compileConstraints } from './enforce.js';
@@ -222,6 +223,8 @@ export class ConstraintService {
     const variants = this.variants(records);
     const set = refreshSet(record.data, gateWorldOf(record.data, records, variants), this.now());
     const coverage = set.coverage as ConstraintCoverage;
+    // Where the gate stands, as this page asked for it; the sensitivity below does not change it.
+    productSignals.constraintGate(coverage.status);
     return {
       gate: {
         ...coverage,
@@ -479,7 +482,7 @@ export class ConstraintService {
         gateWorldOf(result.set, records, variants),
         this.now(),
       );
-      return this.save(
+      const saved = this.save(
         projectId,
         existing,
         refreshed,
@@ -494,6 +497,12 @@ export class ConstraintService {
         },
         may,
       );
+      // Once the proposal is kept: where it came from, and how many constraints it added.
+      productSignals.constraintProposal({
+        origin: mode === 'rules' ? 'rules' : result.modelUsed ? 'model' : 'fallback',
+        count: result.added.constraints,
+      });
+      return saved;
     });
   }
 

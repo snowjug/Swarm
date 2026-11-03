@@ -20,6 +20,7 @@ import type { Revisions } from '../lab/lineage.js';
 import { simulateEachSpecOnce, SimulationInputError } from '../simulation/simulate.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
+import { productSignals } from '../telemetry/product-signals.js';
 import {
   FIDELITY_LABEL,
   RULES_CAVEATS,
@@ -489,6 +490,9 @@ export class AnalysisService {
     let savedRuns = 0;
     let savedAt = this.now();
     let progress = base.progress;
+    // The monitoring's own clock, so that the injected one is read exactly as often as it was.
+    const began = performance.now();
+    let ended: Analysis['status'];
     try {
       const result = await runAnalysis(inputs, this.simulator, {
         shouldCancel: () => run.cancelled || run.stopping,
@@ -505,14 +509,14 @@ export class AnalysisService {
         },
       });
       if (result.status === 'completed') {
-        this.finish(projectId, base, {
+        ended = this.finish(projectId, base, {
           ...result,
           crossCheck: this.crossCheck(projectId, result),
         });
       } else if (run.cancelled) {
-        this.finish(projectId, base, { ...result, status: 'cancelled' });
+        ended = this.finish(projectId, base, { ...result, status: 'cancelled' });
       } else {
-        this.finish(projectId, base, {
+        ended = this.finish(projectId, base, {
           ...result,
           status: 'interrupted',
           completedAt: null,
@@ -520,7 +524,15 @@ export class AnalysisService {
         });
       }
     } catch (error) {
-      this.finish(projectId, base, this.failed(base, progress, error));
+      ended = this.finish(projectId, base, this.failed(base, progress, error));
+    }
+    // One record for each comparison that ended, by how it ended. One that the server stopped is not
+    // one: the process is going, and the comparison is marked interrupted at the next start.
+    if (ended === 'completed' || ended === 'failed' || ended === 'cancelled') {
+      productSignals.simulationDuration({
+        durationMs: Math.round(performance.now() - began),
+        outcome: ended,
+      });
     }
   }
 
@@ -550,12 +562,15 @@ export class AnalysisService {
     };
   }
 
-  /** Saves the end state; one that cannot be saved (too large, say) is saved as a failure that says why. */
-  private finish(projectId: string, base: Analysis, document: Analysis): void {
+  /**
+   * Saves the end state; one that cannot be saved (too large, say) is saved as a failure that says why.
+   * Returns how the comparison ended, as far as the person can tell.
+   */
+  private finish(projectId: string, base: Analysis, document: Analysis): Analysis['status'] {
     // The engine knows nothing of the project's other documents: what the comparison was made from is kept.
     const ended: Analysis = { ...document, inputRevisions: base.inputRevisions };
-    if (this.save(projectId, ended)) return;
-    if (ended.status === 'failed') return;
+    if (this.save(projectId, ended)) return ended.status;
+    if (ended.status === 'failed') return 'failed';
     this.save(
       projectId,
       this.failed(
@@ -568,6 +583,7 @@ export class AnalysisService {
         ),
       ),
     );
+    return 'failed';
   }
 
   private save(projectId: string, document: Analysis): boolean {

@@ -3,6 +3,7 @@ import {
   PROPOSED_PARTICIPANTS_VERSION,
   ROLE_CATEGORIES,
   participantOf,
+  type ParticipantReview,
   type ProposedParticipant,
   type ProposedParticipants,
   type Stakeholder,
@@ -11,6 +12,7 @@ import {
 import { AppError } from '../../errors.js';
 import type { ModelGateway } from '../../models/client.js';
 import { runStructuredTask, type TaskFailure, type TaskSource } from '../../models/task.js';
+import { productSignals, type ProposalOrigin } from '../../telemetry/product-signals.js';
 import { occurrencesOf } from '../mentions.js';
 import { impactFor, uncertaintyFor } from '../rules.js';
 import { CATEGORY_PURPOSE } from '../priors.js';
@@ -46,6 +48,31 @@ export interface ProposeResult {
 }
 
 const sourceOf = (task: TaskSource): 'model' | 'rules' => (task === 'model' ? 'model' : 'rules');
+
+/**
+ * Tells the product's metrics how a proposal went, once it has been kept: where it came from (the model;
+ * rules, as asked; or the fallback, rules after the model failed), how many participants it made, how
+ * many of them passed the review that followed, and which rules it broke. It is given the review the
+ * caller has just worked out for the person, so nothing is checked twice. Counts and rule codes only:
+ * no name, quote or id of a participant, and no word of the model's.
+ */
+export function recordProposal(
+  result: Pick<ProposeResult, 'set' | 'source' | 'failure'>,
+  review: ParticipantReview,
+): void {
+  const origin: ProposalOrigin =
+    result.source === 'model' ? 'model' : result.failure ? 'fallback' : 'rules';
+  const issues: Record<string, number> = {};
+  const blocked = new Set<string>();
+  for (const issue of review.issues) {
+    issues[issue.code] = (issues[issue.code] ?? 0) + 1;
+    if (issue.severity === 'blocking' && issue.participantId) blocked.add(issue.participantId);
+  }
+  const proposed = result.set.stakeholders.filter(
+    (stakeholder) => stakeholder.status !== 'removed',
+  ).length;
+  productSignals.actorProposal({ origin, proposed, valid: proposed - blocked.size, issues });
+}
 
 /**
  * Proposes the participants of a decision. With a model it asks for `ProposedParticipants` v1 under the

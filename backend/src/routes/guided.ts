@@ -73,7 +73,7 @@ export function guidedRoutes(
     reply.code(202).send(jobs.pause(idParams.parse(request.params).id)),
   );
 
-  app.put('/api/projects/:id/intervention', async (request) => {
+  app.put('/api/projects/:id/intervention', { config: limit(30) }, async (request) => {
     const { id } = idParams.parse(request.params);
     requireIdle(id);
     return setIntervention(repository, id, interventionUpdateSchema.parse(request.body));
@@ -109,7 +109,8 @@ export function guidedRoutes(
     return compareRuns(repository, id, otherId);
   });
 
-  app.patch('/api/projects/:id/environment', async (request) => {
+  // Its body may be large (the personas of every agent), so it is the one with the smallest allowance.
+  app.patch('/api/projects/:id/environment', { config: limit(20) }, async (request) => {
     const { id } = idParams.parse(request.params);
     if (jobs.isBusy(id) || interaction.isBusy(id))
       throw new AppError(
@@ -146,10 +147,14 @@ export function guidedRoutes(
     return reply.code(202).send(interaction.startSurvey(id, surveyInputSchema.parse(request.body)));
   });
 
-  app.post('/api/projects/:id/surveys/:surveyId/cancel', async (request, reply) => {
-    const { id, surveyId } = idParams.extend({ surveyId: z.uuid() }).parse(request.params);
-    return reply.code(202).send(interaction.cancelSurvey(id, surveyId));
-  });
+  app.post(
+    '/api/projects/:id/surveys/:surveyId/cancel',
+    { config: limit(30) },
+    async (request, reply) => {
+      const { id, surveyId } = idParams.extend({ surveyId: z.uuid() }).parse(request.params);
+      return reply.code(202).send(interaction.cancelSurvey(id, surveyId));
+    },
+  );
 
   app.post(
     '/api/documents/extract',

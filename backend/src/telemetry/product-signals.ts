@@ -21,7 +21,10 @@ import { safeAttributes } from './attributes.js';
  * enumeration that is not one of the known values is recorded as `other`, so that a mistake in a
  * caller cannot put free text into a metric. Names pass through `attributes.ts` as well.
  *
- * With telemetry off (no meter provider registered) every recorder does nothing and costs nothing.
+ * With telemetry off (no meter provider registered) every recorder does nothing and costs nothing,
+ * and a recorder never throws: one that fails records nothing, so that observing the work cannot stop
+ * it. A recorder is called once for each thing a person did or the product finished (a request that
+ * saved a proposal, a comparison that ended), never for a read that repeats what was already known.
  * Estimated model cost is not here: it belongs to `swarm.model.*`.
  *
  * Research (`swarm.research.*`)
@@ -34,15 +37,20 @@ import { safeAttributes } from './attributes.js';
  *   quarantine(reason, count)                   pages set aside, by QUARANTINE_REASONS
  *   sourcesUsed(category, count)                sources that became evidence, by category
  *   evidencePassages(count, mode)               passages indexed as evidence
- * Actors (`swarm.actors.*`)
- *   actorProposal({ origin, proposed, valid, issues })   proposals (by model, rules or fallback), how
- *                                               many actors were proposed and how many were valid, and
- *                                               the validation issues by code
+ * Actors (`swarm.actors.*`: the participants a proposal makes, which become the simulated actors)
+ *   actorProposal({ origin, proposed, valid, issues })   one proposal, by origin (the model; rules, as
+ *                                               asked; or the fallback, rules after the model failed):
+ *                                               the participants it made, how many passed the review,
+ *                                               and the review's issues by rule code
+ *                                               (PARTICIPANT_ISSUE_CODES)
  * Constraints (`swarm.constraints.*`)
- *   constraintProposal({ origin, count })       proposals, and how many constraints they held
- *   constraintGate(status)                      where the approval gate stands, by GATE_STATUSES
+ *   constraintProposal({ origin, count })       one proposal, by origin, and how many constraints it
+ *                                               added to the set
+ *   constraintGate(status)                      one evaluation of the coverage gate for a page that
+ *                                               asked for it, by status (GATE_STATUSES)
  * Simulation, report and cancellation
- *   simulationDuration({ durationMs, outcome }) `swarm.sim.duration` (histogram, ms)
+ *   simulationDuration({ durationMs, outcome }) `swarm.sim.duration` (histogram, ms): one comparison of
+ *                                               scenarios, from its start to where it ended
  *   reportDuration({ durationMs, outcome })     `swarm.report.duration` (histogram, ms)
  *   cancellation(scope)                         `swarm.cancellations`: a person stopped work, by scope
  * Deployment
@@ -90,23 +98,45 @@ export const WORK_OUTCOMES = ['completed', 'failed', 'cancelled'] as const;
 export type WorkOutcome = (typeof WORK_OUTCOMES)[number];
 
 /**
- * Where the approval gate of a proposal can stand. A closed list on purpose: a status that is not on it
- * is recorded as `other`, so a gate that is given free text records nothing of it. Add a status here
- * when the gate gains one.
+ * Where the constraint coverage gate can stand: clear, provisional (a comparison may run and says so)
+ * or blocked. The list is the gate's own (`GATE_STATUSES` in `shared/constraints.ts`, which a test
+ * holds this one to); a status that is not on it is recorded as `other`, so add one here when the gate
+ * gains one.
  */
-export const GATE_STATUSES = [
-  'not-started',
-  'proposed',
-  'pending-approval',
-  'approved',
-  'edited',
-  'rejected',
-  'blocked',
-  'stale',
-  'superseded',
-  'skipped',
-] as const;
+export const GATE_STATUSES = ['clear', 'provisional', 'blocked'] as const;
 export type GateStatus = (typeof GATE_STATUSES)[number];
+
+/**
+ * The rules a list of participants is checked against, by the code the review gives an issue
+ * (`RULE_CATALOGUE` in `stakeholders/participants/validate.ts`, which a test holds this list to). A
+ * closed list on purpose: an issue code is an enumeration, and there is nowhere in it for a name or a
+ * sentence to go. A code that is not on it is recorded as `other`.
+ */
+export const PARTICIPANT_ISSUE_CODES = [
+  'too-few',
+  'duplicate-id',
+  'generic-name',
+  'broad-name',
+  'real-person',
+  'personal-detail',
+  'stereotype',
+  'unsupported-motive',
+  'wording',
+  'evidence-unknown',
+  'basis-unsupported',
+  'assumption-unmarked',
+  'duplicate-participant',
+  'possible-duplicate',
+  'duplicate-incentives',
+  'relation-invalid',
+  'incomplete',
+  'role-mismatch',
+  'missing-decision-owner',
+  'missing-role',
+  'over-represented',
+  'many-key',
+  'too-many',
+] as const;
 
 /** The modes a deployment has; `deployment.ts` passes its own, which TypeScript holds to this list. */
 const DEPLOYMENT_MODES = ['local', 'pilot', 'production'] as const;
@@ -122,8 +152,8 @@ export const CANCEL_SCOPES = [
 ] as const;
 export type CancelScope = (typeof CANCEL_SCOPES)[number];
 
-/** The most distinct validation codes one proposal reports, so that a flood of codes cannot widen a metric. */
-const MAX_ISSUE_CODES = 20;
+/** The most issue entries one proposal is read for: more than the list of codes holds, so none that is real is missed. */
+const MAX_ISSUE_CODES = 40;
 const MAX_COUNT = 1_000_000;
 
 /** What the address classifier says about an address, as a reason a person on call can read. */
@@ -151,15 +181,8 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | typ
     : OTHER;
 }
 
-/**
- * An issue code is a constant of the validating code: capital letters, digits and underscores, as
- * ACTOR_ROLE_UNKNOWN. Anything else (a sentence, a name, an address) is recorded as `other`.
- */
-const CODE = /^[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*$/u;
 const VERSION = /^[0-9A-Za-z][0-9A-Za-z._+-]{0,39}$/u;
 const COMMIT = /^[0-9a-f]{7,40}$/u;
-const code = (value: unknown): string =>
-  typeof value === 'string' && value.length <= 48 && CODE.test(value) ? value : OTHER;
 
 const whole = (value: unknown): number =>
   typeof value === 'number' && Number.isFinite(value)
@@ -295,7 +318,27 @@ function instruments(): Instruments {
 const stopReasonOf = (value: unknown): ResearchStopReason | typeof OTHER =>
   oneOf(value, RESEARCH_STOP_REASONS);
 
-export const productSignals = {
+/**
+ * Observing the work must never stop it. A recorder that fails (an instrument that cannot be made, an
+ * exporter that throws) records nothing and says nothing, so no caller needs a guard of its own.
+ */
+function quietly<Recorders extends Record<string, (...input: never[]) => void>>(
+  recorders: Recorders,
+): Recorders {
+  const quiet: Record<string, (...input: never[]) => void> = {};
+  for (const [name, record] of Object.entries(recorders)) {
+    quiet[name] = (...input) => {
+      try {
+        record(...input);
+      } catch {
+        // A metric that could not be recorded is not worth a failed request.
+      }
+    };
+  }
+  return quiet as Recorders;
+}
+
+export const productSignals = quietly({
   researchRun(input: {
     outcome: ResearchOutcome;
     mode: ResearchMode;
@@ -410,7 +453,7 @@ export const productSignals = {
     if (valid > 0) set.actorsValid.add(valid, origin);
     const reported = new Map<string, number>();
     for (const [issue, times] of Object.entries(input.issues ?? {}).slice(0, MAX_ISSUE_CODES)) {
-      const name = code(issue);
+      const name = oneOf(issue, PARTICIPANT_ISSUE_CODES);
       reported.set(name, (reported.get(name) ?? 0) + whole(times));
     }
     for (const [issue, times] of reported) {
@@ -459,15 +502,19 @@ export const productSignals = {
       safeAttributes({ 'swarm.cancel.scope': oneOf(scope, CANCEL_SCOPES) }),
     );
   },
-};
+});
 
 /**
  * Starts reporting `swarm.deployment.info` for this process, reading `source` each time the gauge is
  * collected. Returns the function that stops it, so that an application that is closed is not asked
- * for again.
+ * for again. Like every recorder, it never throws: a meter that cannot make the gauge means no gauge.
  */
 export function observeDeployment(source: () => DeploymentInfo): () => void {
-  instruments();
+  try {
+    instruments();
+  } catch {
+    // Observing the process must not stop it from starting.
+  }
   deployments.add(source);
   return () => {
     deployments.delete(source);

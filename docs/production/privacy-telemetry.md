@@ -6,14 +6,15 @@ describes the request, job, database and model signals that already existed; thi
 product signals and the rules for logs, answers and the audit log.
 
 **Status: built and tested with in-memory exporters and a scripted session of real requests
-(`backend/test/telemetry-product.test.ts`, `privacy.test.ts`, `logging.test.ts`). Nothing here has
+(`backend/test/telemetry-product.test.ts`, `telemetry-wiring.test.ts`, `privacy.test.ts`, `logging.test.ts`). Nothing here has
 been exported to a real Application Insights resource, and no dashboard or alert has been run
-against these signals.** The signals are recorders that other parts of the product call. The recorders
-all exist and are tested; product code calls the research ones (`research/run.ts`, `research/service.ts`),
-`swarm.report.duration` (the Decision Canvas, `decision/service.ts`) and `swarm.deployment.info`
-(`deployment.ts`). **No product code calls** the recorders for `swarm.actors.*`, `swarm.constraints.*` and
-`swarm.sim.duration`, and a cancellation is recorded for research only, so those metrics stay empty: a metric
-that nobody calls stays empty.
+against these signals.** The signals are recorders that the code that does the work calls, once for
+each thing done; the table says what counts. Product code calls the research recorders
+(`research/run.ts`, `research/service.ts`), the participants proposal (`routes/stakeholders.ts`), the
+constraint proposal and gate (`constraints/service.ts`, `constraints/plan.ts`), the duration of a
+comparison (`analysis/service.ts`), `swarm.report.duration` (the Decision Canvas, `decision/service.ts`)
+and `swarm.deployment.info` (`deployment.ts`). A cancellation is recorded for research only, so that
+metric does not yet say how often a person stops a comparison, a run or a survey.
 
 ## Principles
 
@@ -25,8 +26,11 @@ that nobody calls stays empty.
 3. **Names are an allow-list.** `backend/src/telemetry/attributes.ts` keeps only the attribute names on
    its list, scalars only, strings redacted for what looks like a credential and cut to 120
    characters. A test fails if a name that suggests content is added.
-4. **Telemetry off means no cost.** With no meter provider registered (no connection string) every
-   recorder does nothing.
+4. **Telemetry off means no cost, and a failing meter means nothing recorded.** With no meter provider
+   registered (no connection string) every recorder does nothing; with one that fails (an instrument that
+   cannot be made, an exporter that throws) a recorder records nothing and never throws into the request
+   (`quietly` in `product-signals.ts`; `telemetry-wiring.test.ts` serves requests with a meter that cannot
+   make the product instruments).
 5. **Estimated model cost is not here.** It belongs to `swarm.model.*`.
 
 ## The product signals
@@ -44,14 +48,14 @@ one. Attribute values are listed here by the enumeration they come from.
 | `swarm.research.quarantines`       | counter        | `swarm.quarantine.reason`                                                     | Pages set aside, by `QUARANTINE_REASONS`                                                                                                  |
 | `swarm.research.sources.used`      | counter        | `swarm.source.category`                                                       | Sources that became evidence, by `SOURCE_CATEGORIES`                                                                                      |
 | `swarm.research.evidence.passages` | counter        | `swarm.research.mode`                                                         | Passages indexed as evidence                                                                                                              |
-| `swarm.actors.proposals`           | counter        | `swarm.proposal.origin`                                                       | Actor proposals: by the model, by rules, or by rules after the model failed (`fallback`)                                                  |
-| `swarm.actors.proposed`            | counter        | `swarm.proposal.origin`                                                       | Actors proposed                                                                                                                           |
-| `swarm.actors.valid`               | counter        | `swarm.proposal.origin`                                                       | Proposed actors that passed validation                                                                                                    |
-| `swarm.actors.issues`              | counter        | `swarm.issue.code`                                                            | Validation issues, by code                                                                                                                |
-| `swarm.constraints.proposals`      | counter        | `swarm.proposal.origin`                                                       | Constraint proposals                                                                                                                      |
-| `swarm.constraints.proposed`       | counter        | `swarm.proposal.origin`                                                       | Constraints proposed                                                                                                                      |
-| `swarm.constraints.gate`           | counter        | `swarm.gate.status`                                                           | Where the approval gate stood, by `GATE_STATUSES`                                                                                         |
-| `swarm.sim.duration`               | histogram (ms) | `swarm.sim.outcome`                                                           | How long a simulation took: completed, failed, cancelled (no caller yet)                                                                  |
+| `swarm.actors.proposals`           | counter        | `swarm.proposal.origin`                                                       | Participant proposals that were kept: by the model, by rules as asked, or by rules after the model could not be used (`fallback`)         |
+| `swarm.actors.proposed`            | counter        | `swarm.proposal.origin`                                                       | Participants those proposals made, as the person is shown the list (folded or left out are not counted)                                   |
+| `swarm.actors.valid`               | counter        | `swarm.proposal.origin`                                                       | Of those, the participants with no blocking issue in the review that followed                                                             |
+| `swarm.actors.issues`              | counter        | `swarm.issue.code`                                                            | The review's issues by rule code, blocking and advisory (`PARTICIPANT_ISSUE_CODES`)                                                       |
+| `swarm.constraints.proposals`      | counter        | `swarm.proposal.origin`                                                       | Constraint proposals that were kept, by origin: the model, rules as asked, or `fallback`                                                  |
+| `swarm.constraints.proposed`       | counter        | `swarm.proposal.origin`                                                       | Constraints those proposals added to the set                                                                                              |
+| `swarm.constraints.gate`           | counter        | `swarm.gate.status`                                                           | Evaluations of the coverage gate for a page that asked (the gate, the next comparison's readiness), by `GATE_STATUSES`                    |
+| `swarm.sim.duration`               | histogram (ms) | `swarm.sim.outcome`                                                           | How long a comparison of scenarios took, to where it ended: completed, failed or cancelled (one the server stopped is not recorded)       |
 | `swarm.report.duration`            | histogram (ms) | `swarm.report.outcome`                                                        | How long the Decision Canvas took to build (its only caller; the guided report does not record one)                                       |
 | `swarm.cancellations`              | counter        | `swarm.cancel.scope`                                                          | Work a person stopped: the scopes are research, simulation, analysis, report, critique, actors and constraints; only research records one |
 | `swarm.deployment.info`            | gauge          | `swarm.deployment.mode`, `swarm.build.version`, `swarm.build.sha`             | 1 for the deployment this process is: its mode, version and the first twelve characters of the build                                      |
@@ -60,12 +64,13 @@ one. Attribute values are listed here by the enumeration they come from.
 `swarm.constraints.*`, `swarm.sim.*` and `swarm.report.*`: a cancellation belongs to all of them, and one
 counter by scope is one query for a dashboard.
 
-Two enumerations are closed lists in `product-signals.ts` that the code that owns the thing must
-keep true: `GATE_STATUSES` (a status that is not on it is recorded as `other`, so extend the list
-when the approval gate gains one) and `SAFETY_BLOCK_REASONS` (`safetyReasonOfAddress` maps the address
-classifier's verdicts to it). Issue codes are constants of the validating code, in capitals with
-underscores (`ACTOR_ROLE_UNKNOWN`); anything else is recorded as `other`, and a proposal reports at
-most twenty distinct codes.
+Three enumerations are closed lists in `product-signals.ts` that the code that owns the thing must
+keep true: `GATE_STATUSES` (the constraint gate's own, clear, provisional and blocked), `PARTICIPANT_ISSUE_CODES`
+(the rule codes of the participants' review) and `SAFETY_BLOCK_REASONS` (`safetyReasonOfAddress` maps the
+address classifier's verdicts to it). A value that is not on a list is recorded as `other`, so extend the
+list when the owner gains one; `telemetry-product.test.ts` fails if the first two differ from
+`shared/constraints.ts` and `stakeholders/participants/validate.ts`. An issue code is a code on its list
+and never a sentence or a name.
 
 ### The attributes
 
@@ -79,8 +84,8 @@ most twenty distinct codes.
 | `swarm.quarantine.reason`                   | the quarantine reasons of `shared/research.ts`                                      |
 | `swarm.source.category`                     | the source categories of `shared/research.ts`                                       |
 | `swarm.proposal.origin`                     | `model`, `rules`, `fallback`                                                        |
-| `swarm.issue.code`                          | a code in capitals, or `other`                                                      |
-| `swarm.gate.status`                         | `GATE_STATUSES`, or `other`                                                         |
+| `swarm.issue.code`                          | `PARTICIPANT_ISSUE_CODES` (the review's rule codes, such as `too-few`), or `other`  |
+| `swarm.gate.status`                         | `clear`, `provisional`, `blocked` (`GATE_STATUSES`), or `other`                     |
 | `swarm.sim.outcome`, `swarm.report.outcome` | `completed`, `failed`, `cancelled`                                                  |
 | `swarm.cancel.scope`                        | `research`, `simulation`, `analysis`, `report`, `critique`, `actors`, `constraints` |
 | `swarm.deployment.mode`                     | `local`, `pilot`, `production`                                                      |
@@ -93,6 +98,23 @@ a known value to `other`, add the attribute name to the allow-list in `attribute
 the table above, and add the recorder to the table of `backend/test/telemetry-product.test.ts` (which
 also checks that every metric is written down on this page). A name that contains `url`, `host`,
 `path`, `address`, `title`, `name`, `text`, `content`, `person` or `email` is refused by that test.
+
+Call it from the code that does the work, **once for each thing done and after it was kept** (a
+proposal that was saved, a comparison that ended), never from a read that works the same thing out
+again: the gate is recorded for the two pages that ask for it and not for a read of the constraints,
+which works it out as well. Pass it what the person was already shown (the review, the status), not a
+second computation, and never a name, an id or a sentence. Give the call a test in
+`backend/test/telemetry-wiring.test.ts` that drives the route or the service, counts the calls, and
+reads what the exporters hold.
+
+### Where each is called, and what it does not count
+
+| Recorder             | Called in                                                    | Not counted                                                                                        |
+| -------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `actorProposal`      | `POST /stakeholders/propose`, once the proposal is saved     | A proposal that was refused or not saved; the regeneration of one participant; the older discovery |
+| `constraintProposal` | `ConstraintService.propose`, once the set is saved           | A proposal that was refused (a model asked for and not there) or not saved                         |
+| `constraintGate`     | `GET /constraints/gate` and the readiness in `GET /analysis` | A read of the constraints, which works the gate out too; the gate as a comparison starts           |
+| `simulationDuration` | `AnalysisService`, where a comparison ends                   | A comparison that the server stopped (it is marked interrupted); the time before it starts         |
 
 ## Logs
 
