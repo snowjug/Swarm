@@ -53,7 +53,21 @@ export const CATEGORY_STEMS: Record<ConstraintCategory, Stems> = {
     ],
   },
   capacity: {
-    strong: ['capacit\\w+', 'throughput', 'workloads?', 'concurrent\\w*', 'volumes?', 'quotas?'],
+    strong: [
+      'capacit\\w+',
+      'throughput',
+      'workloads?',
+      'concurrent\\w*',
+      'simultaneous\\w*',
+      'volumes?',
+      'quotas?',
+      'bandwidth',
+      'overload\\w*',
+      'absorb\\w*',
+      'at once',
+      // "can only handle", "cannot take on": what is handled says what the limit is about.
+      "(?:can|could|able to|unable to|cannot|can['’]t)\\s+(?:only\\s+)?(?:handle|take on|cope with|process|support)",
+    ],
     weak: ['handle[sd]?', 'seats?', 'slots?'],
   },
   staffing: {
@@ -95,6 +109,7 @@ export const CATEGORY_STEMS: Record<ConstraintCategory, Stems> = {
       'cloud',
       'outages?',
       'uptime',
+      'downtime',
       'network\\w*',
     ],
   },
@@ -356,11 +371,11 @@ export const CATEGORY_ORDER: readonly ConstraintCategory[] = [
 
 /** Words that make a limit hard: an obligation, a ban, a ceiling or a floor, a condition. */
 export const HARD_CUE =
-  /\b(?:must(?:\s+not)?|shall(?:\s+not)?|require[sd]?(?:\s+to)?|requirements?|mandatory|obliged|obligat(?:ed|ion)|prohibit(?:ed|s)?|forbid(?:s|den)?|banned|illegal|unlawful|not\s+(?:permitted|allowed)|may\s+not|cannot|can['’]t|unable\s+to|no\s+more\s+than|at\s+most|not\s+(?:to\s+)?exceed|not\s+more\s+than|maximum|minimum|at\s+least|capped?|ceiling|quota|only\s+(?:if|when|after|once)|unless|no\s+(?:earlier|later)\s+than|not\s+before|by\s+law|subject\s+to|needs?\s+(?:to\b|consent|approval|permission))\b/iu;
+  /\b(?:must(?:\s+not)?|shall(?:\s+not)?|require[sd]?(?:\s+to)?|requirements?|mandatory|obliged|obligat(?:ed|ion)|prohibit(?:ed|s)?|forbid(?:s|den)?|banned|illegal|unlawful|not\s+(?:permitted|allowed)|may\s+not|cannot|can['’]t|unable\s+to|no\s+more\s+than|at\s+most|not\s+(?:to\s+)?exceed|not\s+more\s+than|maximum|minimum|at\s+least|capped?|ceiling|quota|only\s+(?:if|when|after|once)|unless|no\s+(?:earlier|later)\s+than|not\s+before|by\s+law|subject\s+to|(?:has|have)\s+to\b|limited\s+to|needs?\s+(?:to\b|(?:[\p{L}'’-]+\s+){0,3}(?:approval|consent|permission|sign-?off|authori[sz]ation|clearance)))\b/iu;
 
 /** Words that limit without ruling anything out: a preference, a dependence, a commitment, a notice. */
 export const SOFT_CUE =
-  /\b(?:should|ought\s+to|ideally|prefer(?:red|s)?|limited|limits?|constrain(?:ed|s|t)|restrict(?:ed|ion|ions|s)?|no\s+spare|not\s+enough|too\s+few|insufficient|short\s+of|shortage|lack(?:s|ed|ing)?\s+(?:of|the)|depends?\s+on|dependent\s+on|relies\s+on|rely\s+on|contingent|bound\s+by|committed|commitments?|deadline|notice\s+period|lead\s+time)\b/iu;
+  /\b(?:should|ought\s+to|ideally|prefer(?:red|s)?|limited|limits?|constrain(?:ed|s|t)|restrict(?:ed|ion|ions|s)?|no\s+spare|not\s+enough|too\s+few|insufficient|short\s+of|shortage|lack(?:s|ed|ing)?\s+(?:of|the)|(?:do|does|did)\s+not\s+have\s+(?:the|enough|any)|depends?\s+on|dependent\s+on|relies\s+on|rely\s+on|contingent|bound\s+by|committed|commitments?|deadline|notice\s+period|lead\s+time)\b/iu;
 
 /** Words that say a limit is not known, so that what is wanted is a question and not a constraint. */
 export const UNDECIDED_CUE =

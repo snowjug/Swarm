@@ -261,6 +261,42 @@ describe('reading for constraints with rules', () => {
     expect(unnamed?.uncertainty.reason).toContain('no single actor could be named');
   });
 
+  it('reads the common ways a limit is put, with the kind of limit and how hard it is, and nothing else', () => {
+    const cases: [string, string, 'hard' | 'soft' | null][] = [
+      [
+        'The fee rise needs the regulator’s approval before it can take effect.',
+        'regulatory',
+        'hard',
+      ],
+      [
+        'The contract requires ninety days of notice before any change to the terms.',
+        'contractual',
+        'hard',
+      ],
+      ['Resellers cannot absorb more than ten extra cases a week.', 'capacity', 'hard'],
+      ['Resellers can handle no more than ten extra cases a week.', 'capacity', 'hard'],
+      ['We do not have the staff to run two systems at once.', 'capacity', 'soft'],
+      ['The budget for this change is limited to $40,000.', 'budget', 'hard'],
+      ['The vendor cannot deliver the new system before September.', 'dependency', 'hard'],
+      // Description, a count of people and a mention are not limits.
+      ['The night team has capacity for ten cases a week.', 'capacity', null],
+      ['17% of customers said the price was too high for what they get.', 'budget', null],
+      ['The budget group met on Tuesday and discussed the pilot at length.', 'budget', null],
+    ];
+    for (const [text, category, hardness] of cases) {
+      const found = detectIn(text, { kind: 'passage', passageId: 'S1' }).candidates;
+      if (hardness === null) {
+        expect(found, text).toEqual([]);
+      } else {
+        expect(
+          found.map((item) => [item.category, item.hardness]),
+          text,
+        ).toEqual([[category, hardness]]);
+        expect(found[0]?.quote, text).toBe(text);
+      }
+    }
+  });
+
   it('does not read a passage that is addressed to an AI, or one research set aside', () => {
     const injected = chunk(
       'S1',
