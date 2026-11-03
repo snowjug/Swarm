@@ -97,7 +97,9 @@ reads the Decision view, not them.
   were all read as about one person (3 of 3 on dev, 4 of 4 on test), but the 3 on dev are also rows of that table and
   7 is too few to say anything about recall. The evaluation does not run it.
 - **It costs a read, not a store.** It is a regular-expression pass over a bounded text (at most 2,400 characters of
-  a paragraph and 80 clauses of a text are read) and is part of the canvas's own build.
+  a paragraph and 80 clauses of a text are read) and is part of the canvas's own build. Reading the view changes
+  nothing and stores nothing, and writes no audit entry (`auth/audit-policy.ts`); the check logs nothing and sends
+  no telemetry signal of its own, and the one signal of the read is its duration and outcome.
 
 ## Evidence
 
