@@ -44,7 +44,9 @@ test.describe('a comparison with no brief yet', () => {
     const project = keep(await compared(api, { name: 'States: no brief' }));
     for (const theme of ['light', 'dark'] as const) {
       await openDecide(page, project, undefined, { theme });
-      await expect(verdict(page)).toHaveText('Turn the comparison into a decision.');
+      await expect(
+        page.getByRole('heading', { level: 2, name: 'Turn the comparison into a decision.' }),
+      ).toBeVisible();
       await expect(page.getByRole('button', { name: 'Write the brief' })).toBeVisible();
       await expect(page.getByRole('list', { name: 'What the brief holds' })).toBeVisible();
       // What it is and is not, before it is written.
@@ -73,7 +75,7 @@ test.describe('a comparison with no brief yet', () => {
     });
     await openDecide(page, project);
     await page.getByRole('button', { name: 'Write the brief' }).click();
-    await expect(verdict(page)).toHaveText('Writing the brief');
+    await expect(page.getByRole('heading', { level: 2, name: 'Writing the brief' })).toBeVisible();
     await expect(
       page.getByRole('status').filter({ hasText: /^Writing the brief$/u }),
     ).toBeVisible();
@@ -205,14 +207,18 @@ test.describe('a brief that is out of date', () => {
 });
 
 test.describe('a record that has no comparison', () => {
-  test('says there is nothing to decide from yet, and leads to the comparison and to the report it does have', async ({
+  test('says there is nothing to decide from yet, and leads to the step that is missing and to the report it does have', async ({
     page,
   }) => {
     const problems = watchPage(page);
     const project = keep(await makeLegacy(api, 'States: legacy'));
     await openDecide(page, project);
-    await expect(verdict(page)).toHaveText('Nothing to decide from yet');
-    await expect(page.getByRole('button', { name: 'Open Simulate' })).toBeVisible();
+    const nothing = page.getByRole('heading', { level: 2, name: 'Nothing to decide from yet' });
+    await expect(nothing).toBeVisible();
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(
+      'Decision view',
+    );
+    await expect(page.getByRole('button', { name: 'Open Ask' })).toBeVisible();
     await expectNoAxeViolations(page, 'a record with no comparison');
     await page.getByRole('button', { name: 'Detailed report' }).click();
     await expect(page).toHaveURL(/view=report/u);
@@ -221,7 +227,7 @@ test.describe('a record that has no comparison', () => {
     );
     // The way back is always there.
     await page.getByRole('button', { name: 'Decision brief' }).click();
-    await expect(verdict(page)).toHaveText('Nothing to decide from yet');
+    await expect(nothing).toBeVisible();
     expect(problems).toEqual([]);
   });
 });

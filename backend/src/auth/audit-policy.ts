@@ -357,6 +357,10 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
     kind: 'inside',
     action: 'evidence.documents.added',
   },
+  // [decision audit]
+  'GET /api/projects/:id/decision': reads(
+    'Works the decision canvas out from what is stored; it changes nothing and stores nothing.',
+  ),
 };
 
 /**

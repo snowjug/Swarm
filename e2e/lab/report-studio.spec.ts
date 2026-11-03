@@ -25,6 +25,7 @@ import {
   startStudio,
   studio,
   studioDocument,
+  verdict,
   withReport,
   workflow,
 } from '../support/decide';
@@ -553,9 +554,7 @@ test('leaving with words that are not saved asks first, and keeping them keeps t
     .getByRole('button', { name: 'Leave anyway' })
     .click();
   await expect(page).not.toHaveURL(/view=studio/u);
-  await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toContainText(
-    'the share of simulated members',
-  );
+  await expect(verdict(page)).toContainText('the share of simulated members');
   expect((await studioDocument(api, project)).sections[0]!.versions).toHaveLength(1);
 
   // With nothing unsaved the way back does not ask.
@@ -849,9 +848,7 @@ test.describe('with no detailed report to work on', () => {
     );
     await page.getByRole('button', { name: 'Decision brief' }).click();
     await expect(page).not.toHaveURL(/view=/u);
-    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toContainText(
-      'the share of simulated members',
-    );
+    await expect(verdict(page)).toContainText('the share of simulated members');
   });
 
   for (const theme of THEMES) {

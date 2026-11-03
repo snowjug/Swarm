@@ -2,8 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useWorkspace } from '../../app/context';
 import { useBrief } from '../../hooks/useBrief';
 import { useCritiques } from '../../hooks/useCritiques';
+import { useDecision } from '../../hooks/useDecision';
+import { ReportBridge } from './canvas/Bridge';
+import { DecisionCanvasView } from './canvas/Canvas';
 import { DecideDocument } from './DecideDocument';
-import { BriefFailed, BriefLoading, NoAnalysis, WriteBrief, Writing } from './States';
+import { BriefFailed, BriefLoading, WriteBrief, Writing } from './States';
 import { SubScene } from './SubScene';
 import { useBriefAnalysis } from './hooks';
 
@@ -13,9 +16,11 @@ function Page({ children }: { children: ReactNode }) {
 }
 
 /**
- * The brief of one project, in whatever state it is in: being read, not yet written, being written, written
- * and current, written and out of date. The shell reads the project; this reads the brief, the review beside
- * it and the analysis they are made from, and decides what to show.
+ * The decision of one project, in whatever state it is in. The decision view stands first in every one of them:
+ * it is read on its own, from the newest finished comparison, and says what it can and cannot say when there is
+ * none. Beneath it is the full report, the brief, which is being read, not yet written, being written, written
+ * and current, or written and out of date. The shell reads the project; this reads the view, the brief, the
+ * review beside it and the analysis they are made from, and decides what to show.
  */
 function Brief() {
   const { project, mode, view, setView, go } = useWorkspace();
@@ -23,7 +28,14 @@ function Brief() {
   // lab's record is read with it.
   const token = `${project.updatedAt}|${JSON.stringify(project.lab ?? null)}`;
   const handle = useBrief(project.id, token);
-  const review = useCritiques(project.id, { refreshOn: token, onChanged: handle.reload });
+  const decision = useDecision(project.id, token);
+  const review = useCritiques(project.id, {
+    refreshOn: token,
+    onChanged: () => {
+      handle.reload();
+      decision.reload();
+    },
+  });
   const analysis = useBriefAnalysis(project.id, handle.view?.brief?.analysisId ?? null);
   const hasReport = project.report !== null;
   const toReport = hasReport ? () => go('decide', { view: 'report' }) : null;
@@ -35,13 +47,31 @@ function Brief() {
   useEffect(() => {
     if (writing) setWritten(true);
   }, [writing]);
+
+  const canvas = (below: boolean) => (
+    <DecisionCanvasView
+      handle={decision}
+      go={{
+        ask: () => go('ask'),
+        ground: () => go('ground'),
+        map: () => go('map'),
+        simulate: () => go('simulate'),
+      }}
+      below={below}
+      onDetailed={toReport}
+    />
+  );
+
   if (!loaded) {
     return (
       <Page>
+        {canvas(true)}
+        <ReportBridge />
         {handle.loading ? (
           <BriefLoading />
         ) : (
           <BriefFailed
+            level={2}
             message={handle.error ?? 'Reload the page and try again.'}
             onRetry={handle.reload}
             busy={handle.loading}
@@ -62,6 +92,7 @@ function Brief() {
         reviewOpen={view === 'review'}
         onReviewOpenChange={(open) => setView(open ? 'review' : null)}
         justWritten={written}
+        before={canvas(true)}
         go={{
           simulate: () => go('simulate'),
           studio: () => go('decide', { view: 'studio' }),
@@ -74,18 +105,19 @@ function Brief() {
   if (handle.generating)
     return (
       <Page>
-        <Writing />
+        {canvas(true)}
+        <ReportBridge />
+        <Writing level={2} />
       </Page>
     );
-  if (!loaded.latestAnalysis)
-    return (
-      <Page>
-        <NoAnalysis onSimulate={() => go('simulate')} onReport={toReport} />
-      </Page>
-    );
+  // No finished comparison: the decision view says what is missing and what to do, and there is no report to go to.
+  if (!loaded.latestAnalysis) return <Page>{canvas(false)}</Page>;
   return (
     <Page>
+      {canvas(true)}
+      <ReportBridge />
       <WriteBrief
+        level={2}
         completedAt={loaded.latestAnalysis.completedAt}
         may={loaded.may.generate}
         busy={handle.generating}

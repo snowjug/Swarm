@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { BriefExportFormat, BriefView, DecisionBrief } from '../../../../shared/brief';
 import type { CriticRole } from '../../../../shared/critique';
 import type { ProjectDetail } from '../../../../shared/types';
@@ -36,6 +36,7 @@ import { plural } from './model/format';
 import { reportTool } from './model/report-tool';
 import { ReviewChapter } from './review/Review';
 import { ReviewSheet } from './review/ReviewSheet';
+import { ReportBridge } from './canvas/Bridge';
 import { ActDivider, ChapterShell } from './ui/Chapter';
 import { DocContext, type DocContextValue } from './ui/context';
 import { Hero } from './ui/Hero';
@@ -60,6 +61,8 @@ export interface DocumentProps {
   /** The brief is there because it was written a moment ago, on this page. */
   justWritten?: boolean;
   go: { simulate: () => void; studio: () => void; report: () => void; ground: () => void };
+  /** The decision view, which stands above the brief and has the page's title: the brief is then the full report beneath it. */
+  before?: ReactNode;
 }
 
 /**
@@ -78,6 +81,7 @@ export function DecideDocument({
   onReviewOpenChange,
   justWritten = false,
   go,
+  before,
 }: DocumentProps) {
   const { brief, visuals } = view;
   const toast = useToast();
@@ -334,6 +338,8 @@ export function DecideDocument({
         data-reveal={reduced ? 'off' : 'on'}
         data-busy={generating || undefined}
       >
+        {before}
+        {before ? <ReportBridge /> : null}
         <DocBar
           shown={barShown}
           where={where}
@@ -392,6 +398,7 @@ export function DecideDocument({
           comparisonRunning={comparisonRunning}
           onNext={present.includes('recommendations') ? () => reveal('recommendations') : null}
           topRef={heroTop}
+          level={before ? 2 : 1}
         />
 
         <div className="sw-decide-body">

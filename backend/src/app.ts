@@ -61,6 +61,9 @@ import { briefRoutes } from './routes/brief.js';
 // [research imports]
 import { researchRoutes } from './routes/research.js';
 import { ResearchService, type ResearchSeam } from './research/service.js';
+
+// [decision imports]
+import { decisionRoutes } from './routes/decision.js';
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
 
@@ -419,6 +422,9 @@ export async function buildApp(options: AppOptions) {
 
   // [research routes]
   researchRoutes(app, research, config.rateLimitScale);
+
+  // [decision routes]
+  decisionRoutes(app, repository, config.rateLimitScale);
 
   const frontend =
     options.frontendRoot === undefined

@@ -3,7 +3,7 @@ import { expect, type APIRequestContext, type Locator, type Page } from '@playwr
 import { extractText, getDocumentProxy } from 'unpdf';
 import type { BriefView } from '../../shared/brief';
 import type { StudioView } from '../../shared/studio';
-import { addressOf, openApp } from './app';
+import { addressOf, openApp, settled } from './app';
 import { advance, createGuided } from './helpers';
 import { makeProject, type MakeOptions } from './shell';
 
@@ -100,15 +100,53 @@ export async function openDecide(
   options: { theme?: 'light' | 'dark' | 'high-contrast' } = {},
 ): Promise<void> {
   await openApp(page, { project, scene: 'decide', ...(view ? { view } : {}), ...options });
-  // The scene's code and its data arrive after the shell does: the page is there once it has a headline.
+  // The scene's code and its data arrive after the shell does: the page is there once it has a headline. The decision
+  // view has its headline before it has read anything, so what is still loading is waited for as well.
   await expect(page.locator('main h1').first()).toBeVisible();
+  await settled(page);
 }
 
 export { addressOf };
 
-/** The one sentence that answers the question: the page's only level-one heading. */
+/**
+ * The sentence that heads the brief, which is the full report beneath the decision view: the page's one level-one
+ * heading is the decision view's own.
+ */
 export const verdict = (page: Page): Locator =>
-  page.getByRole('main').getByRole('heading', { level: 1 });
+  page.getByRole('main').locator('#brief-answer-title');
+
+/** The decision view: the first viewport of the Decide scene, with the page's level-one heading. */
+export const decisionView = (page: Page): Locator =>
+  page.getByRole('region', { name: 'Decision view', exact: true });
+
+/** What the first viewport shows, in the order a decision is read. */
+export const NINE = [
+  'Question',
+  'Current best answer',
+  'Most plausible futures',
+  'What drives them',
+  'Material constraints',
+  'Who moves',
+  'What could change the result',
+  'Recommended next move',
+  'What to validate before acting',
+] as const;
+
+/** One of the nine, by its title: the name of its heading begins with it, whether the item is open or folded. */
+export const viewItem = (page: Page, title: (typeof NINE)[number]): Locator =>
+  page.getByRole('main').getByRole('heading', {
+    level: 2,
+    // "Who moves" is also the beginning of "Who moves in full", which is a heading of the detail beneath the nine.
+    name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?! in full)`, 'u'),
+  });
+
+/** Goes to the full report beneath the decision view, the way a reader does: by the button that says so. */
+export async function toFullReport(page: Page): Promise<void> {
+  await page.getByRole('main').getByRole('button', { name: 'Full report' }).click();
+  await expect(
+    page.getByRole('main').getByRole('heading', { level: 2, name: 'Full report' }),
+  ).toBeInViewport();
+}
 
 /** The contents beside the document; the one in the sheet that opens on a phone is not on the page until asked for. */
 export const contents = (page: Page): Locator =>
