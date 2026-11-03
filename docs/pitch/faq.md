@@ -1,6 +1,8 @@
 # Questions and answers
 
-**Is it ready for production use?** No. It runs locally and is not hosted. Browser sign-in exists but has only been\ntested against a test identity provider. [The gates](../production-readiness.md) say which are met and which\nare not.
+**Is it ready for production use?** No. It runs locally and is not hosted. Browser sign-in exists but has only been
+tested against a test identity provider. [The gates](../production-readiness.md) say which are met and which
+are not.
 
 **Does it predict the future?** No. It explores possible scenarios, and says so.
 
@@ -17,8 +19,10 @@ statement records that a person looked without changing its class. A test assert
 **What if my sources are wrong?** Swarm cannot know. It shows what the sources say and where they
 disagree.
 
-**What leaves my machine?** In rules mode, nothing. In model mode, documents and prompts go to the
-Azure OpenAI deployment you configure, in your tenant. No key is stored; the call uses an Entra token.
+**What leaves my machine?** In rules mode, no text goes to a model. A page you ask Swarm to read, or a site you name
+for automatic research, is requested by the server, so that site sees the server's address. In model mode,
+documents and prompts go to the model deployment you configure (Azure OpenAI or Foundry in your tenant, or a
+local Ollama). With Azure OpenAI or Foundry the call uses an Entra token and no key is stored.
 
 **Does it work with Entra sign-in?** The server verifies Entra tokens, signs a person in through the browser
 (Authorization Code with PKCE, a server-side session, no token in the page), enforces seven roles through
@@ -37,7 +41,9 @@ a cliff; the analyst was never shown the grounding review it was asked about, wh
 caught; and the first version of the harness overstated abstention recall. Each was fixed or
 corrected, and the corrections are in the commit messages and the [evaluation README](../../evaluation/README.md).
 
-**Why SQLite?** It suits a local-first tool. A hosted, multi-user shape uses PostgreSQL: an adapter behind the\nsame stores is built (see [ADR 0009](../adr/0009-postgres-through-a-synchronous-bridge.md)), and the whole unit\nsuite passes on it in-process. It has never been run against a deployed server.
+**Why SQLite?** It suits a local-first tool. A hosted, multi-user shape uses PostgreSQL: an adapter behind the
+same stores is built (see [ADR 0009](../adr/0009-postgres-through-a-synchronous-bridge.md)), and the whole unit
+suite passes on it in-process. It has never been run against a deployed server.
 
 **What happens when the model is down?** The failure is named without showing a prompt or a key, and
 the run can be retried or switched to rules mode.

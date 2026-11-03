@@ -33,23 +33,25 @@ changing it); on macOS and Linux write `npm`. Run a focused part of the unit sui
 
 ## Test layers at a glance
 
-| Layer                    | Command                                | Where                                                                          | Establishes                                                                                                                                                                                                                                                           | Does **not** establish                              |
-| ------------------------ | -------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| Types, lint, unit, build | `npm run check`                        | `backend/test`, `frontend/src`, `evaluation/test`, `scripts/**` tests          | Business rules, contracts, state machines, security boundaries, the lab pipeline on the real engine                                                                                                                                                                   | Browser rendering, real networks, any live model    |
-| Formatting               | `npm run format:check`                 | The whole repository, documents included                                       | Prettier formatting of code and docs                                                                                                                                                                                                                                  | Anything about behaviour                            |
-| Unit suite on PostgreSQL | `npm run test:postgres`                | The same files, with every in-memory database made a PostgreSQL one (PGlite)   | The stores behave the same on both dialects                                                                                                                                                                                                                           | A deployed PostgreSQL server                        |
-| Browser, `local`         | `npm run test:e2e`                     | `e2e/local`                                                                    | The shell and its command palette, the three themes, reduced motion, errors, responsive layout, axe, keyboard                                                                                                                                                         | Model behaviour                                     |
-| Browser, `model`         | `npm run test:e2e`                     | `e2e/model`, against `e2e/support/fake-provider.ts`                            | Orchestration of the model path, budget, grounding and chapter regeneration; that a question is read by a model only when the project is Model assisted                                                                                                               | The quality or safety of a live model               |
-| Browser, `journey`       | `npm run test:e2e`                     | `e2e/journey`, on a server holding the recorded Larkholm demonstration         | The 26-step presentation, the recorded run's detailed report and branch comparison, the demonstration screens at five sizes                                                                                                                                           | A live model (see `npm run demo:journey`)           |
-| Browser, `signin`        | `npm run test:e2e`                     | `e2e/signin`, on `backend/test/support/signin-e2e-server.ts`                   | Browser sign-in and access management against a test identity provider                                                                                                                                                                                                | A real Microsoft Entra tenant                       |
-| Browser, `lab`           | `npm run test:e2e`                     | `e2e/lab`, on rules-mode servers of their own, one with a web of fixture pages | The lab through its pages: the first screen, Ground, Map, the journey from question to brief, the simulation and comparison, what opens a scene, the decision brief, its review and its print, Report Studio, the detailed report, what is out of date, the deep dive | Model behaviour, or any page on the real internet   |
-| Live presentation        | `npm run demo:journey`                 | `e2e/journey/demo-journey.spec.ts` against a server you started                | The recorded presentation against the real model that will be shown                                                                                                                                                                                                   | Anything in the lab, which it does not visit        |
-| Offline evaluation       | `npm run eval`                         | `evaluation/`                                                                  | The gate, retrieval, conflicts and injection warnings against labelled sets                                                                                                                                                                                           | Anything on real documents                          |
-| Mutation checks          | `npm run mutation:security`            | `scripts/mutation`                                                             | That the tests for security rules fail when a rule is broken                                                                                                                                                                                                          | That the rules are right                            |
-| Load and crash recovery  | `npm run test:load`, `test:resilience` | `scripts/`                                                                     | Latency, back-pressure, memory and recovery on this machine                                                                                                                                                                                                           | Capacity of any deployment                          |
-| UI audit                 | `npm run audit:ui`                     | `scripts/ui-audit.mjs`                                                         | Screenshots and layout and axe metrics at five viewports in light and dark                                                                                                                                                                                            | Design quality                                      |
-| Live Azure verification  | `npm run azure:verify`                 | `scripts/azure`                                                                | Fifteen checks of the whole engine journey against your own deployment                                                                                                                                                                                                | Quality beyond the counts it reports                |
-| Secret scan              | `npm run scan:secrets`                 | `scripts/secret-scan.mjs`                                                      | No credential shape in any reachable commit or in the working tree                                                                                                                                                                                                    | That none exists in a form the patterns do not know |
+| Layer                       | Command                                | Where                                                                          | Establishes                                                                                                                                                                                                                                                                                                                                                                                                     | Does **not** establish                              |
+| --------------------------- | -------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Types, lint, unit, build    | `npm run check`                        | `backend/test`, `frontend/src`, `evaluation/test`, `scripts/**` tests          | Business rules, contracts, state machines, security boundaries, the lab pipeline on the real engine                                                                                                                                                                                                                                                                                                             | Browser rendering, real networks, any live model    |
+| Formatting                  | `npm run format:check`                 | The whole repository, documents included                                       | Prettier formatting of code and docs                                                                                                                                                                                                                                                                                                                                                                            | Anything about behaviour                            |
+| Unit suite on PostgreSQL    | `npm run test:postgres`                | The same files, with every in-memory database made a PostgreSQL one (PGlite)   | The stores behave the same on both dialects                                                                                                                                                                                                                                                                                                                                                                     | A deployed PostgreSQL server                        |
+| Browser, `local`            | `npm run test:e2e`                     | `e2e/local`                                                                    | The shell and its command palette, the three themes, reduced motion, errors, responsive layout, axe, keyboard                                                                                                                                                                                                                                                                                                   | Model behaviour                                     |
+| Browser, `model`            | `npm run test:e2e`                     | `e2e/model`, against `e2e/support/fake-provider.ts`                            | Orchestration of the model path, budget, grounding and chapter regeneration; that a question is read by a model only when the project is Model assisted                                                                                                                                                                                                                                                         | The quality or safety of a live model               |
+| Browser, `journey`          | `npm run test:e2e`                     | `e2e/journey`, on a server holding the recorded Larkholm demonstration         | The 26-step presentation, the recorded run's detailed report and branch comparison, the demonstration screens at five sizes                                                                                                                                                                                                                                                                                     | A live model (see `npm run demo:journey`)           |
+| Browser, `signin`           | `npm run test:e2e`                     | `e2e/signin`, on `backend/test/support/signin-e2e-server.ts`                   | Browser sign-in and access management against a test identity provider                                                                                                                                                                                                                                                                                                                                          | A real Microsoft Entra tenant                       |
+| Browser, `lab`              | `npm run test:e2e`                     | `e2e/lab`, on rules-mode servers of their own, one with a web of fixture pages | The lab through its pages: the first screen, Ground, Map, the journey from question to brief, the simulation and comparison, what opens a scene, the decision brief, its review and its print, Report Studio, the detailed report, what is out of date, the deep dive                                                                                                                                           | Model behaviour, or any page on the real internet   |
+| Live presentation           | `npm run demo:journey`                 | `e2e/journey/demo-journey.spec.ts` against a server you started                | The recorded presentation against the real model that will be shown                                                                                                                                                                                                                                                                                                                                             | Anything in the lab, which it does not visit        |
+| Offline evaluation          | `npm run eval`                         | `evaluation/`                                                                  | The gate, retrieval, conflicts and injection warnings against labelled sets                                                                                                                                                                                                                                                                                                                                     | Anything on real documents                          |
+| AI-assisted setup, measured | `npm run eval:ai`                      | `evaluation/`, the tests are `evaluation/test/ai-*.test.ts`                    | Participant coverage, hard-constraint recall, source reading, seeded critic flaws and injection handling, the research planner, whole research runs and the Decision Canvas, by the rules paths and by the real client and output policy against a scripted fake of the Foundry endpoint. The live mode is written and has not been run; six thresholds are breached ([evaluation](./production/evaluation.md)) |
+| Infrastructure as code      | `npm run iac:validate`                 | `infra/`, `scripts/iac/`                                                       | Every Bicep template and parameter file compiles, lints and evaluates offline; nothing reaches Azure. It skips, and says so, where the pinned Bicep CLI is not installed, and fails under `CI=true`                                                                                                                                                                                                             |
+| Mutation checks             | `npm run mutation:security`            | `scripts/mutation`                                                             | That the tests for security rules fail when a rule is broken                                                                                                                                                                                                                                                                                                                                                    | That the rules are right                            |
+| Load and crash recovery     | `npm run test:load`, `test:resilience` | `scripts/`                                                                     | Latency, back-pressure, memory and recovery on this machine                                                                                                                                                                                                                                                                                                                                                     | Capacity of any deployment                          |
+| UI audit                    | `npm run audit:ui`                     | `scripts/ui-audit.mjs`                                                         | Screenshots and layout and axe metrics at five viewports in light and dark                                                                                                                                                                                                                                                                                                                                      | Design quality                                      |
+| Live Azure verification     | `npm run azure:verify`                 | `scripts/azure`                                                                | Fifteen checks of the whole engine journey against your own deployment                                                                                                                                                                                                                                                                                                                                          | Quality beyond the counts it reports                |
+| Secret scan                 | `npm run scan:secrets`                 | `scripts/secret-scan.mjs`                                                      | No credential shape in any reachable commit or in the working tree                                                                                                                                                                                                                                                                                                                                              | That none exists in a form the patterns do not know |
 
 ## The scenario lab
 
@@ -97,13 +99,45 @@ runs both over the briefs of the example packs. `readme.test.ts` fails if the RE
 variable, a link or an image that does not exist, or claims what the evidence does not support.
 
 Browser coverage of the lab is the `lab` project, which runs `e2e/lab/*.spec.ts` against built,
-rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its twenty-two
+rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its twenty-eight
 specs are described under [End-to-end, accessibility, security and load
 evidence](#end-to-end-accessibility-security-and-load-evidence). `ask-pipeline.spec.ts` walks the flagship
 demonstrations and a question that no example knows, with a public page as evidence, through the question,
 Ground and Map; `journey.spec.ts` walks one question from the first screen to the decision;
 `lab-journey.test.ts` walks the same path through the routes the pages use, on the real engine and with no
 browser.
+
+## Research, models, participants, constraints, the Decision Canvas and the guard
+
+The subsystems added for the controlled pilot each have test files of their own, in `backend/test` unless a path
+says otherwise. None of them reaches the real internet, a real model or Azure: the web is a fake or a loopback
+server, the model is a scripted double or `support/fake-foundry.ts`, and a hosted setting is a configuration built
+in a test.
+
+| What                                        | Files                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The crawler and the extractor               | `research-fetch`, `research-extract`, `research-classify`, `research-crawl` (ordering, sites, duplicates, records), `research-budget` (each stop, cancelling, pausing), `research-pacing` (delays, robots.txt, retries, the breaker), `research-events` (an allow-list of fields, and no text a site wrote), `research-quarantine` (each reason, instruction text, PDFs through the real reader) and `research-wording`, on a virtual clock and a fake network (`support/research-world.ts`)                                                                                                                                                                                                                                                                                         |
+| What a crawler must refuse, on real sockets | `research-safety` (a table of address forms, redirects, rebinding and the two ways a name can fail) and `research-limits` (decompression bombs, trickling bodies, a page that is expensive to parse, held to a work budget), on loopback servers and a fake name server. The PDF tests start the real PDF worker and take a few seconds                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| A research run                              | `research-config`, `research-plan` (rules and a model's plan, the checks), `research-assess`, `research-select` (ranking, limits, repeats, masking), `research-store` (the record and `Repository.appendDocuments`), and, through the whole application with the real queue and storage, `research-service` (modes, stages, stops, limits, determinism), `research-service-control` (pause, finish, cancel, two requests at once, a server that stops), `research-service-hostile`, `research-service-model`, `research-routes` (who may call what, tenants, CSRF, rate limits, the audit log) and `research-manual` (a person's own text added to a project that research found nothing for), reading a fake web (`support/research-web.ts`) through the fetcher seam of `buildApp` |
+| Research on the page                        | `frontend/src/scenes/ground/research/model.test.ts` (the stages, the counters, what is offered by what the server says a person may do, the words for each outcome and reason), `research.interaction.test.tsx` (the surface as a person meets it, and that what a page says of itself is only ever text), `frontend/src/hooks/useResearch.test.ts` (following a run) and `frontend/src/hooks/useConsole.test.ts` (a question that brings no source starts its research and not its evidence; one that brings sources reads them and researches nothing; a run already under way is the one that was asked for; a start that fails keeps the project and says how to start again); in a browser, `e2e/lab/research-states.spec.ts` and `e2e/lab/research-journey.spec.ts`            |
+| The output policy and the Foundry provider  | `model-task` (what a reply may become, one correction, a refusal and a cancellation are never answered from rules), `model-router` (the routing table), `model-runner`, `model-cost`, `model-cache` (isolation between tenants), `model-strict-schema`, `model-use`, `model-budget`, `model-workflow`, `foundry-client`, `foundry-config` and `telemetry-model`, against `support/fake-foundry.ts` or a scripted double                                                                                                                                                                                                                                                                                                                                                              |
+| Participants                                | `participants-schema`, `participants-reader`, `participants-rules`, `participants-scaffold`, `participants-checks` (the catalogue of checks), `participants-model` and `participants-routes`; on the page, `frontend/src/scenes/map/review/*.test.ts(x)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Constraints                                 | `constraints-schema`, `constraints-discovery`, `constraints-hardness`, `constraints-situation`, `constraints-review`, `constraints-gate`, `constraints-engine` (each effect), `constraints-golden` (digests of whole runs with no constraints), `constraints-counterfactuals`, `constraints-critic` and `constraints-routes`; on the page, `frontend/src/scenes/map/constraints/*.test.ts(x)`                                                                                                                                                                                                                                                                                                                                                                                        |
+| The Decision Canvas                         | `decision-status` (every status, every boundary, precedence), `decision-lenses`, `decision-build` (the five worked examples through the real pipeline, labels, wording, completeness), `decision-labels` (the label table, row by row, against [the document](./analysis/decision-canvas.md)), `decision-routes` and `decision-export`; on the page, `frontend/src/scenes/decide/canvas/*.test.tsx`                                                                                                                                                                                                                                                                                                                                                                                  |
+| Telemetry, the guard and the documents      | `telemetry`, `telemetry-start`, `telemetry-product` (the product's recorders take enumerations and numbers only, and every metric name is in [the privacy page](./production/privacy-telemetry.md): a test reads it), `deployment.test.ts` (the deployment guard: the mode, the label, every rule against a baseline a hosted deployment accepts, and that a refusal repeats no credential or address) and `readme.test.ts` (every link, anchor and command in the documents, and what they may claim)                                                                                                                                                                                                                                                                               |
+| The AI evaluation                           | `evaluation/test/ai-*.test.ts` (`ai-datasets`, `ai-suite-datasets` (the planning, research-run and decision datasets), `ai-rules`, `ai-fake-foundry`, `ai-live`, `ai-measures` and `ai-measures-suites` (each metric against hand-computed values), `ai-plan`, `ai-research`, `ai-decision`, `ai-thresholds`) run the rules and fake-Foundry modes under `npm test`. They expect exactly the breaches listed in `evaluation/known-breaches.json`: a metric that breaches and is not listed fails, and so does a listed one that stops breaching. `npm run eval:ai` ignores the file, prints every breach and exits 1                                                                                                                                                                 |
+
+```text
+npx vitest run backend/test/research-*.test.ts
+npx vitest run backend/test/participants-*.test.ts backend/test/constraints-*.test.ts backend/test/decision-*.test.ts
+npx vitest run backend/test/model-*.test.ts backend/test/foundry-*.test.ts backend/test/deployment.test.ts
+npx vitest run evaluation/test
+```
+
+With `SWARM_TEST_DATABASE=pglite` every in-memory database in these files is a PostgreSQL one (PGlite);
+`npm run test:postgres` does that for the whole suite, and the research README
+([the commands](../backend/src/research/README.md#tests)) gives the files and the longer time limit its store and
+service tests need on PGlite.
 
 ## Mutation checks on security code
 
@@ -468,27 +502,45 @@ directory (never your own data):
   the settings menu, where the account lives, says "Signed in · Microsoft Entra" and offers to sign out.
 - **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), through its pages, so that it needs no
   model. The servers are the real application with throwaway data, so the project neither depends on nor
-  changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-two specs:
+  changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-eight specs:
+  - `ask-first-use.spec.ts`: the first-use task test. A person who has never seen the screen, and is told
+    nothing, wants to know what would happen if a harbour office doubled its fee. The first ten seconds say
+    what Swarm does, what to type, what it does by itself, why to trust it, and that it explores and does not
+    predict. One question reaches the start of research in three interactions with no documentation, and the
+    time to the first action is logged; it is done from the keyboard alone, from a cold load to the press that
+    asks, and asked with Ctrl+Enter and from the website field. A website is understood as a site or as a page,
+    a mistake is met with a hint and not with a refusal from the server, and the field is out of reach where
+    research is off and says why, with the switch. What the page claims follows what the server says it can do
+    (one more signal where constraints are kept); a step says what Swarm does and what the person controls when
+    it is pressed or reached by the arrows; the page is clean in each theme and at every size; it does not look
+    like a demonstration launcher (one link, after everything that matters); and a template fills the box to be
+    written over, and a question that is only the template is not read. Where the server researches the spec
+    runs against it end to end. Where it does not yet, the page is told that it does and the one call that makes
+    the project is answered with a project the server made from the same question, so that what is measured is
+    what the page sends and where it goes next.
   - `ask-composer.spec.ts`: the first ten seconds. Before a word is typed the page says in one heading
-    what Swarm is for, asks one question, offers every example as a chip that is a button and keeps the
-    responsible-use sentence in sight, and nothing on it claims to predict. A keyboard reaches the
+    what Swarm is for, asks one question, offers the templates as chips that are buttons and the sample
+    cases as one quiet link, and keeps the short line and the responsible-use sentence in sight, and
+    nothing on it claims to predict. A keyboard reaches the
     question and then what can be done with it, in reading order. The first press asks the server for
     nothing until the person asks, and for a model never unless told to. Nine characters are too few for
     a question and ten are enough; a pasted question over 2,000 characters is cut, not refused, and the
-    room left is shown only when it is nearly gone; a question with no source asks for one, and the
+    room left is shown only when it is nearly gone; a question with no source asks for one on a server that
+    does not research, and the
     request goes once one is attached. Ctrl+Enter explores and Enter alone adds a line. A slow reading
     puts the keyboard on **Stop** (the button or Escape returns it to the question) and a failed one on
     **Try again**; a question read again after it changed gives a new scenario. The project's name, the
-    size of its deep dive, the time frame and the assumptions are said before the question is read, are the
+    size of its deep dive, the time horizon, the place and the assumptions are said before the question is read, are the
     person's own in the scenario, and re-read it when they change. The mark and the first step of the
     journey lead to a new question and list the one that was left; Back and Forward move between the
     first screen and the exploration; a link that names a scene but no project opens the first screen;
     recent explorations open from the list, **All explorations** opens the history, and **Duplicate as a
     new question** brings back the question, the evidence and the settings and nothing that was run. On a
     phone every control is a 44 px target, nothing is cut off, the evidence menu, the options and the
-    sheets for the time frame and the assumptions fit, and focus never lands under the bar. axe-core
-    finds nothing on the empty screen, with an example loaded, with each way of adding evidence open,
-    with the options, a time frame and an assumption, and with a question that was refused.
+    advanced fields fit, the time horizon is a list, the assumptions open from the foot of the screen, and focus never lands under the bar. axe-core
+    finds nothing, in each theme, on the empty screen, with a sample case loaded, with each way of adding
+    evidence open, with the options, with the sample cases, a template, a step and the signals open, with the
+    advanced fields, a time horizon and an assumption said, and with a question that was refused.
   - `ask-evidence.spec.ts`: the three ways of bringing evidence in: files, pasted text and a public web
     page that the server fetches. A text file is read in the browser and sent nowhere; a table and a PDF
     are read by the server into text the person can read. What is refused is refused in words and
@@ -507,14 +559,19 @@ directory (never your own data):
     something or to instruct the analysis is only text; a page the person then changes is no longer
     called a retrieved page. The page half runs on the server with fixture pages (`E2E_LAB_WEB_URL`, see
     [the ports](#running-one-project-and-the-ports)), and all of it fits every size, in each theme, under axe.
-  - `ask-examples.spec.ts`: an example is a question and some evidence and nothing else; no scenario, no
-    stakeholders and no result come with one. Choosing one fills the composer with its question and
-    every one of its sources and says what came with it; the line that says so is dismissed with the
-    question and the sources kept; another example takes the place of the first and nothing of it stays;
-    a chip says what its example is about when it is pointed at or focused, and is chosen from the
-    keyboard. The fictional starter loads like any other and says that it is invented. Each example is
-    read into a scenario about its own question, and becomes a project whose sources are marked as
-    samples and which has no result.
+  - `ask-examples.spec.ts`: a sample case is a question and some evidence and nothing else; no scenario, no
+    stakeholders and no result come with one, and it is described as a sample case with invented evidence,
+    not as a recording. Choosing one fills the composer with its question and every one of its sources,
+    turns automatic research off, since it brings its own, and says what came with it; the line that says so
+    is dismissed with the question and the sources kept and the templates come back; another sample case
+    takes the place of the first and nothing of it stays; one changes what was written before it, and the
+    person can write over what it brought; it is chosen from the keyboard (Tab to the link, Enter, an arrow to
+    a case and Enter) and Escape closes the list and changes nothing. The fictional starter loads like any
+    other and says that it is invented. A template fills the box with a sentence to write over, selects its
+    first blank and brings no evidence and no figure; a question that is only the template is not read, and
+    the person is told which blank is left; **Custom** is the way to start from nothing. Each sample case is
+    read into a scenario about its own question, and becomes a project whose sources are marked as samples
+    and which has no result.
   - `ask-scenario-review.spec.ts`: the scenario Swarm reads from the question, laid out to be read and
     corrected before anything is made. It says how it was made, has stored nothing yet and claims
     nothing about the future. Every piece of text is edited where it stands (Enter keeps the edit, Escape
@@ -564,6 +621,31 @@ directory (never your own data):
     control large enough for a pointer and for a finger. The head of the page says when the sources are synthetic
     samples, beside the status and without taking more room than the status already does, and says nothing of
     sources that were supplied.
+  - `research-states.spec.ts`: automatic research in Ground in every state, on a stand-in for the server's
+    research (`e2e/support/research-fake.ts`), so that each state can be reached on purpose. A question being
+    researched goes through the six stages in order, each shown only when the run has reached it, with the
+    counters of the run; pause, resume and finish early follow the server each time, cancelling asks first, and
+    only what the server says a person may do is offered. A server that cannot be read is said so, and the page
+    keeps what was read. A project made from a question alone has its research started and not its evidence,
+    and Ground opens on the run. A search from a question alone that cannot go on says why in the server's
+    words, never searches on its own and keeps the manual ways open: naming a site or a page, pasting text
+    (sent as it was written, with a name and nothing else) or going back to the question. A run that failed
+    says so, with the last thing the run said as text; one that a person stopped keeps the pages that were read;
+    either starts again on one press. Every page says what
+    became of it in plain words, with the reason of each that was set aside, and none is judged; where it came
+    from opens in a popover that closes with Escape; markup in a title is shown as text and a script is no
+    link. Finished research in a project that has its sources is the record of how they were found, and is not
+    drawn at all where the server does not research. Every control is large enough for a pointer, on a phone
+    and with forced colours.
+  - `research-journey.spec.ts`: the same through the real application. The server of
+    `backend/test/support/research-e2e-server.ts` (rules mode, data in memory) reads a fixture web with the real
+    fetcher and the real crawler, robots.txt and extraction, and nothing leaves the machine; the spec starts it
+    on ports of its own ([the ports](#running-one-project-and-the-ports)) and is skipped where the server does
+    not research. A question and a site reach Ready with real sources, each page said in plain words and none
+    judged. A question alone says that it cannot look for sources, searches nothing and reads the page that a
+    person names; it goes on with text that a person pastes, which is read as it is and fetches nothing. A run
+    can be paused, let go on and finished early, and one cancelled after asking keeps the pages that were read
+    and can be done again with what was asked.
   - `map.spec.ts`: the Map scene on the stakeholders the server holds, never a number from a fixture.
     Before anything is found the page says what it will do, that no model is used and what its actors are.
     Finding them reads the text, one party for each stakeholder the engine found; every stakeholder that
@@ -588,6 +670,29 @@ directory (never your own data):
     question asks the same; a change that was saved or discarded is not asked about; on a phone the dock asks, and
     the strip and the sheet carry the unsaved changes with **Discard** and **Save**. The whole of it works
     without a pointer, with focus shown by a ring of at least 2 px.
+  - `map-participants.spec.ts`: the review of the participants Swarm proposes, through the real page: why
+    this list, which roles it covers, what stands in the way of using it, and what a person can do about each
+    participant. The page is checked against what the server holds, never against a number from a fixture, and
+    nothing here needs a model. Finding them proposes a checked list, says so on the map, and the notice opens
+    the review. Every card says what its place rests on, and a quotation it shows is in the sources; the roles
+    nobody holds are named and not filled to make the list look whole; the page is held to what the product says
+    of itself (no forecast). A generic name blocks the way on, the server refuses it, and mending it opens the
+    way; an older list found before participants existed keeps its map and its approval as they were. A person
+    accepts the ones chosen and then the rest, and the server holds what was accepted; two participants with one
+    name are caught and merging them keeps the trail; one is removed and brought back, and nothing is deleted;
+    one is added for a role nobody holds, as the person's own and with no evidence; **Ask why** says what the
+    server already holds. It can be done from the keyboard, with focus never left on nothing. Text addressed to
+    an AI system is flagged and appears nowhere in the participants. On a phone the review fits, every control
+    is reachable and the one way on stays whole.
+  - `constraints.spec.ts`: the Constraints view of the Map, through the real page, in rules mode: what the
+    sources say limits the decision, as the server holds it, never a figure from a fixture. It starts empty and
+    honest, then shows each constraint with where it came from, and an inference never as a fact; it puts at
+    most three questions at a time, with four things to do about each, and keeps an unknown unknown. A
+    comparison is refused while the constraints are unsettled, in words that say what to do, and runs
+    provisionally once they have been reviewed. A person adds a constraint of their own, with what the
+    simulation does about it, and sees it applied; the views of the proposed change run, each with what moved it,
+    and one that was not run says why. On a phone every part stays inside the screen and every control has a
+    name.
   - `map-responsive.spec.ts`: the Map at every size, in each theme: no sideways scroll, text that
     reads, parties in view and clear of what floats over them, and targets that can be reached (by a
     finger on a phone). The detail of a party is a panel beside the map where there is room, and a
@@ -678,6 +783,20 @@ directory (never your own data):
     offers to set up the comparison; and every tab of a finished run (Setup, Run, Rounds and Memory) and the
     sheet that branches it pass axe, fit and are made for a finger or a pointer at a desktop, a tablet and a
     phone.
+  - `decide-canvas.spec.ts`: the Decision view, the first viewport of the Decide scene, in rules mode, with no
+    model. At 1440 by 900 it shows the nine things in the order a decision is read, answer first, and keeps all
+    nine when every part of the picture is full; says nothing the product may not say and no figure without what
+    it is a figure of; has one level-one heading, the nine as level-two headings and the full report beneath it,
+    one press away; explains what the labels mean in a popover for the pointer and in the page for everyone; and
+    opens what lies behind the status when asked. Each of the six statuses is said in words with what it means.
+    On a phone the answer comes first, the other seven fold in the same order and every control is a finger
+    wide. Where there is no picture to show it says what is missing and offers the step that supplies it, says
+    that a comparison is running and that the last one did not finish, says when it cannot be read and keeps the
+    way to try again, and says that it describes the project as it was once what it was made from has changed.
+    On paper it opens on the decision view with every detail open and no control that serves the screen. It is
+    clean under axe in both themes with every detail open. A picture that cannot be made from a real project (a
+    blocked decision, an insufficient one) is served to the page by the route it asks, from the fixtures of the
+    page's own tests.
   - `report-page.spec.ts`: the decision brief as a page, with the answer first and the reference closed
     until it is wanted. It opens on what happened, why, what matters and what to consider next, and says
     that none of it is a forecast. The five reference chapters are closed and still in the page; a chapter
@@ -764,6 +883,11 @@ which is how two runs on one machine, or a run beside your own server, avoid eac
 `E2E_LAB_WEB_URL` and `E2E_LAB_WEB_FIXTURE_URL` are worked out from the two ports above for the workers (the
 two specs that use the web of fixture pages read them), and you do not set them.
 
+`research-journey.spec.ts` is the one spec that starts a server of its own rather than taking one from the
+configuration: the application on `E2E_LAB_RESEARCH_PORT` (3119) and its fixture web on
+`E2E_LAB_RESEARCH_FIXTURE_PORT` (3120), serving the built page unless `E2E_LAB_RESEARCH_PAGE_URL` names a
+development server that proxies to it. Move them as you would the ports above when another run may hold them.
+
 ```powershell
 npm.cmd run build   # the servers run the built output in dist/
 $env:E2E_LOCAL_PORT = 3280; $env:E2E_MODEL_PORT = 3281; $env:E2E_JOURNEY_PORT = 3282
@@ -848,7 +972,9 @@ for diagnosis; the container CI removes its own container in all cases.
 
 Moved here from the README. Each row is something a person can do in the console's engine stages,
 with the tests that exercise it. A capability is listed only if a test drives it. The lab's own tests
-are in [The scenario lab](#the-scenario-lab) above, and what is not built is in
+are in [The scenario lab](#the-scenario-lab) above, those of the subsystems added for the pilot are in
+[Research, models, participants, constraints, the Decision Canvas and the
+guard](#research-models-participants-constraints-the-decision-canvas-and-the-guard), and what is not built is in
 [ARCHITECTURE.md](../ARCHITECTURE.md#known-limitations).
 
 | Capability                             | What you can do                                                                                                                                                                                                                                                                       | Exercised by                                                                                                                                                                                                                                 |
@@ -883,6 +1009,17 @@ from earlier trees, with their dates where they have one: the interface was rebu
 exercise except the presentation against a real model (see its row). Re-run the commands for today's result; none of this shows
 that a model's output is correct, that any scenario predicts the real world, that a manual screen-reader review has been done (it
 has not), that sign-in works against a real Entra tenant, or that Swarm is ready for production.
+
+**What exists now, counted and not run.** The tree has grown since the run these rows record. On 2026-11-03, on
+the tree of `dde338d` (the integration branch, which includes the research surface in Ground and the second
+phase of the AI evaluation; the documents change no test), `npx vitest list` collects **7,887 tests in 325 files**
+(backend 5,524, frontend 1,639, scripts 478, evaluation 246), where the recorded run had 5,065 in 230. That is
+a count of what exists, **not a result**: it says nothing about how many pass. The work added since (automatic
+research, participants, constraints, the Decision Canvas, the Foundry provider, the deployment guard, the AI
+evaluation and the infrastructure checks) has no row below, and the unit suite, the browser projects, the PostgreSQL
+suite and the mutation checks have not been re-run for this document. The AI evaluation has its own dated results, in
+[`evaluation/results/ai-latest.md`](../evaluation/results/ai-latest.md) (2026-11-03): six thresholds breached, and the
+live mode not measured.
 
 <!-- TEST COUNTS: the rows npm run check, format:check, test:e2e, test:postgres, mutation:security, npm audit, scan:secrets and audit:ui hold the recorded results of the full run on the tree named in them. Replace them after the next full run, and say which tree and date. -->
 

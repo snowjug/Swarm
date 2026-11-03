@@ -1,8 +1,11 @@
 # 0009. PostgreSQL through a synchronous bridge
 
 Status: Accepted. Built, and tested against PostgreSQL running in-process (PGlite) and over the
-PostgreSQL wire protocol with the real `pg` driver. **Not run against a deployed Azure PostgreSQL
-server**, so TLS, Microsoft Entra authentication and behaviour under a real network are untested.
+PostgreSQL wire protocol with the real `pg` driver; the race tests and the measurements of
+[docs/production/database.md](../production/database.md) also ran against a PostgreSQL 16.15 server in a
+container (the measurements over TLS, with a certificate that was verified). **Not run against a deployed
+Azure PostgreSQL server**, so Microsoft Entra authentication, Azure's own TLS settings and behaviour under a
+real network are untested.
 It carries out the intent of [0006](./0006-postgres-adapter-proposed.md) by a cheaper route, and
 changes one of its decisions (the asynchronous interface) for a reason stated below.
 
@@ -54,17 +57,28 @@ asynchronous interface buys.
 - **The process blocks for the length of every query.** One process serves one query at a time, so a
   slow database slows every request, and a call that never returns blocks until the bridge times out
   (30 seconds of statement time, plus five). This suits a pilot of a handful of people; it does not
-  suit load. Making the stores asynchronous remains the right follow-up, and `SqlDatabase` is the
+  suit load. Measured on a busy shared machine, with the database in a container beside it, one process
+  opens about 10 projects a second when each round trip takes 2 ms more and about 2 a second when it takes
+  20 ms more, because opening one takes 12 round trips ([the numbers and how far to trust
+  them](../production/database.md#5-measurements-noisy-shared-vm)). Making the stores asynchronous remains the right follow-up, and `SqlDatabase` is the
   seam where it would start.
 - **A dead worker is not noticed until a call times out.** The bridge then marks itself broken and
   every later call fails at once with `STORAGE_UNAVAILABLE`; the readiness probe reports it and the
   container should be restarted.
 - **No row-level security yet.** Tenant isolation is still in application code. The tables are
   where a second layer would go.
-- **Concurrency across instances is argued, not measured.** The tests prove that a lost race is
-  retried and that the SQL runs on PostgreSQL; they cannot start two real connections against
-  PGlite, so the behaviour of two instances against one server is validated only by reasoning until a
-  server exists.
+- **Concurrency across instances was argued and is now measured, for five rules, on a container and not on
+  Azure.** The first version of this record said that the tests proved only that a lost race is retried and
+  that the SQL runs on PostgreSQL, and that two instances against one server were validated by reasoning.
+  `backend/test/concurrency.test.ts` now races four writers on one revision of one document, on creating one
+  document, on the last place under the project limit, on twelve queued jobs and on extending the audit
+  chain, and asserts every writer's outcome: SQLite with a connection for each writer, and a real PostgreSQL
+  16.15 server when `SWARM_TEST_POSTGRES_URL` names one (PGlite has one connection, so its writers take
+  turns). It found two defects, both fixed: the project limit was counted outside the transaction that
+  inserts, and two writers creating one document at once failed one of them with a raw unique violation on
+  PostgreSQL. Not shown: more than four writers, writers for long, the rolling start of two processes that
+  both migrate, or anything against a deployed server. The rate limiter and the other in-memory state are
+  still per process ([the measurements](../production/database.md#7-concurrency-what-the-race-tests-show)).
 - **Whole numbers are BIGINT.** Timestamps stay text, so the stores convert nothing.
 - **No soft-delete or retention columns yet,** and no optimistic-concurrency version on a project:
   a project's read-modify-write is one serializable transaction instead.
@@ -77,7 +91,10 @@ numeric ordering, aliases, rollback, the append-only triggers, a unique violatio
 `backend/test/postgres-driver.test.ts` runs the repository through the real `pg` driver against a
 PGlite server in another process. `backend/test/copy.test.ts` copies both ways and checks equality
 of every table, the audit chain and its next entry, refusal of a non-empty destination and of a
-tampered source, and rollback of a copy that fails. **`npm run test:postgres` runs the entire unit
+tampered source, and rollback of a copy that fails. `backend/test/concurrency.test.ts` races four writers
+on five rules (above), and [docs/production/database.md](../production/database.md) has the round trips of
+a request, the timeouts and the measurements, each marked as taken on a noisy shared machine and not on
+Azure. **`npm run test:postgres` runs the entire unit
 suite with every in-memory database made a PostgreSQL one**; it passes in full, and CI runs it as its
 own job. Mutation results for these rules are in
 [the test guide](../TESTING.md#mutation-checks-on-security-code).

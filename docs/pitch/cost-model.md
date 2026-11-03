@@ -47,7 +47,10 @@ model's latency varied.
 
 Estimated in [the hosted pilot cost](../azure/pilot-cost.md): about **US$31 to US$61 a month** at list prices in East US 2
 (a container app, a PostgreSQL server, a registry and logging, plus model usage), dominated by the two always-on
-components, not by model usage, as expected here. A three-day demonstration then deleting everything costs about
+components, not by model usage, as expected here. That page is superseded in part by [the pre-flight cost
+plan](../production/azure-preflight.md), which re-read the prices on 3 November 2026 for Central India and East US 2
+and adds the alert rules, the budget and the rest of what the template now creates: where they differ, read that
+page. A three-day demonstration then deleting everything costs about
 US$2.40. It is a list-price estimate for a template that exists (`infra/pilot`) but has **not been deployed**: no
 chargeable resource was created for this program, and creating them needs the approval in that document.
 

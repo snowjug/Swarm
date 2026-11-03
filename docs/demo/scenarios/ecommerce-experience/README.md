@@ -8,7 +8,7 @@ depends on delivery speed, a one-page checkout and a paid membership. The eviden
 documents, and a public sandbox page can be added as a fifth, to try the real address input. The
 shop, its customers, its competitors and every figure are invented.
 
-Back to the [example scenarios](../README.md). The text the example chip loads is in
+Back to the [example scenarios](../README.md). The text the sample case loads is in
 [`shared/examples/ecommerce-experience.ts`](../../../../shared/examples/ecommerce-experience.ts), and
 the files in this folder are readable copies of it.
 
@@ -85,8 +85,8 @@ asks for an account.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** First screen, then the **Online store checkout** chip under **Start
-from an example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict
+**0:00 Choose the example (30 s).** First screen, then **Try a sample case** in the foot and **Online store
+checkout**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict
 real-world behavior. This is an invented online bookshop and invented evidence, and each document says
 so." Point at the question and at the evidence: the count on **Evidence** and the four documents in the
 tray, each a sample (open one: "Sample evidence: invented, describes no real case"; in Ground it

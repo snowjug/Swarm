@@ -440,6 +440,27 @@ analysis, the stakeholders, the actors or the brief.
 - **Audit.** `critiques.run` (counts, and whether a model was asked for and failed) and `critique.responded`
   (the critique's id, its role and the status).
 
+### Decision view
+
+`GET /api/projects/:id/decision` (needs `read`; 120 a minute) is the Decision Canvas, the answer-first picture of the
+decision that the Decide scene shows first. It is worked out from what the project already holds at every read and
+stores nothing, so it is never older than what it describes, and, since it changes nothing, it records nothing in the
+audit log. No model writes any of it. The status rules, the four lenses and the epistemic labels are in
+[analysis/decision-canvas.md](./analysis/decision-canvas.md).
+
+- **Answer.** `{ "canvas": DecisionCanvas | null, "readiness": { "state", "missing", "next", "status" },
+"may": { "run", "export" } }` (`DecisionView` in [shared/decision.ts](../shared/decision.ts)). `canvas` is `null` while
+  there is no finished comparison; `readiness.state` is `ready`, `no-analysis`, `running` or `failed`, `missing` says what
+  is lacking in words, `next` names the step that supplies it (`ask`, `ground`, `map` or `simulate`) and `status` is where
+  the status rules land without a canvas: always `insufficient-evidence`, with the reason.
+- **The canvas.** It holds exactly one of six `status` values (`robust-option`, `conditional-option`,
+  `multiple-plausible-options`, `needs-human-decision`, `blocked-by-hard-constraint`, `insufficient-evidence`), the
+  options with their lenses, the recommendation with the parts it must state (for whom, under which assumptions and
+  constraints, what supports it, what weakens it, what would invalidate it, what to test next) or a sentence for each
+  part that is missing, the evidence reading, the constraints and counterfactual views it rests on, the independent
+  review, the validation plan and `freshness` (the comparison it was made from and whether anything has changed
+  since). Every generated statement carries one epistemic label.
+
 ### Decision brief
 
 The brief is assembled by rules from the project's scenario, stakeholders, actors, comparison, critiques and
@@ -460,14 +481,14 @@ needs `export`.
   kept with it, so it agrees with the brief's own words (`visualsFrom: "snapshot"`); a brief stored before
   that was kept has it worked out from the project's documents as they are (`"current"`). `changedSince`
   names what changed after the brief was made or after the comparison it rests on was run, and is empty when
-  it is current: `scenario`, `stakeholders` and `actors` are checked against the revisions the comparison
+  it is current: `scenario`, `stakeholders`, `actors` and `constraints` are checked against the revisions the comparison
   recorded (`analysis.inputRevisions`), so writing the brief again from an old comparison does not clear
   them; `critiques`, `analysis`, `analysis (no longer stored)` and `a newer analysis exists` are checked
   against the brief itself. A comparison saved before it recorded what it was made from adds
   `what the comparison was made from was not recorded`, which does not clear.
 - **Writing.** `POST .../brief` takes `{ "analysisId"?: string }` (20 a minute), uses the newest finished
   comparison unless one is named, replaces any earlier brief and answers 201 with the view. A comparison that
-  was run before the scenario, the stakeholders or the actors changed is still written from, and the brief
+  was run before the scenario, the stakeholders, the actors or the constraints changed is still written from, and the brief
   says so in its methodology notes. Refusals:
   `409 NO_ANALYSIS`, `409 ANALYSIS_NOT_COMPLETED`, `409 ANALYSIS_EMPTY`, `404 ANALYSIS_NOT_FOUND`.
 - **Exporting.** `GET .../brief/export?format=md|json|html` (20 a minute; `md` is the default) answers a

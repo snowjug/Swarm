@@ -32,11 +32,23 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   actors whose every trait says where it came from, repeated seeded runs of a rules engine with
   findings, 95% intervals and one-at-a-time sensitivity, seven independent critics that never edit,
   and an answer-first decision brief whose statements carry one of ten origins, with recommendations
-  and a validation plan. One public web page can be read as evidence, under an address policy. It runs
+  and a validation plan. One public web page can be read as evidence, under an address policy, and
+  automatic research reads a page or a site that a person names, and what it links to, through the same
+  fetcher and within a budget (it has no search provider, so a question alone gives it nothing to read). It runs
   in rules mode with no model; all five worked examples and a question that none of them knows go
   through it end to end in a test, and the three flagship examples and a question of its own go through
   the pages in a real browser, with the public pages served from fixtures. None of it has been compared
   with what really happened.
+- Around that path: participants proposed as a checked list (23 checks, 15 of which block the list until
+  they are mended) that a person reviews and approves; constraints read from the sources and the question,
+  reviewed by a person, with a coverage gate (clear, provisional, blocked) that can refuse to start a
+  comparison, and eight kinds of effect applied to the simulation; and a Decision Canvas, derived at every
+  read, with one of six statuses, four lenses, no objective of its own and eight epistemic labels
+  ([constraints](../analysis/constraints.md), [the canvas](../analysis/decision-canvas.md)).
+- One policy for what a model's reply may become (checked, corrected once, then the rules' answer, and a
+  refusal never answered by rules), a Foundry provider on the Azure OpenAI-compatible v1 API with Entra, and a
+  guard that refuses an unsafe hosted start (`DEPLOYMENT_MODE`). Tested against an in-process fake; nothing of it
+  has met Azure ([models](../models/foundry.md), [production status](../production/README.md)).
 - Light, dark and high-contrast themes that follow the device until a choice is made; the contrast of
   the colour tokens is computed in each theme, and axe-core is run in a real browser (see
   [TESTING.md](../TESTING.md) for what, at which sizes and in which themes).
@@ -49,6 +61,14 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 
 ## Built with limits
 
+- **Automatic research** has run only against fixture sites on loopback, a fake network on a virtual clock and
+  scripted models, never against the real web. Which pages are better is an estimate from the kind of site and
+  the wording, not a judgement that a page is right. A question alone cannot be researched.
+- **The AI evaluation** (`npm run eval:ai`) holds six pre-registered thresholds that are still breached, listed in
+  `evaluation/known-breaches.json`: in rules mode participant coverage (67.1% against 90%), hard-constraint recall
+  (75.5% against 80%), an instruction in a question that reaches the research plan, and the recommendation card's
+  list of missing parts; in fake-Foundry mode a corrupted model plan accepted and the same instruction reaching
+  the plan. Its live mode, against a real model, has not been run ([evaluation](../production/evaluation.md)).
 - **Conflict detection** found 1 of 3 labelled conflicts, with no false alarm on that set. It raises
   false alarms on some real material (two surveys of different groups) and misses conflicts of
   meaning. A person confirms or dismisses every candidate.
@@ -73,8 +93,11 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 
 ## Not built
 
+- A search provider: research from a question alone ends `blocked`, and the person names a page or a site, or
+  adds sources of their own.
 - Anything deployed in Azure beyond the model: no host, no database server, no monitoring resource,
-  no dashboards or alerts (written, not created).
+  no dashboards or alerts (written, not created). The Bicep for the pilot was compiled and checked offline,
+  and its release, rollback and restore drills have not been run.
 
 - Historical backtesting of the lab's results, a model run repeated many times (a model's run-to-run
   variation is unmeasured), Word or slide exports of the brief, and hosted execution of long analyses.

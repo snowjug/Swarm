@@ -50,9 +50,10 @@ commit, push, verify local HEAD equals remote HEAD).
 
 ## Design decisions
 
-- **Artifacts, not tables.** Research runs, constraints and the decision canvas are artifacts of their project (`shared/artifacts.ts`), so they are stored, revisioned
+- **Artifacts, not tables.** Research runs and constraints (with their counterfactual views) are artifacts of their project (`shared/artifacts.ts`), so they are stored, revisioned
   (`expectedRevision`), tenant-isolated and deleted with the project, on both storage engines, with no schema migration. The artifact store's 2 MB bound is respected by bounded
-  schemas (≤80 sources, ≤80 events, ≤600 passage locations).
+  schemas (≤80 sources, ≤80 events, ≤600 passage locations). The plan also listed the decision canvas here; **as built it is not stored**: it is derived at every read
+  ([ADR 0023](../adr/0023-the-decision-canvas-is-derived.md)).
 - **Research feeds the existing evidence path.** Accepted pages become project documents (≤10, ≤40,000 chars each — existing limits) with `SourceProvenance`; the existing chunker produces
   the passages Ground already consumes; the run artifact adds what a chunk does not keep (heading path, kind, source record, robots decision, quarantine, warnings). Pages that were read
   but not selected are listed with the reason; nothing is hidden.

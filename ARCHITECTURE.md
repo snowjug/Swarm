@@ -5,10 +5,13 @@ React interface and a Fastify API over one validated store: a SQLite file by def
 Two engines share the project and its evidence:
 
 - **The scenario lab** (this build, [ADR 0014](./docs/adr/0014-scenario-lab.md)): a path from a
-  question to a decision brief. It reads the question into a scenario, finds stakeholders in the
-  evidence, makes synthetic actors, runs a pure seeded population simulator many times for a baseline
-  and its alternatives, reports what held across the runs, lets critics challenge the analysis and
-  writes a brief with recommendations and a validation plan.
+  question to a decision. It reads the question into a scenario, reads the sources a person attaches or the
+  site or page a person names (it has no search provider, so it cannot find sources from a question alone),
+  proposes the participants of the decision and what constrains it, makes
+  synthetic actors, runs a pure seeded population simulator many times for a baseline and its alternatives,
+  reports what held across the runs, lets critics challenge the analysis and writes a Decision Canvas and a
+  brief with recommendations and a validation plan. People review and approve the setup before anything is
+  simulated.
 - **The deep dive**: the original five-stage agent workflow (graph, environment, simulation, report,
   interaction) with fictional proxies, optional model-driven decisions, pause, intervention, branching,
   the evidence ledger, a grounded report, chat and Report Studio.
@@ -20,6 +23,10 @@ industry; the example scenarios are only a question and some synthetic documents
 | To learn about                  | Read                                                                                                                                                                                                          |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The lab, end to end             | [The scenario lab flow](#the-scenario-lab-flow) below, then the per-feature pages in [docs/analysis/](./docs/analysis/engine.md), [intake](./docs/scenario-intake.md), [stakeholders](./docs/stakeholders.md) |
+| Automatic research              | [Automatic research](#automatic-research) below and [backend/src/research/README.md](./backend/src/research/README.md)                                                                                        |
+| Constraints and the decision    | [Constraints and the engine](#constraints-and-the-engine), [The Decision Canvas](#the-decision-canvas), [constraints](./docs/analysis/constraints.md), [the canvas](./docs/analysis/decision-canvas.md)       |
+| Model calls                     | [Model tasks](#model-tasks-one-output-policy-a-router-and-the-foundry-provider) and [docs/models/foundry.md](./docs/models/foundry.md)                                                                        |
+| Hosting, telemetry, the guard   | [Hosting and operations](#hosting-and-operations-authored-not-deployed) and [docs/production/](./docs/production/README.md)                                                                                   |
 | The system as a whole           | [System diagram](#system-diagram) and [Implemented module boundaries](#implemented-module-boundaries)                                                                                                         |
 | The deep dive                   | [The five stages](#the-five-stages-of-the-deep-dive), [Local components](#local-components) and [Checkpoints, pause/resume, branching and comparison](#checkpoints-pauseresume-branching-and-comparison)      |
 | The interface                   | [How the interface carries it](#how-the-interface-carries-it), [docs/UX.md](./docs/UX.md) and [ADR 0015](./docs/adr/0015-premium-interface.md)                                                                |
@@ -31,42 +38,55 @@ industry; the example scenarios are only a question and some synthetic documents
 
 ```mermaid
 flowchart LR
-    Q["Question and evidence<br/>files, pasted text, a public page"] --> S["Scenario frame<br/>scenario/"]
-    S --> K["Stakeholders<br/>stakeholders/"]
+    Q["Question and sources<br/>files, pasted text, a public page"] --> S["Scenario frame<br/>scenario/"]
+    S --> G["Grounding<br/>passages and conflicts;<br/>research/ reads a named page or site when asked"]
+    G --> K["Participants<br/>stakeholders/"]
     K --> A["Actors<br/>key actors and cohorts"]
-    A --> R["Repeated seeded runs<br/>simulation/ and analysis/"]
+    A --> CN["Constraints<br/>constraints/"]
+    CN --> R["Repeated seeded runs<br/>simulation/ and analysis/"]
     R --> C["Independent critics<br/>critics/"]
+    R --> D["Decision Canvas<br/>decision/ (derived)"]
     R --> B["Decision brief<br/>brief/"]
     C --> B
+    C --> D
     B --> V["Recommendations and<br/>validation plan"]
+    D --> V
 ```
 
 Each box that keeps a result keeps it as one validated JSON document of the project (an _artifact_,
-below). Every route is in [docs/API.md](./docs/API.md); `backend/src/auth/policy.ts` says who may call
+below); the Decision Canvas keeps nothing, because it is worked out at every read. Research is the first
+phase of grounding a project, and a person can add sources of their own beside it or instead of it. Every route is in
+[docs/API.md](./docs/API.md); `backend/src/auth/policy.ts` says who may call
 each one, and `auth/audit-policy.ts` what it records (counts and identifiers, never a question, a
 quote or a name).
 
-| Step                 | Code (`backend/src/`)                                                                                   | Contract (`shared/`)                           | Kept as artifact                  | Rules path                                                                                                                                                                         | Model path (optional)                                                                                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Question to scenario | `scenario/` (`parse`, `rules`, `model`), `routes/scenario.ts`                                           | `scenario.ts`                                  | `scenario`                        | Patterns: an if or when clause, verbs of change, amounts, places, spans of time, named groups                                                                                      | Only when the person chose a model (`useModel`: a Model assisted project) and the server has one: one validated reading, at most two repairs, 170 seconds; if it fails or runs out of time the rules read it and a note says why |
-| Evidence             | `ingest/url/` (`extract`, `boilerplate`), `ingest/pdf.ts`, `knowledge/`, `routes/evidence.ts`           | `scenario.ts` (provenance), `types.ts`         | none (the project)                | Files, pasted text, text PDFs, and one public page fetched by the server (its own text, without its menus and footers); numbered passages                                          | None of its own. Fetched text is untrusted data wherever a model sees it                                                                                                                                                         |
-| Stakeholders         | `stakeholders/` (`discover`, `rules`, `mentions`, `tone`, `review`), `routes/stakeholders.ts`           | `stakeholders.ts`                              | `stakeholders`                    | A generic role lexicon read over the passages (a menu, a list of names or a row of links is not read as a sentence), cited verbatim quotes, a tone reading for direction of impact | Only for a Model assisted project: one validated call (170 seconds), every quote checked against its passage; on failure the text is read instead                                                                                |
-| Actors               | `stakeholders/actors.ts`, `priors.ts`                                                                   | `stakeholders.ts`                              | `actors`                          | A key actor for each key stakeholder, a cohort for the rest, every trait from a documented category prior                                                                          | Only for a Model assisted project: optional reading of each key actor against the evidence; failures leave the priors                                                                                                            |
-| One simulated run    | `simulation/` (`simulate`, `dynamics`, `responders`, `signals`, `response`)                             | `analysis.ts`                                  | none (pure)                       | The only engine here: a seeded, deterministic update of every member's stance each round, with generic responders reacting to aggregate signals                                    | None. A model never decides an actor's behaviour in the repeated runs                                                                                                                                                            |
-| Comparison           | `analysis/` (`service`, `runset`, `variants`, `findings`, `sensitivity`, `stats`), `routes/analysis.ts` | `analysis.ts`, `analysis-plan.ts`, `signal.ts` | `analysis` (one for each run set) | Baseline, proposed change and each alternative, on the same seeds; findings with Wilson intervals; one-at-a-time sensitivity                                                       | None                                                                                                                                                                                                                             |
-| Independent review   | `critics/` (seven critics), `routes/critiques.ts`                                                       | `critique.ts`                                  | `critiques`                       | Fixed rules over the scenario, stakeholders, actors, analysis and brief                                                                                                            | Only for a Model assisted project (`409 MODEL_NOT_AVAILABLE` otherwise): an optional digest sent to a model for extra objections, validated, 170 seconds; it can add and never edit                                              |
-| Decision brief       | `brief/` (`build`, `sections-*`, `recommend`, `export`), `routes/brief.ts`                              | `brief.ts`                                     | `brief`                           | Assembled from the other artifacts: 17 sections, every statement with one of ten origins and its references                                                                        | None. `generatedBy` is `rules`                                                                                                                                                                                                   |
-| Progress             | `lab/progress.ts`                                                                                       | `lab.ts`                                       | read, not kept                    | A summary of which artifacts exist, added to `GET /api/projects/:id` as `lab`                                                                                                      | None                                                                                                                                                                                                                             |
+| Step                 | Code (`backend/src/`)                                                                                          | Contract (`shared/`)                           | Kept as artifact                            | Rules path                                                                                                                                                                                                                                     | Model path (optional)                                                                                                                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Question to scenario | `scenario/` (`parse`, `rules`, `model`), `routes/scenario.ts`                                                  | `scenario.ts`                                  | `scenario`                                  | Patterns: an if or when clause, verbs of change, amounts, places, spans of time, named groups                                                                                                                                                  | Only when the person chose a model (`useModel`: a Model assisted project) and the server has one: one validated reading, at most two repairs, 170 seconds; if it fails or runs out of time the rules read it and a note says why |
+| Evidence             | `ingest/url/` (`extract`, `boilerplate`), `ingest/pdf.ts`, `knowledge/`, `routes/evidence.ts`                  | `scenario.ts` (provenance), `types.ts`         | none (the project)                          | Files, pasted text, text PDFs, one public page fetched by the server (its own text, without its menus and footers) and the pages a research run chose (below); numbered passages                                                               | None of its own. Fetched text is untrusted data wherever a model sees it                                                                                                                                                         |
+| Research (optional)  | `research/` (`crawler/`, `extract/`, `plan`, `select`, `run`, `service`), `routes/research.ts`                 | `research.ts`                                  | `research` (one for each run)               | A rules plan; a budgeted, best-first, deterministic crawl of the pages and sites a person names and what they link to; the choice of up to ten sources; the project's conflict check                                                           | Only for a Model assisted project and a run whose cost limit is above zero: the plan of what to look for, through the task runner. Which pages are fetched is never the model's                                                  |
+| Stakeholders         | `stakeholders/` (`discover`, `rules`, `mentions`, `tone`, `review`, `participants/`), `routes/stakeholders.ts` | `stakeholders.ts`                              | `stakeholders`                              | Participants: the groups the sources spell out, a marked scaffold of what a decision structurally has, held to a catalogue of checks (some blocking) before the set may be used; the older discovery (role lexicon, cited quotes, tone) stands | Only for a Model assisted project: a strict `ProposedParticipants` reply under the output policy, every quote checked against its passage; on failure the rules propose, and the set says so                                     |
+| Actors               | `stakeholders/actors.ts`, `priors.ts`                                                                          | `stakeholders.ts`                              | `actors`                                    | A key actor for each key stakeholder, a cohort for the rest, every trait from a documented category prior                                                                                                                                      | Only for a Model assisted project: optional reading of each key actor against the evidence; failures leave the priors                                                                                                            |
+| Constraints          | `constraints/`, `simulation/constraints.ts`, `routes/constraints.ts`                                           | `constraints.ts`, `constraint-effects.ts`      | `constraints`, `constraint-counterfactuals` | Limits read from the question, the scenario, the sources and the cast; hardness read from what a clause asserts; a coverage gate; eight kinds of effect applied to the runs, the rest read and labelled; seven counterfactual views            | Only when asked, for a project that has a model: a strict reply under the output policy; a model's "hard" is a suggestion that the server raises only where the quoted words bear it out                                         |
+| One simulated run    | `simulation/` (`simulate`, `dynamics`, `responders`, `signals`, `response`)                                    | `analysis.ts`                                  | none (pure)                                 | The only engine here: a seeded, deterministic update of every member's stance each round, with generic responders reacting to aggregate signals                                                                                                | None. A model never decides an actor's behaviour in the repeated runs                                                                                                                                                            |
+| Comparison           | `analysis/` (`service`, `runset`, `variants`, `findings`, `sensitivity`, `stats`), `routes/analysis.ts`        | `analysis.ts`, `analysis-plan.ts`, `signal.ts` | `analysis` (one for each run set)           | Baseline, proposed change and each alternative, on the same seeds; findings with Wilson intervals; one-at-a-time sensitivity                                                                                                                   | None                                                                                                                                                                                                                             |
+| Independent review   | `critics/` (seven critics), `routes/critiques.ts`                                                              | `critique.ts`                                  | `critiques`                                 | Fixed rules over the scenario, stakeholders, actors, analysis and brief                                                                                                                                                                        | Only for a Model assisted project (`409 MODEL_NOT_AVAILABLE` otherwise): an optional digest sent to a model for extra objections, validated, 170 seconds; it can add and never edit                                              |
+| Decision brief       | `brief/` (`build`, `sections-*`, `recommend`, `export`), `routes/brief.ts`                                     | `brief.ts`                                     | `brief`                                     | Assembled from the other artifacts: 17 sections, every statement with one of ten origins and its references                                                                                                                                    | None. `generatedBy` is `rules`                                                                                                                                                                                                   |
+| Decision Canvas      | `decision/`, `routes/decision.ts`                                                                              | `decision.ts`                                  | none (derived at every read)                | One of six statuses, four named lenses and eight epistemic labels, worked out from the stored comparison, constraints, review and evidence; no objective function                                                                              | None. No model writes any of it                                                                                                                                                                                                  |
+| Progress             | `lab/progress.ts`                                                                                              | `lab.ts`                                       | read, not kept                              | A summary of which artifacts exist, added to `GET /api/projects/:id` as `lab`                                                                                                                                                                  | None                                                                                                                                                                                                                             |
 
 ### The artifact store
 
 Everything a project carries beyond its own record is a row of `project_artifacts` (project, kind, key,
 revision, payload, created and updated times), made by migration 9 on both dialects. A kind is a zod
 schema in `shared/artifacts.ts`; the code that owns the kind writes it and every read and write is
-checked against the schema, so a new kind needs a schema and no new table. `scenario`, `stakeholders`,
-`actors`, `critiques` and `brief` have one document, under the key `default`; `analysis` has one for each
-run set, keyed by its id, and a project keeps the newest twelve (never the one that the brief or the review
-was made from). A write may carry the revision it was
+checked against the schema, so a new kind needs a schema and no new table: research, constraints and their
+counterfactuals were added as kinds, with no table of their own. `scenario`, `stakeholders`, `actors`,
+`constraints`, `constraint-counterfactuals`, `critiques` and `brief` have one document, under the key
+`default`; `research` has one for each run, keyed by the run's id, so a project may hold several;
+`analysis` has one for each run set, keyed by its id, and a project keeps the newest twelve (never the one
+that the brief or the review was made from). The Decision Canvas is not an artifact: it is worked out from
+these at every read ([The Decision Canvas](#the-decision-canvas)). A write may carry the revision it was
 made from, and a stale writer is refused with `409 ARTIFACT_CONFLICT` instead of overwriting. A
 document may not exceed 2,000,000 bytes. Artifacts go when their project does (a foreign key with
 cascade), a branch copies the `scenario`, and `project_artifacts` is one of the tables that
@@ -88,16 +108,73 @@ is "not found") is recorded as `evidence.url.refused` with the host asked for an
 or query. The server remembers each page it
 fetched for one person for an hour (`FetchRegistry`), and a project created later keeps the claim
 `fetchedByServer` only for exactly that text and person. Every rule, and the test for it, is in
-[docs/security/url-ingestion.md](./docs/security/url-ingestion.md).
+[docs/security/url-ingestion.md](./docs/security/url-ingestion.md). This is the only code that fetches a
+web page: automatic research ([below](#automatic-research)) reads through the same fetcher, so the same
+refusals apply to it.
+
+### Automatic research
+
+A person may start the lab from a question alone, or from a question and a page or a site to start from, and
+let the server read what is named and what it links to; a question alone gives it nothing to read (see "What
+it does not do" below). [backend/src/research/README.md](./backend/src/research/README.md) is the
+specification; this is its shape. One rule sits under all of it: **a model may analyse a source, and a
+source may never instruct the system.** Which addresses are fetched, how often and when to stop are decided
+by code, from the budget and from what pages link to. A model never supplies an address, and nothing a page
+says changes any of that. A plan, made by rules or by a model, gives the crawler only topics, names and
+kinds of source that it ranks the links it has found by.
+
+- **Where it runs.** Research is the first phase of the job that grounds a project, not a job of its own.
+  `POST /api/projects/:id/research` writes a `queued` run and queues the existing `knowledge` step, and
+  `ResearchService.beforeKnowledge` carries the run out before the graph is built. No job kind was added
+  (`jobs.kind` is a database constraint), so the lease, the heartbeat, cancellation and recovery of a run
+  are the queue's ([ADR 0010](./docs/adr/0010-durable-jobs-leased-from-the-database.md)). The record of a
+  run is a `research` artifact, one for each run, written whole with the revision it was read at, so it is
+  stored, exported and deleted with its project on either dialect. A project made from a question alone is
+  created with no document and `research: { auto: true }` in the request. The server does not keep the intake
+  sent at creation (a run keeps its own): the browser holds it for the page's life, starts the run with it as
+  soon as the project exists, and repeats it if a person starts the run again. Research is available only while
+  both `RESEARCH_ENABLED` and `URL_INGESTION` are on, and both are on by default.
+- **The stages** are planning, finding sources, reading, extracting evidence, checking conflicts and ready.
+  A run is `queued`, `running`, `paused`, `completed`, `cancelled`, `failed` or `blocked`. A run that ends
+  with nothing to use because a rule and not an error stopped it is `blocked`, and its stage waits instead of
+  failing, so that a person can name a page or a site or add sources of their own.
+- **Planning** is by rules, or by a model when the person chose one for the project, the provider is
+  configured and the run's estimated cost limit is above zero. A plan names things to find and never an
+  address; a suggestion of a site is a bare host name that is shown and never fetched. A model's plan must
+  pass the schema, the server's checks and the project's wording guard, or the rules' plan stands in, with
+  the reason. It is the one step that uses the task runner today ([Model tasks](#model-tasks-one-output-policy-a-router-and-the-foundry-provider)).
+- **Finding and reading** are the crawler (`research/crawler/`), a library with no routes, storage or model
+  calls. It starts from the pages and sites a person named and follows links best-first, ranked by numbers
+  fixed once in `score.ts`. It stops at its budget: by default 12 pages, 4 sites, one link deep, 120 seconds
+  and an estimated model cost of 0.25 US dollars, with ceilings of 30, 8, 2, 300 and 2 that the `RESEARCH_*`
+  settings can only lower. It fetches through the public page reader under its own name, so robots.txt, the
+  address policy, the pinned connection and the size and time limits are those of the one-page route, and a
+  name that leads inside a network is answered exactly as a name that does not exist. A page that is a
+  login, a paywall or an error, or is built by script, is set aside with a reason. A page with text that
+  reads like an instruction to an AI keeps that text, labelled, and its links are not followed.
+- **Choosing.** `select.ts` keeps up to ten sources within 200,000 characters, ranked by the estimated
+  authority of the kind of site, how much of the plan a page covers, how recent it is where the plan says
+  time matters, and whether a person named it, spread over sites and kinds, and keeping both sides of a
+  disagreement. Secrets, email addresses and phone, card and account numbers are masked before a page is
+  kept. One transaction appends the documents and writes the run's record, and the project's contradiction
+  detector then reads the new passages.
+- **What it does not do.** No search provider is built: a question with no page or site ends `blocked`, and
+  `RESEARCH_SEARCH_PROVIDER` accepts only `none`. Nothing is executed, so a page whose text is made by
+  scripts is not read, and a page behind a login is not read. Sitemaps are not read. Which pages are better
+  is a lexical and rule-based estimate of the kind of site and the wording of a page, not a judgement that
+  it is right. The pages of a run are untrusted data wherever a model sees them.
 
 ### One comparison
 
 `AnalysisService.start` validates the request, refuses it without actors (`409 ACTORS_REQUIRED`), while
 one is running for the project (`409 ANALYSIS_RUNNING`) or when two are running in the process
 (`429 ANALYSIS_BUSY`), and refuses a cast that no longer matches the stakeholders (`409
-STAKEHOLDERS_NOT_APPROVED`, `409 ACTORS_OUT_OF_DATE`). It works out the size (at most 2,400 simulated
+STAKEHOLDERS_NOT_APPROVED`, `409 ACTORS_OUT_OF_DATE`) and, when the project has constraints, a set that is
+blocked or that nobody has reviewed (`409 CONSTRAINTS_BLOCKED`, `409 CONSTRAINTS_UNREVIEWED`: see
+[Constraints and the engine](#constraints-and-the-engine)). It works out the size (at most 2,400 simulated
 runs, see `shared/analysis-plan.ts`), stores the analysis as `running` with the revisions of the scenario,
-the stakeholders and the actors it runs on (`inputRevisions`, `lab/lineage.ts`) and answers `202`. The
+the stakeholders, the actors and, where there is one, the constraints it runs on (`inputRevisions`,
+`lab/lineage.ts`) and answers `202`. The
 work then runs in this process, one run
 after another with the event loop given a turn between runs: the variants come from `autoVariants` (a
 baseline, the proposed change and one for each alternative), each is simulated on the same seeds,
@@ -109,6 +186,64 @@ reproducible from its seeds, so it is run again and not resumed. The brief and t
 against the revisions that comparison recorded, not against when they were written, so that one made from
 a comparison that predates a change says so. The method, the limits and what the
 numbers do not mean are in [docs/analysis/methodology.md](./docs/analysis/methodology.md).
+
+### Constraints and the engine
+
+What limits a decision is a document of its own, the `constraints` artifact, so that a person reviews it
+before anything is simulated and the answer can say which limits it rests on
+([docs/analysis/constraints.md](./docs/analysis/constraints.md) is the specification). A constraint is never
+a fact because Swarm or a model proposed it: where it came from (`source`), whether anyone has checked it
+(`validation`) and whether the simulation applies it (`enforcement`) are three separate things. Rules set
+the first and the third, and neither a model nor a client can; only a person confirms or rejects a
+constraint, and a proposal starts unvalidated.
+
+- **Reading.** Rules read the person's words, the sources and the cast for a clause that names something
+  and limits it. A model may read the sources as well, when the person asks and the project has one, through
+  `runStructuredTask` ([Model tasks](#model-tasks-one-output-policy-a-router-and-the-foundry-provider)):
+  its schema has no field for source, validation or effects, and a quote it cites is kept only if the server
+  finds it in the passage it names. Hardness is a proposal with a stated basis. A cue word makes a limit hard
+  only where its clause asserts it, and a model's "hard" raises a limit only where the quoted words bear it
+  out. A passage that is addressed to an AI is neither read by the rules nor shown to a model.
+- **The gate.** `constraints/gate.ts` is rules and no model. It answers `clear`, `provisional` or `blocked`
+  and lists what is known, assumed, conflicting and missing. A project with no constraints runs as it always
+  did. With a set, `POST /api/projects/:id/analysis` is refused with `409 CONSTRAINTS_BLOCKED` while the gate
+  is blocked, and with `409 CONSTRAINTS_UNREVIEWED` until a person has been through the list. A provisional
+  gate lets the comparison run, and its label travels into the comparison, the review, the brief and the
+  Decision Canvas.
+- **The runs.** `simulation/constraints.ts` applies eight kinds of effect (block, limit-actions, delay,
+  reduce-influence, add-cost, require-approval, add-risk and force-sequencing), each deterministic for a
+  seed, to the constraints that a person has looked at and not set aside. Every other constraint is read,
+  listed with its reason, and changes nothing in a run. With no constraints a run takes the arithmetic path it
+  always took, and `constraints-golden.test.ts` holds digests of whole runs to that.
+- **What it measures.** A comparison also takes each applied constraint away in turn on eight shared seeds,
+  and `POST /api/projects/:id/constraints/counterfactuals` runs seven views of the proposed change on twelve.
+  Both are results of the simulation, not findings about the world.
+
+### The Decision Canvas
+
+`GET /api/projects/:id/decision` is the first thing Decide shows: what the simulation shows, which option
+(if any) it supports, under which constraints and assumptions, what weakens that and what to check before
+anyone acts ([docs/analysis/decision-canvas.md](./docs/analysis/decision-canvas.md)). It is derived and not
+stored. `DecisionService.view` reads the newest finished comparison, the scenario, the participants, the
+constraints (the gate is worked out again at every read), the counterfactual views, the review and the
+evidence, and calls a pure builder in `backend/src/decision/`, so a canvas is never older than what it
+describes. No model writes any of it.
+
+- **A status**, one of six, by rules that are written as data (`STATUS_RULES` in `shared/decision.ts`) and
+  held to the code by a test: `robust-option`, `conditional-option`, `multiple-plausible-options`,
+  `needs-human-decision`, `blocked-by-hard-constraint` and `insufficient-evidence`.
+- **Lenses, and no objective.** Swarm has no objective of its own. Four named lenses (overall resistance,
+  key-actor support, decision-maker resistance and the downside for the worst-affected group) each read what
+  the analysis measured. They can disagree, and then the canvas shows it and does not average it away. An
+  option is the clear leader on a lens only when it is told apart from every other option: by a paired
+  difference on the same seeds of at least 0.05 of the lens's own scale and more than two standard errors,
+  over at least ten paired runs.
+- **Labels.** Every statement carries one of eight epistemic labels (fact, source claim, assumption, model
+  inference, simulation event, scenario possibility, recommendation, validation requirement). One table in
+  `shared/decision.ts` maps what the product already says onto them, and `decision-labels.test.ts` holds that
+  table complete and the document to it.
+- **With no finished comparison** it answers `canvas: null` and a `readiness` that says what is missing and
+  which step supplies it. The route is limited to 120 requests a minute.
 
 ### How the interface carries it
 
@@ -127,6 +262,13 @@ is opened or about to be (`app/loaders.ts`); they read the project through `useW
 (`app/context.tsx`). The panels are lazy as well (`app/PanelHost.tsx`). A scene asks nothing of the shell
 beyond what that context holds; [UX.md](./docs/UX.md#adding-to-the-interface-without-breaking-what-is-there)
 says how one is added.
+
+What the scenes carry for the steps above ([UX.md](./docs/UX.md) is the guide to each). **Ask** takes the
+question, an optional website or domain, a time horizon, the intake's advanced fields and the choice to
+research automatically, and starts a project from a question alone or from a sample case. **Map** has four
+views of the cast: Map, List, Review (the checks the participants are held to; the blocking ones must pass
+before the set may be used) and Constraints. **Decide** opens on the Decision Canvas, and the brief, the
+review and Report Studio follow it.
 
 `lab` on the project (from `lab/progress.ts`) and the engine's own `console.steps` decide what can be opened
 and where a project opens. `app/scenes.ts` holds the rules: `sceneAvailable` (Map once the evidence has been
@@ -166,8 +308,12 @@ flowchart TB
         API["Fastify and TypeScript API<br/>validation, rate limits,<br/>host and origin checks"]
         Identity["Identity boundary<br/>local single user, or Entra:<br/>bearer token, or browser sign-in<br/>with a server-side session"]
         Authz["Authorization and tenant<br/>isolation: default-deny<br/>route table"]
-        Lab["Scenario lab<br/>intake, stakeholders, actors,<br/>repeated runs, critics, brief"]
+        Lab["Scenario lab<br/>intake, participants, actors,<br/>repeated runs, critics, brief"]
+        Research["Automatic research<br/>(budgeted crawl, planned by<br/>rules or a model; fetches only<br/>through the page reader)"]
+        Constraints["Constraints<br/>(read, reviewed by a person,<br/>then applied in the runs)"]
+        Canvas["Decision Canvas<br/>(worked out at every read;<br/>no model writes it)"]
         Pages["Public page reader<br/>(address policy, pinned fetch,<br/>robots.txt)"]
+        Guard["Deployment guard<br/>(refuses an unsafe pilot or<br/>production configuration)"]
         Orchestrator["Simulation orchestrator<br/>(stage runner, local worker)"]
         Actors["Actor runtime<br/>(fictional proxies)"]
         Interv["Scheduled<br/>interventions"]
@@ -208,7 +354,7 @@ flowchart TB
     end
 
     subgraph QA["Test and observability boundaries"]
-        Tests["Vitest, Playwright and axe suites,<br/>fake model provider"]
+        Tests["Vitest, Playwright and axe suites,<br/>fake model provider and fake Foundry,<br/>an evaluation harness, Bicep checks"]
         Logs["Structured logs without content,<br/>token and call counts"]
     end
 
@@ -231,6 +377,12 @@ flowchart TB
     Jobs -->|"leased by a worker"| Orchestrator
 
     Pages -.->|"HTTP GET, public pages only"| Web
+    Lab --> Research
+    Research -->|"every fetch"| Pages
+    Lab --> Constraints
+    Lab --> Canvas
+    Artifacts -.->|"read, not stored"| Canvas
+    Guard -.->|"checked when the<br/>configuration is read"| API
     Sources --> Graph
     Sources --> Lab
     Lab --> Artifacts
@@ -301,10 +453,17 @@ Current validated architecture. The application and database run locally; Azure 
   the project's, from the browser (**People** and **Who has access**, under Settings and tools), naming each person by their Entra
   object ID. It has only been tested against a test identity provider, never a real tenant.
 - **Provider abstraction:** one gateway for every model call. It picks the rules engine or a real
-  provider from configuration, bounds retries, counts calls and tokens, and never falls back
-  silently.
+  provider (Ollama, an OpenAI-compatible server, Azure OpenAI or Microsoft Foundry) from configuration,
+  bounds retries, counts calls and tokens, and never falls back silently. The steps that go through the
+  task policy answer from their rules when a reply cannot be used, and say so
+  ([Model tasks](#model-tasks-one-output-policy-a-router-and-the-foundry-provider)).
 - **Evidence and grounding:** passages, retrieval, verbatim quote matching and the report's
   grounding review live on the server, so no browser state can change a verdict.
+- **Web pages:** read only by the server, through one public page reader, whether a person names one page
+  or automatic research follows what they name. The browser never reaches the web, and a model never
+  supplies an address ([Automatic research](#automatic-research)).
+- **Deployment guard:** `DEPLOYMENT_MODE=pilot` or `production` makes the server refuse to start with an
+  unsafe configuration ([Hosting and operations](#hosting-and-operations-authored-not-deployed)).
 
 ## Reference analysis
 
@@ -382,11 +541,11 @@ Essential: bounded document intake, a source-linked knowledge representation,
 synthetic personas, a stateful agent simulation, progress/cancellation, reporting,
 evidence inspection, optional real model interactions, and persistent history.
 
-Not implemented: OCR, crawling or fetching arbitrary addresses (the one outbound fetch is a single
-public page that a person names, under an address policy), live social network access, OASIS
-compatibility, thousands of model-driven agents, semantic neural embeddings, a hosted deployment, or
-calibrated real-world probabilities. Sign-in, roles and tenant isolation are implemented, and have
-only met a test identity provider. The UI must not imply otherwise.
+Not implemented: OCR, a search provider, fetching arbitrary addresses (pages are fetched only from what a
+person names and what those pages link to, under an address policy and within a budget), live social network
+access, OASIS compatibility, thousands of model-driven agents, semantic neural embeddings, a hosted
+deployment, or calibrated real-world probabilities. Sign-in, roles and tenant isolation are implemented, and
+have only met a test identity provider. The UI must not imply otherwise.
 
 Version 0.2 adds text-PDF extraction, real guided-stage boundaries, independent
 dual-platform contexts, synthetic memory, report-tool traces/chapters and
@@ -419,10 +578,12 @@ Topic extraction is term-frequency/co-occurrence based, not semantic AI extracti
 Reports are computed from recorded states, not fabricated AI prose. Local follow-up
 is labeled evidence lookup, not an AI interview.
 
-Model-assisted mode makes actual configured-provider requests for knowledge,
+In the deep dive, model-assisted mode makes actual configured-provider requests for knowledge,
 personas, a decision for every proxy on every platform in every round, reports,
 a grounding check and interviews. It must fail visibly rather than fall back to
-local output after a provider or schema error.
+local output after a provider or schema error. The steps that go through the task policy are different by
+design: a reply that cannot be used is answered from the step's rules, with the reason recorded and none of
+the model's words in it ([Model tasks](#model-tasks-one-output-policy-a-router-and-the-foundry-provider)).
 
 ## Local components
 
@@ -435,21 +596,25 @@ React + TypeScript
             │    projects, passages, events, conversation, ledger, audit log, jobs, sessions,
             │    Report Studio documents, model usage and the lab's artifacts
             ├─ the scenario lab (in the request process, no model needed)
-            │    ├─ question to scenario, stakeholders, actors
+            │    ├─ question to scenario, participants, actors, constraints
             │    ├─ comparisons: repeated seeded runs of the population simulator
-            │    └─ critics and the decision brief
-            ├─ public page reader (the one outbound fetch, under an address policy)
+            │    └─ critics, the Decision Canvas (worked out at every read) and the decision brief
+            ├─ public page reader (the only fetcher of web pages, under an address policy;
+            │    the one-page route and automatic research both go through it)
             ├─ durable job queue in the store (one stage per worker at a time, three may wait)
-            │    ├─ ontology + source graph (then pause)
+            │    ├─ research, when asked (the first phase of the next stage) and the
+            │    │  ontology + source graph (then pause)
             │    ├─ fictional persona + editable environment (then pause)
             │    ├─ independent platform rounds + synthetic memory (then pause)
             │    └─ bounded report tools + progressive chapters (then interaction)
-            ├─ isolated PDF text-extraction worker
+            ├─ isolated PDF text-extraction worker (research reads text PDFs through it too)
             ├─ bounded chat / asynchronous survey ownership
-            └─ model adapter (optional)
+            ├─ the deployment guard (refuses an unsafe pilot or production configuration at start)
+            └─ model adapter (optional; see "Model tasks" below)
                  ├─ Ollama local HTTP API
                  ├─ OpenAI-compatible Chat Completions
-                 └─ Azure OpenAI / Foundry OpenAI v1
+                 ├─ Azure OpenAI v1 (AI_PROVIDER=azure)
+                 └─ Microsoft Foundry v1 (AI_PROVIDER=foundry)
                       └─ Microsoft Entra ID token (DefaultAzureCredential) or API key
 ```
 
@@ -503,38 +668,44 @@ process, and have not run across containers or against a deployed server.
 
 ### Implemented module boundaries
 
-| Module                                   | Responsibility                                                                                                                                                                                                                |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `shared/types.ts`                        | Shared input validation, limits and request/result types                                                                                                                                                                      |
-| `backend/src/app.ts`, `routes/`          | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                                                                                                                        |
-| `backend/src/storage/`                   | SQLite or PostgreSQL behind one interface, numbered migrations with a backup, the artifact store, the job queue, the ledger store, the hash-chained audit log, model usage and start-up recovery                              |
-| `backend/src/knowledge/`                 | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                                                                                                                          |
-| `backend/src/agents/`                    | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting                                                                                                 |
-| `backend/src/grounding/`                 | Verbatim quote matching, claim verdicts, entailment check, chapter-claim validation, the review, and the evidence ledger: classification, publication policy, cross-source conflicts and the ledger service                   |
-| `backend/src/auth/`                      | Optional Entra token verification, roles, the default-deny route table and the request guard                                                                                                                                  |
-| `backend/src/studio/`                    | Report Studio: the rules of a document (versions, locks, review states, the hash an approval is of), the service, chapter regeneration, and the memo, Markdown and JSON exports                                               |
-| `backend/src/models/`                    | Bounded provider transport, Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry                                                                                                        |
-| `backend/src/orchestration/`             | The job runner (leases, heartbeats, retries, cancel and pause across processes), follow-up locking and survey lifecycle, and the analyst's evidence gate and citation checks                                                  |
-| `backend/src/guided/`                    | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                                                                                                                              |
-| `backend/src/ingest/`                    | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                                                                                                                 |
-| `backend/src/ingest/url/`                | Reads a public web page a person names: address policy, pinned fetch, robots.txt, and text extraction that never runs the page ([URL ingestion](docs/security/url-ingestion.md))                                              |
-| `backend/src/scenario/`                  | The lab's intake: a question read into a scenario frame by rules or by a validated model reply, with the injection checks on the question and the documents                                                                   |
-| `backend/src/stakeholders/`              | The lab's stakeholder discovery (role lexicon, tone, optional model), the review rules, approval, and the actors made from an approved set with their category priors                                                         |
-| `backend/src/simulation/`                | The pure, seeded population simulator: members, stance dynamics, generic signals and external responders, response categories (no domain words, by test)                                                                      |
-| `backend/src/analysis/`                  | Comparisons: variants on shared seeds, findings with Wilson intervals, one-at-a-time sensitivity, the service that runs them in the process and recovers them                                                                 |
-| `backend/src/critics/`                   | The seven critics: fixed rules, an optional validated model critic, and the carrying of a person's responses over to a new review. A critic never edits the analysis                                                          |
-| `backend/src/brief/`                     | The answer-first decision brief: facts, sections, recommendations, the validation plan, the origin of every statement, and the Markdown, JSON and printable exports                                                           |
-| `backend/src/lab/`                       | `progress.ts`: how far a project has come, read from which artifacts it holds                                                                                                                                                 |
-| `shared/` (lab contracts)                | `scenario`, `stakeholders`, `analysis` and `analysis-plan`, `signal`, `critique`, `brief`, `lab`, `artifacts`, `example-scenarios` with `examples/`, and `lab-fixtures` (sample objects made through the schemas)             |
-| `shared/guided.ts`                       | Persisted stage, environment, memory, trace, survey and editing contracts                                                                                                                                                     |
-| `frontend/src/hooks/`                    | Race/abort-safe project lifecycle (`useConsole`), history, comparison and brief reading, and polling (`useAnalysis`, `useLabRefresh`)                                                                                         |
-| `frontend/src/app/`                      | The shell: `Root` and `Application` (the project, the configuration and the address), the top bar, the journey rail and the dock, the settings menu, the scene and panel hosts, and `scenes.ts` (what opens each scene)       |
-| `frontend/src/scenes/`                   | One folder for each scene (`ask`, `ground`, `map`, `simulate` with its `deep/` dive, `compare`, `decide`) and the `studio` and `report` that Decide opens. A scene takes no props and reads the project from `useWorkspace()` |
-| `frontend/src/design/`                   | Tokens and themes, the cascade layers, surfaces, motion and the primitives (`ui/`); `frontend/gallery.html` shows them in development                                                                                         |
-| `frontend/src/viz/`                      | The ecosystem map: an SVG with a seeded layout, and its palette                                                                                                                                                               |
-| `frontend/src/panels/`                   | History, Ask (the analyst, the actors and surveys), the audit log, the model budget, access and the provider chip                                                                                                             |
-| `frontend/src/lib/`, `frontend/src/api/` | Pure logic (the engine's step rules in `console.ts`, intake, stakeholder review, the brief, themes) and the typed clients for the lab's routes (`frontend/src/api.ts` has the engine's)                                       |
-| `evaluation/`                            | Labelled datasets pinned to their sources, the offline harness, thresholds and results                                                                                                                                        |
+| Module                                   | Responsibility                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shared/types.ts`                        | Shared input validation, limits and request/result types                                                                                                                                                                                                                                                                                                                                                              |
+| `backend/src/app.ts`, `routes/`          | HTTP boundaries, safe errors, CSP, host/origin and request/rate limits                                                                                                                                                                                                                                                                                                                                                |
+| `backend/src/storage/`                   | SQLite or PostgreSQL behind one interface, numbered migrations with a backup, the artifact store, the job queue, the ledger store, the hash-chained audit log, model usage and start-up recovery                                                                                                                                                                                                                      |
+| `backend/src/knowledge/`                 | Stable source chunks, sparse TF-IDF retrieval, lexical graph and citation validation                                                                                                                                                                                                                                                                                                                                  |
+| `backend/src/agents/`                    | Persona setup, local state updates, per-proxy model decisions (`actor.ts`), peer selection (`peers.ts`), review and reporting                                                                                                                                                                                                                                                                                         |
+| `backend/src/grounding/`                 | Verbatim quote matching, claim verdicts, entailment check, chapter-claim validation, the review, and the evidence ledger: classification, publication policy, cross-source conflicts and the ledger service                                                                                                                                                                                                           |
+| `backend/src/auth/`                      | Optional Entra token verification, roles, the default-deny route table and the request guard                                                                                                                                                                                                                                                                                                                          |
+| `backend/src/studio/`                    | Report Studio: the rules of a document (versions, locks, review states, the hash an approval is of), the service, chapter regeneration, and the memo, Markdown and JSON exports                                                                                                                                                                                                                                       |
+| `backend/src/models/`                    | Bounded provider transport (Ollama, OpenAI-compatible, Azure OpenAI, Foundry), Entra tokens, bounded repair loop, schemas, timeouts/retries, usage and provider telemetry; the output policy (`task.ts`), the router, the runner with its allowances and cache (`router.ts`, `runner.ts`, `cache.ts`, `cost.ts`), strict structured output (`strict-schema.ts`) and content-safety signals (`safety.ts`)              |
+| `backend/src/orchestration/`             | The job runner (leases, heartbeats, retries, cancel and pause across processes), follow-up locking and survey lifecycle, and the analyst's evidence gate and citation checks                                                                                                                                                                                                                                          |
+| `backend/src/guided/`                    | Gated ontology/preparation/worlds, source/memory/timeline/interview tools and chapter generation                                                                                                                                                                                                                                                                                                                      |
+| `backend/src/ingest/`                    | Isolated local PDF parsing with byte/page/text/time/heap limits and no credential inheritance                                                                                                                                                                                                                                                                                                                         |
+| `backend/src/ingest/url/`                | Reads a public web page a person names: address policy, pinned fetch, robots.txt, and text extraction that never runs the page. Automatic research fetches through the same fetcher ([URL ingestion](docs/security/url-ingestion.md))                                                                                                                                                                                 |
+| `backend/src/research/`                  | Automatic research: the crawler (`crawler/`) and page extractor (`extract/`) as a library with no routes, storage or model calls; the run for a project (plan, assessment, selection, masking, record, pause, the service the `knowledge` job calls) ([README](backend/src/research/README.md))                                                                                                                       |
+| `backend/src/scenario/`                  | The lab's intake: a question read into a scenario frame by rules or by a validated model reply, with the injection checks on the question and the documents                                                                                                                                                                                                                                                           |
+| `backend/src/stakeholders/`              | The lab's stakeholder discovery (role lexicon, tone, optional model), the review rules, approval, and the actors made from an approved set with their category priors; `participants/` proposes the participants of a decision (rules with a marked scaffold, or a model's reply under the output policy), holds them to a catalogue of 23 checks (15 blocking, 8 advisory in the strict profile) and regenerates one |
+| `backend/src/constraints/`               | What limits a decision: reading (rules, optionally a model), hardness with its basis, the review, the Constraint Coverage Gate, the effects the runs apply, and seven counterfactual views ([constraints](docs/analysis/constraints.md))                                                                                                                                                                              |
+| `backend/src/simulation/`                | The pure, seeded population simulator: members, stance dynamics, generic signals and external responders, response categories (no domain words, by test), and the eight constraint effects (`constraints.ts`)                                                                                                                                                                                                         |
+| `backend/src/decision/`                  | The Decision Canvas, built on read: the status rules, the four lenses, the labels, the validation plan and the export ([the canvas](docs/analysis/decision-canvas.md))                                                                                                                                                                                                                                                |
+| `backend/src/analysis/`                  | Comparisons: variants on shared seeds, findings with Wilson intervals, one-at-a-time sensitivity, the service that runs them in the process and recovers them                                                                                                                                                                                                                                                         |
+| `backend/src/critics/`                   | The seven critics: fixed rules (one of them reads what a comparison recorded of its constraints), an optional validated model critic, and the carrying of a person's responses over to a new review. A critic never edits the analysis                                                                                                                                                                                |
+| `backend/src/brief/`                     | The answer-first decision brief: facts, sections, recommendations, the validation plan, the origin of every statement, and the Markdown, JSON and printable exports                                                                                                                                                                                                                                                   |
+| `backend/src/lab/`                       | `progress.ts`: how far a project has come, read from which artifacts it holds; `lineage.ts`: the revisions a comparison was made from, and what has changed since                                                                                                                                                                                                                                                     |
+| `backend/src/telemetry/`                 | OpenTelemetry signals without content: spans and metrics for requests, models and the product (`product-signals.ts`: research, participants, constraints, durations), and the Azure Monitor exporter, which does nothing unless a connection string is set                                                                                                                                                            |
+| `backend/src/deployment.ts`              | The deployment guard: `DEPLOYMENT_MODE`, the label and build, and the rules that refuse an unsafe pilot or production configuration while it is read                                                                                                                                                                                                                                                                  |
+| `shared/` (lab contracts)                | `scenario`, `research`, `stakeholders`, `constraints` and `constraint-effects`, `analysis` and `analysis-plan`, `decision`, `signal`, `critique`, `brief`, `lab`, `artifacts`, `example-scenarios` with `examples/`, and `lab-fixtures` (sample objects made through the schemas)                                                                                                                                     |
+| `shared/guided.ts`                       | Persisted stage, environment, memory, trace, survey and editing contracts                                                                                                                                                                                                                                                                                                                                             |
+| `frontend/src/hooks/`                    | Race/abort-safe project lifecycle (`useConsole`), history, comparison and brief reading, and polling (`useAnalysis`, `useLabRefresh`)                                                                                                                                                                                                                                                                                 |
+| `frontend/src/app/`                      | The shell: `Root` and `Application` (the project, the configuration and the address), the top bar, the journey rail and the dock, the settings menu, the scene and panel hosts, and `scenes.ts` (what opens each scene)                                                                                                                                                                                               |
+| `frontend/src/scenes/`                   | One folder for each scene (`ask`, `ground`, `map` with its `review/` and `constraints/` views, `simulate` with its `deep/` dive, `compare`, `decide` with its `canvas/`) and the `studio` and `report` that Decide opens. A scene takes no props and reads the project from `useWorkspace()`                                                                                                                          |
+| `frontend/src/design/`                   | Tokens and themes, the cascade layers, surfaces, motion and the primitives (`ui/`); `frontend/gallery.html` shows them in development                                                                                                                                                                                                                                                                                 |
+| `frontend/src/viz/`                      | The ecosystem map: an SVG with a seeded layout, and its palette                                                                                                                                                                                                                                                                                                                                                       |
+| `frontend/src/panels/`                   | History, Ask (the analyst, the actors and surveys), the audit log, the model budget, access and the provider chip                                                                                                                                                                                                                                                                                                     |
+| `frontend/src/lib/`, `frontend/src/api/` | Pure logic (the engine's step rules in `console.ts`, intake, stakeholder review, the brief, themes) and the typed clients for the lab's routes (`frontend/src/api.ts` has the engine's)                                                                                                                                                                                                                               |
+| `evaluation/`                            | Labelled datasets pinned to their sources, the offline harness, thresholds and results; `ai-*` is the evaluation of the AI-assisted setup (`npm run eval:ai`), with `known-breaches.json` listing the six thresholds it does not meet                                                                                                                                                                                 |
+| `infra/`                                 | Bicep for a controlled pilot in Azure (`pilot/`), authored and validated offline; nothing is deployed                                                                                                                                                                                                                                                                                                                 |
 
 The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
 topic interests, influence, openness and four recent memory entries. All round
@@ -554,7 +725,9 @@ also computed server-side. A bounded report plan can request local source/memory
 searches and up to two fictional interviews; only fixed, validated tools can run.
 There is no open-ended ReAct loop or arbitrary model-selected execution.
 User follow-ups receive retrieved passages, recorded report/persona state and a
-bounded conversation excerpt. There is no external web-research agent.
+bounded conversation excerpt. None of these model calls can reach the web: nothing a model writes is fetched.
+The only code that fetches a page is the public page reader, which automatic research also goes through, and a
+model never supplies an address to it ([Automatic research](#automatic-research)).
 
 **Per-proxy decisions.** In model mode each proxy decides separately: one provider
 call per proxy per platform per round, four at a time under one limiter shared by
@@ -734,6 +907,41 @@ alone is not enough (a small model repeated a planted token in 24 of 24 statemen
 
 Server-side validators (citation IDs, quotes, ranges) then bound what any reply can carry.
 
+### Model tasks: one output policy, a router and the Foundry provider
+
+Above the client there are two more layers, and different steps use different ones
+([docs/models/foundry.md](./docs/models/foundry.md) is the specification and has the table of who uses
+which). `AI_PROVIDER` is `none` (the rules engine), `ollama`, `openai`, `azure` or `foundry`; `foundry`
+reaches a Microsoft Foundry resource through its OpenAI-compatible v1 API, asks for strict structured
+output and uses Microsoft Entra ID by default. The deployment guard refuses a model API key in `production`,
+and in `pilot` unless `ALLOW_MODEL_API_KEY=true` ([Hosting and
+operations](#hosting-and-operations-authored-not-deployed)).
+
+- **The output policy.** `runStructuredTask` (`models/task.ts`) is the one rule for what a model's reply
+  may become: it is checked against a strict schema and the server's own checks; one correction round is
+  allowed; and a reply that still cannot be used is replaced by the answer the step's rules give for the
+  same input. The reason is recorded as a code and a fixed sentence and never holds a word the model wrote,
+  and the result says whether it came from the model or from the rules. A reply that fails is never repaired
+  by hand and never read by pattern. A refusal by the provider, a cancelled run and a client that has left
+  are the three things that are never answered from rules. The participants (`role: actor`) and the
+  constraints (`role: scenario`) are proposed this way, and so is the planning of a research run.
+- **The task runner.** `taskRunnerFor` (`models/factory.ts`, `models/runner.ts`) adds a router that chooses
+  a deployment and the parameters of a call from configuration alone (no network, no randomness: the role's
+  deployment, its data zone, its context size, a cost ceiling and its latency budget), an allowance for one
+  operation in tokens and estimated dollars, an optional cache of validated answers kept in this process's
+  memory for one tenant only, and one failover to another deployment, and then calls `runStructuredTask`.
+  **Only the planning of a research run uses it today.** Participants and constraints go to the default
+  deployment (`AI_MODEL`); so do the older steps, which use `jsonValidated` (a schema and bounded repairs,
+  each with its own rules path or its own visible failure). The roles `extraction`, `critic` and `synthesis`
+  have settings and no caller.
+- **What is proved.** The Foundry provider, the router, the allowances, the cache, the failover and the
+  strict-schema conversion are proved against an in-process fake of the endpoint
+  (`backend/test/support/fake-foundry.ts`) and **have never run against a live Azure resource**. What a real
+  deployment accepts (strict `json_schema`, `reasoning_effort`), its error bodies, its content-filter
+  annotations and its prices are unverified ([Verified and not
+  verified](./docs/models/foundry.md#verified-and-not-verified)). The live evidence of
+  [docs/AZURE.md](./docs/AZURE.md#live-evidence) was gathered with `AI_PROVIDER=azure`.
+
 ### Persistence and failure semantics
 
 The database is at schema version 9, applied by numbered migrations (`storage/migrations.ts`): version 1
@@ -835,21 +1043,57 @@ run and demonstrate it, and [docs/security-review.md](./docs/security-review.md)
 [docs/threat-model.md](./docs/threat-model.md) for the dependency and threat evidence.
 Deployment must not infer production readiness from local test success.
 
+### Hosting and operations (authored, not deployed)
+
+Running Swarm for more than one person, on infrastructure that is not a laptop, is authored and checked
+offline, and **none of it has run in Azure** ([docs/production/](./docs/production/README.md) says what was
+run, what was not, and what each claim rests on).
+
+- **The deployment guard** (`backend/src/deployment.ts`). `DEPLOYMENT_MODE` is `local` (the default),
+  `pilot` or `production`, and an empty or unknown value is refused. The guard runs while the configuration
+  is read, so a pilot or production process never starts with an unsafe one: it is refused with every
+  violation listed in one error, before anything listens. The rules cover sign-in (Microsoft Entra, an https
+  redirect address, bounded sessions), model credentials, the database (TLS, and in `production` PostgreSQL
+  with Entra), the hosts and origins served, page reads (https only), telemetry (an Application Insights
+  connection string) and the test seams, which must be unset. `local` starts as it always did and logs one
+  warning when its settings look hosted. The guard checks configuration. It cannot know where the process
+  runs ([the guard matrix](./docs/production/identity.md#1-deployment-modes)).
+- **Signals.** The application emits OpenTelemetry metrics and traces of counts, durations and enumerations,
+  never of a question, a passage, an address or a person (`backend/src/telemetry/`). Nothing is exported
+  unless `APPLICATIONINSIGHTS_CONNECTION_STRING` is set, and the exporter has been tested only with in-memory
+  exporters: it has never sent to a real Application Insights resource. Several signals added for the pilot
+  have no caller in the product yet, so an alert on one cannot fire
+  ([docs/production/observability.md](./docs/production/observability.md) says which).
+- **Infrastructure as code.** The Bicep in `infra/` is the "Authored, not deployed" row of the table under the
+  [system diagram](#system-diagram). It compiles, lints and evaluates offline (`npm run iac:validate`).
+  Whether any of it deploys, and whether the platform metric names its alert rules read are the platform's
+  real ones, are unverified.
+
 ## Verification architecture
 
 What each layer of testing can and cannot establish:
 
-| Layer                      | Where                                                      | Establishes                                                                                                                                                                                                                     | Does **not** establish                            |
-| -------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Unit and integration       | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules) | Browser rendering, real network behaviour         |
-| Browser end-to-end (local) | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                                   | Anything about model behaviour                    |
-| Browser end-to-end (model) | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                                               | Quality or safety of a **live** model's output    |
-| Browser end-to-end (lab)   | `e2e/lab`                                                  | The lab through its scenes, from the first screen to the brief: the flagship and custom journeys, what opens each scene, what is out of date, the deep dive; public pages are fixtures                                          | Model behaviour, or any page on the real internet |
-| Browser end-to-end (other) | `e2e/journey`, `e2e/signin`                                | The recorded presentation and Report Studio; browser sign-in and the access dialogs against a test identity provider                                                                                                            | A live model; a real Entra tenant                 |
-| Lab pipeline (unit)        | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                                             | The browser, or any model                         |
-| Live verification          | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                                  | Quality beyond the counts it reports; scale       |
-| Real-browser audit         | `scripts/ui-audit.mjs`                                     | Screenshots and layout and accessibility metrics at five viewports, in light and dark, for design review; it asserts nothing                                                                                                    | Subjective design quality                         |
-| Load measurement           | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                                               | Capacity planning                                 |
+| Layer                       | Where                                                      | Establishes                                                                                                                                                                                                                                                                                                                                                                                            | Does **not** establish                                                                                                                                    |
+| --------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unit and integration        | `backend/test`, `frontend/src/**/*.test.ts(x)`             | Business rules, state machine, determinism, contracts, security boundaries, component behaviour, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules)                                                                                                                                                                        | Browser rendering, real network behaviour                                                                                                                 |
+| Browser end-to-end (local)  | `e2e/local`                                                | The whole user journey, errors, responsive layout, axe, keyboard/focus, in real Edge/Chromium, over real HTTP                                                                                                                                                                                                                                                                                          | Anything about model behaviour                                                                                                                            |
+| Browser end-to-end (model)  | `e2e/model`                                                | Orchestration of the model path: real Pause click, resume, injected failure + recovery, token accounting, hostile output handling                                                                                                                                                                                                                                                                      | Quality or safety of a **live** model's output                                                                                                            |
+| Browser end-to-end (lab)    | `e2e/lab`                                                  | The lab through its scenes, from the first screen to the brief: the flagship and custom journeys, the participants' review, the constraints page, the Decision Canvas, what opens each scene, what is out of date, the deep dive; public pages are fixtures                                                                                                                                            | Model behaviour, or any page on the real internet                                                                                                         |
+| Browser end-to-end (other)  | `e2e/journey`, `e2e/signin`                                | The recorded presentation and Report Studio; browser sign-in and the access dialogs against a test identity provider                                                                                                                                                                                                                                                                                   | A live model; a real Entra tenant                                                                                                                         |
+| Lab pipeline (unit)         | `backend/test/lab-journey.test.ts`, `lab-pipeline.test.ts` | Question to brief through the real routes and the real engine, for each example and for a question no example knows                                                                                                                                                                                                                                                                                    | The browser, or any model                                                                                                                                 |
+| Live verification           | `npm run azure:verify`                                     | 15 checks of the whole journey against a real, running deployment (per-actor calls, grounding, branch, chats, injection probe)                                                                                                                                                                                                                                                                         | Quality beyond the counts it reports; scale                                                                                                               |
+| Real-browser audit          | `scripts/ui-audit.mjs`                                     | Screenshots and layout and accessibility metrics at five viewports, in light and dark, for design review; it asserts nothing                                                                                                                                                                                                                                                                           | Subjective design quality                                                                                                                                 |
+| Load measurement            | `scripts/load-test.mjs`                                    | Latency percentiles, queue back-pressure and memory **on the machine it runs on**                                                                                                                                                                                                                                                                                                                      | Capacity planning                                                                                                                                         |
+| AI-assisted setup, measured | `npm run eval:ai`, `evaluation/`                           | Participant coverage, hard-constraint recall, source reading, seeded critic flaws, injection handling, the research planner, whole research runs and the Decision Canvas's statuses and lenses, on labelled scenarios: by the rules paths, and by the real client and output policy against a scripted fake of the Foundry endpoint ([docs/production/evaluation.md](./docs/production/evaluation.md)) | A live model's behaviour: the live mode is written and **has not been run**. Six thresholds are breached and recorded in `evaluation/known-breaches.json` |
+| Infrastructure as code      | `npm run iac:validate`, `infra/`                           | That every Bicep template and parameter file compiles, lints and evaluates offline, and the invariants asserted in `scripts/iac/infra-invariants.test.ts`                                                                                                                                                                                                                                              | That anything deploys, or that a platform metric is named as an alert reads it                                                                            |
+
+The subsystems added for the controlled pilot are tested in files of their own, in the unit and integration
+layer: `backend/test/research-*` (the crawler on a virtual clock and a fake network, the run through the
+real application, hostile pages), `participants-*`, `constraints-*` (including the golden digests),
+`decision-*`, `model-*` and `foundry-*` (the output policy, the router, the runner and the client against
+`support/fake-foundry.ts`), `telemetry-*`, `deployment.test.ts` (the guard) and `readme.test.ts` (which
+holds the documents to the code, links and commands included). None of them uses the real network, a real
+model or Azure.
 
 **The fake provider** (`e2e/support/fake-provider.ts`) implements the Ollama `/api/chat` protocol so the real
 `ModelClient`, orchestrator, persistence and UI run end to end with no credential. It derives each answer from
@@ -906,17 +1150,49 @@ What is not built, and what has not been shown. The README keeps a short version
 - **Nothing is calibrated.** Every trait is an assumption with an origin, group sizes are weights, and an
   outcome follows from them. It is not evidence about the world.
 - **The lab's documents are not in the JSON snapshot export.** `GET .../export?format=json`
-  holds the project record, passages, ledger and messages; the scenario, stakeholders, actors,
-  comparisons, critiques and brief are separate documents. A brief is exported on its own
-  (`GET .../brief/export`), and `npm run db:copy` carries all of them between databases. A branch copies
+  holds the project record, passages, ledger and messages; the scenario, research runs, participants,
+  actors, constraints, comparisons, critiques and brief are separate documents. A brief is exported on its
+  own (`GET .../brief/export`), and `npm run db:copy` carries all of them between databases. A branch copies
   only the scenario, and its documents with where each came from (a page the server fetched stays a
   retrieved page).
-- **Retrieved pages are the page.** No JavaScript runs and no PDF, image or sign-in page is read. Which
+- **Retrieved pages are the page.** No JavaScript runs and no image or sign-in page is read, and the
+  one-page route reads no PDF either (automatic research reads text PDFs through the isolated PDF reader,
+  with no OCR). Which
   part of a web page is its own text (its menus, side panels and footers are left out) is a guess from how
   the page is built, and a note says so; so does a note when most of a page is built by scripts or shown
   from another page (a frame), which are not read. The record of which pages the server fetched is in the
   memory of one process for an hour, and the limit on pages read at once is for one process: behind several
   replicas each keeps its own.
+- **Automatic research is a rules-based reader of a few pages, not a search.** No search provider is built:
+  a question with no page or site ends `blocked`, and only the pages and sites a person names, and what
+  they link to, are read, within a budget (12 pages and 4 sites by default). Which pages are chosen is a
+  lexical and rule-based estimate of the kind of site and of how much of the plan a page covers, not a
+  judgement that a page is right. A run starts from one page or one site, and sources can be added to a
+  project only before its grounding step is ready or running. A run holds its process's one worker for as
+  long as it takes (the job is held to 15 minutes).
+  Its tests use a fake web on a virtual clock and loopback servers: no test reads the real internet, and no
+  model other than a scripted one has planned a run.
+- **Participants and constraints are proposals, and the rules that make them fall short of their targets.**
+  A quote shows that a source says something, not that it is so, and a person confirms or rejects what is
+  kept. On the labelled set the rules path found 67.1% (108 of 161) of the labelled participant roles
+  against a registered threshold of 90%, and 75.5% (37 of 49) of the hard constraints against 80%; both are
+  recorded as breaches in `evaluation/known-breaches.json`. The set is small, in one fictional domain and
+  labelled by the author. Against a scripted fake of a model, a reply that attached a real quote from
+  another passage was not caught (0 of 12 for each of the two steps), and a model's claim that a limit is
+  hard, where the words do not make it one, was accepted in 12 of 100 cases. A real model has not been
+  measured at all ([docs/production/evaluation.md](./docs/production/evaluation.md)).
+- **A question can carry an instruction into the research plan.** The planner suite found that the rules' plan
+  copies a sentence of the question that reads as an instruction into what it will verify and search for (in all
+  5 labelled cases), and that a model's plan which obeys such an instruction is accepted when the guard does not
+  know its wording (4 of 74 corrupted replies, in fake-Foundry mode). A plan holds no address and what is
+  fetched is decided by code, so nothing is fetched because of it, but the defect is not fixed. With the two
+  breaches above it makes five of the six recorded in `evaluation/known-breaches.json`; the sixth is the
+  recommendation card, which leaves reversibility out of its list of missing parts while it is unknown.
+- **The Decision Canvas reads simulated results.** It has no objective of its own, its lenses are named
+  readings of what the analysis measured, and a `robust-option` status means that the leader held across the
+  checks that were run, not that the world will go that way. Eight kinds of constraint effect are applied
+  in the runs; the size of an effect is a modelling choice, and a limit stated in words that has no effect is
+  read, listed and applied nowhere.
 - **The conflict scan is bounded.** So that a project at the evidence limit cannot stall the server, a
   word that more than 512 sentences hold is not used to find partners and a sentence is compared with at
   most 128 of them (the ones that overlap it most); a pair that is not reached within those limits is
@@ -953,7 +1229,9 @@ What is not built, and what has not been shown. The README keeps a short version
   against PostgreSQL running in-process and over the wire protocol, never against a deployed Azure
   server, and it reaches the database through a synchronous bridge that blocks the process for the
   length of each query ([ADR 0009](./docs/adr/0009-postgres-through-a-synchronous-bridge.md)). There
-  is no hosted worker and no managed identity for the application.
+  is no hosted worker and no managed identity for the application. A hosted container, a PostgreSQL
+  server, a managed identity, Application Insights, alert rules and a budget are authored as Bicep and
+  validated offline, and none is deployed; the deployment guard has been run only in tests.
 - **Identity gaps.** Browser sign-in and the seven roles exist and are tested, but only against a
   test identity provider: no real Entra tenant has been used, because creating the app registration
   needs a tenant administrator. A session ends only Swarm's side of the sign-in (there is no single
@@ -975,6 +1253,8 @@ What is not built, and what has not been shown. The README keeps a short version
   dashboards and runbook in [docs/operations/](./docs/operations/observability.md) are
   written, not created or rehearsed, and the alert rules and budget exist only as Bicep
   ([docs/production/observability.md](./docs/production/observability.md)): compiled offline, never deployed, never fired.
+  Several signals added for the pilot (those for participants, for constraints and for the duration of a
+  simulation) have no caller in the product yet, so an alert that reads one cannot fire.
 - **Report Studio has been tried on a recording, not in use.** Writing a chapter again has run only
   against a stand-in for the provider that speaks the real protocol, never against a live model, so
   how good the rewritten chapters are is unknown; the checks catch a quotation that is not in the
@@ -996,10 +1276,14 @@ What is not built, and what has not been shown. The README keeps a short version
 - **Usage cost.** A recorded real-model scenario (three runs, 199 model calls, about 534,000 tokens
   in and 62,000 out) cost roughly US$0.30 at assumed list prices. Longer sources and more proxies
   cost more. Each project has a model budget (calls and tokens: a deployment default, and a limit that
-  only a workspace owner or administrator may change) and each run a call budget, but there is no
-  per-tenant total, no daily limit and no spend alert.
-- **Text only.** Scanned PDFs need OCR, which is not implemented. There is no web crawling and no
-  live social-media connection.
+  only a workspace owner or administrator may change) and each run a call budget, but the application has
+  no per-tenant total, no daily limit and no spend alert (the pilot template's Azure budget only notifies,
+  and is not deployed). A research run has an estimated cost limit of its own, and `MODEL_OPERATION_*`
+  holds one operation that goes through the task runner to tokens and estimated dollars. A cost is an
+  estimate from prices an operator enters: Swarm ships none.
+- **Text only.** Scanned PDFs need OCR, which is not implemented. Web pages are read as text: no script
+  runs and no page behind a sign-in is read. Automatic research follows only what a person names and
+  what it links to, and there is no search provider and no live social-media connection.
 
 See also the [requirements matrix](./docs/requirements-matrix.md), the
 [production-readiness gates](./docs/production-readiness.md) and the
@@ -1016,10 +1300,14 @@ criteria, and the [README](./README.md) for local operations.
    conventional web hosting are the stronger fit); choose one, not both. The pilot template runs it in
    multiple-revision mode so that a release is blue/green and a rollback is a traffic change
    ([docs/production/release-process.md](./docs/production/release-process.md); the rollback drill has **not** been run).
-2. Managed-identity authentication to **Azure OpenAI / Foundry** is implemented in the
-   adapter (`DefaultAzureCredential`) and `infra/` creates an Entra-only account with
-   keys disabled; both are unit tested but **not yet exercised live**. Use a deployed
-   model supporting JSON Chat Completions.
+2. Entra authentication to **Azure OpenAI / Foundry** is implemented in the adapter
+   (`DefaultAzureCredential`; `AZURE_CLIENT_ID` names a user-assigned managed identity) and `infra/` creates
+   an Entra-only account with keys disabled. The `azure` provider ran live once, on 28 October 2026, against
+   one development deployment with Entra and no key ([docs/AZURE.md](./docs/AZURE.md#live-evidence)). A
+   managed identity has **not** been exercised live, and the `foundry` provider (strict structured output,
+   a router, allowances and a cache) has been proved only against an in-process fake. Use a deployed model
+   supporting JSON Chat Completions; whether it accepts strict `json_schema` is among what a first live
+   run has to settle ([Foundry models](./docs/models/foundry.md#verified-and-not-verified)).
 3. Before durable public hosting, use a managed PostgreSQL database. The PostgreSQL adapter
    ([ADR 0009](./docs/adr/0009-postgres-through-a-synchronous-bridge.md)) and durable job ownership
    ([ADR 0010](./docs/adr/0010-durable-jobs-leased-from-the-database.md)) are built and tested
@@ -1031,10 +1319,14 @@ criteria, and the [README](./README.md) for local operations.
    from database records. Add **Azure AI Search** only when measured retrieval needs
    semantic/vector search at a corpus size beyond the bounded local index.
 5. Use **Key Vault** for unavoidable secrets (the pilot template has an opt-in vault, never deployed); managed identity is preferable to
-   storing Azure model keys. Add **Application Insights / OpenTelemetry** for
-   production operational telemetry with content and credential redaction.
+   storing Azure model keys. **Application Insights / OpenTelemetry** is the production telemetry: the
+   exporter, with content and credential redaction, is built and has never sent to a real resource, and the
+   deployment guard refuses a pilot or production start without its connection string.
 6. **Functions** do not simplify the stateful simulation loop. **Cosmos DB** is not
    necessary for this relational local schema and would require a distinct adapter.
+7. Set `DEPLOYMENT_MODE` to `pilot` or `production` for any hosted process, so that an unsafe configuration
+   is refused when it starts ([Hosting and operations](#hosting-and-operations-authored-not-deployed)). The
+   guard has run only in tests.
 
 Production prerequisites: authentication/authorization and tenant isolation,
 durable storage and jobs, backup/restore verification, HTTPS, quotas/cost controls,

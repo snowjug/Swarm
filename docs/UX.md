@@ -42,13 +42,13 @@ and the browser's Back button all land where the person was.
 | -------- | ------------------------------ | ----------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
 | Ask      | The change you want to explore | `scenes/ask`      | none                                                    | Always. It is the screen before there is a project                          |
 | Ground   | The evidence it rests on       | `scenes/ground`   | `graph`, `sources`, `conflicts`, `statements`, `trace`  | Always, for an open project                                                 |
-| Map      | Who is affected                | `scenes/map`      | `list`                                                  | The evidence has been read, or stakeholders have been found                 |
+| Map      | Who is affected                | `scenes/map`      | `list`, `review`, `constraints`                         | The evidence has been read, or stakeholders have been found                 |
 | Simulate | Watch it unfold                | `scenes/simulate` | `story`, `live`, `network`, `timeline`, `setup`, `deep` | There are actors (or the deep dive's own environment is ready)              |
 | Compare  | Set the futures side by side   | `scenes/compare`  | `runs`                                                  | A simulation has finished, or a run the engine made on its own has rounds   |
 | Decide   | What to do about it            | `scenes/decide`   | `review`, `studio`, `report`                            | A simulation has finished, or a run the engine made on its own has a report |
 
 - **The words in the first column** are the only names the interface gives its parts. The second column
-  is the line under each name on the first screen and in the tooltip of its point on the journey
+  is the line in the tooltip of its point on the journey and in the command palette
   (`SCENE_PURPOSE` in `app/scenes.ts`).
 - **`scene`** is one of the six names; anything else is ignored. **`view`** is one to twenty-four
   lowercase letters and hyphens, and what it means is the scene's own business. A scene's default view
@@ -287,26 +287,41 @@ are in the [user guide](./USER_GUIDE.md).
 
 ### Ask
 
-The first screen, and the only one before there is a project. Its heading is "Explore what could
-_happen_ next.", with "What change do you want to explore?" beneath it, and while a scenario is being
-reviewed the heading is "Your scenario". The first view holds the whole composition on a laptop and on a
-phone: the heading grows with the width and the height of the window, and the six steps of the journey
-under the examples (a promise of their order, not a control) keep to their names where the screen is short
-or a phone, with their purposes still said to a screen reader, and stand aside for the composer on a
-laptop once something is written.
+The first screen, and the only one before there is a project. Its heading is "See how a decision could
+_unfold_.", with "Swarm researches the context, maps who matters, simulates reactions, and shows possible
+paths forward." beneath it, and while a scenario is being reviewed the heading is "Your scenario". After the
+composer the screen goes on in a fixed order: the templates (or the note that names a loaded sample case),
+**How Swarm works**, a line of what every exploration includes, a foot with the way into the sample cases, and
+**Continue** with the newest explorations. The heading grows with the width and the height of the window.
 
 - **One composer** takes the question in the serif, on glass that lights at its edge while it is written
   in. `Ctrl` or `⌘` with Enter explores (Enter alone adds a line), and beside **Explore** stands the
   shortcut of the device (`⌘ ↵` on an Apple device, `Ctrl ↵` elsewhere), or "Add a source" once there is a
-  question and no source; neither is shown on a phone. The question holds at most 2,000 characters, so a
-  longer text pasted into it is cut, and from 1,700 a counter ("1,750 / 2,000") says how much room is left.
-  A "Model assisted" marker stands beside the button when that engine is chosen. While the field is empty it
-  suggests the questions of the examples in turn, never one that would be cut off in the middle of its
-  sentence, and holds still for a person who asked for less motion.
-- **Four tools sit under the field.** On a phone each opens from the foot of the screen as a sheet; there
-  **Time frame**, **Assumptions** and **Options** show only an icon, their words kept in their accessible
-  names (with the time frame or the number of assumptions once there is one), and **Evidence** keeps its
-  word and the number of sources attached.
+  question, no source and no research; neither is shown on a phone. The question holds at most 2,000
+  characters, so a longer text pasted into it is cut, and from 1,700 a counter ("1,750 / 2,000") says how
+  much room is left. A "Model assisted" marker stands beside the button when that engine is chosen. While
+  the field is empty it suggests a question in turn from six, from different walks of life so that no one
+  domain leads (a bus route, a price, support moved to AI, video check-ups, a second site, a shorter school
+  week), never one that would be cut off in the middle of its sentence, never filled in, and it holds still
+  for a person who asked for less motion.
+- **What a person can say beside the question** is in the composer, under the field. **Website or domain**
+  is a field with a globe, optional, where automatic research starts: a site, or the address of one page,
+  and a tag says which it was read as (**Site** or **Page**). It says what looks wrong ("That does not look
+  like a website yet. Try example.org, or the address of one page.") only once the field has been left or
+  **Explore** has been pressed with it as it is, and where research is off it is greyed out and says it is
+  used by automatic research. **Time horizon** is a segmented control (**Not sure**, **Next quarter**, **6
+  months**, **1 year**, **3 years**, **Custom**) that is a list on a phone, where six would not fit in a row;
+  **Custom** opens a field for the person's own words. **Research automatically** is a switch, on by default
+  where the server researches, and a line beside it says what it does in each state ("Swarm finds and reads
+  public sources for you.", "Manual sources only: Swarm reads what you add.", and, where the server does not
+  research, "Off on this server. Attach your own sources."), which is also why it cannot be turned on there.
+  It is the one thing Swarm does that the person did not ask for by name, which is why it is a switch of its
+  own and why the review says what it will do before it does it. The first of those lines promises more than
+  this build can do: there is no search provider, so a question with no website and no source of the person's
+  own gives research nothing to read, and Ground says **Needs a source**. Neither the line nor the review's
+  asks the server whether it can find sources.
+- **Three tools sit at the foot of the composer**, **Evidence**, **Advanced** and **Options**; **Options**
+  shows only an icon, its word kept in its accessible name.
   - **Evidence** brings files (TXT, Markdown, CSV and JSON, and PDF only where the server reports that it
     reads PDFs), pasted text, or a public web page that the server fetches (offered only when the server
     reports URL ingestion). A page is fetched on a press of **Fetch**, shown as a preview that says where it
@@ -317,32 +332,62 @@ laptop once something is written.
     person then edits becomes pasted text, as it does on the server (which keeps a page's provenance only
     for the text it fetched): the sheet says so at once, and says it is the page again if the words are
     put back.
-  - **Time frame** (a few common spans, or the person's own words) and **Assumptions** (up to six) are said
-    before the question is read. They are applied after the reading, as the person's own: the time frame
-    answers the question about the period, and each assumption is marked as theirs and stands ahead of those
-    the reading made. Neither is in the request that reads the question, so that reading, by rules or by a
-    model, never sees them; once applied they are lines of the scenario like any other. They are part of
-    what a reading is made from, so changing one reads the question again, and a reading that fails and is
-    gone past with **Continue without reading** keeps neither (the notice says so).
+  - **Advanced** opens three more fields under the composer: **Geography** (where it applies), **Research
+    guidance** (used to rank what research reads, never as an instruction to it, and said to be used by
+    automatic research, which is off, where it is) and **Assumptions** (up to six). The button carries the
+    number of fields that hold something, so that nothing that was set is hidden by being closed. What is said
+    here is said before the question is read and applied after the reading, as the person's own: the place and
+    the time horizon answer the questions about the place and the period, and each assumption is marked as
+    theirs and stands ahead of those the reading made. None of it is in the request that reads the question,
+    so that reading, by rules or by a model, never sees it; once applied they are lines of the scenario like
+    any other. They are part of what a reading is made from, so changing one reads the question again, and a
+    reading that fails and is gone past with **Continue without reading** keeps none (the notice says so).
   - **Options** is a popover: the engine (**Local rules**, or **Model assisted** once the server has a
     provider), a name, and a **Deep dive** disclosure with Proxies, Rounds and Seed.
-- **The examples** are chips under the field, ordered so that no company leads: Launch pricing, Cloud price
-  change, Online store checkout, AI-first support and Copilot in Teams, then the quiet fictional starter,
-  Library hours. On a phone they are one row to swipe. They fill the question and its evidence and nothing
-  else, and a note names what they brought ("5 documents · sample evidence"; its accessible name begins with
-  its visible words, and pressing it brings the chips back).
+- **Templates** are chips under the composer, **Start from a template**: **AI adoption**, **Pricing
+  change**, **Product launch**, **Policy change**, **Market entry** and **Operating-model change**, and a
+  quieter **Custom**. A template only fills the box with a sentence whose blanks are in square brackets, with
+  no facts and no numbers, and selects the first blank so that the next words replace it; a question that
+  still has a blank is not read.
+- **Sample cases** are behind one quiet link in the foot, **Try a sample case** (**Try a recorded
+  demonstration** where the workspace holds the recorded ferry run, with its own **Open the recording**). It
+  opens a panel that says what is behind it: a sample case is a question with invented evidence, and none of it
+  describes a real case. They are ordered so that no company leads: Launch pricing, Cloud price change,
+  Online store checkout, AI-first support and Copilot in Teams, then the fictional starter, Library hours.
+  Choosing one fills the question and its evidence, clears whatever was said beside the question and turns
+  research off, since the sources it brings are the point of it, and a note names what it brought ("5
+  documents · sample evidence"; its accessible name begins with its visible words, and pressing it brings the
+  templates back). The foot also holds "Explore scenarios, not predictions." and the positioning statement.
+- **How Swarm works** is five steps a person can open, **Question**, **Research**, **People** (**People and
+  constraints** where the server keeps constraints), **Possible futures** and **Decision**. Each is a button
+  (pressing it, or resting a pointer on it for a moment, opens it; the arrow keys, Home and End move between
+  them) that shows what Swarm does there and what the person decides, in words, so that nothing is told by the
+  drawing alone. What it says follows what the server can do: where research is off the second step is about
+  the sources the person attaches. Each line says what is done and never what the result is.
+- **What every exploration includes** is a line of short words, **Evidence linked**, **Assumptions visible**,
+  **Alternatives compared**, **Constraints considered** and **Human approval before simulation**, each drawn
+  only where the server does what it says (the constraints, only where the server reports them), with **What
+  this means** for a sentence on each. It says what Swarm does and never how good a result is.
 - **Explore** reads the question into a scenario that the person reviews and corrects in place: the
   decision, what it affects, where and over what time, what changes, what is expected if nothing changes,
   ways to do it, who is affected, what is assumed (each marked as the person's or the system's), the
-  questions Swarm asks, and the evidence. **Ground it** creates the project and starts reading the
-  evidence; nothing runs before that. A reading that takes long enough to notice is a page of its own: the
-  question stays, focus is on **Stop**, and Stop or Escape gives focus back to the question with all that was
-  written. A reading that fails offers **Try again**, which has focus, and **Continue without reading**.
+  questions Swarm asks, and the evidence. It needs a sentence, and a source unless research is on. Where
+  research is on, the review says what will happen before it does ("Automatic research is on. After you
+  continue, Swarm looks for public sources, starting from example.org, and lists every page it reads."). The
+  line is shown whether or not a source is attached, and with no website it says no more than that Swarm looks
+  for public sources; what research does is read the website that was named, and only for a question with no
+  source of its own.
+  **Ground it** creates the project and starts reading the evidence, or researching for it; nothing runs
+  before that. A reading that takes long enough to notice is a page of its own: the question stays, focus is
+  on **Stop**, and Stop or Escape gives focus back to the question with all that was written. A reading that
+  fails offers **Try again**, which has focus, and **Continue without reading**.
 - **Continue** lists the newest explorations and, when the workspace has them, the recorded
   demonstration.
 - **It must keep** the positioning statement in its exact words, the line in Options that says whether the
   question goes anywhere (rules on this machine read it unless **Model assisted** was chosen), the rule
-  that nothing is run until the person says so, and the one `h1`.
+  that nothing is run until the person says so, the research switch as a choice of the person's own with what
+  it will do said before it does it, the capability words only where the server does what they say, and the
+  one `h1`.
 
 ### Ground
 
@@ -426,7 +471,8 @@ project has one, otherwise by reading the text), **Read the text instead**, and 
   **inspector** shows the party in view (below 64rem, a strip with **Details**, which opens a sheet): where
   it stands, its evidence word for word, why it is here, how it is connected and, for an actor, its key
   assumption, what it wants and worries about, and every trait on a slider with where its value came from.
-  A toolbar offers Map or List, Stakeholders or Actors, Groups, focus on what is connected (`F`), **Add a
+  A toolbar offers Map, List, **Review** and **Constraints**, Stakeholders or Actors (not in Review), Groups,
+  focus on what is connected (`F`), **Add a
   stakeholder** and, under More, **Find stakeholders again…** and **Reset all actors…**. Pointing at a party
   names it and says whether it is key or a cohort, its influence (for an actor), its effect, how many quotes
   stand behind it (or that it is assumed) and why it is here.
@@ -434,7 +480,8 @@ project has one, otherwise by reading the text), **Read the text instead**, and 
   That button reads **Create actors** while the list still has to be approved, and its accessible name is
   "Approve & create actors", because it also accepts what nobody looked at; it reads **Approve** when actors
   the person changed are kept, which approving then leaves as they are. It waits, with the hint "Keep or add
-  two or more", until at least two stakeholders are kept. With a model on offer it first asks whether the
+  two or more", until at least two stakeholders are kept, and, with the hint "Fix N things first", while a
+  blocking check stands against the list. With a model on offer it first asks whether the
   model may read the key actors. Then "N actors ready" with **Simulate**. A change to an actor is held until it
   is saved, and the pill says so in place of the next step: "N actors changed", "Not saved yet", with **Discard**
   and **Save** (**Save** waits while a cohort's simulated members outnumber its size). Below 64rem the pill gives
@@ -457,6 +504,29 @@ project has one, otherwise by reading the text), **Read the text instead**, and 
   rename, regroup or re-kind one (`ACTOR_LOCKED`): an actor is made from its stakeholder. So an actor offers
   **Edit as a stakeholder**, which shows the stakeholders; there a party is duplicated, removed, renamed or
   regrouped, the actors become out of date, and **Make them again** makes them from the list as it now stands.
+- **Review** (`?view=review`, `scenes/map/review/`) is the proposed list laid out to be checked before it is
+  used, under "Synthetic roles, not real people" and the heading "Review the proposed participants". It says
+  first whether anything blocks the list ("Fix N things before these can be used", with each blocking check a
+  row that has the way to fix it, or "Nothing blocks these participants", or "Approved"), then a bar of actions
+  (**Accept all**, **Accept selected**, **Merge duplicates**, **Add a missing participant** and **Propose the
+  list again…**), the roles somebody holds and the roles nobody holds yet (each with **Add one**), and the
+  participants, a card for each, grouped by role. A card says on its face that it is a synthetic role and not a
+  person, what it rests on (a quotation, or that it is an assumption to test), the checks found against it, and
+  what can be done to it: accept, edit, **Ask why**, merge, propose it again and remove it. What was removed,
+  what was left out and why, and how the list was checked are disclosures at the foot, and a notice names a
+  passage of the sources that is addressed to an AI system. A role that may read the project but not edit it
+  sees the list and is told so. Stakeholders or Actors is not offered there, and the pill holds **Use these
+  actors**.
+- **Constraints** (`?view=constraints`, `scenes/map/constraints/`) is a page of its own in the scene, with
+  its own `h1`, "What limits the decision", and no map. Before any is read it says so ("No constraints have
+  been read yet") and offers **Read my sources for constraints** (and, where the project has a model,
+  **Ask the model to read them**). After that it shows "Constraint coverage", with where the gate stands as a
+  chip (Blocked, Provisional or Clear), up to three questions Swarm asks, and the constraints as hard and soft
+  limits, each saying where it
+  came from, whether anyone has validated it, why it is hard or soft, and whether the simulation applies it
+  (**Applied in the simulation**) or only reads it (**Read, not modelled**), and **What if one thing were
+  different**. It must keep hardness as a proposal with its reason, and the rule that nothing it finds is
+  validated, reviewed or used by being found.
 - **List** (`?view=list`) is the same parties as text, in groups, the weightiest first. A line that every
   row of a group would say alike is said once under the group's name, and each row says what is its own: its
   facts (direct or indirect, how many quotes or "Assumed", and for an actor whether it is one actor or a
@@ -785,9 +855,38 @@ appears when no stakeholder has an expected direction of impact.
 
 ### Decide
 
-The decision brief as a document, with the independent review beside it and in its place.
+The **Decision view** first, then the decision brief as a document, the **Full report**, with the independent
+review beside the brief and in its place.
 
-- **The answer comes first.** The first screen says what happened, why, what matters and what to consider
+- **The Decision view is the page's first thing**, in every state of the brief beneath it
+  (`scenes/decide/canvas/`; [the Decision Canvas](./analysis/decision-canvas.md) has the method and the page
+  in full). It holds the page's one level-one heading, "Decision view", with "Explore scenarios, not
+  predictions." beside it. The page adds no number, no label and no sentence of its own about the decision:
+  everything is a plain function of the view the server answered with, and the words that name the parts of the
+  page are held to the brief's wording guard by a test. Its header says what it rests on ("Worked out from the
+  newest finished comparison, every time this page is read."), and has **Labels**, for what the eight kinds of
+  statement mean, and **Full report**, which takes the reader to where the brief begins.
+- **The first viewport holds nine things**, in the order a decision is read: **Question**, **Current best
+  answer** (the status as a word and an icon, with why and the conditions it holds under, never a colour
+  alone), **Most plausible futures**, **What drives them**, **Material constraints**, **Who moves**, **What
+  could change the result**, **Recommended next move** and **What to validate before acting**. Each part has a
+  budget (two futures, two drivers, two constraints, three roles, two views and one assumption, three checks),
+  what does not fit is counted and one press away, and what a person wrote is clamped to a few lines, so that
+  all nine are in a 1440 × 900 window whatever the project holds (`e2e/lab/decide-canvas.spec.ts` is the check).
+  On a narrow screen the question and the answer keep their place and the other seven fold to one line each,
+  in the same order. Every figure is in simulated members in 100, or in seeded runs, and is never a percent.
+- **Beneath the nine** are the details, each in a disclosure and all open on paper: why this status, how the
+  options compare on each lens, the recommendation in full, everything that could change the result, the
+  constraints and who moves in full, the validation plan and when to stop, what the answer rests on, what the
+  independent review challenged, human approval and what the labels mean. Every statement carries its kind as
+  text, with a sentence for a screen reader ("Kind of statement: assumption"); the meaning is in a popover for
+  the pointer and in the page for everyone, since a tooltip holds the only copy of nothing.
+- **Its states** are loading (the shape of the page), "The decision view could not be read" (with **Try
+  again**, and what had been read kept), "Nothing to decide from yet" (what is missing, the step that supplies
+  it, and the detailed report where there is one) or "Not ready yet" while a comparison runs, "This picture
+  describes the project as it was" and a newer comparison on its way, and each of the six statuses, provisional
+  or not.
+- **The brief's answer comes first in the brief.** Its first screen says what happened, why, what matters and what to consider
   next, in that order, with a line under the verdict that the figures are counts from a simulation under
   stated assumptions, not a forecast. **What happened** is the verdict written from the numbers and the
   figures it rests on (the share of simulated members under the change and under no change, their paired
@@ -1108,8 +1207,9 @@ dark.
   line that opens in place.
 - **40rem (640px) and below is a phone.** The journey moves from the top bar to the dock, the bar names the
   scene, sheets come from the bottom, the page leaves room for the dock, and the first screen's composer, tray
-  and tools share the width: the four tools open as sheets, the sources and the examples are each one row to
-  swipe, and the question and **Explore** stay in the first view.
+  and tools share the width: the small menus of the composer (the evidence menu, the options, the sample
+  cases) open as sheets, the time horizon becomes a list, the attached sources and the templates are each one
+  row to swipe, and the question and **Explore** stay in the first view.
 - **78rem (1248px) and below**: the journey in the top bar shows only the name of the scene in view; the
   other points are icons, with their names in a tooltip and in their accessible names.
 - **On a coarse pointer** (a finger) controls are at least 2.75rem, whatever the width. `(hover: hover)`

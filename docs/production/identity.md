@@ -187,12 +187,12 @@ one that deserves a limit of its own.
 
 ## 5. Azure dependencies use the managed identity
 
-| Dependency             | How the application authenticates                                                     | Setting                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| PostgreSQL             | A Microsoft Entra access token as the password, fetched for each connection           | `DATABASE_AUTH=entra`                                      |
-| Azure OpenAI / Foundry | A token from the managed identity; no key is read                                     | `AZURE_OPENAI_AUTH=entra`, `AZURE_CLIENT_ID`               |
-| Application Insights   | The telemetry is signed with the identity; the component refuses local authentication | `APPLICATIONINSIGHTS_CONNECTION_STRING`, `AZURE_CLIENT_ID` |
-| Entra (token endpoint) | The identity's assertion, not a secret                                                | `AUTH_ENTRA_CLIENT_ASSERTION=managed-identity`             |
+| Dependency             | How the application authenticates                                                     | Setting                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| PostgreSQL             | A Microsoft Entra access token as the password, fetched for each connection           | `DATABASE_AUTH=entra`                                                |
+| Azure OpenAI / Foundry | A token from the managed identity; no key is read                                     | `AZURE_OPENAI_AUTH=entra` or `FOUNDRY_AUTH=entra`, `AZURE_CLIENT_ID` |
+| Application Insights   | The telemetry is signed with the identity; the component refuses local authentication | `APPLICATIONINSIGHTS_CONNECTION_STRING`, `AZURE_CLIENT_ID`           |
+| Entra (token endpoint) | The identity's assertion, not a secret                                                | `AUTH_ENTRA_CLIENT_ASSERTION=managed-identity`                       |
 
 Production refuses a database password and a model key; a pilot is warned about the first and refuses the
 second unless `ALLOW_MODEL_API_KEY=true` records the decision.

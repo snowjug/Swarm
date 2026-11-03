@@ -38,7 +38,7 @@ A custom scenario needs no content here: the first screen is that path. Type any
 if...?" question and add your own documents or a public address.
 
 Each folder holds the example's scripts and a readable copy of every document. The copies are the
-same text the example chips load from [`shared/examples`](../../../shared/examples), and a test fails
+same text the sample cases load from [`shared/examples`](../../../shared/examples), and a test fails
 if they drift apart.
 
 | Example                                                                 | Five-minute script                                                   | Ten-minute script                                                  |
@@ -92,8 +92,9 @@ pack: tests check for the obvious forms of it.
    a model it names the provider (for example `REAL AZURE AI`, `REAL MODEL · OpenAI` or
    `REAL MODEL · Ollama (local)`) and the deployment, and says `connected` after **Verify connection**
    (open the chip to find it). Say which one you are in.
-3. Choose an example chip under **Start from an example** on the first screen. It fills the question
-   and the documents, with their provenance, and puts the cursor in the question field. Choosing an
+3. Open **Try a sample case** in the foot of the first screen and choose the example. It fills the question
+   and the documents, with their provenance, turns **Research automatically** off (the sources it brings are
+   the point of it) and, except on a touch screen, puts the cursor in the question field. Choosing an
    example only fills the question and the evidence: nothing is read or run until you press
    **Explore**.
 4. Rehearse the example you will show once end to end. A run in rules mode takes seconds; a model
@@ -102,7 +103,10 @@ pack: tests check for the obvious forms of it.
 The scripts below name buttons and scenes as the interface gives them (**Explore**, **Ground it**,
 **Find who is affected**, **Create actors**, **Run the simulation**, **Compare**, **Decide**,
 **Write the brief**, **Review**, **Run the independent review**). If a label has moved in the build you
-are showing, the step is the same. The [demo guide](../README.md) has the ten-minute script across the
+are showing, the step is the same. Two things stand between those steps that the scripts do not repeat. The
+Map's **Create actors** waits until the participants pass their checks, and **Review participants** says
+what to fix (its **Use these actors** is the way on from there). **Decide** opens on the Decision view, with
+**Write the brief** below it. The [demo guide](../README.md) has the ten-minute script across the
 flagship examples. The browser tests (see [TESTING.md](../../TESTING.md)) take the three flagship
 examples and a question of its own through the real pages, with the public pages served from fixtures;
 rehearse the example you will show before you rely on a script.

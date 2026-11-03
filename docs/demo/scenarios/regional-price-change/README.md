@@ -8,7 +8,7 @@ short relayed notice about a hypothetical one-dollar increase for one managed se
 AWS is named only because the question names it. The service, the region, every price and the
 company are invented, and nothing here is a real price list or a real notice.
 
-Back to the [example scenarios](../README.md). The text the example chip loads is in
+Back to the [example scenarios](../README.md). The text the sample case loads is in
 [`shared/examples/regional-price-change.ts`](../../../../shared/examples/regional-price-change.ts), and
 the files in this folder are readable copies of it.
 
@@ -70,8 +70,8 @@ move part of the workload to the second region; negotiate a commitment through t
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** First screen, then the **Cloud price change** chip under **Start from
-an example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
+**0:00 Choose the example (30 s).** First screen, then **Try a sample case** in the foot and **Cloud price change**.
+Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
 behavior. AWS is in the question; the documents describe an invented company reading an invented
 notice. Every price is made up, and each document says so." Point at the question and at the evidence:
 the count on **Evidence** and the five documents in the tray, each a sample (open one: "Sample evidence:

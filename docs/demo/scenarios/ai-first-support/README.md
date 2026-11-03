@@ -9,7 +9,7 @@ handling data with a small pilot, a note of concerns from engineers, customers a
 supplier's case study with a list of what nobody has measured. The company, its customers, its
 engineers and every figure are invented.
 
-Back to the [example scenarios](../README.md). The text the example chip loads is in
+Back to the [example scenarios](../README.md). The text the sample case loads is in
 [`shared/examples/ai-first-support.ts`](../../../../shared/examples/ai-first-support.ts), and the
 files in this folder are readable copies of it.
 
@@ -71,8 +71,8 @@ first screen; premium and enterprise customers left out at first.
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** First screen, then the **AI-first support** chip under **Start from an
-example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
+**0:00 Choose the example (30 s).** First screen, then **Try a sample case** in the foot and **AI-first support**.
+Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
 behavior. This is an invented software company and invented evidence, and each document says so."
 Point at the question and at the evidence: the count on **Evidence** and the four documents in the
 tray, each a sample (open one: "Sample evidence: invented, describes no real case"; in Ground it

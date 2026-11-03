@@ -11,6 +11,11 @@ never marked VERIFIED here.
 
 ## Gates on the final tree
 
+These are the results on the final tree of that program (commit `2ff2089`, 2 November 2026). The production-v1 work
+that followed (automatic research, participants, constraints, the Decision Canvas, the Foundry provider, the
+deployment guard, the infrastructure and the AI evaluation) has not been run through these gates: its counts and
+status are in [TESTING.md](../TESTING.md#results-recorded) and [production](../production/README.md).
+
 | Gate                                               | Result                                                                                                                                                                                                                                                                                                                   |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Type checks (5 projects), lint (0 warnings), build | pass (`npm run check`)                                                                                                                                                                                                                                                                                                   |

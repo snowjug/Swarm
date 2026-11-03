@@ -7,7 +7,7 @@ price with no free trial. The evidence is four short documents: a launch brief, 
 small price test, notes from sales, support and customer success, and market notes with a list of what
 nobody has measured. The company, its customers, its competitors and every figure are invented.
 
-Back to the [example scenarios](../README.md). The text the example chip loads is in
+Back to the [example scenarios](../README.md). The text the sample case loads is in
 [`shared/examples/launch-pricing.ts`](../../../../shared/examples/launch-pricing.ts), and the files
 in this folder are readable copies of it.
 
@@ -66,8 +66,8 @@ a trial limited to some features; the Team plan kept on sale; existing customers
 Run it once before you present and read the real screens. This guide contains no result. Do not
 quote a figure from it as one.
 
-**0:00 Choose the example (30 s).** First screen, then the **Launch pricing** chip under **Start from an
-example**. Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
+**0:00 Choose the example (30 s).** First screen, then **Try a sample case** in the foot and **Launch pricing**.
+Say: "Swarm explores scenarios. It does not guarantee or precisely predict real-world
 behavior. This is an invented software company and invented evidence, and each document says so."
 Point at the question and at the evidence: the count on **Evidence** and the four documents in the
 tray, each a sample (open one: "Sample evidence: invented, describes no real case"; in Ground it
