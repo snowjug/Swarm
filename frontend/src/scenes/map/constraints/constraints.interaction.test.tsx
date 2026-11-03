@@ -543,7 +543,7 @@ describe('what Swarm still has to ask', () => {
     expect(screen.getByText(/1 more is waiting\./u)).toBeTruthy();
     expect(
       within(list[0]!).getByText(
-        /What it could change: It could change which alternative comes out ahead\./u,
+        /Why it is asked: It could change which alternative comes out ahead\./u,
       ),
     ).toBeTruthy();
   });

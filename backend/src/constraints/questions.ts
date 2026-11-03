@@ -99,10 +99,7 @@ export function newQuestions(input: {
   }
   const implied = impliedBy(input.context, input.passages);
   // What the situation points to, the most pointed to first; the kinds every decision has come after those.
-  const ranked = [
-    ...implied.filter((item) => !item.situation.universal),
-    ...implied.filter((item) => item.situation.universal),
-  ].sort(
+  const ranked = [...implied].sort(
     (a, b) =>
       Number(a.situation.universal === true) - Number(b.situation.universal === true) ||
       b.points - a.points,

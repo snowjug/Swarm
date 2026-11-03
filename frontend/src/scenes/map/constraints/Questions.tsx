@@ -118,7 +118,7 @@ export function Questions({
             <p className="sw-cask__q">{question.question}</p>
             <p className="sw-cask__why">
               <HelpCircle size={14} aria-hidden="true" />
-              <span>What it could change: {question.why}</span>
+              <span>Why it is asked: {question.why}</span>
             </p>
             {canEdit &&
               (answering === question.id ? (
