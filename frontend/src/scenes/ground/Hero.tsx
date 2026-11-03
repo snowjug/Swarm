@@ -19,6 +19,11 @@ import { Figures, type FigureSpec } from './Figures';
 import { Method } from './Method';
 import { Phases } from './Phases';
 import { SourceRows, type Reading } from './SourceRows';
+import { RunActions } from './research/Controls';
+import { useGroundResearch } from './research/context';
+import { researchFigures } from './research/figures';
+import { ResearchChip } from './research/ResearchChip';
+import { statusWords } from './research/model';
 import { useGroundActions, useGroundData } from './context';
 import { vars } from './css';
 import {
@@ -128,6 +133,12 @@ export function Hero() {
   const reason = failureReason(project);
   const event = latestEvent(project);
   const sample = sampleNote(documents);
+  // While research is what the page is about, its status, its figures and its actions are the page's head, and its
+  // stages are drawn where the research is; the evidence's own are what follow when research has done its part.
+  const research = useGroundResearch();
+  const takeover = research?.takesOver ? research : null;
+  const researchWords = takeover ? statusWords(takeover.presence) : null;
+  const researchOnly = takeover !== null && documents.length === 0;
 
   // A figure is a dash while the engine has not said, and a number once it has: a saved record that holds
   // no graph says none, since nothing more will arrive for it.
@@ -142,7 +153,7 @@ export function Hero() {
           : 'all reviewed'
         : 'none found'
       : undefined;
-  const figures: FigureSpec[] = [
+  const projectFigures: FigureSpec[] = [
     {
       id: 'sources',
       label: 'Sources',
@@ -177,6 +188,9 @@ export function Hero() {
       onPress: all ? () => actions.goTo('conflicts') : null,
     },
   ];
+  const figures = takeover
+    ? researchFigures(takeover, all ? () => actions.goTo('conflicts') : null)
+    : projectFigures;
 
   const startRun = () => void run('knowledge').catch(() => undefined);
   const stopRun = () => void cancel().catch(() => undefined);
@@ -229,8 +243,12 @@ export function Hero() {
     );
   }
 
-  const status =
-    stage === 'ready'
+  // Research is what the page is about: what to do is about the run, and the ones that are about the evidence wait.
+  if (takeover) primary = <RunActions />;
+
+  const status = takeover
+    ? ''
+    : stage === 'ready'
       ? `Ready. ${plural(documents.length, 'source')}${passages.index ? `, ${plural(passages.index.all.length, 'passage')}` : ''}${graph ? `, ${plural(graph.nodes.length, noun.one.toLowerCase(), noun.many.toLowerCase())}` : ''}.`
       : stage === 'running'
         ? moment === 'extracting'
@@ -245,16 +263,25 @@ export function Hero() {
               : '';
 
   return (
-    <section className="sw-ground__hero" aria-labelledby="ground-question" data-stage={stage}>
+    <section
+      className="sw-ground__hero"
+      aria-labelledby="ground-question"
+      data-stage={stage}
+      data-research={researchOnly ? 'only' : takeover ? 'live' : undefined}
+    >
       <div className="sw-ground__lead">
         <div className="sw-ground__kicker sw-rise">
           <span className="sw-eyebrow">Ground</span>
-          <StatusChip
-            stage={stage}
-            moment={moment}
-            advanced={mode === 'advanced'}
-            step={project.console?.steps.knowledge}
-          />
+          {researchWords ? (
+            <ResearchChip words={researchWords} />
+          ) : (
+            <StatusChip
+              stage={stage}
+              moment={moment}
+              advanced={mode === 'advanced'}
+              step={project.console?.steps.knowledge}
+            />
+          )}
           {sample && (
             <span className="sw-ground__sample">
               <FlaskConical size={13} aria-hidden="true" />
@@ -262,13 +289,13 @@ export function Hero() {
             </span>
           )}
         </div>
-        <div className="sw-rise" style={vars({ '--i': 1 })}>
+        <div className="sw-ground__asking sw-rise" style={vars({ '--i': 1 })}>
           <Question text={project.question} />
         </div>
 
         <Figures items={figures} />
 
-        {(working || checking) && (
+        {(working || checking) && !takeover && (
           <div className="sw-ground__progress">
             <Phases
               phases={phases}
@@ -287,7 +314,7 @@ export function Hero() {
           </div>
         )}
 
-        {(stage === 'failed' || stage === 'stopped') && (
+        {(stage === 'failed' || stage === 'stopped') && !takeover && (
           <m.div
             initial={reduced ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -308,48 +335,52 @@ export function Hero() {
 
         <div className="sw-ground__actions sw-rise" style={vars({ '--i': 6 })} data-hero-action>
           {primary}
-          <Method
-            graph={project.graph}
-            ontology={project.console?.ontology ?? null}
-            sampleEvidence={documents.some((doc) => doc.synthetic)}
-            awaitingStatements={
-              ledger.ledger !== null &&
-              ledger.ledger.claims.length === 0 &&
-              ledger.ledger.reviewedAt === null
-            }
-          />
+          {!researchOnly && (
+            <Method
+              graph={project.graph}
+              ontology={project.console?.ontology ?? null}
+              sampleEvidence={documents.some((doc) => doc.synthetic)}
+              awaitingStatements={
+                ledger.ledger !== null &&
+                ledger.ledger.claims.length === 0 &&
+                ledger.ledger.reviewedAt === null
+              }
+            />
+          )}
         </div>
         <p className="sr-only" role="status">
           {status}
         </p>
       </div>
 
-      <div className="sw-ground__stage" aria-label="Evidence">
-        <AnimatePresence mode="wait" initial={false}>
-          {graph ? (
-            <m.div
-              key="graph"
-              className="sw-ground__stage-in"
-              initial={reduced ? false : { opacity: 0, scale: 0.985 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={SPRING.gentle}
-            >
-              <ConstellationGraph />
-            </m.div>
-          ) : (
-            <m.div
-              key="field"
-              className="sw-ground__stage-in"
-              initial={reduced ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <SourceRows variant="field" reading={reading} />
-            </m.div>
-          )}
-        </AnimatePresence>
-      </div>
+      {!researchOnly && (
+        <div className="sw-ground__stage" aria-label="Evidence">
+          <AnimatePresence mode="wait" initial={false}>
+            {graph ? (
+              <m.div
+                key="graph"
+                className="sw-ground__stage-in"
+                initial={reduced ? false : { opacity: 0, scale: 0.985 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={SPRING.gentle}
+              >
+                <ConstellationGraph />
+              </m.div>
+            ) : (
+              <m.div
+                key="field"
+                className="sw-ground__stage-in"
+                initial={reduced ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                <SourceRows variant="field" reading={reading} />
+              </m.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </section>
   );
 }
