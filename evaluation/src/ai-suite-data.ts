@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { DECISION_STATUSES, LENS_IDS, STATUS_RULE_IDS } from '../../shared/decision.js';
+import {
+  DECISION_STATUSES,
+  HIGH_STAKES_DOMAINS,
+  LENS_IDS,
+  STATUS_RULE_IDS,
+} from '../../shared/decision.js';
 import { RESEARCH_STOP_REASONS } from '../../shared/research.js';
 import { SPLITS } from './datasets.js';
 import { DATASET_DIRECTORY } from './paths.js';
@@ -167,6 +172,20 @@ const criticsSchema = z
 /** A lens whose leader is not named is a lens the document does not settle for the fixture: it is not scored. */
 const leaderSchema = z.partialRecord(z.enum(LENS_IDS), text.nullable());
 
+/**
+ * What the scope check is expected to read of a fixture's question, from the document's own words: whether it
+ * is a decision about one person, the matters it speaks of where the document's tables settle them (left out
+ * where they do not), and the names a person's question holds, which the cues must never repeat.
+ */
+const scopeGoldSchema = z
+  .object({
+    individual: z.boolean(),
+    domains: z.array(z.enum(HIGH_STAKES_DOMAINS)).optional(),
+    names: z.array(text).optional(),
+  })
+  .strict();
+export type ScopeGold = z.infer<typeof scopeGoldSchema>;
+
 const goldSchema = z
   .object({
     status: z.enum(DECISION_STATUSES),
@@ -184,6 +203,8 @@ const goldSchema = z
     agreement: z.enum(['agree', 'disagree']).nullable(),
     /** The least number of conditions a conditional option lists; 0 for every other status. */
     conditions: z.number().int().min(0),
+    /** Named only by the fixtures about the scope check (a question about one person, and the look-alikes of it). */
+    scope: scopeGoldSchema.optional(),
     why: text,
   })
   .strict();
@@ -195,6 +216,8 @@ const decisionCaseSchema = z
     split,
     cast: z.enum(['scenario', 'lab', 'lab-no-authority']),
     scenario: text.optional(),
+    /** The question of the project, which the scope check reads (and the frame's decision is set to it). Given only where the fixture is about it. */
+    question: text.optional(),
     options: z.array(optionSchema).min(1).optional(),
     runs: z.number().int().min(1).optional(),
     direction: z.enum(['has', 'none']).optional(),
@@ -240,6 +263,8 @@ export interface ResolvedDecisionCase {
   split: DecisionCase['split'];
   cast: DecisionCase['cast'];
   scenario: string | null;
+  /** What the scope check reads, when the fixture names a question of its own. */
+  question: string | null;
   options: DecisionOption[];
   runs: number;
   direction: 'has' | 'none';
@@ -414,6 +439,7 @@ export function loadDecisionCases(): { file: DecisionFile; cases: ResolvedDecisi
     split: item.split,
     cast: item.cast,
     scenario: item.scenario ?? null,
+    question: item.question ?? null,
     options: item.options ?? file.clearOptions,
     runs: item.runs ?? defaults.runs,
     direction: item.direction ?? defaults.direction,

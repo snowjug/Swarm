@@ -217,7 +217,9 @@ export function inputsFor(
             system: scenario.title.slice(0, 300),
           }),
         }
-      : {}),
+      : item.question
+        ? { scenario: scenarioFixture({ decision: item.question.slice(0, 400) }) }
+        : {}),
   };
   if (item.constraints === null) config.constraints = null;
   else config.constraints = item.constraints.items.map(constraintFrom);
@@ -263,9 +265,14 @@ export function inputsFor(
       },
     };
   const inputs = controlledInputs(optionsOf(item), config);
-  return scenario
-    ? { ...inputs, project: { id: 'project-1', name: scenario.title, question: scenario.question } }
-    : inputs;
+  // The canvas builder reads the question and the frame itself (consequentialScope): the fixture's own words go in as they are.
+  if (scenario)
+    return {
+      ...inputs,
+      project: { id: 'project-1', name: scenario.title, question: scenario.question },
+    };
+  if (item.question) return { ...inputs, project: { ...inputs.project, question: item.question } };
+  return inputs;
 }
 
 export interface FixtureRun {
