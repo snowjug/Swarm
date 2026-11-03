@@ -8,6 +8,7 @@ import {
 } from './backtest.js';
 import { decisionBriefSchema } from './brief.js';
 import { critiqueSetSchema } from './critique.js';
+import { researchRunSchema } from './research.js';
 import { scenarioFrameSchema } from './scenario.js';
 import { actorSetSchema, stakeholderSetSchema } from './stakeholders.js';
 
@@ -18,6 +19,8 @@ import { actorSetSchema, stakeholderSetSchema } from './stakeholders.js';
  */
 export const artifactSchemas = {
   scenario: scenarioFrameSchema,
+  /** One document per research run, keyed by the run's id. */
+  research: researchRunSchema,
   stakeholders: stakeholderSetSchema,
   actors: actorSetSchema,
   analysis: analysisSchema,

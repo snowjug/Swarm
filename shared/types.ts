@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { GroundingReview } from './grounding.js';
 import type { GuidedConsoleState } from './guided.js';
 import type { LabProgress } from './lab.js';
+import { researchIntakeSchema } from './research.js';
 import { scenarioInputSchema, sourceProvenanceSchema, type SourceProvenance } from './scenario.js';
 
 export const APP_VERSION = '0.3.0';
@@ -82,6 +83,8 @@ export const createProjectSchema = z
     settings: settingsSchema.default(() => settingsSchema.parse({})),
     /** The structure read from the question, when the person went through scenario intake. */
     scenario: scenarioInputSchema.optional(),
+    /** What the person asked research to do. Absent means the project was made before research existed. */
+    research: researchIntakeSchema.optional(),
   })
   .superRefine((project, context) => {
     if (
