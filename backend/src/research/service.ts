@@ -386,6 +386,13 @@ export class ResearchService {
     if (recorder.current.status !== 'running') {
       throw new AppError(409, 'RESEARCH_NOT_PAUSABLE', 'This research is already paused.');
     }
+    if (control.gate.expired) {
+      throw new AppError(
+        409,
+        'RESEARCH_NOT_PAUSABLE',
+        'This research was paused for as long as it may be, and is finishing with what it has read.',
+      );
+    }
     control.gate.pause(this.maxPauseMs, () => this.expire(active));
     recorder.update((run) => ({ ...run, status: 'paused' }));
     recorder.event(

@@ -5,6 +5,7 @@ import {
   type ResearchView,
 } from '../../shared/research.js';
 import { Orchestrator } from '../src/orchestration/runner.js';
+import { PauseControl } from '../src/research/pause.js';
 import { newRun } from '../src/research/store.js';
 import { testConfig } from './fixtures.js';
 import { HARBOUR, harbourWeb, researchApp, type ResearchApp } from './support/research-app.js';
@@ -109,6 +110,36 @@ describe('pausing and resuming', () => {
     );
     expect(app.repository.get(id).documents.length).toBeGreaterThan(0);
     expect(app.repository.get(id).status).toBe('ready');
+  });
+});
+
+describe('the gate a pause holds a run at', () => {
+  it('opens by itself when the pause has lasted as long as it may, and a pause that has run out cannot be taken again', async () => {
+    const gate = new PauseControl();
+    const signal = new AbortController().signal;
+    let expired = 0;
+    gate.pause(10, () => (expired += 1));
+    expect(gate.closed).toBe(true);
+    const waiting = gate.waitIfPaused(signal);
+    await waiting;
+    expect(expired).toBe(1);
+    expect(gate).toMatchObject({ closed: false, expired: true });
+    gate.pause(10, () => (expired += 1));
+    expect(gate.closed).toBe(false);
+    await gate.waitIfPaused(signal);
+    expect(expired).toBe(1);
+  });
+
+  it('lets go of whoever is waiting when the run is cancelled, and of its timer when the run ends', async () => {
+    const gate = new PauseControl();
+    const controller = new AbortController();
+    gate.pause(60_000, () => undefined);
+    const waiting = gate.waitIfPaused(controller.signal);
+    controller.abort(new Error('cancelled'));
+    await expect(waiting).rejects.toThrow('cancelled');
+    gate.dispose();
+    expect(gate.closed).toBe(false);
+    expect(gate.expired).toBe(false);
   });
 });
 

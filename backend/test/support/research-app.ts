@@ -1,7 +1,9 @@
-import { afterEach } from 'vitest';
+import { afterEach, expect } from 'vitest';
 import { buildApp } from '../../src/app.js';
+import { lintText } from '../../src/brief/lint.js';
 import type { ModelFactory } from '../../src/models/factory.js';
 import type { SearchProvider } from '../../src/research/discovery.js';
+import { wordingIssuesOf } from '../../src/research/plan.js';
 import type { ResearchSeam } from '../../src/research/service.js';
 import { testConfig } from '../fixtures.js';
 import { QUESTION, harbourWeb } from './research-web.js';
@@ -19,9 +21,52 @@ export interface ResearchAppOptions {
   app?: Partial<Parameters<typeof buildApp>[0]>;
 }
 
-const applications: Awaited<ReturnType<typeof buildApp>>[] = [];
+type Application = Awaited<ReturnType<typeof buildApp>>;
+const applications: Application[] = [];
+const projects: { instance: Application; id: string }[] = [];
+
+/** Every sentence that research wrote for a project, and that a person is shown: the run, and the project's log. */
+function shownBy(instance: Application, id: string): { where: string; text: string }[] {
+  const sentences: { where: string; text: string }[] = [];
+  const add = (where: string, text: string | null | undefined): void => {
+    if (text) sentences.push({ where, text });
+  };
+  const run = instance.research.store.latest(id)?.data;
+  if (run) {
+    run.events.forEach((event, index) => add(`event ${index} of the run`, event.message));
+    run.sources.forEach((source, index) => {
+      source.warnings.forEach((warning) => add(`warning of source ${index}`, warning));
+      add(`quarantine of source ${index}`, source.quarantine?.detail);
+      add(`failure of source ${index}`, source.failure?.message);
+    });
+    add('the discovery message', run.discovery.message);
+    run.plan?.stoppingConditions.forEach((line) => add('a stopping condition', line));
+    if (run.plan) {
+      for (const issue of wordingIssuesOf(run.plan)) add('the plan', issue);
+    }
+  }
+  instance.repository
+    .get(id)
+    .events.forEach((event) => add(`log line (${event.stage}) of the project`, event.message));
+  return sentences;
+}
+
+/** Everything research said in a test is held to the project's wording guard, whatever the test was about. */
 afterEach(async () => {
+  const broken: string[] = [];
+  for (const { instance, id } of projects.splice(0)) {
+    try {
+      for (const { where, text } of shownBy(instance, id)) {
+        for (const issue of lintText(text, where)) {
+          broken.push(`${where}: "${issue.match}" (${issue.rule}) in "${text}"`);
+        }
+      }
+    } catch {
+      // An application that a test stopped has nothing left to read.
+    }
+  }
   await Promise.all(applications.splice(0).map(({ app }) => app.close()));
+  expect(broken).toEqual([]);
 });
 
 /**
@@ -109,7 +154,9 @@ export async function researchApp(options: ResearchAppOptions = {}) {
       },
     });
     if (response.statusCode !== 201) throw new Error(`Not created: ${response.body}`);
-    return (response.json() as { id: string }).id;
+    const id = (response.json() as { id: string }).id;
+    projects.push({ instance, id });
+    return id;
   };
 
   const post = (

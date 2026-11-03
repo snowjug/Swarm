@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   DEFAULT_RESEARCH_BUDGET,
+  MAX_RESEARCH_PASSAGES,
   type ResearchRun,
   type ResearchSource,
 } from '../../shared/research.js';
+import { MAX_ARTIFACT_BYTES } from '../../shared/artifacts.js';
 import { MAX_DOCUMENTS, MAX_TOTAL_CHARS, createProjectSchema } from '../../shared/types.js';
 import { AppError } from '../src/errors.js';
 import { hashText } from '../src/grounding/ledger.js';
@@ -146,6 +148,46 @@ describe('research runs in storage', () => {
     recorder.adopt(record);
     expect(recorder.stored).toBe(record.revision);
     expect(recorder.reach('ready').stage).toBe('ready');
+  });
+
+  it('hold the largest record the schema allows, which is far from the size an artifact is limited to', () => {
+    const projectId = questionOnly();
+    const long = (prefix: string) => `${prefix}${'a'.repeat(2_048 - prefix.length)}`;
+    const sources = Array.from({ length: MAX_SOURCES }, (_, index) =>
+      sourceRecord(index + 1, {
+        requestedUrl: long('https://a.example.org/'),
+        finalUrl: long('https://b.example.org/'),
+        canonicalUrl: long('https://c.example.org/'),
+        parentUrl: long('https://d.example.org/'),
+        title: 'T'.repeat(300),
+        relevance: 'R'.repeat(300),
+        warnings: Array.from({ length: 8 }, () => 'W'.repeat(240)),
+        outcome: 'used',
+        documentId: 'D1',
+        passageCount: 5,
+      }),
+    );
+    const passages = Object.fromEntries(
+      Array.from({ length: MAX_RESEARCH_PASSAGES }, (_, index) => [
+        `S${index + 1}`,
+        {
+          sourceId: sources[0]?.id ?? 'rs-0000000001',
+          headingPath: Array.from({ length: 6 }, () => 'H'.repeat(160)),
+          kind: 'paragraph' as const,
+        },
+      ]),
+    );
+    const events = Array.from({ length: MAX_EVENTS }, () => ({
+      at: AT,
+      stage: 'reading' as const,
+      level: 'info' as const,
+      message: 'M'.repeat(240),
+    }));
+    const record = store.create(projectId, aRun(1, { sources, passages, events }));
+    expect(record.data.sources).toHaveLength(MAX_SOURCES);
+    const bytes = Buffer.byteLength(JSON.stringify(record.data), 'utf8');
+    expect(bytes).toBeGreaterThan(1_000_000);
+    expect(bytes).toBeLessThan(MAX_ARTIFACT_BYTES);
   });
 
   it('hold no more than the record can: the sources that matter most, in order, and the newest events', () => {
