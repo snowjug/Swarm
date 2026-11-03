@@ -55,6 +55,12 @@ read next, and a small model will sometimes obey an instruction inside it ([ARCH
   question alone finds nothing.
 - A model's plan still changes what is read first, because its topics rank links. It cannot change what may
   be fetched, how much, or from where.
+- A plan can still carry words that it should not. The evaluation's planner suite found that an instruction
+  written in the question is copied into the rules' plan as a claim to check and a topic (5 of 5 labelled cases),
+  and that a model's plan which obeys one is accepted when the echo guard does not know its wording (4 of 74
+  corrupted replies). The plan holds no address and the fetch decisions are code, so nothing is fetched because
+  of it, but the text is carried and the defect is not fixed
+  ([LIMITATIONS](../production/LIMITATIONS.md), A12).
 - Which kind of site a page is (government, a university, a publisher, documentation, discussion) is an
   estimate from lists that people extend by hand. A name that nobody vouched for is `unclassified`, and a
   government whose suffix is not on the list is too.

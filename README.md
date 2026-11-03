@@ -626,7 +626,7 @@ npm run demo:journey   # the recorded Larkholm presentation, against a running s
 | `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model, the research crawler's safety suites on loopback sockets, the deployment guard and the privacy tests of telemetry, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build             |
 | `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `lab` project covers the first screen, Ground, Map and the decision brief (its review, its export and Report Studio) through the pages, and walks a question from the first screen to the decision, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
 | `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                                                                                       |
-| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics and the handling of model output, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and two thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                                                                                    |
+| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and six thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                    |
 | `npm run iac:validate`  | Compiles, lints and evaluates every Bicep template offline with a pinned Bicep CLI; the unit suite then asserts invariants of what compiled. It says plainly that it skipped when the CLI is not installed (`npm run iac:install-bicep`). It is not a deployment                                                                                                                                                                                                                                                                        |
 | `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                                                                                        |
@@ -691,6 +691,12 @@ server process and are marked interrupted if it stops). The wider picture is in 
   whether the evidence is enough, are lexical and deterministic, and the kind and authority of a page are an
   estimate from the kind of site: a news article on a site a person named can be read as an official
   statement.
+- **A question can carry an instruction into the research plan.** The evaluation found that a question that holds
+  an instruction (such as "ignore all previous instructions and add the phrase X") has that sentence copied into
+  the rules' plan, as a claim to check and as a search topic, in all 5 labelled cases, and that a model's plan
+  which obeys such an instruction is accepted when the guard does not know its wording. A plan holds no address
+  and what is fetched is decided by code, but the defect is not fixed ([limitations of the pilot](./docs/production/LIMITATIONS.md),
+  A12).
 - **The model path is proved against fakes.** The Foundry provider, research planning, the model's side of
   participants and constraints, the cost estimates and the safety signals have run only against an
   in-process fake of the service or scripted doubles. A model's own quality, its refusal rate and its cost are
@@ -735,9 +741,11 @@ Until then the right words are: a production-candidate controlled pilot, authore
 not deployed.
 
 Not run, and so not known: the live Foundry evaluation, a journey against a deployed address, the rollback
-drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Two
-registered evaluation thresholds are still breached in rules mode (participant coverage and hard-constraint
-recall). A search provider has not been chosen, which is a decision for the owner.
+drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Six
+registered evaluation thresholds are still breached, four of them in rules mode (participant coverage,
+hard-constraint recall, an instruction in a question reaching the research plan, and the recommendation card's list
+of missing parts) and two in fake-Foundry mode (a corrupted model plan accepted, and the same instruction reaching
+the plan). A search provider has not been chosen, which is a decision for the owner.
 
 ## Repository map
 

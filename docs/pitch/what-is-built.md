@@ -64,10 +64,11 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - **Automatic research** has run only against fixture sites on loopback, a fake network on a virtual clock and
   scripted models, never against the real web. Which pages are better is an estimate from the kind of site and
   the wording, not a judgement that a page is right. A question alone cannot be researched.
-- **The AI evaluation** (`npm run eval:ai`) holds two pre-registered thresholds that are still breached in rules
-  mode, and are listed in `evaluation/known-breaches.json`: participant coverage 67.1% against 90%, and
-  hard-constraint recall 75.5% against 80%. Its live mode, against a real model, has not been run
-  ([evaluation](../production/evaluation.md)).
+- **The AI evaluation** (`npm run eval:ai`) holds six pre-registered thresholds that are still breached, listed in
+  `evaluation/known-breaches.json`: in rules mode participant coverage (67.1% against 90%), hard-constraint recall
+  (75.5% against 80%), an instruction in a question that reaches the research plan, and the recommendation card's
+  list of missing parts; in fake-Foundry mode a corrupted model plan accepted and the same instruction reaching
+  the plan. Its live mode, against a real model, has not been run ([evaluation](../production/evaluation.md)).
 - **Conflict detection** found 1 of 3 labelled conflicts, with no false alarm on that set. It raises
   false alarms on some real material (two surveys of different groups) and misses conflicts of
   meaning. A person confirms or dismisses every candidate.
