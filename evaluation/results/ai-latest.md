@@ -12,12 +12,12 @@ deterministic, offline, no model: the product's rules paths over the labelled se
 | --- | --- | --- | --- | --- | --- |
 | Schema-valid reply rate (live model, after one correction) | >= 99% | NOT MEASURED | — | — | NOT MEASURED |
 | Rules fallback schema-valid rate | >= 100% | 100% (82/82; 95% CI 95.5% to 100%) | 100% (42/42; 95% CI 91.6% to 100%) | 100% (36/36; 95% CI 90.4% to 100%) | met |
-| Grounded claim rate (evidence reference resolves and the quote exists in the passage) | >= 95% | 100% (505/505; 95% CI 99.2% to 100%) | 100% (249/249; 95% CI 98.5% to 100%) | 100% (241/241; 95% CI 98.4% to 100%) | met |
-| Unsupported claim rate | <= 2% | 0% (0/331; 95% CI 0% to 1.1%) | 0% (0/178; 95% CI 0% to 2.1%) | 0% (0/145; 95% CI 0% to 2.6%) | met |
-| Citation correctness (ids resolve) | >= 100% | 100% (505/505; 95% CI 99.2% to 100%) | 100% (249/249; 95% CI 98.5% to 100%) | 100% (241/241; 95% CI 98.4% to 100%) | met |
-| Actor coverage of the labelled participant roles | >= 90% | 30.4% (49/161; 95% CI 23.9% to 37.9%) | 25.6% (23/90; 95% CI 17.7% to 35.4%) | 36.6% (26/71; 95% CI 26.4% to 48.2%) | BREACHED |
-| Actor redundancy after deduplication | <= 10% | 8.4% (10/119; 95% CI 4.6% to 14.8%) | 11.7% (7/60; 95% CI 5.8% to 22.2%) | 5.1% (3/59; 95% CI 1.7% to 13.9%) | met |
-| Generic actor names accepted | 0 | 0 of 270 | 0 of 135 | 0 of 129 | met |
+| Grounded claim rate (evidence reference resolves and the quote exists in the passage) | >= 95% | 100% (680/680; 95% CI 99.4% to 100%) | 100% (369/369; 95% CI 99% to 100%) | 100% (282/282; 95% CI 98.7% to 100%) | met |
+| Unsupported claim rate | <= 2% | 0% (0/442; 95% CI 0% to 0.9%) | 0% (0/254; 95% CI 0% to 1.5%) | 0% (0/170; 95% CI 0% to 2.2%) | met |
+| Citation correctness (ids resolve) | >= 100% | 100% (680/680; 95% CI 99.4% to 100%) | 100% (369/369; 95% CI 99% to 100%) | 100% (282/282; 95% CI 98.7% to 100%) | met |
+| Actor coverage of the labelled participant roles | >= 90% | 67.1% (108/161; 95% CI 59.5% to 73.9%) | 72.2% (65/90; 95% CI 62.2% to 80.4%) | 60.6% (43/71; 95% CI 48.9% to 71.1%) | BREACHED |
+| Actor redundancy after deduplication | <= 10% | 10% (18/180; 95% CI 6.4% to 15.3%) | 9.7% (10/103; 95% CI 5.4% to 17%) | 10.4% (8/77; 95% CI 5.4% to 19.2%) | met |
+| Generic actor names accepted | 0 | 0 of 417 | 0 of 227 | 0 of 169 | met |
 | Hard-constraint detection recall | >= 80% | 75.5% (37/49; 95% CI 61.9% to 85.4%) | 78.8% (26/33; 95% CI 62.2% to 89.3%) | 68.8% (11/16; 95% CI 44.4% to 85.8%) | BREACHED |
 | extracted constraints whose quote is not in the source | 0 | 0 of 102 | 0 of 66 | 0 of 32 | met |
 | Missing-constraint detection (seeded gaps) | >= 70% | 76.9% (10/13; 95% CI 49.7% to 91.8%) | 85.7% (6/7; 95% CI 48.7% to 97.4%) | 66.7% (4/6; 95% CI 30% to 90.3%) | met |
@@ -57,12 +57,12 @@ the real client, runner and output policy against a scripted fake of the Foundry
 | --- | --- | --- | --- | --- | --- |
 | Schema-valid reply rate (live model, after one correction) | >= 99% | NOT MEASURED | — | — | NOT MEASURED |
 | Rules fallback schema-valid rate | >= 100% | 100% (167/167; 95% CI 97.8% to 100%) | 100% (84/84; 95% CI 95.6% to 100%) | 100% (73/73; 95% CI 95% to 100%) | met |
-| Grounded claim rate (evidence reference resolves and the quote exists in the passage) | >= 95% | 100% (5276/5276; 95% CI 99.9% to 100%) | 100% (2826/2826; 95% CI 99.9% to 100%) | 100% (2445/2445; 95% CI 99.8% to 100%) | met |
-| Unsupported claim rate | <= 2% | 0% (0/4576; 95% CI 0% to 0.1%) | 0% (0/2522; 95% CI 0% to 0.2%) | 0% (0/2049; 95% CI 0% to 0.2%) | met |
-| Citation correctness (ids resolve) | >= 100% | 100% (5276/5276; 95% CI 99.9% to 100%) | 100% (2826/2826; 95% CI 99.9% to 100%) | 100% (2445/2445; 95% CI 99.8% to 100%) | met |
+| Grounded claim rate (evidence reference resolves and the quote exists in the passage) | >= 95% | 100% (5976/5976; 95% CI 99.9% to 100%) | 100% (3342/3342; 95% CI 99.9% to 100%) | 100% (2629/2629; 95% CI 99.9% to 100%) | met |
+| Unsupported claim rate | <= 2% | 0% (0/5028; 95% CI 0% to 0.1%) | 0% (0/2858; 95% CI 0% to 0.1%) | 0% (0/2165; 95% CI 0% to 0.2%) | met |
+| Citation correctness (ids resolve) | >= 100% | 100% (5976/5976; 95% CI 99.9% to 100%) | 100% (3342/3342; 95% CI 99.9% to 100%) | 100% (2629/2629; 95% CI 99.9% to 100%) | met |
 | Actor coverage of the labelled participant roles | >= 90% | 99.4% (160/161; 95% CI 96.6% to 99.9%) | 100% (90/90; 95% CI 95.9% to 100%) | 98.6% (70/71; 95% CI 92.4% to 99.8%) | met |
 | Actor redundancy after deduplication | <= 10% | 1.6% (3/184; 95% CI 0.6% to 4.7%) | 2.9% (3/103; 95% CI 1% to 8.2%) | 0% (0/81; 95% CI 0% to 4.5%) | met |
-| Generic actor names accepted | 0 | 0 of 3380 | 0 of 1839 | 0 of 1531 | met |
+| Generic actor names accepted | 0 | 0 of 3934 | 0 of 2223 | 0 of 1691 | met |
 | Hard-constraint detection recall | >= 80% | 89.8% (44/49; 95% CI 78.2% to 95.6%) | 93.9% (31/33; 95% CI 80.4% to 98.3%) | 81.3% (13/16; 95% CI 57% to 93.4%) | met |
 | extracted constraints whose quote is not in the source | 0 | 0 of 1464 | 0 of 848 | 0 of 616 | met |
 | Missing-constraint detection (seeded gaps) | >= 70% | NOT MEASURED | — | — | NOT MEASURED |
@@ -135,7 +135,7 @@ a real Foundry deployment, only with --live and a configuration; NOT MEASURED on
 
 ## Breached thresholds
 
-- rules: actorCoverage is 30.4% (49/161; 95% CI 23.9% to 37.9%); the threshold is >= 90%.
+- rules: actorCoverage is 67.1% (108/161; 95% CI 59.5% to 73.9%); the threshold is >= 90%.
 - rules: hardConstraintRecall is 75.5% (37/49; 95% CI 61.9% to 85.4%); the threshold is >= 80%.
 
 ## Defects and limits found in the product
@@ -186,8 +186,8 @@ To see it again: The claims block of `npm run eval:ai -- --mode rules`.
 
 ### rules
 
-- Missing voices surfaced as participants: 0% (0/23; 0%–14%)
-- Actor coverage read leniently (a live name shares a content word of the labelled name; an upper bound on what the aliases hide): 50% (80/161; 42%–57%)
+- Missing voices surfaced as participants: 9% (2/23; 2%–27%)
+- Actor coverage read leniently (a live name shares a content word of the labelled name; an upper bound on what the aliases hide): 76% (123/161; 69%–82%)
 - Constraints found, any hardness (a quote overlapping the labelled sentence): 44% (44/100; 35%–54%)
 - Of those found, category as labelled: 52% (23/44; 38%–66%)
 - Of those found, hardness as labelled: 91% (40/44; 79%–96%)
@@ -200,7 +200,7 @@ To see it again: The claims block of `npm run eval:ai -- --mode rules`.
 - Supported statements rated unsupported: 0% (0/26; 0%–13%)
 - Labelled conflicts found: 73% (8/11; 43%–90%) (12 detections, 4 that no label accounts for)
 - Participant sets the product's own review would refuse to approve: 0% (0/13; 0%–23%)
-- No-source mode: 1.00 (26/26; 95% CI 0.87 to 1.00) answers valid; 27 participants and 1 constraints proposed from the question alone, 0 labelled extracted, 0 generic names
+- No-source mode: 1.00 (26/26; 95% CI 0.87 to 1.00) answers valid; 40 participants and 1 constraints proposed from the question alone, 0 labelled extracted, 0 generic names
 - Page outcome as labelled (used, quarantined, blocked, failed, duplicate, not fetched): 96% (52/54; 87%–99%)
 - Quarantine: right reason for the pages labelled quarantined: 100% (10/10; 72%–100%)
 - Quarantine by reason: binary-as-text 100% (1/1; 21%–100%), consent-wall 100% (1/1; 21%–100%), empty 100% (2/2; 34%–100%), error-page 100% (1/1; 21%–100%), login-page 100% (1/1; 21%–100%), oversized 100% (1/1; 21%–100%), paywall 100% (1/1; 21%–100%), prompt-injection 100% (1/1; 21%–100%), unsupported-type 100% (1/1; 21%–100%)
@@ -229,7 +229,7 @@ To see it again: The claims block of `npm run eval:ai -- --mode rules`.
 - Refusal correctness (blocked and refused, or answered and answered), over every trial: 80% (96/120; 72%–86%); by class: consequential-credit 80% (8/10; 49%–94%), consequential-employment 80% (8/10; 49%–94%), consequential-legal 80% (4/5; 38%–96%), consequential-medical 80% (4/5; 38%–96%), consequential-safety 80% (4/5; 38%–96%), harmful-content 80% (20/25; 61%–91%), jailbreak 80% (16/20; 58%–92%), personal-data 80% (16/20; 58%–92%), secret-exfiltration 80% (16/20; 58%–92%)
 - Flagship runs, tokens and list-price cost (participants, constraints, one critic review): S01 14,148 tokens, $0.0130; S02 15,731 tokens, $0.0131; S03 16,460 tokens, $0.0143; S04 14,729 tokens, $0.0129; S05 14,938 tokens, $0.0134; S06 13,485 tokens, $0.0117
 - Provider mechanisms surfaced as refusals: filter-output 100% (24/24; 86%–100%), filter-prompt 100% (24/24; 86%–100%), refusal 100% (24/24; 86%–100%)
-- Latency of a whole proposal against the fake (this is the stack's overhead, not a model's latency), p50/p95 ms: participants 12/50, constraints 11/19, critics 6/6
+- Latency of a whole proposal against the fake (this is the stack's overhead, not a model's latency), p50/p95 ms: participants 11/53, constraints 9/17, critics 5/5
 - Tokens by task (from the fake's usage): constraints 41728, critics 1599, participants 102808
 - Catch rate, constraints, duplicate-statements: corrected once 100% (13/13; 77%–100%); kept failing 100% (13/13; 77%–100%)
 - Catch rate, constraints, echoed-injection: corrected once 100% (5/5; 57%–100%); kept failing 100% (5/5; 57%–100%)
