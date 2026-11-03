@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { lintText } from '../src/brief/lint.js';
 import { consequentialScope } from '../src/decision/scope.js';
-import { scopeSection } from '../src/decision/scope-words.js';
+import {
+  individualReading,
+  qualifiedApproval,
+  qualifiedCheck,
+  scopeSection,
+} from '../src/decision/scope-words.js';
 import { Guard } from '../src/decision/words.js';
+import {
+  FRESH_LOOK_ALIKES,
+  FRESH_ONE_PERSON,
+  LEAD_DEV_MISSED,
+  LEAD_DEV_PASSING,
+  LEAD_DEV_POLICY,
+  NAMED_TEMPLATES,
+  NAMES,
+  STILL_NOT_READ,
+} from './support/scope-cases.js';
 
 // The scope check reads words by rules. What it must do is said by this table: a question about one person’s
 // employment, credit, legal, medical or safety situation is recognised as that, and a question about a policy, a
@@ -184,16 +199,6 @@ const LOOK_ALIKES: readonly Row[] = [
   ['Should we pay suppliers more?', [], false],
 ];
 
-/** The words of a question that is about a person but that a reading of words does not catch, said so that the limit is on record. */
-const NOT_CAUGHT: readonly string[] = [
-  'What should we do about our employee who keeps stealing?',
-  'Would it be wise to reject the mortgage for the Hernandez family?',
-  'Should we settle with Jane Foster out of court?',
-  'Is he well enough to be discharged?',
-  'Should I report my manager to HR?',
-  'Should we increase her limit?',
-];
-
 const asked = (rows: readonly Row[]): [string, readonly string[], boolean][] =>
   rows.map(([question, domains, individual]) => [question, domains, individual]);
 
@@ -235,7 +240,7 @@ describe('the scope check: one person’s matter, or a policy, or a word in comm
   });
 
   it('does not recognise what it has no words for, and says in its table that it does not', () => {
-    for (const question of NOT_CAUGHT) {
+    for (const question of STILL_NOT_READ) {
       expect(consequentialScope(question).aboutIndividual, question).toBe(false);
     }
   });
@@ -370,5 +375,260 @@ describe('the section of the canvas that says it', () => {
       for (const sentence of sentences) expect(lintText(sentence), sentence).toEqual([]);
     }
     expect(guard.withheld).toBe(0);
+  });
+});
+
+const forcedOf = (questions: readonly string[]): string[] =>
+  questions.filter((question) => consequentialScope(question).aboutIndividual);
+const unforcedOf = (questions: readonly string[]): string[] =>
+  questions.filter((question) => !consequentialScope(question).aboutIndividual);
+
+describe('the scope check on questions written in rounds (each table is in-sample: its rules were fixed until it read as it should)', () => {
+  it('reads the questions of the decision engineer that it had missed, and keeps reading the ones it read', () => {
+    expect(unforcedOf(LEAD_DEV_MISSED)).toEqual([]);
+    expect(unforcedOf(LEAD_DEV_PASSING)).toEqual([]);
+  });
+
+  it('does not read a policy, a process or a group as one person’s matter', () => {
+    expect(forcedOf(LEAD_DEV_POLICY)).toEqual([]);
+  });
+
+  it('reads each one-person question, and gives a notice for each, so that the notice is at least as generous as the forcing', () => {
+    expect(unforcedOf(FRESH_ONE_PERSON)).toEqual([]);
+    expect(
+      FRESH_ONE_PERSON.filter((question) => consequentialScope(question).domains.length === 0),
+    ).toEqual([]);
+  });
+
+  it('holds enough of them, and enough with the person said as a pronoun, an ordinal or qualified role, or a possessive', () => {
+    expect(FRESH_ONE_PERSON.length).toBeGreaterThanOrEqual(60);
+    const indirect = FRESH_ONE_PERSON.filter((question) =>
+      /\b(?:him|her|his|them|their|first|second|third|other|former|another|oldest|newest|\p{L}+['’]s)\b/iu.test(
+        question,
+      ),
+    );
+    expect(indirect.length).toBeGreaterThanOrEqual(25);
+  });
+
+  it('does not read a policy, a group, an organisation or an ordinary business question as one person’s matter', () => {
+    expect(FRESH_LOOK_ALIKES.length).toBeGreaterThanOrEqual(40);
+    expect(forcedOf(FRESH_LOOK_ALIKES)).toEqual([]);
+    const domains = new Set(
+      FRESH_LOOK_ALIKES.flatMap((question) => consequentialScope(question).domains),
+    );
+    expect([...domains].sort()).toEqual(['credit', 'employment', 'legal', 'medical', 'safety']);
+  });
+
+  it('gives the same answer for the same question, every time', () => {
+    for (const question of [...FRESH_ONE_PERSON, ...FRESH_LOOK_ALIKES]) {
+      expect(consequentialScope(question), question).toEqual(consequentialScope(question));
+    }
+  });
+
+  it('is worded so that the guard against forecasts and unattributed figures lets every cue through', () => {
+    for (const question of FRESH_ONE_PERSON) {
+      for (const line of consequentialScope(question).basis) {
+        expect(lintText(line), `${question}: ${line}`).toEqual([]);
+      }
+    }
+  });
+});
+
+describe('a phrasal verb of a domain is read with the person between its words, after them, or put first', () => {
+  const PEOPLE = [
+    'Tom Becker',
+    'the night manager',
+    'Kwabena',
+    'our second engineer',
+    'Mr Petrov',
+    'the former contractor',
+  ];
+  const POSITIONS: readonly [between: string, after: string][] = [
+    ['Should we make {x} redundant?', 'Should we make redundant {x}?'],
+    ['Should we let {x} go?', 'Should we let go {x}?'],
+    ['Should we lay {x} off?', 'Should we lay off {x}?'],
+    ['Should we write {x} off as a bad risk?', 'Should we write off {x} as a bad risk?'],
+    ['Should we turn {x} down for the loan?', 'Should we turn down {x} for the loan?'],
+    ['Should we sign {x} off as competent?', 'Should we sign off {x} as competent?'],
+  ];
+
+  it('reads the person in either position, and the same domains in both', () => {
+    for (const [between, after] of POSITIONS) {
+      for (const person of PEOPLE) {
+        const first = consequentialScope(between.replace('{x}', person));
+        const second = consequentialScope(after.replace('{x}', person));
+        expect(first.aboutIndividual, between.replace('{x}', person)).toBe(true);
+        expect(second.aboutIndividual, after.replace('{x}', person)).toBe(true);
+        expect(second.domains, after.replace('{x}', person)).toEqual(first.domains);
+      }
+    }
+  });
+
+  it('reads the person that the question asks about, when the act has no object after it', () => {
+    const FRONTED = [
+      'Who should we make redundant?',
+      'Who should we let go?',
+      'Who do we lay off first?',
+      'Which of our two engineers should we make redundant?',
+      'Which intern should we let go?',
+      'Which of the nurses should we take off the night rota?',
+      'Who should be made redundant?',
+      'Which candidate do we turn down?',
+      'Whom should we write off?',
+      'Which of the three analysts should we let go?',
+      'Which of the patients should we take off the ventilator?',
+      'Which pilot should we ground?',
+      'Who should we sign off as competent?',
+      'Who should we put on notice?',
+      'Who should we hire for the new role?',
+      'Who should be promoted?',
+      'We must make redundant the engineer who was late.',
+    ];
+    expect(unforcedOf(FRONTED)).toEqual([]);
+    for (const question of FRONTED) {
+      expect(consequentialScope(question).domains.length, question).toBeGreaterThan(0);
+    }
+  });
+
+  it('does not read the same words said of a thing, a product, a vendor or a group', () => {
+    expect(
+      forcedOf([
+        'Should we make our legacy servers redundant?',
+        'Will automation make our analysts redundant?',
+        'Should we let the contract go?',
+        'Should we turn down the volume?',
+        'Should we write off the legacy system?',
+        'Should we sign off the budget?',
+        'Should we take the feature off the roadmap?',
+        'Should we put the project on notice?',
+        'Should we lay off the lights at night?',
+        'Who should own the roadmap?',
+        'Who should we invite to the launch?',
+        'Which of the vendors should we let go?',
+        'Which feature should we take off the ventilator?',
+        'Which of our two products should we make redundant?',
+      ]),
+    ).toEqual([]);
+  });
+});
+
+describe('what the check says of a question never repeats a name', () => {
+  /** The words of a name, without the titles’ dots, the apostrophes and the hyphens. */
+  const tokensOf = (name: string): string[] =>
+    (name.toLowerCase().match(/\p{L}+/gu) ?? []).filter((token) => token.length >= 2);
+  const leaks = (text: string, name: string): string[] => {
+    const words = new Set(text.toLowerCase().match(/\p{L}+/gu) ?? []);
+    return tokensOf(name).filter((token) => words.has(token));
+  };
+
+  it('has no word of the name in the cues, the reading of the status, the approval point, the check or the section', () => {
+    let forced = 0;
+    let total = 0;
+    for (const name of NAMES) {
+      for (const template of NAMED_TEMPLATES) {
+        const question = template.replaceAll('{n}', name);
+        const scope = consequentialScope(question);
+        const reading = individualReading(scope);
+        const check = qualifiedCheck(scope);
+        const texts = [
+          ...scope.basis,
+          reading.headline,
+          ...reading.why,
+          qualifiedApproval(scope),
+          check.what,
+          check.why,
+          check.how,
+          JSON.stringify(scopeSection(scope, new Guard())),
+        ];
+        total += 1;
+        if (scope.aboutIndividual) forced += 1;
+        for (const text of texts) expect(leaks(text, name), `${question} → ${text}`).toEqual([]);
+      }
+    }
+    // The test is not empty: nearly all of these read as one person’s matter, so that they have cues to leak.
+    expect(forced / total).toBeGreaterThanOrEqual(0.95);
+  });
+
+  it('says the act and “a named person” for “Should we promote Priya Raman to head of finance?”, and the same for “make Tom Becker redundant”', () => {
+    expect(consequentialScope('Should we promote Priya Raman to head of finance?').basis).toEqual([
+      'employment: “promote”',
+      'about one person: a named person',
+    ]);
+    expect(consequentialScope('Should we make Tom Becker redundant?').basis).toEqual([
+      'employment: “make redundant”',
+      'about one person: a named person',
+    ]);
+  });
+
+  it('holds for the framing too: a name in the decision, the requested decision, an alternative or the system is not repeated', () => {
+    for (const name of NAMES) {
+      const scope = consequentialScope('What should we do next?', {
+        decision: `Whether to promote ${name} to head of finance.`,
+        requestedDecision: `Decide whether to make ${name} redundant.`,
+        alternatives: [
+          { label: `Let ${name} go`, description: `Take ${name} off the Atlas project` },
+        ],
+        system: `The finance team, where ${name} works.`,
+      });
+      expect(scope.aboutIndividual, name).toBe(true);
+      for (const line of scope.basis) expect(leaks(line, name), `${name} → ${line}`).toEqual([]);
+    }
+  });
+
+  it('holds for a name in lower case or in capitals, which the rules do not read as a name', () => {
+    for (const question of [
+      'should we promote priya raman to head of finance?',
+      'SHOULD WE MAKE TOM BECKER REDUNDANT?',
+      'Should we evict the okafor family?',
+    ]) {
+      const { basis } = consequentialScope(question);
+      for (const line of basis) {
+        expect(line, question).not.toMatch(/priya|raman|becker|okafor|tom\b/iu);
+      }
+    }
+  });
+});
+
+describe('the check stays bounded on a long text', () => {
+  const HOSTILE: Record<string, string> = {
+    make: 'make '.repeat(2_000),
+    'a name, over and over': 'Maria '.repeat(1_700),
+    'a determiner, over and over': 'our '.repeat(2_500),
+    let: 'let '.repeat(2_500),
+    apostrophes: 'a’s '.repeat(3_300),
+    'a paragraph each': 'fire\n\n'.repeat(1_700),
+    honorifics: 'Mr Smith '.repeat(1_100),
+    'who should we': 'who should we '.repeat(700),
+    'one long word': 'x'.repeat(10_000),
+    'a long word and a clitic': `${'x'.repeat(9_990)}’s redundant`,
+    'a long gap': `make ${'word '.repeat(1_900)}redundant`,
+    'many commas': 'fire him, '.repeat(1_000),
+    'a lot of everything':
+      'Should we put Maria on notice and let her go and make her redundant after surgery? '.repeat(
+        120,
+      ),
+  };
+
+  it('reads each 10 kB question in well under a second, however it is made', () => {
+    // A first call compiles the rules, so it is read once before the clock.
+    consequentialScope('Should we fire this employee?');
+    for (const [name, text] of Object.entries(HOSTILE)) {
+      const started = performance.now();
+      consequentialScope(text, { decision: text, system: text, alternatives: [{ label: text }] });
+      expect(performance.now() - started, name).toBeLessThan(1_500);
+    }
+  });
+
+  it('reads the beginning of a long text and says so: what is said only after the first forty clauses is not read', () => {
+    expect(
+      consequentialScope(`Should we fire this employee? ${'Nothing here. '.repeat(60)}`),
+    ).toMatchObject({
+      aboutIndividual: true,
+    });
+    expect(
+      consequentialScope(`${'Nothing here. '.repeat(60)}Should we fire this employee?`),
+    ).toMatchObject({
+      aboutIndividual: false,
+    });
   });
 });

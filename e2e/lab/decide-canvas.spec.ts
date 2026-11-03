@@ -585,6 +585,40 @@ test.describe('what Swarm does not decide, at 1440 by 900', () => {
     await expect(notice(page)).toBeVisible();
     await expect(page.getByRole('main')).not.toContainText('Needs a human decision');
   });
+
+  test('reads a phrasal verb with the person put first, and never repeats a name in a cue', async ({
+    page,
+  }) => {
+    const fronted = await withQuestion('Canvas: who', 'Who should we make redundant?');
+    const asked = (await (
+      await api.get(`/api/projects/${fronted}/decision`)
+    ).json()) as DecisionView;
+    expect(asked.readiness.scope).toMatchObject({
+      notice: SCOPE_NOTICE,
+      domains: ['employment'],
+      aboutIndividual: true,
+    });
+    expect(asked.readiness.status).toMatchObject({
+      status: 'needs-human-decision',
+      rule: 'individual-decision',
+    });
+
+    const named = await withQuestion(
+      'Canvas: a name',
+      'Should we promote Priya Raman to head of finance?',
+    );
+    const read = (await (await api.get(`/api/projects/${named}/decision`)).json()) as DecisionView;
+    expect(read.readiness.scope?.basis).toEqual([
+      'employment: “promote”',
+      'about one person: a named person',
+    ]);
+    expect(JSON.stringify([read.readiness.scope?.basis, read.readiness.status])).not.toMatch(
+      /priya|raman/iu,
+    );
+    await openDecide(page, named);
+    await expect(notice(page)).toBeVisible();
+    await expect(notice(page)).not.toContainText(/priya|raman/iu);
+  });
 });
 
 test.describe('what Swarm does not decide, on a phone', () => {
