@@ -93,6 +93,14 @@ export function runAz(args: readonly string[], options: RunAzOptions = {}): Prom
       },
       (error, stdout, stderr) => {
         if (!error) return resolve(stdout);
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+          return reject(
+            new AzError(
+              'AZ_NOT_FOUND',
+              'Azure CLI was not found on PATH. Install it from https://aka.ms/installazurecli, then run `az login`.',
+            ),
+          );
+        }
         const detail = sanitizeAzOutput(stderr || error.message);
         reject(new AzError(classifyAzFailure(stderr), detail || 'The Azure CLI command failed.'));
       },

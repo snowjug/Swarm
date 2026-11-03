@@ -8,6 +8,7 @@ export default defineConfig({
       'frontend/src/**/*.test.{ts,tsx}',
       'scripts/azure/**/*.test.ts',
       'scripts/demo/**/*.test.ts',
+      'scripts/iac/**/*.test.ts',
       'scripts/mutation/**/*.test.ts',
       'scripts/ui/**/*.test.ts',
     ],

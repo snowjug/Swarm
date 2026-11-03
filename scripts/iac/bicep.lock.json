@@ -1,0 +1,37 @@
+{
+  "$comment": "The Bicep CLI every IaC check in this repository uses. The release does not publish a checksum file; the sha256 values below are the 'digest' field GitHub's release API reports for each asset (computed by GitHub when the asset was uploaded), read on 2026-11-03 from https://api.github.com/repos/Azure/bicep/releases/latest. A match proves the download is the file GitHub holds, not who built it: no signature is verified. Only linux-x64 was downloaded and checked on that date; the other digests are copied from the same API response and have not been verified by a download.",
+  "version": "0.48.1",
+  "source": "https://github.com/Azure/bicep/releases/download/v0.48.1/",
+  "assets": {
+    "linux-x64": {
+      "file": "bicep-linux-x64",
+      "bytes": 122023518,
+      "sha256": "b09ec25a9d376c1f8e33ede6ed22b587f915ad68488d5db77a6f9541748c7f6e",
+      "verifiedByDownload": true
+    },
+    "linux-arm64": {
+      "file": "bicep-linux-arm64",
+      "bytes": 116911566,
+      "sha256": "9cbf6a211137e894a863fbc842e355c2197fc2124a7bda902afe1bceffa35245",
+      "verifiedByDownload": false
+    },
+    "darwin-x64": {
+      "file": "bicep-osx-x64",
+      "bytes": 122268064,
+      "sha256": "6a8188d521a7c6740c8b58983093dfd9f7897d37bdf1551f775022e22397d7c5",
+      "verifiedByDownload": false
+    },
+    "darwin-arm64": {
+      "file": "bicep-osx-arm64",
+      "bytes": 116883328,
+      "sha256": "62cd5958c62fa1b738e9b69f24799fabddb90ed83fdb7d6d2563dde376ce479d",
+      "verifiedByDownload": false
+    },
+    "win32-x64": {
+      "file": "bicep-win-x64.exe",
+      "bytes": 124666608,
+      "sha256": "398af294cf16ac4becdbd008a77d148d0e8e91492309a6b60ec911b7e1cab082",
+      "verifiedByDownload": false
+    }
+  }
+}

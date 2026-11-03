@@ -62,34 +62,42 @@ added automatically.
 ## Hosted pilot: plan and cost (not deployed)
 
 The smallest hosted shape this repository can serve safely has a template, an `azd` file, a
-post-deployment check and two documents:
+post-deployment check, release tooling and documents:
 
 - [Pilot plan](./azure/pilot-plan.md): the architecture, what is created and what is left out, the
   managed-identity and role matrix, deployment with `azd` or `az`, the Entra app registration, the first
   owner, backup, restore and rollback, smoke checks, teardown, and what has **not** been validated.
 - [Pilot cost](./azure/pilot-cost.md): a monthly range for each resource from list prices, free grants, and
-  the approval request for the chargeable resources.
-- `infra/pilot/` (Bicep at resource-group scope), `azure.yaml`, and
-  `npx tsx scripts/azure/pilot-smoke.ts https://<address>`.
+  the approval request for the chargeable resources; [Azure pre-flight and cost plan](./production/azure-preflight.md)
+  re-reads the prices (Central India and East US 2, dollars and rupees) and adds the alert rules, the options left off,
+  the development VM and the "stop if" thresholds.
+- [Production-candidate pages](./production/): [release and rollback](./production/release-process.md) (the rollback drill
+  has **not** been run), the [runbook](./production/runbook.md), [observability](./production/observability.md),
+  the [threat model](./production/threat-model.md) and the [known limitations](./production/LIMITATIONS.md).
+- `infra/pilot/` (Bicep at resource-group scope, with a `production-shaped` parameter profile), `azure.yaml`, and
+  the commands `npm run iac:validate` (offline: compiles, lints and evaluates every template with a pinned Bicep CLI),
+  `npm run azure:preflight` (read-only), `npm run azure:release` and `npm run azure:rollback-drill` (dry run by default,
+  refused in CI), and `npx tsx scripts/azure/pilot-smoke.ts https://<address>`.
 
-The template compiles and lints. **Nothing has been deployed and no chargeable resource exists.**
+The template compiles, lints and evaluates offline. **Nothing has been deployed and no chargeable resource exists.**
 
 ## Azure AI integration: what exists and what is verified
 
-| Capability                                                    | Implemented | Verified how                                                                                                                                                         |
-| ------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Entra ID token auth (`DefaultAzureCredential`), no key        | Yes         | Unit tests with a fake credential; **live**: every call in the three verification runs was authorised by an Entra token against a keyless account                    |
-| Host allow-list; bearer token never sent elsewhere            | Yes         | Unit tests                                                                                                                                                           |
-| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`      | Yes         | Unit tests with a fake HTTP server; **live**: the service's real content-filter refusal (HTTP 400) was classified as `MODEL_REFUSED`                                 |
-| Bounded structured-output repair loop                         | Yes         | Unit + integration tests with scripted replies                                                                                                                       |
-| Provider status/telemetry API and UI badge                    | Yes         | Unit tests, browser audit                                                                                                                                            |
-| One real model call per proxy, platform and round             | Yes         | Integration tests and e2e against a fake provider; **live**: 24 decisions per run (4 proxies × 2 platforms × 3 rounds), each with a stated reason, in all three runs |
-| Grounding review (quotes, support verdicts, contradiction)    | Yes         | Unit and integration tests against a fake provider; **live**: the independent model check ran in all three runs                                                      |
-| Bicep for an Entra-only Foundry account + deployment          | Yes         | `bicep build` and lint; **deployed** once to a development subscription (28 Oct 2026)                                                                                |
-| Bicep for the hosted pilot (container app, PostgreSQL)        | Yes         | `bicep build` and lint only; **never deployed**: see [pilot plan](./azure/pilot-plan.md)                                                                             |
-| Provisioning/teardown scripts with safety gates               | Yes         | Unit tests with a fake Azure CLI; **live**: one real provisioning run (two script defects found and fixed)                                                           |
-| One-command live verification (`npm run azure:verify`)        | Yes         | Unit/flow tests and a Playwright run against a fake provider; **live**: 15 of 15 checks in three consecutive runs                                                    |
-| Live model calls, live verification run, live injection probe | Yes         | **Yes**, on one development deployment: see "Live evidence" below                                                                                                    |
+| Capability                                                                                                                      | Implemented | Verified how                                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Entra ID token auth (`DefaultAzureCredential`), no key                                                                          | Yes         | Unit tests with a fake credential; **live**: every call in the three verification runs was authorised by an Entra token against a keyless account                         |
+| Host allow-list; bearer token never sent elsewhere                                                                              | Yes         | Unit tests                                                                                                                                                                |
+| Actionable errors: `MODEL_AUTH`/`NOT_FOUND`/`RATE_LIMIT`                                                                        | Yes         | Unit tests with a fake HTTP server; **live**: the service's real content-filter refusal (HTTP 400) was classified as `MODEL_REFUSED`                                      |
+| Bounded structured-output repair loop                                                                                           | Yes         | Unit + integration tests with scripted replies                                                                                                                            |
+| Provider status/telemetry API and UI badge                                                                                      | Yes         | Unit tests, browser audit                                                                                                                                                 |
+| One real model call per proxy, platform and round                                                                               | Yes         | Integration tests and e2e against a fake provider; **live**: 24 decisions per run (4 proxies × 2 platforms × 3 rounds), each with a stated reason, in all three runs      |
+| Grounding review (quotes, support verdicts, contradiction)                                                                      | Yes         | Unit and integration tests against a fake provider; **live**: the independent model check ran in all three runs                                                           |
+| Bicep for an Entra-only Foundry account + deployment                                                                            | Yes         | `bicep build` and lint; **deployed** once to a development subscription (28 Oct 2026)                                                                                     |
+| Bicep for the hosted pilot (container app, PostgreSQL, registry, monitoring, alerts, budget, optional Key Vault and networking) | Yes         | `bicep build`, strict lint, offline `bicep snapshot` evaluation and invariant tests (`npm run iac:validate`); **never deployed**: see [pilot plan](./azure/pilot-plan.md) |
+| Release, rollback, rollback-drill and pre-flight tools                                                                          | Yes         | Unit tests against a fake Azure CLI; **never run against Azure**; the rollback drill has not been run: see [release process](./production/release-process.md)             |
+| Provisioning/teardown scripts with safety gates                                                                                 | Yes         | Unit tests with a fake Azure CLI; **live**: one real provisioning run (two script defects found and fixed)                                                                |
+| One-command live verification (`npm run azure:verify`)                                                                          | Yes         | Unit/flow tests and a Playwright run against a fake provider; **live**: 15 of 15 checks in three consecutive runs                                                         |
+| Live model calls, live verification run, live injection probe                                                                   | Yes         | **Yes**, on one development deployment: see "Live evidence" below                                                                                                         |
 
 ### Live evidence
 
@@ -453,7 +461,8 @@ error mapping and secret hygiene with a fake credential.
 1. Run tests, format checks, `npm audit` against the approved registry (it fails on high or critical;
    two moderate advisories, in `glob` and `minimatch` and not reachable from a request, were open at
    the last local review on 2026-10-31, and a result is not a standing guarantee) and a real Docker smoke test.
-2. Publish an image tagged with the source commit and pin its digest for a release.
+2. Publish an image tagged with the source commit and pin its digest for a release
+   (`npm run azure:release` does this, with a locked tag and a release record; not yet run live).
    Make the corresponding source/build instructions accessible to all remote users.
 3. Configure Container Apps managed identity, database access and Entra authentication.
    Do not trust client-supplied identity headers or expose an unauthenticated bypass.
@@ -463,7 +472,7 @@ error mapping and secret hygiene with a fake credential.
 5. Set minimum/maximum replicas to one until two instances against one database have
    been validated. Jobs are durable (a restart keeps them and a stopped worker's job is
    taken over after its lease), but scaling to zero stops the embedded job runner, so
-   queued work waits; do not use local ephemeral disk as a durability mechanism.
+   queued work waits (the pilot template refuses a `minReplicas` below 1); do not use local ephemeral disk as a durability mechanism.
 6. Configure startup/liveness/readiness probes. `/api/health/live` fails only when the
    database connection is lost for good and `/api/health/ready` fails while the database
    does not answer; neither charges a model call. The pilot template uses them with the
@@ -471,7 +480,8 @@ error mapping and secret hygiene with a fake credential.
    ([pilot plan](./azure/pilot-plan.md#what-the-container-is-given)).
 
 Acceptance: authentication and tenant authorization are enforced, browser/API work
-over HTTPS, state survives revision changes, a prior image can be rolled back,
+over HTTPS, state survives revision changes, a prior image can be rolled back
+(the pilot's blue/green release and rollback drill are written, not yet run),
 and source availability matches the exact deployed version.
 
 ### 5. Add retrieval/storage services only with evidence
@@ -494,7 +504,8 @@ provider latency and reported token counts. Do not ingest full prompts, document
 conversation bodies, keys or provider exception bodies into telemetry by default.
 Distinguish missing usage reports from genuinely zero token consumption.
 
-Set Azure budgets and alerts, but do not confuse budget alerts with a hard spending
+Set Azure budgets and alerts (the pilot template creates a budget, an action group and 18 alert rules; none has fired),
+but do not confuse budget alerts with a hard spending
 cap. Keep application-level quotas and concurrency enforcement. Document retention,
 user deletion, backups, incident response and rollback ownership.
 
@@ -510,7 +521,7 @@ identity in hosted Azure.
 Those are explicit migration tasks with acceptance criteria, not hidden dependencies
 of a working local app. A template for the hosted pilot now exists (see
 [Hosted pilot: plan and cost](#hosted-pilot-plan-and-cost-not-deployed)), but it has only
-been compiled and linted: no part of it has been deployed.
+been compiled, linted and evaluated offline: no part of it has been deployed.
 
 ## Provider contract references
 

@@ -6,6 +6,13 @@
 > **730 hours**. An enterprise agreement, a different region or another date will change the figures. The last
 > section, [Approval request](#approval-request), is what a budget owner is asked to approve.
 
+> **Superseded in part.** [azure-preflight.md](../production/azure-preflight.md) re-reads the prices on **3 November 2026**
+> for Central India and East US 2, in US dollars and rupees, and adds what this page does not price: the alert rules
+> (nine log rules, nine metric alerts), the budget, Key Vault, the NAT gateway and private networking, the
+> production-shaped profile, the development VM and the model line, with the arithmetic and the "stop if" thresholds. Where
+> the two differ, read that page. The template **no longer allows `minReplicas = 0`**, so every line below that
+> describes scaling to zero describes something the template refuses.
+
 **Region priced: East US 2 (`eastus2`).** It is the region of the existing AI resource ([AZURE.md](../AZURE.md#live-evidence)),
 so the app and the model share a region. The region is a parameter; two others are compared
 [below](#other-regions).
@@ -74,16 +81,16 @@ be deleted after a demonstration, and what happens if it is left out.
 
 ### Container app
 
-|                              |                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Purpose                      | The application: UI, API and the job runner in one process                                                                                                                                                                                                                                                                                                           |
-| SKU                          | Consumption plan, 0.5 vCPU and 1 GiB, minimum and maximum **one** replica                                                                                                                                                                                                                                                                                            |
-| Low (idle all month)         | vCPU: 0.5 × 2,628,000 s = 1,314,000 vCPU-s, less the 180,000 free = 1,134,000 × US$0.000003 = **US$3.40**. Memory: 1 × 2,628,000 = 2,628,000 GiB-s, less 360,000 free = 2,268,000 × US$0.000003 = **US$6.80**. Requests under the 2 million free. **US$10.21**                                                                                                       |
-| High (never idle)            | vCPU: 1,134,000 × US$0.000024 = **US$27.22**. Memory US$6.80. **US$34.02**                                                                                                                                                                                                                                                                                           |
-| Scales to zero               | **Yes**, with `minReplicas = 0`: no charge while it is stopped, and the cost is nil within the free grant (up to about 100 active hours a month). The price is that **the embedded job runner stops with it**: a queued run waits for the next request, a running one is handed back and resumed, and the first request after a pause waits for the replica to start |
-| Can be stopped               | Only by scaling to zero or deactivating its revision; there is no stop switch                                                                                                                                                                                                                                                                                        |
-| Delete after a demonstration | Yes: deleting the resource group ends the charge. Billing is per second                                                                                                                                                                                                                                                                                              |
-| If left out                  | There is no application                                                                                                                                                                                                                                                                                                                                              |
+|                              |                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Purpose                      | The application: UI, API and the job runner in one process                                                                                                                                                                                                                                                                                                   |
+| SKU                          | Consumption plan, 0.5 vCPU and 1 GiB, minimum and maximum **one** replica                                                                                                                                                                                                                                                                                    |
+| Low (idle all month)         | vCPU: 0.5 × 2,628,000 s = 1,314,000 vCPU-s, less the 180,000 free = 1,134,000 × US$0.000003 = **US$3.40**. Memory: 1 × 2,628,000 = 2,628,000 GiB-s, less 360,000 free = 2,268,000 × US$0.000003 = **US$6.80**. Requests under the 2 million free. **US$10.21**                                                                                               |
+| High (never idle)            | vCPU: 1,134,000 × US$0.000024 = **US$27.22**. Memory US$6.80. **US$34.02**                                                                                                                                                                                                                                                                                   |
+| Scales to zero               | **Yes** in principle (`minReplicas = 0`) and **refused by the template**: the cost is nil within the free grant (up to about 100 active hours a month), but **the embedded job runner stops with it**: a queued run waits for the next request, a running one is handed back and resumed, and the first request after a pause waits for the replica to start |
+| Can be stopped               | Only by deactivating its revision (scaling to zero is refused by the template); there is no stop switch                                                                                                                                                                                                                                                      |
+| Delete after a demonstration | Yes: deleting the resource group ends the charge. Billing is per second                                                                                                                                                                                                                                                                                      |
+| If left out                  | There is no application                                                                                                                                                                                                                                                                                                                                      |
 
 A replica is billed at the idle rate only while it uses under 0.01 vCPU, receives under 1,000 bytes a second and handles
 no request. Whether this app's polling and probes keep it under that threshold has not been measured.
@@ -167,7 +174,7 @@ is a rate limit, not a reservation, so the account has **no fixed monthly cost**
 
 Prices are assumptions of list price; the model, SKU and region of the real deployment decide the real figure. Each project
 is held to a model budget (the template's default is 1,500 calls and 4,000,000 tokens, which at the price above is a few
-US dollars at most), but nothing totals a tenant or a day, and there is no spend alert in the app yet.
+US dollars at most), but nothing totals a tenant or a day, and there is no spend alert in the app yet (the template adds a token alert and a budget notice: [observability.md](../production/observability.md)).
 
 ## A short demonstration
 
@@ -185,16 +192,16 @@ Three days, then `az group delete`:
 
 ## What changes the bill
 
-| Change                                                                                     | Effect                                                                                                    |
-| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `minReplicas = 0`                                                                          | The app costs about nothing within the free grant, but the job runner stops and the first request is slow |
-| Stop the database between sessions (up to seven days at a time)                            | Saves US$0.017 an hour of compute                                                                         |
-| A dedicated workload profile, a private endpoint or planned maintenance on the environment | **Adds US$0.10 an hour (about US$73 a month)**                                                            |
-| 1 vCPU and 2 GiB instead of 0.5 and 1                                                      | Active cost of the replica roughly doubles beyond the free grant                                          |
-| A second replica, or a separate worker app                                                 | Doubles the replica cost                                                                                  |
-| A NAT gateway or private networking for the database                                       | Adds resources and hourly charges not priced here                                                         |
-| Debug-level logging                                                                        | Can reach the 0.5 GB daily cap: up to about US$28 a month                                                 |
-| Delete the resource group                                                                  | Ends everything except the retained workspace name and the AI account's orphaned role assignment (free)   |
+| Change                                                                                     | Effect                                                                                                                          |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `minReplicas = 0` (refused by the template)                                                | The app costs about nothing within the free grant, but the job runner stops and the first request is slow                       |
+| Stop the database between sessions (up to seven days at a time)                            | Saves US$0.017 an hour of compute                                                                                               |
+| A dedicated workload profile, a private endpoint or planned maintenance on the environment | **Adds US$0.10 an hour (about US$73 a month)**                                                                                  |
+| 1 vCPU and 2 GiB instead of 0.5 and 1                                                      | Active cost of the replica roughly doubles beyond the free grant                                                                |
+| A second replica, or a separate worker app                                                 | Doubles the replica cost                                                                                                        |
+| A NAT gateway or private networking for the database                                       | Adds resources and hourly charges: priced in [azure-preflight.md](../production/azure-preflight.md#options-priced-and-left-off) |
+| Debug-level logging                                                                        | Can reach the 0.5 GB daily cap: up to about US$28 a month                                                                       |
+| Delete the resource group                                                                  | Ends everything except the retained workspace name and the AI account's orphaned role assignment (free)                         |
 
 ## Other regions
 
@@ -215,11 +222,14 @@ The same arithmetic for the two other regions the team is most likely to use (pr
 - **The existing AI resource.** It has no fixed cost (see above); its usage is the model line.
 - **Microsoft Entra.** The app registration, the app roles and the assignment of individual people are free. Assigning
   **groups** to an application needs Microsoft Entra ID P1, and the app does not use groups.
-- **Cost Management, Azure Policy and a budget.** They are free to use, and **no budget or alert is created** by the
-  template: set one on the new resource group before the resources exist. A budget alerts; it does not stop spending.
+- **Cost Management, Azure Policy and a budget.** They are free to use. **The template now creates a budget** on the
+  resource group (INR 4,500 by default, notifications at 50, 80 and 100% of actual and 100% of forecast) **and 18 alert
+  rules**, which are priced in [azure-preflight.md](../production/azure-preflight.md#monthly-estimate-the-pilot) and not
+  here. A budget alerts; it does not stop spending.
 - **People's time** to set up Entra, to run the restore drill and to operate the pilot.
-- **Anything that was not priced because it is not created:** a virtual network, private endpoints, a NAT gateway, Key
-  Vault, Blob Storage, a queue service, high availability or a second region.
+- **Anything that is optional and off by default**, priced in [azure-preflight.md](../production/azure-preflight.md#options-priced-and-left-off)
+  and not here: a virtual network and private endpoints, a NAT gateway, Key Vault, high availability and geo-redundant
+  backup. Not priced anywhere: Blob Storage, a queue service, a second region.
 
 ## How to check these numbers
 
@@ -234,14 +244,21 @@ The services used are `Azure Container Apps`, `Azure Database for PostgreSQL`, `
 These are the chargeable resources that would be created, in **one new resource group**, in `eastus2` (or the region you
 choose). Nothing has been created.
 
-| Resource                                                 | SKU                                                      | Region    | Monthly range                                      | Stoppable                                            | Deletable after a demonstration |
-| -------------------------------------------------------- | -------------------------------------------------------- | --------- | -------------------------------------------------- | ---------------------------------------------------- | ------------------------------- |
-| Container app and Container Apps environment             | Consumption, 0.5 vCPU / 1 GiB, one replica               | East US 2 | US$10.21 – US$34.02                                | By scaling to zero (which also stops the job runner) | Yes                             |
-| PostgreSQL flexible server, database `swarm`             | Burstable B1ms, 32 GiB, version 16, 7-day backups, no HA | East US 2 | US$16.09                                           | Yes, compute only, up to seven days at a time        | Yes (its backups go with it)    |
-| Container Registry                                       | Basic                                                    | East US 2 | US$5.07                                            | No                                                   | Yes                             |
-| Log Analytics workspace, Application Insights            | Pay-as-you-go, 30 days, 0.5 GB a day cap                 | East US 2 | US$0.00 – US$2.76 (at most about US$28 at the cap) | No                                                   | Yes                             |
-| Managed identity and three role assignments              | Not applicable                                           | East US 2 | US$0.00                                            | Not applicable                                       | Yes                             |
-| Model usage on the existing deployment (no new resource) | `gpt-4.1-mini`, Global Standard, per token               | existing  | US$0.00 – US$3.13                                  | Not applicable                                       | Not applicable                  |
-| **Total**                                                |                                                          |           | **US$31.36 – US$61.07**                            |                                                      |                                 |
+| Resource                                                 | SKU                                                      | Region    | Monthly range                                      | Stoppable                                                      | Deletable after a demonstration |
+| -------------------------------------------------------- | -------------------------------------------------------- | --------- | -------------------------------------------------- | -------------------------------------------------------------- | ------------------------------- |
+| Container app and Container Apps environment             | Consumption, 0.5 vCPU / 1 GiB, one replica               | East US 2 | US$10.21 – US$34.02                                | By deactivating its revision (which also stops the job runner) | Yes                             |
+| PostgreSQL flexible server, database `swarm`             | Burstable B1ms, 32 GiB, version 16, 7-day backups, no HA | East US 2 | US$16.09                                           | Yes, compute only, up to seven days at a time                  | Yes (its backups go with it)    |
+| Container Registry                                       | Basic                                                    | East US 2 | US$5.07                                            | No                                                             | Yes                             |
+| Log Analytics workspace, Application Insights            | Pay-as-you-go, 30 days, 0.5 GB a day cap                 | East US 2 | US$0.00 – US$2.76 (at most about US$28 at the cap) | No                                                             | Yes                             |
+| Managed identity and three role assignments              | Not applicable                                           | East US 2 | US$0.00                                            | Not applicable                                                 | Yes                             |
+| Model usage on the existing deployment (no new resource) | `gpt-4.1-mini`, Global Standard, per token               | existing  | US$0.00 – US$3.13                                  | Not applicable                                                 | Not applicable                  |
+| **Total**                                                |                                                          |           | **US$31.36 – US$61.07**                            |                                                                |                                 |
+
+**Not in the table above** (it is the 30 October version): the template now also creates an action group, **nine log alert
+rules** (US$0.50 each a month at 15-minute evaluation, US$4.50) and nine platform-metric alerts (the first ten series are
+free), and a budget (free). The current figures, re-read on 3 November 2026, are in
+[azure-preflight.md](../production/azure-preflight.md#monthly-estimate-the-pilot): infrastructure **US$36.73 – US$63.30** a
+month in `eastus2` and **US$42.71 – US$69.75** in `centralindia`, before the model line. They are list-price estimates; the
+remaining credit and the spending limit could not be read.
 
 **I ask for your explicit approval to create these resources, and nothing will be created until you give it.**

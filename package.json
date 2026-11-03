@@ -38,6 +38,11 @@
     "azure:teardown": "tsx scripts/azure/teardown.ts",
     "azure:verify": "tsx scripts/azure/verify.ts",
     "azure:pilot-smoke": "tsx scripts/azure/pilot-smoke.ts",
+    "azure:preflight": "tsx scripts/azure/preflight.ts",
+    "azure:release": "tsx scripts/azure/release.ts",
+    "azure:rollback-drill": "tsx scripts/azure/rollback-drill.ts",
+    "iac:validate": "node scripts/iac/validate.mjs",
+    "iac:install-bicep": "node scripts/iac/install-bicep.mjs",
     "scan:secrets": "node scripts/secret-scan.mjs",
     "check": "npm run typecheck && npm run lint && npm test && npm run build"
   },

@@ -7,7 +7,9 @@ and the one that ships sends to Azure Application Insights.
 **Status: built and tested with in-memory exporters (`backend/test/telemetry.test.ts`,
 `telemetry-start.test.ts`). It has not exported to a real Application Insights resource, and the
 queries and alerts in [slo-dashboards-alerts.md](./slo-dashboards-alerts.md) have not been run
-against a real workspace.**
+against a real workspace.** The hosted pilot's template wires these signals to alert rules and a budget; which signal each
+rule reads, which signals do not exist yet and what to run after the first deployment are in
+[docs/production/observability.md](../production/observability.md).
 
 ## Switching it on
 

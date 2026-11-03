@@ -113,14 +113,18 @@ identity's client id, and that the component's ingestion is not capped.
 
 ## Roll back
 
-**Hosted (Container Apps).** Container Apps keeps revisions. Re-activate the previous revision, or
-`azd deploy` the previous image tag, and run the smoke check
-(`npx tsx scripts/azure/pilot-smoke.ts https://<address>`). This has not been exercised against a
-deployed pilot. A schema migration is not undone by rolling the image back: migrations only add, and
-an older image refuses a database that is newer than it knows (`STORAGE_VERSION`, tested). If a
-migration is the problem, restore the database taken before it. PostgreSQL takes no copy of its own
+**Hosted (Container Apps).** The pilot runs in multiple-revision mode: a release starts a new revision beside the serving
+one, and the previous revision stays running (warm) for a window. Going back is then **one traffic change**:
+`npm run azure:release -- rollback --subscription <id> --resource-group <group> --app <app>` (a dry run until `--execute
+--confirm-resource-group <group>` are added; it then returns traffic to the last known good revision in the release
+record and runs the smoke check). After the warm window the previous revision is stopped and going back means starting
+it. **This has not been exercised against a deployed pilot and the rollback drill has not been run**
+([release-process.md](../production/release-process.md#rolling-back),
+[the drill](../production/release-process.md#the-rollback-drill)). A schema migration is not undone by rolling the image
+back: migrations only add, and an older image refuses a database that is newer than it knows (`STORAGE_VERSION`, tested).
+If a migration is the problem, restore the database taken before it. PostgreSQL takes no copy of its own
 before an upgrade, so take one first (`npm run db:copy`, or note the time and use point-in-time
-restore).
+restore; the release tool records that time when a release carries a migration).
 
 **A SQLite file (a laptop, the demonstration, one machine).** A release that needs a newer schema
 copies the file first, to `<file>.v<N>.bak`, N being the version the file was at. To go back:
@@ -174,7 +178,9 @@ if only some of it is needed, or point the app at the restored server (`DATABASE
 identity as its Entra administrator. **No restore of a hosted server has been rehearsed**: do one before
 it is needed, and record how long it took and what was lost. Point `npm run db:drill` at the restored
 server to check it. Verify afterwards: `GET /api/audit/verify` (a platform administrator) must report an
-intact chain.
+intact chain. The step-by-step procedure for the pilot (restore into a new server, what to check on it, the verification
+queries, the cut-over and the restore drill) is in
+[docs/production/runbook.md](../production/runbook.md#restore-the-database-to-a-new-server).
 
 **A SQLite file.** Stop the application, delete `<file>-wal` and `<file>-shm`, and copy a backup (a
 `.bak` from an upgrade, or a file written by `npm run db:copy`) over `<file>`.

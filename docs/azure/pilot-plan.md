@@ -1,10 +1,22 @@
 # Hosted pilot on Azure: plan
 
-> **Status: planned, not deployed.** The Bicep in [`infra/pilot`](../../infra/pilot/main.bicep) compiles and
-> lints, and the post-deployment check has unit tests. **No resource has been created, no deployment or
-> what-if has been run, and nothing here has been seen working in Azure.** Read
-> [What is not validated](#what-is-not-validated) before relying on any step. The cost of the plan is in
-> [pilot-cost.md](./pilot-cost.md), which ends with the approval request for the chargeable resources.
+> **Status: planned and authored, not deployed.** The Bicep in [`infra/pilot`](../../infra/pilot/main.bicep) compiles,
+> lints against a strict rule set and **evaluates offline** (`npm run iac:validate`: a pinned Bicep CLI builds every
+> template and parameter file, `bicep snapshot` predicts the resources, and a test asserts the security invariants on the
+> compiled output). The post-deployment check, the release and rollback tooling and the pre-flight have unit tests against
+> fakes. **No resource has been created, no deployment or what-if has been run, no rollback or restore drill has been
+> run, and nothing here has been seen working in Azure.** Read [What is not validated](#what-is-not-validated) before
+> relying on any step. The cost of the plan is in [pilot-cost.md](./pilot-cost.md) and, with current list prices and
+> the arithmetic, in [azure-preflight.md](../production/azure-preflight.md).
+
+> **Since this plan was first written** the template gained: **multiple-revision mode** with blue/green releases
+> and a one-command rollback ([release-process.md](../production/release-process.md)); an **action group, nine metric and
+> nine log alert rules** and a **budget** ([observability.md](../production/observability.md)); an opt-in **Key Vault**;
+> opt-in **private networking** and a NAT gateway; **parameters to reuse existing** workspace, Application Insights,
+> registry, PostgreSQL server, Key Vault and Container Apps environment; a `production-shaped` parameter profile; and a
+> `minReplicas` that **cannot be below 1**. Where a paragraph below still describes the earlier shape, it says so. The
+> production-candidate pages are in [docs/production/](../production/): [runbook](../production/runbook.md),
+> [threat model](../production/threat-model.md), [limitations](../production/LIMITATIONS.md).
 
 This is the smallest hosted shape that can serve several people safely: **one container app** (the UI, the
 API and the job runner in one process), **one PostgreSQL database**, and the identity, registry and logging
@@ -52,18 +64,25 @@ the reason and the way to get there.
 
 ## What is created
 
-| Resource                                       | Type and API version                                          | Size                                                                    | Why it is here                                                                      |
-| ---------------------------------------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Managed identity `id-<env>`                    | `Microsoft.ManagedIdentity/userAssignedIdentities` 2024-11-30 | none                                                                    | The only credential holder: database, model, registry and telemetry all use it      |
-| Log Analytics workspace `log-<env>`            | `Microsoft.OperationalInsights/workspaces` 2025-02-01         | Pay-as-you-go, 30 days, 0.5 GB/day cap                                  | Console and system logs of the app; Application Insights data                       |
-| Application Insights `appi-<env>`              | `Microsoft.Insights/components` 2020-02-02                    | Workspace-based, **local auth disabled**                                | Traces and failures, ingested only with an Entra token                              |
-| Container Registry `cr<env><hash>`             | `Microsoft.ContainerRegistry/registries` 2025-04-01           | Basic, admin user off                                                   | Holds the image; pulled with the identity's `AcrPull`                               |
-| Container Apps environment `cae-<env>`         | `Microsoft.App/managedEnvironments` 2025-07-01                | Consumption profile only, no virtual network                            | Hosts the app; wired to the workspace for logs                                      |
-| Container app `ca-<env>`                       | `Microsoft.App/containerApps` 2025-07-01                      | 0.5 vCPU, 1 GiB, **min 1 / max 1** replica, external HTTPS              | The application. Probes, environment variables and the identity are in the template |
-| PostgreSQL flexible server `psql-<env>-<hash>` | `Microsoft.DBforPostgreSQL/flexibleServers` 2025-08-01        | Burstable B1ms, 32 GiB, version 16, 7-day backups, no HA/geo            | The one durable store: projects, ledger, audit chain, sessions and the job queue    |
-| Database `swarm`, firewall rule, TLS setting   | child resources of the server                                 |                                                                         | `require_secure_transport = ON`; one network rule (see below)                       |
-| Server administrator                           | `.../flexibleServers/administrators`                          | the managed identity                                                    | The app creates and migrates its own tables with it                                 |
-| Three role assignments                         | `Microsoft.Authorization/roleAssignments` 2022-04-01          | one on the registry, one on Application Insights, one on the AI account | See the [role matrix](#identity-and-role-matrix)                                    |
+| Resource                                       | Type and API version                                                       | Size                                                                                   | Why it is here                                                                            |
+| ---------------------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Managed identity `id-<env>`                    | `Microsoft.ManagedIdentity/userAssignedIdentities` 2024-11-30              | none                                                                                   | The only credential holder: database, model, registry and telemetry all use it            |
+| Log Analytics workspace `log-<env>`            | `Microsoft.OperationalInsights/workspaces` 2025-02-01                      | Pay-as-you-go, 30 days, 0.5 GB/day cap                                                 | Console and system logs of the app; Application Insights data                             |
+| Application Insights `appi-<env>`              | `Microsoft.Insights/components` 2020-02-02                                 | Workspace-based, **local auth disabled**                                               | Traces and failures, ingested only with an Entra token                                    |
+| Container Registry `cr<env><hash>`             | `Microsoft.ContainerRegistry/registries` 2025-04-01                        | Basic, admin user off                                                                  | Holds the image; pulled with the identity's `AcrPull`                                     |
+| Container Apps environment `cae-<env>`         | `Microsoft.App/managedEnvironments` 2025-07-01                             | Consumption profile only, no virtual network                                           | Hosts the app; wired to the workspace for logs                                            |
+| Container app `ca-<env>`                       | `Microsoft.App/containerApps` 2025-07-01                                   | 0.5 vCPU, 1 GiB, **min 1 / max 1** replica, **multiple-revision mode**, external HTTPS | The application. Probes, environment variables and the identity are in the template       |
+| PostgreSQL flexible server `psql-<env>-<hash>` | `Microsoft.DBforPostgreSQL/flexibleServers` 2025-08-01                     | Burstable B1ms, 32 GiB, version 16, 7-day backups, no HA/geo                           | The one durable store: projects, ledger, audit chain, sessions and the job queue          |
+| Database `swarm`, firewall rule, TLS setting   | child resources of the server                                              |                                                                                        | `require_secure_transport = ON`; one network rule (see below)                             |
+| Server administrator                           | `.../flexibleServers/administrators`                                       | the managed identity                                                                   | The app creates and migrates its own tables with it                                       |
+| Three role assignments                         | `Microsoft.Authorization/roleAssignments` 2022-04-01                       | one on the registry, one on Application Insights, one on the AI account                | See the [role matrix](#identity-and-role-matrix)                                          |
+| Action group `ag-<env>` and 18 alert rules     | `Microsoft.Insights` `actionGroups`, `metricAlerts`, `scheduledQueryRules` | E-mail to `alertEmailAddress` (required); 9 platform-metric rules and 9 log rules      | The operator is told ([observability.md](../production/observability.md)); none has fired |
+| Budget `budget-<env>`                          | `Microsoft.Consumption/budgets` 2024-08-01                                 | INR 4,500 by default; 50, 80 and 100% of actual and 100% of forecast                   | A notification, **not a cap**                                                             |
+
+**Optional, off by default** (parameters): a **Key Vault** (RBAC, soft delete, purge protection; for a secret that cannot be
+avoided), a **virtual network** with private PostgreSQL access and an integrated environment (`enablePrivateNetworking`),
+and a **NAT gateway** with a static address for outbound traffic (`enableNatGateway`). Any of the resources above can instead
+be **an existing one** (`existing…ResourceId` parameters), in which case it is referenced, not created.
 
 Names carry a short hash of the resource group id where the name must be globally unique (registry,
 database server). The resource group itself is **not** in the template: create a new one for the pilot (see
@@ -71,17 +90,17 @@ database server). The resource group itself is **not** in the template: create a
 
 ### What is left out, and why
 
-| Left out                                              | Why                                                                                                                                                  | Add it when                                                                                                              |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **Key Vault**                                         | There is no secret to keep. The database, model, registry, telemetry and Entra token call all use the managed identity; there is no client secret    | The day a secret appears (for example a third-party key)                                                                 |
-| **Blob Storage**                                      | Source PDFs are not retained: their text is stored in the database. Nothing else is a file                                                           | Original documents must be kept, with retention rules, or OCR is added                                                   |
-| **Service Bus or any queue service**                  | The job queue is a PostgreSQL table with leases ([ADR 0010](../adr/0010-durable-jobs-leased-from-the-database.md))                                   | Measured throughput or fan-out that one table cannot serve                                                               |
-| **A second (worker) container app**                   | With `SWARM_ROLE=all` the one process serves and runs jobs. A second always-on replica would double the compute cost for no benefit at this size     | The API must stay responsive during long runs; see [Splitting the API and the worker](#splitting-the-api-and-the-worker) |
-| **Virtual network, private endpoints, NAT gateway**   | They add resources and an hourly charge, and the server's network mode cannot be changed in place. Entra-only authentication and TLS carry the pilot | Before production data, or if a policy requires private access                                                           |
-| **Front Door, API Management, WAF**                   | The app already enforces sign-in, rate limits, a host allow-list and security headers. These add cost and a second place to configure it             | Public exposure beyond the pilot group, or a WAF requirement                                                             |
-| **AI Search, Cosmos DB, Functions**                   | Not needed by anything the app does today ([AZURE.md](../AZURE.md#service-evaluation))                                                               | Measured need                                                                                                            |
-| **Alert rules, action groups, budgets, Defender**     | They need an owner and an email list, which must not be in the repository. Free to add by hand                                                       | Someone is on call. Set a budget alert before approving the spend                                                        |
-| **Diagnostic settings, backup vault, geo-redundancy** | Platform metrics are free in the portal; the server's own backups cover the data; a second region doubles the database cost                          | A recovery objective that a single-region restore cannot meet                                                            |
+| Left out                                              | Why                                                                                                                                                                                                                                                                                                                                              | Add it when                                                                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Key Vault**                                         | **Off by default, available (`enableKeyVault`).** There is no secret to keep: the database, model, registry, telemetry and Entra token call all use the managed identity; there is no client secret                                                                                                                                              | The day a secret appears (for example a client secret or a third-party key); see [the runbook](../production/runbook.md#secrets-in-key-vault) |
+| **Blob Storage**                                      | Source PDFs are not retained: their text is stored in the database. Nothing else is a file                                                                                                                                                                                                                                                       | Original documents must be kept, with retention rules, or OCR is added                                                                        |
+| **Service Bus or any queue service**                  | The job queue is a PostgreSQL table with leases ([ADR 0010](../adr/0010-durable-jobs-leased-from-the-database.md))                                                                                                                                                                                                                               | Measured throughput or fan-out that one table cannot serve                                                                                    |
+| **A second (worker) container app**                   | With `SWARM_ROLE=all` the one process serves and runs jobs. A second always-on replica would double the compute cost for no benefit at this size                                                                                                                                                                                                 | The API must stay responsive during long runs; see [Splitting the API and the worker](#splitting-the-api-and-the-worker)                      |
+| **Virtual network, private endpoints, NAT gateway**   | **Off by default, available (`enablePrivateNetworking`, `enableNatGateway`).** They add resources and an hourly charge, and the server's network mode cannot be changed in place. Entra-only authentication and TLS carry the pilot. Priced in [azure-preflight.md](../production/azure-preflight.md#options-priced-and-left-off); compiled only | Before production data, or if a policy requires private access                                                                                |
+| **Front Door, API Management, WAF**                   | The app already enforces sign-in, rate limits, a host allow-list and security headers. These add cost and a second place to configure it                                                                                                                                                                                                         | Public exposure beyond the pilot group, or a WAF requirement                                                                                  |
+| **AI Search, Cosmos DB, Functions**                   | Not needed by anything the app does today ([AZURE.md](../AZURE.md#service-evaluation))                                                                                                                                                                                                                                                           | Measured need                                                                                                                                 |
+| **Defender, dashboards, paging, a workbook**          | Alert rules, an action group and a budget **are** now in the template ([observability.md](../production/observability.md)); they need an e-mail address (`alertEmailAddress`), which is a parameter and not in the repository. Defender, a dashboard and paging are not created                                                                  | Someone is on call, or there are real users                                                                                                   |
+| **Diagnostic settings, backup vault, geo-redundancy** | Platform metrics are free in the portal; the server's own backups cover the data; a second region doubles the database cost                                                                                                                                                                                                                      | A recovery objective that a single-region restore cannot meet                                                                                 |
 
 ## Identity and role matrix
 
@@ -109,8 +128,10 @@ user off).
 **The one place this is not least privilege.** Inside the database the identity is the server's
 administrator, because the app creates and migrates its own tables. It cannot change the server's
 configuration (that is Azure RBAC), but it can do anything inside the databases. A later hardening is a
-narrow runtime role with only the grants the app needs and a separate break-glass administrator group; that
-needs SQL, which the template cannot run.
+narrow runtime role with only the grants the app needs and a separate break-glass administrator group (the template
+now has the optional group, `breakGlassAdminGroupObjectId`); that needs SQL, which the template cannot run, **and an
+application change**, because the app also runs `CREATE TABLE IF NOT EXISTS` on every start
+([the runbook](../production/runbook.md#database-roles-what-the-application-needs-and-what-it-does-not-yet-allow)).
 
 The AI account's role assignment lives in **that** account's resource group, not in the pilot group. When
 the pilot group is deleted the identity disappears but the assignment stays behind as an orphan:
@@ -118,8 +139,9 @@ the pilot group is deleted the identity disappears but the assignment stays behi
 
 ## What the container is given
 
-Every setting is an ordinary environment variable. There is no secret and no secret reference in the
-template; `APPLICATIONINSIGHTS_CONNECTION_STRING` is not a credential because the component refuses telemetry
+Every setting is an ordinary environment variable. By default there is no secret and no secret reference in the
+template (with the opt-in Key Vault, a setting can be a **reference** to a vault secret, never a value);
+`APPLICATIONINSIGHTS_CONNECTION_STRING` is not a credential because the component refuses telemetry
 without an Entra token.
 
 | Variable                                                                             | Value                                                                                                 | Comes from                                   |
@@ -165,11 +187,11 @@ The `Dockerfile`'s `HEALTHCHECK` is not used by Container Apps. Its request carr
   there is nothing to guess); every connection needs TLS (`require_secure_transport = ON`, TLS 1.2 or later is the service
   default); and the server accepts no key.
 
-  | Option                                          | Verdict                                                                                                                                                                                                                                                                     |
-  | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | The "Azure services" rule (chosen)              | Works with no virtual network and survives re-provisioning. Broad at the network layer, narrow at the identity layer                                                                                                                                                        |
-  | Firewall rules for the app's outbound addresses | Rejected: Microsoft states that a Container Apps environment's outbound addresses "might change over time", so the database would silently lock the app out                                                                                                                 |
-  | A fixed address (NAT gateway) or private access | The right production answer. A NAT gateway has its own hourly charge; private access needs a virtual network, two subnets and a private DNS zone, and cannot be switched on for an existing server. Not built for a pilot, and it removes your laptop from the database too |
+  | Option                                          | Verdict                                                                                                                                                                                                                                                                                                                                                             |
+  | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | The "Azure services" rule (chosen)              | Works with no virtual network and survives re-provisioning. Broad at the network layer, narrow at the identity layer                                                                                                                                                                                                                                                |
+  | Firewall rules for the app's outbound addresses | Rejected: Microsoft states that a Container Apps environment's outbound addresses "might change over time", so the database would silently lock the app out                                                                                                                                                                                                         |
+  | A fixed address (NAT gateway) or private access | The right production answer. A NAT gateway has its own hourly charge; private access needs a virtual network, two subnets and a private DNS zone, and cannot be switched on for an existing server. Available as options (`enablePrivateNetworking`, `enableNatGateway`), off by default, compiled but never deployed; it removes your laptop from the database too |
 
 - **Application Insights** and **Container Registry** are also reachable on public endpoints, protected by
   Entra roles only (no key, no admin user, no anonymous pull).
@@ -189,6 +211,10 @@ environment-specific is read from environment variables by
 ### 0. Before you start
 
 - **Approval** of the chargeable resources: [pilot-cost.md](./pilot-cost.md#approval-request).
+- **Offline and read-only checks first:** `npm run iac:validate` (compiles, lints and evaluates every template with
+  the pinned Bicep CLI), and `npm run azure:preflight -- --subscription <id>` (reads the subscription, refuses every
+  mutating `az` verb, and prints the cost plan: [azure-preflight.md](../production/azure-preflight.md)). Read the credit
+  and the spending limit in the portal: the pre-flight could not.
 - **Tools:** Azure CLI with Bicep (`az bicep version`), Node 24 for the smoke test, and optionally the Azure
   Developer CLI. Docker is not needed: the image is built in the registry. (Registry build tasks can be
   unavailable on some free or student subscriptions; then build with Docker locally, which azd does by itself
@@ -226,23 +252,39 @@ $env:SWARM_AI_ACCOUNT_RESOURCE_ID = '<resource id of the existing AI account>'
 $env:SWARM_AI_DEPLOYMENT_NAME     = '<model deployment name, for example swarm-chat>'
 $env:SWARM_AUTH_CLIENT_ID         = '<application (client) id of the app registration>'
 $env:SWARM_SOURCE_URL             = '<public https address of the exact source version>'
+$env:SWARM_ALERT_EMAIL            = '<address that receives the alerts and the budget notices>'
 ```
 
-An unset required value stops the run **before anything is created** (the parameter file fails to compile).
+An unset required value (the AI account, the client ID, the alert address) stops the run **before anything is created**
+(the parameter file fails to compile). `SWARM_ALERT_EMAIL` is required on purpose: a deployment with nobody to tell is
+refused.
 
 Everything else has a default and is changed with `--parameters name=value` (for azd, add a `param name = value`
-line to [`main.bicepparam`](../../infra/pilot/main.bicepparam)):
+line to [`main.bicepparam`](../../infra/pilot/main.bicepparam)). A second parameter file,
+[`production-shaped.bicepparam`](../../infra/pilot/production-shaped.bicepparam), is the same template with zone-redundant HA,
+geo-redundant backups, private networking, a NAT gateway, a Premium registry and longer retention, for a **paid**
+subscription (priced in [azure-preflight.md](../production/azure-preflight.md#the-production-shaped-profile)); it has not been
+deployed either.
 
-| Parameter                                         | Default                                    | Effect                                                                                                                                         |
-| ------------------------------------------------- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `location`                                        | The resource group's region                | Region of everything created                                                                                                                   |
-| `azureOpenAiEndpoint`                             | `https://<account name>.openai.azure.com/` | Set it when the account uses another custom sub-domain                                                                                         |
-| `authAudience`                                    | The client ID                              | The audience tokens must carry                                                                                                                 |
-| `cpu`                                             | `0.5` (memory is twice that)               | `0.25`, `0.5`, `1` or `2` vCPU                                                                                                                 |
-| `minReplicas`, `maxReplicas`                      | `1`, `1`                                   | `0` stops the app, and its job runner, when idle; keep `maxReplicas` at 1 for now                                                              |
-| `backupRetentionDays`                             | `7`                                        | 7 to 35: how far back a restore can go                                                                                                         |
-| `projectModelCallLimit`, `projectModelTokenLimit` | `1500`, `4000000`                          | Most model calls, and most tokens, one project may use in all (0 is no limit); a workspace owner or administrator may give one project its own |
-| `logRetentionDays`, `dailyLogCapGb`               | `30`, `0.5`                                | Log retention, and the daily ingestion cap (`-1` removes it)                                                                                   |
+| Parameter                                                                                                                                                                                                    | Default                                    | Effect                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `location`                                                                                                                                                                                                   | The resource group's region                | Region of everything created                                                                                                                              |
+| `azureOpenAiEndpoint`                                                                                                                                                                                        | `https://<account name>.openai.azure.com/` | Set it when the account uses another custom sub-domain                                                                                                    |
+| `authAudience`                                                                                                                                                                                               | The client ID                              | The audience tokens must carry                                                                                                                            |
+| `cpu`                                                                                                                                                                                                        | `0.5` (memory is twice that)               | `0.25`, `0.5`, `1` or `2` vCPU                                                                                                                            |
+| `minReplicas`, `maxReplicas`                                                                                                                                                                                 | `1`, `1`                                   | `minReplicas` **cannot be below 1** (the job runner is embedded and stops with the replica); keep `maxReplicas` at 1 until more are validated             |
+| `alertEmailAddress`, `additionalAlertEmailAddresses`                                                                                                                                                         | required, none                             | Who the action group and the budget e-mail                                                                                                                |
+| `revisionSuffix`, `trafficMode`, `previousRevisionName`, `newRevisionTrafficPercent`, `maxInactiveRevisions`                                                                                                 | `''`, `preserve`, `''`, `100`, `5`         | How a deployment of the template treats revisions and traffic; releases normally go through [`azure:release`](../production/release-process.md) instead   |
+| `ingressAllowedCidrs`                                                                                                                                                                                        | none                                       | When set, only these addresses reach the ingress (also the [emergency stop](../production/runbook.md#emergency-stop), tier 1)                             |
+| `backupRetentionDays`                                                                                                                                                                                        | `7`                                        | 7 to 35: how far back a restore can go                                                                                                                    |
+| `databaseSkuName`, `databaseStorageGb`, `databaseHighAvailability`, `databaseGeoRedundantBackup`, …                                                                                                          | B1ms, 32, off, off                         | The database shape; the production-shaped profile changes them                                                                                            |
+| `projectModelCallLimit`, `projectModelTokenLimit`                                                                                                                                                            | `1500`, `4000000`                          | Most model calls, and most tokens, one project may use in all (0 is no limit); a workspace owner or administrator may give one project its own            |
+| `logRetentionDays`, `dailyLogCapGb`                                                                                                                                                                          | `30`, `0.5`                                | Log retention, and the daily ingestion cap (`-1` removes it)                                                                                              |
+| `enableBudget`, `budgetAmount`, `budgetCurrencyLabel`                                                                                                                                                        | on, `4500`, `INR`                          | The resource-group budget (notification only; the amount is in the **billing** currency, and the resource has no currency property)                       |
+| `enableKeyVault`, `keyVaultSecretReferences`                                                                                                                                                                 | off, none                                  | The opt-in Key Vault and the secrets the app reads from it by reference                                                                                   |
+| `enablePrivateNetworking`, `enableNatGateway`                                                                                                                                                                | off, off                                   | Private PostgreSQL and an integrated environment; a static outbound address                                                                               |
+| `existingWorkspaceResourceId`, `existingAppInsightsResourceId`, `existingRegistryResourceId`, `existingPostgresServerResourceId`, `existingKeyVaultResourceId`, `existingContainerAppsEnvironmentResourceId` | none                                       | Reuse instead of create ([azure-preflight.md](../production/azure-preflight.md#reuse-do-not-duplicate))                                                   |
+| `researchSignalsEmitted`                                                                                                                                                                                     | off                                        | Turns on the crawler alert once the application emits its signal ([observability.md](../production/observability.md#the-contract-the-crawler-rule-reads)) |
 
 **With plain `az`** (preview first; it changes nothing):
 
@@ -263,6 +305,7 @@ azd env set SWARM_AI_ACCOUNT_RESOURCE_ID <resource id>
 azd env set SWARM_AI_DEPLOYMENT_NAME <deployment name>
 azd env set SWARM_AUTH_CLIENT_ID <client id>
 azd env set SWARM_SOURCE_URL <address>
+azd env set SWARM_ALERT_EMAIL <address>
 azd provision --preview
 azd provision
 ```
@@ -277,22 +320,31 @@ The outputs you need next: `AZURE_CONTAINER_APP_FQDN`, `ENTRA_REDIRECT_URI`,
 `AZURE_CONTAINER_REGISTRY_ENDPOINT`, `AZURE_CONTAINER_REGISTRY_NAME` and `AZURE_CONTAINER_APP_NAME`. (`az` may
 return an output's name with a different case from the one in the template, so match names case-insensitively.)
 
-### 3. Finish the Entra setup, then deploy the image
+### 3. Finish the Entra setup, then release the image
 
-Do the [Entra steps that need the address](#entra-app-registration) now. Then:
+Do the [Entra steps that need the address](#entra-app-registration) now. Then make the **first release** with the
+release tool, which builds the image in the registry from a clean checkout of one commit, tags it with the **full commit
+hash** and locks the tag, starts a new revision at no traffic, proves it, shifts traffic, runs the smoke test, and writes a
+release record ([release-process.md](../production/release-process.md)). It is a dry run until `--execute` and the exact
+group name are given, and it refuses to run in CI:
 
 ```powershell
-# azd
-azd deploy
-
-# plain az: build in the registry, tag with the commit, then point the app at it
-$tag = git rev-parse --short HEAD
-az acr build --registry <registry name> --image swarm:$tag --file Dockerfile .
-az containerapp update --name <app name> --resource-group <pilot group> --image <registry login server>/swarm:$tag
+npm run azure:release -- release --subscription <subscription id> --resource-group <pilot group> --app <app name> --registry <registry name>
+# read it, then:
+npm run azure:release -- release --subscription <subscription id> --resource-group <pilot group> --app <app name> --registry <registry name> --execute --confirm-resource-group <pilot group>
 ```
 
-azd's own image tag is a timestamp; for a release, prefer the commit tag so the running image can be matched to
-the source in `SOURCE_URL`.
+The by-hand equivalent for a first image (no record, no lock, no proof before traffic moves; **prefer the tool**):
+
+```powershell
+$sha = git rev-parse HEAD
+az acr build --registry <registry name> --image swarm:$sha --file Dockerfile .
+az containerapp update --name <app name> --resource-group <pilot group> --image <registry login server>/swarm:$sha --revision-suffix r$($sha.Substring(0,12))
+```
+
+`azd deploy` still works, but it tags the image with a timestamp, skips the lock and the record, and does not pin traffic
+first: it is not the release path for anything that matters. The first deployment of the template leaves traffic on the
+newest revision; every later release names its revisions and traffic explicitly.
 
 ### 4. Check it
 
@@ -420,7 +472,9 @@ template's server name is derived, so after a restore the template and the runni
 restored server as the pilot's database from then on, and do not re-run the template without `appExists` and
 a deliberate look at what it would change.
 
-**Do a restore drill before putting real data in**: it has not been done (see [production readiness](../production-readiness.md)).
+**Do a restore drill before putting real data in**: it has not been done. The full procedure (restore to a new server,
+what to check on it, the verification queries, the cut-over, and the drill with its pass criteria) is in
+[the runbook](../production/runbook.md#restore-the-database-to-a-new-server).
 
 A logical copy is the other safety net: `npm run db:copy` writes the database to a SQLite file and back
 ([configuration guide](../CONFIGURATION.md#postgresql)). It needs the operator to be a database user, which
@@ -429,28 +483,25 @@ optional step.
 
 ### The application
 
-The app is in **single-revision** mode. A new revision takes traffic only after its readiness probe passes,
-so an image that fails to start never replaces the one that works.
-
-To go back to the previous image, start it as a new revision (every pushed tag stays in the registry):
-
-```powershell
-az containerapp revision list --name <app name> --resource-group <pilot group> -o table
-az containerapp update --name <app name> --resource-group <pilot group> --image <registry login server>/swarm:<previous tag>
-```
-
-**A canary, if you want one.** Switch to multiple revisions, deploy the new image at 0% traffic, shift
-traffic and, if it goes wrong, shift it back:
+The app runs in **multiple-revision mode** (the template sets it). A release creates a **new revision beside the one
+that serves**, proves it while it takes no traffic, and only then moves traffic to it; the previous revision stays
+running (**warm**) for a window, so going back is a **traffic change**, not a start. The tool that does this, with the
+release record, the canary, the one-command rollback, the schema rules and the rollback drill, is described in
+[release-process.md](../production/release-process.md). **Rollback has not been exercised in Azure: do not rely on it
+until the [drill](../production/release-process.md#the-rollback-drill) has been run.**
 
 ```powershell
-az containerapp revision set-mode --name <app name> --resource-group <pilot group> --mode multiple
-az containerapp ingress traffic set --name <app name> --resource-group <pilot group> --revision-weight <new revision>=10 <old revision>=90
+npm run azure:release -- status   --subscription <subscription id> --resource-group <pilot group> --app <app name>   # read-only
+npm run azure:release -- rollback --subscription <subscription id> --resource-group <pilot group> --app <app name>   # dry run; add --execute --confirm-resource-group <pilot group>
 ```
 
-Two cautions. The app refuses any host that is not its own address, so a revision's own address
-(`<app>--<revision>...`) answers `403 HOST_NOT_ALLOWED`: test with weights, not that address. And **both
-revisions keep running and both run jobs** (`SWARM_ROLE=all`), so do not use a canary for a release that
-changes the schema. Return to `--mode single` afterwards; re-applying the template does so too.
+Three cautions. The app refuses any host that is not its own address for every route **except the two health routes**,
+so a revision's own address (`<app>--<revision>...`) answers `403 HOST_NOT_ALLOWED` to everything else: the release tool
+checks a new revision on `/api/health/ready` at that address and tests the rest with weights, on the public address.
+**Every active revision runs the job runner** (`SWARM_ROLE=all`), so during the warm window two builds claim jobs
+([release-process.md](../production/release-process.md#two-revisions-two-job-runners)). And re-applying the template
+with the default `trafficMode` (`preserve`) is meant to keep the traffic split the platform has rather than undo a release
+(**UNVERIFIED**: it reads the existing app's traffic at deployment time).
 
 ### Schema migrations only go forward
 
@@ -460,7 +511,10 @@ application version` before it listens. In practice:
 
 - **Rolling back the application below the database's schema version does not work.** The older image starts, finds the
   newer schema, and exits. Its revision never becomes ready, so the platform leaves the newer revision serving
-  and the rollback silently does not happen. Look for `STORAGE_VERSION` in the console logs.
+  and the rollback silently does not happen. Look for `STORAGE_VERSION` in the console logs. (A previous revision that is
+  **still running** from before the migration can be switched back to without restarting, which is the point of the warm
+  window; it will not survive a restart. The release tool refuses a rollback across a migration until
+  `--accept-schema-change` is given, and records a restore point when it releases one.)
 - **The migration runs when the first new replica starts, before that replica has proved itself.** If a release carries one
   and turns out to be bad, going back means **restoring the database to a time before the migration** (a new server,
   as above) _and_ deploying the older image, or fixing forward.
@@ -511,9 +565,12 @@ curl.exe -sS -o NUL -w "%{http_code}`n" https://<app fqdn>/api/config
 
 - **Logs:** `az containerapp logs show --name <app name> --resource-group <pilot group> --type console --tail 100`,
   or in the workspace `ContainerAppConsoleLogs_CL` and `ContainerAppSystemLogs_CL` (filter on `ContainerAppName_s`).
-- **Scale and stop:** `--min-replicas 0` stops the replica when idle, and with it the embedded job runner, so a queued run
-  waits for the next request. The database can be stopped (`az postgres flexible-server stop`); Azure starts it
-  again after seven days. Both are described, with their savings, in [pilot-cost.md](./pilot-cost.md).
+- **Scale and stop:** the template **refuses `minReplicas` below 1**, because a replica scaled to zero stops the
+  embedded job runner. To stop the app on purpose, deactivate its revisions or close the ingress: the
+  [emergency stop](../production/runbook.md#emergency-stop). The database can be stopped
+  (`az postgres flexible-server stop`); Azure starts it again after seven days. The savings are in
+  [pilot-cost.md](./pilot-cost.md). (A `az containerapp update --min-replicas 0` outside the template is possible, and
+  the next deployment of the template puts it back to 1.)
 - **More than one replica** is argued, not measured ([ADR 0009](../adr/0009-postgres-through-a-synchronous-bridge.md),
   [ADR 0010](../adr/0010-durable-jobs-leased-from-the-database.md)): keep `maxReplicas` at 1 until two replicas
   racing for one database have been shown to work.
@@ -553,9 +610,10 @@ Nothing was deployed, so **everything that depends on Azure's behaviour is unver
 
 - **Any deployment at all:** property combinations the compiler cannot see, quotas, region offers, permissions, the order of the
   PostgreSQL server operations (chained on purpose), and `what-if`.
-- **The first provision with a placeholder image** whose port does not match the ingress. Container Apps is
-  expected to create the app without waiting for the replica to be ready. If it reports "Operation expired",
-  provision once with `--parameters minReplicas=0`, deploy the image, then set it back to 1.
+- **The first provision with a placeholder image.** The template recognises the placeholder (a public Microsoft sample
+  that listens on port 80) and gives it the ingress on port 80 and **no probes**, so that its replica can become ready;
+  Container Apps is expected to create the app without trouble. **Unverified.** The earlier workaround, provisioning with
+  `minReplicas=0` and setting it back, is gone: the template refuses a `minReplicas` below 1.
 - **That Container Apps honours the `Host` header set on a probe.** It is a documented field and standard Kubernetes
   behaviour, but untested here. The deployment does not depend on it: the app answers `/api/health/live` and
   `/api/health/ready` for any host (`backend/test/health.test.ts`), so a probe that sends the replica's address still passes.
@@ -572,29 +630,39 @@ Nothing was deployed, so **everything that depends on Azure's behaviour is unver
   and App Service auto-instrumentation and I found no documentation that a Node.js exporter reads it, so the code must
   not depend on it. With local authentication disabled, an exporter that sends no credential is refused and its telemetry
   dropped. None of this has run against a real Application Insights resource.
-- **More than one replica**, a restore drill, a revision rollback, and the schema-version refusal on a real
-  server.
+- **More than one replica**, the **rollback drill**, the **restore drill**, the schema-version refusal on a real
+  server, every alert rule firing, the budget notices, and the release and drill tooling against the real `az` CLI
+  ([release-process.md](../production/release-process.md#what-is-unverified),
+  [observability.md](../production/observability.md#queries-to-run-once-after-the-first-deploy)). The full list is in
+  [LIMITATIONS.md](../production/LIMITATIONS.md).
 - **azd:** resource-group-scoped provisioning with a `.bicepparam`, and the `SERVICE_SWARM_RESOURCE_EXISTS` convention.
 - **Cost:** list prices on one date; no agreement price, no real usage.
 
 ## What was checked
 
-| Check                                                                                        | Result                                                                                                                                                                                                                                                                                                                                   |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bicep build infra/pilot/main.bicep` (Bicep CLI 0.48.1)                                      | Succeeds; every API version above has type definitions                                                                                                                                                                                                                                                                                   |
-| `bicep lint`, default rules                                                                  | No findings in `main.bicep` or any module                                                                                                                                                                                                                                                                                                |
-| `bicep lint`, extra rules (API age, secrets in outputs and parameters, safe access, what-if) | One finding, kept: the administrator resource is **named by the identity's object ID**, which exists only after the identity does, so a `what-if` of the first deployment is less precise there                                                                                                                                          |
-| `bicep build-params` with the environment unset                                              | Fails on the required values (resource ID, client ID) before anything could be created, as designed                                                                                                                                                                                                                                      |
-| `bicep build-params` with placeholder values                                                 | Succeeds and yields only the nine environment-specific parameters                                                                                                                                                                                                                                                                        |
-| Smoke checks against the real backend, in-process (a throwaway run, not kept)                | 8 of 8 pass with `AUTH_MODE=entra`. With `AUTH_MODE=none` the sign-in, redirect and cookie checks fail, as they should. Before the backend exempted the two health routes from the host check, a request whose `Host` was not in `ALLOWED_HOSTS` got `403 HOST_NOT_ALLOWED` on both; it now does not, and the probes still name the host |
-| Smoke test: `vitest`, `tsc`, ESLint, Prettier                                                | Pass; the tests use in-memory fakes and a loopback server, no network                                                                                                                                                                                                                                                                    |
+| Check                                                                                                                   | Result                                                                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run iac:validate`: `bicep build` of `main.bicep` and every module (Bicep CLI 0.48.1, pinned and checksum-verified) | Succeeds for every template; every API version used has type definitions                                                                                                                                                                                                                                                                 |
+| `bicep lint` with the strict rule set of `infra/bicepconfig.json`                                                       | No findings in any template (`use-recent-api-versions` is off on purpose: it would flag a version that is only newer)                                                                                                                                                                                                                    |
+| What-if of the first deployment                                                                                         | Expected to be less precise for the PostgreSQL administrator, which is **named by the identity's object ID**, a value that exists only after the identity does (not run)                                                                                                                                                                 |
+| `bicep build-params` with the environment unset                                                                         | Fails on the required values (resource ID, client ID, alert e-mail) before anything could be created, as designed                                                                                                                                                                                                                        |
+| `bicep build-params` with placeholder values                                                                            | Succeeds for both parameter files (`main.bicepparam`, `production-shaped.bicepparam`) with placeholder values                                                                                                                                                                                                                            |
+| `bicep snapshot` of both profiles (offline evaluation of the deployment)                                                | Succeeds; 34 resources predicted for the pilot profile and 40 for the production-shaped one                                                                                                                                                                                                                                              |
+| `scripts/iac/infra-invariants.test.ts` on the compiled ARM and both snapshots                                           | Passes: Entra-only PostgreSQL, TLS required, no secret literal or secret output, role assignments from an allow-list and scoped to one resource, probes, multiple revisions, `minReplicas ≥ 1`, tags on everything that can carry them, the alert rules and the budget                                                                   |
+| The release, rollback-drill and pre-flight tests against a fake `az`                                                    | Pass. They show the dry-run default, the refusals and the order of the steps: **not** that Azure behaves as the fake does                                                                                                                                                                                                                |
+| Smoke checks against the real backend, in-process (a throwaway run, not kept)                                           | 8 of 8 pass with `AUTH_MODE=entra`. With `AUTH_MODE=none` the sign-in, redirect and cookie checks fail, as they should. Before the backend exempted the two health routes from the host check, a request whose `Host` was not in `ALLOWED_HOSTS` got `403 HOST_NOT_ALLOWED` on both; it now does not, and the probes still name the host |
+| Smoke test: `vitest`, `tsc`, ESLint, Prettier                                                                           | Pass; the tests use in-memory fakes and a loopback server, no network                                                                                                                                                                                                                                                                    |
 
 ## Files
 
-| File                                                               | Purpose                                                                                                           |
-| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| `infra/pilot/main.bicep`                                           | Resource-group template: identity and wiring                                                                      |
-| `infra/pilot/main.bicepparam`                                      | Environment-specific parameters, read from environment variables                                                  |
-| `infra/pilot/modules/*.bicep`                                      | `monitoring`, `registry`, `postgres`, `container-app`, `ai-access` (the last deploys into the AI account's group) |
-| `azure.yaml`                                                       | Azure Developer CLI: one `containerapp` service built from the `Dockerfile`                                       |
-| `scripts/azure/pilot-smoke.ts`, `scripts/azure/lib/pilot-smoke.ts` | The post-deployment check and its logic                                                                           |
+| File                                                               | Purpose                                                                                                                                                                             |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `infra/pilot/main.bicep`                                           | Resource-group template: identity and wiring                                                                                                                                        |
+| `infra/pilot/main.bicepparam`                                      | Environment-specific parameters, read from environment variables                                                                                                                    |
+| `infra/pilot/production-shaped.bicepparam`                         | The same template for a paid subscription: zone-redundant HA, geo-backup, private networking, Premium registry                                                                      |
+| `infra/bicepconfig.json`                                           | The strict Bicep linter rules                                                                                                                                                       |
+| `infra/pilot/modules/*.bicep`                                      | `monitoring`, `registry`, `postgres`, `container-app`, `key-vault`, `alerts`, `budget`, `network`, `appinsights-access`, `ai-access` (the last deploys into the AI account's group) |
+| `scripts/iac/`                                                     | Offline validation (`npm run iac:validate`), the pinned Bicep CLI lock, and the invariant tests                                                                                     |
+| `scripts/azure/preflight.ts`, `release.ts`, `rollback-drill.ts`    | Read-only pre-flight and cost plan; release, promote, rollback and finalize; the rollback drill (all dry-run by default)                                                            |
+| `azure.yaml`                                                       | Azure Developer CLI: one `containerapp` service built from the `Dockerfile`                                                                                                         |
+| `scripts/azure/pilot-smoke.ts`, `scripts/azure/lib/pilot-smoke.ts` | The post-deployment check and its logic                                                                                                                                             |

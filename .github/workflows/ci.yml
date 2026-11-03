@@ -23,11 +23,32 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --ignore-scripts --no-fund
+      # The unit tests include the Azure template invariants (scripts/iac), which need the pinned Bicep CLI.
+      # CI=true makes a missing CLI a failure, so this step is not optional.
+      - name: Install the pinned Bicep CLI (size and SHA-256 are checked against scripts/iac/bicep.lock.json)
+        run: node scripts/iac/install-bicep.mjs && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - run: npm run check
       - run: npm run format:check
-      - run: npm audit --audit-level=high
+      - name: Audit dependencies (high and critical advisories fail the run)
+        id: audit
+        run: npm audit --audit-level=high
       - name: Scan every reachable commit and the working tree for credentials
+        id: secrets
         run: npm run scan:secrets
+      - name: Summarise the dependency and secret gates
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Dependency and secret gates"
+            echo ""
+            echo "| Gate | Outcome |"
+            echo "| --- | --- |"
+            echo "| \`npm audit --audit-level=high\` (every dependency, advisory database of the day) | ${{ steps.audit.outcome }} |"
+            echo "| \`npm run scan:secrets\` (every reachable commit and the working tree) | ${{ steps.secrets.outcome }} |"
+            echo ""
+            echo "An outcome of \`skipped\` means an earlier step failed, so the gate never ran."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Install browser for end-to-end tests
         run: npx playwright install --with-deps chromium
       - name: End-to-end journey, error states, responsive layout and accessibility
@@ -68,3 +89,60 @@ jobs:
       # Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the tests that guard
       # the SQLite stores guard the PostgreSQL ones too.
       - run: npm run test:postgres
+
+  iac:
+    name: Bicep templates (offline validation)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --ignore-scripts --no-fund
+      - name: Install the pinned Bicep CLI (size and SHA-256 are checked against scripts/iac/bicep.lock.json)
+        run: node scripts/iac/install-bicep.mjs && echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # Compiles and lints every template, compiles both parameter files, and evaluates both offline with
+      # `bicep snapshot`. CI=true (set by Actions) makes a missing or unpinned CLI a failure.
+      - name: Compile, lint and evaluate every template and parameter file
+        run: npm run iac:validate
+      - name: Assert the template invariants (Entra-only database, TLS, roles, probes, revisions, tags)
+        run: npx vitest run scripts/iac
+      - name: Summarise
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Azure templates"
+            echo ""
+            echo "Compiled, linted and evaluated offline with Bicep $(bicep --version | grep -o '[0-9]*\.[0-9]*\.[0-9]*' | head -1). Nothing was deployed and no Azure API was called: a pass here says the templates are well formed and hold their invariants, not that Azure accepts them."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  gates:
+    name: Gate summary
+    if: always()
+    needs: [quality, postgres, iac]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Summarise every gate, and fail unless all of them passed
+        shell: bash
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          POSTGRES: ${{ needs.postgres.result }}
+          IAC: ${{ needs.iac.result }}
+        run: |
+          {
+            echo "## Gates"
+            echo ""
+            echo "| Gate | Result |"
+            echo "| --- | --- |"
+            echo "| Quality: typecheck, lint, unit tests, build, format, dependency audit, secret scan, end-to-end, container build and health check | $QUALITY |"
+            echo "| Unit tests against PostgreSQL | $POSTGRES |"
+            echo "| Azure templates: Bicep compile, lint, offline evaluation, invariants | $IAC |"
+            echo ""
+            echo "No deployment job exists: deploying is an owner action (docs/production/release-process.md)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          for result in "$QUALITY" "$POSTGRES" "$IAC"; do
+            [ "$result" = "success" ] || { echo "A gate did not pass."; exit 1; }
+          done

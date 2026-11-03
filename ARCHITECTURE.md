@@ -278,11 +278,12 @@ flowchart TB
 
 Current validated architecture. The application and database run locally; Azure hosts the AI model deployment. Planned cloud hosting and managed identity are not shown as implemented components.
 
-| Where it runs           | Components                                                                                                                                                                                                                                                                                                                              |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **On your machine**     | The browser interface, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application |
-| **Deployed in Azure**   | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                       |
-| **Proposed, not built** | A hosted worker container, Azure Container Apps hosting, a PostgreSQL server in Azure, managed identity for the application, an Application Insights resource that the telemetry is sent to. They are designed in [docs/AZURE.md](./docs/AZURE.md) and [docs/azure/](./docs/azure/); none is deployed or validated                      |
+| Where it runs              | Components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **On your machine**        | The browser interface, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application                                                                                                                                                                                                                                                                                                                                                    |
+| **Deployed in Azure**      | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Authored, not deployed** | A hosted container (the UI, the API and the job runner in one process) on Azure Container Apps (multiple revisions: blue/green releases), a PostgreSQL server in Azure, managed identity for the application, an Application Insights resource that the telemetry is sent to, alert rules and a budget. They are Bicep in [`infra/pilot`](./infra/pilot/main.bicep) that compiles, lints and evaluates offline (`npm run iac:validate`), designed in [docs/AZURE.md](./docs/AZURE.md), [docs/azure/](./docs/azure/) and [docs/production/](./docs/production/LIMITATIONS.md); **none is deployed, and nothing has been seen working in Azure** (no rollback or restore drill has been run) |
+| **Proposed, not built**    | A separate worker container app (the pilot runs the API and the job runner in one process), Blob Storage, a search service, a web application firewall, a configured search provider for automatic research. See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 - **Frontend:** React and TypeScript, as six scenes on a design system ([how the interface carries
   it](#how-the-interface-carries-it)). In the built application the same process serves it and the
@@ -971,8 +972,9 @@ What is not built, and what has not been shown. The README keeps a short version
 - **Monitoring has not reached a real Application Insights resource.** OpenTelemetry traces and metrics
   (requests, jobs, model calls, queue depth, denials, grounding) are built and tested with in-memory
   exporters, and the export to Application Insights is authenticated with Microsoft Entra; the
-  dashboards, alert rules and runbook in [docs/operations/](./docs/operations/observability.md) are
-  written, not created or rehearsed.
+  dashboards and runbook in [docs/operations/](./docs/operations/observability.md) are
+  written, not created or rehearsed, and the alert rules and budget exist only as Bicep
+  ([docs/production/observability.md](./docs/production/observability.md)): compiled offline, never deployed, never fired.
 - **Report Studio has been tried on a recording, not in use.** Writing a chapter again has run only
   against a stand-in for the provider that speaks the real protocol, never against a live model, so
   how good the rewritten chapters are is unknown; the checks catch a quotation that is not in the
@@ -1009,9 +1011,11 @@ The local MVP is the prerequisite. Do not deploy paid resources merely to run it
 See [docs/AZURE.md](./docs/AZURE.md) for the phased migration plan and acceptance
 criteria, and the [README](./README.md) for local operations.
 
-1. Keep the same React/API container. Prefer **Azure Container Apps** for an existing
-   container workflow, or **App Service** when built-in Entra authentication and
-   conventional web hosting are the stronger fit. Choose one, not both.
+1. Keep the same React/API container. **Azure Container Apps** is the chosen host for the pilot
+   (App Service remains the alternative when built-in Entra authentication and
+   conventional web hosting are the stronger fit); choose one, not both. The pilot template runs it in
+   multiple-revision mode so that a release is blue/green and a rollback is a traffic change
+   ([docs/production/release-process.md](./docs/production/release-process.md); the rollback drill has **not** been run).
 2. Managed-identity authentication to **Azure OpenAI / Foundry** is implemented in the
    adapter (`DefaultAzureCredential`) and `infra/` creates an Entra-only account with
    keys disabled; both are unit tested but **not yet exercised live**. Use a deployed
@@ -1026,7 +1030,7 @@ criteria, and the [README](./README.md) for local operations.
 4. Add **Blob Storage** only when document size/retention requires separating files
    from database records. Add **Azure AI Search** only when measured retrieval needs
    semantic/vector search at a corpus size beyond the bounded local index.
-5. Use **Key Vault** for unavoidable secrets; managed identity is preferable to
+5. Use **Key Vault** for unavoidable secrets (the pilot template has an opt-in vault, never deployed); managed identity is preferable to
    storing Azure model keys. Add **Application Insights / OpenTelemetry** for
    production operational telemetry with content and credential redaction.
 6. **Functions** do not simplify the stateful simulation loop. **Cosmos DB** is not

@@ -1,0 +1,894 @@
+{
+  "schemaVersion": 1,
+  "retrievedOn": "2026-11-03",
+  "source": "https://prices.azure.com/api/retail/prices",
+  "apiVersion": "2023-01-01-preview",
+  "note": "Public list prices from the unauthenticated Azure Retail Prices API. Not an agreement, credit or dev/test price. Queried with curl; the filter of every query is listed below so the numbers can be re-fetched and compared.",
+  "meters": {
+    "containerapps.vcpu_active_second": {
+      "prices": {
+        "centralindia": {
+          "meterId": "87620268-42d5-510b-8337-071b322131f8",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000024,
+          "INR": 0.002285
+        },
+        "eastus2": {
+          "meterId": "18ba5751-fda4-558b-b9dc-9416e72b9a62",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000024,
+          "INR": 0.002285
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Standard",
+      "meter": "Standard vCPU Active Usage",
+      "unit": "1 Second",
+      "tierMinimumUnits": 0
+    },
+    "containerapps.vcpu_idle_second": {
+      "prices": {
+        "centralindia": {
+          "meterId": "af0c7725-2773-5412-a9e2-b9ec687dc854",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000003,
+          "INR": 0.000286
+        },
+        "eastus2": {
+          "meterId": "5df0e75d-f25b-5da9-99d1-1060f84388f6",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000003,
+          "INR": 0.000286
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Standard",
+      "meter": "Standard vCPU Idle Usage",
+      "unit": "1 Second",
+      "tierMinimumUnits": 0
+    },
+    "containerapps.memory_active_gib_second": {
+      "prices": {
+        "centralindia": {
+          "meterId": "2b14d956-df03-522c-b6b7-aea5ff0ab675",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000003,
+          "INR": 0.000286
+        },
+        "eastus2": {
+          "meterId": "ef6a0bec-4635-5e9c-8b2e-8b346b998acb",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000003,
+          "INR": 0.000286
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Standard",
+      "meter": "Standard Memory Active Usage",
+      "unit": "1 GiB Second",
+      "tierMinimumUnits": 0
+    },
+    "containerapps.memory_idle_gib_second": {
+      "prices": {
+        "centralindia": {
+          "meterId": "7f242f6b-eb46-5cb1-9121-575dc612d30c",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000003,
+          "INR": 0.000286
+        },
+        "eastus2": {
+          "meterId": "bb4ccf7b-b19a-5d51-b44e-afe7cea5029e",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.000003,
+          "INR": 0.000286
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Standard",
+      "meter": "Standard Memory Idle Usage",
+      "unit": "1 GiB Second",
+      "tierMinimumUnits": 0
+    },
+    "containerapps.requests_million": {
+      "prices": {
+        "centralindia": {
+          "meterId": "c48c568b-b6ce-56e8-a8e1-e434747b6a67",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.4,
+          "INR": 38.0915
+        },
+        "eastus2": {
+          "meterId": "04236b59-6a17-5e5a-bb6c-987078c6b272",
+          "effectiveStartDate": "2022-06-01",
+          "USD": 0.4,
+          "INR": 38.0915
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Standard",
+      "meter": "Standard Requests",
+      "unit": "1M",
+      "tierMinimumUnits": 0
+    },
+    "containerapps.environment_private_endpoint_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "a0a0bc05-2bd9-5607-a8b4-37c1daedc314",
+          "effectiveStartDate": "2026-11-01",
+          "USD": 0.1,
+          "INR": 9.522875
+        },
+        "eastus2": {
+          "meterId": "b564ef7d-f16d-595f-ad2f-aac2ed16c49e",
+          "effectiveStartDate": "2026-09-01",
+          "USD": 0.1,
+          "INR": 9.522875
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Environment",
+      "meter": "Environment Private Endpoint",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "containerapps.environment_management_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "20ac135a-53b3-5dc7-965f-b36304ea93e9",
+          "effectiveStartDate": "2026-11-01",
+          "USD": 0.1,
+          "INR": 9.522875
+        },
+        "eastus2": {
+          "meterId": "050a219a-6607-5ce3-95f9-88727fa94799",
+          "effectiveStartDate": "2026-09-01",
+          "USD": 0.1,
+          "INR": 9.522875
+        }
+      },
+      "service": "Azure Container Apps",
+      "product": "Azure Container Apps",
+      "sku": "Environment",
+      "meter": "Environment Management Hour",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "postgres.burstable_b1ms_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "27c18f86-1cc2-552e-b6b9-657d170d563d",
+          "effectiveStartDate": "2021-12-01",
+          "USD": 0.0245,
+          "INR": 2.333104
+        },
+        "eastus2": {
+          "meterId": "1550a19c-e867-57ad-91d4-59559908c16f",
+          "effectiveStartDate": "2021-12-01",
+          "USD": 0.017,
+          "INR": 1.618889
+        }
+      },
+      "service": "Azure Database for PostgreSQL",
+      "product": "Azure Database for PostgreSQL Flexible Server Burstable BS Series Compute",
+      "sku": "B1MS",
+      "meter": "B1MS",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "postgres.burstable_b2s_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "3e7d2ab5-6a87-50b5-b6b9-6486bd6dc651",
+          "effectiveStartDate": "2021-06-01",
+          "USD": 0.098,
+          "INR": 9.332418
+        },
+        "eastus2": {
+          "meterId": "a06184d9-8ef4-53af-8c4b-a1f9c82671e0",
+          "effectiveStartDate": "2021-06-01",
+          "USD": 0.068,
+          "INR": 6.475555
+        }
+      },
+      "service": "Azure Database for PostgreSQL",
+      "product": "Azure Database for PostgreSQL Flexible Server Burstable BS Series Compute",
+      "sku": "B2S",
+      "meter": "B2S",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "postgres.generalpurpose_ddsv5_2vcore_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "fdd9e8a2-a25b-5e98-a10b-96073029307b",
+          "effectiveStartDate": "2023-03-01",
+          "USD": 0.251,
+          "INR": 23.902416
+        },
+        "eastus2": {
+          "meterId": "e5283e11-5fe1-5b62-85fa-8cdde9820ed8",
+          "effectiveStartDate": "2023-03-01",
+          "USD": 0.178,
+          "INR": 16.950718
+        }
+      },
+      "service": "Azure Database for PostgreSQL",
+      "product": "Azure Database for PostgreSQL Flexible Server General Purpose Ddsv5 Series Compute",
+      "sku": "2 vCore",
+      "meter": "vCore",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "postgres.storage_gb_month": {
+      "prices": {
+        "centralindia": {
+          "meterId": "94cadb5b-aa3f-5e96-a8db-7a4778b11616",
+          "effectiveStartDate": "2021-06-01",
+          "USD": 0.131,
+          "INR": 12.474966
+        },
+        "eastus2": {
+          "meterId": "ad50239a-df4f-5c24-8955-066731709372",
+          "effectiveStartDate": "2021-06-01",
+          "USD": 0.115,
+          "INR": 10.951306
+        }
+      },
+      "service": "Azure Database for PostgreSQL",
+      "product": "Azure Database for PostgreSQL Flex Server Storage",
+      "sku": "Storage",
+      "meter": "Storage Data Stored",
+      "unit": "1 GB/Month",
+      "tierMinimumUnits": 0
+    },
+    "postgres.backup_lrs_gb_month": {
+      "prices": {
+        "centralindia": {
+          "meterId": "8eb0e6b9-b39e-5ab6-84fb-feb2f7453bb5",
+          "effectiveStartDate": "2021-06-01",
+          "USD": 0.095,
+          "INR": 9.046731
+        },
+        "eastus2": {
+          "meterId": "606b5e1d-f393-5838-a363-6da21b79884d",
+          "effectiveStartDate": "2021-06-01",
+          "USD": 0.095,
+          "INR": 9.046731
+        }
+      },
+      "service": "Azure Database for PostgreSQL",
+      "product": "Azure Database for PostgreSQL Flexible Server Backup Storage",
+      "sku": "Backup Storage LRS",
+      "meter": "Backup Storage LRS Data Stored",
+      "unit": "1 GB/Month",
+      "tierMinimumUnits": 0
+    },
+    "acr.basic_registry_unit_day": {
+      "prices": {
+        "centralindia": {
+          "meterId": "5c9e7a65-5784-494c-9718-7749d4075dd9",
+          "effectiveStartDate": "2018-01-01",
+          "USD": 0.1666,
+          "INR": 15.86511
+        },
+        "eastus2": {
+          "meterId": "5c9e7a65-5784-494c-9718-7749d4075dd9",
+          "effectiveStartDate": "2018-01-01",
+          "USD": 0.1666,
+          "INR": 15.86511
+        }
+      },
+      "service": "Container Registry",
+      "product": "Container Registry",
+      "sku": "Basic",
+      "meter": "Basic Registry Unit",
+      "unit": "1/Day",
+      "tierMinimumUnits": 0
+    },
+    "acr.premium_registry_unit_day": {
+      "prices": {
+        "centralindia": {
+          "meterId": "2f8e1105-47d0-4105-a934-b2175c766a71",
+          "effectiveStartDate": "2018-01-01",
+          "USD": 1.6666,
+          "INR": 158.708235
+        },
+        "eastus2": {
+          "meterId": "2f8e1105-47d0-4105-a934-b2175c766a71",
+          "effectiveStartDate": "2018-01-01",
+          "USD": 1.6666,
+          "INR": 158.708235
+        }
+      },
+      "service": "Container Registry",
+      "product": "Container Registry",
+      "sku": "Premium",
+      "meter": "Premium Registry Unit",
+      "unit": "1/Day",
+      "tierMinimumUnits": 0
+    },
+    "acr.task_vcpu_second_after_6000": {
+      "prices": {
+        "centralindia": {
+          "meterId": "bb93fa13-a4e2-4027-85b9-b06e3353ffc3",
+          "effectiveStartDate": "2019-04-01",
+          "USD": 0.0001,
+          "INR": 0.009523
+        },
+        "eastus2": {
+          "meterId": "bb93fa13-a4e2-4027-85b9-b06e3353ffc3",
+          "effectiveStartDate": "2019-04-01",
+          "USD": 0.0001,
+          "INR": 0.009523
+        }
+      },
+      "service": "Container Registry",
+      "product": "Container Registry",
+      "sku": "Basic",
+      "meter": "Task vCPU Duration",
+      "unit": "1 Second",
+      "tierMinimumUnits": 6000
+    },
+    "loganalytics.ingestion_gb_after_5": {
+      "prices": {
+        "centralindia": {
+          "meterId": "e4fa87b4-a2d2-48ec-b344-d9d3c008fbd8",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 3.22,
+          "INR": 306.636575
+        },
+        "eastus2": {
+          "meterId": "ec00a25a-ab14-4b7b-a94f-66581f123295",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 2.76,
+          "INR": 262.83135
+        }
+      },
+      "service": "Log Analytics",
+      "product": "Log Analytics",
+      "sku": "Analytics Logs",
+      "meter": "Analytics Logs Data Ingestion",
+      "unit": "1 GB",
+      "tierMinimumUnits": 5
+    },
+    "loganalytics.retention_gb_month": {
+      "prices": {
+        "centralindia": {
+          "meterId": "7ca1e74f-0243-48e5-bbf5-4318161561fd",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.14,
+          "INR": 13.332025
+        },
+        "eastus2": {
+          "meterId": "cbdc2b70-dd7e-4840-bb94-e314bfa53828",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.12,
+          "INR": 11.42745
+        }
+      },
+      "service": "Log Analytics",
+      "product": "Log Analytics",
+      "sku": "Analytics Logs",
+      "meter": "Analytics Logs Data Retention",
+      "unit": "1 GB/Month",
+      "tierMinimumUnits": 0
+    },
+    "monitor.log_alert_rule_15min_month": {
+      "prices": {
+        "centralindia": {
+          "meterId": "cf20b9c8-d39b-40df-8a95-35f38bbd6ed2",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.5,
+          "INR": 47.614375
+        },
+        "eastus2": {
+          "meterId": "cf20b9c8-d39b-40df-8a95-35f38bbd6ed2",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.5,
+          "INR": 47.614375
+        }
+      },
+      "service": "Azure Monitor",
+      "product": "Azure Monitor",
+      "sku": "Alerts",
+      "meter": "Alerts System Log Monitored at 15 Minute Frequency",
+      "unit": "1/Month",
+      "tierMinimumUnits": 0
+    },
+    "monitor.log_alert_rule_5min_month": {
+      "prices": {
+        "centralindia": {
+          "meterId": "92f6f16a-1e67-4a1d-8271-9d9498d609a1",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 1.5,
+          "INR": 142.843125
+        },
+        "eastus2": {
+          "meterId": "92f6f16a-1e67-4a1d-8271-9d9498d609a1",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 1.5,
+          "INR": 142.843125
+        }
+      },
+      "service": "Azure Monitor",
+      "product": "Azure Monitor",
+      "sku": "Alerts",
+      "meter": "Alerts System Log Monitored at 5 Minute Frequency",
+      "unit": "1/Month",
+      "tierMinimumUnits": 0
+    },
+    "monitor.metric_alert_series_month_after_10": {
+      "prices": {
+        "centralindia": {
+          "meterId": "6860c782-bbcc-41ed-a218-fb308dd0942e",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.1,
+          "INR": 9.522875
+        },
+        "eastus2": {
+          "meterId": "6860c782-bbcc-41ed-a218-fb308dd0942e",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.1,
+          "INR": 9.522875
+        }
+      },
+      "service": "Azure Monitor",
+      "product": "Azure Monitor",
+      "sku": "Alerts",
+      "meter": "Alerts Metric Monitored",
+      "unit": "1/Month",
+      "tierMinimumUnits": 10
+    },
+    "keyvault.standard_operations_10k": {
+      "prices": {
+        "centralindia": {
+          "meterId": "0f824807-2376-435c-95c9-f992b67a07b0",
+          "effectiveStartDate": "2015-08-01",
+          "USD": 0.03,
+          "INR": 2.856863
+        },
+        "eastus2": {
+          "meterId": "0f824807-2376-435c-95c9-f992b67a07b0",
+          "effectiveStartDate": "2015-08-01",
+          "USD": 0.03,
+          "INR": 2.856863
+        }
+      },
+      "service": "Key Vault",
+      "product": "Key Vault",
+      "sku": "Standard",
+      "meter": "Operations",
+      "unit": "10K",
+      "tierMinimumUnits": 0
+    },
+    "vm.d4as_v5_linux_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "93a93a26-e4d4-5edb-9112-896ae08dca12",
+          "effectiveStartDate": "2021-11-01",
+          "USD": 0.111,
+          "INR": 10.570391
+        },
+        "eastus2": {
+          "meterId": "0dd7d35c-8048-568f-9e43-7ee85f6d3408",
+          "effectiveStartDate": "2021-11-01",
+          "USD": 0.172,
+          "INR": 16.379345
+        }
+      },
+      "service": "Virtual Machines",
+      "product": "Virtual Machines Dasv5 Series",
+      "sku": "Standard_D4as_v5",
+      "meter": "D4as v5",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "vm.d4as_v5_windows_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "38cb9a82-21a0-5d2a-8894-3c4014ea47b1",
+          "effectiveStartDate": "2021-11-01",
+          "USD": 0.295,
+          "INR": 28.092481
+        },
+        "eastus2": {
+          "meterId": "4ecadd57-4a72-51a1-bce5-237bda6bdf25",
+          "effectiveStartDate": "2021-11-01",
+          "USD": 0.356,
+          "INR": 33.901435
+        }
+      },
+      "service": "Virtual Machines",
+      "product": "Virtual Machines Dasv5 Series Windows",
+      "sku": "Standard_D4as_v5",
+      "meter": "D4as v5",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "network.public_ip_standard_static_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "9c150bf9-2bad-430e-a53c-c213804f49ef",
+          "effectiveStartDate": "2018-06-01",
+          "USD": 0.005,
+          "INR": 0.476144
+        },
+        "eastus2": {
+          "meterId": "9c150bf9-2bad-430e-a53c-c213804f49ef",
+          "effectiveStartDate": "2018-06-01",
+          "USD": 0.005,
+          "INR": 0.476144
+        }
+      },
+      "service": "Virtual Network",
+      "product": "IP Addresses",
+      "sku": "Standard",
+      "meter": "Standard IPv4 Static Public IP",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "firewall.basic_deployment_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "70c60dc4-0568-5d4e-839f-3c3345f46d55",
+          "effectiveStartDate": "2023-03-01",
+          "USD": 0.395,
+          "INR": 37.615356
+        },
+        "eastus2": {
+          "meterId": "70c60dc4-0568-5d4e-839f-3c3345f46d55",
+          "effectiveStartDate": "2023-03-01",
+          "USD": 0.395,
+          "INR": 37.615356
+        }
+      },
+      "service": "Azure Firewall",
+      "product": "Azure Firewall",
+      "sku": "Basic",
+      "meter": "Basic Deployment",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "firewall.standard_deployment_hour": {
+      "prices": {
+        "centralindia": {
+          "meterId": "e90604a4-719b-454b-879d-b85523882c92",
+          "effectiveStartDate": "2018-11-01",
+          "USD": 1.25,
+          "INR": 119.035938
+        },
+        "eastus2": {
+          "meterId": "e90604a4-719b-454b-879d-b85523882c92",
+          "effectiveStartDate": "2018-11-01",
+          "USD": 1.25,
+          "INR": 119.035938
+        }
+      },
+      "service": "Azure Firewall",
+      "product": "Azure Firewall",
+      "sku": "Standard",
+      "meter": "Standard Deployment",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "firewall.standard_data_gb": {
+      "prices": {
+        "centralindia": {
+          "meterId": "5f492263-6ee9-488d-9b66-02332b889b03",
+          "effectiveStartDate": "2019-05-01",
+          "USD": 0.016,
+          "INR": 1.52366
+        },
+        "eastus2": {
+          "meterId": "5f492263-6ee9-488d-9b66-02332b889b03",
+          "effectiveStartDate": "2019-05-01",
+          "USD": 0.016,
+          "INR": 1.52366
+        }
+      },
+      "service": "Azure Firewall",
+      "product": "Azure Firewall",
+      "sku": "Standard",
+      "meter": "Standard Data Processed",
+      "unit": "1 GB",
+      "tierMinimumUnits": 0
+    },
+    "bandwidth.internet_out_gb_after_100": {
+      "prices": {
+        "centralindia": {
+          "meterId": "fe167397-a38d-43c3-9bb3-8e2907e56a41",
+          "effectiveStartDate": "2022-05-01",
+          "USD": 0.12,
+          "INR": 11.42745
+        },
+        "eastus2": {
+          "meterId": "9995d93a-7d35-4d3f-9c69-7a7fea447ef4",
+          "effectiveStartDate": "2022-05-01",
+          "USD": 0.087,
+          "INR": 8.284901
+        }
+      },
+      "service": "Bandwidth",
+      "product": "Rtn Preference: MGN",
+      "sku": "Standard",
+      "meter": "Standard Data Transfer Out",
+      "unit": "1 GB",
+      "tierMinimumUnits": 100
+    },
+    "bandwidth.inter_region_gb": {
+      "prices": {
+        "centralindia": {
+          "meterId": "7f3d86b8-ad67-57dc-81a9-99186fffde2e",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.08,
+          "INR": 7.6183
+        },
+        "eastus2": {
+          "meterId": "1c635a85-6fa3-5044-af1c-5ddc1e3e7720",
+          "effectiveStartDate": "2018-02-01",
+          "USD": 0.02,
+          "INR": 1.904575
+        }
+      },
+      "service": "Bandwidth",
+      "product": "Rtn Preference: MGN",
+      "sku": "Standard",
+      "meter": "Standard Inter-Region Data Transfer",
+      "unit": "1 GB",
+      "tierMinimumUnits": 0
+    },
+    "nat.gateway_hour": {
+      "prices": {
+        "Global": {
+          "meterId": "ae30040a-67f5-485b-b0f4-a6ef50504d9c",
+          "effectiveStartDate": "2020-06-01",
+          "USD": 0.045,
+          "INR": 4.285294
+        }
+      },
+      "service": "NAT Gateway",
+      "product": "NAT Gateway",
+      "sku": "Standard",
+      "meter": "Standard Gateway",
+      "unit": "1 Hour",
+      "tierMinimumUnits": 0
+    },
+    "nat.data_processed_gb": {
+      "prices": {
+        "Global": {
+          "meterId": "d32b6352-b66b-4c4c-8f21-60e94058e04d",
+          "effectiveStartDate": "2020-06-01",
+          "USD": 0.045,
+          "INR": 4.285294
+        }
+      },
+      "service": "NAT Gateway",
+      "product": "NAT Gateway",
+      "sku": "Standard",
+      "meter": "Standard Data Processed",
+      "unit": "1 GB",
+      "tierMinimumUnits": 0
+    },
+    "model.gpt41mini_global_input_1k": {
+      "prices": {
+        "eastus2": {
+          "meterId": "57521dfc-bef8-5487-b986-74c323006a82",
+          "effectiveStartDate": "2025-04-01",
+          "USD": 0.0004,
+          "INR": 0.038092
+        }
+      },
+      "service": "Foundry Models",
+      "product": "Azure OpenAI",
+      "sku": "gpt 4.1 mini Inp glbl",
+      "meter": "gpt 4.1 mini Inp glbl Tokens",
+      "unit": "1K",
+      "tierMinimumUnits": 0
+    },
+    "model.gpt41mini_global_output_1k": {
+      "prices": {
+        "eastus2": {
+          "meterId": "9e3ce534-5dc7-5335-974b-9d0c96250659",
+          "effectiveStartDate": "2025-04-01",
+          "USD": 0.0016,
+          "INR": 0.152366
+        }
+      },
+      "service": "Foundry Models",
+      "product": "Azure OpenAI",
+      "sku": "gpt 4.1 mini Outp glbl",
+      "meter": "gpt 4.1 mini Outp glbl Tokens",
+      "unit": "1K",
+      "tierMinimumUnits": 0
+    },
+    "model.gpt41_global_input_1k": {
+      "prices": {
+        "eastus2": {
+          "meterId": "5d73b08e-8cfd-51c4-bfb1-aaa5a2c47a2b",
+          "effectiveStartDate": "2025-04-01",
+          "USD": 0.002,
+          "INR": 0.190458
+        }
+      },
+      "service": "Foundry Models",
+      "product": "Azure OpenAI",
+      "sku": "gpt 4.1 Inp glbl",
+      "meter": "gpt 4.1 Inp glbl Tokens",
+      "unit": "1K",
+      "tierMinimumUnits": 0
+    },
+    "model.gpt41_global_output_1k": {
+      "prices": {
+        "eastus2": {
+          "meterId": "9ee6da2e-c336-5ffb-b970-6c4eb086d0bb",
+          "effectiveStartDate": "2025-04-01",
+          "USD": 0.008,
+          "INR": 0.76183
+        }
+      },
+      "service": "Foundry Models",
+      "product": "Azure OpenAI",
+      "sku": "gpt 4.1 Outp glbl",
+      "meter": "gpt 4.1 Outp glbl Tokens",
+      "unit": "1K",
+      "tierMinimumUnits": 0
+    },
+    "model.gpt54mini_global_input_1m": {
+      "prices": {
+        "eastus2": {
+          "meterId": "fa5f9dcf-3bf0-50ea-8c22-7daa13474f66",
+          "effectiveStartDate": "2026-03-01",
+          "USD": 0.75,
+          "INR": 71.421563
+        }
+      },
+      "service": "Foundry Models",
+      "product": "Azure OpenAI GPT5",
+      "sku": "5.4 mini Inp Gl",
+      "meter": "5.4 mini Inp Gl 1M Tokens",
+      "unit": "1M",
+      "tierMinimumUnits": 0
+    },
+    "model.gpt54mini_global_output_1m": {
+      "prices": {
+        "eastus2": {
+          "meterId": "5d711bbe-b247-5277-891f-a99e24468d2d",
+          "effectiveStartDate": "2026-03-01",
+          "USD": 4.5,
+          "INR": 428.529375
+        }
+      },
+      "service": "Foundry Models",
+      "product": "Azure OpenAI GPT5",
+      "sku": "5.4 mini Opt Gl",
+      "meter": "5.4 mini Opt Gl 1M Tokens",
+      "unit": "1M",
+      "tierMinimumUnits": 0
+    }
+  },
+  "queries": [
+    {
+      "id": "containerapps",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Azure Container Apps' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "containerapps",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Azure Container Apps' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "postgres",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Azure Database for PostgreSQL' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "postgres",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Azure Database for PostgreSQL' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "acr",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Container Registry' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "acr",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Container Registry' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "loganalytics",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Log Analytics' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "loganalytics",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Log Analytics' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "monitor",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Azure Monitor' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "monitor",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Azure Monitor' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "keyvault",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Key Vault' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "keyvault",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Key Vault' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "vm-d4asv5",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Virtual Machines' and armSkuName eq 'Standard_D4as_v5' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "vm-d4asv5",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Virtual Machines' and armSkuName eq 'Standard_D4as_v5' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "publicip",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Virtual Network' and armRegionName eq 'centralindia' and priceType eq 'Consumption' and contains(productName, 'IP Addresses')"
+    },
+    {
+      "id": "publicip",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Virtual Network' and armRegionName eq 'eastus2' and priceType eq 'Consumption' and contains(productName, 'IP Addresses')"
+    },
+    {
+      "id": "firewall",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Azure Firewall' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "firewall",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Azure Firewall' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "bandwidth",
+      "region": "centralindia",
+      "filter": "serviceName eq 'Bandwidth' and armRegionName eq 'centralindia' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "bandwidth",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Bandwidth' and armRegionName eq 'eastus2' and priceType eq 'Consumption'"
+    },
+    {
+      "id": "nat-gateway",
+      "region": "Global",
+      "filter": "serviceName eq 'NAT Gateway'"
+    },
+    {
+      "id": "foundry-models",
+      "region": "eastus2",
+      "filter": "serviceName eq 'Foundry Models' and armRegionName eq 'eastus2' and priceType eq 'Consumption' and (contains(meterName, 'gpt 4.1 mini') or contains(meterName, 'gpt 4.1 Inp') or contains(meterName, 'gpt 4.1 Outp') or contains(meterName, '5.4 mini'))"
+    }
+  ],
+  "impliedInrPerUsd": {
+    "value": 95.2289,
+    "min": 95.2287,
+    "max": 95.229,
+    "metersCompared": 55,
+    "method": "INR list price divided by USD list price of the same meter on the same day, for every meter above that costs more than US$0.001 per unit. It is the conversion the API itself applies to list prices, not a market or card rate."
+  }
+}

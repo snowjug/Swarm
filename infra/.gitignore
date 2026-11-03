@@ -1,0 +1,4 @@
+// Work folders of the offline evaluation (scripts/iac/bicep.mjs). They are removed after each run;
+// this only keeps an interrupted one out of version control.
+.build/
+*.snapshot.json

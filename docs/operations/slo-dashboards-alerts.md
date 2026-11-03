@@ -101,4 +101,12 @@ requests
 | Backup missing         | No successful PostgreSQL backup in 26 hours (a platform metric)                                                                    | Sev 2    | [Runbook: restore](./runbook.md#restore-the-database)                 |
 
 Severity is a suggestion: Sev 1 wakes someone, Sev 2 is handled the same working day, Sev 3 is read the
-next day. The alert rules, action group and the people on it are not created by this repository.
+next day. **The pilot template now creates an action group and 18 alert rules**
+([`infra/pilot/modules/alerts.bicep`](../../infra/pilot/modules/alerts.bicep)), but they are **not this table**: they are
+a different, smaller set with their own thresholds (platform metrics such as replicas, restarts, database health and
+storage, and log rules over the signals above), authored and compiled offline, **never deployed and never fired**. Which
+signal each reads, which of them do not exist yet, and what to run after the first deployment are in
+[docs/production/observability.md](../production/observability.md#every-alert-the-signal-it-reads-and-whether-that-signal-exists).
+This table remains the suggested set: **jobs not starting, poison jobs, lease churn, a refused model budget and a
+missing backup have no rule in the template.** The people on the action group are the address given at deployment
+(`alertEmailAddress`); there is no paging.

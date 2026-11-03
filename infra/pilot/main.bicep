@@ -1,15 +1,26 @@
-// Swarm hosted pilot at resource-group scope: one container app, one PostgreSQL database, and what they need.
+// Swarm hosted pilot at resource-group scope: a production-candidate CONTROLLED PILOT, not a broad
+// public production service. One container app, one PostgreSQL database, and what they need.
 //
 // - Every credential is a Microsoft Entra token of ONE user-assigned managed identity. There are no
-//   keys, passwords, connection strings with secrets, or Key Vault in this template.
-// - The existing Foundry / Azure OpenAI account is only referenced: it gets one role assignment for the
-//   identity, and nothing about it (resource, deployments, quota) is created, changed or deleted.
+//   keys, passwords or connection strings with secrets in this template. Key Vault exists only for a
+//   value that cannot be a token (an optional OIDC client secret) and is off unless asked for.
+// - The app runs in multiple-revision mode: a release is blue/green and a rollback is a traffic change.
+// - Everything expensive or shared can be an EXISTING resource instead of a new one (existing*ResourceId):
+//   the Foundry / Azure OpenAI account (always), PostgreSQL server, container registry, Log Analytics
+//   workspace, Application Insights component, Key Vault, Container Apps environment. An existing resource
+//   is read, and at most one role assignment for the application identity is added to it.
 // - Deploy into a NEW resource group dedicated to the pilot; deleting that group removes everything
 //   created here and nothing else.
 //
-// See docs/azure/pilot-plan.md for the architecture, the role matrix and the deployment procedure,
-// and docs/azure/pilot-cost.md for what it costs.
+// Authored and compiled offline. NOT deployed: nothing here has been seen working in Azure. See
+// docs/azure/pilot-plan.md for the architecture and the deployment procedure,
+// docs/production/azure-preflight.md for the cost plan and the owner actions, and
+// docs/production/release-process.md for releases and rollback.
 targetScope = 'resourceGroup'
+
+// ---------------------------------------------------------------------------------------------
+// Identity, model and sign-in
+// ---------------------------------------------------------------------------------------------
 
 @description('Short name used in resource names and tags: lower-case letters, digits and hyphens.')
 @minLength(3)
@@ -40,18 +51,25 @@ param authAudience string = ''
 @description('Public HTTPS address of the source code of the exact version deployed (SOURCE_URL), which the AGPL licence requires users to be offered. Empty leaves the setting out.')
 param sourceUrl string = ''
 
-@description('Image to run. Empty keeps the image that already runs (when appExists) or starts a public placeholder until the first image is pushed.')
+@description('Extra tags on every resource, for example an owner alias or a cost centre. Never put a person\'s name or address in a tag.')
+param extraTags object = {}
+
+// ---------------------------------------------------------------------------------------------
+// The container app and its releases
+// ---------------------------------------------------------------------------------------------
+
+@description('Image to run. Empty keeps the image that already runs (when appExists) or starts a public placeholder until the first image is pushed. A release passes <registry>/swarm:<commit sha>@sha256:<digest>.')
 param containerImage string = ''
 
-@description('True when the container app already exists, so that re-applying the template keeps its image. azd supplies it.')
+@description('True when the container app already exists, so that re-applying the template keeps its image and its traffic. azd supplies it.')
 param appExists bool = false
 
 @description('vCPU of the one replica; memory is twice that.')
 @allowed(['0.25', '0.5', '1', '2'])
 param cpu string = '0.5'
 
-@description('Replicas that always run. Zero stops the app, and its embedded job runner, when idle.')
-@minValue(0)
+@description('Replicas that always run: at least one. The job runner is embedded in the process, and a replica scaled to zero stops it.')
+@minValue(1)
 @maxValue(10)
 param minReplicas int = 1
 
@@ -60,18 +78,29 @@ param minReplicas int = 1
 @maxValue(10)
 param maxReplicas int = 1
 
-@description('Days of PostgreSQL backups, which bound a point-in-time restore.')
-@minValue(7)
-@maxValue(35)
-param backupRetentionDays int = 7
+@description('Suffix of the revision this deployment creates (<app>--<suffix>), at most 20 characters: lower-case letters, digits and hyphens, starting with a letter. Empty lets the platform name it.')
+@maxLength(20)
+param revisionSuffix string = ''
 
-@description('Days of Log Analytics retention.')
-@minValue(30)
-@maxValue(90)
-param logRetentionDays int = 30
+@description('preserve (default): keep the live app\'s traffic, so re-applying never moves traffic or undoes a rollback. latest: the newest revision takes everything. split: newRevisionTrafficPercent to this deployment\'s revision, the rest to previousRevisionName.')
+@allowed(['preserve', 'latest', 'split'])
+param trafficMode string = 'preserve'
 
-@description('Daily Log Analytics ingestion cap in GB, as text (for example 0.5). -1 removes the cap.')
-param dailyLogCapGb string = '0.5'
+@description('The revision that served before this release. It stays active at the remaining weight, which is what makes rollback instant.')
+param previousRevisionName string = ''
+
+@description('Share of traffic for the new revision in split mode. 0 starts it dark.')
+@minValue(0)
+@maxValue(100)
+param newRevisionTrafficPercent int = 100
+
+@description('Deactivated revisions Azure keeps, so that one can be re-activated.')
+@minValue(0)
+@maxValue(100)
+param maxInactiveRevisions int = 5
+
+@description('Client address ranges (CIDR) allowed to reach the app. Empty allows every address; sign-in and the rate limiter guard it.')
+param ingressAllowedCidrs array = []
 
 @description('Most model calls one project may make in all, unless a workspace owner or administrator gives it a limit of its own (PROJECT_MODEL_CALL_LIMIT). 0 is no limit. A recorded demonstration scenario of three runs is about 200 calls.')
 @minValue(0)
@@ -83,13 +112,182 @@ param projectModelCallLimit int = 1500
 @maxValue(1000000000)
 param projectModelTokenLimit int = 4000000
 
+// ---------------------------------------------------------------------------------------------
+// PostgreSQL
+// ---------------------------------------------------------------------------------------------
+
+@description('Compute SKU. Burstable B1ms is the cheapest sane choice for a pilot.')
+param databaseSkuName string = 'Standard_B1ms'
+
+@allowed(['Burstable', 'GeneralPurpose', 'MemoryOptimized'])
+param databaseSkuTier string = 'Burstable'
+
+@minValue(32)
+@maxValue(16384)
+param databaseStorageGb int = 32
+
+@allowed(['Enabled', 'Disabled'])
+param databaseStorageAutoGrow string = 'Enabled'
+
+@description('Days of PostgreSQL backups, which bound a point-in-time restore.')
+@minValue(7)
+@maxValue(35)
+param backupRetentionDays int = 7
+
+@description('Copy backups to the paired region. Chosen when the server is created and not changeable later.')
+@allowed(['Enabled', 'Disabled'])
+param databaseGeoRedundantBackup string = 'Disabled'
+
+@description('ZoneRedundant keeps a synchronous standby in another zone and roughly doubles the compute and storage price. Not available on Burstable.')
+@allowed(['Disabled', 'SameZone', 'ZoneRedundant'])
+param databaseHighAvailability string = 'Disabled'
+
+@allowed(['', '1', '2', '3'])
+param databaseAvailabilityZone string = ''
+
+@allowed(['', '1', '2', '3'])
+param databaseStandbyAvailabilityZone string = ''
+
+@description('Weekly maintenance window: day of week, 0 (Sunday) to 6.')
+@allowed([0, 1, 2, 3, 4, 5, 6])
+param databaseMaintenanceDayOfWeek int = 0
+
+@description('Weekly maintenance window: start hour in UTC. 21 on Sunday is 02:30 Monday in India.')
+@minValue(0)
+@maxValue(23)
+param databaseMaintenanceStartHourUtc int = 21
+
+@description('The most connections the SKU allows (SHOW max_connections); the connection alert is a share of it. 50 is the documented value for B1ms and is UNVERIFIED on the live server.')
+@minValue(1)
+param databaseMaxConnections int = 50
+
+@description('Optional Entra GROUP of people who may administer the database server (break glass). Empty adds none.')
+param breakGlassAdminGroupObjectId string = ''
+
+param breakGlassAdminGroupName string = ''
+
+// ---------------------------------------------------------------------------------------------
+// Registry, logs, Key Vault
+// ---------------------------------------------------------------------------------------------
+
+@allowed(['Basic', 'Standard', 'Premium'])
+param registrySku string = 'Basic'
+
+@description('Needs the Premium registry SKU.')
+param registryZoneRedundant bool = false
+
+@description('Days of Log Analytics retention. The first 31 days are included in the ingestion price.')
+@minValue(30)
+@maxValue(730)
+param logRetentionDays int = 30
+
+@description('Daily Log Analytics ingestion cap in GB, as text (for example 0.5). -1 removes the cap.')
+param dailyLogCapGb string = '0.5'
+
+@description('Creates (or, with existingKeyVaultResourceId, uses) a Key Vault. Off by default: the pilot has no secret, and a purge-protected vault cannot be deleted for softDeleteRetentionInDays, which makes teardown awkward.')
+param enableKeyVault bool = false
+
+@minValue(7)
+@maxValue(90)
+param keyVaultSoftDeleteRetentionInDays int = 90
+
+@description('Settings whose value is a Key Vault secret, for example AUTH_ENTRA_CLIENT_SECRET. Naming one turns the vault on. The secret must exist before the app starts; no value is ever in a template.')
+param keyVaultSecretReferences SecretReference[] = []
+
+// ---------------------------------------------------------------------------------------------
+// Networking (off by default, for cost)
+// ---------------------------------------------------------------------------------------------
+
+@description('Creates a virtual network, integrates the Container Apps environment with it and gives PostgreSQL private access (no public endpoint, no firewall rule). Costs nothing by itself, but see docs/production/azure-preflight.md for what it changes, and the limits of what it protects.')
+param enablePrivateNetworking bool = false
+
+@description('Adds a NAT gateway and a static public IP so that all outbound traffic leaves from one known address. Needs enablePrivateNetworking. It costs money by the hour. It does NOT restrict where the app may connect.')
+param enableNatGateway bool = false
+
+param vnetAddressPrefix string = '10.40.0.0/24'
+param appSubnetPrefix string = '10.40.0.0/26'
+param databaseSubnetPrefix string = '10.40.0.64/28'
+
+@description('Spreads the Container Apps environment over availability zones. Needs enablePrivateNetworking.')
+param containerAppsZoneRedundant bool = false
+
+// ---------------------------------------------------------------------------------------------
+// Existing resources: empty creates, a resource ID uses what is there
+// ---------------------------------------------------------------------------------------------
+
+@maxLength(400)
+param existingWorkspaceResourceId string = ''
+
+@maxLength(400)
+param existingAppInsightsResourceId string = ''
+
+@maxLength(400)
+param existingRegistryResourceId string = ''
+
+@maxLength(400)
+param existingPostgresServerResourceId string = ''
+
+@maxLength(400)
+param existingKeyVaultResourceId string = ''
+
+@maxLength(400)
+param existingContainerAppsEnvironmentResourceId string = ''
+
+// ---------------------------------------------------------------------------------------------
+// Alerts and budget
+// ---------------------------------------------------------------------------------------------
+
+@description('Receives every alert. Read from the environment by the parameter file; never stored in the repository.')
+@minLength(5)
+param alertEmailAddress string
+
+param additionalAlertEmailAddresses array = []
+
+@description('True once the application emits the swarm.research.* signals named in docs/production/observability.md; until then the crawler alert is created disabled.')
+param researchSignalsEmitted bool = false
+
+@description('95th percentile request duration, in milliseconds, that raises the latency alert.')
+@minValue(100)
+param p95LatencyMs int = 1500
+
+@description('Model tokens in an hour that raise the spend alert.')
+@minValue(1)
+param tokensPerHour int = 2000000
+
+@description('Creates a monthly budget on this resource group. A budget alerts; it is not a cap.')
+param enableBudget bool = true
+
+@description('Monthly budget in the BILLING currency of the subscription (Azure has no currency property on a budget).')
+@minValue(1)
+param budgetAmount int = 4500
+
+@description('What currency budgetAmount is meant in. Not sent to Azure; recorded in the notification names and outputs.')
+@minLength(3)
+@maxLength(3)
+param budgetCurrencyLabel string = 'INR'
+
+@description('Also notify the alert address for the budget; add more addresses here.')
+param additionalBudgetEmailAddresses array = []
+
+type SecretReference = {
+  @description('The environment variable the application reads, for example AUTH_ENTRA_CLIENT_SECRET.')
+  envName: string
+  @description('Name of the secret in the Key Vault.')
+  secretName: string
+}
+
+// ---------------------------------------------------------------------------------------------
+
+// Reads a segment of a resource ID, and gives '' for a missing one, so that an unused (empty) ID can
+// never fail the deployment: /subscriptions/<2>/resourceGroups/<4>/providers/<6>/<7>/<8>.
+func idPart(resourceId string, index int) string => split('${resourceId}//////////', '/')[index]
+
 var baseName = toLower(environmentName)
 var uniqueSuffix = uniqueString(resourceGroup().id)
-var workspaceName = 'log-${baseName}'
 var appName = 'ca-${baseName}'
 
-// Public placeholder that listens on port 80, so the revision it creates is not healthy (the app
-// expects 3001) until the first real image is deployed. It lets the infrastructure exist first.
+// Public placeholder that listens on port 80, so that the infrastructure can exist before the first real
+// image is pushed. While it runs, the ingress targets port 80 and no probe is set (it has no health routes).
 var bootstrapImage = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 // pieces of aiAccountResourceId: /subscriptions/<id>/resourceGroups/<group>/providers/<type>/accounts/<name>
@@ -98,13 +296,58 @@ var aiAccountSubscriptionId = aiAccountParts[2]
 var aiAccountResourceGroup = aiAccountParts[4]
 var aiAccountName = aiAccountParts[8]
 
-var tags = {
-  app: 'swarm-lab'
-  environment: baseName
-  purpose: 'pilot'
-  managedBy: 'bicep'
-  'azd-env-name': baseName
+var useExistingWorkspace = !empty(existingWorkspaceResourceId)
+var useExistingAppInsights = !empty(existingAppInsightsResourceId)
+var useExistingRegistry = !empty(existingRegistryResourceId)
+var useExistingPostgres = !empty(existingPostgresServerResourceId)
+var useExistingKeyVault = !empty(existingKeyVaultResourceId)
+var useExistingEnvironment = !empty(existingContainerAppsEnvironmentResourceId)
+var keyVaultEnabled = enableKeyVault || useExistingKeyVault || !empty(keyVaultSecretReferences)
+
+// Where each resource lives: the existing one, or a new one in this group. Always complete, so that a
+// module never receives an empty scope.
+var workspaceCoordinates = {
+  name: useExistingWorkspace ? idPart(existingWorkspaceResourceId, 8) : 'log-${baseName}'
+  subscriptionId: useExistingWorkspace ? idPart(existingWorkspaceResourceId, 2) : subscription().subscriptionId
+  resourceGroup: useExistingWorkspace ? idPart(existingWorkspaceResourceId, 4) : resourceGroup().name
 }
+var appInsightsCoordinates = {
+  name: useExistingAppInsights ? idPart(existingAppInsightsResourceId, 8) : 'appi-${baseName}'
+  subscriptionId: useExistingAppInsights ? idPart(existingAppInsightsResourceId, 2) : subscription().subscriptionId
+  resourceGroup: useExistingAppInsights ? idPart(existingAppInsightsResourceId, 4) : resourceGroup().name
+}
+var registryCoordinates = {
+  name: useExistingRegistry ? idPart(existingRegistryResourceId, 8) : take('cr${replace(baseName, '-', '')}${uniqueSuffix}', 50)
+  subscriptionId: useExistingRegistry ? idPart(existingRegistryResourceId, 2) : subscription().subscriptionId
+  resourceGroup: useExistingRegistry ? idPart(existingRegistryResourceId, 4) : resourceGroup().name
+}
+var postgresCoordinates = {
+  name: useExistingPostgres ? idPart(existingPostgresServerResourceId, 8) : 'psql-${baseName}-${uniqueSuffix}'
+  subscriptionId: useExistingPostgres ? idPart(existingPostgresServerResourceId, 2) : subscription().subscriptionId
+  resourceGroup: useExistingPostgres ? idPart(existingPostgresServerResourceId, 4) : resourceGroup().name
+}
+var keyVaultCoordinates = {
+  name: useExistingKeyVault ? idPart(existingKeyVaultResourceId, 8) : 'kv${take(replace(baseName, '-', ''), 12)}${take(uniqueSuffix, 9)}'
+  subscriptionId: useExistingKeyVault ? idPart(existingKeyVaultResourceId, 2) : subscription().subscriptionId
+  resourceGroup: useExistingKeyVault ? idPart(existingKeyVaultResourceId, 4) : resourceGroup().name
+}
+var environmentCoordinates = {
+  name: useExistingEnvironment ? idPart(existingContainerAppsEnvironmentResourceId, 8) : 'cae-${baseName}'
+  subscriptionId: useExistingEnvironment ? idPart(existingContainerAppsEnvironmentResourceId, 2) : subscription().subscriptionId
+  resourceGroup: useExistingEnvironment ? idPart(existingContainerAppsEnvironmentResourceId, 4) : resourceGroup().name
+}
+
+var tags = union(
+  {
+    app: 'swarm-lab'
+    environment: baseName
+    purpose: 'pilot'
+    stage: 'production-candidate-controlled-pilot'
+    managedBy: 'bicep'
+    'azd-env-name': baseName
+  },
+  extraTags
+)
 
 resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' = {
   name: 'id-${baseName}'
@@ -113,52 +356,118 @@ resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2024-11-30' 
 }
 
 // Read here, outside the deployment that owns the app (a resource cannot reference itself), so that
-// re-applying this template keeps the image that was deployed instead of resetting it to the placeholder.
+// re-applying this template keeps the image that was deployed instead of resetting it to the placeholder,
+// and keeps the traffic that was set (a rollback is a traffic change, which a re-apply must not undo).
 resource existingApp 'Microsoft.App/containerApps@2025-07-01' existing = if (appExists) {
   name: appName
 }
 var image = !empty(containerImage)
   ? containerImage
   : (existingApp.?properties.template.containers[0].image ?? bootstrapImage)
+var preservedTraffic = existingApp.?properties.configuration.ingress.traffic ?? []
+
+module network 'modules/network.bicep' = if (enablePrivateNetworking) {
+  name: 'network'
+  params: {
+    baseName: baseName
+    location: location
+    tags: tags
+    addressPrefix: vnetAddressPrefix
+    appSubnetPrefix: appSubnetPrefix
+    databaseSubnetPrefix: databaseSubnetPrefix
+    enableNatGateway: enableNatGateway
+  }
+}
 
 module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring'
   params: {
-    workspaceName: workspaceName
-    appInsightsName: 'appi-${baseName}'
+    workspaceName: workspaceCoordinates.name
+    appInsightsName: appInsightsCoordinates.name
     location: location
     tags: tags
+    createWorkspace: !useExistingWorkspace
+    workspaceSubscriptionId: workspaceCoordinates.subscriptionId
+    workspaceResourceGroup: workspaceCoordinates.resourceGroup
+    createAppInsights: !useExistingAppInsights
+    appInsightsSubscriptionId: appInsightsCoordinates.subscriptionId
+    appInsightsResourceGroup: appInsightsCoordinates.resourceGroup
     retentionInDays: logRetentionDays
     dailyCapGb: dailyLogCapGb
+  }
+}
+
+// In the component's own group, which is this one unless the component already exists elsewhere.
+module appInsightsAccess 'modules/appinsights-access.bicep' = {
+  name: 'appinsights-access'
+  scope: resourceGroup(appInsightsCoordinates.subscriptionId, appInsightsCoordinates.resourceGroup)
+  params: {
+    appInsightsName: appInsightsCoordinates.name
+    identityResourceId: identity.id
+    principalId: identity.properties.principalId
+  }
+  dependsOn: [monitoring]
+}
+
+module registry 'modules/registry.bicep' = {
+  name: 'registry'
+  scope: resourceGroup(registryCoordinates.subscriptionId, registryCoordinates.resourceGroup)
+  params: {
+    registryName: registryCoordinates.name
+    location: location
+    tags: tags
+    createRegistry: !useExistingRegistry
+    sku: registrySku
+    zoneRedundant: registryZoneRedundant
     identityResourceId: identity.id
     principalId: identity.properties.principalId
   }
 }
 
-module registry 'modules/registry.bicep' = {
-  name: 'registry'
+module keyVault 'modules/key-vault.bicep' = if (keyVaultEnabled) {
+  name: 'key-vault'
+  scope: resourceGroup(keyVaultCoordinates.subscriptionId, keyVaultCoordinates.resourceGroup)
   params: {
-    registryName: take('cr${replace(baseName, '-', '')}${uniqueSuffix}', 50)
+    vaultName: keyVaultCoordinates.name
     location: location
     tags: tags
+    useExistingVault: useExistingKeyVault
+    softDeleteRetentionInDays: keyVaultSoftDeleteRetentionInDays
     identityResourceId: identity.id
     principalId: identity.properties.principalId
+    auditWorkspaceResourceId: monitoring.outputs.workspaceId
   }
 }
 
 module database 'modules/postgres.bicep' = {
   name: 'database'
+  scope: resourceGroup(postgresCoordinates.subscriptionId, postgresCoordinates.resourceGroup)
   params: {
-    serverName: 'psql-${baseName}-${uniqueSuffix}'
+    serverName: postgresCoordinates.name
     location: location
     tags: tags
+    useExistingServer: useExistingPostgres
+    skuName: databaseSkuName
+    skuTier: databaseSkuTier
+    storageSizeGB: databaseStorageGb
+    storageAutoGrow: databaseStorageAutoGrow
     backupRetentionDays: backupRetentionDays
+    geoRedundantBackup: databaseGeoRedundantBackup
+    highAvailabilityMode: databaseHighAvailability
+    availabilityZone: databaseAvailabilityZone
+    standbyAvailabilityZone: databaseStandbyAvailabilityZone
+    maintenanceDayOfWeek: databaseMaintenanceDayOfWeek
+    maintenanceStartHourUtc: databaseMaintenanceStartHourUtc
+    delegatedSubnetResourceId: network.?outputs.databaseSubnetId ?? ''
+    privateDnsZoneResourceId: network.?outputs.databasePrivateDnsZoneId ?? ''
     administratorObjectId: identity.properties.principalId
     administratorName: identity.name
+    breakGlassAdminGroupObjectId: breakGlassAdminGroupObjectId
+    breakGlassAdminGroupName: breakGlassAdminGroupName
   }
 }
 
-// The only change outside this resource group: one role assignment, scoped to the account itself.
+// The only change to the model account: one role assignment, scoped to the account itself.
 module aiAccess 'modules/ai-access.bicep' = {
   name: 'ai-access-${uniqueSuffix}'
   scope: resourceGroup(aiAccountSubscriptionId, aiAccountResourceGroup)
@@ -169,21 +478,28 @@ module aiAccess 'modules/ai-access.bicep' = {
   }
 }
 
-// The app starts using the identity as soon as it runs, so it waits for every role assignment above:
-// the registry, monitoring and database modules each contain theirs and are waited for through their outputs.
+// The app starts using the identity as soon as it runs, so it waits for every role assignment above.
 module app 'modules/container-app.bicep' = {
   name: 'app'
   params: {
-    environmentResourceName: 'cae-${baseName}'
+    environmentResourceName: environmentCoordinates.name
     appName: appName
     location: location
     tags: tags
-    workspaceName: workspaceName
+    createEnvironment: !useExistingEnvironment
+    environmentSubscriptionId: environmentCoordinates.subscriptionId
+    environmentResourceGroup: environmentCoordinates.resourceGroup
+    workspaceName: workspaceCoordinates.name
+    workspaceSubscriptionId: workspaceCoordinates.subscriptionId
+    workspaceResourceGroup: workspaceCoordinates.resourceGroup
+    infrastructureSubnetId: network.?outputs.appSubnetId ?? ''
+    zoneRedundant: containerAppsZoneRedundant
     identityResourceId: identity.id
     identityClientId: identity.properties.clientId
     identityName: identity.name
     registryLoginServer: registry.outputs.loginServer
     image: image
+    placeholderImage: image == bootstrapImage
     cpu: cpu
     minReplicas: minReplicas
     maxReplicas: maxReplicas
@@ -197,21 +513,66 @@ module app 'modules/container-app.bicep' = {
     sourceUrl: sourceUrl
     projectModelCallLimit: projectModelCallLimit
     projectModelTokenLimit: projectModelTokenLimit
+    revisionSuffix: revisionSuffix
+    trafficMode: trafficMode
+    preservedTraffic: preservedTraffic
+    previousRevisionName: previousRevisionName
+    newRevisionTrafficPercent: newRevisionTrafficPercent
+    maxInactiveRevisions: maxInactiveRevisions
+    keyVaultUri: keyVault.?outputs.vaultUri ?? ''
+    keyVaultSecretReferences: keyVaultSecretReferences
+    ingressAllowedCidrs: ingressAllowedCidrs
   }
-  dependsOn: [aiAccess]
+  dependsOn: [aiAccess, appInsightsAccess]
+}
+
+module alerts 'modules/alerts.bicep' = {
+  name: 'alerts'
+  params: {
+    baseName: baseName
+    tags: tags
+    location: location
+    containerAppResourceId: app.outputs.id
+    containerAppName: app.outputs.name
+    databaseServerResourceId: database.outputs.serverResourceId
+    appInsightsResourceId: monitoring.outputs.appInsightsId
+    workspaceResourceId: monitoring.outputs.workspaceId
+    alertEmailAddress: alertEmailAddress
+    additionalAlertEmailAddresses: additionalAlertEmailAddresses
+    researchSignalsEmitted: researchSignalsEmitted
+    databaseIsBurstable: databaseSkuTier == 'Burstable'
+    databaseMaxConnections: databaseMaxConnections
+    p95LatencyMs: p95LatencyMs
+    tokensPerHour: tokensPerHour
+  }
+}
+
+module budget 'modules/budget.bicep' = if (enableBudget) {
+  name: 'budget'
+  params: {
+    baseName: baseName
+    amount: budgetAmount
+    currencyLabel: budgetCurrencyLabel
+    contactEmails: concat([alertEmailAddress], additionalBudgetEmailAddresses)
+  }
 }
 
 // Names that azd reads (AZURE_CONTAINER_REGISTRY_ENDPOINT is required by `azd deploy`) and values the
-// Microsoft Entra steps in docs/azure/pilot-plan.md need. None of them is a secret.
+// Microsoft Entra steps in docs/azure/pilot-plan.md and the release tooling need. None of them is a secret.
 output AZURE_LOCATION string = location
 output AZURE_RESOURCE_GROUP string = resourceGroup().name
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = registry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = registry.outputs.name
 output AZURE_CONTAINER_APP_NAME string = app.outputs.name
 output AZURE_CONTAINER_APP_FQDN string = app.outputs.fqdn
+output AZURE_CONTAINER_APP_LATEST_REVISION string = app.outputs.latestRevisionName
 output ENTRA_REDIRECT_URI string = 'https://${app.outputs.fqdn}/auth/callback'
 output AZURE_USER_ASSIGNED_IDENTITY_NAME string = identity.name
 output AZURE_USER_ASSIGNED_IDENTITY_CLIENT_ID string = identity.properties.clientId
 output AZURE_USER_ASSIGNED_IDENTITY_PRINCIPAL_ID string = identity.properties.principalId
 output AZURE_POSTGRES_SERVER_NAME string = database.outputs.serverName
 output AZURE_POSTGRES_DATABASE string = database.outputs.databaseName
+output AZURE_KEY_VAULT_NAME string = keyVault.?outputs.vaultName ?? ''
+output AZURE_ACTION_GROUP_NAME string = alerts.outputs.actionGroupName
+output AZURE_EGRESS_IP_ADDRESS string = network.?outputs.egressIpAddress ?? ''
+output AZURE_BUDGET_NAME string = budget.?outputs.budgetName ?? ''

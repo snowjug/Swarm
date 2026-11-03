@@ -11,6 +11,7 @@
     "bench/**/*.ts",
     "db/**/*.ts",
     "demo/**/*.ts",
+    "iac/**/*.ts",
     "mutation/**/*.ts",
     "ui/**/*.ts"
   ]
