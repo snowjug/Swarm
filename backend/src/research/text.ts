@@ -22,19 +22,24 @@ const stem = (word: string): string =>
 /** The distinct words that carry meaning, as the project's retrieval reads them, each without a plural `s`. */
 export const termsOf = (text: string): Set<string> => new Set(tokenize(text).map(stem));
 
-/** An address a person wrote into text: with a scheme, or beginning `www.`. Matched loosely, and never fetched. */
-const ADDRESS = /\b(?:https?:\/\/|www\.)[^\s<>"'“”‘’)\]]+/giu;
+/** An address a person wrote into text: with a scheme of any kind, or beginning `www.`. Matched loosely, and never fetched. */
+const ADDRESS = /\b(?:[a-z][a-z0-9+.-]{1,15}:\/\/|www\.)[^\s<>"'“”‘’)\]]+/giu;
 
-/** Replaces each address in a text by the name of its site, so that a plan names things to find and never a place to fetch. */
+/**
+ * Replaces each address in a text by the name of its site, so that a plan names things to find and never a
+ * place to fetch. What came before the host (a scheme, a user name and a password) is not kept.
+ */
 export function withoutAddresses(text: string): string {
   return text.replace(ADDRESS, (found) => {
-    const host = /^(?:https?:\/\/)?(?:www\.)?([^/?#:\s]+)/iu.exec(found)?.[1] ?? '';
+    const host =
+      /^(?:[a-z][a-z0-9+.-]*:\/\/)?(?:[^/?#@\s]*@)?(?:www\.)?([^/?#:\s]+)/iu.exec(found)?.[1] ?? '';
     return host.toLowerCase();
   });
 }
 
 /** Whether a text still holds an address with a scheme, or one that begins `www.`. */
-export const mentionsAddress = (text: string): boolean => /\b(?:https?:\/\/|www\.)\S/iu.test(text);
+export const mentionsAddress = (text: string): boolean =>
+  /\b(?:[a-z][a-z0-9+.-]{1,15}:\/\/|www\.)\S/iu.test(text);
 
 /** Characters that no line of text shown to a person should hold: controls other than tab and newline. */
 // eslint-disable-next-line no-control-regex
