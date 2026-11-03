@@ -1,0 +1,1408 @@
+{
+  "version": 1,
+  "labelsFrozenOn": "2026-11-03",
+  "note": "Gold for the decision status, derived by hand from docs/analysis/decision-canvas.md (the ten status rules in their order, the lens definitions, 'what clear means', the conditions, the recommendation table) and from shared/decision.ts, before the canvas builder was run on any fixture. Each fixture is a hand-set comparison: for every option, the share of simulated members ending in switch or resist ('adverse') and in go-along or accept-with-conditions ('favourable'), the same for every actor unless a map names them, with the same small noise on every option for a seed so that a paired difference between options is exact. Lens values are therefore the numbers given: overall-resistance is the mean adverse share of all actors; key-actor-support the mean favourable share of the actors that are key; decision-maker-resistance the mean adverse share of the actors whose category carries authority (decision maker decides, governance approves, regulator can block); worst-affected-downside the highest adverse share of any actor. An option is told apart from another on a lens by a difference of at least 0.05 of the scale over at least 10 paired runs. 'scenario' casts are made from the named participants of a scenario of the scenario dataset (role to category: decision-owner decision-maker, approvers governance, regulators-governance regulator, directly-affected cost-bearer, beneficiaries beneficiary, customers-users end-user, implementers operations, partners-suppliers partner, competitors-alternatives competitor, observers-influencers influencer, the rest other; the decision owner, approvers, regulators and opponents are key). The 'lab' cast is the five-actor cast of shared/lab-fixtures.ts: provider (decision maker, key), subscribers (cost bearer), rival-provider (competitor, key), regulator (regulator, key), resellers (partner). Everything not named in a fixture is in its clear state: sources attached and cited by every actor, no ledger finding, one soft confirmed constraint in a reviewed set that the comparison ran under, three counterfactual views that moved nothing, one assumption that moved nothing, an independent review of this comparison with no objection, inputs recorded and current.",
+  "defaults": {
+    "runs": 20,
+    "direction": "has",
+    "evidence": { "documents": "attached", "cited": "all", "ledger": null },
+    "constraints": {
+      "set": "reviewed",
+      "items": [
+        {
+          "id": "c-0001",
+          "category": "budget",
+          "hardness": "soft",
+          "validation": "confirmed",
+          "statement": "Spending on the change is capped."
+        }
+      ]
+    },
+    "comparisonRecord": "clear",
+    "counterfactuals": {
+      "current": true,
+      "views": [
+        { "id": "without-budget", "delta": 0.01 },
+        { "id": "delayed-implementation", "delta": -0.01 },
+        { "id": "lower-adoption", "delta": 0.02 }
+      ]
+    },
+    "sensitivity": [{ "id": "small-move", "shift": 0.01 }],
+    "critics": { "analysis": "this", "objections": [] },
+    "inputs": "current"
+  },
+  "clearOptions": [
+    {
+      "id": "baseline",
+      "kind": "baseline",
+      "label": "No change",
+      "adverse": 0.4,
+      "favourable": 0.3
+    },
+    {
+      "id": "proposed-change",
+      "kind": "alternative",
+      "label": "Proposed change",
+      "adverse": 0.2,
+      "favourable": 0.6
+    }
+  ],
+  "cases": [
+    {
+      "id": "D01",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S01",
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "Rule 9: the proposed change leads the headline lens by 0.2 and every other lens (adverse 0.2 against 0.4, favourable 0.6 against 0.3, for every actor), 20 runs; no flip (the largest check moves it 0.02, the lead is 0.2), a confirmed reviewed set the comparison ran under, adequate evidence, a current comparison, a clean review: none of the conditions applies."
+      }
+    },
+    {
+      "id": "D02",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S02",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.2,
+          "favourable": 0.6
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.4,
+          "favourable": 0.3
+        }
+      ],
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "baseline",
+        "recommendation": "keep-no-change",
+        "leaders": {
+          "overall-resistance": "baseline",
+          "key-actor-support": "baseline",
+          "decision-maker-resistance": "baseline",
+          "worst-affected-downside": "baseline"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "The option that changes nothing leads every lens by 0.2 (0.2 against 0.4 adverse, 0.6 against 0.3 favourable). The canvas has no bias toward acting: the status is the same rule 9 and the recommendation is to keep it. The checks move the proposed change by at most 0.02, far short of closing a lead of 0.2."
+      }
+    },
+    {
+      "id": "D03",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S03",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0001",
+            "category": "budget",
+            "hardness": "soft",
+            "validation": "confirmed",
+            "statement": "Spending on the change is capped."
+          },
+          {
+            "id": "c-0002",
+            "category": "capacity",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The team can take on one change at a time."
+          }
+        ]
+      },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The same clear leader as D01, but a hard constraint nobody has confirmed makes the gate provisional (constraints.md: provisional when anything is unvalidated; blocked only for a legal, regulatory or safety constraint). Rule 10: one condition, listed."
+      }
+    },
+    {
+      "id": "D04",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S04",
+      "constraints": null,
+      "comparisonRecord": "none",
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The same clear leader, but there is no reviewed constraint set at all and the comparison recorded none: the document lists that among the conditions, so the status is conditional."
+      }
+    },
+    {
+      "id": "D05",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S05",
+      "comparisonRecord": "provisional",
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The constraints are all confirmed now, but the comparison recorded that it ran under constraints that were not all confirmed: a listed condition, so rule 10."
+      }
+    },
+    {
+      "id": "D06",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S06",
+      "evidence": { "documents": "attached", "cited": "some", "ledger": null },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "A source is attached and two actors cite a passage, which is fewer than half of the cast: the evidence reading is limited (not insufficient: that needs no source, no cited actor, or an abstaining review). Limited evidence is a listed condition."
+      }
+    },
+    {
+      "id": "D07",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S07",
+      "evidence": { "documents": "none", "cited": "none", "ledger": null },
+      "gold": {
+        "status": "insufficient-evidence",
+        "rules": ["evidence-insufficient"],
+        "preferred": null,
+        "recommendation": "gather-evidence",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "No source document is attached and no actor has a cited passage: the evidence reading is insufficient (rule 5), after rules 1 to 4 have not applied (a comparison of two options, a clear gate, a direction of impact). The lenses still read the runs and agree; the status does not recommend an option."
+      }
+    },
+    {
+      "id": "D08",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S08",
+      "evidence": { "documents": "attached", "cited": "all", "ledger": "abstains" },
+      "gold": {
+        "status": "insufficient-evidence",
+        "rules": ["evidence-insufficient"],
+        "preferred": null,
+        "recommendation": "gather-evidence",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "The grounding review abstains (its sufficiency says insufficient): the evidence reading is insufficient whatever else is in order."
+      }
+    },
+    {
+      "id": "D09",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S09",
+      "direction": "none",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        }
+      ],
+      "gold": {
+        "status": "insufficient-evidence",
+        "rules": ["no-direction"],
+        "preferred": null,
+        "recommendation": "gather-evidence",
+        "leaders": {
+          "overall-resistance": null,
+          "key-actor-support": null,
+          "decision-maker-resistance": null,
+          "worst-affected-downside": null
+        },
+        "agreement": null,
+        "conditions": 0,
+        "why": "No stakeholder has an expected direction of impact (every impact is zero and every direction unclear) and the two options give identical runs: the comparison cannot tell the change from no change. Rule 4, before the evidence rule."
+      }
+    },
+    {
+      "id": "D10",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S10",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0001",
+            "category": "budget",
+            "hardness": "soft",
+            "validation": "confirmed",
+            "statement": "Spending on the change is capped."
+          },
+          {
+            "id": "c-0003",
+            "category": "legal",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The change needs a licence."
+          }
+        ]
+      },
+      "gold": {
+        "status": "blocked-by-hard-constraint",
+        "rules": ["gate-blocked"],
+        "preferred": null,
+        "recommendation": "resolve-constraint",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "A hard legal constraint is unvalidated: the gate is blocked (constraints.md), which is rule 2, before every rule about the runs. Swarm does not recommend going past it."
+      }
+    },
+    {
+      "id": "D11",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S11",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0004",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "confirmed",
+            "statement": "The proposed change is not permitted.",
+            "rulesOut": ["proposed-change"]
+          }
+        ]
+      },
+      "gold": {
+        "status": "blocked-by-hard-constraint",
+        "rules": ["gate-blocked", "all-violate"],
+        "preferred": null,
+        "recommendation": "resolve-constraint",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "why": "The only alternative is ruled out by a confirmed hard constraint. The document gives two rules for this (rule 2: the gate is blocked when every alternative is ruled out; rule 3: every alternative violates a confirmed hard constraint): either is allowed; the status is blocked. What a lens says when only the option that changes nothing can be chosen is not settled by the document, so no lens leader is named."
+      }
+    },
+    {
+      "id": "D12",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S12",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0005",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "confirmed",
+            "statement": "Spending is capped at $100,000."
+          },
+          {
+            "id": "c-0006",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "confirmed",
+            "statement": "Spending is at least $200,000."
+          }
+        ]
+      },
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["hard-conflict"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "Two confirmed hard constraints cannot hold together: spending cannot be at most 100,000 and at least 200,000. Rule 6; the gate is not blocked (blocked is for an unvalidated legal, regulatory or safety constraint, or every alternative ruled out), so rule 2 does not apply. The conflict is the status, though the lenses agree."
+      }
+    },
+    {
+      "id": "D13",
+      "split": "dev",
+      "cast": "lab",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": {
+            "provider": 0.2,
+            "rival-provider": 0.2,
+            "regulator": 0.2,
+            "subscribers": 0.5,
+            "resellers": 0.5
+          },
+          "favourable": { "provider": 0.6, "rival-provider": 0.6, "regulator": 0.6 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": {
+            "provider": 0.3,
+            "rival-provider": 0.3,
+            "regulator": 0.3,
+            "subscribers": 0.1,
+            "resellers": 0.1
+          },
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        }
+      ],
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["value-tradeoff"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "baseline",
+          "decision-maker-resistance": "baseline",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "disagree",
+        "conditions": 0,
+        "why": "Overall resistance (mean adverse of 5 actors): baseline (0.2 x 3 + 0.5 x 2) / 5 = 0.32, proposed (0.3 x 3 + 0.1 x 2) / 5 = 0.22: proposed leads by 0.10. Key-actor support (provider, rival-provider, regulator): 0.6 against 0.3: baseline leads by 0.3. Decision makers (provider decides, regulator can block): adverse 0.2 against 0.3: baseline leads by 0.1. Worst-affected (the highest adverse of any actor): 0.5 against 0.3: proposed leads by 0.2. Two lenses each have a different clear leader: rule 7."
+      }
+    },
+    {
+      "id": "D14",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S13",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.26,
+          "favourable": 0.34
+        }
+      ],
+      "gold": {
+        "status": "multiple-plausible-options",
+        "rules": ["no-clear-leader"],
+        "preferred": null,
+        "recommendation": "hold",
+        "leaders": {
+          "overall-resistance": null,
+          "key-actor-support": null,
+          "decision-maker-resistance": null,
+          "worst-affected-downside": null
+        },
+        "agreement": null,
+        "conditions": 0,
+        "why": "Boundary: every lens differs by 0.04, under 0.05 of the scale: level on all four. The headline lens has no clear leader: rule 8."
+      }
+    },
+    {
+      "id": "D15",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S01",
+      "runs": 6,
+      "gold": {
+        "status": "multiple-plausible-options",
+        "rules": ["no-clear-leader"],
+        "preferred": null,
+        "recommendation": "hold",
+        "leaders": {
+          "overall-resistance": null,
+          "key-actor-support": null,
+          "decision-maker-resistance": null,
+          "worst-affected-downside": null
+        },
+        "agreement": null,
+        "conditions": 0,
+        "why": "The gap of 0.2 is large, but a clear leader needs at least 10 paired runs and there are 6: no lens can tell the options apart. Rule 8."
+      }
+    },
+    {
+      "id": "D16",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S02",
+      "runs": 10,
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "Boundary: exactly 10 paired runs is 'at least 10', so the gap of 0.2 tells the options apart, and nothing else stands in the way: rule 9."
+      }
+    },
+    {
+      "id": "D17",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S03",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.24,
+          "favourable": 0.36
+        }
+      ],
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "Boundary: every lens differs by 0.06, at least 0.05 of the scale, with no run-to-run spread in the paired difference (the same noise on both options for a seed): clear on all four. The checks move the proposed change 0.02 at most, and the lead is 0.06: no flip."
+      }
+    },
+    {
+      "id": "D19",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S05",
+      "counterfactuals": {
+        "current": true,
+        "views": [
+          { "id": "without-budget", "delta": 0.01 },
+          { "id": "delayed-implementation", "delta": -0.01 },
+          { "id": "lower-adoption", "delta": 0.25 }
+        ]
+      },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "A counterfactual view moves the proposed change's headline share up by 0.25, in the direction that closes the gap, by more than the leader's margin of 0.2 and by more than its noise (standard error 0.004): it could reverse the answer, so the lead is conditional."
+      }
+    },
+    {
+      "id": "D20",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S06",
+      "counterfactuals": {
+        "current": true,
+        "views": [
+          { "id": "without-budget", "delta": 0.01 },
+          { "id": "delayed-implementation", "delta": -0.01 },
+          { "id": "lower-adoption", "delta": 0.1 }
+        ]
+      },
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "A material view (0.10, over the noise) closes half of a lead of 0.2 and no more: it moves the answer without reversing it, so no condition applies."
+      }
+    },
+    {
+      "id": "D21",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S07",
+      "sensitivity": [{ "id": "trust-down", "shift": 0.3 }],
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "One assumption, moved, shifts the proposed change's share by 0.3 upward (assumption-sensitive): more than the lead of 0.2, in the direction that closes it. A sensitive assumption that could reverse the answer is a condition."
+      }
+    },
+    {
+      "id": "D22",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S08",
+      "counterfactuals": {
+        "current": true,
+        "views": [
+          { "id": "without-budget", "delta": 0.01 },
+          { "id": "delayed-implementation", "delta": -0.01 },
+          { "id": "lower-adoption", "delta": -0.3 }
+        ]
+      },
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "A large view that moves the proposed change's resistance down by 0.3 widens the lead: it does not close the gap, so it cannot reverse the answer, whatever its size."
+      }
+    },
+    {
+      "id": "D23",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S09",
+      "counterfactuals": null,
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "No counterfactual view was run: the document lists that among the conditions (said as 'no change to the situation was tried', not as 'nothing was tried')."
+      }
+    },
+    {
+      "id": "D24",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S10",
+      "counterfactuals": {
+        "current": false,
+        "views": [
+          { "id": "without-budget", "delta": 0.01 },
+          { "id": "delayed-implementation", "delta": -0.01 },
+          { "id": "lower-adoption", "delta": 0.02 }
+        ]
+      },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The views no longer describe the project (they are not current), so they are not counted: no view that still describes the project was run."
+      }
+    },
+    {
+      "id": "D25",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S11",
+      "critics": null,
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The independent review has not been run: a listed condition."
+      }
+    },
+    {
+      "id": "D26",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S12",
+      "critics": { "analysis": "other", "objections": [] },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The independent review belongs to another comparison: it is not counted, which is the same as not having been run."
+      }
+    },
+    {
+      "id": "D27",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S13",
+      "critics": {
+        "analysis": "this",
+        "objections": [{ "severity": "blocking", "status": "open" }]
+      },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The review of this comparison has a blocking objection that stands: a listed condition."
+      }
+    },
+    {
+      "id": "D28",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S01",
+      "inputs": "stale",
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The scenario is at revision 2 and the comparison was run on revision 1: it was run before something it is made from changed. The canvas says so and cannot be robust."
+      }
+    },
+    {
+      "id": "D29",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S02",
+      "inputs": "unrecorded",
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The comparison did not record what it was made from: the document lists that with the stale case."
+      }
+    },
+    {
+      "id": "D30",
+      "split": "dev",
+      "cast": "lab-no-authority",
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": null,
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": null,
+        "conditions": 1,
+        "why": "No actor's category carries authority (the provider is a partner and the regulator a competitor in this cast), so nobody decides, approves or can block: the decision-maker lens has nobody to read and could not be computed. The other three agree. A lens that could not be computed is a listed condition."
+      }
+    },
+    {
+      "id": "D31",
+      "split": "test",
+      "cast": "lab",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.4,
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.2,
+          "favourable": { "provider": 0.32, "rival-provider": 0.32, "regulator": 0.32 }
+        }
+      ],
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": null,
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": null,
+        "conditions": 1,
+        "why": "Adverse shares are 0.4 against 0.2 for every actor, so three lenses have the proposed change as clear leader. The key actors' favourable share is 0.3 against 0.32: a difference of 0.02, under 0.05: level. The option leads the headline lens, and on one computed lens it cannot be told apart from the other: a listed condition, so conditional and not robust."
+      }
+    },
+    {
+      "id": "D32",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S03",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        }
+      ],
+      "gold": {
+        "status": "insufficient-evidence",
+        "rules": ["no-analysis"],
+        "preferred": null,
+        "recommendation": "gather-evidence",
+        "leaders": {},
+        "agreement": null,
+        "conditions": 0,
+        "why": "A comparison that holds only one option is not a comparison: rule 1. A lens over a single option is not settled by the document, so no leader is named."
+      }
+    },
+    {
+      "id": "D33",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S04",
+      "evidence": { "documents": "none", "cited": "none", "ledger": null },
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0003",
+            "category": "legal",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The change needs a licence."
+          }
+        ]
+      },
+      "gold": {
+        "status": "blocked-by-hard-constraint",
+        "rules": ["gate-blocked"],
+        "preferred": null,
+        "recommendation": "resolve-constraint",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "Precedence: a blocked gate (rule 2) is tried before the evidence reading (rule 5), and the evidence here is insufficient too. The first rule that applies wins."
+      }
+    },
+    {
+      "id": "D34",
+      "split": "dev",
+      "cast": "lab",
+      "evidence": { "documents": "none", "cited": "none", "ledger": null },
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": {
+            "provider": 0.2,
+            "rival-provider": 0.2,
+            "regulator": 0.2,
+            "subscribers": 0.5,
+            "resellers": 0.5
+          },
+          "favourable": { "provider": 0.6, "rival-provider": 0.6, "regulator": 0.6 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": {
+            "provider": 0.3,
+            "rival-provider": 0.3,
+            "regulator": 0.3,
+            "subscribers": 0.1,
+            "resellers": 0.1
+          },
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        }
+      ],
+      "gold": {
+        "status": "insufficient-evidence",
+        "rules": ["evidence-insufficient"],
+        "preferred": null,
+        "recommendation": "gather-evidence",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "baseline",
+          "decision-maker-resistance": "baseline",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "disagree",
+        "conditions": 0,
+        "why": "Precedence: the value trade-off of D13 is there (rule 7), but the evidence is insufficient (rule 5 is tried first)."
+      }
+    },
+    {
+      "id": "D35",
+      "split": "test",
+      "cast": "lab",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0005",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "confirmed",
+            "statement": "Spending is capped at $100,000."
+          },
+          {
+            "id": "c-0006",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "confirmed",
+            "statement": "Spending is at least $200,000."
+          }
+        ]
+      },
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": {
+            "provider": 0.2,
+            "rival-provider": 0.2,
+            "regulator": 0.2,
+            "subscribers": 0.5,
+            "resellers": 0.5
+          },
+          "favourable": { "provider": 0.6, "rival-provider": 0.6, "regulator": 0.6 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": {
+            "provider": 0.3,
+            "rival-provider": 0.3,
+            "regulator": 0.3,
+            "subscribers": 0.1,
+            "resellers": 0.1
+          },
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        }
+      ],
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["hard-conflict"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "baseline",
+          "decision-maker-resistance": "baseline",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "disagree",
+        "conditions": 0,
+        "why": "Precedence: both a hard conflict (rule 6) and a value trade-off (rule 7) apply; both give needs-human-decision, and the rule that is named is the first, the conflict."
+      }
+    },
+    {
+      "id": "D36",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S07",
+      "direction": "none",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0003",
+            "category": "legal",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The change needs a licence."
+          }
+        ]
+      },
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        }
+      ],
+      "gold": {
+        "status": "blocked-by-hard-constraint",
+        "rules": ["gate-blocked"],
+        "preferred": null,
+        "recommendation": "resolve-constraint",
+        "leaders": {
+          "overall-resistance": null,
+          "key-actor-support": null,
+          "decision-maker-resistance": null,
+          "worst-affected-downside": null
+        },
+        "agreement": null,
+        "conditions": 0,
+        "why": "Precedence: the blocked gate (rule 2) comes before 'no direction' (rule 4), which also applies."
+      }
+    },
+    {
+      "id": "D37",
+      "split": "test",
+      "cast": "lab",
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0001",
+            "category": "budget",
+            "hardness": "soft",
+            "validation": "confirmed",
+            "statement": "Spending on the change is capped."
+          },
+          {
+            "id": "c-0002",
+            "category": "capacity",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The team can take on one change at a time."
+          }
+        ]
+      },
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": {
+            "provider": 0.2,
+            "rival-provider": 0.2,
+            "regulator": 0.2,
+            "subscribers": 0.5,
+            "resellers": 0.5
+          },
+          "favourable": { "provider": 0.6, "rival-provider": 0.6, "regulator": 0.6 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": {
+            "provider": 0.3,
+            "rival-provider": 0.3,
+            "regulator": 0.3,
+            "subscribers": 0.1,
+            "resellers": 0.1
+          },
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        }
+      ],
+      "gold": {
+        "status": "needs-human-decision",
+        "rules": ["value-tradeoff"],
+        "preferred": null,
+        "recommendation": "decide",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "baseline",
+          "decision-maker-resistance": "baseline",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "disagree",
+        "conditions": 0,
+        "why": "A value trade-off (rule 7) is reached before the conditions of a leader are weighed (rules 9 and 10): a provisional gate does not change it."
+      }
+    },
+    {
+      "id": "D38",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S09",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.4,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.2,
+          "favourable": 0.6
+        },
+        {
+          "id": "smaller-rise",
+          "kind": "alternative",
+          "label": "Smaller rise",
+          "adverse": 0.1,
+          "favourable": 0.8
+        }
+      ],
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0004",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "confirmed",
+            "statement": "A smaller rise is not permitted.",
+            "rulesOut": ["smaller-rise"]
+          }
+        ]
+      },
+      "gold": {
+        "status": "robust-option",
+        "rules": ["robust"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 0,
+        "why": "The smaller rise would lead every lens, but a confirmed hard constraint rules it out: it is shown and never ranked. Among the options that can be chosen the proposed change leads every lens by 0.2. Every alternative is not ruled out, so rules 2 and 3 do not apply; the constraint is confirmed, so it is no condition."
+      }
+    },
+    {
+      "id": "D39",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S10",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.4,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.2,
+          "favourable": 0.6
+        },
+        {
+          "id": "smaller-rise",
+          "kind": "alternative",
+          "label": "Smaller rise",
+          "adverse": 0.35,
+          "favourable": 0.35
+        }
+      ],
+      "constraints": {
+        "set": "reviewed",
+        "items": [
+          {
+            "id": "c-0004",
+            "category": "budget",
+            "hardness": "hard",
+            "validation": "unvalidated",
+            "statement": "The proposed change is not permitted.",
+            "rulesOut": ["proposed-change"]
+          }
+        ]
+      },
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 1,
+        "why": "The proposed change leads every lens by at least 0.15, but a hard constraint nobody has confirmed would rule it out: the document lists that among the conditions. The gate is provisional, not blocked: the constraint is not legal, regulatory or safety and does not rule out every alternative."
+      }
+    },
+    {
+      "id": "D40",
+      "split": "dev",
+      "cast": "lab",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": { "provider": 0.6, "rival-provider": 0.6, "regulator": 0.6 }
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.27,
+          "favourable": { "provider": 0.3, "rival-provider": 0.3, "regulator": 0.3 }
+        }
+      ],
+      "gold": {
+        "status": "multiple-plausible-options",
+        "rules": ["no-clear-leader"],
+        "preferred": null,
+        "recommendation": "hold",
+        "leaders": {
+          "overall-resistance": null,
+          "key-actor-support": "baseline",
+          "decision-maker-resistance": null,
+          "worst-affected-downside": null
+        },
+        "agreement": null,
+        "conditions": 0,
+        "why": "Only the key-actor lens separates the options (0.6 against 0.3 favourable); the other three differ by 0.03, level. A value trade-off needs two lenses each with a different clear leader: here one lens has a leader and the rest none, so it is not rule 7. The headline lens has no clear leader: rule 8."
+      }
+    },
+    {
+      "id": "D41",
+      "split": "test",
+      "cast": "scenario",
+      "scenario": "S13",
+      "constraints": null,
+      "comparisonRecord": "none",
+      "counterfactuals": null,
+      "critics": null,
+      "inputs": "stale",
+      "gold": {
+        "status": "conditional-option",
+        "rules": ["conditional"],
+        "preferred": "proposed-change",
+        "recommendation": "proceed",
+        "leaders": {
+          "overall-resistance": "proposed-change",
+          "key-actor-support": "proposed-change",
+          "decision-maker-resistance": "proposed-change",
+          "worst-affected-downside": "proposed-change"
+        },
+        "agreement": "agree",
+        "conditions": 4,
+        "why": "Several conditions at once: no reviewed constraint set, no counterfactual view, no independent review, and a comparison run before an input changed. The leader is clear on every lens, so it is one conditional option with all the conditions listed (at least four)."
+      }
+    },
+    {
+      "id": "D42",
+      "split": "dev",
+      "cast": "scenario",
+      "scenario": "S12",
+      "options": [
+        {
+          "id": "baseline",
+          "kind": "baseline",
+          "label": "No change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        },
+        {
+          "id": "proposed-change",
+          "kind": "alternative",
+          "label": "Proposed change",
+          "adverse": 0.3,
+          "favourable": 0.3
+        }
+      ],
+      "gold": {
+        "status": "multiple-plausible-options",
+        "rules": ["no-clear-leader"],
+        "preferred": null,
+        "recommendation": "hold",
+        "leaders": {
+          "overall-resistance": null,
+          "key-actor-support": null,
+          "decision-maker-resistance": null,
+          "worst-affected-downside": null
+        },
+        "agreement": null,
+        "conditions": 0,
+        "why": "The runs of the two options are identical, but the stakeholders do have a direction of impact (the cast has people who bear a cost): rule 4 is about a cast with none. The change cannot be told from no change, which is a way for the headline lens to have no clear leader (rule 8)."
+      }
+    }
+  ]
+}

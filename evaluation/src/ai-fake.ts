@@ -1,4 +1,5 @@
 import { proposeConstraints } from '../../backend/src/constraints/propose.js';
+import type { ServerConfig } from '../../backend/src/config.js';
 import { modelCritiques } from '../../backend/src/critics/model.js';
 import type { ModelGateway, ModelUsageSink } from '../../backend/src/models/client.js';
 import { createModelFactory, type ModelFactory } from '../../backend/src/models/factory.js';
@@ -72,6 +73,8 @@ export interface SafetyRecord {
 /** What a run needs of a model endpoint: a factory of gateways, and, for the fake, a way to script and count. */
 export interface Harness {
   factory: ModelFactory;
+  /** The server configuration the factory was made for, where a task is run through the router and the runner. */
+  config?: ServerConfig;
   fake?: FakeFoundry;
   /** What the fake found wrong in anything it was scripted to say or sent, over every call. */
   problems: string[];
@@ -82,15 +85,29 @@ export interface Harness {
 }
 
 export interface FakeWorld extends Harness {
+  config: ServerConfig;
   fake: FakeFoundry;
   close(): Promise<void>;
 }
 
-export async function startFakeWorld(): Promise<FakeWorld> {
+/** The list price of the registered deployment, as the server's price table reads it. */
+export const FAKE_PRICES = JSON.stringify([
+  { deployment: MODEL, inputPerMillionUsd: 0.4, outputPerMillionUsd: 1.6 },
+]);
+
+export async function startFakeWorld(
+  options: { prices?: boolean; environment?: Record<string, string> } = {},
+): Promise<FakeWorld> {
   const fake = await startFakeFoundry();
-  const config = testConfig(fake.environment({ AI_MODEL: MODEL }));
+  const config = testConfig(
+    fake.environment({
+      AI_MODEL: MODEL,
+      ...(options.prices ? { MODEL_PRICES: FAKE_PRICES } : {}),
+      ...options.environment,
+    }),
+  );
   const factory = createModelFactory(config, new ProviderTelemetry(config.provider));
-  return { fake, factory, problems: [], close: () => fake.close() };
+  return { fake, factory, config, problems: [], close: () => fake.close() };
 }
 
 const toStep = (scripted: Scripted): FakeStep =>

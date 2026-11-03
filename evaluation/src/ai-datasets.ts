@@ -539,12 +539,13 @@ export interface ExpandContext {
 }
 
 /**
- * Fills in `{{fragment}}`, `{{url:P01}}`, `{{port}}`, `{{fill:N}}`, `{{fillb:N}}` (filler of another
- * seed, so that two long pages are not near copies of each other) and `{{script:N}}`.
+ * Fills in `{{fragment}}`, `{{url:P01}}` (or `{{url:W1-3}}`, a page of a synthetic world), `{{port}}`,
+ * `{{fill:N}}`, `{{fillb:N}}` (filler of another seed, so that two long pages are not near copies of
+ * each other) and `{{script:N}}`.
  */
 export function expandHtml(template: string, context: ExpandContext): string {
   return template.replace(
-    /\{\{([a-z]+)(?::([A-Za-z0-9]+))?\}\}/gu,
+    /\{\{([a-z]+)(?::([A-Za-z0-9-]+))?\}\}/gu,
     (whole, name: string, argument?: string) => {
       if (name === 'url' && argument) return context.urlOf(argument);
       if (name === 'port' && argument === undefined) return String(context.port);
