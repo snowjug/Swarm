@@ -123,24 +123,24 @@ function Question({ canvas }: { canvas: DecisionCanvas }) {
       <dl className="sw-canvas-frame">
         {framed && (
           <div>
-            <dt>Decision as framed</dt>
-            <dd>
-              {question.decision.text} <LabelChip label={question.decision.label} />
-            </dd>
+            <dt>
+              Decision as framed <LabelChip label={question.decision.label} />
+            </dt>
+            <dd>{question.decision.text}</dd>
           </div>
         )}
         <div>
-          <dt>If nothing changes</dt>
-          <dd>
-            {question.baseline.text} <LabelChip label={question.baseline.label} />
-          </dd>
+          <dt>
+            If nothing changes <LabelChip label={question.baseline.label} />
+          </dt>
+          <dd>{question.baseline.text}</dd>
         </div>
       </dl>
     </>
   );
 }
 
-function Answer({ canvas, openDetail }: Props) {
+function Answer({ canvas }: { canvas: DecisionCanvas }) {
   const { status, answer } = canvas;
   const provisional = canvas.constraints.provisional;
   return (
@@ -160,21 +160,14 @@ function Answer({ canvas, openDetail }: Props) {
           <li key={line}>{line}</li>
         ))}
       </ul>
-      <p className="sw-canvas-links">
-        <button type="button" className="sw-canvas-more" onClick={() => openDetail('status')}>
-          {COPY.whyStatus}
-        </button>
-        <button type="button" className="sw-canvas-more" onClick={() => openDetail('lenses')}>
-          How the options compare
-        </button>
-      </p>
     </div>
   );
 }
 
-function Futures({ canvas }: { canvas: DecisionCanvas }) {
+function Futures({ canvas, openDetail }: Props) {
   const items = futureItems(canvas);
   if (!canvas.futures.supported || items.length === 0) return <Quiet>{canvas.futures.note}</Quiet>;
+  const left = canvas.futures.items.length - items.length;
   return (
     <>
       <ul className="sw-canvas-list sw-canvas-futures" role="list">
@@ -193,6 +186,11 @@ function Futures({ canvas }: { canvas: DecisionCanvas }) {
           </span>
         ))}
       </p>
+      {left > 0 && (
+        <button type="button" className="sw-canvas-more" onClick={() => openDetail('lenses')}>
+          {plural(left, 'more option')}
+        </button>
+      )}
     </>
   );
 }
@@ -206,8 +204,13 @@ function Drivers({ canvas }: { canvas: DecisionCanvas }) {
         <li key={driver.id}>
           <span className="sw-canvas-row__text">
             {driver.statement.text} <LabelChip label={driver.statement.label} />
+            {driver.flipsAnswer && (
+              <>
+                {' '}
+                <span className="sw-canvas-flag">{COPY.couldReverse}</span>
+              </>
+            )}
           </span>
-          {driver.flipsAnswer && <span className="sw-canvas-flag">{COPY.couldReverse}</span>}
         </li>
       ))}
     </ul>
@@ -229,7 +232,7 @@ function Constraints({ canvas, openDetail }: Props) {
       {glance.rows.length === 0 ? (
         <Quiet>{canvas.constraints.note}</Quiet>
       ) : (
-        <ul className="sw-canvas-list" role="list">
+        <ul className="sw-canvas-list sw-canvas-constraints" role="list">
           {glance.rows.map((row) => (
             <li key={row.id}>
               <span className="sw-canvas-row__text">{row.statement}</span>
@@ -243,9 +246,11 @@ function Constraints({ canvas, openDetail }: Props) {
                 >
                   {validationWords(row.validation)}
                 </span>
-                <span className="sw-canvas-tag">
-                  {row.enforcement === 'enforced' ? 'Run' : 'Read only'}
-                </span>
+                {row.enforcement === 'read-only' && (
+                  <span className="sw-canvas-tag" data-open>
+                    Read only
+                  </span>
+                )}
                 <LabelChip label={row.label} />
               </span>
             </li>
@@ -298,8 +303,7 @@ function Who({ canvas, openDetail }: Props) {
         })}
       </ul>
       <p className="sw-canvas-quiet">
-        Simulated roles, not people. Changes are in simulated members in 100 who resist
-        {canvas.actors.baselineLabel ? `, against ${canvas.actors.baselineLabel}` : ''}.
+        Simulated roles, not people. Change in simulated members in 100 who resist.
       </p>
       {canvas.actors.items.length > items.length && (
         <button type="button" className="sw-canvas-more" onClick={() => openDetail('actors')}>
@@ -314,25 +318,41 @@ function Changes({ canvas, openDetail }: Props) {
   const views = strip(canvas.changes.counterfactuals.views);
   const assumptions = assumptionGlance(canvas.changes.assumptions);
   const { counterfactuals } = canvas.changes;
+  const counted = [
+    counterfactuals.views.length > 0 ? plural(counterfactuals.views.length, 'view') : null,
+    canvas.changes.assumptions.length > 0
+      ? plural(canvas.changes.assumptions.length, 'assumption')
+      : null,
+  ].filter((part) => part !== null);
+  const inFull = counted.length > 0 ? `${counted.join(' and ')} in full` : 'What else was tried';
   return (
     <>
       {views.length > 0 ? (
-        <ul
-          className="sw-canvas-strip"
-          role="list"
-          aria-label="Counterfactual views of the proposed change"
-        >
-          {views.map((view) => {
-            const words = viewWords(view);
-            return (
-              <li key={view.id} data-reverses={view.couldChangeAnswer === true || undefined}>
-                <span className="sw-canvas-row__name">{view.label}</span>
-                <span className="sw-canvas-fig num">{words.effect}</span>
-                <span className="sw-canvas-row__sub">{words.flag}</span>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <ul
+            className="sw-canvas-strip"
+            role="list"
+            aria-label="Counterfactual views of the proposed change"
+          >
+            {views.map((view) => {
+              const words = viewWords(view);
+              return (
+                <li key={view.id} data-reverses={view.couldChangeAnswer === true || undefined}>
+                  <span className="sw-canvas-row__name">
+                    {view.label}
+                    {view.couldChangeAnswer !== false && view.deltaVsBase !== null && (
+                      <span className="sw-canvas-row__sub">{words.flag}</span>
+                    )}
+                  </span>
+                  <span className="sw-canvas-fig num">{words.effect}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="sw-canvas-quiet">
+            Change in simulated members in 100 who resist, on the same seeds.
+          </p>
+        </>
       ) : (
         <Quiet>{counterfactuals.note}</Quiet>
       )}
@@ -340,17 +360,21 @@ function Changes({ canvas, openDetail }: Props) {
         <ul className="sw-canvas-list" role="list">
           {assumptions.map((row) => (
             <li key={row.id}>
-              <span className="sw-canvas-row__text">{row.statement.text}</span>
-              <span className="sw-canvas-row__meta">
-                <LabelChip label={row.statement.label} />
-                {row.flipsAnswer && <span className="sw-canvas-flag">{COPY.couldReverse}</span>}
+              <span className="sw-canvas-row__text">
+                {row.statement.text} <LabelChip label={row.statement.label} />
+                {row.flipsAnswer && (
+                  <>
+                    {' '}
+                    <span className="sw-canvas-flag">{COPY.couldReverse}</span>
+                  </>
+                )}
               </span>
             </li>
           ))}
         </ul>
       )}
       <button type="button" className="sw-canvas-more" onClick={() => openDetail('changes')}>
-        All views, assumptions and no-regret moves
+        {inFull}
       </button>
     </>
   );
@@ -387,12 +411,11 @@ function Validate({ canvas, openDetail }: Props) {
         {checks.items.map((item) => (
           <li key={item.id}>
             <Square size={14} aria-hidden="true" className="sw-canvas-box" />
-            <span className="sw-canvas-row__text">{item.what}</span>
-            <span className="sw-canvas-row__meta">
+            <span className="sw-canvas-row__text">
               <span className="sw-canvas-tag" data-hard={item.priority === 'high' || undefined}>
                 {PRIORITY_WORDS[item.priority]}
-              </span>
-              <span className="sw-canvas-tag">{item.kind}</span>
+              </span>{' '}
+              {item.what}
             </span>
           </li>
         ))}
@@ -408,16 +431,26 @@ function Validate({ canvas, openDetail }: Props) {
 /** The first viewport: the nine things a decision is read by, in the order it is read, answer first. */
 export function Viewport({ canvas, openDetail }: Props) {
   const futureLabels = labelsOf(canvas.futures.items.map((future) => future.statement));
+  const links = (
+    <span className="sw-canvas-links">
+      <button type="button" className="sw-canvas-more" onClick={() => openDetail('status')}>
+        {COPY.whyStatus}
+      </button>
+      <button type="button" className="sw-canvas-more" onClick={() => openDetail('lenses')}>
+        How the options compare
+      </button>
+    </span>
+  );
   return (
     <div className="sw-canvas-grid">
       <Slot item="question" canvas={canvas}>
         <Question canvas={canvas} />
       </Slot>
-      <Slot item="answer" canvas={canvas}>
-        <Answer canvas={canvas} openDetail={openDetail} />
+      <Slot item="answer" canvas={canvas} chips={links}>
+        <Answer canvas={canvas} />
       </Slot>
       <Slot item="futures" canvas={canvas} chips={<LabelsOf labels={futureLabels} />}>
-        <Futures canvas={canvas} />
+        <Futures canvas={canvas} openDetail={openDetail} />
       </Slot>
       <Slot item="drivers" canvas={canvas}>
         <Drivers canvas={canvas} />

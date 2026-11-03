@@ -28,6 +28,7 @@ import {
   checksOf,
   completenessOf,
   constraintGlance,
+  futureItems,
   gateWords,
   gistOf,
   moveWords,
@@ -287,8 +288,8 @@ describe('what the page works out from the view', () => {
     const canvas = canvasFixture((raw) => {
       raw.constraints.gate = 'provisional';
       raw.constraints.hard = [
-        constraintRow({ id: 'a' }),
-        constraintRow({ id: 'b', provisional: false }),
+        constraintRow({ id: 'a', provisional: false }),
+        constraintRow({ id: 'b', provisional: true }),
       ];
       raw.constraints.soft = [
         constraintRow({ id: 'c', hardness: 'soft' }),
@@ -302,7 +303,21 @@ describe('what the page works out from the view', () => {
       provisional: 1,
       more: 4 - GLANCE.constraints,
     });
-    expect(glance.rows.map((row) => row.id)).toEqual(['a', 'b', 'c']);
+    // What the answer rests on without anyone having confirmed it comes first.
+    expect(glance.rows.map((row) => row.id)).toEqual(['b', 'a']);
+  });
+
+  it('shows the future that ranks first and the option that changes nothing, when there are more than it holds', () => {
+    const canvas = canvasFixture((raw) => {
+      const [first, second] = raw.futures.items;
+      raw.futures.items = [
+        { ...first!, alternativeId: 'a', label: 'Option A', kind: 'alternative' },
+        { ...second!, alternativeId: 'b', label: 'Option B', kind: 'alternative' },
+        { ...first!, alternativeId: 'baseline', label: 'No change', kind: 'baseline' },
+      ];
+    });
+    expect(futureItems(canvas).map((future) => future.alternativeId)).toEqual(['a', 'baseline']);
+    expect(futureItems(canvasFixture())).toHaveLength(2);
   });
 
   it('writes a change as simulated members in 100, never as a percent', () => {

@@ -469,10 +469,24 @@ function Validation({ canvas }: { canvas: DecisionCanvas }) {
 }
 
 function Evidence({ canvas }: { canvas: DecisionCanvas }) {
-  const { evidence, uncertainty, timing, reversibility } = canvas;
+  const { evidence, uncertainty, timing, reversibility, question } = canvas;
   return (
     <>
       <Plain>{COPY.basedOn}</Plain>
+      <h3 className="sw-canvas-part__title">The question as framed</h3>
+      <p>
+        <strong>As it was asked.</strong> {question.asked}
+      </p>
+      <Plain>What follows is what Swarm made of it. None of it is a fact about the world.</Plain>
+      <Lines
+        lines={[
+          question.decision,
+          question.baseline,
+          ...(question.horizon ? [question.horizon] : []),
+          ...(question.geography ? [question.geography] : []),
+        ]}
+      />
+      {question.system ? <Plain>The system it is about: {question.system}</Plain> : null}
       <p>
         <strong>Evidence: {evidence.level}.</strong> {evidence.reasons.join(' ')}
       </p>

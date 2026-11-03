@@ -563,7 +563,7 @@ function actor(
     alignment,
     stance: -change,
     stanceChange: -change,
-    adverseShare: change,
+    adverseShare: Math.max(0, change),
     adverseChange: change,
     moves: change > 0.05 ? 'toward-resistance' : 'little',
     directionBasis: say(
@@ -582,6 +582,254 @@ export function canvasFixture(patch: (canvas: Raw) => void = () => undefined): D
   const raw = base();
   patch(raw);
   return decisionCanvasSchema.parse(raw);
+}
+
+/** A canvas with every part full: what a project with its constraints reviewed, views run and a review made looks like. */
+export function richFixture(): DecisionCanvas {
+  const view = (
+    id: Raw['changes']['counterfactuals']['views'][number]['id'],
+    label: string,
+    delta: number,
+    reverses: boolean,
+  ): Raw['changes']['counterfactuals']['views'][number] => ({
+    id,
+    label,
+    change: `${label}, all else as run.`,
+    applicable: true,
+    deltaVsBase: delta,
+    standardError: 0.01,
+    classification: Math.abs(delta) >= 0.05 ? 'material' : 'negligible',
+    driver: 'The constraint was a driver of the simulated resistance.',
+    couldChangeAnswer: reverses,
+    statement: say(
+      `${label}: the simulated share resisting moved by ${Math.round(delta * 100)} in 100 on the same seeds.`,
+      'simulation-event',
+      'run:counterfactual',
+    ),
+  });
+  const assumption = (
+    id: string,
+    text: string,
+    shift: number,
+    flipsAnswer: boolean,
+  ): Raw['changes']['assumptions'][number] => ({
+    id,
+    statement: say(text, 'assumption', 'sensitivity'),
+    origin: 'system-assumption',
+    classification: flipsAnswer ? 'assumption-sensitive' : 'robust',
+    shift,
+    standardError: 0.01,
+    flipsAnswer,
+    evidenced: false,
+  });
+  const check = (
+    id: string,
+    priority: 'high' | 'medium' | 'low',
+    what: string,
+  ): Raw['validation']['items'][number] => ({
+    id,
+    kind: 'constraint',
+    priority,
+    source: 'unvalidated-constraint',
+    what,
+    why: 'Nobody has confirmed it, so the result rests on it provisionally.',
+    how: 'Ask the person who owns the budget to confirm or correct it. Swarm does not contact anyone.',
+    label: 'validation-requirement',
+    refs: [],
+  });
+  return canvasFixture((raw) => {
+    raw.status.headline =
+      '“Proposed change” is ahead on the headline lens, on conditions. One hard constraint is not confirmed, so the answer is provisional.';
+    raw.constraints = {
+      gate: 'provisional',
+      gateSummary:
+        'One hard constraint is not confirmed, so the comparison ran under it provisionally.',
+      comparisonStatus: 'provisional',
+      provisional: true,
+      provisionalLabel: 'The answer rests on a hard constraint that nobody has confirmed.',
+      reviewed: true,
+      hard: [
+        constraintRow({ id: 'budget', provisional: true }),
+        constraintRow({
+          id: 'staffing',
+          category: 'staffing',
+          statement: 'No more than two people are taken off their current work.',
+          validation: 'confirmed',
+          provisional: false,
+          label: 'fact',
+          source: 'From evidence',
+        }),
+        constraintRow({
+          id: 'regulation',
+          category: 'regulatory',
+          statement: 'The change is approved by the regulator before it starts.',
+          validation: 'confirmed',
+          provisional: false,
+          inComparison: 'read-only',
+          enforcement: 'read-only',
+          source: 'From evidence',
+        }),
+      ],
+      soft: [
+        constraintRow({
+          id: 'timing',
+          category: 'time',
+          hardness: 'soft',
+          statement: 'The first step is done within a quarter.',
+          provisional: false,
+          validation: 'assumed',
+        }),
+        constraintRow({
+          id: 'tone',
+          category: 'reputational',
+          hardness: 'soft',
+          statement: 'The announcement does not criticise the previous approach.',
+          provisional: false,
+          validation: 'assumed',
+        }),
+      ],
+      missing: ['Whether the staffing limit applies to contractors is not stated.'],
+      notModelled: ['The regulator’s approval was read by the simulation, not run.'],
+      note: 'Five constraints, one of them not confirmed.',
+    };
+    raw.actors.items = [
+      actor(
+        'employees',
+        'Employees',
+        'operations',
+        'Operations: Carries out or supports the change day to day',
+        'adverse',
+        0.47,
+      ),
+      actor(
+        'regulators',
+        'Regulators',
+        'regulator',
+        'Regulator: Sets or enforces rules that the change has to meet',
+        'neutral',
+        0.01,
+        'can-block',
+      ),
+      actor(
+        'delivery-partners',
+        'Delivery partners',
+        'partner',
+        'Partner: Depends on, or is relied on by, the party making the change',
+        'defensive',
+        0.36,
+      ),
+      actor(
+        'board',
+        'Board',
+        'governance',
+        'Governance: Approves or oversees the decision',
+        'favourable',
+        -0.12,
+        'approves',
+      ),
+      actor(
+        'advisers',
+        'Advisers',
+        'influencer',
+        'Influencer: Can change how others see and respond to the change',
+        'neutral',
+        0.02,
+        'advises',
+      ),
+      actor(
+        'buyers',
+        'Buyers',
+        'end-user',
+        'End user: Uses or experiences what the change alters',
+        'neutral',
+        0.02,
+      ),
+    ];
+    raw.changes.counterfactuals = {
+      available: true,
+      current: true,
+      note: 'Each view takes one constraint away or changes it, on the same seeds. A view that could reverse the answer is marked.',
+      views: [
+        view('without-budget', 'Without the budget constraint', 0.12, true),
+        view('delayed-implementation', 'Implementation delayed one quarter', -0.04, false),
+        view('stronger-regulation', 'Stronger regulation', 0.07, false),
+        view('lower-adoption', 'Lower adoption', 0.02, false),
+      ],
+    };
+    raw.changes.assumptions = [
+      assumption(
+        'strength',
+        'The change lands with a strength of 0.70, a default Swarm set.',
+        0.18,
+        true,
+      ),
+      assumption('round', 'The change lands in round 2.', 0.03, false),
+    ];
+    raw.drivers = [
+      ...raw.drivers,
+      {
+        id: 'constraint-budget',
+        kind: 'constraint',
+        statement: say(
+          'Taking the budget constraint away moved the simulated share resisting by 12 in 100.',
+          'simulation-event',
+          'run:counterfactual',
+        ),
+        effect: 0.12,
+        flipsAnswer: true,
+      },
+      {
+        id: 'assumption-strength',
+        kind: 'assumption',
+        statement: say(
+          'The strength with which the change lands, a default Swarm set, moved the share by 18 in 100.',
+          'simulation-event',
+          'sensitivity',
+        ),
+        effect: 0.18,
+        flipsAnswer: true,
+      },
+    ];
+    raw.validation.items = [
+      check(
+        'val-budget',
+        'high',
+        'Confirm with the budget owner that the spend stays inside the approved budget.',
+      ),
+      check(
+        'val-contractors',
+        'high',
+        'Confirm whether the staffing limit applies to contractors.',
+      ),
+      check('val-timing', 'medium', 'Confirm that the first step can be done within a quarter.'),
+      check('val-tone', 'medium', 'Confirm the announcement wording with the communications lead.'),
+      check('val-regulator', 'low', 'Ask the regulator what they would need to see.'),
+    ];
+    raw.validation.stopConditions = [
+      ...raw.validation.stopConditions,
+      {
+        id: 'stop-budget',
+        when: 'The budget owner says the spend is not approved.',
+        then: 'Stop: the answer rests on it.',
+        basis: 'A hard constraint that nobody had confirmed.',
+        label: 'validation-requirement',
+      },
+      {
+        id: 'stop-new',
+        when: 'Something the simulation did not include appears.',
+        then: 'Pause and run the comparison again with it included.',
+        basis: 'The comparison only knows what the project held when it was run.',
+        label: 'validation-requirement',
+      },
+    ];
+    raw.answer.recommendation.what = say(
+      'Take “Proposed change” only after the budget is confirmed: it is ahead on the headline lens, and the one thing that could reverse it is the budget constraint.',
+      'recommendation',
+      'status:conditional-option',
+    );
+    raw.answer.preferredAlternativeId = 'proposed-change';
+    raw.answer.recommendation.kind = 'proceed';
+  });
 }
 
 /** A canvas that lands on each of the six statuses, with only what differs in each. */

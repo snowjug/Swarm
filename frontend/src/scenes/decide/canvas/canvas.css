@@ -154,6 +154,11 @@
 
   /* ---- Question --------------------------------------------------------------------------------- */
   .sw-canvas-question {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+    overflow: hidden;
     margin: 0;
     color: var(--ink);
     font-family: var(--font-display);
@@ -178,7 +183,18 @@
     letter-spacing: 0.09em;
     text-transform: uppercase;
   }
+  /* A kind of statement stands beside the name of what it is of, and keeps its own case. */
+  .sw-canvas-frame dt .sw-canvas-label {
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  /* What is said about the question is two lines at most here; the whole of it is under "What this rests on". */
   .sw-canvas-frame dd {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
     margin: 0;
     color: var(--ink-2);
     font-size: var(--fs-small);
@@ -262,7 +278,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0 var(--s-5);
-    margin: 0;
+    margin: 0 0 0 auto;
   }
 
   /* A button that reads as a link to the rest of what a part says. */
@@ -496,6 +512,14 @@
   }
 
   /* ---- Who moves --------------------------------------------------------------------------------- */
+  /* What a person wrote as a constraint is three lines at most here; the whole of it is under "Constraints in full". */
+  .sw-canvas-constraints .sw-canvas-row__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+  }
   .sw-canvas-who > li {
     display: flex;
     flex-wrap: wrap;
@@ -535,17 +559,14 @@
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 0 var(--s-3);
     align-items: baseline;
-    padding-block: 0.35rem;
+    padding-block: 0.3rem;
     border-bottom: 1px solid var(--hairline);
-  }
-  .sw-canvas-strip > li > .sw-canvas-row__sub {
-    grid-column: 1 / -1;
   }
   .sw-canvas-strip > li[data-reverses] {
     padding-left: var(--s-2);
     border-left: 2px solid var(--c-against);
   }
-  .sw-canvas-strip > li[data-reverses] > .sw-canvas-row__sub {
+  .sw-canvas-strip > li[data-reverses] .sw-canvas-row__sub {
     color: var(--ink);
     font-weight: 600;
   }
@@ -577,9 +598,6 @@
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.15rem var(--s-2);
     align-items: start;
-  }
-  .sw-canvas-checks > li > .sw-canvas-row__meta {
-    grid-column: 2;
   }
   .sw-canvas-box {
     margin-top: 0.15rem;

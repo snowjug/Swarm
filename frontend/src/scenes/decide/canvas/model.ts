@@ -62,11 +62,11 @@ export const ITEM_TITLES: Record<Item, string> = {
 
 /** What each part of the first viewport can show before “and more” is said. */
 export const GLANCE = {
-  futures: 3,
-  drivers: 3,
-  constraints: 3,
+  futures: 2,
+  drivers: 2,
+  constraints: 2,
   who: 3,
-  views: 3,
+  views: 2,
   assumptions: 1,
   checks: 3,
 } as const;
@@ -160,7 +160,12 @@ export interface ConstraintGlance {
 
 export function constraintGlance(canvas: DecisionCanvas): ConstraintGlance {
   const { hard, soft } = canvas.constraints;
-  const ordered = [...hard, ...soft];
+  // What the answer rests on without anyone having confirmed it comes first, then the rest of the hard ones.
+  const ordered = [
+    ...hard.filter((row) => row.provisional),
+    ...hard.filter((row) => !row.provisional),
+    ...soft,
+  ];
   return {
     words: gateWords(canvas.constraints),
     hard: hard.length,
@@ -273,8 +278,17 @@ export const PRIORITY_WORDS: Record<ValidationItem['priority'], string> = {
   low: 'Later',
 };
 
-export const futureItems = (canvas: DecisionCanvas): FutureReading[] =>
-  canvas.futures.items.slice(0, GLANCE.futures);
+/**
+ * The futures the glance shows: the one that ranks first and the option that changes nothing, so that the first is read
+ * against it. Where there are no more than the glance holds, all of them.
+ */
+export function futureItems(canvas: DecisionCanvas): FutureReading[] {
+  const items = canvas.futures.items;
+  if (items.length <= GLANCE.futures) return items;
+  const [first, ...rest] = items;
+  const reference = rest.find((item) => item.kind === 'baseline') ?? rest[0];
+  return first && reference ? [first, reference] : items.slice(0, GLANCE.futures);
+}
 export const driverItems = (canvas: DecisionCanvas): DriverReading[] =>
   canvas.drivers.slice(0, GLANCE.drivers);
 export const moverItems = (canvas: DecisionCanvas): ActorReading[] =>
