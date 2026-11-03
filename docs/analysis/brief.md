@@ -442,8 +442,9 @@ Quotations from the sources are not rewritten.
   notice before the counts.
 - Each chart has a table behind it with the same numbers.
 - "This brief may be out of date" lists what changed, and what to do depends on what it is. A comparison
-  records the revision of the scenario, the stakeholders and the actors it was run on, and the brief is
-  judged against that record, not against when it was written. If one of them changed after the
+  records the revision of the scenario, the stakeholders, the actors and the constraints it was run on
+  (a comparison saved before the constraints were recorded is read as made when the project had none), and
+  the brief is judged against that record, not against when it was written. If one of them changed after the
   comparison ran, writing the brief again would describe the new decision with the old runs, so the
   notice asks for the comparison to be run again in the Simulation stage, then the brief to be written
   again; the brief written from such a comparison says so in its own methodology notes and keeps the

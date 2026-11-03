@@ -488,7 +488,7 @@ needs `export`.
   `what the comparison was made from was not recorded`, which does not clear.
 - **Writing.** `POST .../brief` takes `{ "analysisId"?: string }` (20 a minute), uses the newest finished
   comparison unless one is named, replaces any earlier brief and answers 201 with the view. A comparison that
-  was run before the scenario, the stakeholders or the actors changed is still written from, and the brief
+  was run before the scenario, the stakeholders, the actors or the constraints changed is still written from, and the brief
   says so in its methodology notes. Refusals:
   `409 NO_ANALYSIS`, `409 ANALYSIS_NOT_COMPLETED`, `409 ANALYSIS_EMPTY`, `404 ANALYSIS_NOT_FOUND`.
 - **Exporting.** `GET .../brief/export?format=md|json|html` (20 a minute; `md` is the default) answers a

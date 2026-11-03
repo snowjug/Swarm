@@ -332,7 +332,8 @@ written, so a reader can tell it is older than the criticism's current wording.
   also ends up "about the same", and gets the same prompt to look at the intensity and the impacts.
 - A model criticism is checked against ids, not for being right.
 - The review does not run on its own when an analysis, the stakeholders or the brief change. A
-  comparison records the revision of the scenario, the stakeholders and the actors it was run on, so
+  comparison records the revision of the scenario, the stakeholders, the actors and the constraints it was run
+  on, so
   the page says when the comparison a review is of was run before one of them changed (running the
   review again on that comparison does not clear it: run the comparison again), and when a newer
   comparison exists. A review made from such a comparison says so in its notes, since a check that
