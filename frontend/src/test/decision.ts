@@ -1,0 +1,713 @@
+import type { z } from 'zod';
+import {
+  DECISION_STATUS_INFO,
+  LENS_INFO,
+  decisionCanvasSchema,
+  type DecisionCanvas,
+  type DecisionReadiness,
+  type DecisionStatus,
+  type DecisionView,
+  type EpistemicLabel,
+  type LensId,
+} from '../../../shared/decision';
+
+// A decision canvas as the route answers with it, for the tests of the page. It is parsed by the shared schema, so
+// that a fixture that no longer matches the contract fails here and not in a screenshot. Two options (“No change” and
+// “Proposed change”), thirty seeded runs of each, nothing about constraints reviewed, no counterfactual view run: the
+// status is a conditional option, with the conditions that makes it one. The other statuses are made from it.
+
+type Raw = z.input<typeof decisionCanvasSchema>;
+
+const say = (text: string, label: EpistemicLabel, basis?: string) => ({ text, label, basis });
+const part = (items: ReturnType<typeof say>[] = [], missing: string | null = null) => ({
+  items,
+  missing,
+});
+
+const lens = (
+  id: LensId,
+  standing: { baseline: 'leads' | 'level' | 'behind'; proposed: 'leads' | 'level' | 'behind' },
+  values: { baseline: number; proposed: number },
+): Raw['lenses'][number] => {
+  const info = LENS_INFO[id];
+  const clear = standing.baseline !== 'level';
+  return {
+    id,
+    name: info.name,
+    question: info.question,
+    measure: info.measure,
+    direction: info.direction,
+    computable: true,
+    note: null,
+    results: [
+      {
+        alternativeId: 'baseline',
+        value: values.baseline,
+        low: 0,
+        high: 0.2,
+        runs: 30,
+        standing: standing.baseline,
+        detail: null,
+      },
+      {
+        alternativeId: 'proposed-change',
+        value: values.proposed,
+        low: 0.03,
+        high: 0.3,
+        runs: 30,
+        standing: standing.proposed,
+        detail: null,
+      },
+    ],
+    leaderId: clear ? 'baseline' : null,
+    levelIds: clear ? [] : ['baseline', 'proposed-change'],
+    margin: clear ? Math.abs(values.proposed - values.baseline) : null,
+    verdict: clear ? 'clear-leader' : 'tie',
+  };
+};
+
+export const constraintRow = (
+  overrides: Partial<Raw['constraints']['hard'][number]> = {},
+): Raw['constraints']['hard'][number] => ({
+  id: 'constraint-budget',
+  statement: 'The spend stays inside the budget the board approved.',
+  category: 'budget',
+  hardness: 'hard',
+  source: 'From your question',
+  label: 'assumption',
+  validation: 'unvalidated',
+  enforcement: 'enforced',
+  inComparison: 'applied',
+  effects: [],
+  provisional: true,
+  violatedBy: [],
+  ...overrides,
+});
+
+const base = (): Raw => ({
+  version: 1,
+  notice: 'Explore scenarios, not predictions.',
+  question: {
+    asked:
+      'How might different users react if this online store changes its delivery fees, free-delivery threshold and checkout flow?',
+    decision: say(
+      'The online store changes its delivery fees, its free-delivery threshold and its checkout flow.',
+      'assumption',
+      'question',
+    ),
+    baseline: say(
+      'Nothing changes: the declared starting assumptions only. Intensity 0: no change lands.',
+      'assumption',
+      'variant:baseline',
+    ),
+    system: '',
+    horizon: null,
+    geography: null,
+    successWording: null,
+  },
+  status: {
+    status: 'conditional-option',
+    rule: 'conditional',
+    label: DECISION_STATUS_INFO['conditional-option'].label,
+    meaning: DECISION_STATUS_INFO['conditional-option'].meaning,
+    headline:
+      '“No change” is ahead on the headline lens, on conditions. No constraints were reviewed for this decision, so the answer does not say what limits it.',
+    why: [
+      'On “Least resistance overall”: clearly ahead.',
+      'On “Broadest support among key actors”: level with the best.',
+    ],
+    conditions: [
+      'No constraints were reviewed for this decision, so the answer does not say what limits it.',
+      'No counterfactual view was run against it, so nothing was tried against the result.',
+    ],
+  },
+  answer: {
+    headline: say(
+      '“No change” is ahead on the headline lens, on conditions. No constraints were reviewed for this decision, so the answer does not say what limits it.',
+      'recommendation',
+      'status:conditional-option',
+    ),
+    preferredAlternativeId: 'baseline',
+    recommendation: {
+      kind: 'keep-no-change',
+      what: say(
+        'Keep “No change”: on the lenses Swarm computed, no alternative came out ahead of it, on the conditions listed. Do not change course until the checks below are done and a named approver agrees.',
+        'recommendation',
+        'status:conditional-option',
+      ),
+      forWhom: part([
+        say(
+          'It lands most on “Employees”: in the simulation this role moves toward resistance.',
+          'simulation-event',
+          'run:actor-shift',
+        ),
+      ]),
+      assumptions: part([
+        say(
+          'How strongly and when the change lands was set by Swarm as a default; the simulation did not measure it.',
+          'assumption',
+          'variant:strength',
+        ),
+      ]),
+      constraints: part([
+        say(
+          'No constraints were reviewed for this decision, so what limits it is not stated.',
+          'validation-requirement',
+          'gate:none',
+        ),
+      ]),
+      supportingEvidence: part([
+        say(
+          '4 source documents attached: 4 supplied by a person, 0 retrieved from public pages by this server and 0 supplied as historical material.',
+          'fact',
+          'record:documents',
+        ),
+        say(
+          'On “Least resistance overall” “No change” was clearly ahead of the other options across the seeded runs of the simulation.',
+          'simulation-event',
+          'lens:overall-resistance',
+        ),
+      ]),
+      weakeningEvidence: part(
+        [],
+        'No evidence that weakens it was found. That does not show that none exists.',
+      ),
+      invalidatedBy: part([
+        say(
+          'A real person in the role “Regulators” says no when asked directly.',
+          'validation-requirement',
+          'stop-holder-regulators',
+        ),
+      ]),
+      testNext: part([
+        say(
+          'Check with someone who holds the role “Regulators” what they would need to see.',
+          'validation-requirement',
+          'val-stakeholder-regulators',
+        ),
+      ]),
+      reversibility: {
+        value: 'unknown',
+        statement: say(
+          'Whether the choice can be reversed is unknown: nothing in the project says so. Treat the first step as hard to undo until it is known.',
+          'validation-requirement',
+          'reversibility:unknown',
+        ),
+      },
+      approval: part([
+        say(
+          'A named approver agrees to act: a real person who holds the decision.',
+          'validation-requirement',
+          'approve-named',
+        ),
+      ]),
+      missing: ['weakeningEvidence'],
+    },
+  },
+  alternatives: [
+    {
+      id: 'baseline',
+      label: 'No change',
+      kind: 'baseline',
+      verdict: 'preferred',
+      why: 'Clearly ahead on “Least resistance overall”.',
+      violatedConstraintIds: [],
+      violationConfirmed: null,
+      standing: {
+        'overall-resistance': 'leads',
+        'key-actor-support': 'level',
+        'decision-maker-resistance': 'level',
+        'worst-affected-downside': 'leads',
+      },
+      runs: 30,
+    },
+    {
+      id: 'proposed-change',
+      label: 'Proposed change',
+      kind: 'alternative',
+      verdict: 'viable',
+      why: 'Level with the best on “Broadest support among key actors”.',
+      violatedConstraintIds: [],
+      violationConfirmed: null,
+      standing: {
+        'overall-resistance': 'behind',
+        'key-actor-support': 'level',
+        'decision-maker-resistance': 'level',
+        'worst-affected-downside': 'behind',
+      },
+      runs: 30,
+    },
+  ],
+  lenses: [
+    lens(
+      'overall-resistance',
+      { baseline: 'leads', proposed: 'behind' },
+      { baseline: 0.0023, proposed: 0.0649 },
+    ),
+    lens(
+      'key-actor-support',
+      { baseline: 'level', proposed: 'level' },
+      { baseline: 0, proposed: 0 },
+    ),
+    lens(
+      'decision-maker-resistance',
+      { baseline: 'level', proposed: 'level' },
+      { baseline: 0, proposed: 0 },
+    ),
+    lens(
+      'worst-affected-downside',
+      { baseline: 'leads', proposed: 'behind' },
+      { baseline: 0.03, proposed: 0.5 },
+    ),
+  ],
+  lensAgreement: {
+    state: 'agree',
+    statement:
+      '“No change” is clearly ahead on “Least resistance overall” and “Smallest downside for the worst-affected group”; on the other lenses it cannot be told apart from another option.',
+  },
+  futures: {
+    supported: true,
+    note: 'Each future is a simulated pattern over 30 or more seeded runs of that option, and “held in” counts runs. They are scenarios to examine, not forecasts, and none is a probability.',
+    items: [
+      {
+        alternativeId: 'baseline',
+        label: 'No change',
+        kind: 'baseline',
+        statement: say(
+          'Under “No change” the largest group of simulated members ended up waiting and seeing, in 30 of 30 seeded runs.',
+          'scenario-possibility',
+          'run:responses',
+        ),
+        dominant: 'neutral',
+        shares: { favourable: 0.1679, neutral: 0.6631, defensive: 0.1667, adverse: 0.0023 },
+        adverseRange: { low: 0, high: 0.0166 },
+        heldIn: 30,
+        of: 30,
+        repeatability: 'repeatable',
+        standing: 'leads',
+      },
+      {
+        alternativeId: 'proposed-change',
+        label: 'Proposed change',
+        kind: 'alternative',
+        statement: say(
+          'Under “Proposed change” the largest group of simulated members ended up waiting and seeing, in 30 of 30 seeded runs.',
+          'scenario-possibility',
+          'run:responses',
+        ),
+        dominant: 'neutral',
+        shares: { favourable: 0.153, neutral: 0.559, defensive: 0.2231, adverse: 0.0649 },
+        adverseRange: { low: 0.03, high: 0.1167 },
+        heldIn: 30,
+        of: 30,
+        repeatability: 'repeatable',
+        standing: 'behind',
+      },
+    ],
+  },
+  drivers: [
+    {
+      id: 'actor-employees',
+      kind: 'actor',
+      statement: say(
+        '“Employees” moved the most in the simulation: toward resistance compared with no change.',
+        'simulation-event',
+        'run:actor-shift',
+      ),
+      effect: null,
+      flipsAnswer: false,
+    },
+  ],
+  constraints: {
+    gate: 'none',
+    gateSummary: 'No constraints were reviewed.',
+    comparisonStatus: 'none',
+    provisional: false,
+    provisionalLabel: null,
+    reviewed: false,
+    hard: [],
+    soft: [],
+    missing: [],
+    notModelled: [],
+    note: 'No constraints were reviewed for this decision, so the picture does not say what limits it.',
+  },
+  actors: {
+    focusAlternativeId: 'proposed-change',
+    focusLabel: 'Proposed change',
+    baselineLabel: 'No change',
+    items: [
+      actor(
+        'employees',
+        'Employees',
+        'operations',
+        'Operations: Carries out or supports the change day to day',
+        'adverse',
+        0.47,
+      ),
+      actor(
+        'delivery-partners',
+        'Delivery partners',
+        'partner',
+        'Partner: Depends on, or is relied on by, the party making the change',
+        'defensive',
+        0.36,
+      ),
+      actor(
+        'regulators',
+        'Regulators',
+        'regulator',
+        'Regulator: Sets or enforces rules that the change has to meet',
+        'neutral',
+        0,
+        'can-block',
+      ),
+    ],
+    note: 'Roles are simulated: Swarm made them up from the question and the sources, and what they do here is what the simulation does under its assumptions, not what any real person would do.',
+  },
+  changes: {
+    counterfactuals: {
+      available: false,
+      current: false,
+      note: 'No counterfactual view has been run, so nothing was tried against the result. Run them from the constraints.',
+      views: [],
+    },
+    assumptions: [],
+    sensitivity: {
+      tested: 12,
+      sensitive: 0,
+      robust: 10,
+      inconclusive: 2,
+      note: 'Each row moves one assumption of the proposed change on the same seeds and reports how far the simulated share moved.',
+    },
+  },
+  validation: {
+    items: [
+      {
+        id: 'val-stakeholder-regulators',
+        kind: 'stakeholder',
+        priority: 'high',
+        source: 'stakeholder',
+        what: 'Check with someone who holds the role “Regulators” what they would need to see.',
+        why: 'The role has real weight in the simulation and its response is uncertain, so what the simulation shows for it is a reading and not a finding.',
+        how: 'Speak with a real person in that role, or review how people in it have responded to comparable changes. Swarm does not contact anyone.',
+        label: 'validation-requirement',
+        refs: ['regulators'],
+      },
+      {
+        id: 'val-stakeholder-advisers',
+        kind: 'stakeholder',
+        priority: 'medium',
+        source: 'stakeholder',
+        what: 'Check with someone who holds the role “Advisers” what they would need to see.',
+        why: 'The role has real weight in the simulation and its response is uncertain, so what the simulation shows for it is a reading and not a finding.',
+        how: 'Speak with a real person in that role, or review how people in it have responded to comparable changes. Swarm does not contact anyone.',
+        label: 'validation-requirement',
+        refs: ['advisers'],
+      },
+    ],
+    stopConditions: [
+      {
+        id: 'stop-holder-regulators',
+        when: 'A real person in the role “Regulators” says no when asked directly.',
+        then: 'Stop and rethink the option or the plan: a simulation cannot overrule someone who can decide or block.',
+        basis:
+          'The role can decide, approve or block, and its simulated response is only a reading.',
+        label: 'validation-requirement',
+      },
+    ],
+    note: 'Worked out by rules from what is missing, unconfirmed or open. Each item is something to check in the real world; Swarm does not do it for you.',
+  },
+  evidence: {
+    level: 'adequate',
+    reasons: [],
+    documents: { total: 4, supplied: 4, retrieved: 0, historical: 0 },
+    actors: { total: 15, supported: 15, unsupported: [] },
+    conflicts: null,
+    ledger: { assessed: false, level: null, reasons: [] },
+    research: null,
+    missing: [],
+    statements: [
+      say(
+        '4 source documents attached: 4 supplied by a person, 0 retrieved from public pages by this server and 0 supplied as historical material.',
+        'fact',
+        'record:documents',
+      ),
+    ],
+  },
+  uncertainty: {
+    runsPerOption: 30,
+    fidelity: 'Rules: outcomes follow from the declared assumptions',
+    reasons: [
+      say(
+        '30 seeded runs per option, from base seed 42. Run-to-run variation is what the spread shows.',
+        'fact',
+        'record:runs',
+      ),
+      say('Rules: outcomes follow from the declared assumptions.', 'assumption', 'fidelity'),
+    ],
+    note: 'These are the named limits of what the simulation can say. None is a probability or a confidence level.',
+  },
+  reversibility: {
+    value: 'unknown',
+    statement: say(
+      'Whether the choice can be reversed is unknown: nothing in the project says so. Treat the first step as hard to undo until it is known.',
+      'validation-requirement',
+      'reversibility:unknown',
+    ),
+  },
+  timing: {
+    horizon: null,
+    lands: say(
+      'In the simulation the change lands in round 2 of 12. A round is not a fixed length of time.',
+      'assumption',
+      'variant:round',
+    ),
+    constraints: [],
+  },
+  risks: [
+    say(
+      'Under “Proposed change” compared with “No change”, “Employees” ended up looking for an alternative or resisting more often in the simulation: 0 to 47 in 100 of its simulated members.',
+      'simulation-event',
+      'run:group-shift',
+    ),
+  ],
+  opportunities: [],
+  interventions: [
+    {
+      alternativeId: 'proposed-change',
+      label: 'Proposed change',
+      changes: [],
+      setting: say(
+        'In the simulation it lands in round 2 with a strength of 0.70, a default Swarm set. Neither was measured.',
+        'assumption',
+        'variant:system',
+      ),
+    },
+  ],
+  noRegret: {
+    moves: [],
+    note: 'Nothing could be checked against the counterfactual views, because none that still describes the project was run. No move is called a no-regret move without them.',
+  },
+  critic: {
+    reviewed: true,
+    current: true,
+    open: 1,
+    blockingOpen: 0,
+    note: 'The independent review raised 1 objection; its most serious are shown.',
+    challenges: [
+      {
+        id: 'adversarial-unstable-majority',
+        role: 'adversarial',
+        roleLabel: 'Adversarial reviewer',
+        severity: 'minor',
+        status: 'open',
+        objection: say(
+          'The finding that the largest group waits and sees holds in 18 of 30 seeded runs and does not hold in the other 12.',
+          'validation-requirement',
+          'critique-origin:rules',
+        ),
+        impact: 'If this stands, the statement cannot carry a decision on its own.',
+        requestedAction: null,
+      },
+    ],
+  },
+  approvals: [
+    {
+      id: 'approve-actors',
+      stage: 'before-simulation',
+      text: 'A person reviewed and approved the stakeholders and the simulated actors before the simulation.',
+      state: 'done',
+    },
+    {
+      id: 'approve-named',
+      stage: 'before-acting',
+      text: 'A named approver agrees to act: a real person who holds the decision.',
+      state: 'open',
+    },
+  ],
+  highStakes: {
+    flagged: false,
+    domains: [],
+    note: 'Nothing in the question or the constraints points to employment, credit, legal, medical or safety matters. Swarm still does not decide anything.',
+  },
+  freshness: {
+    analysisId: 'analysis-1',
+    completedAt: '2026-02-01T10:00:00.000Z',
+    stale: false,
+    changedSince: [],
+    newerRunning: false,
+    inputRevisions: { scenario: 0, stakeholders: 2, actors: 1 },
+  },
+  notes: [],
+  withheld: 0,
+});
+
+function actor(
+  id: string,
+  name: string,
+  category: Raw['actors']['items'][number]['category'],
+  role: string,
+  alignment: 'favourable' | 'neutral' | 'defensive' | 'adverse',
+  change: number,
+  position: 'decides' | 'approves' | 'can-block' | 'advises' | 'none' = 'none',
+): Raw['actors']['items'][number] {
+  return {
+    actorId: id,
+    name,
+    kind: 'cohort',
+    category,
+    role,
+    synthetic: true,
+    influence: 'medium',
+    position,
+    alignment,
+    stance: -change,
+    stanceChange: -change,
+    adverseShare: change,
+    adverseChange: change,
+    moves: change > 0.05 ? 'toward-resistance' : 'little',
+    directionBasis: say(
+      'Which way the change lands on this role rests on a cited source passage, for its direction only; its size is a default.',
+      'source-claim',
+      'trait-origin:evidence',
+    ),
+    uncertainty: 'high',
+    cited: true,
+    plausibleActions: [],
+  };
+}
+
+/** The canvas of a conditional option: one option ahead on the headline lens, and conditions it holds under. */
+export function canvasFixture(patch: (canvas: Raw) => void = () => undefined): DecisionCanvas {
+  const raw = base();
+  patch(raw);
+  return decisionCanvasSchema.parse(raw);
+}
+
+/** A canvas that lands on each of the six statuses, with only what differs in each. */
+export function statusFixture(status: DecisionStatus): DecisionCanvas {
+  const info = DECISION_STATUS_INFO[status];
+  return canvasFixture((canvas) => {
+    canvas.status.status = status;
+    canvas.status.label = info.label;
+    canvas.status.meaning = info.meaning;
+    switch (status) {
+      case 'robust-option':
+        canvas.status.rule = 'robust';
+        canvas.status.headline =
+          '“Proposed change” is ahead on every lens that could be computed, and nothing tried reverses it.';
+        canvas.status.conditions = [];
+        canvas.answer.preferredAlternativeId = 'proposed-change';
+        canvas.answer.recommendation.kind = 'proceed';
+        canvas.answer.recommendation.what = say(
+          'Take “Proposed change”: it is ahead on every lens that could be computed and nothing tried reverses it. Check the items below before acting.',
+          'recommendation',
+          'status:robust-option',
+        );
+        break;
+      case 'multiple-plausible-options':
+        canvas.status.rule = 'no-clear-leader';
+        canvas.status.headline =
+          'No option is clearly ahead: “No change” and “Proposed change” cannot be told apart on the headline lens.';
+        canvas.status.conditions = [];
+        canvas.answer.preferredAlternativeId = null;
+        canvas.answer.recommendation.kind = 'decide';
+        canvas.answer.recommendation.what = say(
+          'Choose between the options on grounds the simulation does not cover: it cannot tell them apart.',
+          'recommendation',
+          'status:multiple-plausible-options',
+        );
+        break;
+      case 'insufficient-evidence':
+        canvas.status.rule = 'evidence-insufficient';
+        canvas.status.headline =
+          'The evidence is not enough for the simulation to carry a recommendation.';
+        canvas.status.conditions = [];
+        canvas.answer.preferredAlternativeId = null;
+        canvas.answer.recommendation.kind = 'gather-evidence';
+        canvas.evidence.level = 'insufficient';
+        canvas.evidence.reasons = ['No actor has a cited supporting passage.'];
+        canvas.answer.recommendation.what = say(
+          'Gather evidence first: nothing cited supports any simulated actor.',
+          'recommendation',
+          'status:insufficient-evidence',
+        );
+        break;
+      case 'blocked-by-hard-constraint':
+        canvas.status.rule = 'all-violate';
+        canvas.status.headline =
+          'Every option breaks a hard constraint that is confirmed, so none can be recommended.';
+        canvas.status.conditions = [];
+        canvas.answer.preferredAlternativeId = null;
+        canvas.answer.recommendation.kind = 'resolve-constraint';
+        canvas.constraints.gate = 'blocked';
+        canvas.constraints.reviewed = true;
+        canvas.constraints.hard = [
+          constraintRow({
+            provisional: false,
+            validation: 'confirmed',
+            violatedBy: ['baseline', 'proposed-change'],
+          }),
+        ];
+        canvas.answer.recommendation.what = say(
+          'Settle the hard constraint first: every option breaks it.',
+          'recommendation',
+          'status:blocked-by-hard-constraint',
+        );
+        break;
+      case 'needs-human-decision':
+        canvas.status.rule = 'value-tradeoff';
+        canvas.status.headline =
+          'Two lenses each name a different leader, so the choice turns on which of them matters more.';
+        canvas.status.conditions = [];
+        canvas.answer.preferredAlternativeId = null;
+        canvas.answer.recommendation.kind = 'decide';
+        canvas.answer.recommendation.what = say(
+          'A person decides which lens matters more: the simulation does not choose between them.',
+          'recommendation',
+          'status:needs-human-decision',
+        );
+        break;
+      case 'conditional-option':
+        break;
+    }
+  });
+}
+
+export const viewFixture = (canvas: DecisionCanvas = canvasFixture()): DecisionView => ({
+  canvas,
+  readiness: { state: 'ready', missing: [], next: null, status: canvas.status },
+  may: { run: true, export: true },
+});
+
+export function emptyFixture(
+  state: DecisionReadiness['state'] = 'no-analysis',
+  next: DecisionReadiness['next'] = 'simulate',
+): DecisionView {
+  const missing =
+    state === 'running'
+      ? 'A comparison is running. The decision picture appears when it finishes.'
+      : state === 'failed'
+        ? 'The last comparison did not finish, so there is no result to read.'
+        : 'No comparison has been run yet.';
+  return {
+    canvas: null,
+    readiness: {
+      state,
+      missing: [missing],
+      next,
+      status: {
+        ...canvasFixture().status,
+        status: 'insufficient-evidence',
+        rule: 'no-analysis',
+        label: DECISION_STATUS_INFO['insufficient-evidence'].label,
+        meaning: DECISION_STATUS_INFO['insufficient-evidence'].meaning,
+        headline:
+          'There is no finished comparison of options yet, so Swarm has nothing to recommend from.',
+        why: [missing],
+        conditions: [],
+      },
+    },
+    may: { run: true, export: true },
+  };
+}
