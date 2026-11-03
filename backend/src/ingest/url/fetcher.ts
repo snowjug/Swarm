@@ -7,7 +7,7 @@ import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { APP_VERSION } from '../../../../shared/types.js';
 import { UrlFailure } from './failure.js';
 import { classifyAddress, validateUrl, type UrlPolicy, type ValidatedUrl } from './policy.js';
-import { parseRobots, type Robots } from './robots.js';
+import { parseRobots, ROBOTS_MAX_BYTES, type Robots } from './robots.js';
 
 export const ROBOTS_PRODUCT_TOKEN = 'SwarmLab-EvidenceFetcher';
 export const USER_AGENT = `${ROBOTS_PRODUCT_TOKEN}/${APP_VERSION} (user-initiated evidence retrieval)`;
@@ -31,8 +31,6 @@ const EVIDENCE_IDENTITY: FetchIdentity = {
 };
 
 const DEFAULTS = { maxBytes: 1_500_000, timeoutMs: 12_000, idleMs: 5_000, maxRedirects: 5 };
-// RFC 9309 asks a crawler to read at least 500 KiB of robots.txt, and to ignore the rest.
-const ROBOTS_MAX_BYTES = 512_000;
 const MAX_ADDRESSES = 16;
 // A real response head is a few kilobytes. This is node's default, stated so that it stays so.
 const MAX_HEADER_BYTES = 16_384;
@@ -102,10 +100,17 @@ export interface FetchHooks {
     signal: AbortSignal,
   ) => Promise<(() => void) | void>;
   /**
-   * Called for each redirect that passed the address policy, before it is followed. A string refuses
-   * the redirect, and is kept as the reason.
+   * Called for each redirect that passed the address policy, before it is followed: for a page, and for
+   * the robots.txt that is read before it, which may be sent on as well. A string refuses the redirect, and
+   * is kept as the reason; a robots.txt that is sent somewhere that is refused is a robots.txt that could
+   * not be read, which forbids the origin.
    */
-  onRedirect?: (hop: { from: string; to: string; status: number }) => string | null | void;
+  onRedirect?: (hop: {
+    from: string;
+    to: string;
+    status: number;
+    purpose: 'robots' | 'page';
+  }) => string | null | void;
   /** Called with what robots.txt decided, each time a page is judged by it. */
   onRobots?: (decision: RobotsDecision) => void;
 }
@@ -158,6 +163,8 @@ type Reply =
       charset: string | null;
       body: Buffer;
       headers: Record<string, string>;
+      /** There was more than the plan allowed, and only what fitted was kept (a plan that `truncate`s). */
+      truncated: boolean;
     };
 
 interface ReadPlan {
@@ -485,6 +492,7 @@ export class PublicFetcher {
             from: target.href,
             to: next.href,
             status: reply.status,
+            purpose: 'page',
           });
           if (typeof turnedDown === 'string') {
             throw new UrlFailure('blocked', 'A redirect was turned down.', {
@@ -515,7 +523,12 @@ export class PublicFetcher {
         };
       } catch (error) {
         if (error instanceof UrlFailure && redirects > 0 && !error.detail.redirected) {
-          throw new UrlFailure(error.code, error.message, { ...error.detail, redirected: true });
+          throw new UrlFailure(
+            error.code,
+            error.message,
+            { ...error.detail, redirected: true },
+            error,
+          );
         }
         throw error;
       }
@@ -582,6 +595,7 @@ export class PublicFetcher {
       throw new UrlFailure('blocked', `${target.hostname} leads to a ${verdict.reason} address.`, {
         resolved: !target.ipLiteral,
         address: verdict.reason,
+        ...(target.ipLiteral ? {} : { host: target.hostname }),
       });
     }
     return usable;
@@ -670,22 +684,42 @@ export class PublicFetcher {
           ),
         );
         if (reply.kind === 'redirect') {
-          current = redirectTarget(current, reply.location, policy);
+          const next = redirectTarget(current, reply.location, policy);
+          // Where robots.txt is sent is judged by the caller as where a page is sent: a robots.txt that
+          // is sent somewhere that is refused is one that cannot be read, and that forbids the origin.
+          const turnedDown = limits.hooks?.onRedirect?.({
+            from: current.href,
+            to: next.href,
+            status: reply.status,
+            purpose: 'robots',
+          });
+          if (typeof turnedDown === 'string') break;
+          current = next;
           continue;
         }
         if (reply.kind === 'status') {
           if (reply.status >= 400 && reply.status < 500) return 'absent';
           break;
         }
+        // What is past the limit cannot be read, so it cannot be obeyed: a robots.txt that is longer
+        // than what is read is one that cannot be read, which forbids the origin.
+        if (reply.truncated) break;
         return parseRobots(
           decodeBody(reply.body, reply.charset, reply.mediaType),
           limits.identity.robotsToken,
         );
       } catch (error) {
         // Running out of the whole fetch's time is a timeout, and a site that cannot be reached at all
-        // is reported as that. What is left is a robots.txt that was found but cannot be used.
+        // is reported as that. So is a name that leads inside a network, which is passed on as the
+        // refusal it was (not as a robots.txt that could not be read, which would tell it from a name
+        // that was not found). What is left is a robots.txt that was found but cannot be used.
         if (signal.aborted) throw error;
-        if (error instanceof UrlFailure && (error.code === 'network' || error.code === 'timeout')) {
+        if (
+          error instanceof UrlFailure &&
+          (error.code === 'network' ||
+            error.code === 'timeout' ||
+            (error.code === 'blocked' && error.detail.resolved === true))
+        ) {
           throw new UrlFailure(
             error.code,
             error.message,
@@ -784,6 +818,7 @@ export class PublicFetcher {
 
           const chunks: Buffer[] = [];
           let total = 0;
+          let truncated = false;
           const finish = (): void =>
             succeed({
               kind: 'body',
@@ -792,17 +827,22 @@ export class PublicFetcher {
               charset,
               body: Buffer.concat(chunks),
               headers: keptHeaders(response.headers),
+              truncated,
             });
-          const tooLarge = (decompressed: boolean): void =>
-            plan.truncate
-              ? finish()
-              : fail(
-                  new UrlFailure(
-                    'size',
-                    'The page is larger than the limit.',
-                    decompressed ? { decompressed: true } : {},
-                  ),
-                );
+          const tooLarge = (decompressed: boolean): void => {
+            if (plan.truncate) {
+              truncated = true;
+              finish();
+              return;
+            }
+            fail(
+              new UrlFailure(
+                'size',
+                'The page is larger than the limit.',
+                decompressed ? { decompressed: true } : {},
+              ),
+            );
+          };
           const source: Readable = decoder ?? response;
           if (decoder) {
             let compressedBytes = 0;

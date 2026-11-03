@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UrlFailure } from '../src/ingest/url/failure.js';
-import { PublicFetcher, type FetchOptions } from '../src/ingest/url/fetcher.js';
+import {
+  PublicFetcher,
+  type FetchOptions,
+  type ResolvedAddress,
+} from '../src/ingest/url/fetcher.js';
 import { budget } from './support/research-world.js';
 import { crawl } from '../src/research/crawler/crawl.js';
 import { systemDeps } from '../src/research/crawler/deps.js';
@@ -11,6 +15,7 @@ import type {
   CrawlInput,
   CrawlResult,
   CrawlTuning,
+  LookupRefusal,
   PageFetchRequest,
 } from '../src/research/crawler/types.js';
 import { LOOPBACK_ADDRESSES } from './support/url-server.js';
@@ -60,6 +65,8 @@ async function read(
     changes?: Partial<CrawlInput['budget']>;
     tuning?: Partial<CrawlTuning>;
     signal?: AbortSignal;
+    /** The server's own log of names that were refused for where they lead. Nothing a person sees. */
+    onLookupRefused?: (refusal: LookupRefusal) => void;
   } = {},
 ): Promise<Outcome> {
   const events: CrawlEvent[] = [];
@@ -83,6 +90,7 @@ async function read(
     systemDeps({
       fetcher,
       onEvent: (event) => events.push(event),
+      ...(options.onLookupRefused ? { onLookupRefused: options.onLookupRefused } : {}),
       tuning: { maxRetries: 0, ...options.tuning },
     }),
   );
@@ -102,6 +110,8 @@ describe('a name that leads to an address that is not public is never connected 
     ['100.100.100.200', 'shared-address-space'],
     ['127.0.0.1', 'loopback'],
     ['127.255.255.254', 'loopback'],
+    ['168.63.129.16', 'cloud-platform'],
+    ['::ffff:a83f:8110', 'cloud-platform'],
     ['169.254.169.254', 'link-local'],
     ['169.254.0.1', 'link-local'],
     ['172.16.0.1', 'private-network'],
@@ -140,7 +150,7 @@ describe('a name that leads to an address that is not public is never connected 
     ['4000::1', 'reserved'],
   ];
 
-  it('refuses every class of address that a name can be made to answer with, and says why in the log only', async () => {
+  it('refuses every class of address that a name can be made to answer with, and says why in the server-side log only', async () => {
     const names = table.map((_, index) => `h${index}.example.com`);
     const answers = Object.fromEntries(
       table.map(([address], index) => [
@@ -149,32 +159,55 @@ describe('a name that leads to an address that is not public is never connected 
       ]),
     );
     const asked: string[] = [];
+    const notes: LookupRefusal[] = [];
     const started = Date.now();
-    const done = await read(
-      names.map((name) => `https://${name}/`),
-      { resolver: fakeResolver(answers, asked) },
+    // Each refused name is a failed request, as a name that is not found is, so the table is read in parts that the failure limit allows.
+    const parts = Array.from({ length: Math.ceil(names.length / 25) }, (_, part) =>
+      names.slice(part * 25, part * 25 + 25),
     );
-    expect(Date.now() - started).toBeLessThan(5_000);
+    const outcomes: Outcome[] = [];
+    for (const part of parts) {
+      outcomes.push(
+        await read(
+          part.map((name) => `https://${name}/`),
+          {
+            resolver: fakeResolver(answers, asked),
+            changes: { maxFailedRequests: 50 },
+            onLookupRefused: (note) => notes.push(note),
+          },
+        ),
+      );
+    }
+    expect(Date.now() - started).toBeLessThan(10_000);
     expect(asked.sort()).toEqual([...names].sort());
-    expect(done.result.pages).toHaveLength(0);
-    expect(done.result.stoppedBecause).toBe('safety-block');
-    expect(done.result.sources).toHaveLength(table.length);
-    const byName = Object.fromEntries(
-      blocked(done).map((event) => [new URL(event.url).hostname, event]),
-    );
+    for (const [at, done] of outcomes.entries()) {
+      expect(done.result.pages).toHaveLength(0);
+      expect(done.result.stoppedBecause).toBe('frontier-exhausted');
+      expect(done.result.sources).toHaveLength(parts[at]!.length);
+      expect(done.result.used.failures).toBe(parts[at]!.length);
+      // A person is told that the name was not found, which says nothing about what is inside a network.
+      for (const source of done.result.sources) {
+        expect(source).toMatchObject({
+          outcome: 'failed',
+          failure: { class: 'dns', message: 'The name could not be found.' },
+        });
+      }
+      expect(done.events.filter((event) => event.type === 'fetch-blocked')).toEqual([]);
+      const text = JSON.stringify([done.events, done.result]);
+      for (const [address, reason] of table) {
+        expect(text, address).not.toContain(reason);
+        expect(text, address).not.toContain(address);
+      }
+    }
+    const byName = Object.fromEntries(notes.map((note) => [note.host, note]));
+    expect(notes).toHaveLength(table.length);
     table.forEach(([address, reason], index) => {
       expect(byName[names[index]!], address).toMatchObject({
         reason,
-        resolved: true,
-        errorClass: 'dns',
+        via: 'page',
+        url: `https://${names[index]}/`,
       });
     });
-    // A person is told that the name was not found, which says nothing about what is inside a network.
-    for (const source of done.result.sources) {
-      expect(source.failure).toMatchObject({
-        message: 'The name could not be found on the public web.',
-      });
-    }
   });
 
   it('refuses a name when any one of its answers is not public, in whatever order they come', async () => {
@@ -184,14 +217,22 @@ describe('a name that leads to an address that is not public is never connected 
       'three.example.com': [v4('203.0.113.1'), v6('::1')],
       'four.example.com': [v6('2001:db8::1'), v4('127.0.0.1')],
     };
+    const notes: LookupRefusal[] = [];
     const done = await read(
       Object.keys(answers).map((name) => `https://${name}/`),
       {
         resolver: fakeResolver(answers),
+        onLookupRefused: (note) => notes.push(note),
       },
     );
-    expect(done.result.stoppedBecause).toBe('safety-block');
-    expect(blocked(done)).toHaveLength(4);
+    expect(done.result.pages).toHaveLength(0);
+    expect(done.result.sources.map(({ failure }) => failure?.class)).toEqual([
+      'dns',
+      'dns',
+      'dns',
+      'dns',
+    ]);
+    expect(notes.map(({ host }) => host).sort()).toEqual(Object.keys(answers).sort());
   });
 
   it('asks again for each request, so that a name that changes its answer cannot get a request to an address that was not checked', async () => {
@@ -203,20 +244,23 @@ describe('a name that leads to an address that is not public is never connected 
       lookups += 1;
       return lookups === 1 ? [v4(LOOPBACK_ADDRESSES[1]!)] : [v4('10.0.0.5')];
     };
+    const notes: LookupRefusal[] = [];
     const done = await read([world.url('rebind.example.com', '/page')], {
       world,
       resolver,
       allowHttp: true,
+      onLookupRefused: (note) => notes.push(note),
     });
-    // Whichever request is the one that is asked the second time, it is not connected to, and no page is asked for.
+    // The second lookup is the one for robots.txt, and it is refused: the page is never asked for.
     const asked = world.seen['rebind.example.com']?.map((entry) => entry.url) ?? [];
     expect(asked).not.toContain('/page');
+    expect(asked).not.toContain('/robots.txt');
     expect(done.result.pages).toHaveLength(0);
     const blockedEvents = blocked(done);
     expect(blockedEvents).toHaveLength(1);
-    // Refused when the page's name was looked up again, or when robots.txt's was: the two are asked separately.
-    expect(['private-network', 'robots-unavailable']).toContain(blockedEvents[0]!.reason);
-    expect(lookups).toBeGreaterThanOrEqual(2);
+    expect(blockedEvents[0]).toMatchObject({ reason: 'robots-unavailable' });
+    expect(notes).toMatchObject([{ via: 'robots', reason: 'private-network' }]);
+    expect(lookups).toBe(2);
   });
 
   it('connects to the address that was checked, not to one the name leads to when it is asked again', async () => {
@@ -257,6 +301,8 @@ describe('an address that is written in a way that is not a public web page is r
     'https://[::1]/',
     'https://[::ffff:127.0.0.1]/',
     'https://[fd00:ec2::254]/',
+    'https://168.63.129.16/',
+    'https://[::ffff:a83f:8110]/',
     'https://127.0.0.1/',
     'https://10.1.2.3/admin',
     'https://169.254.169.254/latest/meta-data/',
@@ -421,7 +467,7 @@ describe('redirects', () => {
     expect(done.result.stoppedBecause).toBe('safety-block');
   }, 30_000);
 
-  it('refuses a redirect to a name that leads to an address that is not public', async () => {
+  it('refuses a redirect to a name that leads to an address that is not public, and tells the person that the name was not found', async () => {
     const world = await site({
       '/go': (response) => redirect(response, `http://sneaky.example.com:${livePort}/`),
     });
@@ -430,12 +476,21 @@ describe('redirects', () => {
       'sneaky.example.com': [v4('10.9.9.9')],
     });
     const rewritten = world.url('a.example.com', '/go');
-    const done = await read([rewritten], { world, resolver, allowHttp: true });
+    const notes: LookupRefusal[] = [];
+    const done = await read([rewritten], {
+      world,
+      resolver,
+      allowHttp: true,
+      onLookupRefused: (note) => notes.push(note),
+    });
     expect(done.result.pages).toHaveLength(0);
     expect(done.result.sources[0]).toMatchObject({
-      outcome: 'blocked',
-      failure: { class: 'redirect-refused' },
+      outcome: 'failed',
+      failure: { class: 'dns', message: 'The name could not be found.' },
     });
+    expect(notes).toMatchObject([
+      { via: 'redirect', host: 'sneaky.example.com', reason: 'private-network' },
+    ]);
   });
 
   it('follows a redirect on the same site, and records both where it was sent and where it ended', async () => {
@@ -518,6 +573,139 @@ describe('redirects', () => {
   });
 });
 
+describe('a name that leads inside a network is told exactly as a name that does not exist', () => {
+  const PROBE = 'probe.example.com';
+  type Way = 'page' | 'redirect' | 'robots';
+
+  /** What a person, a client or a log of events can see of a crawl, as text. The time it took is not part of it. */
+  const visible = (done: Outcome): string =>
+    JSON.stringify({ result: done.result, events: done.events }, (key, value: unknown) =>
+      ['at', 'traceId', 'elapsedMs'].includes(key) ? undefined : value,
+    );
+
+  /** A site that sends the reader, or its robots.txt, to the name PROBE, or does not, by `way`. */
+  const siteFor = (way: Way): Promise<World> => {
+    const world: Promise<World> = open({
+      'a.example.com': async (request, response) => {
+        const there = `http://${PROBE}:${(await world).port}`;
+        if (request.url === '/robots.txt') {
+          if (way === 'robots') return redirect(response, `${there}/robots.txt`);
+          return send(response, 'User-agent: *\nAllow: /\n', 'text/plain');
+        }
+        if (way === 'redirect' && request.url === '/go') return redirect(response, `${there}/page`);
+        return send(response, PAGE);
+      },
+    });
+    return world;
+  };
+
+  /** One crawl whose only trouble is where the name PROBE leads: a seed, a redirect, or the place robots.txt is sent to. */
+  async function crawlProbe(world: World, way: Way, answer: readonly ResolvedAddress[] | null) {
+    const asked: string[] = [];
+    const notes: LookupRefusal[] = [];
+    const resolver = fakeResolver(
+      { 'a.example.com': [v4(LOOPBACK_ADDRESSES[0]!)], ...(answer ? { [PROBE]: answer } : {}) },
+      asked,
+    );
+    const seed =
+      way === 'page'
+        ? `http://${PROBE}:${world.port}/page`
+        : world.url('a.example.com', way === 'redirect' ? '/go' : '/page');
+    const done = await read([seed], {
+      world,
+      resolver,
+      allowHttp: true,
+      onLookupRefused: (note) => notes.push(note),
+    });
+    return { done, notes, asked, world };
+  }
+
+  const answers: [string, readonly ResolvedAddress[], string][] = [
+    ['a private address', [v4('10.0.0.5')], 'private-network'],
+    ['the address of the metadata service', [v4('169.254.169.254')], 'link-local'],
+    [
+      'a private address among public ones',
+      [v4('93.184.216.34'), v4('192.168.0.9')],
+      'private-network',
+    ],
+    ['a private IPv6 address', [v6('fd00::5')], 'unique-local'],
+  ];
+
+  it.each(answers)(
+    'gives a seed, a redirect and a robots.txt the same result whether the name leads to %s or does not exist',
+    async (_what, answer, reason) => {
+      for (const way of ['page', 'redirect', 'robots'] as const) {
+        const world = await siteFor(way);
+        const inside = await crawlProbe(world, way, answer);
+        const missing = await crawlProbe(world, way, null);
+        expect(visible(inside.done), way).toBe(visible(missing.done));
+        // The name server was asked the same things, and what the name led to was never asked for anything.
+        expect(inside.asked, way).toEqual(missing.asked);
+        expect(world.seen[PROBE], way).toBeUndefined();
+        // Only the server's own log knows which it was.
+        expect(missing.notes, way).toEqual([]);
+        expect(inside.notes, way).toMatchObject([
+          { via: way, host: PROBE, reason, traceId: expect.any(String) as string },
+        ]);
+        expect(JSON.stringify(inside.done), way).not.toContain(reason);
+      }
+    },
+  );
+
+  it('is the failure of a name that was not found, with the counts of one, for a seed and for a redirect', async () => {
+    for (const way of ['page', 'redirect'] as const) {
+      const { done } = await crawlProbe(await siteFor(way), way, [v4('10.0.0.5')]);
+      expect(done.result.sources[0], way).toMatchObject({
+        outcome: 'failed',
+        failure: { class: 'dns', message: 'The name could not be found.' },
+      });
+      expect(done.result.used.failures, way).toBe(1);
+      expect(done.result.stoppedBecause, way).toBe('frontier-exhausted');
+      expect(
+        done.events.filter((event) => event.type === 'fetch-failed'),
+        way,
+      ).toMatchObject([{ errorClass: 'dns', status: null, attempt: 0 }]);
+      expect(
+        done.events.filter((event) => event.type === 'fetch-blocked'),
+        way,
+      ).toEqual([]);
+    }
+  });
+
+  it('is a robots.txt that could not be reached, as for a name that was not found, for the place robots.txt is sent to', async () => {
+    const { done } = await crawlProbe(await siteFor('robots'), 'robots', [v4('10.0.0.5')]);
+    expect(done.result.pages).toHaveLength(0);
+    expect(done.result.sources[0]).toMatchObject({
+      outcome: 'blocked',
+      robots: 'disallowed',
+      failure: {
+        class: 'robots-disallowed',
+        message: 'The site\u2019s robots.txt could not be reached, so the page was not fetched.',
+      },
+    });
+  });
+
+  it('is never what the events, the records or the result say, and a listener that fails does not stop the crawl', async () => {
+    const world: World = await open({
+      'a.example.com': (_request, response) => send(response, PAGE),
+    });
+    const resolver = fakeResolver({
+      'a.example.com': [v4(LOOPBACK_ADDRESSES[0]!)],
+      [PROBE]: [v4('10.0.0.5')],
+    });
+    const done = await read([world.url('a.example.com'), `http://${PROBE}:${world.port}/`], {
+      world,
+      resolver,
+      allowHttp: true,
+      onLookupRefused: () => {
+        throw new Error('the listener failed');
+      },
+    });
+    expect(done.result.pages).toHaveLength(1);
+    expect(done.result.sources.map(({ outcome }) => outcome).sort()).toEqual(['failed', 'used']);
+  });
+});
+
 describe('robots.txt', () => {
   const read1 = async (
     robots: string | ((response: Parameters<SiteHandler>[1]) => void),
@@ -597,16 +785,112 @@ describe('robots.txt', () => {
     expect(done.result.sources.map(({ outcome }) => outcome)).toEqual(['blocked', 'blocked']);
   });
 
-  it('is read to a limit of a little over 500 kilobytes, whatever size a site makes it: rules inside the limit apply, and a page is still read', async () => {
-    const padding = '# padding\n'.repeat(400_000);
-    const allowed = await read1(`User-agent: *\nDisallow: /nothing\n${padding}`, '/open');
-    expect(allowed.done.result.sources[0]!.outcome).toBe('used');
-    const disallowed = await read1(`User-agent: *\nDisallow: /open\n${padding}`, '/open');
-    expect(disallowed.done.result.sources[0]).toMatchObject({
+  it('is read to a limit of 512,000 bytes: rules inside the limit apply, and a robots.txt that is longer forbids the site, since what is past the limit cannot be obeyed', async () => {
+    const inside = await read1(
+      `User-agent: *\nDisallow: /nothing\n${'# padding\n'.repeat(50_000)}`,
+      '/open',
+    );
+    expect(inside.done.result.sources[0]!.outcome).toBe('used');
+    const late = await read1(
+      `User-agent: *\nDisallow: /open\n${'# padding\n'.repeat(50_000)}`,
+      '/open',
+    );
+    expect(late.done.result.sources[0]).toMatchObject({
       outcome: 'blocked',
       failure: { class: 'robots-disallowed' },
     });
+    // Over the limit, whatever the rules it can be read to say: the site is left alone, and no page is asked for.
+    const over = await read1(`User-agent: *\nAllow: /\n${'# padding\n'.repeat(400_000)}`, '/open');
+    expect(over.done.result.pages).toHaveLength(0);
+    expect(over.done.result.sources[0]).toMatchObject({
+      outcome: 'blocked',
+      robots: 'disallowed',
+      failure: {
+        class: 'robots-disallowed',
+        message: 'The site\u2019s robots.txt could not be read, so the page was not fetched.',
+      },
+    });
+    expect(over.world.seen['a.example.com']?.map((entry) => entry.url)).toEqual(['/robots.txt']);
   }, 30_000);
+
+  it('obeys a rule that is the 2,501st, and a pattern of 1,001 characters', async () => {
+    const lines = ['User-agent: *'];
+    for (let index = 0; index < 2_500; index += 1) lines.push(`Allow: /open${index}`);
+    lines.push('Disallow: /private/', `Disallow: /${'a'.repeat(1_000)}`);
+    const robots = lines.join('\n');
+    const { done } = await read1(robots, '/private/report');
+    expect(done.result.pages).toHaveLength(0);
+    expect(done.result.sources[0]).toMatchObject({ failure: { class: 'robots-disallowed' } });
+    const long = await read1(robots, `/${'a'.repeat(1_000)}/x`);
+    expect(long.done.result.pages).toHaveLength(0);
+    expect((await read1(robots, '/public')).done.result.pages).toHaveLength(1);
+  });
+
+  describe('when it is sent on to another place', () => {
+    const sentTo = async (
+      to: string,
+      options: { sameSiteOnly?: boolean; changes?: Partial<CrawlInput['budget']> } = {},
+    ) => {
+      const world: World = await open({
+        'a.example.com': (request, response) =>
+          request.url === '/robots.txt'
+            ? redirect(response, `http://${to}:${world.port}/robots.txt`)
+            : send(response, PAGE),
+        'b.example.org': routes({ '/robots.txt': 'User-agent: *\nAllow: /\n' }),
+        'www.example.com': routes({ '/robots.txt': 'User-agent: *\nAllow: /\n' }),
+      });
+      const done = await read([world.url('a.example.com', '/page')], {
+        world,
+        allowHttp: true,
+        ...options,
+      });
+      return { world, done };
+    };
+
+    it('is followed to another site when the crawl may read other sites, and that site counts as one that was read', async () => {
+      const { world, done } = await sentTo('b.example.org');
+      expect(done.result.pages).toHaveLength(1);
+      expect(world.seen['b.example.org']?.map((entry) => entry.url)).toEqual(['/robots.txt']);
+      expect(done.result.used.domains).toBe(2);
+      expect(done.events).toContainEqual(
+        expect.objectContaining({
+          type: 'redirect',
+          from: world.url('a.example.com', '/robots.txt'),
+          to: world.url('b.example.org', '/robots.txt'),
+          hop: 1,
+        }),
+      );
+    });
+
+    it('is not followed to another site when the crawl keeps to its own: the origin is forbidden and nothing is asked of the other site', async () => {
+      const { world, done } = await sentTo('b.example.org', { sameSiteOnly: true });
+      expect(done.result.pages).toHaveLength(0);
+      expect(world.seen['b.example.org']).toBeUndefined();
+      expect(world.seen['a.example.com']?.map((entry) => entry.url)).toEqual(['/robots.txt']);
+      expect(done.result.sources[0]).toMatchObject({
+        outcome: 'blocked',
+        robots: 'disallowed',
+        failure: { class: 'robots-disallowed' },
+      });
+      expect(done.events).toContainEqual(
+        expect.objectContaining({ type: 'skipped', reason: 'other-site' }),
+      );
+    });
+
+    it('is followed to another name on the same site, even when the crawl keeps to its own', async () => {
+      const { world, done } = await sentTo('www.example.com', { sameSiteOnly: true });
+      expect(done.result.pages).toHaveLength(1);
+      expect(world.seen['www.example.com']?.map((entry) => entry.url)).toEqual(['/robots.txt']);
+    });
+
+    it('is not followed to a site that would pass the limit of sites, and the crawl says that is why it stopped', async () => {
+      const { world, done } = await sentTo('b.example.org', { changes: { maxDomains: 1 } });
+      expect(world.seen['b.example.org']).toBeUndefined();
+      expect(done.result.pages).toHaveLength(0);
+      expect(done.result.stoppedBecause).toBe('domain-limit');
+      expect(done.result.sources[0]).toMatchObject({ outcome: 'skipped' });
+    });
+  });
 });
 
 describe('how the crawler sets up the fetcher it reads with', () => {

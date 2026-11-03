@@ -248,6 +248,39 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
     kind: 'inside',
     action: 'stakeholders.approved',
   },
+  // Participants. Each change is recorded by the route, with an `operation` and counts, under the
+  // action that already names what it is: proposing is finding, everything else is an edit.
+  'POST /api/projects/:id/stakeholders/propose': {
+    kind: 'inside',
+    action: 'stakeholders.discovered',
+  },
+  'GET /api/projects/:id/stakeholders/validation': reads(
+    'Checks the list as it is and changes nothing.',
+  ),
+  'POST /api/projects/:id/stakeholders/accept': { kind: 'inside', action: 'stakeholders.edited' },
+  'PATCH /api/projects/:id/stakeholders/:participantId': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'DELETE /api/projects/:id/stakeholders/:participantId': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'POST /api/projects/:id/stakeholders/:participantId/regenerate': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'GET /api/projects/:id/stakeholders/:participantId/why': reads(
+    'Explains a participant from what it already holds; it asks no model and changes nothing.',
+  ),
+  'POST /api/projects/:id/stakeholders/merge-duplicates': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
+  'POST /api/projects/:id/stakeholders/add-missing': {
+    kind: 'inside',
+    action: 'stakeholders.edited',
+  },
   'GET /api/projects/:id/actors': reads('Reads the actors of an experiment.'),
   'POST /api/projects/:id/actors/generate': { kind: 'inside', action: 'actors.generated' },
   'PUT /api/projects/:id/actors': { kind: 'inside', action: 'actors.edited' },
@@ -260,6 +293,25 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
   // Recorded by the service, with identifiers and counts only: never a scenario label or description.
   'POST /api/projects/:id/analysis': { kind: 'inside', action: 'analysis.started' },
   'POST /api/projects/:id/analysis/:aid/cancel': { kind: 'inside', action: 'analysis.cancelled' },
+
+  // [constraints audit]
+  // Recorded by the service, in the transaction of the change, with counts and a status: never a statement or a quote.
+  'GET /api/projects/:id/constraints': reads(
+    'Reads the constraints of an experiment; changes nothing.',
+  ),
+  'PUT /api/projects/:id/constraints': { kind: 'inside', action: 'constraints.edited' },
+  'POST /api/projects/:id/constraints/propose': { kind: 'inside', action: 'constraints.proposed' },
+  'POST /api/projects/:id/constraints/review': { kind: 'inside', action: 'constraints.reviewed' },
+  'GET /api/projects/:id/constraints/gate': reads(
+    'Works the gate out from what is stored; changes nothing.',
+  ),
+  'GET /api/projects/:id/constraints/counterfactuals': reads(
+    'Reads the stored views; running them is recorded.',
+  ),
+  'POST /api/projects/:id/constraints/counterfactuals': {
+    kind: 'inside',
+    action: 'constraints.counterfactuals.run',
+  },
 
   // [critics audit]
   'GET /api/projects/:id/critiques': reads(
@@ -284,6 +336,26 @@ export const AUDIT_POLICY: Readonly<Record<string, AuditRule>> = {
           ? String(query(request).format)
           : 'md',
     }),
+  },
+
+  // [research audit]
+  // Words and counts only: never an address, a title, a passage or the question. Starting a run and
+  // adding a source are recorded by the service, with the mode and the limits the run was given; the
+  // end of a run is recorded there too, by the worker that carried it out.
+  'GET /api/projects/:id/research': reads(
+    'Reads the state of the research of a project; it changes nothing.',
+  ),
+  'POST /api/projects/:id/research': { kind: 'inside', action: 'research.started' },
+  'POST /api/projects/:id/research/sources': { kind: 'inside', action: 'research.source.added' },
+  'POST /api/projects/:id/research/pause': { kind: 'request', action: 'research.paused' },
+  'POST /api/projects/:id/research/resume': { kind: 'request', action: 'research.resumed' },
+  'POST /api/projects/:id/research/finish': { kind: 'request', action: 'research.finished' },
+  'POST /api/projects/:id/research/cancel': { kind: 'request', action: 'research.cancelled' },
+  // Written by the repository in the transaction that adds the sources: how many sources, passages and
+  // characters, and who. Never a name or a word of the text.
+  'POST /api/projects/:id/evidence/documents': {
+    kind: 'inside',
+    action: 'evidence.documents.added',
   },
 };
 

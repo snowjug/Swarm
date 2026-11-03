@@ -448,7 +448,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
   } else {
     await runner.mutate(
       'create-revision',
-      commands.update(scope, reference, suffix),
+      commands.update(scope, reference, suffix, [`BUILD_SHA=${sha}`]),
       'creates a revision beside the serving one; with named traffic it takes none',
     );
   }

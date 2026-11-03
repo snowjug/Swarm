@@ -1,8 +1,15 @@
-const MAX_LINES = 10_000;
-const MAX_RULES = 2_000;
-const MAX_PATTERN_LENGTH = 1_000;
+/**
+ * RFC 9309 asks a crawler to read at least 500 KiB of a robots.txt. This is what is read, and it is the
+ * only limit there is: how many lines, how many rules and how long a pattern are whatever fit in it. A
+ * rule that is left out for being the 2,001st, or for being long, is a rule that is not obeyed and that
+ * nobody is told of, so none is. What is past the limit cannot be read, and so cannot be obeyed either:
+ * a robots.txt that is longer forbids everything (see `parseRobots` and the fetcher).
+ */
+export const ROBOTS_MAX_BYTES = 512_000;
 
 const MAX_CRAWL_DELAY_SECONDS = 86_400;
+// How many answers a parsed robots.txt keeps, so that a crawl that asks about many addresses does not grow it without bound.
+const MAX_REMEMBERED = 256;
 
 export interface Robots {
   /** Whether the path and query (`/a/b?c=1`) may be fetched. */
@@ -65,8 +72,7 @@ function parseGroups(text: string): Group[] {
   const groups: Group[] = [];
   let current: Group | null = null;
   let collectingAgents = false;
-  let rules = 0;
-  for (const raw of text.split(/\r\n|\n|\r/u).slice(0, MAX_LINES)) {
+  for (const raw of text.split(/\r\n|\n|\r/u)) {
     // A comment runs from the first `#` to the end of the line. Not `replace(/#.*$/u, '')`: that is
     // tried again from every `#` of a line that holds a Unicode line separator, which grows with the
     // square of the line.
@@ -87,9 +93,8 @@ function parseGroups(text: string): Group[] {
     } else if (key === 'allow' || key === 'disallow') {
       collectingAgents = false;
       // A rule before any user-agent line belongs to no group, and an empty pattern matches nothing.
-      if (current && value && value.length <= MAX_PATTERN_LENGTH && rules < MAX_RULES) {
+      if (current && value) {
         current.rules.push({ allow: key === 'allow', pattern: normalize(value) });
-        rules += 1;
       }
     } else if (key === 'crawl-delay') {
       collectingAgents = false;
@@ -102,13 +107,19 @@ function parseGroups(text: string): Group[] {
   return groups;
 }
 
+/** What a robots.txt that is longer than is read says: nothing may be fetched. It cannot be read in full, so it cannot be obeyed in full. */
+const FORBIDS_EVERYTHING: Robots = { allows: () => false, crawlDelaySeconds: null };
+
 /**
  * Reads a robots.txt as RFC 9309 describes it, for the crawler named by `productToken`: the groups
  * that name it are used, otherwise the `*` groups, otherwise anything is allowed. Of the rules that
  * match, the longest pattern decides, and Allow wins a tie. A `Crawl-delay`, which the RFC leaves out
- * but many sites send, is read from the first of those groups that has one.
+ * but many sites send, is read from the first of those groups that has one. A text longer than
+ * `ROBOTS_MAX_BYTES` is not read at all and forbids everything, rather than being read as far as it goes
+ * and allowing what its end might have forbidden.
  */
 export function parseRobots(text: string, productToken: string): Robots {
+  if (text.length > ROBOTS_MAX_BYTES) return FORBIDS_EVERYTHING;
   const groups = parseGroups(text);
   const token = productToken.toLowerCase();
   const named = groups.filter((group) => group.agents.includes(token));
@@ -117,22 +128,32 @@ export function parseRobots(text: string, productToken: string): Robots {
   const delays = chosen.flatMap((group) =>
     group.crawlDelay === undefined ? [] : [group.crawlDelay],
   );
+  // The same address is asked about more than once (before it is read, and when it is recorded), and the
+  // largest robots.txt takes tens of milliseconds to go through.
+  const asked = new Map<string, boolean>();
+  const decide = (pathAndQuery: string): boolean => {
+    const path = normalize(pathAndQuery);
+    let best: Rule | null = null;
+    for (const rule of rules) {
+      if (!matches(rule.pattern, path)) continue;
+      if (
+        !best ||
+        rule.pattern.length > best.pattern.length ||
+        (rule.pattern.length === best.pattern.length && rule.allow && !best.allow)
+      ) {
+        best = rule;
+      }
+    }
+    return best ? best.allow : true;
+  };
   return {
     crawlDelaySeconds: delays[0] ?? null,
     allows(pathAndQuery: string): boolean {
-      const path = normalize(pathAndQuery);
-      let best: Rule | null = null;
-      for (const rule of rules) {
-        if (!matches(rule.pattern, path)) continue;
-        if (
-          !best ||
-          rule.pattern.length > best.pattern.length ||
-          (rule.pattern.length === best.pattern.length && rule.allow && !best.allow)
-        ) {
-          best = rule;
-        }
-      }
-      return best ? best.allow : true;
+      const known = asked.get(pathAndQuery);
+      if (known !== undefined) return known;
+      const answer = decide(pathAndQuery);
+      if (asked.size < MAX_REMEMBERED) asked.set(pathAndQuery, answer);
+      return answer;
     },
   };
 }

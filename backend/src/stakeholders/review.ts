@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import type { EvidenceRef } from '../../../shared/evidence.js';
 import {
+  defaultConfidenceBasis,
+  participantOf,
   stakeholderRelationSchema,
   stakeholderSchema,
   stakeholderSetSchema,
@@ -9,6 +11,7 @@ import {
   type StakeholderSet,
 } from '../../../shared/stakeholders.js';
 import { AppError } from '../errors.js';
+import { withStandingClaims } from './participants/taxonomy.js';
 import { categoryGaps, isCategoryGap } from './relations.js';
 
 /** What a person sends when they review the set: the whole set as they now want it, and what they saw. */
@@ -82,10 +85,34 @@ const content = (stakeholder: Stakeholder): string =>
     stakeholder.assumptions,
     stakeholder.uncertainty,
     stakeholder.evidence.map(evidenceMark),
+    participantOf(stakeholder),
   ]);
 
 const impactOf = (stakeholder: Stakeholder): string =>
   JSON.stringify([stakeholder.expectedImpact.direction, stakeholder.expectedImpact.rationale]);
+
+/**
+ * What must never be asserted about a participant is the server's: a participant of a set the proposal
+ * made, or one that already carries a list of them, keeps the standing prohibitions whatever a request
+ * says, so that a person can add to the list and cannot take the standing ones away. A basis that says
+ * "quoted from a source" is kept only while a passage is cited: undoing a merge takes the merged
+ * participant's passages back, and with them the claim that this one was quoted.
+ */
+const standing = (stakeholder: Stakeholder, strict: boolean): Stakeholder => {
+  const grounded =
+    stakeholder.confidenceBasis === 'source-quote' && stakeholder.evidence.length === 0
+      ? { ...stakeholder, confidenceBasis: defaultConfidenceBasis(stakeholder) }
+      : stakeholder;
+  return strict || grounded.prohibitedClaims !== undefined
+    ? {
+        ...grounded,
+        prohibitedClaims: withStandingClaims(
+          participantOf(grounded).role,
+          grounded.prohibitedClaims ?? [],
+        ),
+      }
+    : grounded;
+};
 
 /** The expected impact with the origin the server decides: nobody can claim a source for their own edit. */
 function impactWithOrigin(
@@ -216,7 +243,10 @@ export function applyReview(
           'Evidence comes from the sources. A stakeholder you add has none until the stakeholders are found again.',
         );
       }
-      return { ...raw, expectedImpact: impactWithOrigin(raw, 'user') };
+      return standing(
+        { ...raw, expectedImpact: impactWithOrigin(raw, 'user') },
+        stored?.proposal !== undefined,
+      );
     }
     if (raw.origin !== was.origin) {
       throw refuse('STAKEHOLDER_ORIGIN_LOCKED', 'Who found a stakeholder cannot be changed.');
@@ -231,11 +261,14 @@ export function applyReview(
     ]);
     const changed = content(raw) !== content(was);
     const impactChanged = impactOf(raw) !== impactOf(was);
-    return {
-      ...raw,
-      status: statusAfter(was, raw, changed),
-      expectedImpact: impactChanged ? impactWithOrigin(raw, 'user') : impactKept(raw, was),
-    };
+    return standing(
+      {
+        ...raw,
+        status: statusAfter(was, raw, changed),
+        expectedImpact: impactChanged ? impactWithOrigin(raw, 'user') : impactKept(raw, was),
+      },
+      stored?.proposal !== undefined,
+    );
   });
 
   const known = new Set(stakeholders.map((stakeholder) => stakeholder.id));
@@ -269,6 +302,7 @@ export function applyReview(
       ...(stored?.gaps ?? []).filter((gap) => !isCategoryGap(gap)),
     ].slice(0, 20),
     approvedAt: stored?.approvedAt ?? null,
+    proposal: stored?.proposal,
   };
   const same =
     stored !== null &&

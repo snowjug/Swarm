@@ -179,6 +179,123 @@ a list of answers. They set a starting direction of impact, a starting value for
 relations between groups are assumed, and which groups are key by default, and nothing else. A category
 with nobody in it appears as a gap, and it is the person's call whether it matters here.
 
+## Participants: who decides, who is reached, who is missing
+
+A stakeholder is a group a change touches. A **participant** is a stakeholder read as a part in a decision:
+what it is trying to do, what presses on it, what it could do, and what must never be said of it. Swarm
+proposes the participants from the question and the scenario, so that a person does not have to think of
+every party by hand, and the person reviews and edits the proposal before anything is simulated.
+`POST /stakeholders/propose` does it, and it is what the Map's **Find who is affected** button asks for.
+The older `discover` route still stands and is unchanged.
+
+### Roles
+
+Fourteen roles, in words that belong to no domain, sit beside the categories. A role names the categories
+it may take (the first is its default) and every category has a default role, so a list saved before roles
+existed reads as roles too. Not every role is wanted in every scenario: a role that nobody material is found
+for is **named as a gap**, never filled to make the list look whole.
+
+| Role                         | Starts as category | Means                                                                |
+| ---------------------------- | ------------------ | -------------------------------------------------------------------- |
+| decision owner               | decision-maker     | Decides whether and how the change goes ahead.                       |
+| directly affected            | risk-bearer        | Feels the change in what they do, pay, risk or receive.              |
+| indirectly affected          | other              | Is reached by the change through someone else.                       |
+| implementers                 | operations         | Carries the change out, or keeps things running while it happens.    |
+| approvers                    | governance         | Has to sign off before the change can go ahead.                      |
+| beneficiaries                | beneficiary        | Stands to gain from the change.                                      |
+| opponents and resistors      | risk-bearer        | Has reason to oppose, slow or work around the change.                |
+| regulators and governance    | regulator          | Sets, applies or audits the rules the change has to meet.            |
+| customers and users          | end-user           | Uses, buys or relies on what the change alters.                      |
+| partners and suppliers       | partner            | Supplies, resells or works alongside the party making the change.    |
+| competitors and alternatives | competitor         | Offers another option that others may turn to, and can respond.      |
+| system and environment       | other              | A condition or system that acts on the others.                       |
+| observers and influencers    | influencer         | Does not decide or bear the change but shapes how others see it.     |
+| missing voices               | other              | Is reached by the change, has no say in it, and is easy to overlook. |
+
+### What a participant holds
+
+Every field is optional in what is stored, so a set saved before them still parses; a stakeholder with none
+of them reads with the defaults of its role and makes the actor it always made.
+
+- a stable id and a **concise, specific name**: never "staff", "users", "public", "employee", "management",
+  "stakeholder" or "team" alone;
+- its role, why it matters, what the role is trying to achieve, its incentives, pressures, constraints and
+  concerns, its influence level, its decision authority, and what it is assumed to see;
+- its **plausible actions**: things it could do, written as possibilities for the simulation to try, never
+  predictions;
+- its **prohibited claims**: what must never be asserted about it. Four are standing and cannot be taken off
+  (that it is a real, identified person, its private motives or feelings, that its future conduct is
+  certain, and that its objectives were found in a source unless a passage is quoted);
+- the passages it cites, its assumptions, its uncertainty and its **confidence basis**: quoted from a
+  source, named in the question, a role pattern, a model's inference, or the person's own assertion. Only the
+  first is a claim about the sources, and it needs a quotation;
+- `synthetic: true`. A participant is never an identified person.
+
+### How a proposal is made
+
+1. A bounded input is built: the question, the scenario (baseline, alternatives, geography, horizon), the
+   most relevant passages **with their ids**, the kinds of source a research run read and the known
+   constraints (both read only if they exist, and as data of unknown shape), and the role vocabulary. A
+   credential a source held is replaced before anything leaves the server. Source text is untrusted data.
+2. With a model (the person's choice, as for finding), the reply must be `ProposedParticipants` v1: a
+   strict schema that refuses any field it was not asked for (an email, a gender, a private motive), then
+   the server's own checks, one correction, and then the rules, with a sanitised reason and none of the
+   model's words. A refusal and a cancelled request are never answered from rules. Without a model, the
+   **rules path** runs and calls none: the lexical discovery above, the taxonomy, and a decision owner and
+   somebody who is reached if the sources name none.
+3. The same deterministic steps follow either: every quote is checked against its passage; a participant
+   found again keeps its id; the same name twice is folded into one (the copy stays under Removed, named by
+   the one it went into); one role may hold at most six, the rules path keeps at most sixteen and a model's
+   proposal twenty-five, and **each cut is recorded**; relations with a missing end, a loop or a repeat are
+   dropped; a participant with no quotation is labelled an assumption; roles nobody holds, where the
+   sources suggest one matters, are named as gaps.
+4. A review is made from the result: **"Swarm proposes these participants because…"**, composed from the
+   participants' own fields and never from a model's prose; the issues, each **blocking** or **advisory**
+   with a sentence on what to do; and which roles are covered. It is made when a set is read and is never
+   stored, so it cannot be out of date.
+
+If the sources carry text addressed to an AI system, it is ignored, the passages are flagged on the set,
+a reply that repeats text such an instruction asked for is refused, and what only the model's word backs is
+left out unless the question names it.
+
+### The checks
+
+A set the proposal made is held to every rule. A set found before the proposal existed keeps its old
+checks: the rules about quality only advise, and the rules about safety and integrity still block.
+
+| Code                     | Proposed | Older    | What it catches                                                        |
+| ------------------------ | -------- | -------- | ---------------------------------------------------------------------- |
+| `too-few`                | blocking | blocking | Fewer than two participants.                                           |
+| `duplicate-id`           | blocking | blocking | Two participants with one id.                                          |
+| `generic-name`           | blocking | advisory | A name that is only a generic word.                                    |
+| `broad-name`             | advisory | advisory | A real role named too broadly ("Customers").                           |
+| `real-person`            | blocking | blocking | Text that points at an identified person.                              |
+| `personal-detail`        | blocking | blocking | An email address, a phone number, a handle, an address, a credential.  |
+| `stereotype`             | blocking | blocking | A sweeping claim about what a kind of person is like.                  |
+| `unsupported-motive`     | blocking | blocking | A claim to know a hidden reason, or a mental state put on a person.    |
+| `wording`                | blocking | advisory | A forecast, a claim of certainty, a percentage, a figure of the world. |
+| `evidence-unknown`       | blocking | advisory | A citation of a passage that is not in the project.                    |
+| `basis-unsupported`      | blocking | blocking | A participant said to be quoted that cites no passage.                 |
+| `assumption-unmarked`    | blocking | advisory | No passage, and no word that it is an assumption.                      |
+| `duplicate-participant`  | blocking | advisory | Two participants with the same name.                                   |
+| `possible-duplicate`     | advisory | advisory | Two participants of one role with overlapping names.                   |
+| `duplicate-incentives`   | blocking | advisory | Two participants whose incentives are the same.                        |
+| `relation-invalid`       | blocking | blocking | A relation with a missing end, a loop, or a repeat.                    |
+| `incomplete`             | blocking | none     | No objective, or no plausible action.                                  |
+| `role-mismatch`          | advisory | advisory | A role and a kind of party that do not go together.                    |
+| `missing-decision-owner` | advisory | advisory | Nobody is named as the decision owner.                                 |
+| `missing-role`           | advisory | advisory | A role that looks material here and nobody holds.                      |
+| `over-represented`       | advisory | advisory | One role is most of the list.                                          |
+| `many-key`               | advisory | advisory | More key actors than the simulation runs as individuals.               |
+| `too-many`               | advisory | advisory | More participants than are easy to review.                             |
+
+`valid` is true only when no blocking issue remains. **Approving is refused with `PARTICIPANTS_INVALID`
+while one does**, and the refusal says which and what to do. Because every change to a set takes its
+approval away and actors are made only from an approved set, a simulation cannot start from participants
+that did not pass. Making actors from a set the proposal made checks it again, so that nothing that changed
+outside the routes after the approval can reach the simulation; a set found before participants existed
+keeps the approval it has.
+
 ## Reviewing
 
 ### On the Map
@@ -189,21 +306,22 @@ as they are. _To review_ counts the stakeholders that nobody has accepted, edite
 list has been approved it is gone. One pill at the foot of the map says what to do next and changes as the
 work goes on:
 
-| Where the person has got to                         | What the pill, or the page, offers                                                                                                                                                                                  |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Nothing found yet                                   | The page asks "Who is in play?": **Find who is affected** (by the model when the project has one, which is then the main way, with **Read the text instead** beside it) and **Add one yourself**                    |
-| Some stakeholders need review                       | "N to review", which opens the next one, beside **Create actors** (**Approve** when actors the person edited are kept). It waits, with the hint "Keep or add two or more", until at least two stakeholders are kept |
-| Approved, no actors yet                             | **Create actors**                                                                                                                                                                                                   |
-| Actors exist                                        | "N actors ready", with **Simulate**. **Actors** in the toolbar is a way to look, and not the next step                                                                                                              |
-| Actors changed                                      | "N actors changed", "Not saved yet", with **Save** and **Discard**                                                                                                                                                  |
-| The stakeholders changed after the actors were made | A notice, "The actors are out of date", with **Make them again**, which asks before it replaces what the person changed (it approves the list again first when the change took the approval away)                   |
-| A person who may only read                          | A line that says what is missing ("Approving needs the right to edit and to run the project."); the stakeholders and their evidence can still be read                                                               |
+| Where the person has got to                         | What the pill, or the page, offers                                                                                                                                                                                                 |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nothing found yet                                   | The page asks "Who is in play?": **Find who is affected** (by the model when the project has one, which is then the main way, with **Read the text instead** beside it) and **Add one yourself**                                   |
+| Some stakeholders need review                       | "N to review", which opens the next one, beside **Create actors** (**Approve** when actors the person edited are kept). It waits, with the hint "Keep or add two or more", until at least two stakeholders are kept                |
+| Approved, no actors yet                             | **Create actors**                                                                                                                                                                                                                  |
+| Actors exist                                        | "N actors ready", with **Simulate**. **Actors** in the toolbar is a way to look, and not the next step                                                                                                                             |
+| Actors changed                                      | "N actors changed", "Not saved yet", with **Save** and **Discard**                                                                                                                                                                 |
+| The stakeholders changed after the actors were made | A notice, "The actors are out of date", with **Make them again**, which asks before it replaces what the person changed (it approves the list again first when the change took the approval away)                                  |
+| A check of the participants stands in the way       | The way on is shut: the approving button waits with the hint "Fix N things first", a notice under the heading says how many checks stand in the way with **Review participants**, and **Review** in the toolbar carries the number |
+| A person who may only read                          | A line that says what is missing ("Approving needs the right to edit and to run the project."); the stakeholders and their evidence can still be read                                                                              |
 
 When a model is available, pressing the approving button opens a small panel first, with the switch **Let
 the model read the key actors**, so that the choice of letting the model read them, which sends the source
 text, is never skipped.
 
-The toolbar says what is drawn: **Map** or **List**, and **Stakeholders** or **Actors**. **Groups** hides a
+The toolbar says what is drawn: **Map**, **List** or **Review**, and **Stakeholders** or **Actors**. **Groups** hides a
 kind of party, the focus control dims all but what is connected to the party in view, **Add a stakeholder**
 adds one, and under **More** are **Find stakeholders again…** and **Reset all actors…**. A legend ("How to
 read this map") says what size, colour, ring and paleness mean: size is how much it matters (for an actor,
@@ -236,6 +354,46 @@ What a change takes away, the page replaces: an accepted party loses its **Accep
 leaves the map for **Removed**, an added one appears, and approving replaces the button that was pressed.
 Each change is said to a screen reader, and focus goes to the party, the inspector or the next step, not back
 to the top of the page. The rules that hold the page to this are in [UX.md](./UX.md#accessibility).
+
+### The review of the participants
+
+**Find who is affected** now proposes participants (`POST …/stakeholders/propose`), so a list found on the
+Map is checked as it is made. A notice under the heading says "Swarm proposed these participants" with
+**Review participants**, which opens **Review** in the toolbar (`?scene=map&view=review`). A list found before
+participants existed has no such notice and keeps its map, its pill and its approval as they were; **Review**
+is there for it too, and holds it to the older, lighter checks (see [The checks](#the-checks)).
+
+The review is a column to read, in this order:
+
+1. **The summary line**, "Swarm proposes these N participants because…", composed from the participants'
+   own fields and never from a model's prose, with the counts (participants, key, quoted, assumed, still to
+   review). A passage that carries text addressed to an AI system is named in a notice: it was read as text
+   and not followed as an instruction.
+2. **The gate.** "Nothing blocks these participants", or "Fix N things before these can be used" with each
+   blocking issue beside the button that mends it (**Rename**, **Edit**, **Merge**, **Add one**, **Propose
+   again** or **Remove**) and **Show**, which takes focus to its card. Simulation starts only from a list
+   that passes: the pill says "N checks to fix" and the button **Use these actors** waits, and the server
+   refuses to approve (`409 PARTICIPANTS_INVALID`) however the request was made.
+3. **Actions on the whole list:** **Accept all**, **Accept selected**, **Merge duplicates**, **Add a missing
+   participant** and **Propose the list again…**, which asks before it replaces a reviewed list.
+4. **Roles in this decision.** Which roles somebody holds, and which nobody does, each missing one with the
+   reason it may matter here and **Add one**. Roles nothing points at are offered, not asked for, and nothing
+   is made up to fill one.
+5. **The participants, grouped by the role they play.** A card says who it is and why it is here (including
+   the passage that names it), how much it can do about the decision, how directly it is reached, and in
+   chips: _Synthetic role, not a person_; whether it rests on a quoted passage or is **assumed** (and on
+   what); how uncertain it is; and where it stands in the review. **Details and evidence** holds what the
+   role is assumed to want, the pressures and limits on it, what it can see, what it could do, what is never
+   asserted about it, and the quotations word for word. **Ask why** reads the reasons from the participant
+   itself and the passages it cites. **Edit** changes any of it (and says on the card that it was edited by
+   the person), **Merge into another**, **Propose again** (it asks before replacing a participant the person
+   changed, and offers the model only when the project has one) and **Remove** (nothing is deleted).
+6. **Suggestions**, **Removed** (each restorable, a merge can be undone), **Left out** (what the proposal did
+   not keep and why) and **How this list was checked**.
+
+The page is the same on a phone: one column, controls of a finger's size, and the pill keeps **Use these
+actors** whole beside what it says. Every change says what happened to a screen reader and puts focus on a
+card that still exists.
 
 ### What a person can do
 
@@ -369,15 +527,24 @@ A project without actors is unchanged.
 All routes are under `/api/projects/:id`. Reading answers `200` with nothing in it for a project that has
 no stakeholders yet; it is not an error.
 
-| Route                         | Role needed | Does                                                                  |
-| ----------------------------- | ----------- | --------------------------------------------------------------------- |
-| `GET  /stakeholders`          | read        | The list, its revision, whether a model is available, what you may do |
-| `POST /stakeholders/discover` | run         | `{ mode: "rules" or "model", confirm }`; answers `201`                |
-| `PUT  /stakeholders`          | edit        | The reviewed list and the revision you saw; `0` builds one by hand    |
-| `POST /stakeholders/approve`  | edit        | `{ expectedRevision }`                                                |
-| `GET  /actors`                | read        | The actors, and whether they are older than the stakeholders          |
-| `POST /actors/generate`       | run         | `{ model, confirm }`; needs an approved list; answers `201`           |
-| `PUT  /actors`                | edit        | Edited actors and the revision you saw                                |
+| Route                                          | Role needed | Does                                                                                  |
+| ---------------------------------------------- | ----------- | ------------------------------------------------------------------------------------- |
+| `GET  /stakeholders`                           | read        | The list, its revision, whether a model is available, what you may do, and its review |
+| `POST /stakeholders/discover`                  | run         | `{ mode: "rules" or "model", confirm }`; answers `201`                                |
+| `PUT  /stakeholders`                           | edit        | The reviewed list and the revision you saw; `0` builds one by hand                    |
+| `POST /stakeholders/approve`                   | edit        | `{ expectedRevision }`; refused while the review has a blocking issue                 |
+| `POST /stakeholders/propose`                   | run         | `{ mode: "rules" or "model", confirm }`; the participants; answers `201`              |
+| `GET  /stakeholders/validation`                | read        | `{ revision, review }`: the check that gates approval                                 |
+| `POST /stakeholders/accept`                    | edit        | `{ expectedRevision, ids? }`: the ones named, or every one still only proposed        |
+| `PATCH /stakeholders/:participantId`           | edit        | `{ expectedRevision, changes }`: only the fields a person may change                  |
+| `DELETE /stakeholders/:participantId`          | edit        | `?expectedRevision=`: marks it removed; it stays in the record                        |
+| `POST /stakeholders/:participantId/regenerate` | run         | `{ expectedRevision, mode, confirm }`: one participant again, given the rest          |
+| `GET  /stakeholders/:participantId/why`        | read        | The participant explained from what it already holds; no model                        |
+| `POST /stakeholders/merge-duplicates`          | edit        | `{ expectedRevision, groups? }`: the same names, or the groups you choose             |
+| `POST /stakeholders/add-missing`               | edit        | `{ expectedRevision, role, name }`: a participant for a role nobody holds             |
+| `GET  /actors`                                 | read        | The actors, and whether they are older than the stakeholders                          |
+| `POST /actors/generate`                        | run         | `{ model, confirm }`; needs an approved list; answers `201`                           |
+| `PUT  /actors`                                 | edit        | Edited actors and the revision you saw                                                |
 
 A change made against an old revision is refused with `ARTIFACT_CONFLICT` (HTTP 409) and nothing is
 overwritten. A review that rewrites a cited quotation (its document, the document's name, its position, its
@@ -386,11 +553,18 @@ with `EVIDENCE_NOT_VERIFIED` (both HTTP 400, nothing is stored). Other refusals 
 `STAKEHOLDERS_REVIEWED` and `ACTORS_EDITED` (confirm to replace your work), `STAKEHOLDERS_NOT_APPROVED`,
 `MODEL_NOT_AVAILABLE`, `STAKEHOLDERS_TOO_FEW` and `STAKEHOLDERS_BUSY` (one discovery or generation runs at a
 time for a project), and, for `PUT /actors`, `ACTORS_CHANGED` and `ACTOR_LOCKED` (the actors come from the
-stakeholders, so one cannot be added, removed, renamed or regrouped there). Finding stakeholders and making
-actors are limited to ten a minute.
+stakeholders, so one cannot be added, removed, renamed or regrouped there). For participants:
+`PARTICIPANTS_INVALID` (approving, or making actors from a proposed set, while the review has a blocking issue), `PARTICIPANT_NOT_FOUND`,
+`PARTICIPANT_REMOVED`, `PARTICIPANT_EDITED` and `PARTICIPANT_NOT_REGENERABLE` (one you added has nothing in the
+sources to regenerate it from), `NO_DUPLICATES`, `MERGE_INVALID` and `ROLE_CATEGORY_MISMATCH`. Finding
+stakeholders, proposing participants, proposing one again and making actors are limited to ten, twenty or ten a
+minute; the other changes to sixty or a hundred and twenty.
 
 Every change is recorded in the audit trail, in the same step as the change. The record holds **counts and
-the mode only**: never the question, the sources or a stakeholder's text.
+the mode only**: never the question, the sources or a stakeholder's text. A change to the participants is
+recorded under the action that already names it (proposing as `stakeholders.discovered`, everything else as
+`stakeholders.edited`) with an `operation` such as `accept`, `edit`, `remove`, `regenerate`, `merge` or
+`add-missing`.
 
 ## What this does not do
 
@@ -413,7 +587,11 @@ npm test -- backend/test/stakeholders-routes.test.ts backend/test/stakeholders-n
 npm test -- backend/test/stakeholders-packs.test.ts backend/test/stakeholders-tone.test.ts
 npm test -- backend/test/stakeholders-noise.test.ts backend/test/stakeholders-speed.test.ts
 npm test -- backend/test/stakeholders-docs.test.ts
-npm test -- frontend/src/scenes/map frontend/src/lib/stakeholders frontend/src/viz frontend/src/api/stakeholders.test.ts
+npm test -- backend/test/participants-schema.test.ts backend/test/participants-rules.test.ts
+npm test -- backend/test/participants-checks.test.ts backend/test/participants-model.test.ts
+npm test -- backend/test/participants-routes.test.ts
+npm test -- frontend/src/scenes/map frontend/src/lib/stakeholders frontend/src/viz frontend/src/api frontend/src/hooks/useParticipants.test.tsx
+E2E_PROJECTS=lab npx playwright test e2e/lab/map-participants.spec.ts
 ```
 
 The discovery tests run on briefs of very different subjects, and a test checks that every name found
@@ -423,6 +601,15 @@ from them; the speed tests give it 40,000 characters of full stops, of one capit
 different names, and expect the time to grow with the length of the text and not with its square.
 `stakeholders-docs.test.ts` holds this page to the code: the category table, the sizes and limits, the
 routes, the error codes and the table of what the examples give.
+
+The participant tests hold the contract and what an older save still parses as (`participants-schema`), the
+rules proposal on every pack and the library notes with no model (`participants-rules`), each check and
+its two profiles (`participants-checks`), the model path against a scripted gateway that answers as a
+model would, wrongly and rightly (`participants-model`), and the routes, the gate, the revisions, the
+rate limits and who may do what (`participants-routes`). The model path has been exercised only against
+that scripted double, never against a real model. The review's render tests
+(`scenes/map/review/ReviewSurface.test.tsx`) walk its states: empty, blocked, valid, read-only, busy, and
+a proposal with a flagged source and what was left out.
 
 The front-end tests hold the review logic (`lib/stakeholders`), the Map scene's model and its keyboard and
 pointer behaviour (`scenes/map`) and the ecosystem map (`viz`), and `backend/test/stakeholders-neutrality.test.ts`

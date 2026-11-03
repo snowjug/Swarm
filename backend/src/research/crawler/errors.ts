@@ -21,8 +21,6 @@ export interface Verdict {
   transient: boolean;
   /** Which rule refused it, as a fixed word, for the log. */
   reason: string;
-  /** The refusal came from where a name leads, which a person is not told. */
-  resolved: boolean;
   /** Set when robots.txt is what decided. */
   robots: RobotsDecision | null;
   quarantine: { reason: QuarantineReason; detail: string } | null;
@@ -39,7 +37,6 @@ const BASE: Verdict = {
   safety: false,
   transient: false,
   reason: 'unknown',
-  resolved: false,
   robots: null,
   quarantine: null,
   message: 'The page could not be read.',
@@ -64,7 +61,7 @@ export function parseRetryAfter(header: string | undefined, now: number): number
 }
 
 function refused(failure: UrlFailure): Verdict {
-  const { refusal, address, resolved, redirected } = failure.detail;
+  const { refusal, address, redirected } = failure.detail;
   const reason = refusal ?? address ?? failure.code;
   if (redirected) {
     if (refusal === 'caller') {
@@ -82,20 +79,7 @@ function refused(failure: UrlFailure): Verdict {
       counts: false,
       safety: true,
       reason,
-      resolved: resolved === true,
       message: 'A redirect led to an address that is not read, so it was not followed.',
-    });
-  }
-  if (resolved) {
-    // A name that leads inside a network is told like a name that does not exist.
-    return verdict({
-      errorClass: 'dns',
-      outcome: 'failed',
-      counts: false,
-      safety: true,
-      reason,
-      resolved: true,
-      message: 'The name could not be found on the public web.',
     });
   }
   if (failure.code === 'port') {
@@ -144,6 +128,50 @@ function refused(failure: UrlFailure): Verdict {
   });
 }
 
+/**
+ * A refusal that came from where a name leads (a private or internal address) is the failure of a name
+ * that was not found: the same class, the same sentence, the same count, the same stop, whichever way the
+ * name was met (the address itself, a redirect, robots.txt). A person who could tell the two apart could
+ * learn which names exist inside the network the server runs in. What it was is kept, for the server's own
+ * log only (`lookupRefusalOf`), as the cause of the failure that is judged.
+ */
+function toldAsMissing(failure: UrlFailure): UrlFailure {
+  if (failure.code !== 'blocked' || failure.detail.resolved !== true) return failure;
+  const { stage, redirected } = failure.detail;
+  return new UrlFailure(
+    'network',
+    'The name could not be looked up.',
+    { reason: 'dns', ...(stage ? { stage } : {}), ...(redirected ? { redirected } : {}) },
+    failure,
+  );
+}
+
+/** What a person is not told about a failure, for the server's own log: a name was refused for where it leads. */
+export interface RefusedLookup {
+  /** The name that was refused: the page's own, the one a redirect led to, or the one robots.txt led to. */
+  host: string | null;
+  via: 'page' | 'redirect' | 'robots';
+  /** The kind of address the name leads to, as a fixed word: `private-network`, `link-local`... */
+  reason: string;
+}
+
+/** Whether a failure is a name that was refused for the addresses it leads to, and what the server's log should say of it. */
+export function lookupRefusalOf(error: unknown): RefusedLookup | null {
+  if (!(error instanceof UrlFailure)) return null;
+  let behind: unknown = error;
+  // The refusal can sit one or two failures down: robots.txt and a redirect each wrap what they met.
+  for (let depth = 0; depth < 4 && behind instanceof UrlFailure; depth += 1) {
+    const { code, detail } = behind;
+    if (code === 'blocked' && detail.resolved === true) {
+      const via =
+        error.detail.stage === 'robots' ? 'robots' : error.detail.redirected ? 'redirect' : 'page';
+      return { host: detail.host ?? null, via, reason: detail.address ?? 'unknown' };
+    }
+    behind = behind.cause;
+  }
+  return null;
+}
+
 /** Judges a failure of one request. `cancelled` says the person, or the crawl's own deadline, stopped it. */
 export function judge(error: unknown, context: { cancelled: boolean; now: number }): Verdict {
   if (context.cancelled) {
@@ -156,12 +184,13 @@ export function judge(error: unknown, context: { cancelled: boolean; now: number
     });
   }
   if (!(error instanceof UrlFailure)) return verdict({});
-  const { detail } = error;
-  switch (error.code) {
+  const failure = toldAsMissing(error);
+  const { detail } = failure;
+  switch (failure.code) {
     case 'invalid':
     case 'blocked':
     case 'port':
-      return refused(error);
+      return refused(failure);
     case 'robots':
       return verdict({
         errorClass: 'robots-disallowed',
@@ -248,7 +277,7 @@ export function judge(error: unknown, context: { cancelled: boolean; now: number
       });
     }
     case 'network':
-      return network(error);
+      return network(failure);
     default:
       return verdict({});
   }

@@ -284,6 +284,27 @@ cited sentence has a word of concern or welcome. The others stay unclear until y
 harmed, which is what the warning before a simulation means when it says that nobody has an expected
 direction of impact.
 
+### Constraints: what limits the decision
+
+The toolbar has a third view, **Constraints**. A constraint is a limit on the decision: money, time, a rule,
+capacity, who has to agree. **Read my sources for constraints** reads your question, your scenario, your sources and
+who is involved for them (with a model too, if the project has one and you ask for it). Nothing it finds is
+validated, reviewed or used by being found. Each constraint says where it came from: **You**, **From evidence**
+(with the quote, word for word, under **Evidence**) or **Inferred** (a suggestion from who is involved, which no
+source says), whether anyone has validated it, whether it is **Hard** or **Soft**, and whether the simulation
+runs under it (**Applied in the simulation**) or only reads it (**Read, not modelled**). A constraint you accept
+stays not yet validated until you **Confirm** it; **Mark unknown** keeps it out of the runs without treating it as
+true; **Use as an assumption** says so wherever the result is used.
+
+Swarm asks up to three questions at a time about limits it could not find and that could change the result.
+You can **Answer**, **Mark unknown**, **Use an assumption** or **Exclude** each one. The coverage gate at the top
+says whether a simulation may start: **Blocked** while a hard legal, regulatory or safety constraint is not
+settled (or a hard constraint rules out every alternative), **Provisional** while anything is left that you have
+not confirmed (the comparison then carries that label), **Clear** when everything is confirmed. A simulation
+does not start on constraints nobody has been through ("Confirm the review"). A project with no constraints is
+simulated as before. **What if one thing were different** runs the proposed change again with one thing
+different, on the same seeds. These are results of the simulation, not forecasts.
+
 ## Simulate: watch it unfold
 
 ![Simulate, Live: the actors on the map coloured by where each stands in the round shown, a round card with the share of each response, and a scrubber along the bottom](./assets/swarm-simulate-live.png)

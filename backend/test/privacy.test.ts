@@ -91,6 +91,7 @@ beforeAll(async () => {
     repository: new Repository(':memory:'),
     tokenVerifier: new TokenVerifier(config.auth, idp.keys),
     logStream: { write: (line: string) => void lines.push(line) },
+    frontendRoot: null,
     modelFactory: (onUsage, options) =>
       new ModelClient(config.provider, onUsage, rejecting, options?.maxCalls ?? 16),
   });

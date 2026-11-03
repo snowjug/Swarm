@@ -1,5 +1,12 @@
 import type { FetchedPage } from '../../ingest/url/fetcher.js';
-import { circuitOpen, domainLimit, isAbort, judge, type Verdict } from './errors.js';
+import {
+  circuitOpen,
+  domainLimit,
+  isAbort,
+  judge,
+  lookupRefusalOf,
+  type Verdict,
+} from './errors.js';
 import type { Candidate } from './frontier.js';
 import { retryAfterMs } from './retry.js';
 import type { CrawlRun } from './run.js';
@@ -33,7 +40,6 @@ const tooLargeForWhatIsLeft = (): Verdict => ({
   safety: false,
   transient: false,
   reason: 'size-left',
-  resolved: false,
   robots: null,
   quarantine: null,
   message: 'The page was larger than what was left of the size limit for the research.',
@@ -151,6 +157,8 @@ async function attempts(run: CrawlRun, candidate: Candidate, maxBytes: number): 
         cancelled: run.signal.aborted || isAbort(error),
         now: run.deps.now(),
       });
+      const refused = lookupRefusalOf(error);
+      if (refused && !run.signal.aborted) run.noteLookupRefusal(candidate, refused);
       if (turnedDown.reason === 'domain-limit') verdict = domainLimit();
       if (
         maxBytes < run.input.budget.maxBytesPerPage &&
@@ -187,7 +195,6 @@ async function failed(
       url: candidate.url,
       errorClass: verdict.errorClass,
       reason: verdict.reason,
-      resolved: verdict.resolved,
     });
   } else if (verdict.errorClass !== 'cancelled') {
     run.emit({

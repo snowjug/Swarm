@@ -159,6 +159,8 @@ export function buildPopulation(
   variant: Variant,
   seed: number,
   cap: number,
+  /** Changes an actor's resolved traits before its members are drawn, which is how constraints reach them. */
+  adjust: ((index: number, resolved: ResolvedActor) => void) | null = null,
 ): Population {
   const edits = indexEdits(actors, variant);
   const counts = actors.map((actor) => memberCountOf(actor, cap));
@@ -185,6 +187,7 @@ export function buildPopulation(
   let next = 0;
   actors.forEach((actor, index) => {
     const resolved = resolveActor(actor, variant, edits);
+    adjust?.(index, resolved);
     population.resolved.push(resolved);
     population.noiseStream[index] = derive(seed, 'noise', actor.id);
     population.group[index] = groupFactor(seed, actor.id);

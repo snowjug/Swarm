@@ -32,6 +32,7 @@ async function start(level: 'info' | 'debug' = 'info') {
     repository: new Repository(':memory:'),
     tokenVerifier: new TokenVerifier(config.auth, idp.keys),
     logStream: { write: (line: string) => void lines.push(JSON.parse(line)) },
+    frontendRoot: null,
   });
   applications.push(instance);
   return { ...instance, lines };

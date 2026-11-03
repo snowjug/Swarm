@@ -122,6 +122,16 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'POST /api/projects/:id/stakeholders/discover': project('run'),
   'PUT /api/projects/:id/stakeholders': project('edit'),
   'POST /api/projects/:id/stakeholders/approve': project('edit'),
+  // Participants: proposing and proposing one again may ask a model (run); the rest change or read the list.
+  'POST /api/projects/:id/stakeholders/propose': project('run'),
+  'GET /api/projects/:id/stakeholders/validation': project('read'),
+  'POST /api/projects/:id/stakeholders/accept': project('edit'),
+  'PATCH /api/projects/:id/stakeholders/:participantId': project('edit'),
+  'DELETE /api/projects/:id/stakeholders/:participantId': project('edit'),
+  'POST /api/projects/:id/stakeholders/:participantId/regenerate': project('run'),
+  'GET /api/projects/:id/stakeholders/:participantId/why': project('read'),
+  'POST /api/projects/:id/stakeholders/merge-duplicates': project('edit'),
+  'POST /api/projects/:id/stakeholders/add-missing': project('edit'),
   'GET /api/projects/:id/actors': project('read'),
   'POST /api/projects/:id/actors/generate': project('run'),
   'PUT /api/projects/:id/actors': project('edit'),
@@ -131,6 +141,18 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/projects/:id/analysis/:aid': project('read'),
   'POST /api/projects/:id/analysis': project('run'),
   'POST /api/projects/:id/analysis/:aid/cancel': project('run'),
+
+  // [constraints policy]
+  // What limits the decision. Reading is for anyone who can read the project; proposing may ask a model and
+  // measures the proposed change, so it needs the right to run, as do the counterfactual views; changing and
+  // reviewing the constraints need the right to edit.
+  'GET /api/projects/:id/constraints': project('read'),
+  'PUT /api/projects/:id/constraints': project('edit'),
+  'POST /api/projects/:id/constraints/propose': project('run'),
+  'POST /api/projects/:id/constraints/review': project('edit'),
+  'GET /api/projects/:id/constraints/gate': project('read'),
+  'GET /api/projects/:id/constraints/counterfactuals': project('read'),
+  'POST /api/projects/:id/constraints/counterfactuals': project('run'),
 
   // [critics policy]
   // The independent review: reading is for anyone who can read the project, running it is a duty of
@@ -145,6 +167,20 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/projects/:id/brief': project('read'),
   'POST /api/projects/:id/brief': project('edit'),
   'GET /api/projects/:id/brief/export': project('export'),
+
+  // [research policy]
+  // Research reads pages from the public web and may use a model, so starting it, adding to it and
+  // stopping it are for those who may run the project; what it found is read like the project it belongs to.
+  'GET /api/projects/:id/research': project('read'),
+  'POST /api/projects/:id/research': project('run'),
+  'POST /api/projects/:id/research/sources': project('run'),
+  'POST /api/projects/:id/research/pause': project('run'),
+  'POST /api/projects/:id/research/resume': project('run'),
+  'POST /api/projects/:id/research/finish': project('run'),
+  'POST /api/projects/:id/research/cancel': project('run'),
+  // The person's own text, added to a project that has not been grounded: for whoever may edit the project.
+  // The route also queues the stage that grounds it, so it asks for the right to run it as well.
+  'POST /api/projects/:id/evidence/documents': project('edit'),
 };
 
 /** HEAD is answered by the GET handler and is authorised exactly like it. */

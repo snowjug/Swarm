@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { GroundingReview } from './grounding.js';
 import type { GuidedConsoleState } from './guided.js';
 import type { LabProgress } from './lab.js';
-import { researchIntakeSchema } from './research.js';
+import { researchIntakeSchema, type DiscoveryStatus, type ResearchBudget } from './research.js';
 import { scenarioInputSchema, sourceProvenanceSchema, type SourceProvenance } from './scenario.js';
 
 export const APP_VERSION = '0.3.0';
@@ -79,7 +79,7 @@ export const createProjectSchema = z
     name: z.string().trim().min(3).max(100),
     question: z.string().trim().min(10).max(2_000),
     workflow: z.enum(['quick', 'guided']).default('quick'),
-    documents: z.array(documentInputSchema).min(1).max(MAX_DOCUMENTS),
+    documents: z.array(documentInputSchema).max(MAX_DOCUMENTS),
     settings: settingsSchema.default(() => settingsSchema.parse({})),
     /** The structure read from the question, when the person went through scenario intake. */
     scenario: scenarioInputSchema.optional(),
@@ -87,6 +87,31 @@ export const createProjectSchema = z
     research: researchIntakeSchema.optional(),
   })
   .superRefine((project, context) => {
+    // A question on its own is a project only when research is asked to find the sources.
+    if (project.documents.length === 0 && project.research?.auto !== true) {
+      context.addIssue({
+        code: 'too_small',
+        origin: 'array',
+        minimum: 1,
+        inclusive: true,
+        input: project.documents,
+        path: ['documents'],
+      });
+    }
+    // Research is the first phase of a guided project's grounding: a quick run has no such phase, and with
+    // no source it could only fail, so it is refused here, where the person can still change it.
+    if (
+      project.documents.length === 0 &&
+      project.research?.auto === true &&
+      project.workflow !== 'guided'
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['workflow'],
+        message:
+          'A question with no source needs the guided workflow, where research finds sources.',
+      });
+    }
     if (
       project.documents.reduce((sum, document) => sum + document.content.length, 0) >
       MAX_TOTAL_CHARS
@@ -379,6 +404,12 @@ export interface AppConfig {
    * the control when it is not true. Absent from a server that does not know the feature.
    */
   urlIngestion?: boolean;
+  /**
+   * Automatic research: whether this server does it, whether it can find sources from a question alone
+   * (`discovery`), and the budget a run has when a person asks for nothing more. Absent from a server
+   * that does not know the field.
+   */
+  research?: { enabled: boolean; discovery: DiscoveryStatus; budget: ResearchBudget };
   /**
    * What this deployment says it is: `local` (one person, this machine), `pilot` or `production`, and
    * the label to show. Absent from a server that does not know the field.

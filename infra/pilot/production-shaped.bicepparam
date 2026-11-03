@@ -81,3 +81,8 @@ param containerAppsZoneRedundant = true
 
 // Alerts
 param p95LatencyMs = 1000
+
+// What this deployment is. The application refuses to start in production without a label of its own
+// (backend/src/deployment.ts): replace this with the description the people who use it should read.
+param deploymentMode = 'production'
+param deploymentLabel = 'Swarm scenario laboratory (replace with your own description)'

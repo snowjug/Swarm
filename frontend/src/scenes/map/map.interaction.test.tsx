@@ -2,6 +2,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { stakeholderFixture, stakeholderSetFixture } from '../../../../shared/lab-fixtures';
 import type {
+  ParticipantIssue,
+  ParticipantReview,
   Stakeholder,
   StakeholderRelation,
   StakeholdersView,
@@ -15,6 +17,7 @@ const fake = vi.hoisted(() => ({
   initial: null as StakeholdersView | null,
   saves: [] as { stakeholders: Stakeholder[]; relations: StakeholderRelation[] }[],
   refusal: null as string | null,
+  approvals: 0,
 }));
 vi.mock('../../hooks/useStakeholders', async () => {
   const { useState } = await import('react');
@@ -32,7 +35,12 @@ vi.mock('../../hooks/useStakeholders', async () => {
         reload: () => undefined,
         dismissProblem: () => setProblem(null),
         discover: async () => true,
-        approve: async () => true,
+        propose: async () => true,
+        exec: async () => true,
+        approve: async () => {
+          fake.approvals += 1;
+          return true;
+        },
         makeActors: async () => true,
         saveActors: async () => true,
         save: async (stakeholders: Stakeholder[], relations: StakeholderRelation[]) => {
@@ -62,19 +70,26 @@ const stakeholdersOf = (patch: Record<string, Partial<Stakeholder>> = {}): Stake
 function serve({
   patch = {},
   may = { edit: true, run: true },
-}: { patch?: Record<string, Partial<Stakeholder>>; may?: StakeholdersView['may'] } = {}) {
+  review,
+}: {
+  patch?: Record<string, Partial<Stakeholder>>;
+  may?: StakeholdersView['may'];
+  review?: ParticipantReview;
+} = {}) {
   const set = stakeholderSetFixture();
   fake.initial = {
     stakeholders: { ...set, stakeholders: stakeholdersOf(patch), approvedAt: null },
     revision: 1,
     model: { available: false, reason: null },
     may,
+    ...(review ? { review } : {}),
   };
 }
 
 beforeEach(() => {
   fake.saves = [];
   fake.refusal = null;
+  fake.approvals = 0;
   serve();
 });
 
@@ -424,5 +439,117 @@ describe('on a narrow screen', () => {
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(details), { timeout: 800 });
+  });
+});
+
+const issueOf = (
+  patch: Partial<ParticipantIssue> & Pick<ParticipantIssue, 'code'>,
+): ParticipantIssue => ({
+  id: `${patch.code}:${patch.participantId ?? 'all'}`,
+  severity: 'blocking',
+  participantId: null,
+  relatedIds: [],
+  role: null,
+  message: 'Something stands in the way.',
+  fix: 'Mend it.',
+  fixAction: null,
+  ...patch,
+});
+
+const checkedAs = (blocking: ParticipantIssue[]): ParticipantReview => ({
+  valid: blocking.length === 0,
+  profile: 'strict',
+  summary:
+    'Swarm proposes these 6 participants because your question involves six roles. They are synthetic roles, not real people.',
+  counts: {
+    participants: 6,
+    key: 4,
+    sourced: 0,
+    assumed: 6,
+    proposed: 6,
+    removed: 0,
+    blocking: blocking.length,
+    advisory: 0,
+  },
+  coverage: [],
+  issues: blocking,
+});
+
+const TWO_BLOCKING = [
+  issueOf({ code: 'generic-name', participantId: 'press', fixAction: 'rename' }),
+  issueOf({ code: 'incomplete', participantId: 'resellers', fixAction: 'edit' }),
+];
+
+describe('the gate on using the participants', () => {
+  it('shuts the way on in the list while a check stands in the way, and says how much there is to fix', () => {
+    serve({ review: checkedAs(TWO_BLOCKING) });
+    renderList();
+    const pill = screen.getByRole('group', { name: 'Next' });
+    expect(within(pill).getByText('Fix 2 things first')).toBeTruthy();
+    const approve = within(pill).getByRole('button', { name: 'Approve & create actors' });
+    expect((approve as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('says so in the header, and the notice opens the review', async () => {
+    serve({ review: checkedAs(TWO_BLOCKING) });
+    const { user, workspace } = renderList();
+    expect(screen.getByText('2 checks stand in the way of using these participants')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Review participants' }));
+    expect(workspace.setView).toHaveBeenCalledWith('review');
+  });
+
+  it('is open for a list that passes its checks, and a list with no checks to read is not held back', async () => {
+    serve({ review: checkedAs([]) });
+    const first = renderList();
+    const approve = within(screen.getByRole('group', { name: 'Next' })).getByRole('button', {
+      name: 'Approve & create actors',
+    });
+    expect((approve as HTMLButtonElement).disabled).toBe(false);
+    await first.user.click(approve);
+    await waitFor(() => expect(fake.approvals).toBe(1));
+    first.unmount();
+
+    // An older server answers with no checks at all: nothing is held back, as before.
+    serve();
+    renderList();
+    const plain = within(screen.getByRole('group', { name: 'Next' })).getByRole('button', {
+      name: 'Approve & create actors',
+    });
+    expect((plain as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole('button', { name: 'Review participants' })).toBeNull();
+  });
+
+  it('is its own view: the review is on the page, and its one way on is the pill, which says Use these actors only when it is open', async () => {
+    serve({ review: checkedAs(TWO_BLOCKING) });
+    setMedia('(min-width: 64rem)', true);
+    const shut = renderWithApp(<MapScene />, { workspace: { view: 'review', scene: 'map' } });
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Review the proposed participants' }),
+    ).toBeTruthy();
+    const pill = screen.getByRole('group', { name: 'Next' });
+    expect(within(pill).getByText('checks to fix')).toBeTruthy();
+    expect(
+      (within(pill).getByRole('button', { name: 'Use these actors' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+    shut.unmount();
+
+    serve({ review: checkedAs([]) });
+    const open = renderWithApp(<MapScene />, { workspace: { view: 'review', scene: 'map' } });
+    const press = within(screen.getByRole('group', { name: 'Next' })).getByRole('button', {
+      name: 'Use these actors',
+    });
+    expect((press as HTMLButtonElement).disabled).toBe(false);
+    await open.user.click(press);
+    await waitFor(() => expect(fake.approvals).toBe(1));
+  });
+
+  it('puts the review on the toolbar beside the map and the list, with how many checks stand in the way', async () => {
+    serve({ review: checkedAs(TWO_BLOCKING) });
+    const { user, workspace } = renderList();
+    const views = screen.getByRole('radiogroup', { name: 'Show as' });
+    const review = within(views).getByRole('radio', { name: 'Review, 2 to fix' });
+    await user.click(review);
+    expect(workspace.setView).toHaveBeenCalledWith('review');
   });
 });

@@ -49,11 +49,18 @@ import { stakeholderRoutes } from './routes/stakeholders.js';
 // [analysis imports]
 import { analysisRoutes, type AnalysisServiceOptions } from './routes/analysis.js';
 
+// [constraints imports]
+import { constraintRoutes } from './routes/constraints.js';
+
 // [critics imports]
 import { critiqueRoutes } from './routes/critiques.js';
 
 // [brief imports]
 import { briefRoutes } from './routes/brief.js';
+
+// [research imports]
+import { researchRoutes } from './routes/research.js';
+import { ResearchService, type ResearchSeam } from './research/service.js';
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
 
@@ -65,6 +72,12 @@ export interface AppOptions {
   tokenVerifier?: TokenVerifier;
   /** Test hook: capture structured logs to assert that no secret or content is written. */
   logStream?: { write(message: string): void };
+  /**
+   * Where the built frontend is served from. The default is `frontend/dist` under the working
+   * directory, when it holds an index.html; null serves none, so a test does not depend on whether a
+   * frontend has been built on the machine that runs it.
+   */
+  frontendRoot?: string | null;
   /**
    * Test hook: send people to, and redeem codes at, a local identity provider instead of Microsoft.
    * `authorityHost` replaces `https://login.microsoftonline.com`; `fetcher` replaces the token call.
@@ -81,6 +94,8 @@ export interface AppOptions {
   jobs?: OrchestratorOptions;
   /** Test hook: read web pages through this fetcher (a stub resolver, or servers on this machine). */
   urlFetcher?: PublicFetcher;
+  /** Test hook: how research reaches the web and finds sources (its fetcher, plain http, a search provider, a clock). */
+  research?: ResearchSeam;
 }
 
 /** The routes a platform's health probes call. They answer without sign-in, and for any host. */
@@ -179,6 +194,16 @@ export async function buildApp(options: AppOptions) {
     app.log.error({ projectId, code }, 'Follow-up or survey failed. Inspect its persisted state.'),
   );
   const pdf = new PdfService();
+  // Research is the first phase of the job that grounds a project, so it is made once the queue and the
+  // PDF reader exist, and made known to the job by the repository they share.
+  const research = new ResearchService({
+    repository,
+    config,
+    createModel: modelFactory,
+    jobs,
+    pdf,
+    ...(options.research ?? {}),
+  }).attach();
 
   await app.register(helmet, {
     contentSecurityPolicy: {
@@ -373,6 +398,16 @@ export async function buildApp(options: AppOptions) {
   // [analysis routes]
   analysisRoutes(app, repository, options.analysis ?? {}, config.rateLimitScale);
 
+  // [constraints routes]
+  constraintRoutes(
+    app,
+    repository,
+    modelFactory,
+    config.provider,
+    config.rateLimitScale,
+    options.analysis?.simulator,
+  );
+
   // [critics routes]
   critiqueRoutes(app, repository, modelFactory, {
     modelAvailable: config.provider.configured,
@@ -382,8 +417,14 @@ export async function buildApp(options: AppOptions) {
   // [brief routes]
   briefRoutes(app, repository, config.rateLimitScale);
 
-  const frontend = resolve(process.cwd(), 'frontend', 'dist');
-  if (existsSync(resolve(frontend, 'index.html'))) {
+  // [research routes]
+  researchRoutes(app, research, config.rateLimitScale);
+
+  const frontend =
+    options.frontendRoot === undefined
+      ? resolve(process.cwd(), 'frontend', 'dist')
+      : options.frontendRoot;
+  if (frontend !== null && existsSync(resolve(frontend, 'index.html'))) {
     await app.register(staticFiles, {
       root: frontend,
       prefix: '/',
@@ -422,8 +463,9 @@ export async function buildApp(options: AppOptions) {
   }
   app.addHook('preClose', async () => {
     await Promise.all([interaction.stop(), jobs.stop(), pdf.stop()]);
+    research.close();
   });
   app.addHook('onClose', async () => repository.close());
   await app.ready();
-  return { app, repository, jobs, interaction, pdf, routes };
+  return { app, repository, jobs, interaction, pdf, research, routes };
 }

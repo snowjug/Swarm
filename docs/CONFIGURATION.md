@@ -60,6 +60,28 @@ ports or domains. Defaults use the configured API port and local Vite port.
 Provider status means configuration exists, not that the service has been reached
 or its output quality verified. Restart the backend after changing environment variables.
 
+### Automatic research
+
+Research is the first phase of grounding a project: it reads the page or site a person names, and what they
+link to, as evidence ([how it works](../backend/src/research/README.md), [the routes](./API.md#automatic-research)).
+It reads **https only**, from public addresses, by the rules of [URL ingestion](./security/url-ingestion.md):
+there is no setting that reads plain http or a private address. These settings can only **lower** what one
+run may use; a person may ask for less, never for more. Empty means the ceiling.
+
+| Variable                      | Purpose                                                                                                                                                                                |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RESEARCH_ENABLED`            | `on` (default) or `off`. It also needs `URL_INGESTION=on`. `GET /api/config` reports it as `research.enabled`; with it off every start is refused with `403 RESEARCH_DISABLED`         |
+| `RESEARCH_SEARCH_PROVIDER`    | Only `none` exists. Finding sources from a question alone needs a search provider that has not been chosen ([LIMITATIONS](./production/LIMITATIONS.md), A6): such a run ends `blocked` |
+| `RESEARCH_MAX_PAGES`          | Most pages one run reads (1–30; a run that asks for nothing gets 12)                                                                                                                   |
+| `RESEARCH_MAX_DOMAINS`        | Most sites one run reads (1–8; a run that asks for nothing gets 4)                                                                                                                     |
+| `RESEARCH_MAX_DEPTH`          | Links followed from a starting page (0–2; a run that asks for nothing gets 1)                                                                                                          |
+| `RESEARCH_MAX_BYTES_PER_PAGE` | Most bytes of one page (10,000–2,000,000)                                                                                                                                              |
+| `RESEARCH_MAX_TOTAL_BYTES`    | Most bytes one run reads (10,000–20,000,000)                                                                                                                                           |
+| `RESEARCH_MAX_SECONDS`        | Most seconds one run reads for (5–300; a run that asks for nothing gets 120)                                                                                                           |
+| `RESEARCH_MAX_COST_USD`       | Most estimated model cost of one run in US dollars (0–2; a run that asks for nothing gets 0.25). It is an estimate from `MODEL_PRICES`; 0 asks no model, and rules plan                |
+| `RESEARCH_DOMAIN_DELAY_MS`    | Least wait between two requests to one site (250–10,000; default 1,000). A person may ask for longer, never for shorter                                                                |
+| `RESEARCH_MAX_PAUSE_SECONDS`  | How long a run may stay paused before it ends by itself with what it has read (30–420; default 300)                                                                                    |
+
 ## Sign-in and tenants
 
 With the default `AUTH_MODE=none` there is one local user and no sign-in, so the server must only

@@ -197,6 +197,53 @@ describe.skipIf(!bicep || postgresRun)(
         expect(parameterNames.filter((name) => /password|credential/iu.test(name))).toEqual([]);
       });
 
+      it('sets the environment the hosted-start guard requires, so the app is never refused by its own template', () => {
+        const names = (snapshot: Json): Record<string, unknown> =>
+          Object.fromEntries(
+            objects(
+              get(
+                ofType(predicted(snapshot), 'Microsoft.App/containerApps')[0],
+                'properties',
+                'template',
+                'containers',
+                0,
+                'env',
+              ),
+            ).map((entry) => [String(entry.name), entry.value]),
+          );
+        const piloted = names(pilot);
+        expect(piloted.DEPLOYMENT_MODE).toBe('pilot');
+        expect(names(production).DEPLOYMENT_MODE).toBe('production');
+        expect(String(names(production).DEPLOYMENT_LABEL).length).toBeGreaterThan(0);
+        for (const snapshot of [piloted, names(production)]) {
+          expect(snapshot).toMatchObject({
+            AUTH_MODE: 'entra',
+            DATABASE_AUTH: 'entra',
+            AI_PROVIDER: 'foundry',
+            FOUNDRY_AUTH: 'entra',
+            TRUST_PROXY: '1',
+            RATE_LIMIT_SCALE: '1',
+            LOG_LEVEL: 'info',
+          });
+          for (const required of [
+            'ALLOWED_HOSTS',
+            'ALLOWED_ORIGINS',
+            'AUTH_ENTRA_TENANT_ID',
+            'AUTH_ENTRA_AUDIENCE',
+            'AUTH_ENTRA_CLIENT_ID',
+            'AUTH_ENTRA_REDIRECT_URI',
+            'APPLICATIONINSIGHTS_CONNECTION_STRING',
+            'FOUNDRY_ENDPOINT',
+          ]) {
+            expect(snapshot, required).toHaveProperty(required);
+          }
+          // No model key and no test seam can be in a hosted template.
+          expect(
+            Object.keys(snapshot).filter((name) => /API_KEY|^SWARM_TEST_|_TEST_/u.test(name)),
+          ).toEqual([]);
+        }
+      });
+
       it('requires TLS from the server and from the connection string', () => {
         for (const snapshot of [pilot, production]) {
           const [secureTransport] = ofType(

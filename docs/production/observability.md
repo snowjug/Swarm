@@ -68,7 +68,7 @@ remembered; compiling cannot check them). `db-cpu-credits` is skipped when the S
 | `model-schema-failures` | 3   | `swarm.model.calls`, `swarm.error.code = MODEL_OUTPUT_INVALID` or `swarm.model.outcome = repaired` | ≥ N invalid answers in 1 h, or repaired share > P % with ≥ M calls | `invalidModelOutputsPerHour` (5), `repairedModelCallsPercent` (30) | **Yes** (a dedicated `swarm.model.schema_failures` is planned: [below](#signals-that-are-to-be-emitted))                                           |
 | `token-spend`           | 3   | `customMetrics` `swarm.model.tokens` (both directions)                                             | total > N in 1 h                                                   | `tokensPerHour` (2,000,000)                                        | **Yes**                                                                                                                                            |
 | `refused-requests`      | 2   | `swarm.auth.denials`, and `swarm.http.errors` with `swarm.error.code = RATE_LIMITED`               | denials > N or rate-limited > M in 15 min                          | `denialsPer15Minutes` (150), `rateLimitedPer15Minutes` (300)       | **Yes**                                                                                                                                            |
-| `crawler-safety-blocks` | 3   | `swarm.research.fetches` by `swarm.research.outcome`                                               | ≥ N safety refusals in 1 h                                         | `crawlerBlocksPerHour` (10)                                        | **No: created DISABLED** until `researchSignalsEmitted` is true                                                                                    |
+| `crawler-safety-blocks` | 3   | `swarm.research.safety.blocks` by `swarm.safety.reason`                                            | ≥ N safety refusals in 1 h                                         | `crawlerBlocksPerHour` (10)                                        | **No: created DISABLED** until `researchSignalsEmitted` is true                                                                                    |
 
 The first sample of each signal decides whether its rule works. **Which column of `customMetrics` carries a counter's
 total** (`value` or `valueSum`) depends on the exporter version: the rules use `valueSum` for counters and `value` for the
@@ -102,11 +102,11 @@ dropped, secret-shaped values are replaced). Details and privacy rules: [operati
 
 **None of these exists in the code this page was written against.** They are what other work is planned to add; this page
 records the names those plans use so that the template and the product agree, and says what changes when they land.
-Names and attributes are **planned, not final**: the integrator reconciles them with the code that lands.
+Names and attributes are listed as they are emitted by `backend/src/telemetry/product-signals.ts` (catalogue in `docs/production/privacy-telemetry.md`); the model signals are emitted by `backend/src/telemetry/signals.ts`. None has been seen in Application Insights yet.
 
 | Signal (planned)                                                                                                                                                                                             | Owner (planned)             | Why the template cares                                                                                                                                                                  |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `swarm.research.*`: runs by stop reason, pages fetched, crawl duration, **fetch failures by `FETCH_ERROR_CLASSES`**, **safety blocks**, quarantines by `QUARANTINE_REASONS`, sources used, evidence passages | product-signals / hardening | The `crawler-safety-blocks` rule reads `swarm.research.fetches` ([contract](#the-contract-the-crawler-rule-reads))                                                                      |
+| `swarm.research.*`: runs by stop reason, pages fetched, crawl duration, **fetch failures by `FETCH_ERROR_CLASSES`**, **safety blocks**, quarantines by `QUARANTINE_REASONS`, sources used, evidence passages | product-signals / hardening | The `crawler-safety-blocks` rule reads `swarm.research.safety.blocks` ([contract](#the-contract-the-crawler-rule-reads))                                                                |
 | `swarm.actors.*`, `swarm.constraints.*`, `swarm.sim.*`, `swarm.report.*`                                                                                                                                     | product-signals / hardening | No rule yet: add one when a threshold means something                                                                                                                                   |
 | `swarm.deployment.info`                                                                                                                                                                                      | hardening                   | A version gauge: lets a release be seen in Application Insights (and the dashboard show which build runs)                                                                               |
 | `swarm.model.task.duration`, `swarm.model.cost.estimated_usd`, `swarm.model.schema_failures`, `swarm.model.fallbacks`, `swarm.model.safety_blocks`, `swarm.model.cache.hits` / `.misses`                     | models                      | `schema_failures` would replace the stand-in that `model-schema-failures` computes from `swarm.model.calls`; `cost.estimated_usd` would give the spend rule a currency, not only tokens |
@@ -118,18 +118,19 @@ the filter matches nothing, the rule never fires.
 
 ### The contract the crawler rule reads
 
-| What                        | Value                                                                                                                                                              |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Metric                      | `swarm.research.fetches`, a counter incremented once per fetch attempt that ended                                                                                  |
-| Attribute                   | `swarm.research.outcome`: `ok`, or one of `FETCH_ERROR_CLASSES` (`shared/research.ts`)                                                                             |
-| Counted as a safety refusal | `blocked-address`, `blocked-scheme`, `blocked-port`, `redirect-refused`, `decompression-limit`                                                                     |
-| Not counted                 | `robots-disallowed` (polite, expected), `too-large`, `unsupported-type`, `timeout`, `dns`, `connect`, `tls`, `http-status`, `circuit-open`, `cancelled`, `unknown` |
-| Required of the application | `swarm.research.outcome` in `ALLOWED_ATTRIBUTES`; no URL, host or text on the metric                                                                               |
+| What                        | Value                                                                                                                                                                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Metric                      | `swarm.research.safety.blocks`, a counter incremented once for every request a deterministic rule refused (`backend/src/telemetry/product-signals.ts`)                                                                                                      |
+| Attribute                   | `swarm.safety.reason`, one of `SAFETY_BLOCK_REASONS` (a closed list; any other value is recorded as `other`)                                                                                                                                                |
+| Counted as a safety refusal | `private-address`, `loopback-address`, `link-local-address`, `metadata-address`, `reserved-address`, `invalid-address`, `internal-name`, `blocked-scheme`, `blocked-port`, `credentials-in-url`, `not-on-allow-list`, `redirect-refused`, `https-downgrade` |
+| Not counted                 | `robots-disallowed` (polite, expected) and `prompt-injection` (a content finding, listed under quarantines)                                                                                                                                                 |
+| Required of the application | `swarm.safety.reason` in `ALLOWED_ATTRIBUTES` (it is); no URL, host or text on the metric                                                                                                                                                                   |
 
-If the code that lands uses another metric name, attribute key or value set, **change the query in `alerts.bicep`** (the
-`crawlerBlocks` rule) to match before turning the rule on. To turn it on: deploy a build that emits the signal, run the
-[verification query](#queries-to-run-once-after-the-first-deploy) 5, see the outcomes you expect, then set
-`SWARM_RESEARCH_SIGNALS_EMITTED=true` and deploy again.
+The application emits this signal today (verified against a spy in `backend/test/research-service-hostile.test.ts`, not against
+Application Insights). Whether `customMetrics` carries the counter total in `valueSum` or `value` is **unverified** until the first
+deploy. To turn the rule on: deploy, run the [verification query](#queries-to-run-once-after-the-first-deploy) 5, see the reasons you
+expect, then set `SWARM_RESEARCH_SIGNALS_EMITTED=true` and deploy again. If the column is `value`, change the query in `alerts.bicep`
+(the `crawlerBlocks` rule) first.
 
 ## Queries to run once after the first deploy
 
@@ -180,8 +181,8 @@ this page**.
 5. **The crawler signal** (after a build that emits it):
 
    ```kusto
-   customMetrics | where name == "swarm.research.fetches" and timestamp > ago(1d)
-   | summarize n = sum(valueSum) by outcome = tostring(customDimensions["swarm.research.outcome"])
+   customMetrics | where name == "swarm.research.safety.blocks" and timestamp > ago(1d)
+   | summarize n = sum(valueSum) by reason = tostring(customDimensions["swarm.safety.reason"])
    ```
 
 6. **Platform metrics exist under the names the rules use.**

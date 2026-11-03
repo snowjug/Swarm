@@ -54,6 +54,18 @@ param sourceUrl string = ''
 @description('Extra tags on every resource, for example an owner alias or a cost centre. Never put a person\'s name or address in a tag.')
 param extraTags object = {}
 
+@description('DEPLOYMENT_MODE of the app: pilot (a controlled pilot, the default) or production. The app refuses to start unless every hosted guard passes.')
+@allowed(['pilot', 'production'])
+param deploymentMode string = 'pilot'
+
+@description('DEPLOYMENT_LABEL: what this deployment is, in words (at most 80 characters). Empty uses the default of the mode; production requires one.')
+@maxLength(80)
+param deploymentLabel string = ''
+
+@description('BUILD_SHA of a template deployment. A release sets it on the revision it creates. Empty leaves it out.')
+@maxLength(40)
+param buildSha string = ''
+
 // ---------------------------------------------------------------------------------------------
 // The container app and its releases
 // ---------------------------------------------------------------------------------------------
@@ -513,6 +525,9 @@ module app 'modules/container-app.bicep' = {
     sourceUrl: sourceUrl
     projectModelCallLimit: projectModelCallLimit
     projectModelTokenLimit: projectModelTokenLimit
+    deploymentMode: deploymentMode
+    deploymentLabel: deploymentLabel
+    buildSha: buildSha
     revisionSuffix: revisionSuffix
     trafficMode: trafficMode
     preservedTraffic: preservedTraffic

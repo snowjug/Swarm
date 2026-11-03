@@ -18,6 +18,8 @@ export interface ApproveModel {
   disabled: boolean;
   /** Why it cannot be pressed yet, in a few words. */
   blocked?: string;
+  /** What the button says, when the screen it is on has its own word for the one thing to do. */
+  label?: string;
   onConfirm: (options: { model: boolean }) => void;
 }
 
@@ -25,6 +27,14 @@ export type PillModel =
   | { kind: 'working'; text: string }
   | { kind: 'dirty'; count: number; invalid: boolean; onSave: () => void; onDiscard: () => void }
   | { kind: 'review'; reviewed: number; total: number; onNext: () => void; approve: ApproveModel }
+  | {
+      /** The review of the proposed participants: how many checks stand in the way, and the one way on. */
+      kind: 'gate';
+      blocking: number;
+      waiting: number;
+      total: number;
+      approve: ApproveModel;
+    }
   | { kind: 'make'; approve: ApproveModel }
   | { kind: 'ready'; actors: number; onContinue: () => void }
   | { kind: 'read'; text: string; onContinue?: () => void };
@@ -34,8 +44,9 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
   const [open, setOpen] = useState(false);
   const making = approve.mode === 'make';
   // The one thing to do is said in two words; what it also does (it accepts the list) is in the name a reader hears.
-  const label = approve.keepsEdited > 0 && !making ? 'Approve' : 'Create actors';
-  const name = !making && approve.keepsEdited === 0 ? 'Approve & create actors' : undefined;
+  const label = approve.label ?? (approve.keepsEdited > 0 && !making ? 'Approve' : 'Create actors');
+  const name =
+    !approve.label && !making && approve.keepsEdited === 0 ? 'Approve & create actors' : undefined;
   const press = (model: boolean) => {
     setOpen(false);
     approve.onConfirm({ model });
@@ -191,6 +202,33 @@ function Body({ model }: { model: PillModel }): ReactNode {
           <ApproveButton approve={model.approve} />
         </>
       );
+    case 'gate':
+      return (
+        <>
+          <p className="sw-pill__text">
+            {model.blocking > 0 ? (
+              <>
+                <span className="sw-pill__main">
+                  <strong>{model.blocking}</strong>{' '}
+                  {model.blocking === 1 ? 'check to fix' : 'checks to fix'}
+                </span>
+                <span className="sw-pill__sub">Before these can be used</span>
+              </>
+            ) : (
+              <>
+                <span className="sw-pill__main">
+                  <strong>{model.total}</strong>{' '}
+                  {model.total === 1 ? 'participant' : 'participants'}
+                </span>
+                <span className="sw-pill__sub">
+                  {model.waiting > 0 ? `${model.waiting} still to review` : 'Nothing blocks them'}
+                </span>
+              </>
+            )}
+          </p>
+          <ApproveButton approve={model.approve} />
+        </>
+      );
     case 'make':
       return (
         <>
@@ -249,6 +287,7 @@ export function Pill({ model }: { model: PillModel | null }) {
       {model && (
         <m.div
           key={model.kind}
+          data-kind={model.kind}
           className="sw-pill sw-glass sw-glass--overlay"
           role="group"
           aria-label="Next"

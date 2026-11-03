@@ -7,11 +7,18 @@ import type {
   StakeholdersView,
 } from '../../../shared/stakeholders';
 import { errorMessage } from '../api';
-import { approveFlow, discoverFlow, saveFlow } from '../api/stakeholderFlows';
+import { approveFlow, discoverFlow, saveFlow, type Shown } from '../api/stakeholderFlows';
+import { participantsApi, thenActors } from '../api/participants';
 import { stakeholdersApi } from '../api/stakeholders';
 
 export type StakeholderWork =
-  'finding' | 'saving' | 'approving' | 'making-actors' | 'saving-actors';
+  | 'finding'
+  | 'proposing'
+  | 'reviewing'
+  | 'saving'
+  | 'approving'
+  | 'making-actors'
+  | 'saving-actors';
 
 export interface StakeholderState {
   view: StakeholdersView | null;
@@ -26,6 +33,13 @@ export interface StakeholderState {
   reload: () => void;
   dismissProblem: () => void;
   discover: (mode: 'rules' | 'model', confirm?: boolean) => Promise<boolean>;
+  /** Proposes the participants of the decision, by rules or by the model; the person reviews them next. */
+  propose: (mode: 'rules' | 'model', confirm?: boolean) => Promise<boolean>;
+  /**
+   * Runs one change to the participants under the same rules as every other: one thing at a time, a refusal
+   * becomes a sentence, a conflict reads the page again. What it answers with is what the page then shows.
+   */
+  exec: (kind: StakeholderWork, work: () => Promise<Shown>) => Promise<boolean>;
   save: (stakeholders: Stakeholder[], relations: StakeholderRelation[]) => Promise<boolean>;
   /** Approves the list, then makes the actors from it. */
   approve: (options: { model: boolean }) => Promise<boolean>;
@@ -133,6 +147,26 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
     [projectId, run],
   );
 
+  const exec = useCallback(
+    (kind: StakeholderWork, work: () => Promise<Shown>) =>
+      run(kind, async () => {
+        const shown = await work();
+        if (!mounted.current) return;
+        setView(shown.view);
+        setActors(shown.actors);
+        changed.current();
+      }),
+    [run],
+  );
+
+  const propose = useCallback(
+    (mode: 'rules' | 'model', confirm = false) =>
+      exec('proposing', () =>
+        thenActors(projectId, participantsApi.propose(projectId, { mode, confirm })),
+      ),
+    [exec, projectId],
+  );
+
   const save = useCallback(
     (stakeholders: Stakeholder[], relations: StakeholderRelation[]) =>
       run('saving', async () => {
@@ -209,6 +243,8 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
     reload,
     dismissProblem,
     discover,
+    propose,
+    exec,
     save,
     approve,
     makeActors,

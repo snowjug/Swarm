@@ -812,7 +812,7 @@ resource crawlerBlocks 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
   kind: 'LogAlert'
   properties: {
     displayName: '${baseName}: crawler safety refusals'
-    description: 'The research crawler refused many fetches for safety reasons (a blocked address, scheme or port, a refused redirect, a decompression bomb) in the last hour: someone is steering it, or a page links inward. READS swarm.research.fetches by swarm.research.outcome (ok or a FETCH_ERROR_CLASSES value, shared/research.ts), which the application does NOT emit yet: this rule is created disabled until researchSignalsEmitted is true. Contract: docs/production/observability.md.'
+    description: 'The research crawler refused many fetches for safety reasons (a private, loopback, link-local, metadata or reserved address, an internal name, a blocked scheme or port, credentials in the address, a refused redirect or an https downgrade) in the last hour: someone is steering it, or a page links inward. READS swarm.research.safety.blocks by swarm.safety.reason (SAFETY_BLOCK_REASONS, backend/src/telemetry/product-signals.ts). robots-disallowed is polite and expected and prompt-injection is a content finding, so neither counts here. Created disabled until researchSignalsEmitted is true: whether customMetrics carries the counter total in valueSum is UNVERIFIED until the first deploy. Contract: docs/production/observability.md.'
     severity: 3
     enabled: researchSignalsEmitted
     scopes: [appInsightsResourceId]
@@ -826,9 +826,9 @@ resource crawlerBlocks 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
             replace(
               '''
 customMetrics
-| where timestamp > ago(1h) and cloud_RoleName == '{{ROLE}}' and name == 'swarm.research.fetches'
-| extend outcome = tostring(customDimensions['swarm.research.outcome'])
-| summarize blocked = sumif(valueSum, outcome in ('blocked-address', 'blocked-scheme', 'blocked-port', 'redirect-refused', 'decompression-limit'))
+| where timestamp > ago(1h) and cloud_RoleName == '{{ROLE}}' and name == 'swarm.research.safety.blocks'
+| extend reason = tostring(customDimensions['swarm.safety.reason'])
+| summarize blocked = sumif(valueSum, reason in ('private-address', 'loopback-address', 'link-local-address', 'metadata-address', 'reserved-address', 'invalid-address', 'internal-name', 'blocked-scheme', 'blocked-port', 'credentials-in-url', 'not-on-allow-list', 'redirect-refused', 'https-downgrade'))
 | where blocked >= {{BLOCKS}}
 ''',
               '{{ROLE}}',

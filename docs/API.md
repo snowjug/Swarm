@@ -30,6 +30,7 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | POST         | `/api/evidence/url`                                                             | Read one public web page (or a text, Markdown, CSV or JSON file at an address) as a document with provenance; workspace members who may create a project; 10 a minute; see [URL ingestion](./security/url-ingestion.md)                                                                                                                                           |
 | GET          | `/api/projects/:id/evidence?query=...`                                          | Sparse-vector search; exact `S1`-style citation lookup                                                                                                                                                                                                                                                                                                            |
 | GET          | `/api/projects/:id/evidence`                                                    | Explicit unranked browsing of this project's bounded passages                                                                                                                                                                                                                                                                                                     |
+| POST         | `/api/projects/:id/evidence/documents`                                          | Add text a person pasted or took from a file (`{ "documents": [DocumentInput] }`, 1 to 10) to a guided project that is not grounded yet, and queue the stage that grounds it; returns 202 with the project. See [Automatic research](#automatic-research)                                                                                                         |
 | GET / POST   | `/api/projects/:id/chat`                                                        | Read target conversation / perform a bounded follow-up                                                                                                                                                                                                                                                                                                            |
 | GET          | `/api/projects/:id/memories?query=&platform=all`                                | Search/browse this scenario's explicitly synthetic memories; exact memory IDs supported                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/surveys`                                                     | Queue a bounded state snapshot or model-interview survey; returns 202                                                                                                                                                                                                                                                                                             |
@@ -63,12 +64,26 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 | GET / POST   | `/api/projects/:id/analysis`                                                    | The saved scenario comparisons and what the next would use / start one (202; 409 without actors, or from stakeholders that are no longer approved); see Comparing scenarios                                                                                                                                                                                       |
 | GET          | `/api/projects/:id/analysis/:aid`                                               | One comparison in full, with its progress while it runs                                                                                                                                                                                                                                                                                                           |
 | POST         | `/api/projects/:id/analysis/:aid/cancel`                                        | Ask a running comparison to stop at its next run                                                                                                                                                                                                                                                                                                                  |
+| GET / PUT    | `/api/projects/:id/constraints`                                                 | What limits the decision: the set, its revision, the gate worked out now and the questions to put now / replace the whole set (`expectedRevision`); see Constraints                                                                                                                                                                                               |
+| POST         | `/api/projects/:id/constraints/propose`                                         | Read the sources for constraints (`{ "mode": "rules" \| "model" }`, 201; 10 a minute)                                                                                                                                                                                                                                                                             |
+| POST         | `/api/projects/:id/constraints/review`                                          | One thing a person does with the constraints or the questions, with `expectedRevision`                                                                                                                                                                                                                                                                            |
+| GET          | `/api/projects/:id/constraints/gate`                                            | The coverage gate, with the constraint whose removal moves the simulated result most                                                                                                                                                                                                                                                                              |
+| GET / POST   | `/api/projects/:id/constraints/counterfactuals`                                 | The stored views of the proposed change and whether they are current / run them (201; 6 a minute)                                                                                                                                                                                                                                                                 |
 | POST         | `/api/scenario/parse`                                                           | Read a "What could happen if…?" question into an editable scenario frame, `{ frame, notes, mode, model }`; the rules on the server read it, and a model only when the request says `useModel: true` and the server has a provider; stores nothing. See Scenario intake                                                                                            |
 | GET / PUT    | `/api/projects/:id/scenario`                                                    | The project's scenario frame and its revision (`scenario` is `null` until there is one) / replace it (`{ scenario, expectedRevision? }`)                                                                                                                                                                                                                          |
 | GET          | `/api/projects/:id/stakeholders`                                                | The stakeholder set, its revision, whether a model may be used, and what the caller may do (`{ stakeholders, revision, model, may }`). `stakeholders` is `null` until someone looks for them                                                                                                                                                                      |
 | POST         | `/api/projects/:id/stakeholders/discover`                                       | Find stakeholders by reading the text (`{ "mode": "rules" }`, the default) or with the project's model (`"model"`); returns 201 with the set. A reviewed list is replaced only with `{ "confirm": true }`                                                                                                                                                         |
 | PUT          | `/api/projects/:id/stakeholders`                                                | Save a review: the whole set as the person now wants it, `{ stakeholders, relations?, expectedRevision }`. A stakeholder is never deleted, only marked removed; a change to an approved set takes the approval away                                                                                                                                               |
-| POST         | `/api/projects/:id/stakeholders/approve`                                        | Approve the set (`{ expectedRevision }`). At least two stakeholders must remain. Proposed ones become accepted                                                                                                                                                                                                                                                    |
+| POST         | `/api/projects/:id/stakeholders/approve`                                        | Approve the set (`{ expectedRevision }`). At least two stakeholders must remain, and no blocking participant check may stand open (`409 PARTICIPANTS_INVALID`). Proposed ones become accepted                                                                                                                                                                     |
+| POST         | `/api/projects/:id/stakeholders/propose`                                        | Propose the decision's participants, with roles, checked as they are made (`{ mode?, confirm? }` as for discover); 201 with the set and its `review`. Needs `run`                                                                                                                                                                                                 |
+| GET          | `/api/projects/:id/stakeholders/validation`                                     | The checks of the participants as they stand now, `{ revision, review }`; `review.valid` is false while a blocking issue remains                                                                                                                                                                                                                                  |
+| POST         | `/api/projects/:id/stakeholders/accept`                                         | Accept the participants named, or every one still proposed (`{ expectedRevision, ids? }`)                                                                                                                                                                                                                                                                         |
+| PATCH        | `/api/projects/:id/stakeholders/:participantId`                                 | Change one participant (`{ expectedRevision, changes }`); only the fields a person may change are accepted                                                                                                                                                                                                                                                        |
+| DELETE       | `/api/projects/:id/stakeholders/:participantId`                                 | Mark one participant removed (`?expectedRevision=`); nothing is deleted                                                                                                                                                                                                                                                                                           |
+| POST         | `/api/projects/:id/stakeholders/:participantId/regenerate`                      | Propose one participant again from the rest (`{ expectedRevision, mode?, confirm? }`); `confirm` replaces one the person changed. Needs `run`                                                                                                                                                                                                                     |
+| GET          | `/api/projects/:id/stakeholders/:participantId/why`                             | Why a participant is on the list, from what it already holds and the passages it cites                                                                                                                                                                                                                                                                            |
+| POST         | `/api/projects/:id/stakeholders/merge-duplicates`                               | Merge participants that are certainly one, or the groups named (`{ expectedRevision, groups?: [{ keep, merge }] }`)                                                                                                                                                                                                                                               |
+| POST         | `/api/projects/:id/stakeholders/add-missing`                                    | Add a participant for a role nobody holds (`{ expectedRevision, role, name, whyTheyMatter?, objective? }`), as the person's own and with no evidence                                                                                                                                                                                                              |
 | GET          | `/api/projects/:id/actors`                                                      | The synthetic actors made from the approved set, with `stale` (the stakeholders changed after they were made), `model` and `may`                                                                                                                                                                                                                                  |
 | POST         | `/api/projects/:id/actors/generate`                                             | Make the actors from the approved set (`{ model?, confirm? }`); returns 201. Actors the person has edited are replaced only with `confirm`                                                                                                                                                                                                                        |
 | PUT          | `/api/projects/:id/actors`                                                      | Save edited actors (`{ actors, expectedRevision }`): sizes, traits, objectives and so on. The cast cannot gain or lose an actor here                                                                                                                                                                                                                              |
@@ -165,9 +180,12 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   (a request that is allowed but cannot be run, with the reason: more than 2,400 simulated runs, a change
   that starts after the last round, and so on), `404 ANALYSIS_NOT_FOUND`, `409 ANALYSIS_NOT_RUNNING`,
   `503 ANALYSIS_NOT_STARTED` (it was saved but could not be launched, and is ended as `failed`), and
-  `429 RATE_LIMITED` (6 starts a minute).
+  `429 RATE_LIMITED` (6 starts a minute). For a project that has constraints: `409 CONSTRAINTS_BLOCKED` (a hard
+  legal, regulatory or safety constraint is not settled, or a hard constraint rules out every alternative) and
+  `409 CONSTRAINTS_UNREVIEWED` (a person has not yet been through them); each says in a sentence what to do.
+  A project with no constraints is not gated.
 - **What a comparison was made from.** It records `inputRevisions`: the revision of the scenario, the
-  stakeholders and the actors it ran on (0 when there was none), kept when it finishes. The review and the
+  stakeholders and the actors it ran on (0 when there was none), and the constraints where there are some, kept when it finishes. The review and the
   brief are judged against it. A comparison saved before this was recorded has none, and whether the
   documents it used are the current ones cannot be told: `changedSince` then carries
   `what the comparison was made from was not recorded` for the review and the brief that rest on it, however
@@ -182,6 +200,35 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
 - **Audit.** `analysis.started` and `analysis.cancelled`, with identifiers and counts only. Both are recorded
   before the thing they describe takes effect, so a start or a stop that cannot be recorded is refused with
   `503 STORAGE_UNAVAILABLE` and leaves the comparison as it was.
+
+### Constraints
+
+What limits the decision, as a document a person reviews before a simulation uses it. Its schema, how each
+constraint is labelled, the gate, what the simulation applies and what it only reads are in
+[analysis/constraints.md](./analysis/constraints.md). Reading needs `read`; changing and reviewing need
+`edit`; reading the sources and running the views need `run`.
+
+- **Reading.** `GET /api/projects/:id/constraints` answers `{ constraints, revision, gate, open, stale,
+alternatives, actors, assumptions, model, may }`. `constraints` is `null` for a project that has none.
+  `gate` is the coverage gate worked out now (`status` `clear`, `provisional` or `blocked`, with what is known,
+  assumed, conflicting, missing, ruled out and affected); `open` is the questions to put now, at most three;
+  `stale` says whether the scenario or the actors changed after the constraints were read against them.
+- **Proposing.** `POST .../constraints/propose` takes `{ "mode"?: "rules" | "model" }` (10 a minute). A model is
+  used only when the person asks for one, and `409 MODEL_NOT_AVAILABLE` says why when the project has none. A
+  second reading adds only what is new and never undoes a decision. Nothing proposed is validated, reviewed or
+  applied.
+- **Reviewing.** `POST .../constraints/review` takes one action (`accept`, `confirm`, `edit`, `add`, `remove`,
+  `restore`, `answer`, `exclude`, `mark-unknown`, `use-assumption`, `confirm-set`) and `expectedRevision`.
+  `PUT .../constraints` takes every constraint as the person now wants it; one left out is refused
+  (`400 CONSTRAINTS_OMITTED`). A request that names an actor, a scenario or an assumption the project does not
+  have is `400`, and one that says where a constraint came from, that it is enforced, or its evidence is not
+  understood. A change to a version that is no longer the latest is `409 ARTIFACT_CONFLICT` and changes nothing.
+- **The gate and the views.** `GET .../constraints/gate` also measures which applied constraint, taken away,
+  moves the simulated headline share the most. `POST .../constraints/counterfactuals` runs seven views of the
+  proposed change on the same seeds (`409 COUNTERFACTUALS_NOT_READY` without actors and constraints).
+- **Audit.** `constraints.proposed`, `constraints.reviewed`, `constraints.edited` and
+  `constraints.counterfactuals.run`, written in the same transaction as the change, with counts and a status and
+  never a statement or a quote.
 
 ### Scenario intake and the stored scenario
 
@@ -219,6 +266,81 @@ not mean are in [analysis/methodology.md](./analysis/methodology.md).
   caller in the last hour, and is otherwise recorded as pasted text. Everything else in a brief that says
   where evidence came from is read from this.
 
+### Automatic research
+
+Research is the first phase of grounding a project: it reads the page or site a person names, and what they
+link to, keeps the best pages as sources, and checks them against each other. It reads **https only**, from
+public addresses, by the rules of [URL ingestion](./security/url-ingestion.md). How it works, and what it does
+not do: [backend/src/research/README.md](../backend/src/research/README.md).
+
+- **A question on its own.** `POST /api/projects` accepts `documents: []` when `research.auto` is `true`
+  and `workflow` is `"guided"` (the Ask scene sends both): research is the first phase of a guided project's
+  grounding. Without `auto`, the "at least one source" error stands, and with `"quick"` the workflow is refused
+  (`400`, on `workflow`). Such a project is `draft`, with no source and no passage. A person's own text goes in
+  afterwards with `POST /api/projects/:id/evidence/documents` (below).
+- **State.** `GET /api/projects/:id/research` (needs `read`) answers `{ run, revision, discovery, may }`.
+  `run` is the newest run or `null` (`ResearchRun` in [shared/research.ts](../shared/research.ts): its status
+  and the stage it has really reached, its plan, its budget, what it has used, every address it tried with
+  what became of it, where each passage sat in its page, an assessment for each claim to check, the number of
+  conflicts, why it stopped and a log). `discovery` says whether sources can be found from a question alone
+  (`available`, `provider`, `message`): **no search provider exists in this build**, so it is
+  `available: false`, with the setting it would need named. `may` is `{ start, pause, cancel }`.
+- **Starting.** `POST /api/projects/:id/research` takes `{ "intake"?, "budget"? }` and answers `202` with the
+  same view. `intake` is `{ auto?, url?, domain?, guidance?, horizon?, geography? }`: `url` is a page,
+  `domain` a site, and neither is discovery from a question alone, which ends `blocked` with
+  `stoppedBecause: "discovery-unconfigured"` and puts the stage back to waiting; `auto: false` is
+  `400 RESEARCH_OFF`. `budget` may hold any limit of a run (`maxPages`, `maxDomains`, `maxDepth`,
+  `maxBytesPerPage`, `maxTotalBytes`, `maxElapsedMs`, `maxEstimatedCostUsd`, `maxDuplicateRatio`,
+  `maxFailedRequests`, `maxRedirects`, `perDomainDelayMs`): **the server holds each to its ceiling**
+  (`RESEARCH_*` in [Configuration](./CONFIGURATION.md#automatic-research)), and a person can lengthen the wait
+  between requests to a site and never shorten it. The run's `budget` shows what it was given. Starting needs
+  `run`, is limited to 6 a minute, takes a body of 16,000 bytes and an `Idempotency-Key`, and is recorded as
+  `research.started` (the mode and the limits). Refusals: `409 RESEARCH_ACTIVE` (a run is live),
+  `409 STEP_ALREADY_STARTED` (grounding is under way or done), `409 DOCUMENT_LIMIT` (the project holds ten
+  sources), `403 RESEARCH_DISABLED`.
+- **Adding a page or a site.** `POST /api/projects/:id/research/sources` takes `{ "url", "budget"? }` and
+  starts a run of its own, under the same rules, with `202`. A bare host name such as `example.org` is a site,
+  which is read and stayed on. 10 a minute, a body of 8,192 bytes, an `Idempotency-Key`, recorded as
+  `research.source.added`.
+- **Adding text of their own.** `POST /api/projects/:id/evidence/documents` takes
+  `{ "documents": [ { "name", "content", "pageCount"?, "provenance"? } ] }`: one to ten documents, as
+  `documents` of `POST /api/projects` are, in a body of at most 600,000 bytes. It adds them **and queues the
+  `knowledge` stage that grounds the project, in one transaction**, and answers `202` with the project, as
+  `POST /api/projects/:id/steps/:step` does (the stage is `queued`; poll `GET /api/projects/:id`). It is how a
+  question-only project whose run ended `blocked` goes on, and it works when research is off and for a project that
+  research never ran for. Research does not read, plan from or change this text, no run is made or touched, and
+  nothing is fetched. Passages continue the project's own numbering; nothing already written changes.
+  - `name` is a TXT, Markdown, CSV, JSON or PDF file name (no path); `content` is 80 to 40,000 characters, with no
+    control characters other than tab and line breaks; `pageCount` is 1 to 40. A key that is not one of these is
+    left out. `provenance` is optional, and is `{ "kind": "paste" | "upload", "title"?, "license"?, "asOf"? }`
+    and nothing else: pasted text and a file say so, and what the Ask scene sends today (no `provenance`) is
+    taken too. **An address, a time, a hash, another kind or `fetchedByServer`, true or false, is `400`**: only the
+    server can say that it fetched a page, and a page goes through `POST …/research/sources`.
+  - Needs `edit` (and so `run`: it queues a stage), is limited to 10 a minute, and is recorded as
+    `evidence.documents.added` (the counts of sources, passages and characters, and who; never a name or text).
+  - Refusals, and each leaves the project as it was: `400 INVALID_INPUT`, `413` (over 600,000 bytes),
+    `409 DOCUMENT_LIMIT` (more than ten sources, or more than 200,000 characters, in the project; the message says
+    which), `409 STEP_ALREADY_STARTED` (grounding is queued, running or done), `409 RESEARCH_ACTIVE`,
+    `409 GUIDED_PROJECT_REQUIRED`, `409 PROJECT_READ_ONLY`, `429 QUEUE_FULL` and `503 MODEL_NOT_CONFIGURED` (the stage
+    could not be queued, so the text is not kept either and the same request can be sent again), `404` for a project
+    that is not there or not the caller's.
+  - **The same request twice is one request**, by its `Idempotency-Key` or, without one, by the documents it holds
+    (same project, same documents, same order): a double click, or a retry after a lost reply, answers `202` with
+    the project and adds nothing, also once grounding is done. To run a stage that failed or was cancelled again, use
+    `POST /api/projects/:id/steps/knowledge`; text that is new is added here, after a failure or a cancellation too.
+- **Controlling a run.** `POST /api/projects/:id/research/pause`, `/resume`, `/finish` and `/cancel` answer
+  `200` with the view, need `run`, are limited to 20 a minute and are recorded as `research.paused`,
+  `research.resumed`, `research.finished` and `research.cancelled`. Pause and finish are for a run that the
+  server answering is carrying out, while it is planning, finding or reading. A pause ends by itself after
+  `RESEARCH_MAX_PAUSE_SECONDS`. **Finish** stops reading and goes on with what was read; **cancel** ends the
+  run and its job. Refusals: `409 RESEARCH_NOT_PAUSABLE`, `RESEARCH_NOT_PAUSED`, `RESEARCH_NOT_FINISHABLE` and
+  `RESEARCH_NOT_ACTIVE`.
+- **The audit log** holds counts and words only, never an address, a title, a passage or the question:
+  `research.documents.added` holds how many sources and passages were added, and `research.ended` (written by
+  the worker) the status, the mode, why it stopped and counts. `evidence.documents.added` (a person's own text)
+  holds the same counts and the number of characters. `GET /api/config` reports
+  `research: { enabled, discovery, budget }`.
+
 ### Stakeholders and actors
 
 Reading needs `read`. Finding stakeholders and making actors need `run`, because they may ask a model. Saving
@@ -255,7 +377,17 @@ entry holds counts, never a name or a quote.
   `STAKEHOLDER_ID_DUPLICATE`, `STATUS_INVALID`, `RELATION_INVALID`, and `409 STAKEHOLDERS_NOT_FOUND` for a
   review of a set that does not exist.
 - **Approving.** `POST .../stakeholders/approve` takes `{ "expectedRevision" }` (30 a minute). It needs two
-  stakeholders left (`409 STAKEHOLDERS_TOO_FEW`) and turns the ones still proposed into accepted.
+  stakeholders left (`409 STAKEHOLDERS_TOO_FEW`), no blocking check of the participants open
+  (`409 PARTICIPANTS_INVALID`, which says what to fix) and turns the ones still proposed into accepted.
+- **Participants.** `POST .../stakeholders/propose` proposes the decision's participants, each with a role,
+  what it is assumed to want and could do, what is never asserted about it and what its place rests on, and
+  answers with the set and its `review` (`valid`, `summary`, `counts`, `coverage[]`, `issues[]`, each issue
+  `blocking` or `advisory`). `GET .../stakeholders/validation`, `POST .../stakeholders/accept`,
+  `PATCH` and `DELETE .../stakeholders/:participantId`, `POST .../stakeholders/:participantId/regenerate`,
+  `GET .../stakeholders/:participantId/why`, `POST .../stakeholders/merge-duplicates` and
+  `POST .../stakeholders/add-missing` are the person's way to review them; each change takes the
+  `expectedRevision` the person saw and answers with the set. The method, the roles and the checks are in
+  [stakeholders.md](./stakeholders.md#participants-who-decides-who-is-reached-who-is-missing).
 - **Making actors.** `POST .../actors/generate` takes `{ "model"?: boolean, "confirm"?: boolean }` (10 a minute)
   and answers 201. It needs an approved set (`409 STAKEHOLDERS_NOT_APPROVED`), replaces actors the person has
   edited only with `confirm` (`409 ACTORS_EDITED`), and with `"model": true` lets a model read the key actors

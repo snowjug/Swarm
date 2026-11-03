@@ -39,3 +39,18 @@ export function classifyResponse(
     typeof traits.switchingCost === 'number' ? traits.switchingCost : traits.switchingCost.value;
   return RESPONSE_CATEGORIES[classifyIndex(stance, cost)];
 }
+
+/**
+ * Responses a constraint can take away from an actor, as bits, in the order of `RESPONSE_CATEGORIES`: adopt
+ * 1, switch 2, resist 4. The other three cannot be taken away, so every chain below ends in one of them.
+ */
+export const RESPONSE_BIT = [1, 0, 0, 0, 2, 4] as const;
+/** Where a response goes when it is taken away: the nearest one left (switch to resist, resist to adapt defensively). */
+const NEXT_OPEN = [1, 1, 2, 3, 5, 3] as const;
+
+/** The response a stance reads as once `forbidden` (a mask of `RESPONSE_BIT`) is not open to the actor. */
+export function openResponse(index: number, forbidden: number): number {
+  let at = index;
+  while (((RESPONSE_BIT[at] ?? 0) & forbidden) !== 0) at = NEXT_OPEN[at] ?? at;
+  return at;
+}

@@ -24,7 +24,9 @@ export function sleep(ms: number, signal: AbortSignal): Promise<void> {
  * of them but through what it is given, which is what lets it be run, and tested, with others.
  */
 export function systemDeps(
-  options: Partial<Pick<CrawlDeps, 'onEvent' | 'traceId' | 'pdf' | 'tuning' | 'extractLimits'>> & {
+  options: Partial<
+    Pick<CrawlDeps, 'onEvent' | 'onLookupRefused' | 'traceId' | 'pdf' | 'tuning' | 'extractLimits'>
+  > & {
     fetcher?: PageFetcher;
   } = {},
 ): CrawlDeps {

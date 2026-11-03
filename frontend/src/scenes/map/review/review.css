@@ -1,0 +1,534 @@
+@layer scenes {
+  /* The review of the proposed participants: a column to read, a card to each participant, under the role it plays. */
+  .sw-prv {
+    display: grid;
+    gap: var(--s-6);
+    align-content: start;
+    width: min(calc(100% - var(--gutter) * 2), 56rem);
+    margin: var(--s-6) auto 0;
+    padding-bottom: var(--s-9);
+  }
+  .sw-prv > * {
+    min-width: 0;
+  }
+
+  /* ---- The summary ---- */
+  .sw-prv__summary {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-prv__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(1.75rem, 1.3rem + 1.2vw, 2.25rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  .sw-prv__title:focus-visible {
+    outline: none;
+  }
+  .sw-prv__lede {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--ink);
+    font-size: var(--fs-read);
+    line-height: 1.6;
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__rest {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+  .sw-prv__counts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+    margin: var(--s-2) 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--ink-2);
+    font-size: var(--fs-body);
+  }
+  .sw-prv__counts .sw-numeral {
+    margin-right: 0.15rem;
+    color: var(--ink);
+    font-size: 1.45rem;
+  }
+  .sw-prv__counts-attn,
+  .sw-prv__counts-attn .sw-numeral {
+    color: var(--c-caution);
+  }
+
+  /* ---- Headings, counts ---- */
+  .sw-prv__h {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    margin: 0;
+    font-size: var(--fs-h4);
+    font-weight: 600;
+    letter-spacing: -0.012em;
+  }
+  .sw-prv__count {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---- The gate: what stands between the list and the simulation ---- */
+  .sw-prv__gate {
+    display: grid;
+    gap: var(--s-3);
+    padding: var(--s-4) var(--s-5);
+    border: 1px solid var(--hairline);
+    border-left-width: 3px;
+    border-radius: var(--r-lg);
+  }
+  .sw-prv__gate[data-open='false'] {
+    border-color: color-mix(in oklab, var(--c-caution) 40%, var(--hairline));
+  }
+  .sw-prv__gate[data-open='true'] {
+    border-color: color-mix(in oklab, var(--c-favor) 40%, var(--hairline));
+  }
+  .sw-prv__gate-head {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+  }
+  .sw-prv__gate[data-open='false'] .sw-prv__gate-head svg {
+    color: var(--c-caution);
+  }
+  .sw-prv__gate[data-open='true'] .sw-prv__gate-head svg {
+    color: var(--c-favor);
+  }
+  .sw-prv__gate p {
+    margin: 0;
+  }
+
+  /* ---- Issues: what a check found, and the button that mends it ---- */
+  .sw-prv__issues {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__issue {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--s-3);
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-prv__issue:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+  .sw-prv__issue-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .sw-prv__issue-text p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__issue-msg {
+    color: var(--ink);
+    line-height: 1.4;
+  }
+  .sw-prv__issue-acts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--s-2);
+  }
+
+  /* ---- Bulk actions ---- */
+  .sw-prv__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+
+  /* ---- Role coverage ---- */
+  .sw-prv__coverage {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-prv__roles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__roles .sw-prv__count {
+    color: inherit;
+    font-size: inherit;
+  }
+  .sw-prv__gaps {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__gap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding: var(--s-3) var(--s-4);
+    border: 1px dashed color-mix(in oklab, var(--c-caution) 45%, var(--hairline-strong));
+    border-radius: var(--r-md);
+  }
+  .sw-prv__gap-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .sw-prv__gap-text p {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__gap-role {
+    font-weight: 600;
+  }
+  .sw-prv__gap-tag {
+    color: var(--c-caution);
+    font-weight: 500;
+  }
+  .sw-prv__optional-note {
+    margin: 0 0 var(--s-3);
+  }
+
+  /* ---- Groups and cards ---- */
+  .sw-prv__groups {
+    display: grid;
+    gap: var(--s-7);
+  }
+  .sw-prv__group {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-prv__group-head {
+    display: grid;
+    gap: 2px;
+    padding-bottom: var(--s-2);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-prv__group-head p {
+    margin: 0;
+  }
+  .sw-prv__cards {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__card {
+    display: grid;
+    gap: var(--s-3);
+    padding: var(--s-4) var(--s-5);
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-lg);
+    background: color-mix(in oklab, var(--bg-raised) 70%, transparent);
+  }
+  .sw-prv__card.is-flagged {
+    border-color: color-mix(in oklab, var(--c-caution) 45%, var(--hairline));
+    border-left-width: 3px;
+  }
+  .sw-prv__card-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--s-3);
+  }
+  .sw-prv__check,
+  .sw-prv__check-space {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin: 0;
+    flex: none;
+  }
+  .sw-prv__check {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  /* The label is the target a finger reaches; it is the size of a finger and takes no more room than the box. */
+  .sw-prv__tick {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    margin: 0;
+  }
+  .sw-prv__who {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+  .sw-prv__name {
+    margin: 0;
+    font-size: var(--fs-h4);
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__name:focus-visible {
+    outline: none;
+    text-decoration: underline;
+    text-decoration-color: var(--accent-line);
+    text-underline-offset: 0.25em;
+  }
+  .sw-prv__why-line {
+    margin: 0;
+    color: var(--ink-2);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__priority {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .sw-prv__facts {
+    margin: 0;
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-prv__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+  }
+  .sw-prv__chips .sw-chip {
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.25;
+  }
+  .sw-prv__more .sw-disc__head {
+    padding-inline: 0;
+  }
+  .sw-prv__detail {
+    display: grid;
+    gap: var(--s-4);
+    padding: var(--s-2) 0 var(--s-2);
+  }
+  .sw-prv__detail p {
+    margin: 0;
+  }
+  .sw-prv__dl {
+    display: grid;
+    gap: var(--s-3);
+    margin: 0;
+  }
+  .sw-prv__dl dt {
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .sw-prv__dl dd {
+    margin: 2px 0 0;
+    color: var(--ink);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__dl ul {
+    display: grid;
+    gap: 2px;
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+  .sw-prv__notes {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__notes li {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-prv__remove {
+    margin-left: auto;
+  }
+
+  /* ---- Quotations and assumptions ---- */
+  .sw-prv__quotes {
+    display: grid;
+    gap: var(--s-4);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__quotes blockquote {
+    margin: 0;
+    padding-left: var(--s-4);
+    border-left: 2px solid var(--accent-line);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--fs-read);
+    line-height: 1.45;
+    color: var(--ink);
+    text-wrap: pretty;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__source {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.6rem;
+    margin: 0.45rem 0 0;
+    padding-left: var(--s-4);
+    color: var(--ink-3);
+    font-size: var(--fs-micro);
+  }
+  .sw-prv__source svg {
+    flex: none;
+  }
+  .sw-prv__assume {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-3);
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-prv__assume svg {
+    flex: none;
+    margin-top: 2px;
+    color: var(--c-caution);
+  }
+  .sw-prv__assume strong {
+    color: var(--ink);
+  }
+
+  /* ---- Ask why ---- */
+  .sw-prv__why {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-prv__why p {
+    margin: 0;
+  }
+  .sw-prv__why .sw-chip {
+    justify-self: start;
+  }
+  .sw-prv__why-wait {
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    margin: 0;
+  }
+  .sw-prv__why-head {
+    font-weight: 600;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__why-list,
+  .sw-prv__why-limits {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .sw-prv__why-limits {
+    padding-left: 0;
+    list-style: none;
+  }
+
+  /* ---- Removed and left out ---- */
+  .sw-prv__removed {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-prv__removed li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    min-height: 2.5rem;
+    color: var(--ink-2);
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- The editor ---- */
+  .sw-prv__editor-note {
+    margin: 0;
+  }
+
+  /* A finger is the size of the control. */
+  @media (pointer: coarse) {
+    .sw-prv__tick {
+      width: 2.75rem;
+      height: 2.75rem;
+      margin: -0.625rem;
+    }
+    .sw-prv__actions .sw-btn,
+    .sw-prv__bar .sw-btn,
+    .sw-prv__issue-acts .sw-btn {
+      min-height: 2.75rem;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .sw-prv {
+      gap: var(--s-5);
+      margin-top: var(--s-4);
+    }
+    .sw-prv__card {
+      padding: var(--s-4);
+    }
+    .sw-prv__card-head {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+    .sw-prv__priority {
+      grid-column: 2;
+    }
+    .sw-prv__issue {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .sw-prv__issue-acts {
+      justify-content: flex-start;
+    }
+    .sw-prv__gap {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .sw-prv__gate {
+      padding: var(--s-4);
+    }
+  }
+}

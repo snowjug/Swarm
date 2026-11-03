@@ -1,10 +1,12 @@
 import {
   Focus,
   List,
+  ListChecks,
   MoreHorizontal,
   Network,
   Plus,
   RotateCcw,
+  ShieldAlert,
   SlidersHorizontal,
   Wand2,
 } from 'lucide-react';
@@ -29,11 +31,17 @@ import {
 import { clusterColour } from '../../viz/palette';
 import type { ClusterOption, Ghost, Subject } from './model';
 
-export type MapView = 'map' | 'list';
+/**
+ * The map, the list, the review of the participants Swarm proposes (where a list is made ready to
+ * use), and the constraints that bear on the decision.
+ */
+export type MapView = 'map' | 'list' | 'review' | 'constraints';
 
 export interface ToolbarProps {
   view: MapView;
   onView: (view: MapView) => void;
+  /** How many checks of the participants stand in the way of using the list, said beside the Review option. */
+  checks: number;
   subject: Subject;
   hasActors: boolean;
   onSubject: (subject: Subject) => void;
@@ -82,10 +90,31 @@ export function Toolbar(props: ToolbarProps) {
           label: <span className="sw-tb-label">List</span>,
           icon: <List size={15} aria-hidden="true" />,
         },
+        {
+          value: 'review',
+          label: (
+            <>
+              <span className="sw-tb-label">Review</span>
+              {props.checks > 0 && (
+                <span className="sw-tb-badge" aria-hidden="true">
+                  {props.checks}
+                </span>
+              )}
+            </>
+          ),
+          icon: <ListChecks size={15} aria-hidden="true" />,
+          name: 'Review',
+          hint: props.checks > 0 ? `${props.checks} to fix` : undefined,
+        },
+        {
+          value: 'constraints',
+          label: <span className="sw-tb-label">Constraints</span>,
+          icon: <ShieldAlert size={15} aria-hidden="true" />,
+        },
       ]}
     />
   );
-  const subjects = props.hasActors && (
+  const subjects = props.hasActors && props.view !== 'review' && (
     <Segmented<Subject>
       size="sm"
       label="Show"
@@ -134,32 +163,36 @@ export function Toolbar(props: ToolbarProps) {
             </IconButton>
           </MenuTrigger>
           <MenuContent align="end">
-            <MenuLabel>Groups</MenuLabel>
-            {props.clusters.map((cluster) => (
-              <MenuCheckboxItem
-                key={cluster.id}
-                checked={!props.hidden.has(cluster.id)}
-                onSelect={(event) => {
-                  event.preventDefault();
-                  props.onToggleCluster(cluster.id);
-                }}
-                icon={
-                  <span
-                    className="sw-groups__dot"
-                    style={{ background: clusterColour(cluster.id) }}
-                    aria-hidden="true"
-                  />
-                }
-              >
-                {cluster.label}
-              </MenuCheckboxItem>
-            ))}
-            {hiddenCount > 0 && (
-              <MenuItem icon={<SlidersHorizontal size={16} />} onSelect={props.onShowAll}>
-                Show all groups
-              </MenuItem>
+            {props.view !== 'review' && (
+              <>
+                <MenuLabel>Groups</MenuLabel>
+                {props.clusters.map((cluster) => (
+                  <MenuCheckboxItem
+                    key={cluster.id}
+                    checked={!props.hidden.has(cluster.id)}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      props.onToggleCluster(cluster.id);
+                    }}
+                    icon={
+                      <span
+                        className="sw-groups__dot"
+                        style={{ background: clusterColour(cluster.id) }}
+                        aria-hidden="true"
+                      />
+                    }
+                  >
+                    {cluster.label}
+                  </MenuCheckboxItem>
+                ))}
+                {hiddenCount > 0 && (
+                  <MenuItem icon={<SlidersHorizontal size={16} />} onSelect={props.onShowAll}>
+                    Show all groups
+                  </MenuItem>
+                )}
+                <MenuSeparator />
+              </>
             )}
-            <MenuSeparator />
             {props.view === 'map' && (
               <MenuCheckboxItem
                 checked={props.focus}
@@ -211,53 +244,57 @@ export function Toolbar(props: ToolbarProps) {
       {views}
       {subjects && <span className="sw-tb-sep" aria-hidden="true" />}
       {subjects}
-      <span className="sw-tb-sep" aria-hidden="true" />
-      <Popover>
-        <Tooltip label="Show or hide groups">
-          <PopoverTrigger asChild>
-            <ChipButton
-              pressed={hiddenCount > 0}
-              icon={<SlidersHorizontal size={14} aria-hidden="true" />}
-              aria-label={hiddenCount > 0 ? `Groups, ${hiddenCount} hidden` : 'Groups'}
-            >
-              <span className="sw-tb-label">Groups</span>
-              {hiddenCount > 0 && <span className="sw-tb-badge">{hiddenCount}</span>}
-            </ChipButton>
-          </PopoverTrigger>
-        </Tooltip>
-        <PopoverContent align="start" width="17rem" className="sw-groups">
-          <p className="sw-eyebrow">Groups</p>
-          <ul className="sw-groups__list">
-            {props.clusters.map((cluster) => {
-              const on = !props.hidden.has(cluster.id);
-              return (
-                <li key={cluster.id}>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={on}
-                    className={cx('sw-groups__row', on && 'is-on')}
-                    onClick={() => props.onToggleCluster(cluster.id)}
-                  >
-                    <span
-                      className="sw-groups__dot"
-                      style={{ background: clusterColour(cluster.id) }}
-                      aria-hidden="true"
-                    />
-                    <span className="sw-groups__label">{cluster.label}</span>
-                    <span className="sw-groups__count">{cluster.count}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-          {hiddenCount > 0 && (
-            <button type="button" className="sw-groups__all" onClick={props.onShowAll}>
-              Show all
-            </button>
-          )}
-        </PopoverContent>
-      </Popover>
+      {props.view !== 'review' && (
+        <>
+          <span className="sw-tb-sep" aria-hidden="true" />
+          <Popover>
+            <Tooltip label="Show or hide groups">
+              <PopoverTrigger asChild>
+                <ChipButton
+                  pressed={hiddenCount > 0}
+                  icon={<SlidersHorizontal size={14} aria-hidden="true" />}
+                  aria-label={hiddenCount > 0 ? `Groups, ${hiddenCount} hidden` : 'Groups'}
+                >
+                  <span className="sw-tb-label">Groups</span>
+                  {hiddenCount > 0 && <span className="sw-tb-badge">{hiddenCount}</span>}
+                </ChipButton>
+              </PopoverTrigger>
+            </Tooltip>
+            <PopoverContent align="start" width="17rem" className="sw-groups">
+              <p className="sw-eyebrow">Groups</p>
+              <ul className="sw-groups__list">
+                {props.clusters.map((cluster) => {
+                  const on = !props.hidden.has(cluster.id);
+                  return (
+                    <li key={cluster.id}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        className={cx('sw-groups__row', on && 'is-on')}
+                        onClick={() => props.onToggleCluster(cluster.id)}
+                      >
+                        <span
+                          className="sw-groups__dot"
+                          style={{ background: clusterColour(cluster.id) }}
+                          aria-hidden="true"
+                        />
+                        <span className="sw-groups__label">{cluster.label}</span>
+                        <span className="sw-groups__count">{cluster.count}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {hiddenCount > 0 && (
+                <button type="button" className="sw-groups__all" onClick={props.onShowAll}>
+                  Show all
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
+        </>
+      )}
       {props.view === 'map' && (
         <IconButton
           label="Focus on what is connected"

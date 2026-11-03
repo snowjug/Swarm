@@ -15,6 +15,7 @@ import {
   type ProviderName,
 } from '../../shared/types.js';
 import { withDeployment, type DeploymentConfig } from './deployment.js';
+import { loadResearchConfig, publicResearch, type ResearchConfig } from './research/config.js';
 
 export type ProviderAuth = ProviderAuthMode;
 
@@ -119,6 +120,8 @@ export interface ServerConfig {
   routing: RoutingConfig;
   /** Reading a public web page as evidence. See `docs/security/url-ingestion.md`. */
   urlIngestion: UrlIngestionConfig;
+  /** Automatic research: whether it is on, what it may spend, and whether it can find sources from a question. */
+  research: ResearchConfig;
 }
 
 export interface UrlIngestionConfig {
@@ -540,6 +543,7 @@ function loadBaseConfig(
       timeoutMs: input.AI_TIMEOUT_MS,
     }),
     urlIngestion: buildUrlIngestion(input),
+    research: loadResearchConfig(environment),
   };
 }
 
@@ -568,6 +572,7 @@ export function publicConfig(config: ServerConfig): AppConfig {
     sourceUrl: config.sourceUrl,
     storage: { warning: config.storageWarning },
     urlIngestion: config.urlIngestion.enabled,
+    research: publicResearch(config),
     capabilities: {
       local: true,
       modelAssisted: configured,
