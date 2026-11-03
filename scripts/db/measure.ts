@@ -8,7 +8,9 @@
  * request makes, how much of the time the event loop is held by the database, and how late a probe is
  * answered meanwhile. Requests go through the whole application (guard, routes, stores) with
  * `inject`, signed in with a session cookie as a person in a hosted deployment is, so that each costs
- * what it would there. No network, no model, no job worker.
+ * what it would there. There is no HTTP client, no model and no job worker; the load is generated on
+ * the thread that serves it, which costs a little for SQLite and nothing while a database is waited for.
+ * A health probe is due every 5 ms and is timed from when it fell due.
  *
  *   npx tsx scripts/db/measure.ts --engine sqlite
  *   npx tsx scripts/db/measure.ts --engine pglite
@@ -291,12 +293,14 @@ async function measure(options: Options, rtt: number, results: Phase[]): Promise
     let failures = 0;
     let running = true;
     const loop = monitorEventLoopDelay({ resolution: 1 });
+    // A probe is due every 5 ms and is timed from when it was due, so that a loop that was blocked
+    // when it fell due answers it late, as it would a real one.
     const prober = (async () => {
       while (running) {
-        const started = performance.now();
-        await app.inject({ url: '/api/health/live', headers: { host: HOST } });
-        probes.push(performance.now() - started);
+        const due = performance.now() + 5;
         await sleep(5);
+        await app.inject({ url: '/api/health/live', headers: { host: HOST } });
+        probes.push(performance.now() - due);
       }
     })();
     let crash: unknown = null;
