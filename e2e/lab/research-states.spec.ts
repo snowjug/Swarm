@@ -28,6 +28,7 @@ import {
   sourcesSection,
 } from '../support/ground-map';
 import {
+  NOTE,
   QUESTION,
   fakeResearch,
   pagesRead,
@@ -356,11 +357,14 @@ test.describe('a search from a question alone that cannot go on', () => {
   }) => {
     const problems = watchPage(page, { refusals: true });
     const { fake } = await open(page, request, blocked());
-    await expect(chip(page)).toHaveText('Blocked');
+    await expect(chip(page)).toHaveText('Needs a source');
     const section = researchSection(page);
     await expect(section).toContainText('Swarm cannot find sources from a question alone');
     await expect(section).toContainText('does not search the web on its own');
     await expect(section).toContainText('No search provider is configured');
+    // Waiting for a source is information, not a fault: the notice is not an alert.
+    await expect(section.locator('.sw-notice--info')).toBeVisible();
+    await expect(section.getByRole('alert')).toHaveCount(0);
     await expect(stage(page, 'finding-sources')).toHaveAttribute('data-state', 'blocked');
     await expect(stage(page, 'finding-sources')).toContainText('Needs a search provider');
     await expect(pagesList(page)).toHaveCount(0);
@@ -375,7 +379,7 @@ test.describe('a search from a question alone that cannot go on', () => {
     await expect(siteField(page)).toHaveCount(0);
     await expect(press(page, 'Add this site: regulator.example.org')).toHaveCount(0);
     fake.put(blocked());
-    await expect(chip(page)).toHaveText('Blocked', { timeout: 10_000 });
+    await expect(chip(page)).toHaveText('Needs a source', { timeout: 10_000 });
 
     // The head of the page offers the way on that is open: the field that names a site.
     await press(page, 'Add a site or page').click();
@@ -394,11 +398,41 @@ test.describe('a search from a question alone that cannot go on', () => {
     expect(problems.filter((problem) => !/\b422\b/u.test(problem))).toEqual([]);
   });
 
-  test('opens the question again with room for sources of one’s own: paste, attach or add a page', async ({
+  test('goes on with text that a person pastes: it is sent as it was written, with a name and nothing else, and the page reads the project again', async ({
     page,
     request,
   }) => {
+    const problems = watchPage(page);
     await open(page, request, blocked());
+    let sent: unknown = null;
+    await page.route('**/api/projects/*/evidence/documents', async (route) => {
+      sent = route.request().postDataJSON();
+      await route.fulfill({ status: 202, contentType: 'application/json', body: '{}' });
+    });
+
+    await press(page, 'Paste or attach').click();
+    const menu = page.getByRole('dialog', { name: 'Add evidence' });
+    await menu.getByRole('radio', { name: 'Paste' }).click();
+    await menu.getByRole('textbox', { name: 'Source filename' }).fill('operator-note.txt');
+    await menu.getByRole('textbox', { name: 'Source text, not your question' }).fill(NOTE);
+    await menu.getByRole('button', { name: 'Attach', exact: true }).click();
+    await menu.getByRole('button', { name: 'Done', exact: true }).click();
+    const listed = page.getByRole('list', { name: 'Sources to add' });
+    await expect(listed).toContainText('operator-note.txt');
+    await expectSound(page, 'research: text waiting to be added');
+
+    await press(page, 'Use this source').click();
+    await expect(listed).toHaveCount(0);
+    expect(sent).toEqual({ documents: [{ name: 'operator-note.txt', content: NOTE }] });
+    expect(problems).toEqual([]);
+  });
+
+  test('opens the question again with room for sources where the server will not take them here', async ({
+    page,
+    request,
+  }) => {
+    await open(page, request, viewOf(blocked().run, { start: false, pause: false, cancel: false }));
+    await expect(press(page, 'Paste or attach')).toHaveCount(0);
     await press(page, 'Open the question to add sources').click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'See how a decision could unfold.',
@@ -750,7 +784,7 @@ test.describe('on every screen', () => {
         ),
         { project },
       );
-      await expect(chip(page)).toHaveText('Blocked');
+      await expect(chip(page)).toHaveText('Needs a source');
       await expectSound(page, 'research on a phone: blocked');
       await expectTouchTargets(page, 'research on a phone: blocked', 'main');
     });

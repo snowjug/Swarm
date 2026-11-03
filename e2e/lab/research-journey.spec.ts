@@ -7,9 +7,10 @@ import { watchPage } from '../support/helpers';
 import { claimsAgainst } from '../support/lab-api';
 import {
   NEWS_PAGE,
+  NOTE,
   OFFICIAL_SITE,
   QUESTION,
-  RESEARCH_URL,
+  RESEARCH_PAGE_URL,
   TITLES,
   fixtureLog,
   resetFixtureLog,
@@ -21,11 +22,12 @@ import {
 // web of backend/test/support/research-e2e-server.ts (real fetcher, real robots.txt, real extraction; no network). The
 // surface in every state, on a stand-in for the server's research, is research-states.spec.ts.
 //
-// Written against the contract of docs/ and shared/research.ts and the test hook `research.fetcher` of `buildApp`; it
-// has not been run against the application that implements them. Where the server does not research it is skipped.
+// The server is started here, on ports of its own, and serves the built page (frontend/dist); with
+// E2E_LAB_RESEARCH_PAGE_URL the page is opened on a development server that proxies to it instead. Where the server
+// does not research the tests are skipped.
 
 test.use({
-  baseURL: RESEARCH_URL,
+  baseURL: RESEARCH_PAGE_URL,
   actionTimeout: 15_000,
   reducedMotion: 'reduce',
   viewport: { width: 1440, height: 900 },
@@ -86,8 +88,10 @@ test('a question and a site reach Ready with real sources, each page said in pla
   for (const name of RESEARCH_STAGES) {
     await expect(stage(page, name)).toHaveAttribute('data-state', 'done');
   }
-  expect(await numberIn(figureOf(page, 'Pages read'))).toBeGreaterThanOrEqual(3);
-  expect(await numberIn(figureOf(page, 'Sources used'))).toBeGreaterThanOrEqual(1);
+  // What the run held, in the stages it went through, and what the project holds now: the sources that were used.
+  await expect(stage(page, 'reading')).toContainText(/\d+ pages? read/u);
+  await expect(stage(page, 'ready')).toContainText(/\d+ sources? used/u);
+  expect(await numberIn(figureOf(page, 'Sources'))).toBeGreaterThanOrEqual(1);
 
   // What became of each page, as the crawler decided it. A page that was not read has no title, and is called by its address.
   await expect(pageRow(page, TITLES.fees).filter({ hasText: 'Used' }).first()).toBeVisible();
@@ -95,7 +99,9 @@ test('a question and a site reach Ready with real sources, each page said in pla
   await expect(pageRow(page, '/private/minutes')).toContainText('Blocked');
   await expect(pageRow(page, '/private/minutes')).toContainText('robots.txt');
   await expect(pageRow(page, '/missing-page')).toContainText('Failed');
-  await expect(pageRow(page, /Members: sign in|\/members\/login/u)).toContainText('Quarantined');
+  await expect(pageRow(page, /Members: sign in|\/members\/annual-reports/u)).toContainText(
+    'Quarantined',
+  );
   await expect(pageRow(page, /Notice for readers|\/notice\/for-readers/u)).toContainText(
     /Quarantined|Instruction-like text/u,
   );
@@ -135,11 +141,13 @@ test('a question alone says that it cannot look for sources, searches nothing, a
   const problems = watchPage(page);
   await ask(page);
 
-  await expect(chip(page)).toHaveText('Blocked', { timeout: 120_000 });
+  // Not an error: the question is waiting for a source, which the person can give.
+  await expect(chip(page)).toHaveText('Needs a source', { timeout: 120_000 });
   const section = researchSection(page);
   await expect(section).toContainText('Swarm cannot find sources from a question alone');
   await expect(section).toContainText('does not search the web');
   await expect(stage(page, 'finding-sources')).toHaveAttribute('data-state', 'blocked');
+  await expect(section.getByRole('alert')).toHaveCount(0);
   // Not a request to any site, and not to a search engine.
   const idle = await fixtureLog(request);
   expect(idle.attempts).toEqual([]);
@@ -155,6 +163,35 @@ test('a question alone says that it cannot look for sources, searches nothing, a
   await expect(pageRow(page, TITLES.news).filter({ hasText: 'Used' })).toBeVisible();
   expect(claimsAgainst(await section.innerText())).toEqual([]);
   expect(problems.filter((problem) => !/status of 4\d\d/u.test(problem))).toEqual([]);
+});
+
+test('a question alone goes on with text that a person pastes, which is read as it is and fetches nothing', async ({
+  page,
+  request,
+}) => {
+  const problems = watchPage(page);
+  await ask(page);
+  await expect(chip(page)).toHaveText('Needs a source', { timeout: 120_000 });
+
+  await press(page, 'Paste or attach').click();
+  const menu = page.getByRole('dialog', { name: 'Add evidence' });
+  await menu.getByRole('radio', { name: 'Paste' }).click();
+  await menu.getByRole('textbox', { name: 'Source filename' }).fill('operator-note.txt');
+  await menu.getByRole('textbox', { name: 'Source text, not your question' }).fill(NOTE);
+  await menu.getByRole('button', { name: 'Attach', exact: true }).click();
+  await menu.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Sources to add' })).toContainText(
+    'operator-note.txt',
+  );
+
+  await press(page, 'Use this source').click();
+  await expect(chip(page)).toHaveText('Ready', { timeout: 120_000 });
+  await expect(page.getByRole('region', { name: /^Sources \d+$/u })).toContainText(
+    'operator-note.txt',
+  );
+  // The text is the person's own: nothing was fetched for it.
+  expect((await fixtureLog(request)).served).toEqual([]);
+  expect(problems).toEqual([]);
 });
 
 test('can be paused, let go on and finished early, and the run does what the page says', async ({
@@ -183,8 +220,9 @@ test('can be paused, let go on and finished early, and the run does what the pag
   await expect(researchSection(page)).toContainText('Why it stopped');
 });
 
-test('can be cancelled after asking, keeps the pages that were read, and can be done again', async ({
+test('can be cancelled after asking, keeps the pages that were read, and can be done again with what was asked', async ({
   page,
+  request,
 }) => {
   await ask(page, OFFICIAL_SITE);
   await expect(chip(page)).toHaveText('Reading', { timeout: 120_000 });
@@ -201,4 +239,15 @@ test('can be cancelled after asking, keeps the pages that were read, and can be 
   await expect(press(page, 'Pause')).toHaveCount(0);
   await expect(press(page, 'Research again')).toBeVisible();
   expect(await numberIn(figureOf(page, 'Pages read'))).toBeGreaterThanOrEqual(1);
+
+  // Again is what was asked again: the server keeps nothing of it, so the page says the site once more, and the site is
+  // read, rather than a question that has nowhere to look.
+  await resetFixtureLog(request);
+  await press(page, 'Research again').click();
+  await expect
+    .poll(async () => (await fixtureLog(request)).served.map((entry) => entry.host), {
+      timeout: 60_000,
+    })
+    .toContain(OFFICIAL_SITE);
+  await expect(chip(page)).not.toHaveText('Needs a source');
 });

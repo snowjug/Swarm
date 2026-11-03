@@ -8,6 +8,8 @@ export const RESEARCH_PORT = Number(process.env.E2E_LAB_RESEARCH_PORT ?? 3119);
 export const RESEARCH_FIXTURE_PORT = Number(process.env.E2E_LAB_RESEARCH_FIXTURE_PORT ?? 3120);
 export const RESEARCH_URL = `http://127.0.0.1:${RESEARCH_PORT}`;
 export const RESEARCH_FIXTURES = `http://127.0.0.1:${RESEARCH_FIXTURE_PORT}`;
+/** Where the browser opens the page: the server's own (the built page), or a development server that proxies to it. */
+export const RESEARCH_PAGE_URL = process.env.E2E_LAB_RESEARCH_PAGE_URL ?? RESEARCH_URL;
 
 /** A site of the fixture web whose pages a run reads: links, a robots.txt, and one page of each kind that is set aside. */
 export const OFFICIAL_SITE = 'harbour-authority.example.org';
@@ -27,6 +29,8 @@ export const TITLES = {
 
 export const QUESTION =
   'What could happen to ferry travel if the harbour board cut crossing fees next spring?';
+
+export { NOTE } from './research-fake';
 
 async function ready(url: string, process_: ChildProcess, timeoutMs: number): Promise<void> {
   const until = Date.now() + timeoutMs;

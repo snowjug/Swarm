@@ -171,6 +171,10 @@ export function pagesRead(): ResearchSource[] {
 
 export const QUESTION = 'What could happen if the ferry fares fall by a third next spring?';
 
+/** Text of a person's own, long enough to be a source (the server asks for at least eighty characters). */
+export const NOTE =
+  'Illustrative note written for a test. The ferry operator says that evening crossings are the least used, and that a cut in fares might fill them. The harbour board has not decided whether to cut any fare.';
+
 const plan = {
   version: 1 as const,
   question: QUESTION,
@@ -343,7 +347,7 @@ const KNOWLEDGE_OF: Record<string, string> = {
   queued: 'queued',
   running: 'running',
   paused: 'running',
-  blocked: 'cancelled',
+  blocked: 'pending',
   cancelled: 'cancelled',
   failed: 'failed',
 };
