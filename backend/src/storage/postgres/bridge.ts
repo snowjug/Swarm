@@ -24,7 +24,8 @@ export type WorkerConfig =
 export type BridgeRequest =
   | { type: 'ping' }
   | { type: 'query'; text: string; values: unknown[]; retry: boolean }
-  | { type: 'exec'; text: string }
+  /** `retry` is for the statement that begins a transaction: a lost connection is replaced and it is run again. */
+  | { type: 'exec'; text: string; retry?: boolean }
   | { type: 'close' };
 
 export type BridgeReply =

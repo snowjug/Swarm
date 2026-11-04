@@ -64,8 +64,10 @@ async function openPg(settings: Extract<WorkerConfig, { kind: 'pg' }>): Promise<
     return token.token;
   };
   let client: InstanceType<typeof pg.Client>;
+  /** False once the driver says that this client's connection is gone, and until a new one is made. */
+  let usable = false;
   const connect = async () => {
-    client = new pg.Client({
+    const made = new pg.Client({
       host: settings.host,
       port: settings.port,
       database: settings.database,
@@ -81,19 +83,47 @@ async function openPg(settings: Extract<WorkerConfig, { kind: 'pg' }>): Promise<
             : pg.types.getTypeParser(oid, format as 'text')) as never,
       },
     });
-    // An idle connection that the server drops raises this; the next call reconnects.
-    client.on('error', () => undefined);
-    await client.connect();
+    client = made;
+    usable = false;
+    // An idle connection that the server drops raises this, or ends, and the client cannot be used again.
+    const gone = () => {
+      if (client === made) usable = false;
+    };
+    made.on('error', gone);
+    made.on('end', gone);
+    await made.connect();
+    usable = true;
   };
   await connect();
+  /**
+   * What a call on a connection that is gone, or that goes while the call waits, is told. The driver
+   * words it several ways and gives some no code ("Client has encountered a connection error and is
+   * not queryable"), and a client in that state never works again: it is refused at once, as a
+   * connection failure (SQLSTATE 08006), which is what `LOST_CONNECTION` below reconnects on and
+   * what `isStorageUnavailable` reads as the database being out of reach. What the server itself
+   * reports keeps its own code.
+   */
+  const lostConnection = () =>
+    Object.assign(new Error('The connection to the database was lost.'), { code: '08006' });
+  const guarded = async <T>(call: () => Promise<T>): Promise<T> => {
+    if (!usable) throw lostConnection();
+    try {
+      return await call();
+    } catch (error) {
+      if (usable || error instanceof pg.DatabaseError) throw error;
+      throw lostConnection();
+    }
+  };
   return {
-    async query(text, values) {
-      const result = await client.query({ text, values: values as unknown[] });
-      return { rows: result.rows as Record<string, unknown>[], rowCount: result.rowCount ?? 0 };
-    },
-    async exec(text) {
-      await client.query(text);
-    },
+    query: (text, values) =>
+      guarded(async () => {
+        const result = await client.query({ text, values: values as unknown[] });
+        return { rows: result.rows as Record<string, unknown>[], rowCount: result.rowCount ?? 0 };
+      }),
+    exec: (text) =>
+      guarded(async () => {
+        await client.query(text);
+      }),
     async reconnect() {
       await client.end().catch(() => undefined);
       await connect();
@@ -120,26 +150,42 @@ function describe(error: unknown): BridgeReply {
   };
 }
 
+/**
+ * Runs `call`. When the connection turns out to be lost, and the caller says that a new one may take
+ * its place, makes one and runs `call` again, once.
+ */
+async function withReconnect<T>(
+  database: Backend,
+  retry: boolean,
+  call: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    if (!retry || !LOST_CONNECTION.test(describeText(error))) throw error;
+    await database.reconnect();
+    return await call();
+  }
+}
+
 async function handle(request: BridgeRequest): Promise<BridgeReply> {
   const database = await open();
   switch (request.type) {
     case 'ping':
       return { ok: true, rows: [], rowCount: 0 };
     case 'exec':
-      await database.exec(request.text);
+      await withReconnect(database, request.retry === true, () => database.exec(request.text));
       return { ok: true, rows: [], rowCount: 0 };
     case 'close':
       await database.close();
       return { ok: true, rows: [], rowCount: 0 };
     case 'query':
-      try {
-        return { ok: true, ...(await database.query(request.text, request.values)) };
-      } catch (error) {
-        const lost = request.retry && LOST_CONNECTION.test(describeText(error));
-        if (!lost) throw error;
-        await database.reconnect();
-        return { ok: true, ...(await database.query(request.text, request.values)) };
-      }
+      return {
+        ok: true,
+        ...(await withReconnect(database, request.retry, () =>
+          database.query(request.text, request.values),
+        )),
+      };
   }
 }
 

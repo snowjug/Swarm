@@ -6,6 +6,11 @@ All browser requests are same-origin. During development Vite provides the proxy
 Errors are non-2xx JSON: `{ "error": { "code": "...", "message": "...", "requestId": "..." } }`.
 Some not-found/rate-limit responses omit `requestId`; no provider error body is returned.
 
+A database that is down, too slow or held by others is `503 STORAGE_UNAVAILABLE` with `Retry-After: 60` and the same
+words every time ("Swarm cannot use its database right now. Nothing you did caused this. Wait a minute, then try
+again."): the kind of failure is told by the class and code the driver gives, never by its message, so no host, address,
+statement or credential is in the answer, a log line or a trace. Any other failure of the store stays `500 INTERNAL_ERROR`.
+
 | Method       | Path                                                                            | Behavior                                                                                                                                                                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET          | `/api/health`                                                                   | Actual process/storage/queue readiness, not model connectivity                                                                                                                                                                                                                                                                                                    |

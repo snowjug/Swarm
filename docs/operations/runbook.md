@@ -24,13 +24,13 @@ and write down what you did, in order.
 
 _Alert: API failing._ Find the error code: `swarm.http.errors` by code and route.
 
-| Code or symptom            | Likely cause                                                                                           | Action                                                                                                              |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `STORAGE_UNAVAILABLE`, 503 | The database is down or unreachable                                                                    | [Database](#database-down-or-not-ready)                                                                             |
-| `INTERNAL_ERROR`, 500      | A defect                                                                                               | Take the request id, read the matching log line, roll back if it started with a deployment ([Rollback](#roll-back)) |
-| `MODEL_*` from a stage     | The provider                                                                                           | [Model provider](#the-model-provider-is-failing)                                                                    |
-| `RATE_LIMITED`, 429        | One address sending too much; or `TRUST_PROXY` is 0 behind the ingress, so everyone shares one address | Check `TRUST_PROXY=1`; otherwise it is the limiter doing its job                                                    |
-| `HOST_NOT_ALLOWED`         | `ALLOWED_HOSTS` does not list the address people use                                                   | Fix the configuration; the probes are unaffected                                                                    |
+| Code or symptom            | Likely cause                                                                                                                                                           | Action                                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `STORAGE_UNAVAILABLE`, 503 | The database is down, too slow, out of resources or unreachable (a connection or login failure, a statement timeout, a failover); the answer carries `Retry-After: 60` | [Database](#database-down-or-not-ready)                                                                             |
+| `INTERNAL_ERROR`, 500      | A defect                                                                                                                                                               | Take the request id, read the matching log line, roll back if it started with a deployment ([Rollback](#roll-back)) |
+| `MODEL_*` from a stage     | The provider                                                                                                                                                           | [Model provider](#the-model-provider-is-failing)                                                                    |
+| `RATE_LIMITED`, 429        | One address sending too much; or `TRUST_PROXY` is 0 behind the ingress, so everyone shares one address                                                                 | Check `TRUST_PROXY=1`; otherwise it is the limiter doing its job                                                    |
+| `HOST_NOT_ALLOWED`         | `ALLOWED_HOSTS` does not list the address people use                                                                                                                   | Fix the configuration; the probes are unaffected                                                                    |
 
 ## Database down or not ready
 

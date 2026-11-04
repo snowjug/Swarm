@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
-import { AppError } from '../../errors.js';
+import { AppError, storageUnavailable } from '../../errors.js';
+import { DatabaseError } from '../failure.js';
 import type { SqlDatabase, SqlRow, SqlStatement, SqlValue } from '../sql.js';
 import {
   SyncBridge,
@@ -11,16 +12,8 @@ import {
 } from './bridge.js';
 import { toPostgres } from './translate.js';
 
-/** A failure reported by the database, with its SQLSTATE so that callers can tell kinds apart. */
-export class DatabaseError extends Error {
-  constructor(
-    message: string,
-    readonly code: string | null,
-  ) {
-    super(message);
-    this.name = 'DatabaseError';
-  }
-}
+// Declared in `../failure.ts`, which says which of its codes mean that the database cannot serve.
+export { DatabaseError };
 
 /** 40001 (could not serialize) and 40P01 (deadlock): the transaction lost a race and may be retried. */
 const isRaceLost = (error: unknown): boolean =>
@@ -174,7 +167,7 @@ export class PostgresDatabase implements SqlDatabase {
     try {
       reply = this.bridge.call(request);
     } catch (cause) {
-      throw new AppError(503, 'STORAGE_UNAVAILABLE', 'The database is not responding.', { cause });
+      throw storageUnavailable(cause);
     }
     if (!reply.ok) throw new DatabaseError(reply.error.message, reply.error.code);
     return reply;
@@ -201,7 +194,13 @@ export class PostgresDatabase implements SqlDatabase {
 
   transaction<T>(operation: () => T): T {
     for (let attempt = 1; ; attempt++) {
-      this.raw({ type: 'exec', text: 'BEGIN ISOLATION LEVEL SERIALIZABLE' });
+      // A connection lost while no transaction is open may be replaced, so the first transaction after
+      // an outage is not refused for what an earlier statement left behind.
+      this.raw({
+        type: 'exec',
+        text: 'BEGIN ISOLATION LEVEL SERIALIZABLE',
+        retry: !openTransactions.has(this.bridge),
+      });
       this.active = true;
       openTransactions.add(this.bridge);
       try {
@@ -241,7 +240,12 @@ export class PostgresDatabase implements SqlDatabase {
   }
 
   private inOwnSnapshot<T>(operation: () => T): T {
-    this.raw({ type: 'exec', text: 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY' });
+    // `readSnapshot` has seen that no transaction is open on this connection, so a lost one may be replaced.
+    this.raw({
+      type: 'exec',
+      text: 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY',
+      retry: true,
+    });
     openTransactions.add(this.bridge);
     try {
       const result = operation();

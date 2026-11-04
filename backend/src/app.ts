@@ -11,7 +11,12 @@ import { registerAuth } from './auth/guard.js';
 import { registerAudit } from './auth/audit-policy.js';
 import { microsoftEndpoints } from './auth/oidc.js';
 import { TokenVerifier } from './auth/tokens.js';
-import { AppError, publicFailure } from './errors.js';
+import {
+  AppError,
+  STORAGE_RETRY_AFTER_SECONDS,
+  STORAGE_UNAVAILABLE,
+  publicFailure,
+} from './errors.js';
 import { InteractionService } from './orchestration/interaction.js';
 import {
   Orchestrator,
@@ -34,6 +39,7 @@ import { ModelSectionRegenerator } from './studio/regenerate.js';
 import { StudioService } from './studio/service.js';
 import { LedgerService } from './grounding/service.js';
 import { Repository } from './storage/repository.js';
+import { isStorageUnavailable } from './storage/failure.js';
 import { guidedRoutes } from './routes/guided.js';
 // Scenario Lab routes: one block per feature, each edited only by the feature that owns it.
 // [url-ingest imports]
@@ -293,6 +299,10 @@ export async function buildApp(options: AppOptions) {
       };
     } else if (error instanceof AppError) {
       status = error.statusCode;
+    } else if (isStorageUnavailable(error)) {
+      // A database that is down, too slow or held by others is not a defect: a 503 that a probe or a
+      // client may retry, in words for a person, which `publicFailure` has already chosen.
+      status = 503;
     } else if (
       error instanceof Error &&
       'statusCode' in error &&
@@ -311,6 +321,9 @@ export async function buildApp(options: AppOptions) {
         status = error.statusCode;
         failure = { code: `HTTP_${status}`, message };
       }
+    }
+    if (status === 503 && failure.code === STORAGE_UNAVAILABLE) {
+      reply.header('retry-after', String(STORAGE_RETRY_AFTER_SECONDS));
     }
     if (status >= 500) {
       request.log.error(

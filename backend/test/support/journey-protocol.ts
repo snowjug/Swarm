@@ -46,6 +46,17 @@ export const CANARIES = {
 /** The header the browser sends with every request, carrying a canary. */
 export const CANARY_HEADER = 'x-journey-canary';
 
+/**
+ * What a database driver says when the connection is gone: a host, an address and a statement. The outage of failure
+ * case 9 raises it, and none of it may reach a person, a response, a log, a span or a metric.
+ */
+export const OUTAGE_BAIT = {
+  host: 'db.journey-internal.example',
+  address: '10.9.8.7',
+  statement: 'SELECT payload FROM projects',
+} as const;
+export const OUTAGE_DRIVER_TEXT = `connection to server at "${OUTAGE_BAIT.host}" (${OUTAGE_BAIT.address}), port 5432 failed: while running ${OUTAGE_BAIT.statement}`;
+
 // ---------------------------------------------------------------------------------------------
 // The web of the journey (`journey-web.ts` serves it), and what is asked about it
 // ---------------------------------------------------------------------------------------------

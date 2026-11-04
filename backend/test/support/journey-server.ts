@@ -43,6 +43,7 @@ import { sleep as crawlerSleep } from '../../src/research/crawler/deps.js';
 import type { CrawlTuning } from '../../src/research/crawler/types.js';
 import type { SearchProvider } from '../../src/research/discovery.js';
 import type { SqlDatabase } from '../../src/storage/sql.js';
+import { DatabaseError } from '../../src/storage/failure.js';
 import { Repository } from '../../src/storage/repository.js';
 import { startFakeFoundry, type FakeFoundry, type FakeStep } from './fake-foundry.js';
 import { naturalReply } from './journey-brain.js';
@@ -55,6 +56,7 @@ import {
   DEFAULT_PORTS,
   INSTANCES,
   INSTANCE_FACTS,
+  OUTAGE_DRIVER_TEXT,
   PEOPLE,
   type FoundryRequestSummary,
   type InstanceName,
@@ -191,7 +193,9 @@ function outageOf(repository: Repository): (down: boolean) => void {
   };
   let down = false;
   const refuse = (): never => {
-    throw new Error('journey outage: the database does not answer');
+    // What the PostgreSQL driver raises when its connection is gone: a SQLSTATE of class 08 and words that hold
+    // a host, an address and a statement, none of which may reach a person, a log or a trace (case 9).
+    throw new DatabaseError(OUTAGE_DRIVER_TEXT, '08006');
   };
   held.prepare = (sql) => (down ? refuse() : real.prepare(sql));
   held.exec = (sql) => (down ? refuse() : real.exec(sql));
