@@ -1,6 +1,8 @@
 import type { z } from 'zod';
 import { AppError, throwIfAborted } from '../errors.js';
+import type { CallReport } from './call.js';
 import type { ModelGateway } from './client.js';
+import { traceTask } from './task-telemetry.js';
 
 /**
  * The jobs a model is asked to do. A deployment may serve several roles; the role is what a router
@@ -116,11 +118,36 @@ function checked<T>(task: StructuredTask<T>, value: T): T {
  * never read by pattern: it is either valid or it is not used.
  *
  * Cancellation and a refusal are the two things that are never answered from rules.
+ *
+ * Every invocation is recorded for the operators, once: a span, a duration and how it ended (see
+ * `task-telemetry.ts`). The task runner records its own and runs `executeStructuredTask` instead.
  */
 export async function runStructuredTask<T>(
   model: ModelGateway | null,
   task: StructuredTask<T>,
   observer?: TaskObserver | null,
+): Promise<TaskOutcome<T>> {
+  return traceTask(
+    {
+      role: task.role,
+      name: task.name,
+      provider: model ? model.provider : 'none',
+      signal: task.signal,
+    },
+    (report) => executeStructuredTask(model, task, observer, report),
+    (outcome) => ({ source: outcome.source, failure: outcome.failure }),
+  );
+}
+
+/**
+ * `runStructuredTask` without the record of the task, for code that makes its own, as the task runner
+ * does. `report` is what the call tells back about itself: the deployment and the correction rounds.
+ */
+export async function executeStructuredTask<T>(
+  model: ModelGateway | null,
+  task: StructuredTask<T>,
+  observer?: TaskObserver | null,
+  report?: CallReport,
 ): Promise<TaskOutcome<T>> {
   const started = performance.now();
   const finish = (outcome: TaskOutcome<T>): TaskOutcome<T> => {
@@ -157,7 +184,13 @@ export async function runStructuredTask<T>(
       task.data,
       task.signal,
       task.maxTokens,
-      { repairs: TASK_REPAIRS, ...(task.validate ? { validate: task.validate } : {}) },
+      {
+        repairs: TASK_REPAIRS,
+        // The role and the name tell the provider's client which task this is, so that its calls are counted by role.
+        route: { role: task.role, task: task.name },
+        ...(task.validate ? { validate: task.validate } : {}),
+        ...(report ? { report } : {}),
+      },
     );
     // The gateway is asked to check, and is checked again: a double or a new provider must not be able to skip it.
     return finish({ value: checked(task, value), source: 'model', failure: null });

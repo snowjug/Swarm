@@ -1,8 +1,9 @@
 import { setTimeout as delay } from 'node:timers/promises';
 import { z } from 'zod';
+import type { ProviderName } from '../../../shared/types.js';
 import type { ProviderConfig } from '../config.js';
 import { AppError, throwIfAborted } from '../errors.js';
-import type { CallGate, CallTicket, ModelCallRoute } from './call.js';
+import type { CallGate, CallReport, CallTicket, ModelCallRoute } from './call.js';
 import { CapabilityMemory } from './capabilities.js';
 import { estimateTokens } from './cost.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
@@ -48,9 +49,13 @@ export interface JsonOptions<T> {
   route?: ModelCallRoute;
   /** Asked before every provider round trip of this call; throws to stop it. */
   gate?: CallGate | null;
+  /** Filled in by the client as the call goes: the deployment asked, and the correction rounds the answer needed. */
+  report?: CallReport;
 }
 
 export interface ModelGateway {
+  /** The kind of provider that answers, when the gateway knows it: it is a label on the task's telemetry. */
+  readonly provider?: ProviderName;
   json<T>(
     schema: z.ZodType<T>,
     instructions: string,
@@ -255,6 +260,10 @@ export class ModelClient implements ModelGateway {
     this.capabilities = deps.capabilities ?? new CapabilityMemory();
   }
 
+  get provider(): ProviderName {
+    return this.config.name;
+  }
+
   private async entraAuthorization(signal: AbortSignal): Promise<string | null> {
     if (this.config.auth !== 'entra') return null;
     this.tokens ??= entraTokenProvider({
@@ -370,6 +379,7 @@ export class ModelClient implements ModelGateway {
     ];
     const repairs = Math.min(3, Math.max(0, options.repairs ?? this.deps.maxRepairs ?? 2));
     const plan = this.plan(schema, options);
+    if (options.report) options.report.deployment = plan.deployment;
     let problem = '';
     let tokenBudget = maxTokens;
     let adjustments = 0;
@@ -462,7 +472,10 @@ export class ModelClient implements ModelGateway {
         // Foundry replies are one JSON document or they are not used; older providers keep the fence strip.
         unfence: this.config.name !== 'foundry',
       });
-      if (checked.ok) return checked.value;
+      if (checked.ok) {
+        if (options.report) options.report.repairs = attempt;
+        return checked.value;
+      }
       this.deps.observer?.onReject?.({
         reason: checked.reason,
         repair: attempt > 0,

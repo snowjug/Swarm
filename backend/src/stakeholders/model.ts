@@ -19,6 +19,7 @@ import {
   findInjectionPayloads,
 } from '../models/injection.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { uniqueEvidence, verifiedEvidence } from './evidence.js';
 import { keyOf, wordsOf } from './mentions.js';
 import { plural, slugify, truncate, uniqueId } from './names.js';
@@ -415,7 +416,7 @@ export async function discoverByModel(
   };
   const payloads = findInjectionPayloads(data);
   const proposal = await jsonValidated(
-    model,
+    tracedGateway(model, 'stakeholder-proposal.v1'),
     proposalSchema,
     INSTRUCTIONS,
     data,

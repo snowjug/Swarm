@@ -15,6 +15,7 @@ import { searchMemories, timeline } from '../guided/tools.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelFactory } from '../models/factory.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import type { Repository } from '../storage/repository.js';
 
 /**
@@ -150,7 +151,7 @@ export class ModelSectionRegenerator implements SectionRegenerator {
     );
 
     const written = await jsonValidated(
-      model,
+      tracedGateway(model, 'chapter-regeneration.v1'),
       reportChapterSchema,
       CHAPTER_INSTRUCTIONS + EDITOR_RULES,
       {

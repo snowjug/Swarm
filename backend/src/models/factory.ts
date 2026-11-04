@@ -98,6 +98,7 @@ export function taskRunnerFor(
     gateway: config.provider.configured
       ? createModel(options.onUsage, { maxCalls: options.maxCalls ?? 16 })
       : null,
+    provider: config.provider.name,
     router,
     budgets: {
       operation: options.budget === undefined ? newOperationBudget(config) : options.budget,

@@ -24,6 +24,18 @@ export interface ModelCallRoute {
   strictSchema?: boolean;
 }
 
+/**
+ * What a call tells the code that made it about how it went, for that code's record of the task. The
+ * caller puts an empty one in the options and reads it after; a client that knows fills it in, and a
+ * gateway that does not leaves it empty.
+ */
+export interface CallReport {
+  /** The deployment of the last request made. */
+  deployment?: string | null;
+  /** The correction rounds the accepted reply needed: 0 when the first reply was. Set only on success. */
+  repairs?: number;
+}
+
 export interface CallRequestInfo {
   deployment: string;
   /** The characters of the messages about to be sent. */

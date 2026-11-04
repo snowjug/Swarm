@@ -29,6 +29,8 @@ export const ALLOWED_ATTRIBUTES: ReadonlySet<string> = new Set([
   'swarm.model.direction',
   'swarm.model.role',
   'swarm.model.task',
+  // How a task ended: ok, corrected, fell-back, refused, failed or cancelled (`models/task-telemetry.ts`).
+  'swarm.model.task_outcome',
   'swarm.model.source',
   'swarm.model.safety',
   'swarm.model.reason',

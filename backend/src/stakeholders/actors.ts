@@ -33,6 +33,7 @@ import {
   findInjectionPayloads,
 } from '../models/injection.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { clientLeft, failureWords } from './abort.js';
 import { firstSentence, plural, truncate } from './names.js';
 import {
@@ -397,7 +398,7 @@ async function refine(input: RefinementInput): Promise<number> {
     if (echoesInjection(JSON.stringify(value), payloads)) throw invalid(INJECTION_ECHO_PROBLEM);
   };
   const refinement = await jsonValidated(
-    input.model,
+    tracedGateway(input.model, 'key-actor-refinement.v1'),
     refinementSchema,
     REFINEMENT_INSTRUCTIONS,
     data,

@@ -3,6 +3,7 @@ import type { Ontology } from '../../../shared/guided.js';
 import { buildLocalGraph, validateCitations } from '../knowledge/graph.js';
 import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { jsonValidated } from '../models/validated.js';
 import { suspiciousPassageIds } from '../models/injection.js';
 import { keepValidEdges, shortenNodeQuotes, validateNodeQuotes } from '../grounding/graph.js';
@@ -71,7 +72,7 @@ export async function buildKnowledge(
     async (): Promise<Ontology> =>
       model
         ? jsonValidated(
-            model,
+            tracedGateway(model, 'ontology.v1'),
             ontologySchema,
             'Define a small ontology for the supplied sources and scenario question. JSON {entityTypes:[{name,description}],relationshipTypes:[{name,description}]}. ' +
               '1-12 entity types, 1-16 relationship types; names2-60 chars, descriptions5-400. Use source-grounded categories, not executable schemas or private personal beliefs.',
@@ -177,7 +178,7 @@ export async function buildKnowledge(
         }
       };
       const extracted = await jsonValidated(
-        model,
+        tracedGateway(model, 'source-graph.v1'),
         guidedGraphSchema,
         'Extract a source-grounded graph under the supplied ontology. JSON {nodes:[{id,label,kind,entityType,summary,weight,sourceIds,quote}],edges:[{source,target,label,weight,sourceIds}]}. ' +
           '2-16 unique nodes, at most40 edges. IDs use letters/numbers/_/-. kind is topic/person/organization/group. entityType must be a supplied ontology entity type; edge label must be a supplied relationship name. ' +

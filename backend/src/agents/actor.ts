@@ -12,6 +12,7 @@ import type { Limiter } from '../limiter.js';
 import type { ModelGateway } from '../models/client.js';
 import { actorDecisionSchema, type ActorDecision } from '../models/schemas.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { PEER_LIMIT, rankPeers, type Network } from './peers.js';
 import { clamp, makeSnapshot } from './state.js';
 
@@ -273,6 +274,7 @@ export async function actorRound(
 ): Promise<{ agents: Agent[]; snapshot: RoundSnapshot }> {
   const controller = new AbortController();
   const signal = AbortSignal.any([input.signal, controller.signal]);
+  const model = tracedGateway(input.model, 'agent-decision.v1');
   let primary: unknown = null;
   const settled = await Promise.allSettled(
     input.agents.map((agent) =>
@@ -281,7 +283,7 @@ export async function actorRound(
           throwIfAborted(signal);
           const context = buildActorContext(agent, input);
           const decision = await jsonValidated(
-            input.model,
+            model,
             actorDecisionSchema,
             ACTOR_INSTRUCTIONS,
             context,
