@@ -231,6 +231,43 @@ describe('the scope notice is in everything that is handed over', () => {
       }
     }
   });
+
+  it('never repeats a name in a cue, in the Markdown, the printable page or the JSON: the name is only where the question is quoted', () => {
+    const names = ['Priya Raman', 'Mr Okafor', 'Ana Maria Silva', 'Ngozi Eze', 'Dr Chen'];
+    const templates = [
+      'Should we promote {n} to head of finance?',
+      'Should we make {n} redundant?',
+      'Should we cut {n}’s hours?',
+      'Should we approve {n}’s mortgage application?',
+      'Should we take {n} off the ventilator?',
+    ];
+    const words = (text: string): Set<string> =>
+      new Set(text.toLowerCase().match(/\p{L}+/gu) ?? []);
+    for (const name of names) {
+      const tokens = (name.toLowerCase().match(/\p{L}+/gu) ?? []).filter(
+        (token) => token.length >= 2,
+      );
+      for (const template of templates) {
+        const question = template.replaceAll('{n}', name);
+        const canvas = asking(question);
+        expect(canvas.scope.aboutIndividual, question).toBe(true);
+        const exported = [
+          plain(briefMarkdown(exportInput(canvas))),
+          briefHtml(exportInput(canvas)),
+          JSON.stringify(briefJson(exportInput(canvas))),
+          JSON.stringify(canvas.status),
+          JSON.stringify(canvas.scope),
+        ];
+        for (const text of exported) {
+          const elsewhere = words(text.split(question).join(' '));
+          expect(
+            tokens.filter((token) => elsewhere.has(token)),
+            `${question}`,
+          ).toEqual([]);
+        }
+      }
+    }
+  });
 });
 
 describe('what the export route hands over', () => {

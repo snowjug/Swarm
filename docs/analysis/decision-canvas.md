@@ -100,10 +100,13 @@ deterministic and uses no model. It returns `{ domains, aboutIndividual, basis }
   decision, requested decision, system and the labels and descriptions of its alternatives, clause by clause (a clause
   ends at a sentence, a list item, a comma or a word such as _if_, _because_ or _but_). Every cue is a whole word or
   phrase; the word tables are data in `scope-cues.ts`.
-- **`aboutIndividual`**: true only when, **in one clause**, an _act_ of a matter and a _reference to one person_ stand
-  together.
-- **`basis`**: the cues found, a few words each (`employment: “fire”`, `about one person: “this employee”`), and never
-  a name (a named person is `a named person`).
+- **`aboutIndividual`**: true only when, **in one clause**, an _act or matter_ of one of the five and a _reference to one
+  person_ stand together.
+- **`basis`**: the cues found, a few words each (`employment: “fire”`, `employment: “make redundant”`,
+  `about one person: “this employee”`), and **never a name**: a cue is made of the words of the act (“promote”, not
+  “promote Priya Raman to head”), a person is said as `a named person`, a pronoun or a role, and a last guard removes any
+  word that is a name in the text it was read from. The same cues stand in the status’s reasons, the approval points, the
+  page and every export, so none of them repeats a name.
 
 | Domain       | Cues (families, not the whole list)                                                                                                                                                                                        |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -119,15 +122,58 @@ person. So does a cue that is followed or preceded by a word for a rule, a proce
 _lending criteria_, _triage protocol_, _credit card market_, _medical device launch_). A bare _safety_, _medical_,
 _credit_ or _fire safety_ names nothing at all.
 
-**One person** is read from: “this”, “that”, “my”, “our”, “his”, “her” or “your” and a role (“this employee”, “our sales
-manager”); “these three named applicants”; “one of our engineers”, “which of our two engineers”, “who should we hire”; an
-act and “the” and a role (“fire the manager”); a name after an act, or before a post (“fire Maria Lopez”, “offer Sam the
-job”, “promote Dana to head of sales”); “him” or “her” as the person an act is done to; “his”, “her” or “my” and a matter
-of one’s own (“her loan”, “my medication”); “should I sue”, “should she take it”, “can I be fired”. A role that is a matter
-of its domain by itself (patient, defendant, plaintiff, suspect, prisoner, claimant, borrower) counts as an act of that
-domain. A group (“our employees”, “applicants”), a policy and a process are not one person, and neither is a capitalised
-title, day or word of an organisation taken for a name. A name is read as one only beside an act of a matter, so “Notion”
-in “promote Notion to our teams” is not.
+**One person** is read from four kinds of words, in the order the code has them (`scope-cues.ts`, `scope-people.ts`,
+`scope-generic.ts`; the word tables are data, not logic):
+
+1. **A construction that says the act and the person in one** (`scope-people.ts`). A verb or a matter of a domain, and a
+   person put where the construction puts one: _promote_ a person or a role (and “promote Notion to our teams” is not one:
+   a name after _promote_ is a person only when a post follows or the name is a given name); _appoint_, _reprimand_;
+   “keep … on”; “put … on probation, notice or a plan”; “report … to HR” (employment) or “to the police” (legal);
+   “settle with”; “press or file charges against”; _discharge_, “admit … to the ward”, “operate on”, “put … on a
+   ventilator”; “let, send or keep the patient home”; “let, allow or clear … operate, drive, fly, work”; _ground_; a matter
+   that a person has (“his claim”, “the nurse’s hours”, “Mr Okafor’s mortgage”), is given (“give her a raise”, “lend Maria
+   the money”) or is denied them (“offer the job to the second candidate”, “refuse service to this customer”, “sponsor this
+   candidate’s visa”); “let … go”, “make … redundant”, “part ways with”, “replace”, “repossess”, “refer … to a specialist”.
+2. **A person read where they stand** (`scope-generic.ts`), beside any act or matter in the clause. A pronoun (“he”, “she”,
+   “him”, “his”, “her”; “he”/“she” as the one who does the act, as in “if she hires …”, is not the one it is done to); a
+   **name**: a capitalised word that is not a title, a day, a place, a language or a well-known organisation or product,
+   put where a person is put (after a verb, or after “to”, “for”, “with”, “against”; not after “in”, “at”, “from”, “the”
+   or “our”), or after “and”/“or” another name (“Ananya or Rohit”), or as the subject of “should X get …” when it is a given
+   name or said to get, deserve, qualify or be eligible; a **role** with “this”, “that”, “the”, “my”, “our”, “his”, “her” or
+   “your”, with qualifiers (“the second candidate”, “our oldest developer”, “the former employee”) and not when a word of a
+   process follows (“the employee handbook”) or when the role acts (“how would the customer react”); “an employee who”,
+   “someone who”; “fire, dismiss or evict **an** employee” (a punitive act said in the indefinite is still about someone,
+   unless the question asks how to go about it); a plural surname (“foreclose on the Nguyens”); **the person that the
+   question asks about**: “who should we …”, “which of our two engineers should we …”, “which one do we …”, “who should be
+   …”; and the asker’s own matter (“do we file for divorce”, “should I contest my father’s will”, “start eviction
+   proceedings”, “should I quit my job”: that is the asker’s own employment situation, and the cost of reading it as one
+   person’s is a more careful canvas, so it is read).
+3. **A matter that is a person’s only when a person stands in the clause.** A notice, severance, part-time, unpaid leave, a
+   secondment, “step down”, “resign”, a second chance, an interview, a suspension; an interest rate, a payment holiday,
+   a repayment, “write off”; a settlement, evidence, a plea deal, probate, a tenancy; a biopsy, dialysis, a ventilator, a
+   feeding tube, blood thinners, insulin, “be discharged”; “unsupervised”, a forklift, a crane, a ladder, “safely”,
+   “a safe pilot”. These are everyday words in other uses, so they count only beside a person, and never before a word for
+   a policy or a process (“notice period policy”).
+4. **A phrasal verb of a domain, with the person between its words, after them, or put first**, up to four words between:
+   “make … redundant”, “let … go”, “lay … off”, “take … off the project / the ventilator / the line”, “put … on notice / a
+   plan / the night shift / a ventilator”, “write … off”, “turn … down”, “sign … off”, “call … in”, “stand … down”,
+   “pass … over for promotion”, “ask … to step down or leave the company”, “refer … for a biopsy”, “admit … overnight”,
+   “wean … off”, “clear … to dive”, “stop … from driving”, “let … alone or unsupervised”, “hand … over to the police”, “take
+   … to court”, “throw … out of the flat”. So “Should we make Tom Becker redundant?”, “Should we make redundant Tom
+   Becker?”, “Who should we make redundant?”, “We must make redundant the engineer who was late.” and “Which of our two
+   engineers should we make redundant?” are read the same, and so are the same words said of a thing (“make our legacy
+   servers redundant”, “turn down the volume”, “sign off the budget”), which have no person and are not.
+
+A role that is a matter of its domain by itself (patient, defendant, plaintiff, suspect, prisoner, claimant, borrower)
+counts as an act of that domain. A group (“our employees”, “all new hires”, “applicants”), a policy and a process are not
+one person, and neither is a capitalised title, day or word of an organisation taken for a name.
+
+**Which way the check errs.** A false positive costs a more careful canvas (a notice, “a qualified person decides this”,
+no preferred option, the exploration still shown); a false negative costs Swarm sounding as if it recommended “promote
+Priya”. So where the signal is structurally specific (a name, a pronoun, a role with “this”, “the”, “my” or “our” beside a
+decision verb or an act of a domain), the check reads a person; where the question is about a policy, a group, a
+market, a product or an organisation, it does not. The notice for a matter with no person is at least as generous as
+the forcing: whatever forces also lists the domain.
 
 | Question                                                      | `domains`    | `aboutIndividual`                 |
 | ------------------------------------------------------------- | ------------ | --------------------------------- |
@@ -142,6 +188,8 @@ in “promote Notion to our teams” is not.
 | What would a safety culture programme change?                 | none         | false                             |
 | Should we let go of the legacy billing system?                | none         | false                             |
 | Which of our two engineers should we let go?                  | `employment` | **true**                          |
+| Who should we make redundant?                                 | `employment` | **true**: the person is “who”     |
+| Should we make our legacy servers redundant?                  | none         | false: a thing, not a person      |
 
 **What the canvas does with it.**
 
@@ -166,13 +214,47 @@ in “promote Notion to our teams” is not.
 It blocks nothing and refuses nothing: project creation is not touched, and the picture is still there.
 
 **Limits, stated plainly.** Rules that read words cannot be complete and this is not. It recognises questions in the
-words it has; a question put in other words is missed (“What should we do about our employee who keeps stealing?”, “Is he
-well enough to be discharged?”, “Should I report my manager to HR?”), and so is one in another language. It reads some
-things as a person that are not (a single capitalised organisation after _hire_ or _sue_; “hire a replacement for him”),
-because the cost of missing a decision about a person was judged higher than the cost of a notice that is not needed;
-the cues are listed in the Approvals detail so that a reader can see why. The check is a safety net, not a classifier of
-the person’s situation: a qualified person decides every such matter whatever it says, and the notice says so whenever any
-matter is found. The `NOT_CAUGHT` list in `backend/test/decision-scope.test.ts` keeps the known misses on record.
+words it has, and the tables below say what it does and does not.
+
+- **In-sample, and measured on first pass.** Every table in the tests is _in-sample_: its rules were corrected until it
+  read as it should, so it shows that a fix holds and not how well the check does on questions nobody has written. The
+  honest numbers are the **first pass** over each round of fresh questions, before its fixes, one person against one that
+  is not: round one (written after the first set of constructions): 54 of 72 read as one person (75 %), none of 54
+  look-alikes; round two (before the generic person finder): 32 of 81 (40 %), none of 77; the same round after the
+  generic finder: 66 of 81 (81 %), none of 77; round three (written after it, for phrasal verbs and the person put first):
+  67 of 75 (89 %), none of 64; round four (other ways of asking: a context sentence first, “whether to”, “my”, a passive):
+  19 of 30 (63 %), **one** of 20 look-alikes (“give notice to our landlord”, since fixed); round five (short questions in
+  a reviewer’s style, other roles, verbs and domains): 28 of 40 (70 %), none of 20. Each round found families the rounds
+  before had not, and the first pass has not settled above about 90 %. The reviewer keeps a separate
+  held-out set; its numbers are theirs, and these are not a forecast of them.
+- **The matter is in another sentence than the person.** “Priya has been late six times this month. What should we do about
+  her?” has a person and no matter in the clause that asks. Nothing is carried from one sentence to the next.
+- **A person and a decision verb, and no matter.** “Should we keep him?”, “Should we reject her?” name nothing of the five.
+- **An act with no word of the five domains.** “Was the nurse right to refuse the transfer?”
+- **A matter that is not one of the five.** A school (“expel a student”), housing beyond eviction, benefits, a visa
+  other than as a legal matter. The notice says employment, credit, legal, medical and safety only.
+- **Names.** About 700 given names of many regions are known, and a capitalised word put where a person is put is read as a
+  name beside any act or matter, so an unknown name is read (“terminate Ravi”). A word that is a name and is also a
+  place, an organisation or a product is read as a person where no list knows it (“hire Accenture” is not, since the
+  list does; “sue Acme” is), which makes the canvas more careful and not less. A name in lower case or in capitals is not
+  read as one (all-capitals text is read in lower case). A name that is the subject of “should X get …” is read when it is
+  a given name or the verb says what a person does.
+- **Other languages**, and other spellings of a role, are not read.
+- **How much is read.** The first 40 clauses of the question and its framing together, and the first 12,000 characters of
+  each text: what is said only after that is not read (a test says so). The check runs on every canvas read and is
+  linear and bounded: every pattern begins at a word, a name has at most three words, the words between those of a
+  phrasal verb at most four, and a test reads ten-kilobyte hostile texts of thirteen shapes (a long word, a gap, a
+  comma every word, a paragraph per line, a name over and over) in well under a second each. A steady read of such a text
+  is about a tenth of a second on a busy machine; the first read in a process compiles the rules and takes a few hundred
+  milliseconds.
+- **More careful than needed.** It reads some things as a person that are not (“who should we hire for the new role” asks
+  about whoever is hired; a single capitalised organisation after _sue_), because the cost of missing a decision about
+  a person was judged higher than the cost of a notice that is not needed; the cues are listed in the Approvals detail
+  so that a reader can see why.
+
+The check is a safety net, not a classifier of the person’s situation: a qualified person decides every such matter
+whatever it says, and the notice says so whenever any matter is found. `STILL_NOT_READ` in
+`backend/test/support/scope-cases.ts` keeps the known misses on record.
 
 ## The lenses
 
@@ -376,12 +458,19 @@ the words of the page. The JSON export holds the whole canvas, `scope` and the c
 ## Tests
 
 `decision-status.test.ts` (every status, every boundary, precedence, rule 1 before every other),
-`decision-scope.test.ts` (a table of 135 questions: one person and not, in all five matters, with
-the look-alikes; the basis; the same answer every time; the framing; speed on hostile text; the canvas section; the limits
-on record), `decision-lenses.test.ts`, `decision-build.test.ts` (the five worked examples through the real pipeline,
-labels, wording, completeness, the validation plan, defensive participant reads, a decision about one person end to end),
-`decision-labels.test.ts`, `decision-routes.test.ts`, `decision-export.test.ts` (the notice in Markdown, HTML and JSON,
-and its absence where there is no matter); on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` (logic, render of
-every status and state, the notice with and without a canvas, one person against a matter in general, the folded layout, a
-copy guard) and `e2e/lab/decide-canvas.spec.ts` (the nine in order in one 1440 × 900 viewport, every status, a phone, the
-states, paper, and the scope notice at both sizes).
+`decision-scope.test.ts` (the original tables of 135 questions, one person and not, in all five matters, with the
+look-alikes; the reviewer’s own questions: 12 that were missed, 13 that were read and 10 about a policy; 293 fresh
+one-person questions in five rounds, 114 of them with the person said as a pronoun, an ordinal or qualified role, or a
+possessive, and 234 look-alikes in the five domains and in ordinary business, none of which may be read as one person;
+the phrasal verbs in both positions and with the person put first; **500 questions made from 20 names and 25 templates**,
+none of whose cues, status reasons, approval points or section may hold a word of the name, titles, hyphens and
+apostrophes included, and the same for names in the framing; the basis; the same answer every time; speed on hostile
+ten-kilobyte text and what is read of a long one; the canvas section; the limits on record in
+`backend/test/support/scope-cases.ts`), `decision-lenses.test.ts`, `decision-build.test.ts` (the five worked examples
+through the real pipeline, labels, wording, completeness, the validation plan, defensive participant reads, a decision
+about one person end to end), `decision-labels.test.ts`, `decision-routes.test.ts`, `decision-export.test.ts` (the notice
+in Markdown, HTML and JSON, and its absence where there is no matter; no name in a cue anywhere that is handed over, only
+where the question is quoted); on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` (logic, render of every
+status and state, the notice with and without a canvas, one person against a matter in general, the folded layout, a copy
+guard) and `e2e/lab/decide-canvas.spec.ts` (the nine in order in one 1440 × 900 viewport, every status, a phone, the
+states, paper, the scope notice at both sizes, and a phrasal verb with the person put first and a name never repeated).
