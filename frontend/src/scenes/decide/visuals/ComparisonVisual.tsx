@@ -59,7 +59,7 @@ export function ComparisonVisual({
         {rows.map((row, index) => {
           const paired = facts?.paired[row.variantId];
           const unread = signal === 'no-direction' || (signal === 'no-difference' && index === 0);
-          const why = unread && signal !== 'clear' ? UNREAD_WHY[signal] : null;
+          const why = unread ? UNREAD_WHY[signal] : null;
           return (
             <section
               className="sw-decide-cmp__row"
