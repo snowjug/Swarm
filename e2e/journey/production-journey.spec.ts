@@ -1142,6 +1142,8 @@ test.describe('the production journey: flow B (no page is named)', () => {
       expect(questions).toHaveLength(1);
       expect(questions[0]).toContain('berthing fees coastal vessels');
       expect(questions[0]).not.toBe(JOURNEY_QUESTION);
+      // The reference that the question carries is not a name or a topic, and is not sent.
+      expect(questions[0]).not.toContain(CANARIES.question);
       expect(questions[0]?.length).toBeLessThanOrEqual(180);
       // What it offered is read like anything else: the two public pages, and nothing else.
       const used = run.sources.filter((source) => source.outcome === 'used');

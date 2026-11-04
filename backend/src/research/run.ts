@@ -32,7 +32,7 @@ import type {
   PageFetcher,
 } from './crawler/types.js';
 import type { SearchProvider } from './discovery.js';
-import { searchFailureSentence, searchQueryOf } from './search.js';
+import { searchFailureSentence, searchTermsOf } from './search.js';
 import type { PdfReader } from './extract/index.js';
 import type { PauseControl } from './pause.js';
 import { buildResearchPlan, planQuestion, stoppingConditionsOf } from './plan.js';
@@ -339,11 +339,20 @@ export class RunPipeline {
     if (!status.available)
       return { seeds: [], sameSiteOnly: false, domains: [], blocked: 'discovery-unconfigured' };
     let hits: Awaited<ReturnType<SearchProvider['search']>>;
-    // What the provider is sent is the names and topics of the plan, a few of them, and not the question as it was typed.
-    const query = searchQueryOf(this.plan);
+    // What the provider is sent is a few of the names and topics of the plan, with no identifier, key or figure among
+    // them, and never the question as it was typed. With none that can be sent, nothing is asked.
+    const terms = searchTermsOf(this.plan);
+    if (terms.length === 0) {
+      recorder.event(
+        'info',
+        'The plan has no name or topic that can be searched for, so no search was made.',
+      );
+      return { seeds: [], sameSiteOnly: false, domains: [], blocked: 'frontier-exhausted' };
+    }
+    const query = terms.join(' ');
     recorder.event(
       'info',
-      `Asked ${status.provider ?? 'the search provider'} for pages about the ${plural(this.plan.entities.length + this.plan.topics.length, 'name or topic', 'names and topics')} of the plan.`,
+      `Asked ${status.provider ?? 'the search provider'} for pages about the ${plural(terms.length, 'name or topic', 'names and topics')} of the plan.`,
     );
     try {
       hits = await deps.search.search(query, {

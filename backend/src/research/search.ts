@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { DiscoveryStatus } from '../../../shared/research.js';
 import { RESEARCH_USER_AGENT } from './crawler/identity.js';
+import { redact } from './redact.js';
 import type { SearchHit, SearchProvider } from './discovery.js';
 
 /**
@@ -78,52 +79,94 @@ const MOST_RESULTS = 20;
 
 // -- the query ---------------------------------------------------------------------------------------------------------
 
-/** What a plan holds that a query is made from. */
+/** What a plan holds that a query is made from. The question as it was typed is not among it, so it cannot be sent. */
 export interface PlanTerms {
-  question: string;
   entities: readonly { name: string }[];
   topics: readonly string[];
 }
 
 const MAX_QUERY_CHARS = 180;
 const MAX_QUERY_TERMS = 8;
+const WORDS_IN_TERM = 6;
+const MAX_TERM_CHARS = 48;
+/** The longest word that is a word: a longer one is an identifier, a token, or a clause of a language written without spaces. */
+const MAX_WORD_CHARS = 24;
+const YEAR = /^(?:19|20)\d{2}$/u;
 // eslint-disable-next-line no-control-regex
 const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/gu;
-const WORDS_IN_TERM = 6;
+const EDGES = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
+/** Scripts that are written without a space between words: a run of them is a clause, and cannot be told from a name. */
+const UNSPACED =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}\p{Script=Tibetan}]/u;
+
+/** Words that say nothing of what a search is for: a term made of them alone is not asked. */
+const FUNCTION_WORDS: ReadonlySet<string> = new Set(
+  'the and or but for nor of to in on at by with from into than then that this these those our their its his her your my we they it is are was were be been has have had do does did who which what how why not no so as if'.split(
+    ' ',
+  ),
+);
 
 const tidy = (text: string): string => text.replace(CONTROL, ' ').replace(/\s+/gu, ' ').trim();
 
 /**
- * What a provider is asked: the names and the topics of the plan, the names first and a name of several words in quotes,
- * and no more than a few of them. It is the question reduced to what a search needs, so that what is sent out is little and
- * the words of a long question, which a person may have written for their own eyes, are not. A plan with no name and no
- * topic is searched by the start of the question.
+ * Whether a word of a term may leave this server. A name or a topic is made of words; a reference number, a key, a
+ * token, an address, a path or a whole clause is not, and is not sent: nothing of the question that a person wrote
+ * as an identifier or as a secret goes to a provider. A figure is not a word either, except a year and a short code
+ * such as 5G or B2B. Nor is a run of a script that is written without spaces (Chinese, Japanese, Thai and the like): the
+ * planner reads English, and a clause of such a script is the question itself. It errs on the side of sending less.
  */
-export function searchQueryOf(plan: PlanTerms): string {
+function sendable(word: string): boolean {
+  if (word.length > MAX_WORD_CHARS || /[@/\\:=#%]/u.test(word) || UNSPACED.test(word)) return false;
+  if (/\p{N}/u.test(word)) return YEAR.test(word) || (word.length <= 4 && /\p{L}/u.test(word));
+  return true;
+}
+
+/** Whether the redactor of what a page may say finds a secret, or the contact details of a person, in a term. */
+function holdsSecret(term: string): boolean {
+  return Object.values(redact(term).counts).some((count) => count > 0);
+}
+
+/**
+ * What a provider is asked: the names and the topics of the plan, the names first and a name of several words in quotes,
+ * and no more than a few of them. It is the question reduced to what a search needs, so that what is sent out is little,
+ * and the words of a long question, which a person may have written for their own eyes, are not. A word that is not a
+ * name or a topic (an identifier, a key, a figure, an address, a clause) is left out, and so is a term in which the
+ * redactor finds a secret. **The question is never the fallback:** a plan with no name and no topic that can be sent
+ * gives no term, and then nothing is asked.
+ */
+export function searchTermsOf(plan: PlanTerms): string[] {
   const seen = new Set<string>();
   const terms: string[] = [];
   const add = (raw: string, quoteMany: boolean): void => {
-    const words = tidy(raw)
-      .replace(/["“”]/gu, '')
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, WORDS_IN_TERM);
+    const words: string[] = [];
+    for (const word of tidy(raw).replace(/["“”]/gu, '').split(' ')) {
+      const kept = word.replace(EDGES, '');
+      if (!kept || !sendable(kept)) continue;
+      if ([...words, kept].join(' ').length > MAX_TERM_CHARS || words.length >= WORDS_IN_TERM)
+        break;
+      words.push(kept);
+    }
     const text = words.join(' ');
     const key = text.toLowerCase();
-    if (!text || seen.has(key) || terms.length >= MAX_QUERY_TERMS) return;
+    const says = words.some((word) => word.length >= 3 && !FUNCTION_WORDS.has(word.toLowerCase()));
+    if (!says || seen.has(key) || holdsSecret(text)) return;
     seen.add(key);
     terms.push(quoteMany && words.length > 1 ? `"${text}"` : text);
   };
   for (const entity of plan.entities) add(entity.name, true);
   for (const topic of plan.topics) add(topic, false);
-  let query = '';
-  for (const term of terms) {
-    const next = query ? `${query} ${term}` : term;
-    if (next.length > MAX_QUERY_CHARS) break;
-    query = next;
+  const kept: string[] = [];
+  let length = 0;
+  for (const term of terms.slice(0, MAX_QUERY_TERMS)) {
+    length += term.length + (kept.length > 0 ? 1 : 0);
+    if (length > MAX_QUERY_CHARS) break;
+    kept.push(term);
   }
-  return query || tidy(plan.question).slice(0, MAX_QUERY_CHARS).trim();
+  return kept;
 }
+
+/** The terms of the plan as one query, or nothing when there is no term to ask for. */
+export const searchQueryOf = (plan: PlanTerms): string => searchTermsOf(plan).join(' ');
 
 // -- what a provider answers ---------------------------------------------------------------------------------------------
 

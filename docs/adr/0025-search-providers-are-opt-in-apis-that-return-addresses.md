@@ -30,11 +30,16 @@ trusted.
    `X-Subscription-Token` header): it needs a key and finds pages of the open web. A third provider is a new
    `SearchProvider` and a new value of `SEARCH_PROVIDERS`; the setting still accepts only the names that are built, and
    an unknown name stops the start without repeating it.
-2. **A provider is sent a query, and never the question.** `searchQueryOf(plan)` is the names of the plan (a name of
-   several words in quotes), then its topics: at most 8 terms of at most 6 words, in at most 180 characters, with no
-   control character and no quote that could end a phrase. A plan with no name and no topic is searched by the start of
-   the question. What is sent out is little, and the words of a long question that a person may have written for their
-   own eyes are not. The run records, in words, that it asked.
+2. **A provider is sent a query, and never the question.** `searchTermsOf(plan)` is the names of the plan (a name of
+   several words in quotes), then its topics: at most 8 terms, of at most 6 words and 48 characters each, in at most 180
+   characters, with no control character and no quote that could end a phrase. A word that is not a name or a topic is
+   left out: one of more than 24 characters, one with a digit (but a year, and a short code such as 5G or B2B), one with
+   `@`, `/`, `\`, `:`, `=`, `#` or `%`, and one in a script written without spaces (Chinese, Japanese, Thai and the like:
+   the planner reads English, and a clause of such a script is the question itself). A term in which the redactor of page
+   text finds a secret or a person's contact details, and a term of function words alone, are left out whole. **The question
+   is never the fallback:** a plan with no term that can be sent makes no search, and the run says so (it ends `blocked`
+   and asks for a site or a source). What is sent out is little, and what a person wrote as a reference number, a key, a
+   figure or an address is not in it. The run records, in words, that it asked and with how many names and topics.
 3. **A provider is asked for addresses, and nothing else is kept.** A title and a snippet are what a site chose to say
    about itself: they are dropped. An address is kept only if it is HTTPS, has no user name and no password, and is of a
    sensible length; its fragment is removed; duplicates collapse; the count is the one the run asked for. Every kept
@@ -57,6 +62,9 @@ trusted.
 
 ## Consequences
 
+- The filter is by shape. A secret written as plain words, or the name of a person that the question names (a name is a
+  name), is sent, and the review says that names and topics go. It was found by review, with a key, a case number and a
+  Chinese question as the examples, that counting terms alone was not minimisation.
 - A question alone can now be researched where an owner chooses to, and not otherwise. With `none` nothing changes: the
   run ends `blocked`, makes no request, and says so.
 - **The provider sees the names and topics of every question searched**, and for `brave` the owner's account is the one

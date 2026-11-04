@@ -6,12 +6,18 @@ import {
   SearchFailure,
   braveSearch,
   searchQueryOf,
+  searchTermsOf,
   wikipediaSearch,
   type SearchFailureKind,
   type SearchSettings,
 } from '../src/research/search.js';
 
 const KEY = 'canary-brave-key-0123456789';
+// Shaped like what a provider issues, and made of parts so that no literal of the shape is in the source.
+const LIVE_KEY = ['sk', 'live', '4eC39HqLyjWDarjtT1zdp7dc'].join('-');
+const CLOUD_KEY_ID = ['AKIA', 'IOSFODNN7EXAMPLE'].join('');
+const LETTERS_ONLY_KEY = ['sk', 'abcdefghijklmnopqrst'].join('-');
+const LETTERS_ONLY_KEY_ID = ['AKIA', 'ABCDEFGHIJKLMNOP'].join('');
 const never = new AbortController().signal;
 
 interface Call {
@@ -73,6 +79,7 @@ describe('what a provider is asked', () => {
     entities: entities.map((name) => ({ name })),
     topics,
   });
+  const termsOf = (...topics: string[]) => searchTermsOf(plan([], topics));
 
   it('is the names and topics of the plan, the names first and a name of several words in quotes, and not the question', () => {
     const query = searchQueryOf(
@@ -87,41 +94,113 @@ describe('what a provider is asked', () => {
   });
 
   it('is short: a few terms, of a few words each, in a few characters', () => {
-    const many = Array.from({ length: 30 }, (_, index) => `topic${index}`);
+    const many = [
+      'alpha',
+      'bravo',
+      'charlie',
+      'delta',
+      'echo',
+      'foxtrot',
+      'golf',
+      'hotel',
+      'india',
+      'juliet',
+    ];
     expect(searchQueryOf(plan([], many)).split(' ')).toHaveLength(8);
 
     const long = 'one two three four five six seven eight nine ten';
     expect(searchQueryOf(plan([], [long]))).toBe('one two three four five six');
 
-    const wide = Array.from({ length: 8 }, (_, index) => `${'w'.repeat(28)}${index}`);
+    const wide = Array.from({ length: 8 }, (_, index) => `${'w'.repeat(22)}${'abcdefgh'[index]}`);
     const query = searchQueryOf(plan([], wide));
     expect(query.length).toBeLessThanOrEqual(180);
-    expect(query.split(' ').length).toBeLessThan(8);
+    expect(query.split(' ')).toHaveLength(7);
+
+    const longTerm = 'internationalization '.repeat(4);
+    expect(searchQueryOf(plan([], [longTerm])).length).toBeLessThanOrEqual(48);
   });
 
-  it('asks for a term once however it is written, and for no quote, line break or control character a name may carry', () => {
+  it('asks for a term once however it is written, and for no quote, operator, line break or control character a name may carry', () => {
     expect(searchQueryOf(plan(['Acme Corp', 'acme  corp'], ['ACME CORP', 'tariffs']))).toBe(
       '"Acme Corp" tariffs',
     );
     const hostile = searchQueryOf(
-      plan(['Acme" OR site:internal.example \u0000\u2028 Corp', 'x\ny\r\nz'], []),
+      plan(['Acme" OR site:internal.example \u0000\u2028 Corp', 'north\ngate\r\nstation'], []),
     );
     const controls = [...hostile].filter((character) => {
       const code = character.codePointAt(0) ?? 0;
       return code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029;
     });
     expect(controls).toEqual([]);
-    // Two phrases, so four quotes: none of the one inside a name is among them.
+    // Two phrases, so four quotes: none of the one inside a name is among them, and the operator is not a word.
     expect(hostile.match(/"/gu)).toHaveLength(4);
-    expect(hostile).toBe('"Acme OR site:internal.example Corp" "x y z"');
+    expect(hostile).toBe('"Acme OR Corp" "north gate station"');
   });
 
-  it('is the start of the question when the plan has no name and no topic', () => {
-    expect(searchQueryOf(plan([], [], '  Should\nwe   enter the market?  '))).toBe(
-      'Should we enter the market?',
+  it('leaves out what is not a name or a topic: a reference, a key, a figure, an address, an e-mail address', () => {
+    const query = searchQueryOf(
+      plan(
+        ['HR-2026-04417', 'INC0048213', 'C39HqLyjWDarjtT1zdp7dc', 'Acme'],
+        [
+          `rotate the billing key ${LIVE_KEY} next month`,
+          'case HR-2026-04417 and ticket INC0048213',
+          `token ghp_${'a'.repeat(36)} and ${CLOUD_KEY_ID}`,
+          'call 415 555 0100 or jane.doe@acme.example',
+          'card 4111 1111 1111 1111 expiring soon',
+          'budget of 4200000 dollars in 2026',
+          '5G rollout and B2B pricing',
+          'path /etc/passwd and https://evil.example/steal?x=1 and user:pass',
+        ],
+      ),
     );
-    expect(searchQueryOf(plan([], [], 'q'.repeat(400)))).toHaveLength(180);
-    expect(searchQueryOf(plan([''], [' '], 'Fallback?'))).toBe('Fallback?');
+    expect(query).not.toMatch(
+      /sk-live|4eC39|HR-2026|INC0048213|ghp_|AKIA|415|555|0100|jane|acme\.example|4111|4200000|passwd|evil|steal|user:pass|C39Hq/u,
+    );
+    // What remains is the words.
+    for (const kept of [
+      'Acme',
+      'rotate the billing key next month',
+      'case and ticket',
+      'budget of dollars in 2026',
+      '5G rollout and B2B pricing',
+    ])
+      expect(query, kept).toContain(kept);
+  });
+
+  it('leaves out a word that is too long to be a word, and keeps the longest that is one', () => {
+    expect(termsOf(`password ${'x'.repeat(25)}`)).toEqual(['password']);
+    expect(termsOf(`${'x'.repeat(24)} policy`)).toEqual([`${'x'.repeat(24)} policy`]);
+  });
+
+  it('leaves out a secret that the redactor knows by its shape, though it has no digit in it, and keeps a word that only looks like one', () => {
+    expect(termsOf(`rotate ${LETTERS_ONLY_KEY} today`)).toEqual([]);
+    expect(termsOf(LETTERS_ONLY_KEY_ID)).toEqual([]);
+    expect(termsOf('scikit-learn and sk-learn tooling')).toEqual([
+      'scikit-learn and sk-learn tooling',
+    ]);
+  });
+
+  it('leaves out a word of a language that is written without spaces, and never sends a clause as a name', () => {
+    const clause = '如果我们公司明年把价格提高百分之十 客户会流失吗 我们的预算是四百万';
+    expect(termsOf(clause, 'お客様の予算', 'งบประมาณของเรา', '老板还没有看过这个数字')).toEqual([]);
+    expect(termsOf('pricing 价格 strategy')).toEqual(['pricing strategy']);
+    // A language that has spaces is read as it is.
+    expect(termsOf('предложение цены', 'προϊόν τιμολόγηση')).toEqual([
+      'предложение цены',
+      'προϊόν τιμολόγηση',
+    ]);
+  });
+
+  it('asks for no term that is only function words, and keeps those that stand in a term that says something', () => {
+    expect(termsOf('and', 'of the', 'what is it', 'or')).toEqual([]);
+    expect(termsOf('the port and the harbour')).toEqual(['the port and the harbour']);
+  });
+
+  it('gives no term, and so asks for nothing, when the plan has no name and no topic that can be sent, and never falls back on the question', () => {
+    expect(searchQueryOf(plan([], [], '  Should\nwe   enter the market?  '))).toBe('');
+    expect(searchQueryOf(plan([''], [' '], 'Fallback?'))).toBe('');
+    expect(searchQueryOf(plan(['INC0048213'], ['HR-2026-04417'], 'q'.repeat(400)))).toBe('');
+    expect(searchTermsOf(plan([], []))).toEqual([]);
   });
 });
 
@@ -493,18 +572,12 @@ describe('on the wire', () => {
     return { seen, origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}` };
   };
 
-  it('sends the key, and the query, to the provider and nowhere else, and does not follow a redirect with it', async () => {
-    const elsewhere = await listen(() => ({ status: 200, body: '{}' }));
-    const provider = await listen((request): Answer =>
-      request.url?.startsWith('/res/v1/web/search')
-        ? {
-            status: 200,
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ web: { results: [{ url: 'https://example.org/page' }] } }),
-          }
-        : { status: 302, headers: { location: `${elsewhere.origin}/collect` } },
-    );
-
+  it('sends the key, and the query, to the provider and nowhere else', async () => {
+    const provider = await listen(() => ({
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ web: { results: [{ url: 'https://example.org/page' }] } }),
+    }));
     const brave = braveSearch({ apiKey: KEY, endpoint: provider.origin, timeoutMs: 2_000 });
     expect(await brave.search('"Port Authority" fees', { limit: 4, signal: never })).toEqual([
       { url: 'https://example.org/page' },
@@ -515,21 +588,28 @@ describe('on the wire', () => {
     expect(received.headers.cookie).toBeUndefined();
     expect(received.headers.authorization).toBeUndefined();
     const sent = new URL(received.url, provider.origin);
+    expect(sent.pathname).toBe('/res/v1/web/search');
     expect(sent.searchParams.get('q')).toBe('"Port Authority" fees');
     expect(sent.searchParams.get('count')).toBe('4');
+  });
 
-    // The same provider, asked at an address that redirects, hands its visitor nowhere.
-    const redirecting = braveSearch({ apiKey: KEY, endpoint: provider.origin, timeoutMs: 2_000 });
-    const wikipedia = wikipediaSearch({
-      apiKey: null,
-      endpoint: provider.origin,
-      timeoutMs: 2_000,
-    });
-    expect((await failureOf(() => wikipedia.search('x', { limit: 1, signal: never }))).kind).toBe(
-      'redirect',
-    );
-    expect(redirecting.status().available).toBe(true);
+  it('does not follow a redirect, so the key goes to the address it was given and to no other, whichever provider asks', async () => {
+    const elsewhere = await listen(() => ({ status: 200, body: '{}' }));
+    const redirecting = await listen(() => ({
+      status: 302,
+      headers: { location: `${elsewhere.origin}/collect` },
+    }));
+    const providers = [
+      braveSearch({ apiKey: KEY, endpoint: redirecting.origin, timeoutMs: 2_000 }),
+      wikipediaSearch({ apiKey: null, endpoint: redirecting.origin, timeoutMs: 2_000 }),
+    ];
+    for (const provider of providers) {
+      const failure = await failureOf(() => provider.search('x', { limit: 1, signal: never }));
+      expect(failure.kind).toBe('redirect');
+    }
+    // The keyed provider did ask the address it was given, with its key, and was sent on; it did not go.
+    expect(redirecting.seen).toHaveLength(2);
+    expect(redirecting.seen[0]?.headers['x-subscription-token']).toBe(KEY);
     expect(elsewhere.seen).toEqual([]);
-    expect(JSON.stringify(elsewhere.seen)).not.toContain('canary');
   });
 });

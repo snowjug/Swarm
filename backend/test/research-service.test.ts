@@ -488,6 +488,47 @@ describe('a question alone, with a search provider that is a real one', () => {
     }
   });
 
+  it('is never sent a reference, a key or a figure that the question carries, only its names and topics', async () => {
+    const { asked, fetcher } = answering(200, { web: { results: [] } });
+    const app = await researchApp({
+      search: braveSearch({ apiKey: KEY, endpoint: null, timeoutMs: 2_000, fetch: fetcher }),
+    });
+    // Shaped like a key that a provider issues, and made of parts so that no literal of the shape is in the source.
+    const issued = ['sk', 'live', '4eC39HqLyjWDarjtT1zdp7dc'].join('-');
+    const question = `Should we rotate the billing key ${issued} next month after the Acme outage? Our case reference is HR-2026-04417 and the ticket is INC0048213, budget 4200000.`;
+    const id = await app.create(question);
+    await app.post(id, '', {});
+    await app.settle();
+
+    const query = asked[0]?.url.searchParams.get('q') ?? '';
+    expect(asked).toHaveLength(1);
+    expect(query).toContain('billing key');
+    expect(query).toContain('Acme');
+    expect(query).not.toMatch(/sk-live|4eC39|HR-2026|04417|INC0048213|4200000|\?/u);
+    expect(query).not.toBe(question);
+    expect(asked[0]?.url.toString()).not.toContain('canary');
+    expect(app.repository.get(id).question).toBe(question);
+  });
+
+  it('asks nothing, and says so, when nothing of the plan can be sent: the question is not the fallback', async () => {
+    const { asked, fetcher } = answering(200, { web: { results: [] } });
+    const app = await researchApp({
+      search: braveSearch({ apiKey: KEY, endpoint: null, timeoutMs: 2_000, fetch: fetcher }),
+    });
+    const id = await app.create('What about INC0048213 and HR-2026-04417 and 4111 1111 1111 1111?');
+    await app.post(id, '', {});
+    await app.settle();
+
+    expect(asked).toEqual([]);
+    const run = app.run(id);
+    expect(run).toMatchObject({ status: 'blocked', stoppedBecause: 'frontier-exhausted' });
+    expect(run?.events.map((event) => event.message)).toContain(
+      'The plan has no name or topic that can be searched for, so no search was made.',
+    );
+    expect(app.network.calls).toEqual([]);
+    expect(everythingSaid(app, id)).not.toContain('canary');
+  });
+
   it('says that it cannot search, rather than failing, when its key is missing, and the question is not sent anywhere', async () => {
     const { asked, fetcher } = answering(200, { web: { results: [] } });
     const app = await researchApp({
