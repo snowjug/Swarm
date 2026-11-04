@@ -18,6 +18,7 @@ import {
   printed,
   saved,
   tools,
+  verdict,
   withReport,
 } from '../support/decide';
 
@@ -157,9 +158,11 @@ test.describe('a finished report', () => {
     await expect(page).toHaveURL(/view=report/u);
     await page.getByRole('button', { name: 'Decision brief' }).click();
     await expect(page).not.toHaveURL(/view=/u);
-    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toContainText(
-      'the share of simulated members',
+    // The brief again: its verdict heads it, beneath the decision view, which holds the page's one level-one heading.
+    await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveText(
+      'Decision view',
     );
+    await expect(verdict(page)).toContainText('the share of simulated members');
   });
 
   test('exports: Markdown and the project as JSON are saved, and what they say is the report', async ({
