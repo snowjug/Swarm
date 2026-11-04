@@ -131,6 +131,8 @@ const HOUSEHOLD = new RegExp(
   String.raw`\b(?:evict|sue|foreclose on|deport|arrest|reject|deny|approve|refuse|decline|lend to|settle with|report|admit|treat|discharge|hire|fire|dismiss|promote|help|repossess|seize|garnish)\s+the\s+(\p{L}{3,}s)(?:'|\b)`,
   'giu',
 );
+/** “the refinancing for the Patels”: a household by its plural surname, after a preposition, said with capitals. */
+const PREPOSED_HOUSEHOLD = /\b(?:for|to|against|from|with)\s+the\s+(\p{Lu}\p{Ll}{2,}s)\b/gu;
 /** The asker’s own matter, said with “we” or “I”: “do we file for divorce”, “should I contest my father’s will”. */
 const OWN_ACT = new RegExp(
   String.raw`\b(?:(?:fil(?:e|es|ed|ing) for|seek(?:s|ing)?|sought|appl(?:y|ies|ied|ying) for|go(?:es|ing)? for|accept(?:s|ed|ing)?|sign(?:s|ed|ing)?|reject(?:s|ed|ing)?)\s+(?:(?:a|an|the|his|her|their|my|our)\s+)?(?:divorce|custody|asylum|probate|restraining order|plea (?:deal|bargain)|parole|bail|annulment)|(?:contest(?:s|ed|ing)?|challeng(?:e|es|ed|ing)|draft(?:s|ed|ing)?|revok(?:e|es|ed|ing)|sign(?:s|ed|ing)?)\s+(?:(?:a|an|the|his|her|their|my|our)\s+)?(?:\p{L}+(?:'s)?\s+){0,2}?will|(?:start(?:s|ed|ing)?|begin(?:s|ning)?|began|commenc(?:e|es|ed|ing)|launch(?:es|ed|ing)?|bring(?:s|ing)?|fil(?:e|es|ed|ing)|issu(?:e|es|ed|ing)|serv(?:e|es|ed|ing)|pursu(?:e|es|ed|ing))\s+(?:(?:an?|the|his|her|their|my|our)\s+)?(?:eviction|repossession|foreclosure|deportation|custody|divorce)\s+(?:proceedings?|action|process|papers|notice|order))\b`,
@@ -187,6 +189,9 @@ export function genericPeople(clause: string): GenericPeople {
   for (const match of clause.matchAll(HOUSEHOLD)) {
     const surname = match[1] ?? '';
     if (/^\p{Lu}/u.test(surname) && !NOT_NAMES.has(surname.toLowerCase())) found.cues.push(NAMED);
+  }
+  for (const match of clause.matchAll(PREPOSED_HOUSEHOLD)) {
+    if (!NOT_NAMES.has((match[1] ?? '').toLowerCase())) found.cues.push(NAMED);
   }
   if (FIRST_PERSON.test(clause) && OWN_ACT.test(clause)) found.cues.push('a personal matter');
   return found;
@@ -361,6 +366,11 @@ const PAIRED: readonly Pair[] = [
   phrasal('credit', 'writ(?:e|es|ing)|wrote|written', 'off'),
   phrasal(
     'credit',
+    'freez(?:e|es|ing)|froze|frozen|clos(?:e|es|ing)|closed|cancel(?:s|led|ling)?',
+    String.raw`(?:credit |bank |savings |current |checking )?(?:account|credit card|card|overdraft)`,
+  ),
+  phrasal(
+    'credit',
     'call(?:s|ed|ing)?',
     String.raw`in ${POSSESSIVE}(?:\p{L}+'s )?(?:loan|debt|overdraft|mortgage)`,
   ),
@@ -404,6 +414,21 @@ const PAIRED: readonly Pair[] = [
   phrasal('legal', 'turn(?:s|ed|ing)?', 'away'),
   phrasal(
     'legal',
+    'call(?:s|ed|ing)?',
+    String.raw`(?:the )?(?:police|cops|authorities|immigration|security|social services)\s+(?:on|about|for)`,
+  ),
+  phrasal(
+    'legal',
+    'ban(?:s|ned|ning)?|bar(?:s|red|ring)?|exclud(?:e|es|ed|ing)|block(?:s|ed|ing)?',
+    String.raw`from (?:the |our |this )?(?:site|premises|building|shop|store|venue|property|campus|grounds|pub|club|library)`,
+  ),
+  phrasal(
+    'employment',
+    'remov(?:e|es|ed|ing)|drop(?:s|ped|ping)?',
+    String.raw`from (?:the |our |this )?(?:\p{L}+ )?(?:team|board|committee|rota|roster|project)`,
+  ),
+  phrasal(
+    'legal',
     'remov(?:e|es|ed|ing)|appoint(?:s|ed|ing)?|replac(?:e|es|ed|ing)',
     String.raw`as (?:a |the |his |her |their )?(?:guardian|trustee|executor|custodian|conservator)`,
   ),
@@ -437,7 +462,7 @@ const PAIRED: readonly Pair[] = [
   {
     domain: 'safety',
     re: w(
-      String.raw`unsupervised|safely|ground(?:ed|ing)?(?!\s+(?:rules?|floor|breaking|work|truth|zero|level|water))|(?:an?|the)\s+(?:un)?safe\s+(?:pilot|driver|operator|surgeon|worker|employee|guard|carer|nurse|doctor|mechanic|technician)|forklifts?|cranes?|ladders?|scaffold(?:s|ing)?|lathes?|chemicals?|machinery|harness(?:es)?|hazardous|work(?:s|ing)? at height|power tools?|firearms?|explosives?|toxic|radiation|confined spaces?|drunk|under the influence|(?:after|before) (?:two |a few |some |three )?(?:beers?|drinks?|glasses? of wine)|drink-driving|sleep-deprived|exhausted|licen[cs]e|clearance|(?:safe|safely|unsafe) (?:to|for)|supervis(?:e|ion)`,
+      String.raw`unsupervised|safely|live wires?|high voltage|live circuits?|asbestos|welding|lone working|working alone|(?:the|a|an|his|her|their|power|circular|chain|band|table)\s+saws?|ground(?:ed|ing)?(?!\s+(?:rules?|floor|breaking|work|truth|zero|level|water))|(?:an?|the)\s+(?:un)?safe\s+(?:pilot|driver|operator|surgeon|worker|employee|guard|carer|nurse|doctor|mechanic|technician)|forklifts?|cranes?|ladders?|scaffold(?:s|ing)?|lathes?|chemicals?|machinery|harness(?:es)?|hazardous|work(?:s|ing)? at height|power tools?|firearms?|explosives?|toxic|radiation|confined spaces?|drunk|under the influence|(?:after|before) (?:two |a few |some |three )?(?:beers?|drinks?|glasses? of wine)|drink-driving|sleep-deprived|exhausted|licen[cs]e|clearance|(?:safe|safely|unsafe) (?:to|for)|supervis(?:e|ion)`,
     ),
   },
   phrasal(
@@ -453,7 +478,12 @@ const PAIRED: readonly Pair[] = [
   phrasal(
     'safety',
     'stop(?:s|ping)?|prevent(?:s|ing)?|ban(?:s|ning)?|forbid(?:s|ding)?|bar(?:s|ring)?|keep(?:s|ing)?',
-    String.raw`from (?:driving|flying|operating|working|diving|climbing|swimming|cycling|riding|handling|lifting|entering)`,
+    String.raw`from (?:driving|flying|operating|working|diving|climbing|swimming|cycling|riding|handling|lifting|entering|using)`,
+  ),
+  phrasal(
+    'safety',
+    'keep(?:s|ing)?|continu(?:e|es|ing)|resum(?:e|es|ing)|stop(?:s|ping)?|quit(?:s|ting)?',
+    '(?:driving|flying|operating|piloting|diving|climbing|lifting)',
   ),
   {
     domain: 'safety',

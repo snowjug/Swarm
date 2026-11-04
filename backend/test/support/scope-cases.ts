@@ -54,7 +54,7 @@ export const LEAD_DEV_POLICY: readonly string[] = [
 
 /**
  * One person’s matter, in the five domains, said by a name, a pronoun, a possessive, an ordinal or qualified role noun, or a
- * role. Four rounds: the first before the generic person finder, the others after it, with other verbs, roles, names and
+ * role. Five rounds: the first before the generic person finder, the others after it, with other verbs, roles, names and
  * word orders each time, and the phrasal verbs (“make … redundant”, “take … off the ventilator”) with the person between
  * the words, after them, or put first (“who should we make redundant”).
  */
@@ -316,6 +316,47 @@ export const FRESH_ONE_PERSON: readonly string[] = [
   'Should the bank repossess the Kowalskis’ car?',
   'Is he well enough to be discharged?',
   'Is she the right person for the job?',
+  // ---- round five: short questions in a reviewer's style ----
+  'Should we demote Carla?',
+  'Should we give Marcus a pay cut?',
+  'Do we put the new accountant on probation?',
+  'Should we withdraw the job offer to Ingrid?',
+  'Should we fire our receptionist for being late?',
+  'Should we deny her leave request?',
+  'Do we accept his resignation?',
+  'Should we reinstate the fired driver?',
+  'Should we transfer the manager to the Leeds office?',
+  'Should we extend his credit limit?',
+  'Do we freeze Mr Obi’s account?',
+  'Should we lend money to our cousin?',
+  'Should we approve the refinancing for the Patels?',
+  'Do we call the police on the trespasser?',
+  'Should we take legal action against the contractor?',
+  'Should we file a restraining order against him?',
+  'Should we contest the will?',
+  'Should we prescribe antibiotics for the child?',
+  'Should we give the boy a sedative?',
+  'Should we increase his morphine?',
+  'Do we admit the girl to hospital?',
+  'Should we stop treatment for the patient in room 4?',
+  'Should we amputate his leg?',
+  'Should we do a biopsy on her?',
+  'Should we let the bus driver keep driving?',
+  'Should we suspend the pilot’s licence?',
+  'Is the electrician qualified to work on live wires?',
+  'Should we stop the new guy from using the saw?',
+  'Should we ban Tom from the site?',
+  'Is it safe for Grandma to live alone?',
+  'Should we remove him from the safety team?',
+  'Do we fire the guy who was drunk on shift?',
+  'Should I sack my babysitter?',
+  'Should I divorce my husband?',
+  'Should I take out a loan for my brother?',
+  'Do we hire the guy with the pilot’s licence?',
+  'Should we promote the cashier or the stock clerk?',
+  'Do we keep paying her salary during the leave?',
+  'Should we cut Lucia’s commission?',
+  'Is Omar fit to drive the ambulance?',
 ];
 
 /**
@@ -542,6 +583,27 @@ export const FRESH_LOOK_ALIKES: readonly string[] = [
   'Should the board approve a lending limit for the new loan product?',
   'Should we put more nurses on the night shift?',
   'What if the nurse shortage gets worse?',
+  // ---- round five ----
+  'What if we raise the minimum salary for all new hires?',
+  'Should we introduce a probation period for all new staff?',
+  'How would a new resignation policy affect morale?',
+  'What happens to our loan book if rates rise?',
+  'Should we freeze hiring until June?',
+  'How would customers react to a higher credit limit for everyone?',
+  'What if the council bans night work on site?',
+  'Should we update our drug policy?',
+  'Should we buy antibiotics in bulk?',
+  'How would the clinic cope with a flu outbreak?',
+  'What is the cost of a lawsuit against a competitor?',
+  'Should we open a branch near the hospital?',
+  'How do we reduce workplace injuries?',
+  'Should we promote the sale on social media?',
+  'Should we cut staff training budgets?',
+  'Should we reject offers below our asking price?',
+  'Should we approve the new vendor?',
+  'Should we fire the old analytics provider?',
+  'Do we terminate the support contract with the vendor?',
+  'What would happen if our driver shortage got worse?',
 ];
 
 /** Questions about one person that the rules do not read, and what each lacks: the limits, on record. */

@@ -223,7 +223,9 @@ words it has, and the tables below say what it does and does not.
   look-alikes; round two (before the generic person finder): 32 of 81 (40 %), none of 77; the same round after the
   generic finder: 66 of 81 (81 %), none of 77; round three (written after it, for phrasal verbs and the person put first):
   67 of 75 (89 %), none of 64; round four (other ways of asking: a context sentence first, “whether to”, “my”, a passive):
-  19 of 30 (63 %), **one** of 20 look-alikes (“give notice to our landlord”, since fixed). The reviewer keeps a separate
+  19 of 30 (63 %), **one** of 20 look-alikes (“give notice to our landlord”, since fixed); round five (short questions in
+  a reviewer’s style, other roles, verbs and domains): 28 of 40 (70 %), none of 20. Each round found families the rounds
+  before had not, and the first pass has not settled above about 90 %. The reviewer keeps a separate
   held-out set; its numbers are theirs, and these are not a forecast of them.
 - **The matter is in another sentence than the person.** “Priya has been late six times this month. What should we do about
   her?” has a person and no matter in the clause that asks. Nothing is carried from one sentence to the next.
@@ -456,9 +458,9 @@ the words of the page. The JSON export holds the whole canvas, `scope` and the c
 
 `decision-status.test.ts` (every status, every boundary, precedence, rule 1 before every other),
 `decision-scope.test.ts` (the original tables of 135 questions, one person and not, in all five matters, with the
-look-alikes; the reviewer’s own questions: 12 that were missed, 13 that were read and 10 about a policy; 253 fresh
-one-person questions in four rounds, 101 of them with the person said as a pronoun, an ordinal or qualified role, or a
-possessive, and 213 look-alikes in the five domains and in ordinary business, none of which may be read as one person;
+look-alikes; the reviewer’s own questions: 12 that were missed, 13 that were read and 10 about a policy; 293 fresh
+one-person questions in five rounds, 114 of them with the person said as a pronoun, an ordinal or qualified role, or a
+possessive, and 234 look-alikes in the five domains and in ordinary business, none of which may be read as one person;
 the phrasal verbs in both positions and with the person put first; **500 questions made from 20 names and 25 templates**,
 none of whose cues, status reasons, approval points or section may hold a word of the name, titles, hyphens and
 apostrophes included, and the same for names in the framing; the basis; the same answer every time; speed on hostile
