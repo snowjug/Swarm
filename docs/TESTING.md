@@ -516,7 +516,7 @@ directory (never your own data):
     like a demonstration launcher (one link, after everything that matters); and a template fills the box to be
     written over, and a question that is only the template is not read. Each test says which server it is
     about. Most are about the one the suite starts, which researches (it does unless it is set not to) and has no
-    search provider behind it: the switch is on and says what it does there ("Reads the site you name, or asks for one."), a question alone is enough to ask, and in Ground it waits, calmly, as
+    search provider behind it (`none`, the default): the switch is on and says what it does there ("Reads the site you name, or asks for one."), a question alone is enough to ask, and in Ground it waits, calmly, as
     **Needs a source**; where the server is otherwise they stop and say why. The tests that tell the page what the
     server says (a search provider, constraints) are about what the page claims: it says that Swarm finds and reads
     public sources only where a provider is behind the server. The first screen of a server where research is off
@@ -1048,7 +1048,7 @@ a count of what exists, **not a result**: it says nothing about how many pass. T
 research, participants, constraints, the Decision Canvas, the Foundry provider, the deployment guard, the AI
 evaluation and the infrastructure checks) has no row below, and the unit suite, the browser projects, the PostgreSQL
 suite and the mutation checks have not been re-run for this document. The AI evaluation has its own dated results, in
-[`evaluation/results/ai-latest.md`](../evaluation/results/ai-latest.md) (2026-11-03): five thresholds breached, and the
+[`evaluation/results/ai-latest.md`](../evaluation/results/ai-latest.md) (2026-11-03): two thresholds breached, and the
 live mode not measured.
 
 <!-- TEST COUNTS: the rows npm run check, format:check, test:e2e, test:postgres, mutation:security, npm audit, scan:secrets and audit:ui hold the recorded results of the full run on the tree named in them. Replace them after the next full run, and say which tree and date. -->

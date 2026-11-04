@@ -124,6 +124,14 @@ param projectModelCallLimit int = 1500
 @maxValue(1000000000)
 param projectModelTokenLimit int = 4000000
 
+@description('The search that finds pages for a question that names none (RESEARCH_SEARCH_PROVIDER). none switches discovery off: such a question ends blocked and asks for a site. wikipedia needs no key and finds background pages. brave needs a key, which is a Key Vault secret named in keyVaultSecretReferences as RESEARCH_SEARCH_API_KEY, never a parameter. Either sends the names and topics of a question to a third party, so choosing one is the owner\'s decision.')
+@allowed([
+  'none'
+  'wikipedia'
+  'brave'
+])
+param researchSearchProvider string = 'none'
+
 // ---------------------------------------------------------------------------------------------
 // PostgreSQL
 // ---------------------------------------------------------------------------------------------
@@ -525,6 +533,7 @@ module app 'modules/container-app.bicep' = {
     sourceUrl: sourceUrl
     projectModelCallLimit: projectModelCallLimit
     projectModelTokenLimit: projectModelTokenLimit
+    researchSearchProvider: researchSearchProvider
     deploymentMode: deploymentMode
     deploymentLabel: deploymentLabel
     buildSha: buildSha

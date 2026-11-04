@@ -15,6 +15,9 @@ describe('the settings of research', () => {
     expect(config).toEqual({
       enabled: true,
       searchProvider: 'none',
+      searchApiKey: null,
+      searchEndpoint: null,
+      searchTimeoutMs: 8_000,
       ceiling: RESEARCH_BUDGET_CEILING,
       defaults: DEFAULT_RESEARCH_BUDGET,
       minDelayMs: 1_000,
@@ -27,6 +30,9 @@ describe('the settings of research', () => {
       [
         'RESEARCH_ENABLED',
         'RESEARCH_SEARCH_PROVIDER',
+        'RESEARCH_SEARCH_API_KEY',
+        'RESEARCH_SEARCH_ENDPOINT',
+        'RESEARCH_SEARCH_TIMEOUT_MS',
         'RESEARCH_MAX_PAGES',
         'RESEARCH_MAX_COST_USD',
         'RESEARCH_DOMAIN_DELAY_MS',
@@ -113,18 +119,65 @@ describe('the settings of research', () => {
     expect(() => loadResearchConfig({ RESEARCH_MAX_PAUSE_SECONDS: '29' })).toThrow();
   });
 
-  it('have no setting that reads plain HTTP, a private address, or a provider that is not built', () => {
+  it('have no setting that reads plain HTTP or a private address, and name only the providers that are built', () => {
     const config = loadResearchConfig({
       RESEARCH_ALLOW_HTTP: 'true',
       RESEARCH_ALLOW_PRIVATE_NETWORK: 'true',
       RESEARCH_ALLOW_PRIVATE: '1',
     });
     expect(Object.keys(config).sort()).toEqual(
-      ['ceiling', 'defaults', 'enabled', 'maxPauseMs', 'minDelayMs', 'searchProvider'].sort(),
+      [
+        'ceiling',
+        'defaults',
+        'enabled',
+        'maxPauseMs',
+        'minDelayMs',
+        'searchApiKey',
+        'searchEndpoint',
+        'searchProvider',
+        'searchTimeoutMs',
+      ].sort(),
     );
     expect(() => loadResearchConfig({ RESEARCH_SEARCH_PROVIDER: 'bing' })).toThrow(
       'RESEARCH_SEARCH_PROVIDER',
     );
+    for (const provider of ['none', 'wikipedia', 'brave']) {
+      expect(loadResearchConfig({ RESEARCH_SEARCH_PROVIDER: provider }).searchProvider).toBe(
+        provider,
+      );
+    }
+  });
+
+  it('read the search settings, hold them to a sensible size, and never repeat a key', () => {
+    expect(
+      loadResearchConfig({
+        RESEARCH_SEARCH_PROVIDER: 'brave',
+        RESEARCH_SEARCH_API_KEY: 'canary-key-0123456789',
+        RESEARCH_SEARCH_ENDPOINT: 'http://127.0.0.1:9',
+        RESEARCH_SEARCH_TIMEOUT_MS: '2500',
+      }),
+    ).toMatchObject({
+      searchProvider: 'brave',
+      searchApiKey: 'canary-key-0123456789',
+      searchEndpoint: 'http://127.0.0.1:9',
+      searchTimeoutMs: 2_500,
+    });
+    for (const environment of [
+      { RESEARCH_SEARCH_API_KEY: 'short' },
+      { RESEARCH_SEARCH_API_KEY: 'k'.repeat(513) },
+      { RESEARCH_SEARCH_ENDPOINT: 'not-an-address-s3cret' },
+      { RESEARCH_SEARCH_TIMEOUT_MS: '999' },
+      { RESEARCH_SEARCH_TIMEOUT_MS: '30001' },
+    ]) {
+      const [name] = Object.keys(environment);
+      let message = '';
+      try {
+        loadResearchConfig(environment);
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toBe(`Invalid research configuration: ${name}.`);
+    }
   });
 });
 
@@ -190,6 +243,29 @@ describe('what a server says about research', () => {
     expect(researchEnabled({ research: { enabled: false }, urlIngestion: { enabled: true } })).toBe(
       false,
     );
+  });
+
+  it('says what a provider offers, and, for one that needs a key and has none, how to give it, without a key in either', () => {
+    const wikipedia = publicResearch({
+      research: { ...base, searchProvider: 'wikipedia' },
+      urlIngestion: { enabled: true },
+    });
+    expect(wikipedia.discovery).toMatchObject({ available: true, provider: 'wikipedia' });
+    expect(wikipedia.discovery.message).toMatch(/names and topics of your question/u);
+
+    const keyless = publicResearch({
+      research: { ...base, searchProvider: 'brave' },
+      urlIngestion: { enabled: true },
+    });
+    expect(keyless.discovery).toMatchObject({ available: false, provider: 'brave' });
+    expect(keyless.discovery.message).toContain('RESEARCH_SEARCH_API_KEY');
+
+    const keyed = publicResearch({
+      research: { ...base, searchProvider: 'brave', searchApiKey: 'canary-key-0123456789' },
+      urlIngestion: { enabled: true },
+    });
+    expect(keyed.discovery).toMatchObject({ available: true, provider: 'brave' });
+    expect(JSON.stringify([wikipedia, keyless, keyed])).not.toContain('canary-key');
   });
 
   it('says, with the way to change it, that discovery has no provider, and shows the defaults', () => {

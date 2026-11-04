@@ -147,6 +147,7 @@ describe.skipIf(!bicep || postgresRun)(
     let main: Json;
     let pilot: Json;
     let release: Json;
+    let searching: Json;
     let production: Json;
     let existing: Json;
 
@@ -171,6 +172,12 @@ describe.skipIf(!bicep || postgresRun)(
         SWARM_NEW_REVISION_TRAFFIC_PERCENT: '10',
         SWARM_KEYVAULT_SECRET_REFERENCES: JSON.stringify([
           { envName: 'AUTH_ENTRA_CLIENT_SECRET', secretName: 'swarm-client-secret' },
+        ]),
+      });
+      searching = run('pilot', {
+        SWARM_RESEARCH_SEARCH_PROVIDER: 'brave',
+        SWARM_KEYVAULT_SECRET_REFERENCES: JSON.stringify([
+          { envName: 'RESEARCH_SEARCH_API_KEY', secretName: 'swarm-search-key' },
         ]),
       });
       existing = run('pilot', {
@@ -362,6 +369,49 @@ describe.skipIf(!bicep || postgresRun)(
         // The application refuses a client secret and a client assertion together.
         expect(env.find((entry) => entry.name === 'AUTH_ENTRA_CLIENT_ASSERTION')).toBeUndefined();
         expect(ofType(predicted(release), 'Microsoft.KeyVault/vaults')).toHaveLength(1);
+      });
+
+      it('has no search unless it is chosen, and keeps the key of one as a Key Vault reference and never as a value', () => {
+        const environment = (snapshot: Json): Obj[] =>
+          objects(
+            get(
+              ofType(predicted(snapshot), 'Microsoft.App/containerApps')[0],
+              'properties',
+              'template',
+              'containers',
+              0,
+              'env',
+            ),
+          );
+        const named = (snapshot: Json, name: string) =>
+          environment(snapshot).filter((entry) => entry.name === name);
+        for (const snapshot of [pilot, production]) {
+          expect(named(snapshot, 'RESEARCH_SEARCH_PROVIDER')).toEqual([
+            { name: 'RESEARCH_SEARCH_PROVIDER', value: 'none' },
+          ]);
+          expect(
+            environment(snapshot).filter((entry) =>
+              /^RESEARCH_SEARCH_(API_KEY|ENDPOINT)$/u.test(String(entry.name)),
+            ),
+          ).toEqual([]);
+        }
+        expect(named(searching, 'RESEARCH_SEARCH_PROVIDER')).toEqual([
+          { name: 'RESEARCH_SEARCH_PROVIDER', value: 'brave' },
+        ]);
+        expect(named(searching, 'RESEARCH_SEARCH_API_KEY')).toEqual([
+          { name: 'RESEARCH_SEARCH_API_KEY', secretRef: 'research-search-api-key' },
+        ]);
+        const [app] = ofType(predicted(searching), 'Microsoft.App/containerApps');
+        const secrets = objects(get(app, 'properties', 'configuration', 'secrets'));
+        expect(secrets).toHaveLength(1);
+        for (const secret of secrets) {
+          expect(secret).not.toHaveProperty('value');
+          expect(String(secret.keyVaultUrl)).toMatch(/secrets\/.*swarm-search-key/u);
+        }
+        // The address of a provider is a test seam: a template has no way to set it, so a key goes nowhere else.
+        expect(
+          environment(searching).filter((entry) => entry.name === 'RESEARCH_SEARCH_ENDPOINT'),
+        ).toEqual([]);
       });
 
       it('has no Key Vault secret resource and no public blob storage', () => {

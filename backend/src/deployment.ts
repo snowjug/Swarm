@@ -427,6 +427,27 @@ function ingestViolations({ config, environment }: Context): string[] {
   return found;
 }
 
+function searchViolations({ config }: Context): string[] {
+  const found: string[] = [];
+  const { searchProvider, searchApiKey, searchEndpoint } = config.research;
+  if (searchProvider === 'brave' && searchApiKey === null) {
+    found.push(
+      'RESEARCH_SEARCH_PROVIDER is brave and RESEARCH_SEARCH_API_KEY is not set, so a question alone could not be researched. Set the key (from the key vault, not a file), or set the provider to none.',
+    );
+  }
+  if (searchApiKey !== null && searchProvider !== 'brave') {
+    found.push(
+      `RESEARCH_SEARCH_API_KEY is set and RESEARCH_SEARCH_PROVIDER is ${searchProvider}, which does not use it. Remove the key: a secret that nothing needs is a secret that can leak.`,
+    );
+  }
+  if (searchEndpoint !== null) {
+    found.push(
+      'RESEARCH_SEARCH_ENDPOINT is set. It points the search at a test double on this machine and is refused in a hosted deployment, so that a key is never sent to an address that is not the provider.',
+    );
+  }
+  return found;
+}
+
 function operationViolations({ mode, config, environment }: Context): string[] {
   const found: string[] = [];
   const connection = environment.APPLICATIONINSIGHTS_CONNECTION_STRING?.trim() ?? '';
@@ -478,6 +499,7 @@ export function deploymentViolations(
     ...databaseViolations(context),
     ...hostViolations(context),
     ...ingestViolations(context),
+    ...searchViolations(context),
     ...operationViolations(context),
   ];
 }

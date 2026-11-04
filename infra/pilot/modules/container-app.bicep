@@ -81,6 +81,14 @@ param appInsightsConnectionString string
 @description('Public HTTPS address of the exact source version (SOURCE_URL). Empty omits the setting.')
 param sourceUrl string = ''
 
+@description('The search that finds pages for a question that names none (RESEARCH_SEARCH_PROVIDER). A key for brave is a Key Vault secret reference (RESEARCH_SEARCH_API_KEY), never a parameter.')
+@allowed([
+  'none'
+  'wikipedia'
+  'brave'
+])
+param researchSearchProvider string = 'none'
+
 @description('Most model calls one project may make in all (PROJECT_MODEL_CALL_LIMIT); 0 is no limit.')
 param projectModelCallLimit int = 0
 
@@ -232,6 +240,7 @@ var baseEnvironment = [
   { name: 'TRUST_PROXY', value: '1' }
   { name: 'RATE_LIMIT_SCALE', value: '1' }
   { name: 'SWARM_ROLE', value: 'all' }
+  { name: 'RESEARCH_SEARCH_PROVIDER', value: researchSearchProvider }
   { name: 'PROJECT_MODEL_CALL_LIMIT', value: string(projectModelCallLimit) }
   { name: 'PROJECT_MODEL_TOKEN_LIMIT', value: string(projectModelTokenLimit) }
 ]

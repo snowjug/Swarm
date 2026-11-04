@@ -13,8 +13,8 @@ each thing done; the table says what counts. Product code calls the research rec
 (`research/run.ts`, `research/service.ts`), the participants proposal (`routes/stakeholders.ts`), the
 constraint proposal and gate (`constraints/service.ts`, `constraints/plan.ts`), the duration of a
 comparison (`analysis/service.ts`), `swarm.report.duration` (the Decision Canvas, `decision/service.ts`)
-and `swarm.deployment.info` (`deployment.ts`). A cancellation is recorded for research only, so that
-metric does not yet say how often a person stops a comparison, a run or a survey.
+and `swarm.deployment.info` (`deployment.ts`). A cancellation is recorded for research and for a comparison
+of scenarios, so that metric does not yet say how often a person stops a report or a survey.
 
 ## Principles
 

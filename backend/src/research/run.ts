@@ -32,6 +32,7 @@ import type {
   PageFetcher,
 } from './crawler/types.js';
 import type { SearchProvider } from './discovery.js';
+import { searchFailureSentence, searchQueryOf } from './search.js';
 import type { PdfReader } from './extract/index.js';
 import type { PauseControl } from './pause.js';
 import { buildResearchPlan, planQuestion, stoppingConditionsOf } from './plan.js';
@@ -338,14 +339,20 @@ export class RunPipeline {
     if (!status.available)
       return { seeds: [], sameSiteOnly: false, domains: [], blocked: 'discovery-unconfigured' };
     let hits: Awaited<ReturnType<SearchProvider['search']>>;
+    // What the provider is sent is the names and topics of the plan, a few of them, and not the question as it was typed.
+    const query = searchQueryOf(this.plan);
+    recorder.event(
+      'info',
+      `Asked ${status.provider ?? 'the search provider'} for pages about the ${plural(this.plan.entities.length + this.plan.topics.length, 'name or topic', 'names and topics')} of the plan.`,
+    );
     try {
-      hits = await deps.search.search(this.plan.question, {
+      hits = await deps.search.search(query, {
         limit: Math.min(run.budget.maxPages, MAX_SEARCH_SEEDS),
         signal: this.signal,
       });
-    } catch {
+    } catch (error) {
       throwIfAborted(this.signal);
-      throw new AppError(502, 'DISCOVERY_FAILED', 'The search provider could not be reached.');
+      throw new AppError(502, 'DISCOVERY_FAILED', searchFailureSentence(error));
     }
     const urls = [...new Set(hits.map((hit) => hit.url))].slice(0, MAX_SEARCH_SEEDS);
     recorder.event(

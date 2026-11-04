@@ -98,7 +98,12 @@ const SEARCHING = {
   ...BASE,
   research: {
     enabled: true,
-    discovery: { available: true, provider: 'a search provider', message: 'Ready.' },
+    discovery: {
+      available: true,
+      provider: 'a search provider',
+      message:
+        'Sources are looked for with a search provider, which is sent the names and topics of your question.',
+    },
   },
 } as AppConfig;
 const CONSTRAINED = { ...RESEARCHING, features: { constraints: true } } as AppConfig;
@@ -457,9 +462,10 @@ describe('on a server that can also look for sources from a question alone', () 
     await user.paste(QUESTION);
     await user.click(explore());
     await groundIt();
+    // Before a person goes on, they are told, in the words of the server, what the search is sent.
     expect(
       screen.getByText(
-        'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads.',
+        'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads. Sources are looked for with a search provider, which is sent the names and topics of your question.',
       ),
     ).toBeTruthy();
     expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();

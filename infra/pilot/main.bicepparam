@@ -66,3 +66,7 @@ param newRevisionTrafficPercent = int(readEnvironmentVariable('SWARM_NEW_REVISIO
 // [{"envName":"AUTH_ENTRA_CLIENT_SECRET","secretName":"swarm-client-secret"}]. Empty: no secret at all,
 // which is the pilot's design (the app proves itself to Entra with its managed identity).
 param keyVaultSecretReferences = json(readEnvironmentVariable('SWARM_KEYVAULT_SECRET_REFERENCES', '[]'))
+// Optional. none (the default), wikipedia (no key; background pages) or brave (a key, as the Key Vault secret
+// reference RESEARCH_SEARCH_API_KEY above). A provider is sent the names and topics of a question, so it is
+// the owner's decision (docs/production/LIMITATIONS.md, A6).
+param researchSearchProvider = readEnvironmentVariable('SWARM_RESEARCH_SEARCH_PROVIDER', 'none')

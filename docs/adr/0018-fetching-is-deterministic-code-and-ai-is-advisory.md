@@ -2,7 +2,8 @@
 
 Status: Accepted. Built. The crawler, the extractor and the run are tested on real loopback sockets with a fake
 name server and on a fake web with a virtual clock, and measured on the evaluation's crawler arms. **Not run on
-the real internet.** No search provider is built.
+the real internet.** No search provider is on by default; two opt-in ones were added later
+([ADR 0025](./0025-search-providers-are-opt-in-apis-that-return-addresses.md)).
 
 ## Context
 
@@ -36,7 +37,8 @@ read next, and a small model will sometimes obey an instruction inside it ([ARCH
    source in a plan rank the links the crawler has already found. They do not add one.
 5. **Where it starts is what a person named.** An address, a site or a source a person added, and what those
    pages link to. A search provider is an interface with a default that says plainly that none is configured:
-   a question with no page or site ends `blocked`, and `RESEARCH_SEARCH_PROVIDER` accepts only `none`.
+   a question with no page or site ends `blocked`, and `RESEARCH_SEARCH_PROVIDER` was `none` only, until
+   [ADR 0025](./0025-search-providers-are-opt-in-apis-that-return-addresses.md) added two opt-in ones.
 6. **Hostile text is labelled and never obeyed.** A line that reads like an instruction to an AI is kept as
    what the page said, labelled where it stands, counted and marked on the record. A page that is mostly such
    text is set aside, and the links of a page that has any are not followed. A title, description, author or
@@ -51,8 +53,8 @@ read next, and a small model will sometimes obey an instruction inside it ([ARCH
 
 ## Consequences
 
-- Discovery is weak. With no search provider, only what a person names and what it links to is read, and a
-  question alone finds nothing.
+- Discovery is weak. With no search provider (the default), only what a person names and what it links to is read,
+  and a question alone finds nothing.
 - A model's plan still changes what is read first, because its topics rank links. It cannot change what may
   be fetched, how much, or from where.
 - A plan can still carry words that it should not. The evaluation's planner suite found that an instruction

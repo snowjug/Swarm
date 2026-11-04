@@ -7,6 +7,7 @@ import {
 } from '../../../shared/research.js';
 import type { AppConfig } from '../../../shared/types.js';
 import { SEARCH_PROVIDERS, searchProviderFor, type SearchProviderName } from './discovery.js';
+import { DEFAULT_SEARCH_TIMEOUT_MS } from './search.js';
 
 /** The least each limit may be: the lower bounds of `researchBudgetSchema`. */
 export const BUDGET_FLOOR: ResearchBudget = {
@@ -28,6 +29,12 @@ export interface ResearchConfig {
   /** Whether this server does automatic research. Reading pages must also be on: see `researchEnabled`. */
   enabled: boolean;
   searchProvider: SearchProviderName;
+  /** The key of a provider that needs one (`RESEARCH_SEARCH_API_KEY`). A secret: it is in no answer, log line or error. */
+  searchApiKey: string | null;
+  /** Where the provider is reached when it is not at its own address, for a test double (`RESEARCH_SEARCH_ENDPOINT`). */
+  searchEndpoint: string | null;
+  /** How long one search may take. */
+  searchTimeoutMs: number;
   /** The most a run may use. A person's request is held to it. */
   ceiling: ResearchBudget;
   /** What a run uses when nothing more is asked, held to the ceiling. */
@@ -55,6 +62,9 @@ const amount = (min: number, max: number) =>
 const environmentSchema = z.object({
   RESEARCH_ENABLED: z.preprocess(unset, flag.default('on')),
   RESEARCH_SEARCH_PROVIDER: z.preprocess(unset, z.enum(SEARCH_PROVIDERS).default('none')),
+  RESEARCH_SEARCH_API_KEY: z.preprocess(unset, z.string().min(8).max(512).optional()),
+  RESEARCH_SEARCH_ENDPOINT: z.preprocess(unset, z.url().max(300).optional()),
+  RESEARCH_SEARCH_TIMEOUT_MS: whole(1_000, 30_000),
   RESEARCH_MAX_PAGES: whole(BUDGET_FLOOR.maxPages, RESEARCH_BUDGET_CEILING.maxPages),
   RESEARCH_MAX_DOMAINS: whole(BUDGET_FLOOR.maxDomains, RESEARCH_BUDGET_CEILING.maxDomains),
   RESEARCH_MAX_DEPTH: whole(BUDGET_FLOOR.maxDepth, RESEARCH_BUDGET_CEILING.maxDepth),
@@ -119,6 +129,9 @@ export function loadResearchConfig(
   return {
     enabled: !['off', 'false', '0'].includes(input.RESEARCH_ENABLED),
     searchProvider: input.RESEARCH_SEARCH_PROVIDER,
+    searchApiKey: input.RESEARCH_SEARCH_API_KEY ?? null,
+    searchEndpoint: input.RESEARCH_SEARCH_ENDPOINT ?? null,
+    searchTimeoutMs: input.RESEARCH_SEARCH_TIMEOUT_MS ?? DEFAULT_SEARCH_TIMEOUT_MS,
     ceiling: researchBudgetSchema.parse(ceiling),
     defaults: researchBudgetSchema.parse(defaults),
     minDelayMs,
@@ -167,7 +180,7 @@ export function publicResearch(config: {
 }): NonNullable<AppConfig['research']> {
   return {
     enabled: researchEnabled(config),
-    discovery: searchProviderFor(config.research.searchProvider).status(),
+    discovery: searchProviderFor(config.research).status(),
     budget: config.research.defaults,
   };
 }

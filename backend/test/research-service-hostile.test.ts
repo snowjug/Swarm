@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FLAG_LABEL } from '../src/research/extract/index.js';
+import { searchQueryOf } from '../src/research/search.js';
 import { productSignals } from '../src/telemetry/product-signals.js';
 import { researchApp, type ResearchApp } from './support/research-app.js';
 import { INJECTION_HEAVY_PAGE, LOGIN_PAGE, sitePage } from './support/research-pages.js';
@@ -266,8 +267,13 @@ describe('a question and an intake that are hostile', () => {
     expect(run?.plan?.likelySources.every((source) => source.suggestedDomain === undefined)).toBe(
       true,
     );
-    expect(questions).toEqual([run?.plan?.question]);
+    // The search is asked for the names and topics of the plan, and none of what the question tried to say as an instruction.
+    expect(questions).toEqual([searchQueryOf(run!.plan!)]);
+    expect(questions[0]).toMatch(/harbour board/u);
     expect(questions[0]).not.toMatch(ANY_ADDRESS);
+    expect(questions[0]).not.toMatch(
+      /ignore|instruction|fetch|send it|boss|corp\.example|steal|passwd|169\.254/iu,
+    );
     // The question is the person's, and stays what they wrote in the project; only the plan is kept free of addresses.
     expect(app.repository.get(id).question).toBe(question);
   });

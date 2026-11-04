@@ -6,7 +6,7 @@ Two engines share the project and its evidence:
 
 - **The scenario lab** (this build, [ADR 0014](./docs/adr/0014-scenario-lab.md)): a path from a
   question to a decision. It reads the question into a scenario, reads the sources a person attaches or the
-  site or page a person names (it has no search provider, so it cannot find sources from a question alone),
+  site or page a person names (it finds sources from a question alone only where an operator has switched on a search provider, and none is by default),
   proposes the participants of the decision and what constrains it, makes
   synthetic actors, runs a pure seeded population simulator many times for a baseline and its alternatives,
   reports what held across the runs, lets critics challenge the analysis and writes a Decision Canvas and a
@@ -158,8 +158,9 @@ kinds of source that it ranks the links it has found by.
   disagreement. Secrets, email addresses and phone, card and account numbers are masked before a page is
   kept. One transaction appends the documents and writes the run's record, and the project's contradiction
   detector then reads the new passages.
-- **What it does not do.** No search provider is built: a question with no page or site ends `blocked`, and
-  `RESEARCH_SEARCH_PROVIDER` accepts only `none`. Nothing is executed, so a page whose text is made by
+- **What it does not do.** No search is on by default: a question with no page or site ends `blocked` unless
+  `RESEARCH_SEARCH_PROVIDER` is `wikipedia` or `brave` ([ADR 0025](./docs/adr/0025-search-providers-are-opt-in-apis-that-return-addresses.md)).
+  Nothing is executed, so a page whose text is made by
   scripts is not read, and a page behind a login is not read. Sitemaps are not read. Which pages are better
   is a lexical and rule-based estimate of the kind of site and the wording of a page, not a judgement that
   it is right. The pages of a run are untrusted data wherever a model sees them.
@@ -457,7 +458,7 @@ Current validated architecture. The application and database run locally; Azure 
 | **On your machine**        | The browser interface, the API and everything behind it (one Node.js 24 process), the local rules provider, and one SQLite file, or a PostgreSQL database you provide through `DATABASE_URL` (tested against PostgreSQL running in-process and over the wire protocol; never against a deployed server). This is all of the application                                                                                                                                                                                                                                                                                                                                                    |
 | **Deployed in Azure**      | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it. Nothing else is deployed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Authored, not deployed** | A hosted container (the UI, the API and the job runner in one process) on Azure Container Apps (multiple revisions: blue/green releases), a PostgreSQL server in Azure, managed identity for the application, an Application Insights resource that the telemetry is sent to, alert rules and a budget. They are Bicep in [`infra/pilot`](./infra/pilot/main.bicep) that compiles, lints and evaluates offline (`npm run iac:validate`), designed in [docs/AZURE.md](./docs/AZURE.md), [docs/azure/](./docs/azure/) and [docs/production/](./docs/production/LIMITATIONS.md); **none is deployed, and nothing has been seen working in Azure** (no rollback or restore drill has been run) |
-| **Proposed, not built**    | A separate worker container app (the pilot runs the API and the job runner in one process), Blob Storage, a search service, a web application firewall, a configured search provider for automatic research. See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| **Proposed, not built**    | A separate worker container app (the pilot runs the API and the job runner in one process), Blob Storage, a search service, a web application firewall. (A search provider for automatic research is built, and off until an owner chooses one.) See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 - **Frontend:** React and TypeScript, as six scenes on a design system ([how the interface carries
   it](#how-the-interface-carries-it)). In the built application the same process serves it and the
@@ -563,7 +564,7 @@ Essential: bounded document intake, a source-linked knowledge representation,
 synthetic personas, a stateful agent simulation, progress/cancellation, reporting,
 evidence inspection, optional real model interactions, and persistent history.
 
-Not implemented: OCR, a search provider, fetching arbitrary addresses (pages are fetched only from what a
+Not implemented: OCR, a search that is on by default, fetching arbitrary addresses (pages are fetched only from what a
 person names and what those pages link to, under an address policy and within a budget), live social network
 access, OASIS compatibility, thousands of model-driven agents, semantic neural embeddings, a hosted
 deployment, or calibrated real-world probabilities. Sign-in, roles and tenant isolation are implemented, and
@@ -726,7 +727,7 @@ process, and have not run across containers or against a deployed server.
 | `frontend/src/viz/`                      | The ecosystem map: an SVG with a seeded layout, and its palette                                                                                                                                                                                                                                                                                                                                                       |
 | `frontend/src/panels/`                   | History, Ask (the analyst, the actors and surveys), the audit log, the model budget, access and the provider chip                                                                                                                                                                                                                                                                                                     |
 | `frontend/src/lib/`, `frontend/src/api/` | Pure logic (the engine's step rules in `console.ts`, intake, stakeholder review, the brief, themes) and the typed clients for the lab's routes (`frontend/src/api.ts` has the engine's)                                                                                                                                                                                                                               |
-| `evaluation/`                            | Labelled datasets pinned to their sources, the offline harness, thresholds and results; `ai-*` is the evaluation of the AI-assisted setup (`npm run eval:ai`), with `known-breaches.json` listing the five thresholds it does not meet                                                                                                                                                                                |
+| `evaluation/`                            | Labelled datasets pinned to their sources, the offline harness, thresholds and results; `ai-*` is the evaluation of the AI-assisted setup (`npm run eval:ai`), with `known-breaches.json` listing the two thresholds it does not meet                                                                                                                                                                                 |
 | `infra/`                                 | Bicep for a controlled pilot in Azure (`pilot/`), authored and validated offline; nothing is deployed                                                                                                                                                                                                                                                                                                                 |
 
 The stateful agents are fictional proxies with an inclination in `[-1, 1]`,
@@ -1185,9 +1186,9 @@ What is not built, and what has not been shown. The README keeps a short version
   from another page (a frame), which are not read. The record of which pages the server fetched is in the
   memory of one process for an hour, and the limit on pages read at once is for one process: behind several
   replicas each keeps its own.
-- **Automatic research is a rules-based reader of a few pages, not a search.** No search provider is built:
-  a question with no page or site ends `blocked`, and only the pages and sites a person names, and what
-  they link to, are read, within a budget (12 pages and 4 sites by default). Which pages are chosen is a
+- **Automatic research is a rules-based reader of a few pages, not a search.** No search provider is on by
+  default: a question with no page or site ends `blocked`, and only the pages and sites a person names, and what
+  they link to, are read (unless an operator has chosen `wikipedia`, which offers background pages, or `brave`), within a budget (12 pages and 4 sites by default). Which pages are chosen is a
   lexical and rule-based estimate of the kind of site and of how much of the plan a page covers, not a
   judgement that a page is right. A run starts from one page or one site, and sources can be added to a
   project only before its grounding step is ready or running. A run holds its process's one worker for as
@@ -1203,12 +1204,14 @@ What is not built, and what has not been shown. The README keeps a short version
   another passage was not caught (0 of 12 for each of the two steps), and a model's claim that a limit is
   hard, where the words do not make it one, was accepted in 12 of 100 cases. A real model has not been
   measured at all ([docs/production/evaluation.md](./docs/production/evaluation.md)).
-- **A question can carry an instruction into the research plan.** The planner suite found that the rules' plan
-  copies a sentence of the question that reads as an instruction into what it will verify and search for (in all
-  5 labelled cases), and that a model's plan which obeys such an instruction is accepted when the guard does not
-  know its wording (4 of 74 corrupted replies, in fake-Foundry mode). A plan holds no address and what is
-  fetched is decided by code, so nothing is fetched because of it, but the defect is not fixed. With the two
-  breaches above it makes up the five recorded in `evaluation/known-breaches.json`.
+- **A question can carry an instruction, and what catches it is a guard that reads patterns.** The planner suite
+  found that the rules' plan copied a sentence of the question that reads as an instruction into what it would
+  verify and search for (in all 5 labelled cases), and that a model's plan which obeyed such an instruction was
+  accepted when the guard did not know its wording (4 of 74 corrupted replies, in fake-Foundry mode). Both are
+  fixed (the rules plan from what `models/injection.ts` does not read as an instruction, a model's plan refused
+  if any field repeats what such a sentence asked for): 0 of 5 and 0 of 74 now. An instruction worded in a way
+  the patterns do not know is still planned from like any sentence. A plan holds no address and what is fetched is
+  decided by code, so nothing was ever fetched because of it.
 - **The Decision Canvas reads simulated results.** It has no objective of its own, its lenses are named
   readings of what the analysis measured, and a `robust-option` status means that the leader held across the
   checks that were run, not that the world will go that way. Eight kinds of constraint effect are applied
@@ -1321,7 +1324,7 @@ What is not built, and what has not been shown. The README keeps a short version
   estimate from prices an operator enters: Swarm ships none.
 - **Text only.** Scanned PDFs need OCR, which is not implemented. Web pages are read as text: no script
   runs and no page behind a sign-in is read. Automatic research follows only what a person names and
-  what it links to, and there is no search provider and no live social-media connection.
+  what it links to, and no search provider is on by default and there is no live social-media connection.
 
 See also the [requirements matrix](./docs/requirements-matrix.md), the
 [production-readiness gates](./docs/production-readiness.md) and the

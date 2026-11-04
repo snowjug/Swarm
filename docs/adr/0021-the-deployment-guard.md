@@ -48,6 +48,10 @@ start cannot be.
    `LOOPBACK` and so on), is refused when it is on, without the guard having to know it. A switch named otherwise
    needs a line in `deployment.ts`. The code that reads a switch must read it strictly: a parser that makes any
    non-empty text true would disagree with the guard in the one direction it cannot see.
+9. **A search provider is guarded as a place a secret goes.** `RESEARCH_SEARCH_PROVIDER=brave` needs
+   `RESEARCH_SEARCH_API_KEY`, a key is refused for a provider that does not use one, and `RESEARCH_SEARCH_ENDPOINT` (a
+   test double on this machine) is refused outright, so that a key is never sent to an address that is not the
+   provider's ([ADR 0025](./0025-search-providers-are-opt-in-apis-that-return-addresses.md)).
 
 ## Consequences
 

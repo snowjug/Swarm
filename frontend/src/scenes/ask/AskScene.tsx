@@ -32,6 +32,7 @@ import {
   capabilityFlags,
   constraintsEnabled,
   discoveryAvailable,
+  discoveryDisclosure,
   researchEnabled,
 } from './capabilities';
 import { Composer, Tray } from './Composer';
@@ -420,6 +421,7 @@ export function AskScene({
     discovery: discovers,
     site: siteKind,
     documents: documents.length,
+    disclosure: discoveryDisclosure(config),
   };
   const researchLine = researchNote(research);
   const researchOnward = researchNext(research);

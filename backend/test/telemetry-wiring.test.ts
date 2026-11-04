@@ -433,6 +433,8 @@ describe('comparing scenarios', () => {
     const gate = gateAfter(3);
     const held = comparisons({ yieldNow: gate.yieldNow });
     const spy = vi.spyOn(productSignals, 'simulationDuration');
+    const cancellations = vi.spyOn(productSignals, 'cancellation');
+    const before = await telemetry.measurements();
     const started = held.service.start(
       held.project.id,
       { runsPerVariant: 10, sensitivity: false },
@@ -443,12 +445,21 @@ describe('comparing scenarios', () => {
       (reached) => reached,
     );
     held.service.cancel(held.project.id, started.id, 'someone');
-    // Nothing is recorded until it has ended.
+    // The person's stop is counted when they ask for it, and the length of the comparison not until it has ended.
+    expect(cancellations).toHaveBeenCalledTimes(1);
+    expect(cancellations).toHaveBeenCalledWith('simulation');
     expect(spy).not.toHaveBeenCalled();
     gate.open();
     expect((await held.finished(started.id)).status).toBe('cancelled');
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]![0].outcome).toBe('cancelled');
+    // A request to stop what has already ended is refused, and is not a stop.
+    expect(() => held.service.cancel(held.project.id, started.id, 'someone')).toThrow();
+    expect(cancellations).toHaveBeenCalledTimes(1);
+    const after = await telemetry.measurements();
+    expect(grew(before, after, 'swarm.cancellations', { 'swarm.cancel.scope': 'simulation' })).toBe(
+      1,
+    );
 
     spy.mockClear();
     const failing = comparisons({

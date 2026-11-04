@@ -59,7 +59,7 @@ const result = await crawl(
 - `crawl` throws only for an invalid budget or for what the caller supplied. A site cannot make it throw:
   whatever happens to an address becomes a record in `result.sources`.
 - `discoveredBy` is `user-url`, `user-domain` or `user-added` for addresses a person named (their sites
-  count as named, and rank first), `search` for a search provider's answer (not implemented here), `link` for
+  count as named, and rank first), `search` for an address that a search provider offered (`search.ts`; the crawler vets it like any other), `link` for
   what pages link to. `sitemap` is accepted as a value; sitemaps are not read.
 
 ## Budget and stops
@@ -337,8 +337,16 @@ visible to another tenant.
    suggests a site that only such a sentence names (`checkPlan`, given what `hear` kept of the question); the
    same line is added to a model's plan that is used.
 5. **Finding sources.** `url` and `domain` modes start from what the person named. `discovery` mode needs a
-   search provider: with none the run ends `blocked` (`discovery-unconfigured`), says so, and the stage goes
-   back to waiting (`pending`, not `failed`) so that a person can name a page or a site, or add sources of their own.
+   search provider: with none (the default) the run ends `blocked` (`discovery-unconfigured`), says so, and the stage
+   goes back to waiting (`pending`, not `failed`) so that a person can name a page or a site, or add sources of their
+   own. A provider (`search.ts`: `wikipedia`, or `brave` with a key) is asked once, for the names and topics of the
+   plan and never the question as typed (`searchQueryOf`: at most 8 terms and 180 characters, with no control
+   character and no quote that could end a phrase), over HTTPS with no redirect followed, within 1 MB and
+   `RESEARCH_SEARCH_TIMEOUT_MS`. It answers with addresses only: a title and a snippet are what a site says about
+   itself, and are dropped. Every address then goes to the crawler as any other, and one that a rule refuses is a
+   source that was blocked and never asked for. A provider that fails ends the run `failed` with one sentence of ours
+   for the class of the failure (refused, unusable, unreachable) and none of the provider's words, and its key is in
+   no event, answer or error.
 6. **Reading** is the crawler, held to the budget. This server decides two more stops from what has been read
    (`shouldStop`): `evidence-sufficient` and `no-new-signal` (see `assess.ts`), and `cost-limit` and
    `time-limit` (a pause that lasted as long as it may). A person's **finish** stops reading and goes on.
@@ -417,12 +425,15 @@ call (`MODEL_PRICES`); with no price the cost is "unknown" and said so. `0` mean
 
 ### Known limits of the orchestration
 
-- **No search provider is built.** Discovery from a question alone ends `blocked`; only the pages and sites a
-  person names, and what they link to, are read. `RESEARCH_SEARCH_PROVIDER` accepts only `none`.
+- **No search is on by default.** Discovery from a question alone ends `blocked` unless `RESEARCH_SEARCH_PROVIDER`
+  is `wikipedia` or `brave`; the pages and sites a person names, and what they link to, are read either way. A
+  provider is an API each, never a page of results. `wikipedia` finds background pages (English only), not primary
+  sources; `brave` has never been run against its real service; and the ranking of what either finds has not been
+  evaluated.
 - A run starts from one page or one site; more are added one at a time (each is a run). Sources cannot be
   added to a project once its grounding step is ready or running.
 - The intake typed at creation is not kept: a research start repeats it in its body, and a project that is
-  simply grounded without one gets a discovery run (which ends `blocked` with no search provider).
+  simply grounded without one gets a discovery run (which ends `blocked` where no search is on).
 - **What reads as an instruction is found by patterns**, so an instruction worded in a way they do not know is
   planned from like any sentence, and a sentence that holds a real question and an instruction is left out whole:
   the person is told how many sentences were left out and can write the question again. An imperative that asks for

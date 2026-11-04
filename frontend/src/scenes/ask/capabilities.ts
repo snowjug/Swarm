@@ -20,6 +20,18 @@ export function discoveryAvailable(config: AppConfig | null): boolean {
   return record(record(record(config)?.research)?.discovery)?.available === true;
 }
 
+/**
+ * What this server says of the search behind it, in its own words: who is asked, what it is sent and what it finds. It
+ * is shown beside the promise to look for sources, so that what leaves the server is said before a person goes on. It
+ * is nothing where there is no search, and nothing where the words are not a sentence of a sensible size.
+ */
+export function discoveryDisclosure(config: AppConfig | null): string | null {
+  const discovery = record(record(record(config)?.research)?.discovery);
+  if (discovery?.available !== true) return null;
+  const message = typeof discovery.message === 'string' ? discovery.message.trim() : '';
+  return message !== '' && message.length <= 400 ? message : null;
+}
+
 /** Whether this server names and keeps the constraints of a decision. */
 export function constraintsEnabled(config: AppConfig | null): boolean {
   return record(record(config)?.features)?.constraints === true;

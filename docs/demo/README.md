@@ -62,7 +62,7 @@ Allow ten minutes.
    **Research automatically** starts from), and the Swarm server does the reading, not your browser. Test the
    address you plan to use. If it fails, use the [fallback](#if-the-network-is-down). The sample cases need
    none: they bring their own sources and turn **Research automatically** off. A question typed with no source
-   and no site finds nothing to read, because no search provider is built.
+   and no site finds nothing to read, because no search provider is switched on.
 5. **Use a window of at least 1280 pixels, Guided detail (the default, under Settings and tools), zoom
    100%.** Close other tabs and turn off notifications. Keep the laptop awake and on power. The replay and
    the map move; a device that asks for reduced motion stops them (the replay then opens on its last

@@ -30,8 +30,9 @@ not been built.
 | [0022](./0022-constraints-applied-or-read-and-hardness-a-proposal.md)         | Accepted          | A constraint is applied by the engine or only read; hardness is a proposal with a basis; a gate in rules; recall is below its threshold                                                                                 |
 | [0023](./0023-the-decision-canvas-is-derived.md)                              | Accepted          | The Decision Canvas is derived on read: six statuses by ordered rules, four named lenses, no objective function, eight epistemic labels, no model                                                                       |
 | [0024](./0024-a-deterministic-scope-check-says-what-swarm-does-not-decide.md) | Accepted          | A deterministic reading of the question's words puts a notice on a matter of employment, credit, legal, medical or safety, and makes a decision about one person a human decision; it is incomplete and refuses nothing |
+| [0025](./0025-search-providers-are-opt-in-apis-that-return-addresses.md)      | Accepted          | Search providers are opt-in APIs that return addresses: `none` by default; `wikipedia` and `brave` built; a plan-derived query; every address vetted by the crawler; a key no message holds                             |
 
-Records 0016 to 0024 are the decisions of the production-v1 wave. Each says what has been run and what has not:
+Records 0016 to 0025 are the decisions of the production-v1 wave. Each says what has been run and what has not:
 none of them has met Azure.
 
 New records take the next number and never rewrite an accepted one; a reversed decision gets a new

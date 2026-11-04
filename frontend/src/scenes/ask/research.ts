@@ -149,21 +149,29 @@ function researchPlan(options: {
   return { kind: options.discovery ? 'searches' : 'asks' };
 }
 
-/** What the review says about research before the person goes on, in the part of it that holds the evidence. */
+/**
+ * What the review says about research before the person goes on, in the part of it that holds the evidence. Where it
+ * looks for sources it also says, in the words of the server, what the search is sent (`disclosure`): a site that
+ * was named is read directly, and nothing of the question is sent to a search.
+ */
 export function researchNote(options: {
   runs: boolean;
   discovery: boolean;
   site: Site;
   documents: number;
+  disclosure?: string | null;
 }): string | null {
   const plan = researchPlan(options);
   if (!plan) return null;
   if (plan.kind === 'reads') {
     return `Automatic research is on. After you continue, Swarm reads ${plan.named} and the pages it links to, and lists every page it reads.`;
   }
-  return plan.kind === 'searches'
-    ? 'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads.'
-    : 'This server cannot look for sources from a question alone. After you continue, Swarm asks you to name a website or add a source.';
+  if (plan.kind === 'asks') {
+    return 'This server cannot look for sources from a question alone. After you continue, Swarm asks you to name a website or add a source.';
+  }
+  const said =
+    'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads.';
+  return options.disclosure ? `${said} ${options.disclosure}` : said;
 }
 
 /**

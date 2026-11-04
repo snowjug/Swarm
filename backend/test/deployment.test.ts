@@ -552,6 +552,44 @@ const RULES: Rule[] = [
     says: /RESEARCH_ALLOW_LOOPBACK is on/u,
     fixed: [{ RESEARCH_ALLOW_LOOPBACK: '0' }],
   },
+  {
+    name: 'the search provider is brave and has no key',
+    modes: BOTH,
+    change: { RESEARCH_SEARCH_PROVIDER: 'brave', RESEARCH_SEARCH_API_KEY: undefined },
+    says: /RESEARCH_SEARCH_PROVIDER is brave and RESEARCH_SEARCH_API_KEY is not set/u,
+    fixed: [
+      { RESEARCH_SEARCH_PROVIDER: 'brave', RESEARCH_SEARCH_API_KEY: 'canary-key-0123456789' },
+      { RESEARCH_SEARCH_PROVIDER: 'none' },
+      { RESEARCH_SEARCH_PROVIDER: 'wikipedia' },
+    ],
+  },
+  {
+    name: 'a search key is set for a provider that does not use it',
+    modes: BOTH,
+    change: {
+      RESEARCH_SEARCH_PROVIDER: 'wikipedia',
+      RESEARCH_SEARCH_API_KEY: 'canary-key-0123456789',
+    },
+    says: /RESEARCH_SEARCH_API_KEY is set and RESEARCH_SEARCH_PROVIDER is wikipedia/u,
+    fixed: [{ RESEARCH_SEARCH_PROVIDER: 'wikipedia', RESEARCH_SEARCH_API_KEY: undefined }],
+  },
+  {
+    name: 'the search is pointed at an address of the operator',
+    modes: BOTH,
+    change: {
+      RESEARCH_SEARCH_PROVIDER: 'brave',
+      RESEARCH_SEARCH_API_KEY: 'canary-key-0123456789',
+      RESEARCH_SEARCH_ENDPOINT: 'https://canary-search.example.org',
+    },
+    says: /RESEARCH_SEARCH_ENDPOINT is set/u,
+    fixed: [
+      {
+        RESEARCH_SEARCH_PROVIDER: 'brave',
+        RESEARCH_SEARCH_API_KEY: 'canary-key-0123456789',
+        RESEARCH_SEARCH_ENDPOINT: undefined,
+      },
+    ],
+  },
   ...PRIVATE_SUFFIXES.flatMap((suffix): Rule[] => [
     {
       name: `the allow-list names a host under .${suffix}`,

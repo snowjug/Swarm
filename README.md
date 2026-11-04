@@ -447,11 +447,14 @@ Extracting evidence, Checking conflicts and Ready, each shown only when the run 
 can pause, resume, finish early or cancel. Manual sources stay supported: attach, paste or fetch them, or turn
 research off.
 
-- **A question alone cannot be researched yet.** Finding sources from a question needs a search provider,
-  and none is configured or built (`RESEARCH_SEARCH_PROVIDER` accepts only `none`). Such a run ends
-  **blocked**, says so (Ground shows it as **Needs a source**, not as an error), and points to the ways on:
-  name a page or a site (**Add a site or page**), or paste or attach text (**Paste or attach**). Swarm does
-  not read the pages of a search engine. The website field and the research guidance count only when research
+- **A question alone is researched only where the operator has chosen a search.** Finding sources from a
+  question needs a search provider, and none is switched on by default (`RESEARCH_SEARCH_PROVIDER=none`). Such a run
+  ends **blocked**, says so (Ground shows it as **Needs a source**, not as an error), and points to the ways on:
+  name a page or a site (**Add a site or page**), or paste or attach text (**Paste or attach**). Two providers are
+  built and opt-in, each through the interface its operator offers: `wikipedia` (no key; background pages) and
+  `brave` (the Brave Search API, with a key). A provider is sent the names and topics of the question, never the
+  question as typed, and answers with addresses only, which the crawler vets like any other; the review says what is
+  sent before a person goes on. Swarm does not read the pages of a search engine. The website field and the research guidance count only when research
   runs, which is for a question with no source of your own, or one that names a site or a page.
 - **The reading is deterministic code, and a model is only advice.** Which addresses are fetched, in what
   order, how often and when to stop are decided by code from the budget and from what pages link to; a model,
@@ -565,7 +568,7 @@ lab's decisions and [docs/analysis/](./docs/analysis/engine.md) for the simulato
 | **On your machine**        | The browser interface, the API and everything behind it (one Node.js 24 process), the rules engine, and one SQLite file or a PostgreSQL database you provide through `DATABASE_URL`                                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Deployed in Azure**      | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it, when you choose Azure. Nothing else is deployed                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | **Authored, not deployed** | A hosted pilot: Azure Container Apps (blue/green revisions), a PostgreSQL server, a registry, a managed identity, Application Insights, alert rules and a budget, as Bicep in [`infra/pilot`](./infra/pilot/main.bicep). It compiles, lints and evaluates offline (`npm run iac:validate`) and **has never been deployed or run in Azure**; the release, rollback and pre-flight tools are dry-run by default and were tested against a fake `az`, and the rollback and restore drills have not been run. See [docs/AZURE.md](./docs/AZURE.md) and [docs/production/](./docs/production/README.md) |
-| **Proposed, not built**    | A separate hosted worker container (the pilot runs the API and the job runner in one process), Blob Storage, a search service, a web application firewall, and a configured search provider for automatic research. See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                                                                                                                                                                                                                           |
+| **Proposed, not built**    | A separate hosted worker container (the pilot runs the API and the job runner in one process), Blob Storage, a search service and a web application firewall. (A search provider for automatic research is built and switched off: an owner chooses one.) See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                                                                                                                                                                                     |
 
 ## Security
 
@@ -630,7 +633,7 @@ npm run demo:journey   # the recorded Larkholm presentation, against a running s
 | `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model, the research crawler's safety suites on loopback sockets, the deployment guard and the privacy tests of telemetry, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build             |
 | `npm run test:e2e`      | The `local`, `model`, `journey`, `signin` and `lab` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `lab` project covers the first screen, Ground, Map and the decision brief (its review, its export and Report Studio) through the pages, and walks a question from the first screen to the decision, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
 | `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                                                                                       |
-| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and five thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                   |
+| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and two thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                    |
 | `npm run iac:validate`  | Compiles, lints and evaluates every Bicep template offline with a pinned Bicep CLI; the unit suite then asserts invariants of what compiled. It says plainly that it skipped when the CLI is not installed (`npm run iac:install-bicep`). It is not a deployment                                                                                                                                                                                                                                                                        |
 | `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                                                                                        |
@@ -688,9 +691,10 @@ server process and are marked interrupted if it stops). The wider picture is in 
 - **Limited scale.** A comparison is capped at 8 scenarios, 200 runs each and 2,400 runs in all. The
   deep dive takes 4 to 10 model-driven actors over 3 to 10 rounds, and only runs of up to six actors
   and six rounds were exercised live.
-- **There is no search provider.** Automatic research reads the pages and sites that a person names, and
-  what they link to. It cannot find sources from a question alone: none is configured, none is built, and
-  Swarm will not read the pages of a search engine, so such a run ends **blocked** and waits for a source
+- **No search provider is switched on.** Automatic research reads the pages and sites that a person names, and
+  what they link to. It finds sources from a question alone only where an owner has chosen `wikipedia` (background
+  pages, English) or `brave` (a key); neither has been run in Azure or evaluated for what it finds, and Swarm will
+  not read the pages of a search engine. By default such a run ends **blocked** and waits for a source
   ([limitations of the pilot](./docs/production/LIMITATIONS.md), A6). Choosing and ranking pages, and judging
   whether the evidence is enough, are lexical and deterministic, and the kind and authority of a page are an
   estimate from the kind of site: a news article on a site a person named can be read as an official
@@ -757,11 +761,10 @@ Until then the right words are: a production-candidate controlled pilot, authore
 not deployed.
 
 Not run, and so not known: the live Foundry evaluation, a journey against a deployed address, the rollback
-drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Five
-registered evaluation thresholds are still breached, three of them in rules mode (participant coverage,
-hard-constraint recall, and an instruction in a question reaching the research plan) and two in fake-Foundry mode
-(a corrupted model plan accepted, and the same instruction reaching the plan). A search provider has not been
-chosen, which is a decision for the owner.
+drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Two
+registered evaluation thresholds are still breached, both in rules mode (participant coverage, 67.1% against
+90%, and hard-constraint recall, 75.5% against 80%). No search provider is switched on, which is a decision for
+the owner.
 
 ## Repository map
 

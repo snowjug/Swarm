@@ -10,6 +10,7 @@ import {
   capabilityFlags,
   constraintsEnabled,
   discoveryAvailable,
+  discoveryDisclosure,
   researchEnabled,
 } from './capabilities';
 import { flowSteps } from './flow';
@@ -90,6 +91,22 @@ describe('what the server says it can do', () => {
       false,
     );
     expect(discoveryAvailable(config({ research: { discovery: { available: true } } }))).toBe(true);
+  });
+
+  it('shows what the search is sent only when the server says there is one, in a sentence of a sensible size', () => {
+    const said = (discovery: unknown) => discoveryDisclosure(config({ research: { discovery } }));
+    const words = 'The search is sent the names and topics of your question.';
+    expect(discoveryDisclosure(null)).toBeNull();
+    expect(discoveryDisclosure(config())).toBeNull();
+    expect(said({ available: true, message: words })).toBe(words);
+    expect(said({ available: true, message: `  ${words}\n` })).toBe(words);
+    expect(said({ available: false, message: words })).toBeNull();
+    expect(said({ available: 'true', message: words })).toBeNull();
+    expect(said({ available: true })).toBeNull();
+    expect(said({ available: true, message: '   ' })).toBeNull();
+    expect(said({ available: true, message: 42 })).toBeNull();
+    expect(said({ available: true, message: 'x'.repeat(401) })).toBeNull();
+    expect(said({ available: true, message: 'x'.repeat(400) })).toHaveLength(400);
   });
 
   it('has constraints only when the server says so with a true', () => {
@@ -488,6 +505,34 @@ describe('what the page says research does, by what the server does', () => {
     expect(researchNote({ runs: true, discovery: false, site: NONE, documents: 0 })).toBe(
       'This server cannot look for sources from a question alone. After you continue, Swarm asks you to name a website or add a source.',
     );
+  });
+
+  it('adds what the search is sent to the note on a search, and to no other', () => {
+    const disclosure = 'Wikipedia is sent the names and topics of your question.';
+    expect(
+      researchNote({ runs: true, discovery: true, site: NONE, documents: 0, disclosure }),
+    ).toBe(
+      `Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads. ${disclosure}`,
+    );
+    for (const said of [null, undefined, '']) {
+      expect(
+        researchNote({ runs: true, discovery: true, site: NONE, documents: 0, disclosure: said }),
+      ).toBe(
+        'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads.',
+      );
+    }
+    // A site that is named is read directly, and nothing of the question goes to a search.
+    for (const site of [HARBOUR, PAGE]) {
+      expect(
+        researchNote({ runs: true, discovery: true, site, documents: 0, disclosure }),
+      ).not.toContain('Wikipedia');
+    }
+    expect(
+      researchNote({ runs: true, discovery: false, site: NONE, documents: 0, disclosure }),
+    ).not.toContain('Wikipedia');
+    expect(
+      researchNote({ runs: true, discovery: true, site: NONE, documents: 3, disclosure }),
+    ).toBeNull();
   });
 
   it('says nothing of research where the sources that were added are what is used, or where research is off', () => {

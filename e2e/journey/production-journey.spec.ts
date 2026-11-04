@@ -1137,10 +1137,12 @@ test.describe('the production journey: flow B (no page is named)', () => {
       const run = (await researchOf(page.request, asked.project)).run!;
       expect(run).toMatchObject({ status: 'completed', mode: 'discovery' });
       expect(run.discovery).toMatchObject({ available: true, provider: 'journey-test-double' });
-      // The provider was asked once, for the question, and an address in it would have been taken out first.
+      // The provider was asked once, for the names and topics of the plan, and not for the question as it was typed.
       const questions = await harness.searchQuestions();
       expect(questions).toHaveLength(1);
-      expect(questions[0]).toContain('berthing fees for coastal vessels');
+      expect(questions[0]).toContain('berthing fees coastal vessels');
+      expect(questions[0]).not.toBe(JOURNEY_QUESTION);
+      expect(questions[0]?.length).toBeLessThanOrEqual(180);
       // What it offered is read like anything else: the two public pages, and nothing else.
       const used = run.sources.filter((source) => source.outcome === 'used');
       expect(used.map((source) => source.requestedUrl).sort()).toEqual(

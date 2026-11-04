@@ -170,7 +170,7 @@ export class ResearchService {
           ? { allowedHosts: urlIngestion.allowedHosts }
           : {}),
       });
-    this.search = options.search ?? searchProviderFor(options.config.research.searchProvider);
+    this.search = options.search ?? searchProviderFor(options.config.research);
     this.allowHttp = options.allowHttp === true;
     this.crawl = options.crawl ?? {};
     this.clock = options.now ?? Date.now;

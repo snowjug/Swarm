@@ -390,6 +390,7 @@ export class AnalysisService {
       detail: { analysis: analysisId, completedRuns: stored.progress.completedRuns },
     });
     run.cancelled = true;
+    productSignals.cancellation('simulation');
     return stored;
   }
 

@@ -288,8 +288,9 @@ not do: [backend/src/research/README.md](../backend/src/research/README.md).
   and the stage it has really reached, its plan, its budget, what it has used, every address it tried with
   what became of it, where each passage sat in its page, an assessment for each claim to check, the number of
   conflicts, why it stopped and a log). `discovery` says whether sources can be found from a question alone
-  (`available`, `provider`, `message`): **no search provider exists in this build**, so it is
-  `available: false`, with the setting it would need named. `may` is `{ start, pause, cancel }`.
+  (`available`, `provider`, `message`): with `RESEARCH_SEARCH_PROVIDER=none` (the default) it is
+  `available: false`, with the setting it would need named; with `wikipedia`, or `brave` and a key, it is
+  `available: true` and the message says who is sent what (the names and topics of the question). `may` is `{ start, pause, cancel }`.
 - **Starting.** `POST /api/projects/:id/research` takes `{ "intake"?, "budget"? }` and answers `202` with the
   same view. `intake` is `{ auto?, url?, domain?, guidance?, horizon?, geography? }`: `url` is a page,
   `domain` a site, and neither is discovery from a question alone, which ends `blocked` with

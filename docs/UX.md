@@ -314,12 +314,14 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   **Custom** opens a field for the person's own words. **Research automatically** is a switch, on by default
   where the server researches, and a line beside it says what it does in each state, by what the server says it
   can do: where a search provider is behind it (`research.discovery.available`), "Swarm finds and reads public
-  sources for you."; where none is, as in this build, "Reads the site you name, or asks for one."; with the switch off, "Manual sources only: Swarm reads what you add."; and where the server does not
+  sources for you."; where none is (the default), "Reads the site you name, or asks for one."; with the switch off, "Manual sources only: Swarm reads what you add."; and where the server does not
   research, "Off on this server. Attach your own sources.", which is also why it cannot be turned on there. It is
   the one thing Swarm does that the person did not ask for by name, which is why it is a switch of its own and why
   the review says what it will do before it does it. The page promises a search only where the server says it has
   one: with no search provider, a question with no website and no source of the person's own gives research
-  nothing to read, the review says so, and Ground says **Needs a source**.
+  nothing to read, the review says so, and Ground says **Needs a source**. Where there is one, the review adds the server's
+  own words on what the search is sent (`research.discovery.message`: the names and topics of the question, never the
+  question as typed), so that what leaves the server is said before the person goes on.
 - **Three tools sit at the foot of the composer**, **Evidence**, **Advanced** and **Options**; **Options**
   shows only an icon, its word kept in its accessible name.
   - **Evidence** brings files (TXT, Markdown, CSV and JSON, and PDF only where the server reports that it
@@ -366,8 +368,8 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   (pressing it, or resting a pointer on it for a moment, opens it; the arrow keys, Home and End move between
   them) that shows what Swarm does there and what the person decides, in words, so that nothing is told by the
   drawing alone. What it says follows what the server can do: where research is off the second step is about
-  the sources the person attaches, and where research is on with no search provider behind the server (as in this
-  build) it says that Swarm reads the website that is named and the files that are added; only where there is a
+  the sources the person attaches, and where research is on with no search provider behind the server (the
+  default) it says that Swarm reads the website that is named and the files that are added; only where there is a
   provider does it say that Swarm finds and reads public sources. Each line says what is done and never what the
   result is.
 - **What every exploration includes** is a line of short words, **Evidence linked**, **Assumptions visible**,

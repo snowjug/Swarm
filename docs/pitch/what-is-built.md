@@ -34,7 +34,7 @@ list, with evidence for each row, is the [requirement matrix](../program/require
   and an answer-first decision brief whose statements carry one of ten origins, with recommendations
   and a validation plan. One public web page can be read as evidence, under an address policy, and
   automatic research reads a page or a site that a person names, and what it links to, through the same
-  fetcher and within a budget (it has no search provider, so a question alone gives it nothing to read). It runs
+  fetcher and within a budget (no search provider is switched on by default, so a question alone gives it nothing to read; `wikipedia` and `brave` are built and opt-in). It runs
   in rules mode with no model; all five worked examples and a question that none of them knows go
   through it end to end in a test, and the three flagship examples and a question of its own go through
   the pages in a real browser, with the public pages served from fixtures. None of it has been compared
@@ -66,11 +66,9 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 - **Automatic research** has run only against fixture sites on loopback, a fake network on a virtual clock and
   scripted models, never against the real web. Which pages are better is an estimate from the kind of site and
   the wording, not a judgement that a page is right. A question alone cannot be researched.
-- **The AI evaluation** (`npm run eval:ai`) holds five pre-registered thresholds that are still breached, listed in
-  `evaluation/known-breaches.json`: in rules mode participant coverage (67.1% against 90%), hard-constraint recall
-  (75.5% against 80%) and an instruction in a question that reaches the research plan; in fake-Foundry mode a
-  corrupted model plan accepted and the same instruction reaching the plan. Its live mode, against a real model,
-  has not been run ([evaluation](../production/evaluation.md)).
+- **The AI evaluation** (`npm run eval:ai`) holds two pre-registered thresholds that are still breached, listed in
+  `evaluation/known-breaches.json`, both in rules mode: participant coverage (67.1% against 90%) and
+  hard-constraint recall (75.5% against 80%). Its live mode, against a real model, has not been run ([evaluation](../production/evaluation.md)).
 - **The scope check** reads the words of a question by rules, so it is not complete: other phrasings of a
   decision about one person are missed, other languages are not read, and some readings are of a person where
   there is none. Its cue lists were written against tables of questions by their author. It runs when the
@@ -100,8 +98,9 @@ list, with evidence for each row, is the [requirement matrix](../program/require
 
 ## Not built
 
-- A search provider: research from a question alone ends `blocked`, and the person names a page or a site, or
-  adds sources of their own.
+- A search provider that is on: by default research from a question alone ends `blocked`, and the person names a
+  page or a site, or adds sources of their own. `wikipedia` (background pages) and `brave` (a key) are built and
+  opt-in, and have not been run in Azure.
 - Anything deployed in Azure beyond the model: no host, no database server, no monitoring resource,
   no dashboards or alerts (written, not created). The Bicep for the pilot was compiled and checked offline,
   and its release, rollback and restore drills have not been run.

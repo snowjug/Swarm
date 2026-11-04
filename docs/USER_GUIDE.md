@@ -89,13 +89,13 @@ unfold.", and what it asks of you is one question.
    takes a site (`example.org`) or the address of one page, and a tag says which it read it as, **Site** or
    **Page**; an entry that does not look like either is said not to ("That does not look like a website yet.
    Try example.org, or the address of one page."). It is optional, and it is where automatic research
-   starts: Swarm has no search provider, so without a website (and without a source of your own) research has
+   starts: Swarm has no search provider unless the operator has switched one on, so without a website (and without a source of your own) research has
    nothing to read, and a website matters only when research runs, which is for a question with no source of
    your own, or one that names a site or a page, beside any sources you add. **Time horizon** asks over what time the effects should be judged: **Not sure**, **Next quarter**,
    **6 months**, **1 year**, **3 years** or **Custom**, which takes your own words ("For example, the next two
    quarters").
 3. **Choose whether Swarm researches.** **Research automatically** is on by default where the server does
-   research. What the line beside it says is what the server does: "Reads the site you name, or asks for one." where no search provider is behind the server, as in this build, and "Swarm finds and
+   research. What the line beside it says is what the server does: "Reads the site you name, or asks for one." where no search provider is behind the server (the default), and "Swarm finds and
    reads public sources for you." only where there is one. With it on, a question that has no source of your own
    is researched first, and so is one that names a site or a page, beside any sources you add: after you
    continue, Swarm reads the site or page you named and what it links to
@@ -151,7 +151,8 @@ unfold.", and what it asks of you is one question.
    research is on. After you continue, Swarm reads example.org and the pages it links to, and lists every page it
    reads." for a site you named; "This server cannot look for sources from a question alone. After you continue,
    Swarm asks you to name a website or add a source." for a question alone, where no search provider is behind
-   the server). It says so whether or not you attached a source when you named a site, and says nothing when
+   the server; where one is, the review also says what the search is sent: the names and topics of your question,
+   never the question as you typed it). It says so whether or not you attached a source when you named a site, and says nothing when
    your own sources are what is used: research starts only for a question that has none, or that names a site or
    a page, and it reads only the site or page you named.
    **Add evidence** adds your own. **How it was read** says how the question was read. A chip says whether it was read by rules, by a
@@ -176,7 +177,7 @@ and **Decision**. They are the path in plain words, and the six scenes of the jo
 question is Ask, research is Ground, the people and constraints are Map, the possible futures are Simulate
 and Compare, and the decision is Decide. What the second step says follows what the server does: where
 research is off it says that Swarm reads the files and pages you add and nothing else; where research is on and
-no search provider is behind the server (as in this build) it says that Swarm reads the website you name and the
+no search provider is behind the server (the default) it says that Swarm reads the website you name and the
 files you add; only where there is a provider does it say that Swarm finds and reads public sources. A line of short words says what every exploration includes: **Evidence linked**, **Assumptions
 visible**, **Alternatives compared**, **Constraints considered** (only where the server has them) and **Human
 approval before simulation**, and **What this means** says what each is. These describe what Swarm does, not
@@ -264,7 +265,7 @@ the sources fill the first screen.
   what its content hashes to, whether the site's robots.txt allowed it, and how its text was taken. **Cancel**
   asks first. **Suggestions** are the kinds of source the plan says to look for, and the sites it names, which
   Swarm reads only when you press **Add this site**.
-  Where no search provider is set up, a question alone is not an error: the status says **Needs a source**, and
+  Where no search provider is switched on, a question alone is not an error: the status says **Needs a source**, and
   Swarm says that it cannot find sources from a question alone and does not search the web. **Add a site or
   page** starts from a site or page you name; **Paste or attach**, under "Use sources of your own", takes text you
   paste or files you attach as the sources of the project, with nothing fetched, and Swarm goes on to read
