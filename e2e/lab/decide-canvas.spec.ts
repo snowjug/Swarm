@@ -28,7 +28,7 @@ import {
 } from '../support/helpers';
 import { PHONE, forget, makeLegacy, quiet } from '../support/shell';
 import {
-  NINE,
+  TEN,
   briefed,
   decisionView,
   holds,
@@ -76,7 +76,7 @@ const STATUS_LABELS = Object.values(DECISION_STATUS_INFO).map((info) => info.lab
 test.describe('the decision view at 1440 by 900', () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
-  test('shows the nine things, in the order a decision is read, answer first, in the first viewport', async ({
+  test('shows the ten things, in the order a decision is read, answer first, in the first viewport', async ({
     page,
   }) => {
     const problems = watchPage(page);
@@ -87,7 +87,7 @@ test.describe('the decision view at 1440 by 900', () => {
     await expect(page.getByText('Explore scenarios, not predictions.')).toBeVisible();
 
     const boxes: { title: string; x: number; y: number }[] = [];
-    for (const title of NINE) {
+    for (const title of TEN) {
       const heading = viewItem(page, title);
       await expect(heading, title).toBeVisible();
       const box = (await heading.boundingBox())!;
@@ -105,10 +105,10 @@ test.describe('the decision view at 1440 by 900', () => {
     const bottoms = await page
       .locator('[data-canvas-item]')
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom));
-    expect(bottoms).toHaveLength(NINE.length);
+    expect(bottoms).toHaveLength(TEN.length);
     expect(
       Math.max(...bottoms),
-      'the lowest of the nine ends inside the window',
+      'the lowest of the ten ends inside the window',
     ).toBeLessThanOrEqual(900);
 
     // The answer is a status in words, and the recommendation says how much of it is stated.
@@ -140,12 +140,12 @@ test.describe('the decision view at 1440 by 900', () => {
     expect(claimsAgainst(said), said).toEqual([]);
   });
 
-  test('has one level-one heading, the nine as level-two headings, and the full report beneath it', async ({
+  test('has one level-one heading, the ten as level-two headings, and the full report beneath it', async ({
     page,
   }) => {
     await openDecide(page, project);
     await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toHaveCount(1);
-    for (const title of NINE) {
+    for (const title of TEN) {
       await expect(viewItem(page, title), title).toHaveCount(1);
     }
     await expect(
@@ -168,7 +168,7 @@ test.describe('the decision view at 1440 by 900', () => {
     await page.keyboard.press('Escape');
     await expect(legend).toBeHidden();
     await expect(page.getByRole('button', { name: 'Labels', exact: true })).toBeFocused();
-    // The same words are in the page, under the nine, where print and find-in-page reach them.
+    // The same words are in the page, under the ten, where print and find-in-page reach them.
     await expect(page.getByRole('button', { name: /^What the labels mean/u })).toHaveAttribute(
       'aria-expanded',
       'false',
@@ -239,7 +239,7 @@ test.describe('every status, and a project with every part full', () => {
     });
   }
 
-  test('keeps all nine in the first viewport when every part of the picture is full', async ({
+  test('keeps all ten in the first viewport when every part of the picture is full', async ({
     page,
   }) => {
     await serve(page, viewFixture(richFixture()));
@@ -250,8 +250,9 @@ test.describe('every status, and a project with every part full', () => {
       .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom));
     expect(Math.max(...bottoms)).toBeLessThanOrEqual(900);
     // What does not fit is counted and one press away, and not left out.
+    await expect(page.getByRole('button', { name: /4 views in full/u })).toBeVisible();
     await expect(
-      page.getByRole('button', { name: /4 views and 2 assumptions in full/u }),
+      page.getByRole('button', { name: /(?:The assumptions|\d+ more assumptions?) in full/u }),
     ).toBeVisible();
     await expect(
       page.getByRole('button', { name: /more constraints and open questions/u }),
@@ -263,7 +264,7 @@ test.describe('every status, and a project with every part full', () => {
 test.describe('the decision view on a phone', () => {
   test.use(PHONE);
 
-  test('puts the answer first, folds the other seven in the same order, and every control is a finger wide', async ({
+  test('puts the answer first, folds the other eight in the same order, and every control is a finger wide', async ({
     page,
   }) => {
     const problems = watchPage(page);
@@ -271,9 +272,9 @@ test.describe('the decision view on a phone', () => {
     await expect(viewItem(page, 'Question')).toBeVisible();
     await expect(page.locator('[data-canvas-item="answer"] h3')).toBeVisible();
     const tops: number[] = [];
-    for (const title of NINE) tops.push((await viewItem(page, title).boundingBox())!.y);
+    for (const title of TEN) tops.push((await viewItem(page, title).boundingBox())!.y);
     expect(tops, 'one above the next').toEqual([...tops].sort((a, b) => a - b));
-    for (const title of NINE.slice(2)) {
+    for (const title of TEN.slice(2)) {
       await expect(viewItem(page, title).getByRole('button'), title).toHaveAttribute(
         'aria-expanded',
         'false',
@@ -388,13 +389,13 @@ test.describe('when there is no picture to show', () => {
   });
 });
 
-/** The nine are in the window: the lowest of them ends at or above its bottom edge. */
-async function expectNineInWindow(page: Page, height: number): Promise<void> {
+/** The ten are in the window: the lowest of them ends at or above its bottom edge. */
+async function expectTenInWindow(page: Page, height: number): Promise<void> {
   const bottoms = await page
     .locator('[data-canvas-item]')
     .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom));
-  expect(bottoms).toHaveLength(NINE.length);
-  expect(Math.max(...bottoms), 'the lowest of the nine ends inside the window').toBeLessThanOrEqual(
+  expect(bottoms).toHaveLength(TEN.length);
+  expect(Math.max(...bottoms), 'the lowest of the ten ends inside the window').toBeLessThanOrEqual(
     height,
   );
 }
@@ -446,7 +447,7 @@ test.describe('what Swarm does not decide, at 1440 by 900', () => {
         DECISION_STATUS_INFO[status].label,
       );
       await expect(page.locator('[data-canvas-item="next"] .sw-canvas-tell')).toHaveCount(0);
-      await expectNineInWindow(page, 900);
+      await expectTenInWindow(page, 900);
       await expectNoHorizontalOverflow(page);
     });
   }
@@ -465,7 +466,7 @@ test.describe('what Swarm does not decide, at 1440 by 900', () => {
     expect(problems).toEqual([]);
   });
 
-  test('says that a qualified person decides a decision about one person, names no option, and keeps the nine in the first viewport', async ({
+  test('says that a qualified person decides a decision about one person, names no option, and keeps the ten in the first viewport', async ({
     page,
   }) => {
     const problems = watchPage(page);
@@ -482,7 +483,7 @@ test.describe('what Swarm does not decide, at 1440 by 900', () => {
     );
     await expect(next).toContainText('Can tell them');
     await expect(next).toContainText('Cannot tell them');
-    await expectNineInWindow(page, 900);
+    await expectTenInWindow(page, 900);
 
     // No option is named: the options are shown as explored and not ranked.
     await page.getByRole('button', { name: 'How the options compare', exact: true }).click();
@@ -501,7 +502,7 @@ test.describe('what Swarm does not decide, at 1440 by 900', () => {
     expect(problems).toEqual([]);
   });
 
-  test('keeps all nine in the first viewport for one person when every part of the picture is full', async ({
+  test('keeps all ten in the first viewport for one person when every part of the picture is full', async ({
     page,
   }) => {
     await serve(
@@ -513,7 +514,7 @@ test.describe('what Swarm does not decide, at 1440 by 900', () => {
     await expect(page.locator('[data-canvas-item="answer"] h3')).toHaveText(
       'Needs a human decision',
     );
-    await expectNineInWindow(page, 900);
+    await expectTenInWindow(page, 900);
     await expectNoAxeViolations(page, 'the decision view for one person with every part full');
   });
 
@@ -645,7 +646,7 @@ test.describe('what Swarm does not decide, on a phone', () => {
     await expect(page.locator('[data-canvas-item="next"]')).toContainText(
       'A qualified person decides this',
     );
-    for (const title of NINE.slice(2)) {
+    for (const title of TEN.slice(2)) {
       await expect(viewItem(page, title).getByRole('button'), title).toHaveAttribute(
         'aria-expanded',
         'false',

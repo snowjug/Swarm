@@ -120,23 +120,24 @@ export const decisionView = (page: Page): Locator =>
   page.getByRole('region', { name: 'Decision view', exact: true });
 
 /** What the first viewport shows, in the order a decision is read. */
-export const NINE = [
+export const TEN = [
   'Question',
   'Current best answer',
   'Most plausible futures',
-  'What drives them',
-  'Material constraints',
   'Who moves',
+  'Material constraints',
+  'Critical assumptions',
+  'What drives them',
   'What could change the result',
   'Recommended next move',
   'What to validate before acting',
 ] as const;
 
-/** One of the nine, by its title: the name of its heading begins with it, whether the item is open or folded. */
-export const viewItem = (page: Page, title: (typeof NINE)[number]): Locator =>
+/** One of the ten, by its title: the name of its heading begins with it, whether the item is open or folded. */
+export const viewItem = (page: Page, title: (typeof TEN)[number]): Locator =>
   page.getByRole('main').getByRole('heading', {
     level: 2,
-    // "Who moves" is also the beginning of "Who moves in full", which is a heading of the detail beneath the nine.
+    // "Who moves" is also the beginning of "Who moves in full", which is a heading of the detail beneath the ten.
     name: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&')}(?! in full)`, 'u'),
   });
 

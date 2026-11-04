@@ -30,6 +30,7 @@ import {
   GLANCE,
   ITEMS,
   assumptionGlance,
+  assumptionsOf,
   changeWords,
   checksOf,
   completenessOf,
@@ -85,7 +86,7 @@ const text = (markup: string): string =>
     .replace(/\s+/gu, ' ');
 
 describe('the first viewport of the decision canvas', () => {
-  it.each(DECISION_STATUSES)('shows the nine things in order, answer first, for %s', (status) => {
+  it.each(DECISION_STATUSES)('shows the ten things in order, answer first, for %s', (status) => {
     const markup = render(handleOf(viewFixture(statusFixture(status))));
     const items = [...markup.matchAll(/data-canvas-item="([a-z]+)"/gu)].map((match) => match[1]);
     expect(items).toEqual([...ITEMS]);
@@ -99,11 +100,70 @@ describe('the first viewport of the decision canvas', () => {
     expect(said).toContain(COPY.notice);
   });
 
-  it('has one level-one heading, and a level-two heading for each of the nine', () => {
+  it('has one level-one heading, and a level-two heading for each of the ten', () => {
     const markup = render(handleOf(viewFixture()));
     expect(markup.match(/<h1[ >]/gu)).toHaveLength(1);
     const names = [...markup.matchAll(/<h2[^>]*id="canvas-([a-z]+)"/gu)].map((match) => match[1]);
     expect(names).toEqual([...ITEMS]);
+  });
+
+  it('gives the critical assumptions an item of their own, from what the recommendation rests on, and not under what could change the result', () => {
+    const canvas = canvasFixture((raw) => {
+      raw.answer.recommendation.assumptions.items = [
+        { text: 'The answer depends on switching cost.', label: 'model-inference', basis: 'a' },
+        { text: 'Subscribers stay for a year.', label: 'assumption', basis: 'b' },
+        { text: 'A third assumption that is only in full.', label: 'assumption', basis: 'c' },
+      ] as never;
+      raw.changes.assumptions = [
+        {
+          id: 'strength',
+          statement: { text: 'The result is sensitive to switching cost.', label: 'assumption' },
+          origin: 'system-assumption',
+          classification: 'assumption-sensitive',
+          shift: 0.18,
+          standardError: 0.01,
+          flipsAnswer: true,
+          evidenced: false,
+        },
+      ];
+    });
+    const markup = render(handleOf(viewFixture(canvas)));
+    const item = (id: string) =>
+      markup.split(`data-canvas-item="${id}"`)[1]!.split('data-canvas-item=')[0]!;
+    const assumptions = text(item('assumptions'));
+    expect(assumptions).toContain('Critical assumptions');
+    expect(assumptions).toContain('The answer depends on switching cost.');
+    expect(assumptions).toContain('Subscribers stay for a year.');
+    // Two at a glance; the rest are said to be in full.
+    expect(assumptions).not.toContain('A third assumption that is only in full.');
+    expect(assumptions).toContain('1 more assumption in full');
+    expect(assumptions).toContain('1 could reverse the answer');
+    // What could change the result is about views and what else was tried, and no longer lists assumptions.
+    const changes = text(item('changes'));
+    expect(changes).not.toContain('The answer depends on switching cost.');
+    expect(changes).not.toContain('Subscribers stay for a year.');
+  });
+
+  it('says that no assumption is recorded when none is, and counts what is there', () => {
+    const none = canvasFixture((raw) => {
+      raw.answer.recommendation.assumptions.items = [];
+      raw.answer.recommendation.assumptions.missing = 'No assumption is recorded for this result.';
+    });
+    expect(assumptionsOf(none)).toMatchObject({ total: 0, more: 0, lines: [] });
+    expect(gistOf('assumptions', none)).toBe('None recorded');
+    expect(text(render(handleOf(viewFixture(none))))).toContain(
+      'No assumption is recorded for this result.',
+    );
+    const some = canvasFixture((raw) => {
+      raw.answer.recommendation.assumptions.items = Array.from({ length: 5 }, (_, at) => ({
+        text: `Assumption ${at}`,
+        label: 'assumption',
+        basis: String(at),
+      })) as never;
+      raw.changes.assumptions = [];
+    });
+    expect(assumptionsOf(some)).toMatchObject({ total: 5, more: 5 - GLANCE.assumptions, flips: 0 });
+    expect(gistOf('assumptions', some)).toBe('5 assumptions');
   });
 
   it('gives the recommendation with how much of it is stated and which parts are not, an unknown among them', () => {
@@ -277,7 +337,7 @@ describe('what the page says of what Swarm does not decide', () => {
     expect(said).toContain(DECISION_STATUS_INFO[status].label);
   });
 
-  it('puts the notice in the header, before the tools and above the nine things', () => {
+  it('puts the notice in the header, before the tools and above the ten things', () => {
     const markup = render(handleOf(domain('robust-option')));
     const at = (needle: string) => markup.indexOf(needle);
     expect(at('sw-canvas-top__lead')).toBeLessThan(at('sw-canvas-scope'));

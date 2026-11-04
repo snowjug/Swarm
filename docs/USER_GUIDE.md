@@ -585,11 +585,11 @@ runs. The method is in [the Decision Canvas](./analysis/decision-canvas.md).
   applied. A leading option is called robust only when nothing that Swarm tried could reverse it, its
   constraints are confirmed and the evidence is adequate; otherwise it is conditional, and the conditions are
   listed.
-- **The first screen holds nine things, in the order a decision is read:** **Question**, **Current best
-  answer**, **Most plausible futures**, **What drives them**, **Material constraints**, **Who moves**, **What
-  could change the result**, **Recommended next move** and **What to validate before acting**. What does not
-  fit is counted and one press away. On a narrow screen the question and the answer keep their place and the
-  other seven fold to a line each.
+- **The first screen holds ten things, in the order a decision is read:** **Question**, **Current best
+  answer**, **Most plausible futures**, **Who moves**, **Material constraints**, **Critical assumptions**, **What
+  drives them**, **What could change the result**, **Recommended next move** and **What to validate before
+  acting**. What does not fit is counted and one press away. On a narrow screen the question and the answer
+  keep their place and the other eight fold to a line each.
 - **Named lenses, and no score.** Swarm has no objective of its own, so it compares the options on four named
   readings of what the simulation measured (overall resistance, support among the key actors, resistance among
   the people who decide or approve, and the downside for the worst-affected group). They can disagree, and when

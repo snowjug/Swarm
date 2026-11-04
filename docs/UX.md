@@ -877,16 +877,18 @@ review beside the brief and in its place.
   header says what it rests on ("Worked out from the
   newest finished comparison, every time this page is read."), and has **Labels**, for what the eight kinds of
   statement mean, and **Full report**, which takes the reader to where the brief begins.
-- **The first viewport holds nine things**, in the order a decision is read: **Question**, **Current best
+- **The first viewport holds ten things**, in the order a decision is read: **Question**, **Current best
   answer** (the status as a word and an icon, with why and the conditions it holds under, never a colour
-  alone), **Most plausible futures**, **What drives them**, **Material constraints**, **Who moves**, **What
-  could change the result**, **Recommended next move** and **What to validate before acting**. Each part has a
-  budget (two futures, two drivers, two constraints, three roles, two views and one assumption, three checks),
-  what does not fit is counted and one press away, and what a person wrote is clamped to a few lines, so that
-  all nine are in a 1440 × 900 window whatever the project holds (`e2e/lab/decide-canvas.spec.ts` is the check).
-  On a narrow screen the question and the answer keep their place and the other seven fold to one line each,
+  alone), **Most plausible futures**, **Who moves**, **Material constraints**, **Critical assumptions**, **What
+  drives them**, **What could change the result**, **Recommended next move** and **What to validate before
+  acting**. Each part has a budget (two futures, two drivers, two constraints, three roles, two views, two
+  assumptions, three checks), what does not fit is counted and one press away, and what a person wrote is
+  clamped to a few lines, so that all ten are in a 1440 × 900 window whatever the project holds
+  (`e2e/lab/decide-canvas.spec.ts` is the check). The two rows beneath the answer are the situation (the futures,
+  who moves, what limits it, what it assumes) and what follows from it. On a narrow screen the question and the
+  answer keep their place and the other eight fold to one line each,
   in the same order. Every figure is in simulated members in 100, or in seeded runs, and is never a percent.
-- **Beneath the nine** are the details, each in a disclosure and all open on paper: why this status, how the
+- **Beneath the ten** are the details, each in a disclosure and all open on paper: why this status, how the
   options compare on each lens, the recommendation in full, everything that could change the result, the
   constraints and who moves in full, the validation plan and when to stop, what the answer rests on, what the
   independent review challenged, human approval and what the labels mean. Every statement carries its kind as

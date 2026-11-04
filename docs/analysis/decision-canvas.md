@@ -400,27 +400,31 @@ level-one heading (“Decision view”). The brief is the **full report** below 
 button in the canvas’s own header takes the reader to; its headline and the headings of its blocks are one level lower,
 and its chapters stay level-two headings, so nothing about the brief changes but where it starts.
 
-**The first viewport** holds nine things, in the order a decision is read: the question; the current best answer (the
+**The first viewport** holds ten things, in the order a decision is read: the question; the current best answer (the
 status as a word and an icon, with why and the conditions it holds under, never a colour alone); the most plausible
 futures (scenario possibilities, never forecasts, with the four groups the simulated members ended up in as a bar and in
-words); what drives them; the material constraints (where the gate stands, hard and soft, which nobody has confirmed,
-which the simulation only read); who moves (simulated roles, never people); what could change the result (the
-counterfactual views, the ones that could reverse the answer first, the assumption that could, and what the sensitivity
-step moved and found, so that “no view was run” is never read as “nothing was tried”); the recommended next move (what
-it rests on, with how many of its parts are stated and which are missing, and that reversibility is unknown); and what
-to validate before acting (the checks, with the ones that come before acting first). Every figure is simulated members
-in 100, or seeded runs.
+words); who moves (simulated roles, never people); the material constraints (where the gate stands, hard and soft, which
+nobody has confirmed, which the simulation only read); the **critical assumptions** (what the recommendation rests on, the
+assumptions it depends on first and then those the scenario states, each with what kind of statement it is, and how many
+of them could reverse the answer); what drives them; what could change the result (the counterfactual views, the ones that
+could reverse the answer first, and what the sensitivity step moved and found, so that “no view was run” is never read as
+“nothing was tried”); the recommended next move (what it rests on, with how many of its parts are stated and which are
+missing, and that reversibility is unknown); and what to validate before acting (the checks, with the ones that come
+before acting first). The first four after the answer are the situation (the futures, who moves, what limits it, what it
+assumes); the last four are what follows from it. Every figure is simulated members in 100, or seeded runs.
 
-At 1440 × 900 all nine are in the viewport, whatever the project holds: each part has a budget (two futures, two
-drivers, two constraints, three roles, two views and one assumption, three checks), what does not fit is counted and one
-press away (“4 views and 2 assumptions in full”), and what a person wrote is clamped to a few lines (the whole of it is
-under “What this rests on”). On a narrow screen the question and the answer keep their place and the other seven fold
+At 1440 × 900 all ten are in the viewport, whatever the project holds: each part has a budget (two futures, two
+drivers, two constraints, three roles, two views, two assumptions, three checks), what does not fit is counted and one
+press away (“4 views in full”, “1 more assumption in full”), and what a person wrote is clamped to a few lines (the whole
+of it is under “What this rests on”). The columns are not equal: the futures take four of twelve, who moves and the
+constraints three each and the assumptions two, and the second row is four equal parts; with a notice of what Swarm
+does not decide the next move takes four and what drives them two. On a narrow screen the question and the answer keep their place and the other eight fold
 to one line each, in the same order; a line says what was tried, and never that nothing reverses the answer when
 nothing was tried.
 
-**Beneath the nine** are the detail, each in a disclosure: why this status (the rules, the first that applied, the
-conditions), how the options compare on each lens, the recommendation in full, everything that could change the
-result, constraints in full, who moves in full, the validation plan and when to stop, what the answer rests on
+**Beneath the ten** are the detail, each in a disclosure: why this status (the rules, the first that applied, the
+conditions), how the options compare on each lens, the recommendation in full, the critical assumptions in full (what the
+answer rests on, and which assumptions the simulation moved), everything that could change the result, constraints in full, who moves in full, the validation plan and when to stop, what the answer rests on
 (including the question as it was asked and as Swarm framed it), what the independent review challenged, human
 approval and what Swarm does not do, and what the labels mean. They are open on paper, so print opens on the canvas
 with everything under it.
@@ -472,5 +476,5 @@ about one person end to end), `decision-labels.test.ts`, `decision-routes.test.t
 in Markdown, HTML and JSON, and its absence where there is no matter; no name in a cue anywhere that is handed over, only
 where the question is quoted); on the page, `frontend/src/scenes/decide/canvas/*.test.ts(x)` (logic, render of every
 status and state, the notice with and without a canvas, one person against a matter in general, the folded layout, a copy
-guard) and `e2e/lab/decide-canvas.spec.ts` (the nine in order in one 1440 × 900 viewport, every status, a phone, the
+guard) and `e2e/lab/decide-canvas.spec.ts` (the ten in order in one 1440 × 900 viewport, every status, a phone, the
 states, paper, the scope notice at both sizes, and a phrasal verb with the person put first and a name never repeated).

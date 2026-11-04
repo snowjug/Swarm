@@ -14,13 +14,14 @@ import {
   ITEM_TITLES,
   PRIORITY_WORDS,
   alignmentWords,
-  assumptionGlance,
+  assumptionsOf,
   changeWords,
   checksOf,
   completenessOf,
   basisOf,
   explorationOf,
   reasonsOf,
+  reverseWords,
   constraintGlance,
   driverItems,
   futureItems,
@@ -44,7 +45,7 @@ interface Props {
 }
 
 /**
- * One of the nine items. Wide, it is a heading and what it holds. Narrow, the first two keep their place and the
+ * One of the ten items. Wide, it is a heading and what it holds. Narrow, the first two keep their place and the
  * rest fold into disclosures with one line each, in the same order, so that the answer stays first.
  */
 function Slot({
@@ -324,15 +325,11 @@ function Who({ canvas, openDetail }: Props) {
 
 function Changes({ canvas, openDetail }: Props) {
   const views = strip(canvas.changes.counterfactuals.views);
-  const assumptions = assumptionGlance(canvas.changes.assumptions);
   const { counterfactuals } = canvas.changes;
-  const counted = [
-    counterfactuals.views.length > 0 ? plural(counterfactuals.views.length, 'view') : null,
-    canvas.changes.assumptions.length > 0
-      ? plural(canvas.changes.assumptions.length, 'assumption')
-      : null,
-  ].filter((part) => part !== null);
-  const inFull = counted.length > 0 ? `${counted.join(' and ')} in full` : 'What else was tried';
+  const inFull =
+    counterfactuals.views.length > 0
+      ? `${plural(counterfactuals.views.length, 'view')} in full`
+      : 'What else was tried';
   return (
     <>
       {views.length > 0 ? (
@@ -368,25 +365,34 @@ function Changes({ canvas, openDetail }: Props) {
         <Quiet>{counterfactuals.note}</Quiet>
       )}
       <Quiet>{sensitivityWords(canvas.changes.sensitivity)}</Quiet>
-      {assumptions.length > 0 && (
-        <ul className="sw-canvas-list" role="list">
-          {assumptions.map((row) => (
-            <li key={row.id}>
-              <span className="sw-canvas-row__text">
-                {row.statement.text} <LabelChip label={row.statement.label} />
-                {row.flipsAnswer && (
-                  <>
-                    {' '}
-                    <span className="sw-canvas-flag">{COPY.couldReverse}</span>
-                  </>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
       <button type="button" className="sw-canvas-more" onClick={() => openDetail('changes')}>
         {inFull}
+      </button>
+    </>
+  );
+}
+
+function Assumptions({ canvas, openDetail }: Props) {
+  const { lines, total, more, flips, missing } = assumptionsOf(canvas);
+  if (total === 0) return <Quiet>{missing ?? 'No assumption is recorded for this result.'}</Quiet>;
+  return (
+    <>
+      <ul className="sw-canvas-list" role="list">
+        {lines.map((line) => (
+          <li key={line.text}>
+            <span className="sw-canvas-row__text">
+              {line.text} <LabelChip label={line.label} />
+            </span>
+          </li>
+        ))}
+      </ul>
+      {flips > 0 && (
+        <p className="sw-canvas-quiet">
+          <span className="sw-canvas-flag">{reverseWords(flips)}</span>
+        </p>
+      )}
+      <button type="button" className="sw-canvas-more" onClick={() => openDetail('assumptions')}>
+        {more > 0 ? `${plural(more, 'more assumption')} in full` : 'The assumptions in full'}
       </button>
     </>
   );
@@ -469,7 +475,7 @@ function Validate({ canvas, openDetail }: Props) {
   );
 }
 
-/** The first viewport: the nine things a decision is read by, in the order it is read, answer first. */
+/** The first viewport: the ten things a decision is read by, in the order it is read, answer first. */
 export function Viewport({ canvas, openDetail }: Props) {
   const futureLabels = labelsOf(canvas.futures.items.map((future) => future.statement));
   const links = (
@@ -493,14 +499,17 @@ export function Viewport({ canvas, openDetail }: Props) {
       <Slot item="futures" canvas={canvas} chips={<LabelsOf labels={futureLabels} />}>
         <Futures canvas={canvas} openDetail={openDetail} />
       </Slot>
-      <Slot item="drivers" canvas={canvas}>
-        <Drivers canvas={canvas} />
+      <Slot item="who" canvas={canvas} chips={<LabelChip label="simulation-event" />}>
+        <Who canvas={canvas} openDetail={openDetail} />
       </Slot>
       <Slot item="constraints" canvas={canvas}>
         <Constraints canvas={canvas} openDetail={openDetail} />
       </Slot>
-      <Slot item="who" canvas={canvas} chips={<LabelChip label="simulation-event" />}>
-        <Who canvas={canvas} openDetail={openDetail} />
+      <Slot item="assumptions" canvas={canvas}>
+        <Assumptions canvas={canvas} openDetail={openDetail} />
+      </Slot>
+      <Slot item="drivers" canvas={canvas}>
+        <Drivers canvas={canvas} />
       </Slot>
       <Slot item="changes" canvas={canvas}>
         <Changes canvas={canvas} openDetail={openDetail} />

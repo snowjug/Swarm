@@ -34,14 +34,19 @@ import { clip, listed, plural, signedPerHundred } from '../model/format';
 /** Where the full report begins on the page, so that the canvas can take the reader to it. */
 export const FULL_REPORT_ANCHOR = 'sw-full-report';
 
-/** The nine things the first viewport shows, in the order a decision is read. */
+/**
+ * The ten things the first viewport shows, in the order a decision is read: the question and the answer, then the
+ * situation (the futures, who moves, what limits it, what it assumes), then what follows from it (what drives it,
+ * what could change it, the next move, what to validate before acting).
+ */
 export const ITEMS = [
   'question',
   'answer',
   'futures',
-  'drivers',
-  'constraints',
   'who',
+  'constraints',
+  'assumptions',
+  'drivers',
   'changes',
   'next',
   'validate',
@@ -52,9 +57,10 @@ export const ITEM_TITLES: Record<Item, string> = {
   question: 'Question',
   answer: 'Current best answer',
   futures: 'Most plausible futures',
-  drivers: 'What drives them',
-  constraints: 'Material constraints',
   who: 'Who moves',
+  constraints: 'Material constraints',
+  assumptions: 'Critical assumptions',
+  drivers: 'What drives them',
   changes: 'What could change the result',
   next: 'Recommended next move',
   validate: 'What to validate before acting',
@@ -67,7 +73,7 @@ export const GLANCE = {
   constraints: 2,
   who: 3,
   views: 2,
-  assumptions: 1,
+  assumptions: 2,
   checks: 3,
   conditions: 2,
   reasons: 2,
@@ -244,6 +250,31 @@ export function viewWords(view: CounterfactualReading): { effect: string; flag: 
 }
 
 /** The assumptions that could reverse the answer first, then the rest by size. */
+/**
+ * What the answer rests on, as the recommendation says it (the assumptions it depends on first, then those the
+ * scenario states), how many of the sensitive assumptions could reverse the answer, and how many lines there are
+ * beyond the ones shown.
+ */
+export function assumptionsOf(canvas: DecisionCanvas): {
+  lines: Labelled[];
+  total: number;
+  more: number;
+  flips: number;
+  missing: string | null;
+} {
+  const part = canvas.answer.recommendation.assumptions;
+  return {
+    lines: part.items.slice(0, GLANCE.assumptions),
+    total: part.items.length,
+    more: Math.max(0, part.items.length - GLANCE.assumptions),
+    flips: canvas.changes.assumptions.filter((row) => row.flipsAnswer).length,
+    missing: part.missing,
+  };
+}
+
+/** How many of the assumptions could reverse the answer, said as a count. */
+export const reverseWords = (flips: number): string => `${flips} could reverse the answer`;
+
 export function assumptionGlance(
   assumptions: readonly CriticalAssumption[],
   limit: number = GLANCE.assumptions,
@@ -372,6 +403,13 @@ export function gistOf(item: Item, canvas: DecisionCanvas): string {
       return canvas.futures.items.length > 0
         ? plural(canvas.futures.items.length, 'simulated future')
         : 'Not shown: too few runs';
+    case 'assumptions': {
+      const { total, flips } = assumptionsOf(canvas);
+      if (total === 0) return 'None recorded';
+      return flips > 0
+        ? `${plural(total, 'assumption')} · ${reverseWords(flips)}`
+        : plural(total, 'assumption');
+    }
     case 'drivers':
       return canvas.drivers.length > 0 ? plural(canvas.drivers.length, 'driver') : 'None stood out';
     case 'constraints': {

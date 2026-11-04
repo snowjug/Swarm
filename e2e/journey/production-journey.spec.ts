@@ -76,7 +76,7 @@ import {
   useActors,
   useTheActors,
 } from '../support/journey-ui';
-import { NINE, viewItem } from '../support/decide';
+import { TEN, viewItem } from '../support/decide';
 import { quiet } from '../support/shell';
 import { expectNoForecasts } from '../support/simulate';
 
@@ -734,9 +734,9 @@ for (const variant of VARIANTS) {
           'Decision view',
         );
         await expect(page.getByText('Explore scenarios, not predictions.').first()).toBeVisible();
-        // The nine things a decision is read by, in the order a person reads them, all in the first screen.
+        // The ten things a decision is read by, in the order a person reads them, all in the first screen.
         const boxes: { title: string; x: number; y: number }[] = [];
-        for (const title of NINE) {
+        for (const title of TEN) {
           const heading = viewItem(page, title);
           await expect(heading, title).toBeVisible();
           const box = (await heading.boundingBox())!;
@@ -751,7 +751,7 @@ for (const variant of VARIANTS) {
         const bottoms = await page
           .locator('[data-canvas-item]')
           .evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom));
-        expect(Math.max(...bottoms), 'the nine end inside the window').toBeLessThanOrEqual(900);
+        expect(Math.max(...bottoms), 'the ten end inside the window').toBeLessThanOrEqual(900);
 
         // The answer is one of six statuses, in words, with what the status means; and it says what kind of statement it is.
         const labels = Object.values(DECISION_STATUS_INFO).map((info) => info.label);
@@ -834,10 +834,10 @@ for (const variant of VARIANTS) {
         expect(markdown).toMatch(/Explore scenarios, not predictions\\?\./u);
         const heading = (n: number): number =>
           markdown.search(new RegExp(`^### ${n}\\\\?\\. `, 'mu'));
-        const numbered = NINE.map((_, index) => heading(index + 1));
+        const numbered = TEN.map((_, index) => heading(index + 1));
         expect(
           numbered.every((place) => place > at('## Decision view')),
-          'the nine, after the heading',
+          'the ten, after the heading',
         ).toBe(true);
         expect(numbered).toEqual([...numbered].sort((a, b) => a - b));
 

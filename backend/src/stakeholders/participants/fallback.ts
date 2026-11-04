@@ -255,10 +255,15 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
 
   // A proposal holds at most `MAX_PROPOSED_PARTICIPANTS`: what is held back is what the builder would have
   // cut first, in the order it cuts, so that a group named once and matters is not lost to the alphabet.
+  // A group the person named, in the scenario they read or by adding it, is not held back for one a source names.
+  const ownedBy = (participant: ProposedParticipant): boolean => {
+    const origin = side.legacy.get(participant.id)?.origin;
+    return origin === 'scenario' || origin === 'user';
+  };
   const ranked = [...participants].sort((a, b) =>
     compareRank(
-      { ...a, quotes: a.evidence.map((item) => item.quote) },
-      { ...b, quotes: b.evidence.map((item) => item.quote) },
+      { ...a, quotes: a.evidence.map((item) => item.quote), own: ownedBy(a) },
+      { ...b, quotes: b.evidence.map((item) => item.quote), own: ownedBy(b) },
     ),
   );
   const assumed = scaffold(context, ranked, used, MAX_RULES_PARTICIPANTS - ranked.length);

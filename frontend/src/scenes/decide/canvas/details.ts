@@ -4,6 +4,7 @@ export type DetailId =
   | 'status'
   | 'lenses'
   | 'recommendation'
+  | 'assumptions'
   | 'changes'
   | 'constraints'
   | 'actors'
@@ -26,9 +27,14 @@ export const DETAILS: readonly { id: DetailId; title: string; lead: string }[] =
     lead: 'What it says, for whom, under what, and what is missing.',
   },
   {
+    id: 'assumptions',
+    title: 'Critical assumptions in full',
+    lead: 'What the answer rests on, and which assumptions the simulation moved to see whether they could reverse it.',
+  },
+  {
     id: 'changes',
     title: 'Everything that could change the result',
-    lead: 'Every counterfactual view, every sensitive assumption, and the moves that hold under all of them.',
+    lead: 'Every counterfactual view, what else was tried, and the moves that hold under all of them.',
   },
   {
     id: 'constraints',

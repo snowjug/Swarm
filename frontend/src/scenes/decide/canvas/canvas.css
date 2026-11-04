@@ -1,7 +1,7 @@
 @layer scenes {
   /*
    * The decision canvas. It is typographic: a rule and a number for each part, no boxes inside boxes, glass
-   * only on what floats. Wide, the nine parts of the first viewport are laid out so that they are read as one
+   * only on what floats. Wide, the ten parts of the first viewport are laid out so that they are read as one
    * picture (the question beside the answer, the three that say what could happen, the four that say what to do);
    * narrow, they are one column in the same order, with the answer first and the rest folded to a line each.
    */
@@ -100,7 +100,7 @@
   }
   /*
    * Wide, with a notice of what Swarm does not decide: the title stands over its line, which gives the notice the room
-   * to be two lines, and the gaps are a little closer, so that the nine parts still end inside 1440 by 900.
+   * to be two lines, and the gaps are a little closer, so that the ten parts still end inside 1440 by 900.
    */
   @media (min-width: 64rem) {
     .sw-canvas[data-scope] {
@@ -113,6 +113,14 @@
     }
     .sw-canvas[data-scope] .sw-canvas-grid {
       row-gap: var(--s-2);
+    }
+    /* The notice makes the page taller, and the next move then says what the exploration can and cannot tell: it takes
+       the width of the part that runs shortest. */
+    .sw-canvas[data-scope] .sw-canvas-item--drivers {
+      grid-column: span 2;
+    }
+    .sw-canvas[data-scope] .sw-canvas-item--next {
+      grid-column: span 4;
     }
   }
 
@@ -128,8 +136,7 @@
       gap: var(--s-5) var(--s-6);
     }
     .sw-canvas-item--question,
-    .sw-canvas-item--answer,
-    .sw-canvas-item--validate {
+    .sw-canvas-item--answer {
       grid-column: 1 / -1;
     }
   }
@@ -144,16 +151,20 @@
     .sw-canvas-item--answer {
       grid-column: 5 / span 8;
     }
+    /* The other eight are two rows: the situation (the futures, who moves, what limits it, what it assumes), and what
+       follows from it (what drives it, what could change it, the next move, what to validate). The first row gives the
+       width to the futures, which run longest, so that all ten end inside 1440 by 900. */
     .sw-canvas-item--futures {
-      grid-column: span 5;
-    }
-    .sw-canvas-item--drivers {
-      grid-column: span 3;
-    }
-    .sw-canvas-item--constraints {
       grid-column: span 4;
     }
     .sw-canvas-item--who,
+    .sw-canvas-item--constraints {
+      grid-column: span 3;
+    }
+    .sw-canvas-item--assumptions {
+      grid-column: span 2;
+    }
+    .sw-canvas-item--drivers,
     .sw-canvas-item--changes,
     .sw-canvas-item--next,
     .sw-canvas-item--validate {

@@ -798,12 +798,12 @@ directory (never your own data):
     sheet that branches it pass axe, fit and are made for a finger or a pointer at a desktop, a tablet and a
     phone.
   - `decide-canvas.spec.ts`: the Decision view, the first viewport of the Decide scene, in rules mode, with no
-    model. At 1440 by 900 it shows the nine things in the order a decision is read, answer first, and keeps all
-    nine when every part of the picture is full; says nothing the product may not say and no figure without what
-    it is a figure of; has one level-one heading, the nine as level-two headings and the full report beneath it,
+    model. At 1440 by 900 it shows the ten things in the order a decision is read, answer first, and keeps all
+    ten when every part of the picture is full; says nothing the product may not say and no figure without what
+    it is a figure of; has one level-one heading, the ten as level-two headings and the full report beneath it,
     one press away; explains what the labels mean in a popover for the pointer and in the page for everyone; and
     opens what lies behind the status when asked. Each of the six statuses is said in words with what it means.
-    On a phone the answer comes first, the other seven fold in the same order and every control is a finger
+    On a phone the answer comes first, the other eight fold in the same order and every control is a finger
     wide. Where there is no picture to show it says what is missing and offers the step that supplies it, says
     that a comparison is running and that the last one did not finish, says when it cannot be read and keeps the
     way to try again, and says that it describes the project as it was once what it was made from has changed.
@@ -812,10 +812,10 @@ directory (never your own data):
     blocked decision, an insufficient one) is served to the page by the route it asks, from the fixtures of the
     page's own tests. Thirty-four cases in all, and half of them are about what Swarm does not decide. At 1440 by
     900 the scope notice stands beside the title with the matters it matched, above the question, over each of the
-    six statuses, and the nine stay in the window; it is clean for a matter in general (nothing said that the
+    six statuses, and the ten stay in the window; it is clean for a matter in general (nothing said that the
     product may not say, no axe violation). For a decision about one person the answer says "Needs a human
     decision", the options read "Not ranked" and nothing reads "preferred", the next move says that a qualified
-    person decides with what the exploration can and cannot tell them, and the nine stay in the first viewport,
+    person decides with what the exploration can and cannot tell them, and the ten stay in the first viewport,
     also when every part of the picture is full. **Human approval** lists who reviews each matter and the cues the
     reading rests on, and the notice is there before there is a comparison without standing in the way of the next
     step. A real project made with "Should we fire this employee?" is read by the server as a human decision with

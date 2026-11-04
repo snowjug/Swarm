@@ -241,11 +241,14 @@ export interface Rankable {
   name: string;
   /** The passages it cites, as they read. */
   quotes: readonly string[];
+  /** The person named it: in the scenario they read and corrected, or by adding it. A source did not. */
+  own?: boolean;
 }
 
 /**
- * What puts one participant ahead of another when the list has to be cut: the decision owner, then the
- * priority; then a missing voice the sources name (what they say was left out is what the review asks
+ * What puts one participant ahead of another when the list has to be cut: the decision owner; then a group
+ * that the person named themself (what a person says affects them is not cut for what a source says, which
+ * they can see and correct); then the priority; then a missing voice the sources name (what they say was left out is what the review asks
  * after), one that has a position in the sources (a passage it cites says what it asks, says or does),
  * one that says which ones it means (a role named as broadly as "engineers" does not), one that is cited
  * more, one that has a name of its own, and one that names a population; and, last, the alphabet, so that
@@ -254,6 +257,7 @@ export interface Rankable {
 export function compareRank(a: Rankable, b: Rankable): number {
   const signals = (item: Rankable): number[] => [
     item.role === 'decision-owner' ? 0 : 1,
+    item.own ? 0 : 1,
     PRIORITY_ORDER.indexOf(item.priority),
     item.role === 'missing-voices' && item.quotes.length > 0 ? 0 : 1,
     item.quotes.some((quote) => wordsIn(quote).some((word) => STANCE_FORMS.has(word))) ? 0 : 1,
@@ -271,11 +275,16 @@ export function compareRank(a: Rankable, b: Rankable): number {
   return a.name.localeCompare(b.name);
 }
 
+/** A group the person named: their scenario's, or one they added. */
+const isOwn = (origin: Stakeholder['origin']): boolean =>
+  origin === 'scenario' || origin === 'user';
+
 const rankable = (stakeholder: Stakeholder): Rankable => ({
   role: participantOf(stakeholder).role,
   priority: stakeholder.priority,
   name: stakeholder.name,
   quotes: stakeholder.evidence.map((ref) => ref.quote ?? ''),
+  own: isOwn(stakeholder.origin),
 });
 
 /** The order a list is cut in: the owner, then the priority, then the more cited, then the alphabet. */

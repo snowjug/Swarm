@@ -37,7 +37,7 @@ const page = (canvas: ReturnType<typeof canvasFixture>) =>
   );
 
 describe('the decision canvas on a narrow screen', () => {
-  it('keeps the question and the answer open and folds the other seven, in the same order', () => {
+  it('keeps the question and the answer open and folds the other eight, in the same order', () => {
     const markup = render();
     const items = [...markup.matchAll(/data-canvas-item="([a-z]+)"/gu)].map((match) => match[1]);
     expect(items).toEqual([...ITEMS]);
@@ -77,7 +77,7 @@ describe('what Swarm does not decide, on a narrow screen', () => {
     expect(at).toBeLessThan(markup.indexOf('sw-disc__head'));
   });
 
-  it('folds the other seven for one person too, with a line each that says what a person decides', () => {
+  it('folds the other eight for one person too, with a line each that says what a person decides', () => {
     const canvas = scopedFixture('individual');
     const markup = page(canvas);
     for (const item of ITEMS.slice(2)) {

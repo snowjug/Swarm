@@ -52,19 +52,20 @@ const ITEMS = [
   '1. Question',
   '2. Current best answer',
   '3. Most plausible futures',
-  '4. What drives them',
+  '4. Who moves',
   '5. Material constraints',
-  '6. Who moves',
-  '7. What could change the result',
-  '8. Recommended next move',
-  '9. What to validate before acting',
+  '6. Critical assumptions',
+  '7. What drives them',
+  '8. What could change the result',
+  '9. Recommended next move',
+  '10. What to validate before acting',
 ];
 
 describe('the Markdown and the printable page open on the decision picture', () => {
   /** Markdown escapes its punctuation, which is its own business: what is read is what is left without it. */
   const plain = (text: string): string => text.replaceAll('\\', '');
 
-  it('puts the nine items, in order, before the brief’s own answer', () => {
+  it('puts the ten items, in order, before the brief’s own answer', () => {
     const canvas = canvasOf();
     for (const text of [
       plain(briefMarkdown(exportInput(canvas))),
@@ -77,7 +78,7 @@ describe('the Markdown and the printable page open on the decision picture', () 
       ).toBe(true);
       expect(at).toEqual([...at].sort((a, b) => a - b));
       expect(text.indexOf('Decision view')).toBeLessThan(at[0]!);
-      expect(text.indexOf('In short')).toBeGreaterThan(at[8]!);
+      expect(text.indexOf('In short')).toBeGreaterThan(at[9]!);
     }
     const markdown = plain(briefMarkdown(exportInput(canvas)));
     expect(markdown.startsWith('# Decision brief: A decision')).toBe(true);
@@ -108,9 +109,9 @@ describe('the Markdown and the printable page open on the decision picture', () 
       expect(text).toContain('Reversibility (unknown)');
     }
     // It stands in the recommended next move, before the parts it counts.
-    expect(markdown.indexOf(stated)).toBeGreaterThan(markdown.indexOf('8. Recommended next move'));
+    expect(markdown.indexOf(stated)).toBeGreaterThan(markdown.indexOf('9. Recommended next move'));
     expect(markdown.indexOf(stated)).toBeLessThan(
-      markdown.indexOf('9. What to validate before acting'),
+      markdown.indexOf('10. What to validate before acting'),
     );
     const blocks = canvasBlocks(canvas).filter(
       (block) => block.kind === 'paragraph' && block.text.startsWith(stated),

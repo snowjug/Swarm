@@ -126,18 +126,34 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
     blocks.push({ kind: 'paragraph', text: canvas.futures.note, tone: 'note' });
   }
 
-  blocks.push({ kind: 'heading', level: 3, text: '4. What drives them' });
+  blocks.push({ kind: 'heading', level: 3, text: '4. Who moves' });
   blocks.push(
-    ...(canvas.drivers.length > 0
-      ? canvas.drivers.map((driver) => said(driver.statement, driver.kind))
-      : [
-          {
-            kind: 'paragraph',
-            text: 'No driver stood out in the simulation.',
-            tone: 'note',
-          } as CanvasBlock,
-        ]),
+    canvas.actors.items.length > 0
+      ? {
+          kind: 'table',
+          caption: `Simulated roles under ${canvas.actors.focusLabel ?? 'the option shown'}${canvas.actors.baselineLabel ? `, against ${canvas.actors.baselineLabel}` : ''}`,
+          headers: [
+            'Role',
+            'Position in the decision',
+            'Where it ends up',
+            'Change in simulated share resisting',
+            'Influence',
+            'Uncertainty',
+          ],
+          rows: canvas.actors.items
+            .slice(0, 8)
+            .map((actor) => [
+              actor.name,
+              POSITION_WORDS[actor.position],
+              ALIGNMENT_WORDS[actor.alignment],
+              actor.adverseChange === null ? 'Not compared' : signed(actor.adverseChange),
+              actor.influence,
+              actor.uncertainty,
+            ]),
+        }
+      : { kind: 'paragraph', text: 'No role was simulated.', tone: 'note' },
   );
+  blocks.push({ kind: 'paragraph', text: canvas.actors.note, tone: 'note' });
 
   const rows = [...canvas.constraints.hard, ...canvas.constraints.soft];
   blocks.push(
@@ -183,36 +199,35 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
       : { kind: 'paragraph', text: canvas.constraints.note, tone: 'note' },
   );
 
-  blocks.push({ kind: 'heading', level: 3, text: '6. Who moves' });
+  blocks.push({ kind: 'heading', level: 3, text: '6. Critical assumptions' });
   blocks.push(
-    canvas.actors.items.length > 0
-      ? {
-          kind: 'table',
-          caption: `Simulated roles under ${canvas.actors.focusLabel ?? 'the option shown'}${canvas.actors.baselineLabel ? `, against ${canvas.actors.baselineLabel}` : ''}`,
-          headers: [
-            'Role',
-            'Position in the decision',
-            'Where it ends up',
-            'Change in simulated share resisting',
-            'Influence',
-            'Uncertainty',
-          ],
-          rows: canvas.actors.items
-            .slice(0, 8)
-            .map((actor) => [
-              actor.name,
-              POSITION_WORDS[actor.position],
-              ALIGNMENT_WORDS[actor.alignment],
-              actor.adverseChange === null ? 'Not compared' : signed(actor.adverseChange),
-              actor.influence,
-              actor.uncertainty,
-            ]),
-        }
-      : { kind: 'paragraph', text: 'No role was simulated.', tone: 'note' },
+    ...partBlocks('Assumption', card.assumptions),
+    ...canvas.changes.assumptions
+      .slice(0, 5)
+      .map((row) =>
+        said(
+          row.statement,
+          row.flipsAnswer
+            ? 'Sensitive assumption, could reverse the answer'
+            : 'Sensitive assumption',
+        ),
+      ),
   );
-  blocks.push({ kind: 'paragraph', text: canvas.actors.note, tone: 'note' });
 
-  blocks.push({ kind: 'heading', level: 3, text: '7. What could change the result' });
+  blocks.push({ kind: 'heading', level: 3, text: '7. What drives them' });
+  blocks.push(
+    ...(canvas.drivers.length > 0
+      ? canvas.drivers.map((driver) => said(driver.statement, driver.kind))
+      : [
+          {
+            kind: 'paragraph',
+            text: 'No driver stood out in the simulation.',
+            tone: 'note',
+          } as CanvasBlock,
+        ]),
+  );
+
+  blocks.push({ kind: 'heading', level: 3, text: '8. What could change the result' });
   const views = canvas.changes.counterfactuals.views;
   blocks.push(
     views.length > 0
@@ -229,17 +244,12 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
       : { kind: 'paragraph', text: canvas.changes.counterfactuals.note, tone: 'note' },
   );
   blocks.push(
-    ...canvas.changes.assumptions
-      .slice(0, 5)
-      .map((row) => said(row.statement, 'Sensitive assumption')),
-  );
-  blocks.push(
     { kind: 'paragraph', text: canvas.noRegret.note, tone: 'note' },
     ...canvas.noRegret.moves.map((move) => said(move, 'No-regret move')),
   );
 
   blocks.push(
-    { kind: 'heading', level: 3, text: '8. Recommended next move' },
+    { kind: 'heading', level: 3, text: '9. Recommended next move' },
     said(card.what, 'Recommendation'),
     ...(canvas.scope.exploration
       ? [
@@ -271,7 +281,7 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
     { kind: 'paragraph', text: NO_ACTION_NOTE, tone: 'note' },
   );
 
-  blocks.push({ kind: 'heading', level: 3, text: '9. What to validate before acting' });
+  blocks.push({ kind: 'heading', level: 3, text: '10. What to validate before acting' });
   blocks.push(
     ...(canvas.validation.items.length > 0
       ? canvas.validation.items.map((item): CanvasBlock => ({

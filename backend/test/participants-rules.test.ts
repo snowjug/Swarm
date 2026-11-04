@@ -218,6 +218,34 @@ describe.each(PACKS)('the rules proposal for the $id pack', (pack) => {
   });
 });
 
+describe('a group the person names in the scenario', () => {
+  // The first screen lets a person say who is affected. What they say is theirs, and the list is cut to the groups
+  // the sources name most: it is not cut for one of those, even when no passage mentions the group they added.
+  it.each([
+    ['regional-price-change', 'Finance leads'],
+    ['ecommerce-experience', 'Returning shoppers'],
+  ])('is kept in the proposal for %s: %s', async (id, group) => {
+    const pack = PACKS.find((item) => item.id === id)!;
+    const { frame, passages, question } = await inputs(pack);
+    const edited = { ...frame, likelyStakeholders: [...frame.likelyStakeholders, group] };
+    const context = buildContext({ question, scenario: edited, graph: null, passages });
+    const { set } = await proposeParticipants({
+      context,
+      model: null,
+      modelName: null,
+      signal: new AbortController().signal,
+      now: () => NOW,
+    });
+    const held = live(set);
+    const theirs = held.find(
+      (stakeholder) => stakeholder.name.toLowerCase() === group.toLowerCase(),
+    );
+    expect(theirs, `${group} is on the list of ${held.length}`).toBeDefined();
+    expect(theirs?.origin).toBe('scenario');
+    expect(held.length).toBeLessThanOrEqual(16);
+  });
+});
+
 describe('the rules proposal and the model', () => {
   it('never calls one, whatever is configured, when none is asked for', async () => {
     const { source } = await propose(PACKS[0]!, null);

@@ -23,6 +23,7 @@ import {
   FIGURE_UNIT,
   PRIORITY_WORDS,
   alignmentWords,
+  assumptionGlance,
   categoryWords,
   changeWords,
   completenessOf,
@@ -253,8 +254,34 @@ function Recommendation({ canvas }: { canvas: DecisionCanvas }) {
   );
 }
 
+function Assumptions({ canvas }: { canvas: DecisionCanvas }) {
+  const { assumptions, sensitivity } = canvas.changes;
+  const part = canvas.answer.recommendation.assumptions;
+  return (
+    <>
+      <PartView title={RECOMMENDATION_PART_WORDS.assumptions} part={part} />
+      <h3 className="sw-canvas-part__title">Sensitive assumptions</h3>
+      <Plain>
+        {sensitivityWords(sensitivity)}
+        {sensitivity.tested > 0 ? ` ${sensitivity.note}` : ''}
+      </Plain>
+      <ul className="sw-canvas-detail__list">
+        {assumptionGlance(assumptions, assumptions.length).map((row) => (
+          <li key={row.id}>
+            <span>{row.statement.text}</span> <LabelChip label={row.statement.label} />{' '}
+            <span className="num">
+              {signedPerHundred(row.shift)} in 100 {FIGURE_UNIT}
+            </span>
+            {row.flipsAnswer ? <span className="sw-canvas-flag">{COPY.couldReverse}</span> : null}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 function Changes({ canvas }: { canvas: DecisionCanvas }) {
-  const { counterfactuals, assumptions, sensitivity } = canvas.changes;
+  const { counterfactuals, sensitivity } = canvas.changes;
   // No option is named for a decision about one person, so no view could reverse a choice and none is said to.
   const individual = canvas.scope.aboutIndividual;
   return (
@@ -277,22 +304,8 @@ function Changes({ canvas }: { canvas: DecisionCanvas }) {
           );
         })}
       </ul>
-      <h3 className="sw-canvas-part__title">Sensitive assumptions</h3>
-      <Plain>
-        {sensitivityWords(sensitivity)}
-        {sensitivity.tested > 0 ? ` ${sensitivity.note}` : ''}
-      </Plain>
-      <ul className="sw-canvas-detail__list">
-        {assumptions.map((row) => (
-          <li key={row.id}>
-            <span>{row.statement.text}</span> <LabelChip label={row.statement.label} />{' '}
-            <span className="num">
-              {signedPerHundred(row.shift)} in 100 {FIGURE_UNIT}
-            </span>
-            {row.flipsAnswer ? <span className="sw-canvas-flag">{COPY.couldReverse}</span> : null}
-          </li>
-        ))}
-      </ul>
+      <h3 className="sw-canvas-part__title">What else was tried</h3>
+      <Plain>{sensitivityWords(sensitivity)}</Plain>
       <h3 className="sw-canvas-part__title">Moves that hold under every option and view</h3>
       <Plain>{canvas.noRegret.note}</Plain>
       <Lines lines={canvas.noRegret.moves} />
@@ -652,6 +665,7 @@ const BODIES: Record<DetailId, (props: { canvas: DecisionCanvas }) => ReactNode>
   status: Status,
   lenses: Lenses,
   recommendation: Recommendation,
+  assumptions: Assumptions,
   changes: Changes,
   constraints: Constraints,
   actors: Actors,

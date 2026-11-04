@@ -359,6 +359,27 @@ describe('the rules path keeps its list balanced and ordered', () => {
     expect(compareRank(plural, single)).toBeLessThan(0);
   });
 
+  it('puts a group the person named ahead of one a source names, and still puts the decision owner first', () => {
+    const base = { role: 'directly-affected' as const, priority: 'background' as const };
+    const theirs = { ...base, name: 'Finance leads', quotes: [], own: true };
+    const cited = {
+      ...base,
+      priority: 'key' as const,
+      name: 'Harbour Pilots Association',
+      quotes: ['The Association asks for a second berth.', 'The Association works on Fridays.'],
+    };
+    expect(compareRank(theirs, cited)).toBeLessThan(0);
+    const owner = {
+      role: 'decision-owner' as const,
+      priority: 'background' as const,
+      name: 'Zed',
+      quotes: [],
+    };
+    expect(compareRank(owner, theirs)).toBeLessThan(0);
+    // A group is theirs only where it says so: the same group with no word of theirs behind it is cut first.
+    expect(compareRank({ ...theirs, own: false }, cited)).toBeGreaterThan(0);
+  });
+
   it('gives the same proposal every time', async () => {
     const first = await propose('What could happen if the pool closes on Mondays?', POOL);
     const second = await propose('What could happen if the pool closes on Mondays?', POOL);

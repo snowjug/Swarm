@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { Stakeholder } from '../../shared/stakeholders';
+import { defaultConfidenceBasis, type Stakeholder } from '../../shared/stakeholders';
 import {
   expectNoAxeViolations,
   expectNoHorizontalOverflow,
@@ -353,7 +353,7 @@ test.describe('the same pipeline serves every question', () => {
           'POST /api/scenario/parse',
           'POST /api/projects',
           'POST /api/projects/:id/steps/knowledge',
-          'POST /api/projects/:id/stakeholders/discover',
+          'POST /api/projects/:id/stakeholders/propose',
           'POST /api/projects/:id/stakeholders/approve',
           'POST /api/projects/:id/actors/generate',
         ]);
@@ -465,25 +465,36 @@ test.describe('the evidence is what discovery reads', () => {
     const names = (list: Stakeholder[]) => new Set(list.map((stakeholder) => stakeholder.name));
     const gone = before.filter((stakeholder) => !names(after).has(stakeholder.name));
     const came = after.filter((stakeholder) => !names(before).has(stakeholder.name));
+    // A group that the evidence names carries the passage that names it. One that a role pattern adds (the owner, the
+    // other side of a contract, a missing voice) carries none, and says it is an assumption: it can come and go with
+    // the text, but it is never a finding.
+    const named = (list: Stakeholder[]) =>
+      list.filter((stakeholder) => stakeholder.evidence.length > 0);
     expect(
-      gone.map((stakeholder) => stakeholder.name),
+      named(gone).map((stakeholder) => stakeholder.name),
       'groups only the old words gave',
     ).not.toEqual([]);
     expect(
-      came.map((stakeholder) => stakeholder.name),
+      named(came).map((stakeholder) => stakeholder.name),
       'groups only the new words give',
     ).not.toEqual([]);
-    // A group is found only where the evidence says it, so what disappeared was in the sentence that was taken
-    // out, and what appeared is in the sentence that was put in.
+    // What disappeared was in the sentence that was taken out, and what appeared is in the sentence that was put in.
     for (const [list, sentence] of [
       [gone, REMOVED],
       [came, ADDED],
     ] as const) {
-      for (const stakeholder of list) {
-        expect(stakeholder.evidence.length, stakeholder.name).toBeGreaterThan(0);
+      for (const stakeholder of named(list)) {
         for (const reference of stakeholder.evidence) {
           expect(squash(sentence), stakeholder.name).toContain(squash(reference.quote ?? ''));
         }
+      }
+    }
+    for (const stakeholder of [...before, ...after]) {
+      if (stakeholder.evidence.length === 0) {
+        expect(
+          defaultConfidenceBasis(stakeholder),
+          `${stakeholder.name} rests on no passage`,
+        ).not.toBe('source-quote');
       }
     }
   });
