@@ -60,7 +60,6 @@ import {
   briefTools,
   canvas,
   chip,
-  expectSoundExceptDimmedRows,
   figure,
   gateRegion,
   openProvenance,
@@ -812,7 +811,7 @@ for (const variant of VARIANTS) {
           if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click();
         }
         await quiet(page);
-        await expectSoundExceptDimmedRows(page, 'the decision view, every detail open');
+        await expectSound(page, 'the decision view, every detail open');
       });
 
       // -- 15 --------------------------------------------------------------------------------

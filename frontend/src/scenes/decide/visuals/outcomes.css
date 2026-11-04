@@ -74,10 +74,35 @@
   .sw-decide-cmp__row {
     display: grid;
     gap: var(--s-3);
-    transition: opacity var(--dur-slow) var(--ease-out);
   }
+  /*
+   * A row that is not read as an effect of the change says so in words (.sw-decide-cmp__why) and is drawn quieter: a
+   * dashed edge, the ink one step down, and marks with no direction in them (strip.css). Its text is never faded:
+   * opacity on text takes it under the contrast it must keep, in every theme.
+   */
   .sw-decide-cmp__row[data-unread] {
-    opacity: 0.55;
+    padding: var(--s-4);
+    border: 1px dashed var(--hairline-strong);
+    border-radius: var(--r-md);
+  }
+  .sw-decide-cmp__row[data-unread] .sw-decide-cmp__head h3,
+  .sw-decide-cmp__row[data-unread] .sw-decide-cmp__facts dd b {
+    color: var(--ink-2);
+  }
+  .sw-decide-cmp__why {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-2);
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    line-height: 1.45;
+  }
+  .sw-decide-cmp__why svg {
+    flex: none;
+    margin-top: 0.15rem;
+    color: var(--ink-3);
   }
   .sw-decide-cmp__head {
     display: flex;

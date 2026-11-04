@@ -156,9 +156,6 @@
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: var(--s-5) var(--s-5);
-    transition:
-      opacity var(--dur-slow) var(--ease-out),
-      filter var(--dur-slow) var(--ease-out);
   }
   /* Two by two where the column is narrow, never three and one left over. */
   @container sw-decide-main (max-width: 42rem) {
@@ -166,9 +163,21 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
-  .sw-decide-hero__happened[data-unread] .sw-decide-numerals {
-    opacity: 0.5;
-    filter: saturate(0.35);
+  /*
+   * Figures that are not read as an effect of the change are said so in words (.sw-decide-hero__unread) and are drawn
+   * quieter: the ink a step down, no colour that says "against" or "in favour", a dashed rule where a solid one stood.
+   * Their text is never faded: opacity or a filter on text takes it under the contrast it must keep, in every theme.
+   */
+  .sw-decide-hero__happened[data-unread] .sw-decide-num {
+    --n: var(--ink-2);
+  }
+  .sw-decide-hero__happened[data-unread] .sw-decide-num__label {
+    color: var(--ink-2);
+  }
+  .sw-decide-hero__happened[data-unread] .sw-decide-num::before {
+    height: 0;
+    border-top: 1px dashed var(--hairline-strong);
+    background: none;
   }
   .sw-decide-num {
     --n: var(--ink);
