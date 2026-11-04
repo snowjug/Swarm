@@ -673,16 +673,18 @@ test.describe('failure cases: the system', () => {
         /server log|internal operation/iu,
       );
       noLeak(said, 'the page during the outage');
-      expect(
-        await foundInCapture(Object.values(OUTAGE_BAIT), 'rules'),
-        "the driver's words are in no log line, span, metric or audit row",
-      ).toEqual([]);
       await shoot(page, 'FC09-database-down', { full: false });
     } finally {
       await harness.databaseOutage('rules', false);
     }
     const ready = await page.request.get('/api/health/ready');
     expect(ready.status(), 'ready again').toBe(200);
+    // Read once the database is back, because the audit log is in it: nothing that was captured while it was down, in a log
+    // line, a span, a metric or a row of the audit log, holds the words of the driver.
+    expect(
+      await foundInCapture(Object.values(OUTAGE_BAIT), 'rules'),
+      "the driver's words are in no log line, span, metric or audit row",
+    ).toEqual([]);
     await page.goto(`/?project=${project}&scene=ground`);
     await expect(chip(page)).toHaveText('Ready', { timeout: 60_000 });
     const run = (await researchOf(page.request, project)).run!;

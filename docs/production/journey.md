@@ -30,6 +30,12 @@ specs, **one worker**, in about fifteen minutes on a shared four-core machine (t
 the failure cases ten or so). Pass a name to run part of it: `… production-journey -g "A-foundry"`,
 `… failure-cases -g "failure cases (3|4) ·"`.
 
+**Last full run: 2026-11-04, on the integrated resumed-wave tree (SQLite harness, one worker): 19 of 19 passed in about
+nine minutes** (the four journey variants, including the ten-item Decision Canvas and the question-only flow B, and the
+fourteen failure cases). The first full run of that tree failed one test: case 9 read the audit log through the database
+that it had cut off, so its check that the driver's words are in no log line, span, metric or audit row could never run; it
+is made after the database is back. Against a deployed address it has **never** been run.
+
 | Setting                          | Meaning                                                                                                     |
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `SWARM_JOURNEY_SUITE=production` | Selects this suite. Without it `playwright.journey.config.ts` runs the demonstration journey it always ran. |
