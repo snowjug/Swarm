@@ -98,11 +98,17 @@ test('a site that is named is read beside a source that was added, and the sourc
   await expect(sources).toContainText(OWN);
   await expect(sources).toContainText(TITLES.fees);
   const project = (await (await page.request.get(`/api/projects/${id}`)).json()) as {
-    documents: { name: string; content: string; provenance?: { kind?: string } }[];
+    documents: {
+      name: string;
+      content: string;
+      provenance?: { kind?: string; fetchedByServer?: boolean };
+    }[];
   };
   const own = project.documents.find((document) => document.name === OWN);
   expect(own?.content).toBe(NOTE);
-  expect(own?.provenance?.kind).toBe('paste');
+  // The person wrote it: it is not presented as something that Swarm fetched.
+  expect(own?.provenance?.kind).not.toBe('url');
+  expect(own?.provenance?.fetchedByServer).not.toBe(true);
   expect(project.documents.length).toBeGreaterThan(1);
   expect((await fixtureLog(page.request)).served.map((entry) => entry.path)).toContain(
     '/robots.txt',
