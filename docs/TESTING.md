@@ -1042,17 +1042,24 @@ exercise except the presentation against a real model (see its row). Re-run the 
 that a model's output is correct, that any scenario predicts the real world, that a manual screen-reader review has been done (it
 has not), that sign-in works against a real Entra tenant, or that Swarm is ready for production.
 
-**What exists now, counted and not run.** The tree has grown since the run these rows record. On 2026-11-03, on
-the tree of `03b937b` (the integration branch, which includes the research surface in Ground, the second phase of
-the AI evaluation and the scope check of the Decision view; the documents change no test), `npx vitest list`
-collects **8,077 tests in 326 files** (backend 5,689, frontend 1,664, scripts 478, evaluation 246), where the
-recorded run had 5,065 in 230. That is
-a count of what exists, **not a result**: it says nothing about how many pass. The work added since (automatic
-research, participants, constraints, the Decision Canvas, the Foundry provider, the deployment guard, the AI
-evaluation and the infrastructure checks) has no row below, and the unit suite, the browser projects, the PostgreSQL
-suite and the mutation checks have not been re-run for this document. The AI evaluation has its own dated results, in
+**The run of 4 November 2026 (the resumed production-v1 wave).** Continuous integration on GitHub's Linux runners, on
+the tree of `4c637f8` (Chromium, one worker per job), passed every job: **quality** (typecheck, lint, format, the build,
+**331 test files and 8,457 tests**, `npm audit --audit-level=high` with 14 moderate advisories and none high or critical,
+the secret scan with 0 findings, Compose validation, and a container build checked by its health route, its page and
+`smoke:console`); **the whole unit suite again against PostgreSQL (PGlite)**, 8,426 passed and 31 skipped (the Bicep
+invariants, which need no database); the **Bicep** validation; and the browser suites as six jobs, **lab 614** (613 first
+time and one that passed on its retry: a selector of `ground.spec.ts` that matched three "Ready"s, since made
+unambiguous), **local shell, themes and accessibility 354, model 51, sign-in 20, the demonstration journey 8, the
+production journey and its failure cases 19**. On this machine: the mutation checks (**166 of 166 caught**, and the
+storage area again on the final code, 22 of 22), the UI audit (130 states at five viewports in two themes: no axe
+violation, no overflow, no text or target too small, no console error), the race tests against a real PostgreSQL 16.15
+over TLS with a role that is not a superuser (16 of 16), the container (health, live, ready, a non-root user, a pilot start
+refused for an unsafe search setting without echoing its key), and the production journey (19 of 19). Until that run the
+browser suites were one step of a 30-minute job, which cancelled them on every run of this branch that was inspected (3 and 4
+November), so **none had passed the browser suites in CI**; two assertions that had gone stale (the container's page title,
+since the premium rebuild, and a heading of the report spec, since the decision view landed) surfaced when they could finish. The AI evaluation has its own dated results, in
 [`evaluation/results/ai-latest.md`](../evaluation/results/ai-latest.md) (2026-11-03): two thresholds breached, and the
-live mode not measured.
+live mode not measured. None of this is a run in Azure.
 
 <!-- TEST COUNTS: the rows npm run check, format:check, test:e2e, test:postgres, mutation:security, npm audit, scan:secrets and audit:ui hold the recorded results of the full run on the tree named in them. Replace them after the next full run, and say which tree and date. -->
 

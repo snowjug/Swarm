@@ -616,7 +616,7 @@ runs. The method is in [the Decision Canvas](./analysis/decision-canvas.md).
   does not make or recommend decisions about a person's employment, credit, legal, medical or safety situation; a
   qualified person must decide.", with the matters it matched (**Employment**, **Credit**, **Legal**, **Medical**,
   **Safety**). It is a note and not a refusal: nothing is blocked, the picture is still there, and the note is
-  there whatever the status is and before any comparison has been run. **Human approval**, under the nine, then
+  there whatever the status is and before any comparison has been run. **Human approval**, under the ten, then
   says which kind of person reviews each matter (a qualified clinician, a qualified lawyer and so on) and the few
   words that the reading rested on, and that point stays open, since Swarm cannot know that anyone has done it. The
   same note is at the top of an export's Decision view (Markdown, the printable page and JSON) and appears again,
@@ -640,7 +640,7 @@ runs. The method is in [the Decision Canvas](./analysis/decision-canvas.md).
   **Full report** under the view is the brief as it was written and may still carry its own conditional
   recommendation: the line under the **Full report** heading says that the note applies to everything below. Whether the note
   appears or not, treat a question about a person's situation as one for a qualified person.
-- **Beneath the nine** are the details, each in a disclosure: why this status, how the options compare on each
+- **Beneath the ten** are the details, each in a disclosure: why this status, how the options compare on each
   lens, the recommendation in full, everything that could change the result, the constraints and who moves in
   full, the validation plan and when to stop, what the answer rests on, what the independent review challenged,
   human approval, and what the labels mean. They are open on paper.

@@ -901,7 +901,7 @@ review beside the brief and in its place.
   Decision Canvas](./analysis/decision-canvas.md#the-page)). When the question, or what Swarm read from it, speaks
   of employment, credit, legal, medical or safety matters, a note (a `note` named "What Swarm does not decide")
   stands in the header: the server's sentence, an icon, and the matters it matched as small labels after the word
-  "Matched". Where there is room it is beside the title, which then stands over its line so that the nine still end
+  "Matched". Where there is room it is beside the title, which then stands over its line so that the ten still end
   inside a 1440 × 900 window; on a narrow screen it is a line of its own above the question, whole and in words. It
   is there with no comparison, while one runs and over an old picture kept after a failed read. It is a note and
   not an alert: nothing on the page is disabled. A decision about one person changes what the parts say and not

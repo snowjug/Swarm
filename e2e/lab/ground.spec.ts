@@ -85,7 +85,8 @@ test.describe('the states of the scene', () => {
     await expectSound(page, 'ground: not started');
 
     await page.getByRole('button', { name: 'Ground it', exact: true }).click();
-    await expect(first.getByText('Ready', { exact: true })).toBeVisible();
+    // The state of the scene: its status chip, and not the "Ready" of each source, which is on the page by then too.
+    await expect(first.locator('.sw-ground__status[data-stage="ready"]')).toHaveText('Ready');
     const record = await recordOf(request, id);
     await expect.poll(() => figureValue(page, 'Topics')).toBe(record.graph?.nodes.length);
     await expect.poll(() => figureValue(page, 'Conflicts')).toBe(1);
