@@ -380,7 +380,8 @@ for (const [viewport, theme] of [
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
     const problems = watchPage(page);
     const project = await projectWithReport(`Report: ${viewport.name} ${theme}`);
-    await openApp(page, { project, scene: 'decide', view: 'report', theme });
+    // The scene's code arrives after the shell does, and a page with no headline yet is not a page to scan.
+    await openDecide(page, project, 'report', { theme });
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await quiet(page);
     await expectNoHorizontalOverflow(page);
