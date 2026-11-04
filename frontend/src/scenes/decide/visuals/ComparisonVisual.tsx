@@ -1,3 +1,4 @@
+import { Info } from 'lucide-react';
 import {
   BRIEF_READING_NOTES,
   type BriefSignal,
@@ -10,6 +11,15 @@ import { useDoc } from '../ui/context';
 import { PairedStrip, RunDots } from './PairedStrip';
 import { FigureHead, TableAlt } from './parts';
 import './outcomes.css';
+
+/**
+ * Why a row is not read as an effect of the change, in plain words and on the row itself. The row says it as text, and
+ * is drawn quieter by what it draws (see outcomes.css), never by fading its words.
+ */
+const UNREAD_WHY: Record<Exclude<BriefSignal, 'clear'>, string> = {
+  'no-direction': 'Not read as an effect: no stakeholder has a direction of impact.',
+  'no-difference': 'Not read as an effect: no measurable difference from the baseline.',
+};
 
 /**
  * Each change against the baseline, on the same seeds. Every seeded run is a dot at the difference the change
@@ -49,6 +59,7 @@ export function ComparisonVisual({
         {rows.map((row, index) => {
           const paired = facts?.paired[row.variantId];
           const unread = signal === 'no-direction' || (signal === 'no-difference' && index === 0);
+          const why = unread && signal !== 'clear' ? UNREAD_WHY[signal] : null;
           return (
             <section
               className="sw-decide-cmp__row"
@@ -59,13 +70,22 @@ export function ComparisonVisual({
               <header className="sw-decide-cmp__head">
                 <h3>{row.label}</h3>
                 {row.classification && row.holdsIn !== null && row.of !== null ? (
-                  <Chip size="sm" tone={row.classification === 'repeatable' ? 'accent' : 'neutral'}>
+                  <Chip
+                    size="sm"
+                    tone={row.classification === 'repeatable' && !unread ? 'accent' : 'neutral'}
+                  >
                     {STABILITY_LABELS[row.classification]} · held in{' '}
                     <span className="num">{row.holdsIn}</span> of{' '}
                     <span className="num">{row.of}</span> runs
                   </Chip>
                 ) : null}
               </header>
+              {why && (
+                <p className="sw-decide-cmp__why">
+                  <Info size={15} aria-hidden="true" />
+                  <span>{why}</span>
+                </p>
+              )}
               {row.shareDelta !== null && row.pairedRuns > 0 ? (
                 paired ? (
                   <PairedStrip

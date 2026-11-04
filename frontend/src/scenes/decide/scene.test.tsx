@@ -285,6 +285,22 @@ describe('the brief as a document', () => {
     expect(text(markup)).toContain('No measurable difference');
   });
 
+  it('says, on each row that is not read as an effect, why it is not, in words and not in faded ink (J-01)', () => {
+    const rowsOf = (markup: string) =>
+      markup.match(/class="sw-decide-cmp__row"[^>]*data-unread/gu) ?? [];
+    const noDirection = render(document({}, { brief: briefFixture({ signal: 'no-direction' }) }));
+    expect(rowsOf(noDirection).length).toBeGreaterThan(0);
+    expect(
+      text(noDirection).split('Not read as an effect: no stakeholder has a direction of impact.')
+        .length - 1,
+    ).toBe(rowsOf(noDirection).length);
+    const noDifference = render(document({}, { brief: briefFixture({ signal: 'no-difference' }) }));
+    expect(text(noDifference)).toContain(
+      'Not read as an effect: no measurable difference from the baseline.',
+    );
+    expect(text(render(document({})))).not.toContain('Not read as an effect:');
+  });
+
   it('says a brief is out of date and what to do, by what changed', () => {
     const rerun = text(render(document({}, { changedSince: ['scenario'] })));
     expect(rerun).toContain('This brief may be out of date');

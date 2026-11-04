@@ -69,6 +69,29 @@
     letter-spacing: 0.02em;
   }
 
+  /*
+   * Where nothing is read as an effect of the change, the strip draws its marks without a direction in them: no ember
+   * or teal, which say "raised" and "lowered"; hollow dots; a band with an edge and no tint. Colours that are tokens
+   * of the ink and meaning scales, so that they hold their contrast in every theme.
+   */
+  [data-unread] .sw-decide-strip__dot,
+  [data-unread] .sw-decide-strip__dot[data-tone] {
+    fill: transparent;
+    stroke: var(--ink-3);
+    stroke-width: 1.5;
+  }
+  [data-unread] .sw-decide-strip__band {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-dasharray: 3 3;
+  }
+  [data-unread] .sw-decide-strip__mean {
+    stroke: var(--ink-2);
+  }
+  [data-unread] .sw-decide-strip__mean-label {
+    color: var(--ink-2);
+  }
+
   @keyframes sw-decide-pop {
     from {
       opacity: 0;

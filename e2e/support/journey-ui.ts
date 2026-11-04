@@ -1,4 +1,3 @@
-import AxeBuilder from '@axe-core/playwright';
 import { expect, type Locator, type Page } from '@playwright/test';
 import type { ResearchStage } from '../../shared/research';
 import { goTo, openApp, settled } from './app';
@@ -11,8 +10,7 @@ import {
   readScenario,
   siteBox,
 } from './ask';
-import { expectSound, pill } from './ground-map';
-import { expectNoHorizontalOverflow, expectReadableText } from './helpers';
+import { pill } from './ground-map';
 import { deployed, harness } from './journey';
 import { projectIdOf } from './journey-api';
 import { expectSignedIn } from './signin';
@@ -173,39 +171,6 @@ export const briefTools = (page: Page): Locator =>
 
 export const reviewSheet = (page: Page): Locator =>
   page.getByRole('dialog', { name: 'Independent review' });
-
-/**
- * DEFECT J-01 (docs/production/journey.md, "Defects found"). A comparison that cannot be read as a result (no stakeholder
- * has a direction of impact, which is how every question that starts from research ends up) is dimmed as a whole to 55%
- * opacity (`[data-unread]`), and its text falls to 2.8:1, under the 4.5:1 that WCAG asks. The page is held to everything
- * else, with the dimmed rows left out, and the rows are held to still be at fault, so that fixing the defect is noticed
- * and this function is taken away for `expectSound`.
- */
-export async function expectSoundExceptDimmedRows(page: Page, label: string): Promise<void> {
-  if ((await page.locator('[data-unread]').count()) === 0) {
-    // Nothing is dimmed (a stakeholder has a direction of impact): the page is held to everything.
-    await expectSound(page, label);
-    return;
-  }
-  await expectNoHorizontalOverflow(page);
-  await expectReadableText(page, label);
-  const rest = await new AxeBuilder({ page }).exclude('[data-unread]').analyze();
-  expect(
-    rest.violations.map(
-      (violation) =>
-        `${violation.impact}: ${violation.id} ×${violation.nodes.length} (${violation.nodes[0]?.target.join(' ')})`,
-    ),
-    `axe violations: ${label}`,
-  ).toEqual([]);
-  const dimmed = await new AxeBuilder({ page })
-    .include('[data-unread]')
-    .withRules(['color-contrast'])
-    .analyze();
-  expect(
-    dimmed.violations.length,
-    'J-01 (dimmed rows below 4.5:1) is no longer found: use expectSound here',
-  ).toBeGreaterThan(0);
-}
 
 // ---------------------------------------------------------------------------------------------
 // The long way, for the tests that need a project that is further along than the question
