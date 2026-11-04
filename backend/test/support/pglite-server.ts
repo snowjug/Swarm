@@ -8,7 +8,12 @@ import { PGlite } from '@electric-sql/pglite';
 import { PGLiteSocketServer } from '@electric-sql/pglite-socket';
 
 const database = await PGlite.create();
-const server = new PGLiteSocketServer({ db: database, port: 0, host: '127.0.0.1' });
+// A test that stops this server and starts another asks for the same port, so that a client finds it again.
+const server = new PGLiteSocketServer({
+  db: database,
+  port: Number(process.env.PGLITE_PORT ?? 0),
+  host: '127.0.0.1',
+});
 await server.start();
 const port = server.getServerConn().split(':').pop();
 console.log(`LISTENING ${port}`);

@@ -169,6 +169,21 @@ describe('a PostgreSQL transaction', () => {
     database.transaction(() => database.prepare('SELECT 2').get());
     expect(seen).toEqual([true, false]);
   });
+
+  it('lets a connection that was lost be replaced for the statement that begins a transaction, and not while another is open on it', () => {
+    const begins: (boolean | undefined)[] = [];
+    const transport = scripted((request) => {
+      if (request.type === 'exec' && request.text.startsWith('BEGIN')) begins.push(request.retry);
+      return ok();
+    });
+    const database = PostgresDatabase.onTransport(transport);
+    // Two databases of one process share their server's connection, so a replacement would end the other's transaction.
+    const neighbour = PostgresDatabase.onTransport(transport);
+    database.transaction(() => 1);
+    database.readSnapshot(() => 1);
+    database.transaction(() => neighbour.transaction(() => 1));
+    expect(begins).toEqual([true, true, true, false]);
+  });
 });
 
 describe('a PostgreSQL read snapshot', () => {

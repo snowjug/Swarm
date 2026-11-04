@@ -3,6 +3,7 @@ import {
   ADDRESSES,
   INJECTED,
   OFFICIAL,
+  OUTAGE_BAIT,
   PLAIN_QUESTION,
   TITLES,
 } from '../../backend/test/support/journey-protocol';
@@ -57,6 +58,9 @@ const LEAKS = [
 ];
 const noLeak = (text: string, where: string): void => {
   for (const leak of LEAKS) expect(text, `${where} shows an internal`).not.toMatch(leak);
+  // What the driver of the outage in case 9 says: a host, an address, a statement.
+  for (const bait of Object.values(OUTAGE_BAIT))
+    expect(text, `${where} shows the driver's words`).not.toContain(bait);
 };
 
 /** A project that is nowhere: the id is well formed and belongs to nobody. */
@@ -652,13 +656,27 @@ test.describe('failure cases: the system', () => {
       expect(JSON.stringify(await ready.json())).toContain('failed');
       noLeak(await ready.text(), 'readiness');
       const refused = await page.request.get(`/api/projects/${project}`);
-      expect(refused.ok()).toBe(false);
+      // Not a defect, and not the person's doing: a 503 that a probe or a client can retry, with the wait to give it.
+      expect(await errorOf(refused)).toEqual({
+        status: 503,
+        code: 'STORAGE_UNAVAILABLE',
+        message: expect.stringMatching(/^Swarm cannot use its database right now\./u),
+      });
+      expect(refused.headers()['retry-after'], 'how long to wait').toBe('60');
       noLeak(await refused.text(), 'the answer during the outage');
       await page.reload();
-      await expect(
-        page.getByText(/Something went wrong|could not|try again|unavailable|sign in/iu).first(),
-      ).toBeVisible({ timeout: 30_000 });
-      noLeak(await page.locator('body').innerText(), 'the page during the outage');
+      await expect(page.getByText(/Swarm cannot use its database right now/u).first()).toBeVisible({
+        timeout: 30_000,
+      });
+      const said = await page.locator('body').innerText();
+      expect(said, 'the person is not sent to a log they cannot read').not.toMatch(
+        /server log|internal operation/iu,
+      );
+      noLeak(said, 'the page during the outage');
+      expect(
+        await foundInCapture(Object.values(OUTAGE_BAIT), 'rules'),
+        "the driver's words are in no log line, span, metric or audit row",
+      ).toEqual([]);
       await shoot(page, 'FC09-database-down', { full: false });
     } finally {
       await harness.databaseOutage('rules', false);

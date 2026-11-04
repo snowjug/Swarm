@@ -1,7 +1,8 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { LATEST_SCHEMA_VERSION } from '../src/storage/migrations.js';
-import { DatabaseError } from '../src/storage/postgres/database.js';
+import { isStorageUnavailable } from '../src/storage/failure.js';
+import { DatabaseError, PostgresDatabase } from '../src/storage/postgres/database.js';
 import { Repository } from '../src/storage/repository.js';
 import type { SqlDatabase } from '../src/storage/sql.js';
 import { fixtureInput } from './fixtures.js';
@@ -15,20 +16,32 @@ import { fixtureInput } from './fixtures.js';
 let server: ChildProcess;
 let url: string;
 
-beforeAll(async () => {
-  server = spawn(process.execPath, ['--import', 'tsx', 'backend/test/support/pglite-server.ts'], {
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
-  const port = await new Promise<string>((resolve, reject) => {
+/** A server in a process of its own, on `port` (0 for any free one), once it accepts connections. */
+async function startServer(port = 0): Promise<{ child: ChildProcess; port: string }> {
+  const child = spawn(
+    process.execPath,
+    ['--import', 'tsx', 'backend/test/support/pglite-server.ts'],
+    {
+      stdio: ['ignore', 'pipe', 'inherit'],
+      env: { ...process.env, PGLITE_PORT: String(port) },
+    },
+  );
+  const listening = await new Promise<string>((resolve, reject) => {
     let seen = '';
-    server.stdout!.on('data', (chunk: Buffer) => {
+    child.stdout!.on('data', (chunk: Buffer) => {
       seen += chunk.toString('utf8');
       const match = /LISTENING (\d+)/u.exec(seen);
       if (match?.[1]) resolve(match[1]);
     });
-    server.once('exit', () => reject(new Error('The test database server stopped.')));
+    child.once('exit', () => reject(new Error('The test database server stopped.')));
   });
-  url = `postgres://swarm@127.0.0.1:${port}/postgres?sslmode=disable`;
+  return { child, port: listening };
+}
+
+beforeAll(async () => {
+  const started = await startServer();
+  server = started.child;
+  url = `postgres://swarm@127.0.0.1:${started.port}/postgres?sslmode=disable`;
 }, 120_000);
 
 afterAll(() => {
@@ -118,4 +131,91 @@ describe('the repository over the pg driver', () => {
     expect(message).not.toBe('');
     expect(message).not.toContain('Sup3rSecret');
   }, 60_000);
+});
+
+describe('a server that goes away and comes back, over the pg driver', () => {
+  const address = (port: string) => `postgres://swarm@127.0.0.1:${port}/postgres?sslmode=disable`;
+  const failure = (run: () => unknown): unknown => {
+    try {
+      run();
+    } catch (error) {
+      return error;
+    }
+    return undefined;
+  };
+
+  it('is reported as unavailable when it goes while a statement of a transaction is running, as the driver words that with no code of its own', async () => {
+    const first = await startServer();
+    const database = PostgresDatabase.connect(address(first.port));
+    try {
+      expect(database.prepare('SELECT 1 AS ok').get()).toEqual({ ok: 1 });
+      // The call holds this thread until the statement ends, so another process ends the server meanwhile.
+      spawn(
+        process.execPath,
+        ['-e', `setTimeout(() => process.kill(${first.child.pid}, 'SIGKILL'), 500)`],
+        { stdio: 'ignore' },
+      ).unref();
+      // Inside a transaction a lost connection is not replaced: what ran there is gone with it.
+      const refused = failure(() =>
+        database.transaction(() => database.prepare('SELECT pg_sleep(20) AS slept').get()),
+      );
+      expect(refused).toBeInstanceOf(DatabaseError);
+      expect((refused as DatabaseError).code).toBe('08006');
+      expect(isStorageUnavailable(refused)).toBe(true);
+    } finally {
+      database.close();
+      first.child.kill();
+    }
+  }, 120_000);
+
+  it('is reported as unavailable at once and every time while it is gone, and served again from the first transaction when it returns', async () => {
+    const first = await startServer();
+    const database = PostgresDatabase.connect(address(first.port));
+    let second: Awaited<ReturnType<typeof startServer>> | undefined;
+    try {
+      expect(database.prepare('SELECT 1 AS ok').get()).toEqual({ ok: 1 });
+
+      // Lost in the middle of a transaction: it is not run again on another connection, and the
+      // failure says that the database is out of reach, not that something is wrong with the statement.
+      let runs = 0;
+      const midway = failure(() =>
+        database.transaction(() => {
+          runs++;
+          database.prepare('SELECT 1 AS ok').get();
+          first.child.kill('SIGKILL');
+          // Time for the system to close the connection the process held.
+          Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
+          database.prepare('SELECT 2 AS ok').get();
+        }),
+      );
+      expect(runs).toBe(1);
+      expect(midway).toBeInstanceOf(DatabaseError);
+      expect(isStorageUnavailable(midway)).toBe(true);
+
+      // Whatever is asked while it is gone fails the same way, at once, and does not wait on a dead client.
+      for (const ask of [
+        () => database.prepare('SELECT 1 AS ok').get(),
+        () => database.prepare('SELECT 1 AS ok').get(),
+        () => database.transaction(() => 1),
+        () => database.readSnapshot(() => 1),
+      ]) {
+        const refused = failure(ask);
+        expect(refused).toBeInstanceOf(DatabaseError);
+        expect(isStorageUnavailable(refused)).toBe(true);
+      }
+
+      second = await startServer(Number(first.port));
+      // The first thing asked is the beginning of a transaction, which is enough to be served again.
+      expect(database.transaction(() => database.prepare('SELECT 1 AS ok').get())).toEqual({
+        ok: 1,
+      });
+      expect(database.readSnapshot(() => database.prepare('SELECT 2 AS ok').get())).toEqual({
+        ok: 2,
+      });
+      expect(database.prepare('SELECT 3 AS ok').get()).toEqual({ ok: 3 });
+    } finally {
+      database.close();
+      second?.child.kill();
+    }
+  }, 180_000);
 });
