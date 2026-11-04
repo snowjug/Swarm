@@ -4,6 +4,7 @@ import { buildLocalReport, reportMetrics, reviewLimitations } from '../agents/re
 import { AppError, throwIfAborted } from '../errors.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { jsonValidated } from '../models/validated.js';
 import {
   reviewClaims,
@@ -144,7 +145,7 @@ export async function generateGuidedReport(
     { availableTools: ['evidence.search', 'memory.search', 'timeline.read', 'proxy.interview'] },
     async () =>
       jsonValidated(
-        model,
+        tracedGateway(model, 'report-plan.v1'),
         reportPlanSchema,
         'Plan a conditional scenario report. JSON {title,sections,evidenceQueries,interviewAgentIds,interviewQuestion}. ' +
           'title: 3-180 chars. sections: an array of 3-5 unique chapter TITLES, each a short plain string of 3-100 characters (a heading: never an object, never a paragraph). Never use the words predict, prediction or forecast in a title: this explores possible scenarios and does not predict the future. ' +
@@ -264,7 +265,7 @@ export async function generateGuidedReport(
     'Executive summary',
     { recordedMetrics: { ...metrics } },
     () =>
-      model.json(
+      tracedGateway(model, 'report-summary.v1').json(
         summarySchema,
         'Write a concise conditional simulation executive summary. JSON {summary};50-2000 chars, plain text. ' +
           'Use supplied recorded metrics exactly. Combined values average each fictional proxy across platforms. Never frame cohort shares as probabilities or simulated messages as real sources.',
@@ -332,7 +333,7 @@ export async function generateGuidedReport(
       },
       async () =>
         jsonValidated(
-          model,
+          tracedGateway(model, 'report-chapter.v1'),
           reportChapterSchema,
           CHAPTER_INSTRUCTIONS,
           { title, executiveSummary: summary.summary, ...chapterContext },

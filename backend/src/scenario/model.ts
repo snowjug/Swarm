@@ -11,6 +11,7 @@ import {
 import { AppError } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
 import { inspectText } from '../models/injection.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { jsonValidated } from '../models/validated.js';
 import { evidenceListed } from './rules.js';
 import { normalise } from './text.js';
@@ -188,7 +189,7 @@ export async function readByModel(input: {
 }): Promise<ScenarioFrame> {
   const { text } = normalise(input.question);
   const reading = await jsonValidated(
-    input.model,
+    tracedGateway(input.model, 'scenario-frame.v1'),
     modelFrameSchema,
     INSTRUCTIONS,
     {

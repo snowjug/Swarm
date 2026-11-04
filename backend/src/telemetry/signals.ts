@@ -143,7 +143,8 @@ function createInstruments(meter: Meter): Instruments {
       description: 'Tokens the provider reported, by direction, role and deployment',
     }),
     modelTaskDuration: meter.createHistogram('swarm.model.task.duration', {
-      description: 'Time a structured model task took, whether a model or the rules answered it',
+      description:
+        'Time a structured model task took, by how it ended, whether a model or the rules answered it',
       unit: 'ms',
     }),
     modelCost: meter.createCounter('swarm.model.cost.estimated_usd', {
@@ -322,11 +323,17 @@ export const signals = {
     }
   },
 
-  /** A structured task has ended: a model answered it, or rules did. */
+  /**
+   * A structured task has ended, once per invocation: a model answered it, rules did, or it ended in
+   * a refusal, a cancellation or a failure. The callers pass enumerations (`models/task-telemetry.ts`
+   * holds the closed lists); the names still pass through the allow-list here.
+   */
   modelTask(input: {
     role: string;
     task: string;
-    source: 'model' | 'fallback' | 'refused';
+    provider?: string | null;
+    outcome: string;
+    source?: 'model' | 'fallback' | 'refused' | null;
     deployment: string | null;
     failureCode: string | null;
     durationMs: number;
@@ -337,7 +344,9 @@ export const signals = {
       safeAttributes({
         'swarm.model.role': input.role,
         'swarm.model.task': input.task,
-        'swarm.model.source': input.source,
+        'swarm.model.task_outcome': input.outcome,
+        ...(input.provider ? { 'swarm.model.provider': input.provider } : {}),
+        ...(input.source ? { 'swarm.model.source': input.source } : {}),
         ...(input.deployment ? { 'swarm.model.name': input.deployment } : {}),
       }),
     );

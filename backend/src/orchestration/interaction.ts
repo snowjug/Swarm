@@ -13,6 +13,7 @@ import { retrieve } from '../knowledge/retrieval.js';
 import { ModelClient } from '../models/client.js';
 import { answerSchema } from '../models/schemas.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import type { Repository } from '../storage/repository.js';
 import type { ModelFactory } from './runner.js';
 import {
@@ -206,7 +207,7 @@ export class InteractionService {
         const model = this.createModel(this.repository.modelUse(id));
         const invoke = () =>
           jsonValidated(
-            model,
+            tracedGateway(model, 'followup-answer.v1'),
             followupSchema,
             'Answer the follow-up about recorded simulation results. JSON {answer,sourceIds}. Answer 10-6000 chars, plain text. ' +
               (target === 'report'

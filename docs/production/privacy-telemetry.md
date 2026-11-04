@@ -173,7 +173,7 @@ the full URL, logging an exception's message, echoing an address in an answer).
 ## Not covered, and why
 
 - **Trace content stays off unless it is asked for.** With `TELEMETRY_TRACE_CONTENT=redacted` the
-  `swarm.model.task` span of a task that goes through the task runner (today, the planning of a research run)
+  `swarm.model.task` span of a structured task (every one has it: `models/task-telemetry.ts`)
   also carries the size of the prompt and of the reply and a short hash of the prompt: derived from content,
   never the text ([Foundry models](../models/foundry.md#telemetry); tested in `telemetry-model.test.ts` and
   `foundry-config.test.ts`). The scripted session of `privacy.test.ts` does not turn it on. What this page and

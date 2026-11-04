@@ -7,6 +7,7 @@ import { AppError, throwIfAborted } from '../errors.js';
 import { validateCitations } from '../knowledge/graph.js';
 import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { jsonValidated } from '../models/validated.js';
 import { agentsFromActors } from '../stakeholders/agents.js';
 import type { Repository } from '../storage/repository.js';
@@ -81,7 +82,7 @@ export async function prepareEnvironment(
       if (model) {
         const allowed = new Set(evidence.map((chunk) => chunk.id));
         const generated = await jsonValidated(
-          model,
+          tracedGateway(model, 'environment-seeds.v1'),
           generatedEnvironmentSchema,
           'Prepare initial scenario inputs. JSON {minutesPerRound,initialPosts:[{text,platform,stance,strength,sourceIds}]}. ' +
             'minutesPerRound5-180; 1-4 seed posts, text10-500 chars, platform plaza/community/both, assumed stance -1..1, assumed strength0..1, sourceIds0-5 supplied IDs. ' +

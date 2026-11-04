@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { ClaimChecks } from '../../../shared/grounding.js';
 import { AppError } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { jsonValidated } from '../models/validated.js';
 import { verbatimStart } from './quotes.js';
 import { findQuote } from './text.js';
@@ -119,7 +120,7 @@ export async function judgeClaimsWithEvidence(
   const unique = new Map<string, string>();
   for (const item of items) for (const [id, text] of item.passages) unique.set(id, text);
   const reply = await jsonValidated(
-    model,
+    tracedGateway(model, 'claim-entailment.v1'),
     entailmentSchema,
     ENTAILMENT_INSTRUCTIONS,
     {

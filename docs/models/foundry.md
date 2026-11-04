@@ -219,14 +219,17 @@ the deployment.
 | `swarm.model.calls`                 | counter   | provider, name, role, structured (`json_schema` or `json_object`), outcome, error code |
 | `swarm.model.tokens`                | counter   | provider, name, role, direction (`input` or `output`)                                  |
 | `swarm.model.cost.estimated_usd`    | counter   | provider, name, role. An **estimate**, and absent for a deployment with no price       |
-| `swarm.model.task.duration`         | histogram | role, task, source (`model`, `fallback` or `refused`), name                            |
+| `swarm.model.task.duration`         | histogram | role, task, provider, outcome, source (`model`, `fallback` or `refused`), name         |
 | `swarm.model.schema_failures`       | counter   | reason (`not_json`, `schema`, `validation`, `injection_echo`), repair, role, name      |
 | `swarm.model.fallbacks`             | counter   | role, task, error code (only when rules stood in for a model)                          |
 | `swarm.model.safety_blocks`         | counter   | safety kind, role, name                                                                |
 | `swarm.model.safety_signals`        | counter   | safety kind, role, name (detections that did not block)                                |
 | `swarm.model.cache.hits`, `.misses` | counter   | role, task                                                                             |
 
-Each `swarm.model.task` span carries role, task, source, deployment and the error code. With
+Each structured task, whichever path runs it, is recorded **once** as a `swarm.model.task` span and a `swarm.model.task.duration`
+measurement (`models/task-telemetry.ts`). The task is named from a closed list (anything else is `other`), and how it ended is one of
+`ok`, `corrected`, `fell-back`, `refused`, `failed` or `cancelled`. The span carries role, task, provider kind, outcome, source,
+deployment and the error code. With
 `TELEMETRY_TRACE_CONTENT=redacted` it also carries `swarm.model.input_chars`, `swarm.model.output_chars` and
 the first 16 hex characters of a SHA-256 of the input: these are derived from content. With `off` (the
 default) no content-derived attribute exists. In neither mode is the text of a prompt or a reply exported.

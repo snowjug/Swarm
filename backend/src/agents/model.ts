@@ -18,6 +18,7 @@ import {
   type GeneratedReport,
 } from '../models/schemas.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { validateNodeQuotes } from '../grounding/graph.js';
 import { reportMetrics, reviewLimitations } from './report.js';
 
@@ -52,7 +53,7 @@ export async function modelGraph(
     }
   };
   const extracted = await jsonValidated(
-    model,
+    tracedGateway(model, 'baseline-graph.v1'),
     extractedGraphSchema,
     'Extract a source-grounded graph. JSON: {nodes:[{id,label,kind,summary,weight,sourceIds,quote}],edges:[{source,target,label,weight,sourceIds}]}. ' +
       'Use 2-16 nodes, at most 40 edges, short unique IDs, kinds topic/person/organization/group, weights 0.1-1. ' +
@@ -105,7 +106,7 @@ export async function modelPersonas(
     }
   };
   const result = await jsonValidated(
-    model,
+    tracedGateway(model, 'baseline-personas.v1'),
     personasSchema,
     `Construct exactly ${count} diverse FICTIONAL stakeholder proxies, IDs agent-1 through agent-${count}. ` +
       'Do not impersonate any source individual. JSON {agents:[{id,name,role,persona,goals,constraints,topicIds,initialOpinion,influence,openness,sourceIds}]}. ' +
@@ -138,7 +139,7 @@ export async function modelReport(
   const evidence = selectContext(chunks, project.question, 7_000);
   const allowed = new Set(evidence.map((chunk) => chunk.id));
   const result = await jsonValidated(
-    model,
+    tracedGateway(model, 'baseline-report.v1'),
     generatedReportSchema,
     'Write a conditional simulation report using the recorded metrics exactly, not invented statistics. ' +
       'JSON {title,executiveSummary,sections:[{title,body,sourceIds}],limitations:[string]}. ' +

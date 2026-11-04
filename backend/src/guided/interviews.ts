@@ -2,6 +2,7 @@ import type { ConsoleStep, SimulatedInterview } from '../../../shared/guided.js'
 import { AppError, throwIfAborted } from '../errors.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { jsonValidated } from '../models/validated.js';
 import type { Repository } from '../storage/repository.js';
 import { interviewSchema } from './schemas.js';
@@ -48,7 +49,7 @@ export async function interviewProxy(
       const allowedSources = new Set(evidence.map((chunk) => chunk.id));
       const allowedMemories = new Set(memories.map((memory) => memory.id));
       return jsonValidated(
-        model,
+        tracedGateway(model, 'proxy-interview.v1'),
         interviewSchema,
         'Answer as an EXPLICITLY FICTIONAL proxy in this recorded simulation, not a real person. ' +
           'JSON {answer,sourceIds,memoryIds}. Answer10-2500 chars, plain text, no hidden reasoning. ' +

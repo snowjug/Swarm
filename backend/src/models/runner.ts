@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import type { ProviderName } from '../../../shared/types.js';
 import { AppError, throwIfAborted } from '../errors.js';
-import { annotate, inSpan, signals } from '../telemetry/signals.js';
+import { signals } from '../telemetry/signals.js';
 import { fingerprint, type CacheScope, type TaskCache } from './cache.js';
-import type { CallGate, CallTicket, ModelCallRoute } from './call.js';
+import type { CallGate, CallReport, CallTicket, ModelCallRoute } from './call.js';
 import type { ModelGateway, ModelUsageSink } from './client.js';
 import {
   NO_COST,
@@ -19,11 +20,12 @@ import {
 import type { Route, RouteRequest, Router } from './router.js';
 import type { SafetyFinding } from './safety.js';
 import {
-  runStructuredTask,
+  executeStructuredTask,
   type StructuredTask,
   type TaskObserver,
   type TaskOutcome,
 } from './task.js';
+import { taskNameOf, traceTask, type ContentSizes } from './task-telemetry.js';
 
 /**
  * A structured task, with what the runner needs to route, cache and account for it. Everything added
@@ -84,6 +86,8 @@ export interface TaskBudgets {
 export interface TaskRunnerDeps {
   /** Null: no model is configured, and every task is answered by its rules. */
   gateway: ModelGateway | null;
+  /** The kind of provider the gateway reaches, for the record of each task. Default: what the gateway says. */
+  provider?: ProviderName;
   router: Router;
   budgets?: TaskBudgets;
   /** Off unless given, and unused for a task that names no tenant. */
@@ -167,7 +171,7 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
     return new Set(deps.router.deployments().filter((name) => !passedOver.has(name)));
   };
 
-  async function execute<T>(task: RunnableTask<T>): Promise<RunOutcome<T>> {
+  async function execute<T>(task: RunnableTask<T>, report: CallReport): Promise<RunOutcome<T>> {
     const started = performance.now();
     const usage: RunUsage = {
       calls: 0,
@@ -179,30 +183,24 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
     const safety: SafetyFinding[] = [];
     let cost: CostEstimate = NO_COST;
     let deployment: string | null = null;
+    const deployedOn = (name: string): void => {
+      deployment = name;
+      report.deployment = name;
+    };
     let began = 0;
     const open = new Set<Reservation>();
 
-    const finish = (outcome: TaskOutcome<T>, cache: RunOutcome<T>['cache']): RunOutcome<T> => {
-      signals.modelTask({
-        role: task.role,
-        task: task.name,
-        source: outcome.source,
-        deployment,
-        failureCode: outcome.failure?.code ?? null,
-        durationMs: performance.now() - started,
-      });
-      return {
-        ...outcome,
-        deployment,
-        usage: { ...usage },
-        cost,
-        cache,
-        safety: [...new Map(safety.map((finding) => [JSON.stringify(finding), finding])).values()],
-      };
-    };
+    const finish = (outcome: TaskOutcome<T>, cache: RunOutcome<T>['cache']): RunOutcome<T> => ({
+      ...outcome,
+      deployment,
+      usage: { ...usage },
+      cost,
+      cache,
+      safety: [...new Map(safety.map((finding) => [JSON.stringify(finding), finding])).values()],
+    });
 
     throwIfAborted(task.signal);
-    if (!deps.gateway) return finish(await runStructuredTask(null, task, deps.observer), 'off');
+    if (!deps.gateway) return finish(await executeStructuredTask(null, task, deps.observer), 'off');
 
     const request: RouteRequest = {
       role: task.role,
@@ -221,9 +219,9 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
       // No deployment may serve this task (a zone, a ceiling, a size, an outage): rules answer it,
       // and the failure says why. Nothing is sent anywhere.
       const refusal: ModelGateway = { json: () => Promise.reject(error) };
-      return finish(await runStructuredTask(refusal, task, deps.observer), 'off');
+      return finish(await executeStructuredTask(refusal, task, deps.observer), 'off');
     }
-    deployment = route.deployment;
+    deployedOn(route.deployment);
 
     let scope: CacheScope | null = null;
     let input: string | null = null;
@@ -252,7 +250,7 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
         }
         if (hit) {
           throwIfAborted(task.signal);
-          signals.modelCache({ hit: true, role: task.role, task: task.name });
+          signals.modelCache({ hit: true, role: task.role, task: taskNameOf(task.name) });
           deps.observer?.onTask({
             role: task.role,
             name: task.name,
@@ -263,7 +261,7 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
           return finish({ value: hit.value, source: 'model', failure: null }, 'hit');
         }
       }
-      signals.modelCache({ hit: false, role: task.role, task: task.name });
+      signals.modelCache({ hit: false, role: task.role, task: taskNameOf(task.name) });
       cache = 'miss';
     }
 
@@ -283,7 +281,7 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
             if (event.repair) usage.repairCalls += 1;
             safety.push(...(event.safety ?? []));
             const name = event.deployment ?? call.deployment;
-            deployment = name;
+            deployedOn(name);
             if (event.tokensReported) {
               usage.inputTokens += event.inputTokens;
               usage.outputTokens += event.outputTokens;
@@ -321,7 +319,7 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
               data,
               signal,
               current.maxTokens,
-              { ...options, route: callRoute(task, current), gate },
+              { ...options, route: callRoute(task, current), gate, report },
             );
             if (began === before) {
               // A gateway that never asked the gate was not held by it: what it used is charged at an
@@ -352,14 +350,14 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
               throw error;
             }
             current = next;
-            deployment = next.deployment;
+            deployedOn(next.deployment);
           }
         }
       },
     };
 
     try {
-      const outcome = await runStructuredTask(
+      const outcome = await executeStructuredTask(
         routed,
         { ...task, maxTokens: route.maxTokens },
         deps.observer,
@@ -369,18 +367,6 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
         deps.cache.set(scope, input, outcome.value);
       }
       return finish(outcome, cache);
-    } catch (error) {
-      if (error instanceof AppError && error.code === 'MODEL_REFUSED') {
-        signals.modelTask({
-          role: task.role,
-          task: task.name,
-          source: 'refused',
-          deployment,
-          failureCode: error.code,
-          durationMs: performance.now() - started,
-        });
-      }
-      throw error;
     } finally {
       for (const reservation of open) reservation.settle(null);
     }
@@ -388,26 +374,39 @@ export function createTaskRunner(deps: TaskRunnerDeps): TaskRunner {
 
   return {
     run: <T>(task: RunnableTask<T>): Promise<RunOutcome<T>> =>
-      inSpan(
-        'swarm.model.task',
-        { 'swarm.model.role': task.role, 'swarm.model.task': task.name },
-        async (span) => {
-          const outcome = await execute(task);
-          annotate(span, {
-            'swarm.model.source': outcome.source,
-            ...(outcome.deployment ? { 'swarm.model.name': outcome.deployment } : {}),
-            ...(outcome.failure ? { 'swarm.error.code': outcome.failure.code } : {}),
-          });
-          if (deps.traceContent === 'redacted') {
-            const hash = fingerprint(task.instructions, task.data);
-            annotate(span, {
-              'swarm.model.input_chars': contextChars(task) - BOUNDARY_CHARS,
-              'swarm.model.output_chars': JSON.stringify(outcome.value)?.length ?? 0,
-              ...(hash ? { 'swarm.model.input_hash': hash.slice(0, 16) } : {}),
-            });
-          }
-          return outcome;
+      traceTask(
+        {
+          role: task.role,
+          name: task.name,
+          provider: deps.gateway ? (deps.provider ?? deps.gateway.provider) : 'none',
+          signal: task.signal,
         },
+        (report) => execute(task, report),
+        (outcome) => ({
+          source: outcome.source,
+          failure: outcome.failure,
+          // Derived from content, so only when it is asked for: a size and a hash, never the text.
+          ...(deps.traceContent === 'redacted'
+            ? { content: () => contentSizes(task, outcome.value) }
+            : {}),
+        }),
       ),
+  };
+}
+
+function contentSizes(
+  task: Pick<RunnableTask<unknown>, 'instructions' | 'data'>,
+  value: unknown,
+): ContentSizes {
+  let outputChars = 0;
+  try {
+    outputChars = JSON.stringify(value)?.length ?? 0;
+  } catch {
+    // A value with no JSON form has no size to report.
+  }
+  return {
+    inputChars: contextChars(task) - BOUNDARY_CHARS,
+    outputChars,
+    inputHash: fingerprint(task.instructions, task.data)?.slice(0, 16) ?? null,
   };
 }

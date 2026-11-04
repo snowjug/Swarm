@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { AppError } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
 import { jsonValidated } from '../models/validated.js';
+import { tracedGateway } from '../models/task-telemetry.js';
 import { byText, clip, fixed, hash8 } from './text.js';
 import type { CriticInput } from './types.js';
 
@@ -223,7 +224,7 @@ export async function modelCritiques(
 ): Promise<ModelReview> {
   const { digest, allowed } = buildDigest(input, raised);
   const output = await jsonValidated(
-    model,
+    tracedGateway(model, 'critic-review.v1'),
     modelOutputSchema,
     INSTRUCTIONS,
     digest,

@@ -960,7 +960,6 @@ for (const variant of VARIANTS) {
           ]) {
             expect(grew(name), `the metric ${name} gained in this journey`).toBeGreaterThan(0);
           }
-          const unrecorded: string[] = [];
           if (model) {
             // A model that was asked is counted, and every call the model received is one of them.
             const asked = await harness.foundryRequests();
@@ -971,20 +970,30 @@ for (const variant of VARIANTS) {
             const tasks = seen.spans
               .filter((span) => span.name === 'swarm.model.task')
               .map((span) => span.attributes['swarm.model.task']);
-            expect(tasks, 'the research planner is traced by its task').toContain(
-              'research-plan.v1',
+            // J-02b, fixed: every task is traced and timed by its name, once, and the name is on the closed list.
+            expect(
+              [...tasks].sort(),
+              'each of the tasks the model was asked is traced by its name, once',
+            ).toEqual(
+              [
+                'constraint-proposal.v1',
+                'critic-review.v1',
+                'key-actor-refinement.v1',
+                'ontology.v1',
+                'participant-proposal.v1',
+                'research-plan.v1',
+                'scenario-frame.v1',
+                'source-graph.v1',
+              ].sort(),
             );
-            // J-02b: no other task is traced or timed by its name; they are counted, without one.
-            if (tasks.length < asked.length) {
-              unrecorded.push(
-                `${asked.length - tasks.length} of ${asked.length} model calls have no task span`,
-              );
-            }
+            expect(tasks.length, 'one task for each call the model received').toBe(asked.length);
+            expect(
+              grew('swarm.model.task.duration'),
+              'every task of the journey is timed',
+            ).toBeGreaterThanOrEqual(asked.length);
           }
-          // DEFECT J-02 (docs/production/journey.md): the signals for who is in play, what limits the decision and how long
-          // a simulation took are defined, and listed in docs/production/privacy-telemetry.md, but nothing in the
-          // application records them. What is recorded is held to the checks above; what is not is said, by name, so that a
-          // fix is seen. JOURNEY_REQUIRE_SIGNALS=1 makes a missing one fail.
+          // J-02a, fixed: who is in play, what limits the decision and how long a simulation took are recorded by
+          // the application, and what is recorded is held to it.
           for (const name of [
             'swarm.actors.proposals',
             'swarm.actors.proposed',
@@ -994,15 +1003,7 @@ for (const variant of VARIANTS) {
             'swarm.constraints.gate',
             'swarm.sim.duration',
           ]) {
-            if (grew(name) <= 0) unrecorded.push(name);
-          }
-          if (process.env.JOURNEY_REQUIRE_SIGNALS === '1') {
-            expect(unrecorded, 'J-02: signals that nothing records').toEqual([]);
-          } else if (unrecorded.length > 0) {
-            test.info().annotations.push({
-              type: 'known defect J-02',
-              description: `Not recorded: ${unrecorded.join('; ')}`,
-            });
+            expect(grew(name), `the metric ${name} gained in this journey`).toBeGreaterThan(0);
           }
           await shot('20-end', false);
         },
